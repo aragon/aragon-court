@@ -1,0 +1,14 @@
+{
+  "name": "@aragon/court",
+  "version": "1.0.0",
+  "description": "",
+  "scripts": {
+    "test": "truffle test"
+  },
+  "author": "Aragon Association",
+  "license": "GPL-3.0",
+  "devDependencies": {
+    "@aragon/test-helpers": "^1.0.1",
+    "truffle": "^4.1.14"
+  }
+}

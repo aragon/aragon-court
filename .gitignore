@@ -1,18 +1,19 @@
 # See https://help.github.com/ignore-files/ for more about ignoring files.
 
 # Dependencies
-/node_modules/
+node_modules/
+package-lock.json
 
 # Production
-/build/
+build/
 
 # Logs
-/yarn-debug.log*
-/yarn-error.log*
+yarn-debug.log*
+yarn-error.log*
 
 # Editors
-/.vscode/
-/.idea/*
+.vscode/
+.idea/*
 
 # Misc
-/.DS_Store
+.DS_Store

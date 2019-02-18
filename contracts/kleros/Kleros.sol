@@ -590,9 +590,10 @@ contract Kleros is Arbitrator, ApproveAndCallFallBack {
      *  @param _disputeID ID of the dispute to be appealed.
      */
     function appeal(uint _disputeID, bytes) public payable onlyDuring(Period.Appeal) {
-        super.appeal(_disputeID,_extraData); // AUDIT(@izqui): super.appeal just emits an event, inline it in this contract
+        bytes memory noAppealExtraData = new bytes(0);
+        super.appeal(_disputeID, noAppealExtraData); // AUDIT(@izqui): super.appeal just emits an event, inline it in this contract
         Dispute storage dispute = disputes[_disputeID];
-        require(msg.value >= appealCost(_disputeID, new bytes(0)), "Not enough ETH to pay appeal fees.");
+        require(msg.value >= appealCost(_disputeID, noAppealExtraData), "Not enough ETH to pay appeal fees.");
         require(dispute.session+dispute.appeals == session, "Dispute is no longer active."); // Dispute of the current session.
         require(dispute.arbitrated == msg.sender, "Caller is not the arbitrated contract.");
         
@@ -631,7 +632,6 @@ contract Kleros is Arbitrator, ApproveAndCallFallBack {
     /** @dev Compute the cost of appeal. It is recommended not to increase it often, 
      *  as it can be highly time and gas consuming for the arbitrated contracts to cope with fee augmentation.
      *  @param _disputeID ID of the dispute to be appealed.
-     *  @param _extraData Is not used there.
      *  @return fee Amount to be paid.
      */
     function appealCost(uint _disputeID, bytes) public view returns (uint fee) {

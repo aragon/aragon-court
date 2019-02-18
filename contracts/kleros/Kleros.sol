@@ -5,12 +5,20 @@
  *  Bug Bounties: This code hasn't undertaken a bug bounty program yet.
  */
 
-pragma solidity ^0.4.24;
+pragma solidity ^0.4.24; // AUDIT(@izqui): Pin solc
 
 import "kleros-interaction/contracts/standard/rng/RNG.sol";
 import "kleros-interaction/contracts/standard/arbitration/Arbitrator.sol";
 import { MiniMeTokenERC20 as Pinakion } from "kleros-interaction/contracts/standard/arbitration/ArbitrableTokens/MiniMeTokenERC20.sol";
 import { ApproveAndCallFallBack } from "minimetoken/contracts/MiniMeToken.sol";
+
+// AUDIT(@izqui): Use of implicitely sized `uint`
+// AUDIT(@izqui): Code format should be optimized for readability not reducing the amount of LOCs
+// AUDIT(@izqui): Not using SafeMath should be reviewed in a case by case basis
+// AUDIT(@izqui): Arbitration fees should be payable in an ERC20, no just ETH (can have native ETH support)
+// AUDIT(@izqui): Incorrect function order
+// AUDIT(@izqui): Use emit for events
+// AUDIT(@izqui): Magic strings in revert reasons
 
 contract Kleros is Arbitrator, ApproveAndCallFallBack {
 
@@ -51,7 +59,7 @@ contract Kleros is Arbitrator, ApproveAndCallFallBack {
         Execution   // When where token redistribution occurs and Kleros call the arbitrated contracts.
     }
 
-    Period public period;
+    Period public period; // AUDIT(@izqui): It should be possible to many periods running in parallel
 
     struct Juror {
         uint balance;      // The amount of tokens the contract holds for this juror.
@@ -71,7 +79,7 @@ contract Kleros is Arbitrator, ApproveAndCallFallBack {
 
     struct VoteCounter {
         uint winningChoice; // The choice which currently has the highest amount of votes. Is 0 in case of a tie.
-        uint winningCount;  // The number of votes for winningChoice. Or for the choices which are tied.
+        uint winningCount;  // The number of votes for winningChoice. Or for the choices which are tied. AUDIT(@izqui): Is this redundant?
         mapping (uint => uint) voteCount; // voteCount[choice] is the number of votes for choice.
     }
 
@@ -142,7 +150,10 @@ contract Kleros is Arbitrator, ApproveAndCallFallBack {
     // **************************** //
     // *         Modifiers        * //
     // **************************** //
+
+    // AUDIT(@izqui): Code formatting
     modifier onlyBy(address _account) {require(msg.sender == _account, "Wrong caller."); _;}
+    // AUDIT(@izqui): Currently not checking if the period should have been transitioned, so some periods can last longer if no one bothers to call `passPeriod()`
     modifier onlyDuring(Period _period) {require(period == _period, "Wrong period."); _;}
     modifier onlyGovernor() {require(msg.sender == governor, "Only callable by the governor."); _;}
 
@@ -158,7 +169,7 @@ contract Kleros is Arbitrator, ApproveAndCallFallBack {
         rng = _rng;
         // solium-disable-next-line security/no-block-members
         lastPeriodChange = block.timestamp;
-        timePerPeriod = _timePerPeriod;
+        timePerPeriod = _timePerPeriod; // AUDIT(@izqui): Verify the bytecode that solc produces here
         governor = _governor;
     }
 
@@ -171,7 +182,7 @@ contract Kleros is Arbitrator, ApproveAndCallFallBack {
      *  @param _from The address making the transfer.
      *  @param _amount Amount of tokens to transfer to Kleros (in basic units).
      */
-    function receiveApproval(address _from, uint _amount, address, bytes) public onlyBy(pinakion) {
+    function receiveApproval(address _from, uint _amount, address token, bytes) public onlyBy(pinakion) onlyBy(token) {
         require(pinakion.transferFrom(_from, this, _amount), "Transfer failed.");
 
         jurors[_from].balance += _amount;
@@ -186,7 +197,7 @@ contract Kleros is Arbitrator, ApproveAndCallFallBack {
         Juror storage juror = jurors[msg.sender];
         // Make sure that there is no more at stake than owned to avoid overflow.
         require(juror.atStake <= juror.balance, "Balance is less than stake.");
-        require(_value <= juror.balance-juror.atStake, "Value is more than free balance.");
+        require(_value <= juror.balance-juror.atStake, "Value is more than free balance."); // AUDIT(@izqui): Simpler to just safe math here
         require(juror.lastSession != session, "You have deposited in this session.");
 
         juror.balance -= _value;
@@ -198,18 +209,22 @@ contract Kleros is Arbitrator, ApproveAndCallFallBack {
     // *    Modifying the state   * //
     // **************************** //
 
+    // AUDIT(@izqui): This could automatically be triggered by any other court function that requires a period transition.
+    // AUDIT(@izqui): No incentive for anyone to call this, delaying to call the function can result in periods lasting longer.
+
     /** @dev To call to go to a new period. TRUSTED.
      */
     function passPeriod() public {
         // solium-disable-next-line security/no-block-members
-        require(block.timestamp - lastPeriodChange >= timePerPeriod[uint8(period)], "Not enough time has passed.");
+        uint256 time = block.timestamp;
+        require(time - lastPeriodChange >= timePerPeriod[uint8(period)], "Not enough time has passed.");
 
         if (period == Period.Activation) {
             rnBlock = block.number + 1;
             rng.requestRN(rnBlock);
             period = Period.Draw;
         } else if (period == Period.Draw) {
-            randomNumber = rng.getUncorrelatedRN(rnBlock);
+            randomNumber = rng.getUncorrelatedRN(rnBlock); // AUDIT(@izqui): For the block number RNG the next period transition must be done within 256 blocks
             require(randomNumber != 0, "Random number not ready yet.");
             period = Period.Vote;
         } else if (period == Period.Vote) {
@@ -224,11 +239,12 @@ contract Kleros is Arbitrator, ApproveAndCallFallBack {
             randomNumber = 0;
         }
 
-        // solium-disable-next-line security/no-block-members
-        lastPeriodChange = block.timestamp;
+        lastPeriodChange = time;
         emit NewPeriod(period, session);
     }
 
+    // AUDIT(@izqui): Really impractical to require jurors to send a transaction to activate every period. It costs ~50k gas per juror to activate per period (issue #2)
+    // AUDIT(@izqui): Jurors should provide either the period number or a TTL in case the transaction takes longer to mine resulting in a later activation
 
     /** @dev Deposit tokens in order to have chances of being drawn. Note that once tokens are deposited, 
      *  there is no possibility of depositing more.
@@ -247,6 +263,9 @@ contract Kleros is Arbitrator, ApproveAndCallFallBack {
         juror.segmentEnd = segmentSize;
 
     }
+
+    // AUDIT(@izqui): Lacking commit-reveal juror votes
+    // AUDIT(@izqui): Being drawn multiple times can lead to arbitration fees being kept by the contract and never distributed.
 
     /** @dev Vote a ruling. Juror must input the draw ID he was drawn.
      *  Note that the complexity is O(d), where d is amount of times the juror was drawn.
@@ -312,6 +331,9 @@ contract Kleros is Arbitrator, ApproveAndCallFallBack {
         emit TokenShift(governor, _disputeID, int(penality / 2));
         msg.sender.transfer(_draws.length*dispute.arbitrationFeePerJuror); // Give the arbitration fees to the caller.
     }
+
+    // AUDIT(@izqui): these two repartition functions could be simplified if the juror has to pull their own tokens. Total refactor required here.
+    // AUDIT(@izqui): once a dispute appeal's period passes this should be executable at any time, not only during execution periods
 
     /** @dev Execute all the token repartition.
      *  Note that this function could consume to much gas if there is too much votes. 
@@ -474,6 +496,9 @@ contract Kleros is Arbitrator, ApproveAndCallFallBack {
             }
         }
 
+        // AUDIT(@izqui): Since this requires the juror tokens to be distributed, rulings aren't executed until someone pays to distribute tokens
+        // As there is no incentive to do so, the party interested in the outcome will end up paying the gas for paying jurors
+
         dispute.state = DisputeState.Executable;
     }
 
@@ -490,7 +515,7 @@ contract Kleros is Arbitrator, ApproveAndCallFallBack {
      */
     function amountJurors(uint _disputeID) public view returns (uint nbJurors) {
         Dispute storage dispute = disputes[_disputeID];
-        return (dispute.initialNumberJurors + 1) * 2**dispute.appeals - 1;
+        return (dispute.initialNumberJurors + 1) * 2 ** dispute.appeals - 1;
     }
 
     /** @dev Must be used to verify that a juror has been draw at least _draws.length times.
@@ -507,6 +532,8 @@ contract Kleros is Arbitrator, ApproveAndCallFallBack {
         Juror storage juror = jurors[_jurorAddress];
         Dispute storage dispute = disputes[_disputeID];
         uint nbJurors = amountJurors(_disputeID);
+
+        // AUDIT(@izqui): Code formatting
 
         if (juror.lastSession != session) return false; // Make sure that the tokens were deposited for this session.
         if (dispute.session+dispute.appeals != session) return false; // Make sure there is currently a dispute.
@@ -541,15 +568,18 @@ contract Kleros is Arbitrator, ApproveAndCallFallBack {
         disputeID = disputes.length++;
         Dispute storage dispute = disputes[disputeID];
         dispute.arbitrated = Arbitrable(msg.sender);
-        if (period < Period.Draw) // If drawing did not start schedule it for the current session.
+
+        if (period < Period.Draw) { // If drawing did not start schedule it for the current session.
             dispute.session = session;
-        else // Otherwise schedule it for the next one.
+        } else { // Otherwise schedule it for the next one.
             dispute.session = session+1;
+        }
+
         dispute.choices = _choices;
         dispute.initialNumberJurors = nbJurors;
         // We store it as the general fee can be changed through the governance mechanism.
         dispute.arbitrationFeePerJuror = arbitrationFeePerJuror;
-        dispute.votes.length++;
+        dispute.votes.length++; // AUDIT(@izqui): Why it cannot be zero indexed?
         dispute.voteCounter.length++;
 
         DisputeCreation(disputeID, Arbitrable(msg.sender));
@@ -558,12 +588,11 @@ contract Kleros is Arbitrator, ApproveAndCallFallBack {
 
     /** @dev Appeal a ruling. Note that it has to be called before the arbitrator contract calls rule.
      *  @param _disputeID ID of the dispute to be appealed.
-     *  @param _extraData Standard but not used by this contract.
      */
-    function appeal(uint _disputeID, bytes _extraData) public payable onlyDuring(Period.Appeal) {
-        super.appeal(_disputeID,_extraData);
+    function appeal(uint _disputeID, bytes) public payable onlyDuring(Period.Appeal) {
+        super.appeal(_disputeID,_extraData); // AUDIT(@izqui): super.appeal just emits an event, inline it in this contract
         Dispute storage dispute = disputes[_disputeID];
-        require(msg.value >= appealCost(_disputeID, _extraData), "Not enough ETH to pay appeal fees.");
+        require(msg.value >= appealCost(_disputeID, new bytes(0)), "Not enough ETH to pay appeal fees.");
         require(dispute.session+dispute.appeals == session, "Dispute is no longer active."); // Dispute of the current session.
         require(dispute.arbitrated == msg.sender, "Caller is not the arbitrated contract.");
         
@@ -571,6 +600,8 @@ contract Kleros is Arbitrator, ApproveAndCallFallBack {
         dispute.votes.length++;
         dispute.voteCounter.length++;
     }
+
+    // AUDIT(@izqui): Rulings can be executed infinite times, arbitrable contract should only be called once per ruling
 
     /** @dev Execute the ruling of a dispute which is in the state executable. UNTRUSTED.
      *  @param disputeID ID of the dispute to execute the ruling.
@@ -603,7 +634,7 @@ contract Kleros is Arbitrator, ApproveAndCallFallBack {
      *  @param _extraData Is not used there.
      *  @return fee Amount to be paid.
      */
-    function appealCost(uint _disputeID, bytes _extraData) public view returns (uint fee) {
+    function appealCost(uint _disputeID, bytes) public view returns (uint fee) {
         Dispute storage dispute = disputes[_disputeID];
 
         if(dispute.appeals >= maxAppeals) return NON_PAYABLE_AMOUNT;
@@ -700,12 +731,12 @@ contract Kleros is Arbitrator, ApproveAndCallFallBack {
     function isDrawn(uint _disputeID, address _juror, uint _draw) public view returns (bool drawn) {
         Dispute storage dispute = disputes[_disputeID];
         Juror storage juror = jurors[_juror];
-        if (
+        if ( // AUDIT(@izqui): Code smell
             juror.lastSession != session || (dispute.session + dispute.appeals != session) || period <= Period.Draw || _draw > amountJurors(_disputeID) || _draw == 0 || segmentSize == 0
         ) {
             return false;
         } else {
-            uint position = uint(keccak256(randomNumber,_disputeID,_draw)) % segmentSize;
+            uint position = uint(keccak256(randomNumber,_disputeID,_draw)) % segmentSize; // AUDIT(@izqui): Use `validDrawns` or move hashing calculation to a pure function
             return (position >= juror.segmentStart) && (position < juror.segmentEnd);
         }
 
@@ -725,6 +756,8 @@ contract Kleros is Arbitrator, ApproveAndCallFallBack {
      *  @return status The status of the dispute.
      */
     function disputeStatus(uint _disputeID) public view returns (DisputeStatus status) {
+        // AUDIT(@izqui): Code smell
+
         Dispute storage dispute = disputes[_disputeID];
         if (dispute.session+dispute.appeals < session) // Dispute of past session.
             return DisputeStatus.Solved;
@@ -742,6 +775,8 @@ contract Kleros is Arbitrator, ApproveAndCallFallBack {
     // **************************** //
     // *     Governor Functions   * //
     // **************************** //
+
+    // AUDIT(@izqui): Governor could steal juror fees
 
     /** @dev General call function where the contract execute an arbitrary call with data and ETH following governor orders.
      *  @param _data Transaction data.

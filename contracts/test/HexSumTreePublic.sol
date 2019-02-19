@@ -1,6 +1,6 @@
 pragma solidity ^0.4.24;
 
-import "../HexSumTree.sol";
+import "../lib/HexSumTree.sol";
 
 
 contract HexSumTreePublic {

@@ -5,10 +5,11 @@ pragma solidity ^0.4.24; // TODO: pin solc
 import "./standards/rng/RNG.sol";
 import "./standards/arbitration/Arbitrator.sol";
 import "./standards/arbitration/Arbitrable.sol";
+import "./standards/erc900/ERC900.sol";
+
 import { ApproveAndCallFallBack } from "@aragon/apps-shared-minime/contracts/MiniMeToken.sol";
 import "@aragon/os/contracts/lib/token/ERC20.sol";
 
-// AUDIT(@izqui): Use of implicitely sized `uint`
 // AUDIT(@izqui): Code format should be optimized for readability not reducing the amount of LOCs
 // AUDIT(@izqui): Not using SafeMath should be reviewed in a case by case basis
 // AUDIT(@izqui): Arbitration fees should be payable in an ERC20, no just ETH (can have native ETH support)
@@ -17,20 +18,15 @@ import "@aragon/os/contracts/lib/token/ERC20.sol";
 // AUDIT(@izqui): Magic strings in revert reasons
 
 
-contract Court is Arbitrator, ApproveAndCallFallBack {
-
-    // **************************** //
-    // *    Contract variables    * //
-    // **************************** //
-
+contract Court is ERC900, Arbitrator, ApproveAndCallFallBack {
     // Variables which should not change after initialization.
     ERC20 public jurorToken;
     uint256 public constant NON_PAYABLE_AMOUNT = (2**256 - 2) / 2; // An astronomic amount, practically can't be paid.
 
-    // Variables which will subject to the governance mechanism.
-    // Note they will only be able to be changed during the activation period (because a session assumes they don't change after it).
-    RNG public rng; // Random Number Generator used to draw jurors.
-    uint256 public arbitrationFeePerJuror = 0.05 ether; // The fee which will be paid to each juror.
+    // Config variables modifiable by the governor during activation phse
+    RNG public rng;
+    ERC20 public feeToken;
+    uint256 public feeAmount; // The fee which will be paid to each juror.
     uint16 public defaultNumberJuror = 3; // Number of drawn jurors unless specified otherwise.
     uint256 public minActivatedToken = 0.1 * 1e18; // Minimum of tokens to be activated (in basic units).
     uint[5] public timePerPeriod; // The minimum time each period lasts (seconds).
@@ -59,7 +55,7 @@ contract Court is Arbitrator, ApproveAndCallFallBack {
     Period public period; // AUDIT(@izqui): It should be possible to many periods running in parallel
 
     struct Juror {
-        uint256 balance;      // The amount of tokens the contract holds for this juror.
+        mapping (address => uint256) balances; // token addr -> balance
         // Total number of tokens the jurors can loose in disputes they are drawn in. Those tokens are locked. Note that we can have atStake > balance but it should be statistically unlikely and does not pose issues.
         uint256 atStake;
         uint256 lastSession;  // Last session the tokens were activated.
@@ -93,7 +89,7 @@ contract Court is Arbitrator, ApproveAndCallFallBack {
         uint256 appeals;                // Number of appeals.
         uint256 choices;                // The number of choices available to the jurors.
         uint16 initialNumberJurors;  // The initial number of jurors.
-        uint256 arbitrationFeePerJuror; // The fee which will be paid to each juror.
+        uint256 feeAmount; // The fee which will be paid to each juror.
         DisputeState state;          // The state of the dispute.
         Vote[][] votes;              // The votes in the form vote[appeals][voteID].
         VoteCounter[] voteCounter;   // The vote counters in the form voteCounter[appeals].
@@ -156,49 +152,107 @@ contract Court is Arbitrator, ApproveAndCallFallBack {
 
 
     /** @dev Constructor.
-     *  @param _jurorToken The address of the jurorToken contract.
+     *  @param _jurorToken The address of the juror work token contract.
+     *  @param _feeToken The address of the token contract that is used to pay for fees.
+     *  @param _feeAmount The amount of _feeToken that is paid per juror per dispute
      *  @param _rng The random number generator which will be used.
      *  @param _timePerPeriod The minimal time for each period (seconds).
      *  @param _governor Address of the governor contract.
      */
-    constructor(ERC20 _jurorToken, RNG _rng, uint[5] _timePerPeriod, address _governor) public {
+    constructor(
+        ERC20 _jurorToken,
+        ERC20 _feeToken,
+        uint256 _feeAmount,
+        RNG _rng,
+        uint[5] _timePerPeriod,
+        address _governor
+    ) public {
         jurorToken = _jurorToken;
         rng = _rng;
+
+        feeToken = _feeToken;
+        feeAmount = _feeAmount;
+
         // solium-disable-next-line security/no-block-members
         lastPeriodChange = block.timestamp;
         timePerPeriod = _timePerPeriod; // AUDIT(@izqui): Verify the bytecode that solc produces here
         governor = _governor;
     }
 
-    // **************************** //
-    // *  Functions interacting   * //
-    // *  with ANJ contract  * //
-    // **************************** //
+    // ERC900
+
+    function stake(uint256 _amount, bytes) external {
+        _stake(msg.sender, msg.sender, _amount);
+    }
+
+    function stakeFor(address _to, uint256 _amount, bytes) external {
+        _stake(msg.sender, _to, _amount);
+    }
 
     /** @dev Callback of approveAndCall - transfer jurorTokens of a juror in the contract. Should be called by the jurorToken contract. TRUSTED.
      *  @param _from The address making the transfer.
      *  @param _amount Amount of tokens to transfer to Kleros (in basic units).
      */
-    function receiveApproval(address _from, uint256 _amount, address token, bytes) public onlyBy(jurorToken) onlyBy(token) {
+    function receiveApproval(address _from, uint256 _amount, address token, bytes)
+        public
+        onlyBy(jurorToken)
+        onlyBy(token)
+    {
+        _stake(_from, _from, _amount);
+    }
+
+    function _stake(address _from, address _to, uint256 _amount) internal {
         require(jurorToken.transferFrom(_from, this, _amount), "Transfer failed.");
 
-        jurors[_from].balance += _amount;
+        jurors[_to].balances[jurorToken] += _amount;
+
+        emit Staked(_to, _amount, totalStakedFor(_to), "");
+    }
+
+    function unstake(uint256 _amount, bytes) external {
+        return withdraw(jurorToken, _amount);
+    }
+
+    function totalStakedFor(address _addr) public view returns (uint256) {
+        return jurors[_addr].balances[jurorToken];
+    }
+
+    function totalStaked() external view returns (uint256) {
+        return jurorToken.balanceOf(this);
+    }
+
+    function token() external view returns (address) {
+        return address(jurorToken);
+    }
+
+    function supportsHistory() external pure returns (bool) {
+        return false;
     }
 
     /** @dev Withdraw tokens. Note that we can't withdraw the tokens which are still atStake. 
      *  Jurors can't withdraw their tokens if they have deposited some during this session.
      *  This is to prevent jurors from withdrawing tokens they could lose.
-     *  @param _value The amount to withdraw.
+     *  @param _token Token to withdraw
+     *  @param _amount The amount to withdraw.
      */
-    function withdraw(uint256 _value) public {
-        Juror storage juror = jurors[msg.sender];
-        // Make sure that there is no more at stake than owned to avoid overflow.
-        require(juror.atStake <= juror.balance, "Balance is less than stake.");
-        require(_value <= juror.balance-juror.atStake, "Value is more than free balance."); // AUDIT(@izqui): Simpler to just safe math here
-        require(juror.lastSession != session, "You have deposited in this session.");
+    function withdraw(ERC20 _token, uint256 _amount) public {
+        address jurorAddress = msg.sender;
 
-        juror.balance -= _value;
-        require(jurorToken.transfer(msg.sender,_value), "Transfer failed.");
+        Juror storage juror = jurors[jurorAddress];
+
+        uint256 balance = juror.balances[_token];
+
+        if (_token == jurorToken) {
+            // Make sure that there is no more at stake than owned to avoid overflow.
+            require(juror.atStake <= balance, "Balance is less than stake.");
+            require(_amount <= balance - juror.atStake, "Value is more than free balance."); // AUDIT(@izqui): Simpler to just safe math here
+            require(juror.lastSession != session, "You have deposited in this session.");
+
+            emit Unstaked(jurorAddress, _amount, totalStakedFor(jurorAddress), "");
+        }
+
+        juror.balances[jurorToken] -= _amount;
+        require(jurorToken.transfer(jurorAddress, _amount), "Transfer failed.");
     }
 
     // **************************** //
@@ -249,7 +303,7 @@ contract Court is Arbitrator, ApproveAndCallFallBack {
      */
     function activateTokens(uint256 _value) public onlyDuring(Period.Activation) {
         Juror storage juror = jurors[msg.sender];
-        require(_value <= juror.balance, "Not enough balance.");
+        require(_value <= juror.balances[jurorToken], "Not enough balance.");
         require(_value >= minActivatedToken, "Value is less than the minimum stake.");
         // Verify that tokens were not already activated for this session.
         require(juror.lastSession != session, "You have already activated in this session.");
@@ -297,7 +351,7 @@ contract Court is Arbitrator, ApproveAndCallFallBack {
         }
 
         juror.atStake += _draws.length * getStakePerDraw();
-        uint256 feeToPay = _draws.length * dispute.arbitrationFeePerJuror;
+        uint256 feeToPay = _draws.length * dispute.feeAmount;
         msg.sender.transfer(feeToPay);
         emit ArbitrationReward(msg.sender, _disputeID, feeToPay);
     }
@@ -317,16 +371,19 @@ contract Court is Arbitrator, ApproveAndCallFallBack {
         require(dispute.lastSessionVote[_jurorAddress] != session, "Juror did vote."); // Verify the juror hasn't voted.
         dispute.lastSessionVote[_jurorAddress] = session; // Update last session to avoid penalizing multiple times.
         require(validDraws(_jurorAddress, _disputeID, _draws), "Invalid draws.");
-        uint256 penality = _draws.length * minActivatedToken * 2 * alpha / ALPHA_DIVISOR;
-        // Make sure the penality is not higher than the balance.
-        penality = (penality < inactiveJuror.balance) ? penality : inactiveJuror.balance;
-        inactiveJuror.balance -= penality;
-        emit TokenShift(_jurorAddress, _disputeID, -int(penality));
-        jurors[msg.sender].balance += penality / 2; // Give half of the penalty to the caller.
-        emit TokenShift(msg.sender, _disputeID, int(penality / 2));
-        jurors[governor].balance += penality / 2; // The other half to the governor.
-        emit TokenShift(governor, _disputeID, int(penality / 2));
-        msg.sender.transfer(_draws.length*dispute.arbitrationFeePerJuror); // Give the arbitration fees to the caller.
+        uint256 penalty = _draws.length * minActivatedToken * 2 * alpha / ALPHA_DIVISOR;
+        // Make sure the penalty is not higher than the balance.
+        uint256 jurorStake = inactiveJuror.balances[jurorToken];
+        if (penalty >= jurorStake) {
+            penalty = jurorStake;
+        }
+        inactiveJuror.balances[jurorToken] -= penalty;
+        emit TokenShift(_jurorAddress, _disputeID, -int(penalty));
+        jurors[msg.sender].balances[jurorToken] += penalty / 2; // Give half of the penalty to the caller.
+        emit TokenShift(msg.sender, _disputeID, int(penalty / 2));
+        jurors[governor].balances[jurorToken] += penalty / 2; // The other half to the governor.
+        emit TokenShift(governor, _disputeID, int(penalty / 2));
+        msg.sender.transfer(_draws.length*dispute.feeAmount); // Give the arbitration fees to the caller.
     }
 
     // AUDIT(@izqui): these two repartition functions could be simplified if the juror has to pull their own tokens. Total refactor required here.
@@ -358,8 +415,8 @@ contract Court is Arbitrator, ApproveAndCallFallBack {
                     Vote storage vote = dispute.votes[i][j];
                     if (vote.ruling != winningChoice) {
                         Juror storage juror = jurors[vote.account];
-                        uint256 penalty = amountShift<juror.balance ? amountShift : juror.balance;
-                        juror.balance -= penalty;
+                        uint256 penalty = amountShift<juror.balances[jurorToken] ? amountShift : juror.balances[jurorToken];
+                        juror.balances[jurorToken] -= penalty;
                         emit TokenShift(vote.account, _disputeID, int(-penalty));
                         totalToRedistribute += penalty;
                     } else {
@@ -367,7 +424,7 @@ contract Court is Arbitrator, ApproveAndCallFallBack {
                     }
                 }
                 if (nbCoherent == 0) { // No one was coherent at this stage. Give the tokens to the governor.
-                    jurors[governor].balance += totalToRedistribute;
+                    jurors[governor].balances[jurorToken] += totalToRedistribute;
                     emit TokenShift(governor, _disputeID, int(totalToRedistribute));
                 } else { // otherwise, redistribute them.
                     uint256 toRedistribute = totalToRedistribute / nbCoherent; // Note that few fractions of tokens can be lost but due to the high amount of decimals we don't care.
@@ -376,7 +433,7 @@ contract Court is Arbitrator, ApproveAndCallFallBack {
                         vote = dispute.votes[i][j];
                         if (vote.ruling == winningChoice) {
                             juror = jurors[vote.account];
-                            juror.balance += toRedistribute;
+                            juror.balances[jurorToken] += toRedistribute;
                             emit TokenShift(vote.account, _disputeID, int(toRedistribute));
                         }
                     }
@@ -428,8 +485,8 @@ contract Court is Arbitrator, ApproveAndCallFallBack {
                     Vote storage vote = dispute.votes[i][j];
                     if (vote.ruling != winningChoice) {
                         Juror storage juror = jurors[vote.account];
-                        uint256 penalty = amountShift<juror.balance ? amountShift : juror.balance;
-                        juror.balance -= penalty;
+                        uint256 penalty = amountShift<juror.balances[jurorToken] ? amountShift : juror.balances[jurorToken];
+                        juror.balances[jurorToken] -= penalty;
                         emit TokenShift(vote.account, _disputeID, int(-penalty));
                         dispute.appealsRepartitioned[i].totalToRedistribute += penalty;
                     } else {
@@ -446,7 +503,7 @@ contract Court is Arbitrator, ApproveAndCallFallBack {
             // Second loop to reward coherent voters
             if (dispute.appealsRepartitioned[i].stage == RepartitionStage.Coherent) {
                 if (dispute.appealsRepartitioned[i].nbCoherent == 0) { // No one was coherent at this stage. Give the tokens to the governor.
-                    jurors[governor].balance += dispute.appealsRepartitioned[i].totalToRedistribute;
+                    jurors[governor].balances[jurorToken] += dispute.appealsRepartitioned[i].totalToRedistribute;
                     emit TokenShift(governor, _disputeID, int(dispute.appealsRepartitioned[i].totalToRedistribute));
                     dispute.appealsRepartitioned[i].stage = RepartitionStage.AtStake;
                 } else { // Otherwise, redistribute them.
@@ -459,7 +516,7 @@ contract Court is Arbitrator, ApproveAndCallFallBack {
                         vote = dispute.votes[i][j];
                         if (vote.ruling == winningChoice) {
                             juror = jurors[vote.account];
-                            juror.balance += toRedistribute;
+                            juror.balances[jurorToken] += toRedistribute;
                             emit TokenShift(vote.account, _disputeID, int(toRedistribute));
                         }
 
@@ -575,7 +632,7 @@ contract Court is Arbitrator, ApproveAndCallFallBack {
         dispute.choices = _choices;
         dispute.initialNumberJurors = nbJurors;
         // We store it as the general fee can be changed through the governance mechanism.
-        dispute.arbitrationFeePerJuror = arbitrationFeePerJuror;
+        dispute.feeAmount = feeAmount;
         dispute.votes.length++; // AUDIT(@izqui): Why it cannot be zero indexed?
         dispute.voteCounter.length++;
 
@@ -623,7 +680,7 @@ contract Court is Arbitrator, ApproveAndCallFallBack {
      *  @return fee Amount to be paid.
      */
     function arbitrationCost(bytes _extraData) public view returns (uint256 fee) {
-        return extraDataToNbJurors(_extraData) * arbitrationFeePerJuror;
+        return extraDataToNbJurors(_extraData) * feeAmount;
     }
 
     /** @dev Compute the cost of appeal. It is recommended not to increase it often, 
@@ -636,7 +693,7 @@ contract Court is Arbitrator, ApproveAndCallFallBack {
 
         if(dispute.appeals >= maxAppeals) return NON_PAYABLE_AMOUNT;
 
-        return (2*amountJurors(_disputeID) + 1) * dispute.arbitrationFeePerJuror;
+        return (2*amountJurors(_disputeID) + 1) * dispute.feeAmount;
     }
 
     /** @dev Compute the amount of jurors to be drawn.
@@ -791,11 +848,11 @@ contract Court is Arbitrator, ApproveAndCallFallBack {
         rng = _rng;
     }
 
-    /** @dev Setter for arbitrationFeePerJuror.
-     *  @param _arbitrationFeePerJuror The fee which will be paid to each juror.
+    /** @dev Setter for feeAmount.
+     *  @param _feeAmount The fee which will be paid to each juror.
      */
-    function setArbitrationFeePerJuror(uint256 _arbitrationFeePerJuror) public onlyGovernor {
-        arbitrationFeePerJuror = _arbitrationFeePerJuror;
+    function setArbitrationFeePerJuror(uint256 _feeAmount) public onlyGovernor {
+        feeAmount = _feeAmount;
     }
 
     /** @dev Setter for defaultNumberJuror.

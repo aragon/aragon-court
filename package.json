@@ -8,7 +8,9 @@
   "author": "Aragon Association",
   "license": "GPL-3.0",
   "devDependencies": {
+    "@aragon/apps-shared-migrations": "1.0.0",
     "@aragon/test-helpers": "^1.0.1",
-    "truffle": "^4.1.14"
+    "truffle": "^4.1.14",
+    "truffle-bytecode-manager": "^1.1.1"
   }
 }

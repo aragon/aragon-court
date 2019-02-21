@@ -60,7 +60,7 @@ library HexSumTree {
 
             uint256 nodeSum = self.nodes[depth - 1][checkingNode];
             // TODO: check extrict equality (risk of off-by-ones)
-            if (checkedValue + nodeSum < value) {
+            if (checkedValue + nodeSum <= value) {
                 checkedValue += nodeSum;
             } else if (depth == 1) { // node found at the end of the tree
                 return checkingNode;

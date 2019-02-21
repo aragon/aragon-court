@@ -18,6 +18,10 @@ contract HexSumTreePublic {
         emit LogKey(tree.insert(v));
     }
 
+    function remove(uint256 key) public {
+      tree.set((bytes32(uint256(-1) - key)), 0);
+    }
+
     function sortition(uint256 v) public view returns (uint256) {
         return uint256(tree.sortition(v));
     }

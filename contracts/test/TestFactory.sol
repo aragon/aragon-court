@@ -30,14 +30,15 @@ contract TokenFactory is Factory {
 
 contract CourtFactory is Factory {  
     function newCourtStaking(ERC20 anj) external {
-        uint256[5] periods; // no periods
         Court court = new Court(
+            60 * 60,  // 1h
             anj,
             ERC20(0), // no fees
             0,
-            RNG(0),   // no rng
-            periods,
-            address(this)
+            0,
+            address(this),
+            uint64(block.timestamp + 60 * 60),
+            1
         );
 
         emit Deployed(address(court));

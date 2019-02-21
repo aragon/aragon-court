@@ -1,8 +1,7 @@
 pragma solidity ^0.4.24; // TODO: pin solc
 
-// Forked from: Kleros.sol https://github.com/kleros/kleros @ 7281e69
-
-import "./standards/rng/RNG.sol";
+// Inspired by: Kleros.sol https://github.com/kleros/kleros @ 7281e69
+import "./lib/HexSumTree.sol";
 import "./standards/arbitration/Arbitrator.sol";
 import "./standards/arbitration/Arbitrable.sol";
 import "./standards/erc900/ERC900.sol";
@@ -10,54 +9,65 @@ import "./standards/erc900/ERC900.sol";
 import { ApproveAndCallFallBack } from "@aragon/apps-shared-minime/contracts/MiniMeToken.sol";
 import "@aragon/os/contracts/lib/token/ERC20.sol";
 
-// AUDIT(@izqui): Code format should be optimized for readability not reducing the amount of LOCs
-// AUDIT(@izqui): Not using SafeMath should be reviewed in a case by case basis
-// AUDIT(@izqui): Arbitration fees should be payable in an ERC20, no just ETH (can have native ETH support)
-// AUDIT(@izqui): Incorrect function order
-// AUDIT(@izqui): Use emit for events
-// AUDIT(@izqui): Magic strings in revert reasons
 
+contract Court is ERC900, ApproveAndCallFallBack {
+    using HexSumTree for HexSumTree.Tree;
 
-contract Court is ERC900, /*Arbitrator,*/ ApproveAndCallFallBack {
-    enum Period {
-        Activation, // When juror can deposit their tokens and parties give evidences.
-        Draw,       // When jurors are drawn at random, note that this period is fast.
-        Vote,       // Where jurors can vote on disputes.
-        Appeal,     // When parties can appeal the rulings.
-        Execution   // When where token redistribution occurs and Kleros call the arbitrated contracts.
+    enum AccountState {
+        NotJuror,
+        Juror,
+        PastJuror
     }
 
-    struct Juror {
+    struct Account {
         mapping (address => uint256) balances; // token addr -> balance
-        // Total number of tokens the jurors can loose in disputes they are drawn in. Those tokens are locked. Note that we can have atStake > balance but it should be statistically unlikely and does not pose issues.
-        uint256 atStake;
-        uint256 lastSession;  // Last session the tokens were activated.
-        uint256 segmentStart; // Start of the segment of activated tokens.
-        uint256 segmentEnd;   // End of the segment of activated tokens.
+        AccountState state; // whether the account is not a juror, a current juror or a past juror
+        uint32 fromTerm;    // first term in which the juror can be drawn
+        uint32 toTerm;      // last term in which the juror can be drawn
+        bytes32 sumTreeId;  // key in the sum tree used for sortition
+        uint128[] pendingDisputes; // disputes in which the juror was drawn which haven't resolved
     }
 
-    // Variables which should not change after initialization.
+    struct FeeStructure {
+        ERC20 feeToken;
+        uint256 jurorFee;     // per juror, total dispute fee = jurorFee * jurors drawn
+        uint256 heartbeatFee; // per dispute, total heartbeat fee = heartbeatFee * disputes/appeals in term
+    }
+
+    struct Term {
+        uint64 startTime;       // timestamp when the term started 
+        uint64 dependingDraws;  // disputes or appeals pegged to this term for randomness
+        uint64 feeStructureId;  // fee structure for this term (index in feeStructures array)
+        uint64 randomnessBN;    // block number for entropy
+        uint256 randomness;     // entropy from randomnessBN block hash
+        address[] jurorIngress; // jurors that will be added to the juror tree
+        address[] jurorEgress;  // jurors that will be removed from to the juror tree
+        address[] jurorUpdates; // jurors whose stake has been updated
+    }
+
+    struct Dispute {
+        Arbitrable subject;
+        uint64 termId;
+        // TODO
+    }
+
+    // State constants which are set in the constructor and can't change
     ERC20 public jurorToken;
+    uint64 public termDuration; // recomended value ~1 hour as 256 blocks (available block hash) around an hour to mine
 
-    // Config variables modifiable by the governor during activation phse
-    RNG public rng;
-    ERC20 public feeToken;
-    uint256 public feeAmount; // per juror
-    uint256 public jurorMinActivation = 0.1 * 1e18;
-    uint256[5] public periodDurations;
-    uint256 public maxAppeals = 5;
-
+    // Global config, configurable by governor
     address public governor; // TODO: consider using aOS' ACL
+    uint256 public jurorActivationDust;
+    uint256 public maxAppeals = 5;
+    FeeStructure[] public feeStructures;
 
-    uint256 public session = 1;      // Current session of the court.
-    uint256 public lastPeriodChange; // The last time we changed of period (seconds).
-    uint256 public rnBlock;          // The block linked with the RN which is requested.
-    uint256 public randomSeed;
-
-    Period public period; // AUDIT(@izqui): It should be possible to many periods running in parallel
-    mapping (address => Juror) public jurors;
-
-    event NewPeriod(Period _period, uint256 indexed _session);
+    // Court state
+    uint256 public term;
+    mapping (address => Account) public jurors;
+    mapping (uint256 => Term) public terms;
+    HexSumTree.Tree internal sumTree;
+    Dispute[] public disputes;
+    uint256 public feeChangeTerm;
 
     string internal constant ERROR_INVALID_ADDR = "COURT_INVALID_ADDR";
     string internal constant ERROR_DEPOSIT_FAILED = "COURT_DEPOSIT_FAILED";
@@ -65,37 +75,155 @@ contract Court is ERC900, /*Arbitrator,*/ ApproveAndCallFallBack {
     string internal constant ERROR_LOCKED_TOKENS = "COURT_LOCKED_TOKENS";
     string internal constant ERROR_ACTIVATED_TOKENS = "COURT_ACTIVATED_TOKENS";
 
+    uint256 internal constant ZERO_TERM = 0; // invalid term that doesn't accept disputes
+    uint256 internal constant MODIFIER_ALLOWED_TERM_TRANSITIONS = 1;
+
+    event NewTerm(uint256 term, address indexed heartbeatSender);
+
     modifier only(address _addr) {
         require(msg.sender == _addr, ERROR_INVALID_ADDR);
         _;
     }
 
     /** @dev Constructor.
+     *  @param _termDuration Duration in seconds per term (recommended 1 hour)
      *  @param _jurorToken The address of the juror work token contract.
      *  @param _feeToken The address of the token contract that is used to pay for fees.
-     *  @param _feeAmount The amount of _feeToken that is paid per juror per dispute
-     *  @param _rng The random number generator which will be used.
-     *  @param _periodDurations The minimal time for each period (seconds).
+     *  @param _jurorFee The amount of _feeToken that is paid per juror per dispute
+     *  @param _heartbeatFee The amount of _feeToken per dispute to cover maintenance costs.
      *  @param _governor Address of the governor contract.
+     *  @param _firstTermStartTime Timestamp in seconds when the court will open (to give time for juror onboarding)
      */
     constructor(
+        uint64 _termDuration,
         ERC20 _jurorToken,
         ERC20 _feeToken,
-        uint256 _feeAmount,
-        RNG _rng,
-        uint256[5] _periodDurations,
-        address _governor
+        uint256 _jurorFee,
+        uint256 _heartbeatFee,
+        address _governor,
+        uint64 _firstTermStartTime,
+        uint256 _jurorActivationDust
     ) public {
+        termDuration = _termDuration;
         jurorToken = _jurorToken;
-        rng = _rng;
-
-        feeToken = _feeToken;
-        feeAmount = _feeAmount;
-
-        // solium-disable-next-line security/no-block-members
-        lastPeriodChange = block.timestamp;
-        periodDurations = _periodDurations; // AUDIT(@izqui): Verify the bytecode that solc produces here
+        jurorActivationDust = _jurorActivationDust;
         governor = _governor;
+        
+        feeStructures.length = 1; // leave index 0 empty
+        _setFeeStructure(ZERO_TERM, _feeToken, _jurorFee, _heartbeatFee);
+        terms[ZERO_TERM].startTime = _firstTermStartTime - _termDuration;
+
+        sumTree.init();
+    }
+
+    string internal constant ERROR_TOO_MANY_TRANSITIONS = "COURT_TOO_MANY_TRANSITIONS";
+    string internal constant ERROR_FIRST_TERM_NOT_STARTED = "COURT_FIRST_TERM_NOT_STARTED";
+
+    modifier ensureTerm {
+        require(term > ZERO_TERM, ERROR_FIRST_TERM_NOT_STARTED);
+        
+        uint256 requiredTransitions = neededTermTransitions();
+        require(requiredTransitions <= MODIFIER_ALLOWED_TERM_TRANSITIONS, ERROR_TOO_MANY_TRANSITIONS);
+
+        if (requiredTransitions > 0) {
+            heartbeat(requiredTransitions);
+        }
+
+        _;
+    }
+
+    string internal constant ERROR_UNFINISHED_TERM = "COURT_UNFINISHED_TERM";
+
+    function heartbeat(uint256 _termTransitions) public {
+        require(canTransitionTerm(), ERROR_UNFINISHED_TERM);
+
+        Term storage prevTerm = terms[term];
+        Term storage nextTerm = terms[term + 1];
+        address heartbeatSender = msg.sender;
+
+        // Set fee structure for term
+        if (nextTerm.feeStructureId == 0) {
+            nextTerm.feeStructureId = prevTerm.feeStructureId;
+        } else {
+            feeChangeTerm = ZERO_TERM; // fee structure changed in this term
+        }
+
+        // TODO: skip period if you can
+
+        // Set the start time of the term (ensures equally long terms, regardless of heartbeats)
+        nextTerm.startTime = prevTerm.startTime + termDuration;
+        nextTerm.randomnessBN = blockNumber() + 1; // randomness source set to next block (unknown when heartbeat happens)
+        processJurorQueues(nextTerm);
+
+        FeeStructure storage feeStructure = feeStructures[nextTerm.feeStructureId];
+        uint256 totalFee = nextTerm.dependingDraws * feeStructure.heartbeatFee;
+
+        if (totalFee > 0) {
+            assignTokens(feeStructure.feeToken, heartbeatSender, totalFee);
+        }
+
+        term += 1;
+        emit NewTerm(term, heartbeatSender);
+
+        if (_termTransitions > 0 && canTransitionTerm()) {
+            heartbeat(_termTransitions - 1);
+        }
+    }
+
+    function processJurorQueues(Term storage _incomingTerm) internal {
+
+    }
+
+    event TokenBalanceChange(address indexed token, address indexed owner, uint256 amount, bool positive);
+
+    function assignTokens(ERC20 _feeToken, address _to, uint256 _amount) internal {
+        jurors[_to].balances[_feeToken] += _amount;
+
+        emit TokenBalanceChange(_feeToken, _to, _amount, true);
+    }
+
+    function canTransitionTerm() public view returns (bool) {
+        return neededTermTransitions() >= 1;
+    }
+
+    function neededTermTransitions() public view returns (uint256) {
+        return (time() - terms[term].startTime) / termDuration;
+    }
+
+    function time() public view returns (uint64) {
+        return uint64(block.timestamp);
+    }
+
+    function blockNumber() public view returns (uint64) {
+        return uint64(block.number);
+    }
+
+    string internal constant ERROR_PAST_TERM_TERM_FEE_CHANGE = "COURT_PAST_TERM_FEE_CHANGE";
+    event NewFeeStructure(uint256 fromTerm, uint256 feeStructureId);
+
+    function _setFeeStructure(
+        uint256 _fromTerm,
+        ERC20 _feeToken,
+        uint256 _jurorFee,
+        uint256 _heartbeatFee
+    ) internal {
+        require(feeChangeTerm > term || term == ZERO_TERM, ERROR_PAST_TERM_TERM_FEE_CHANGE);
+
+        if (feeChangeTerm != ZERO_TERM) {
+            terms[feeChangeTerm].feeStructureId = 0; // reset previously set fee structure change
+        }
+
+        FeeStructure memory feeStructure = FeeStructure({
+            feeToken: _feeToken,
+            jurorFee: _jurorFee,
+            heartbeatFee: _heartbeatFee
+        });
+
+        uint256 feeStructureId = feeStructures.push(feeStructure) - 1;
+        terms[feeChangeTerm].feeStructureId = uint64(feeStructureId);
+        feeChangeTerm = _fromTerm;
+
+        emit NewFeeStructure(_fromTerm, feeStructureId);
     }
 
     // ERC900
@@ -160,15 +288,17 @@ contract Court is ERC900, /*Arbitrator,*/ ApproveAndCallFallBack {
 
         address jurorAddress = msg.sender;
 
-        Juror storage juror = jurors[jurorAddress];
+        Account storage juror = jurors[jurorAddress];
 
         uint256 balance = juror.balances[_token];
 
         if (_token == jurorToken) {
-            // Make sure that there is no more at stake than owned to avoid overflow.
+            /*
+            TODO
             require(juror.atStake <= balance, ERROR_LOCKED_TOKENS);
             require(_amount <= balance - juror.atStake, ERROR_LOCKED_TOKENS); // AUDIT(@izqui): Simpler to just safe math here
             require(juror.lastSession != session, ERROR_ACTIVATED_TOKENS);
+            */
 
             emit Unstaked(jurorAddress, _amount, totalStakedFor(jurorAddress), "");
         }
@@ -177,43 +307,12 @@ contract Court is ERC900, /*Arbitrator,*/ ApproveAndCallFallBack {
         require(jurorToken.transfer(jurorAddress, _amount), "Transfer failed.");
     }
 
-    // **************************** //
-    // *      Court functions     * //
-    // *    Modifying the state   * //
-    // **************************** //
+    function activate(uint256 fromSession, uint256 toSession) external {
 
-    // AUDIT(@izqui): This could automatically be triggered by any other court function that requires a period transition.
-    // AUDIT(@izqui): No incentive for anyone to call this, delaying to call the function can result in periods lasting longer.
-
-    /** @dev To call to go to a new period. TRUSTED.
-     */
-    function passPeriod() public {
-        // solium-disable-next-line security/no-block-members
-        uint256 time = block.timestamp;
-        require(time - lastPeriodChange >= periodDurations[uint8(period)], "Not enough time has passed.");
-
-        if (period == Period.Activation) {
-            rnBlock = block.number + 1;
-            rng.requestRN(rnBlock);
-            period = Period.Draw;
-        } else if (period == Period.Draw) {
-            randomSeed = rng.getUncorrelatedRN(rnBlock); // AUDIT(@izqui): For the block number RNG the next period transition must be done within 256 blocks
-            require(randomSeed != 0, "Random number not ready yet.");
-            period = Period.Vote;
-        } else if (period == Period.Vote) {
-            period = Period.Appeal;
-        } else if (period == Period.Appeal) {
-            period = Period.Execution;
-        } else if (period == Period.Execution) {
-            period = Period.Activation;
-            ++session;
-            rnBlock = 0;
-            randomSeed = 0;
-        }
-
-        lastPeriodChange = time;
-        emit NewPeriod(period, session);
     }
 
-    // TODO: governor parametrization
+    function deactivate() external {
+
+    }
 }
+

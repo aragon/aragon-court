@@ -5,21 +5,23 @@ import "../HexSumTree.sol";
 
 contract HexSumTreePublic {
     using HexSumTree for HexSumTree.Tree;
-    
+
     HexSumTree.Tree tree;
 
     event LogKey(bytes32 k);
-    
+    event LogRemove(bytes32 k);
+
     function init() public {
         tree.init();
     }
 
     function insert(uint256 v) public {
-        emit LogKey(tree.insert(v));
+        emit LogKey(bytes32(tree.insert(v)));
     }
 
     function remove(uint256 key) public {
-      tree.set((bytes32(uint256(-1) - key)), 0);
+        tree.set(key, 0);
+        emit LogKey(bytes32(key));
     }
 
     function sortition(uint256 v) public view returns (uint256) {
@@ -27,14 +29,14 @@ contract HexSumTreePublic {
     }
 
     function get(uint8 l, uint256 key) public view returns (uint256) {
-        return tree.get(l, bytes32(key));
+        return tree.get(l, key);
     }
 
     function totalSum() public view returns (uint256) {
         return tree.totalSum();
     }
 
-    function getState() public view returns (uint8, bytes32, bytes32) {
-        return (tree.rootDepth, tree.rootAncestor, tree.nextKey);
+    function getState() public view returns (uint8, uint256) {
+        return (tree.rootDepth, tree.nextKey);
     }
 }

@@ -17,7 +17,7 @@ contract('Hex Sum Tree', (accounts) => {
   }
 
   const logSortition = async (value) => {
-    console.log(`Sortition ${value}:`, (await tree.sortition(value)).toNumber())
+    console.log(`Sortition ${value}:`, web3.toHex(await tree.sortition(value)))
   }
 
   const logGasStats = (title, gasArray) => {
@@ -32,7 +32,7 @@ contract('Hex Sum Tree', (accounts) => {
     await tree.insert(10)
 
     assertBN(await tree.get(0, 0), 10, 'get node')
-    assertBN(await tree.get(1, 15), 10, 'get sum')
+    assertBN(await tree.get(1, 0), 10, 'get sum')
   })
 
   it('inserts three', async () => {
@@ -48,7 +48,7 @@ contract('Hex Sum Tree', (accounts) => {
     await logSortition(29)
     */
     assertBN(await tree.get(0, 1), 10, 'get node')
-    assertBN(await tree.get(1, 15), 30, 'get sum')
+    assertBN(await tree.get(1, 0), 30, 'get sum')
   })
 
   it('inserts two', async () => {
@@ -68,18 +68,15 @@ contract('Hex Sum Tree', (accounts) => {
   it('sortition', async () => {
     for (let i = 0; i < 20; i++) {
       await tree.insert(10)
-      const [depth, root, key] = await tree.getState()
+      const [depth, key] = await tree.getState()
 
-      //if (i % 10 == 0)
-        //console.log(`#${i + 1}: Sum ${await tree.totalSum()}. Depth ${depth}. Root ${root}. Next key ${key}`)
+      //if (i % 10 == 0 || i > 15)
+        //console.log(`#${i + 1}: Sum ${await tree.totalSum()}. Depth ${depth}. Next key ${web3.toHex(key)}`)
     }
 
     assertBN(await tree.sortition(1), 0)
     assertBN(await tree.sortition(11), 1)
     assertBN(await tree.sortition(171), 17)
-
-    //await logSortitionGas(11)
-    //await logSortitionGas(171)
   })
 
   it('inserts into another node', async () => {
@@ -87,18 +84,19 @@ contract('Hex Sum Tree', (accounts) => {
     for (let i = 0; i < 270; i++) {
       insertGas.push(await tree.insert.estimateGas(10))
       await tree.insert(10)
-      const [depth, root, key] = await tree.getState()
+      //console.log('insert gas:', await tree.insert.estimateGas(10))
+      const [depth, key] = await tree.getState()
 
       //if (i % 10 == 0)
-        //console.log(`#${i + 1}: Sum ${await tree.totalSum()}. Depth ${depth}. Root ${root}. Next key ${key}`)
+        //console.log(`#${i + 1}: Sum ${await tree.totalSum()}. Depth ${depth}. Next key ${web3.toHex(key)}`)
     }
 
     logGasStats('Inserts', insertGas)
 
     assertBN(await tree.get(0, 16), 10, 'get node')
-    assertBN(await tree.get(1, 15), 160, 'get sum 1.0')
-    assertBN(await tree.get(1, 31), 160, 'get sum 1.1')
-    assertBN(await tree.get(2, 255), 2560, 'get sum 2.0')
+    assertBN(await tree.get(1, 0), 160, 'get sum 1.0')
+    assertBN(await tree.get(1, 16), 160, 'get sum 1.1')
+    assertBN(await tree.get(2, 0), 2560, 'get sum 2.0')
 
     assertBN(await tree.sortition(2605), 260)
     //await logSortitionGas(2605)
@@ -135,6 +133,7 @@ contract('Hex Sum Tree', (accounts) => {
       sortitionGas.push(await tree.sortition.estimateGas(sum - 1))
     }
 
+    //console.log((await tree.getState()).map(x => x.toNumber()))
     logGasStats('Inserts', insertGas)
     logGasStats('Removes', removeGas)
     logGasStats('Sortitions', sortitionGas)

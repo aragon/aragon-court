@@ -38,6 +38,7 @@ contract CourtFactory is Factory {
             0,
             address(this),
             uint64(block.timestamp + 60 * 60),
+            1,
             1
         );
 

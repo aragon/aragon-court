@@ -37,6 +37,17 @@ contract('Hex Sum Tree', (accounts) => {
     assertBN(await tree.get(1, 0), 10, 'get sum')
   })
 
+  it('inserts and modifies', async () => {
+    await tree.insert(10)
+    await tree.insert(5)
+    assertBN(await tree.get(1, 15), 15, 'get sum')
+
+    await tree.set(0, 5)
+
+    assertBN(await tree.get(0, 0), 5, 'get node')
+    assertBN(await tree.get(1, 15), 10, 'get sum')
+  })
+
   it('inserts three', async () => {
     await tree.insert(10)
     await tree.insert(10)

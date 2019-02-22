@@ -4,15 +4,15 @@ pragma solidity ^0.4.24;
 library HexSumTree {
     struct Tree {
         uint256 nextKey;
-        uint8 rootDepth;
-        mapping (uint8 => mapping (uint256 => uint256)) nodes; // depth -> key -> value
+        uint256 rootDepth;
+        mapping (uint256 => mapping (uint256 => uint256)) nodes; // depth -> key -> value
     }
 
     uint256 private constant CHILDREN = 16;
     uint256 private constant MAX_DEPTH = 64;
     uint256 private constant BITS_IN_NIBBLE = 4;
     // TODO: previous constants are correlated
-    uint8 private constant INSERTION_DEPTH = 0;
+    uint256 private constant INSERTION_DEPTH = 0;
     uint256 private constant BASE_KEY = 0; // tree starts on the very left
 
     string private constant ERROR_SORTITION_OUT_OF_BOUNDS = "SORTITION_OUT_OF_BOUNDS";
@@ -44,7 +44,7 @@ library HexSumTree {
         return _sortition(self, value, BASE_KEY, self.rootDepth);
     }
 
-    function _sortition(Tree storage self, uint256 value, uint256 node, uint8 depth) private view returns (uint256 key) {
+    function _sortition(Tree storage self, uint256 value, uint256 node, uint256 depth) private view returns (uint256 key) {
         uint256 checkedValue = 0; // Can optimize by having checkedValue = value - remainingValue
 
         // Invariant: node has 0's "after the depth" (so no need for `zeroSuffixNibbles`)
@@ -66,14 +66,14 @@ library HexSumTree {
     }
 
     function updateSums(Tree storage self, uint256 key, int256 delta) private {
-        uint8 newRootDepth = sharedPrefix(self.rootDepth, key);
+        uint256 newRootDepth = sharedPrefix(self.rootDepth, key);
 
         if (self.rootDepth != newRootDepth) {
             self.nodes[newRootDepth][BASE_KEY] = self.nodes[self.rootDepth][BASE_KEY];
             self.rootDepth = newRootDepth;
         }
 
-        for (uint8 i = 1; i <= self.rootDepth; i++) {
+        for (uint256 i = 1; i <= self.rootDepth; i++) {
             // TODO: inline
             uint256 ancestorKey = zeroSuffixNibbles(key, i);
 
@@ -87,7 +87,7 @@ library HexSumTree {
         return self.nodes[self.rootDepth][BASE_KEY];
     }
 
-    function get(Tree storage self, uint8 depth, uint256 key) internal view returns (uint256) {
+    function get(Tree storage self, uint256 depth, uint256 key) internal view returns (uint256) {
         return self.nodes[depth][key];
     }
 
@@ -104,7 +104,7 @@ library HexSumTree {
         return (key >> shift) << shift;
     }
 
-    function sharedPrefix(uint8 depth, uint256 key) internal pure returns (uint8) {
+    function sharedPrefix(uint256 depth, uint256 key) internal pure returns (uint256) {
         uint256 shift = depth * BITS_IN_NIBBLE;
         uint256 mask = uint256(-1) << shift;
         uint keyAncestor = key & mask;
@@ -116,7 +116,7 @@ library HexSumTree {
         return depth;
     }
     /*
-    function sharedPrefix(uint8 depth, uint256 key) internal pure returns (uint8) {
+    function sharedPrefix(uint256 depth, uint256 key) internal pure returns (uint256) {
         uint256 shift = depth * BITS_IN_NIBBLE;
         uint256 mask = uint256(-1) << shift;
         uint keyAncestor = key & mask;

@@ -28,7 +28,7 @@ contract HexSumTreePublic {
         return uint256(tree.sortition(v));
     }
 
-    function get(uint8 l, uint256 key) public view returns (uint256) {
+    function get(uint256 l, uint256 key) public view returns (uint256) {
         return tree.get(l, key);
     }
 
@@ -36,7 +36,7 @@ contract HexSumTreePublic {
         return tree.totalSum();
     }
 
-    function getState() public view returns (uint8, uint256) {
+    function getState() public view returns (uint256, uint256) {
         return (tree.rootDepth, tree.nextKey);
     }
 }

@@ -18,7 +18,7 @@ library HexSumTree {
     string private constant ERROR_SORTITION_OUT_OF_BOUNDS = "SORTITION_OUT_OF_BOUNDS";
 
     function init(Tree storage self) internal {
-        self.rootDepth = 1;
+        self.rootDepth = INSERTION_DEPTH + 1;
         self.nextKey = BASE_KEY;
     }
 

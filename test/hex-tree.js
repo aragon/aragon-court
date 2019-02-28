@@ -65,6 +65,16 @@ contract('Hex Sum Tree', (accounts) => {
     }
   })
 
+  it('fails setting non adjacent key', async () => {
+    await tree.insert(5)
+    await tree.insert(5)
+
+    await assertRevert(async () => {
+      // after 2 insertions (0, 1), next key is 2
+      await tree.set(3, 5)
+    })
+  })
+
   it('sortition', async () => {
     for (let i = 0; i < 20; i++) {
       await tree.insert(10)

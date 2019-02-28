@@ -25,6 +25,10 @@ contract HexSumTreePublic {
         }
     }
 
+    function set(uint256 key, uint256 value) public {
+        tree.set(key, value);
+    }
+
     function remove(uint256 key) public {
         tree.set(key, 0);
         emit LogKey(bytes32(key));

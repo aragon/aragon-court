@@ -15,7 +15,8 @@ library HexSumTree {
     uint256 private constant INSERTION_DEPTH = 0;
     uint256 private constant BASE_KEY = 0; // tree starts on the very left
 
-    string private constant ERROR_SORTITION_OUT_OF_BOUNDS = "SORTITION_OUT_OF_BOUNDS";
+    string private constant ERROR_SORTITION_OUT_OF_BOUNDS = "SUM_TREE_SORTITION_OUT_OF_BOUNDS";
+    string private constant ERROR_NEW_KEY_NOT_ADJACENT = "SUM_TREE_NEW_KEY_NOT_ADJACENT";
 
     function init(Tree storage self) internal {
         self.rootDepth = INSERTION_DEPTH + 1;
@@ -26,22 +27,27 @@ library HexSumTree {
         uint256 key = self.nextKey;
         self.nextKey = nextKey(key);
 
-        set(self, key, value);
+        _set(self, key, value);
 
         return key;
     }
 
     function set(Tree storage self, uint256 key, uint256 value) internal {
-        uint256 oldValue = self.nodes[INSERTION_DEPTH][key];
-        self.nodes[INSERTION_DEPTH][key] = value;
-
-        updateSums(self, key, int256(value - oldValue));
+        require(key <= self.nextKey, ERROR_NEW_KEY_NOT_ADJACENT);
+        _set(self, key, value);
     }
 
     function sortition(Tree storage self, uint256 value) internal view returns (uint256 key) {
         require(totalSum(self) > value, ERROR_SORTITION_OUT_OF_BOUNDS);
 
         return _sortition(self, value, BASE_KEY, self.rootDepth);
+    }
+
+    function _set(Tree storage self, uint256 key, uint256 value) private {
+        uint256 oldValue = self.nodes[INSERTION_DEPTH][key];
+        self.nodes[INSERTION_DEPTH][key] = value;
+
+        updateSums(self, key, int256(value - oldValue));
     }
 
     function _sortition(Tree storage self, uint256 value, uint256 node, uint256 depth) private view returns (uint256 key) {

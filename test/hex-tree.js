@@ -1,3 +1,5 @@
+const { assertRevert } = require('@aragon/test-helpers/assertThrow')
+
 const HexSumTreePublic = artifacts.require('HexSumTreePublic')
 
 contract('Hex Sum Tree', (accounts) => {

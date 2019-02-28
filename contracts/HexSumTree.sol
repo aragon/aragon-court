@@ -53,22 +53,40 @@ library HexSumTree {
     function _sortition(Tree storage self, uint256 value, uint256 node, uint256 depth) private view returns (uint256 key) {
         uint256 checkedValue = 0; // Can optimize by having checkedValue = value - remainingValue
 
+        uint256 checkingLevel = depth - 1;
         // Invariant: node has 0's "after the depth" (so no need for `zeroSuffixNibbles`)
-        uint256 shift = ((depth - 1) * BITS_IN_NIBBLE);
-        for (uint256 i = 0; i < CHILDREN; i++) {
-            // shift the iterator and add it to node 0x00..0i00 (for depth = 3)
-            uint256 iterator = i << shift;
-            uint256 checkingNode = node + iterator;
+        uint256 shift = checkingLevel * BITS_IN_NIBBLE;
+        uint parentNode = node;
+        uint256 child;
+        uint256 checkingNode;
+        uint256 nodeSum;
+        for (; checkingLevel > INSERTION_DEPTH; checkingLevel--) {
+            for (; child < CHILDREN; child++) {
+                // shift the iterator and add it to node 0x00..0i00 (for depth = 3)
+                uint256 iterator = child << shift;
+                checkingNode = parentNode + iterator;
 
-            uint256 nodeSum = self.nodes[depth - 1][checkingNode];
-            if (checkedValue + nodeSum <= value) {
+                nodeSum = self.nodes[checkingLevel][checkingNode];
+                if (checkedValue + nodeSum <= value) { // not reached yet, move to next child
+                    checkedValue += nodeSum;
+                } else { // value reached, move to next level
+                    parentNode = checkingNode;
+                    break;
+                }
+            }
+            shift = shift - BITS_IN_NIBBLE;
+        }
+        // Leaves level:
+        for (child = 0; child < CHILDREN; child++) {
+            checkingNode = parentNode + child;
+            nodeSum = self.nodes[INSERTION_DEPTH][checkingNode];
+            if (checkedValue + nodeSum <= value) { // not reached yet, move to next child
                 checkedValue += nodeSum;
-            } else if (depth == 1) { // node found at the end of the tree
+            } else { // value reached
                 return checkingNode;
-            } else {
-                return _sortition(self, value - checkedValue, checkingNode, depth - 1);
             }
         }
+        // Invariant: this point should never be reached
     }
 
     function updateSums(Tree storage self, uint256 key, int256 delta) private {

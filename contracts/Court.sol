@@ -83,7 +83,7 @@ contract Court is ERC900, ApproveAndCallFallBack {
     string internal constant ERROR_TOO_MANY_TRANSITIONS = "COURT_TOO_MANY_TRANSITIONS";
     string internal constant ERROR_FIRST_TERM_NOT_STARTED = "COURT_FIRST_TERM_NOT_STARTED";
     string internal constant ERROR_UNFINISHED_TERM = "COURT_UNFINISHED_TERM";
-    string internal constant ERROR_PAST_TERM_TERM_FEE_CHANGE = "COURT_PAST_TERM_FEE_CHANGE";
+    string internal constant ERROR_PAST_TERM_FEE_CHANGE = "COURT_PAST_TERM_FEE_CHANGE";
     string internal constant ERROR_INVALID_ACCOUNT_STATE = "COURT_INVALID_ACCOUNT_STATE";
     string internal constant ERROR_TOKENS_BELOW_DUST = "COURT_TOKENS_BELOW_DUST";
     string internal constant ERROR_INVALID_ACTIVATION_TERM = "COURT_INVALID_ACTIVATION_TERM";
@@ -127,6 +127,7 @@ contract Court is ERC900, ApproveAndCallFallBack {
      *  @param _heartbeatFee The amount of _feeToken per dispute to cover maintenance costs.
      *  @param _governor Address of the governor contract.
      *  @param _firstTermStartTime Timestamp in seconds when the court will open (to give time for juror onboarding)
+     *  @param _jurorActivationDust Minimum amount of juror tokens that can be activated
      *  @param _jurorCooldownTerms Number of terms before a juror tokens can be withdrawn after deactivation ()
      */
     constructor(
@@ -151,6 +152,7 @@ contract Court is ERC900, ApproveAndCallFallBack {
         terms[ZERO_TERM].startTime = _firstTermStartTime - _termDuration;
 
         sumTree.init();
+        assert(sumTree.insert(0) == bytes32(0)); // first tree item is an empty juror
     }
 
     function heartbeat(uint64 _termTransitions) public {
@@ -353,8 +355,11 @@ contract Court is ERC900, ApproveAndCallFallBack {
         }
         for (uint256 j = 0; j < egressLength; j++) {
             address jurorEgress = _incomingTerm.egressQueue[j];
-            sumTree.set(accounts[jurorEgress].sumTreeId, 0);
-            delete accounts[jurorEgress].sumTreeId;
+
+            if (accounts[jurorEgress].sumTreeId != bytes32(0)) {
+                sumTree.set(accounts[jurorEgress].sumTreeId, 0);
+                delete accounts[jurorEgress].sumTreeId;
+            }
         }
         for (uint256 k = 0; k < updatesLength; k++) {
             address jurorUpdate = _incomingTerm.updatesQueue[k];
@@ -399,7 +404,7 @@ contract Court is ERC900, ApproveAndCallFallBack {
         uint256 _jurorFee,
         uint256 _heartbeatFee
     ) internal {
-        require(feeChangeTerm > term || term == ZERO_TERM, ERROR_PAST_TERM_TERM_FEE_CHANGE);
+        require(feeChangeTerm > term || term == ZERO_TERM, ERROR_PAST_TERM_FEE_CHANGE);
 
         if (feeChangeTerm != ZERO_TERM) {
             terms[feeChangeTerm].feeStructureId = 0; // reset previously set fee structure change

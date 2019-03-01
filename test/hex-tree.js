@@ -1,4 +1,4 @@
-const { assertRevert } = require('@aragon/test-helpers/assertThrow')
+const assertRevert = require('./helpers/assert-revert')
 
 const HexSumTreePublic = artifacts.require('HexSumTreePublic')
 
@@ -40,12 +40,12 @@ contract('Hex Sum Tree', (accounts) => {
   it('inserts and modifies', async () => {
     await tree.insert(10)
     await tree.insert(5)
-    assertBN(await tree.get(1, 15), 15, 'get sum')
+    assertBN(await tree.get(1, 0), 15, 'get sum')
 
     await tree.set(0, 5)
 
     assertBN(await tree.get(0, 0), 5, 'get node')
-    assertBN(await tree.get(1, 15), 10, 'get sum')
+    assertBN(await tree.get(1, 0), 10, 'get sum')
   })
 
   it('inserts three', async () => {
@@ -82,20 +82,14 @@ contract('Hex Sum Tree', (accounts) => {
     await tree.insert(5)
     await tree.insert(5)
 
-    await assertRevert(async () => {
-      // after 2 insertions (0, 1), next key is 2
-      await tree.set(3, 5)
-    })
+    await assertRevert(tree.set(3, 5), 'SUM_TREE_NEW_KEY_NOT_ADJACENT')
   })
 
   it('fails inserting a number that makes sum overflow', async () => {
     await tree.insert(5)
-    await tree.insert(5)
 
-    await assertRevert(async () => {
-      const MAX_UINT256 = (new web3.BigNumber(2)).pow(256).minus(1)
-      await tree.insert(MAX_UINT256)
-    })
+    const MAX_UINT256 = (new web3.BigNumber(2)).pow(256).minus(1)
+    await assertRevert(tree.insert(MAX_UINT256), 'SUM_TREE_UPDATE_OVERFLOW')
   })
 
   it('sortition', async () => {

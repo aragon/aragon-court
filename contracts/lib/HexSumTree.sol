@@ -21,7 +21,7 @@ library HexSumTree {
 
     string private constant ERROR_SORTITION_OUT_OF_BOUNDS = "SUM_TREE_SORTITION_OUT_OF_BOUNDS";
     string private constant ERROR_NEW_KEY_NOT_ADJACENT = "SUM_TREE_NEW_KEY_NOT_ADJACENT";
-    string private constant ERROR_UPDATE_OVERFLOW = "SUM_UPDATE_OVERFLOW";
+    string private constant ERROR_UPDATE_OVERFLOW = "SUM_TREE_UPDATE_OVERFLOW";
 
     function init(Tree storage self) internal {
         self.rootDepth = INSERTION_DEPTH + 1;
@@ -52,7 +52,11 @@ library HexSumTree {
         uint256 oldValue = self.nodes[INSERTION_DEPTH][key];
         self.nodes[INSERTION_DEPTH][key] = value;
 
-        updateSums(self, key, int256(value - oldValue));
+        if (value > oldValue) {
+            updateSums(self, key, value - oldValue, true);
+        } else if (value < oldValue) {
+            updateSums(self, key, oldValue - value, false);
+        }
     }
 
     function _sortition(Tree storage self, uint256 value, uint256 node, uint256 depth) private view returns (uint256 key) {
@@ -94,7 +98,7 @@ library HexSumTree {
         // Invariant: this point should never be reached
     }
 
-    function updateSums(Tree storage self, uint256 key, int256 delta) private {
+    function updateSums(Tree storage self, uint256 key, uint256 delta, bool sum) private {
         uint256 newRootDepth = sharedPrefix(self.rootDepth, key);
 
         if (self.rootDepth != newRootDepth) {
@@ -109,10 +113,10 @@ library HexSumTree {
             ancestorKey = ancestorKey & mask;
 
             // Invariant: this will never underflow.
-            self.nodes[i][ancestorKey] = uint256(int256(self.nodes[i][ancestorKey]) + delta);
+            self.nodes[i][ancestorKey] = sum ? self.nodes[i][ancestorKey] + delta : self.nodes[i][ancestorKey] - delta;
         }
         // it's only needed to check the last one, as the sum increases going up through the tree
-        require(delta <= 0 || self.nodes[self.rootDepth][ancestorKey] >= uint256(delta), ERROR_UPDATE_OVERFLOW);
+        require(!sum || self.nodes[self.rootDepth][ancestorKey] >= delta, ERROR_UPDATE_OVERFLOW);
     }
 
     function totalSum(Tree storage self) internal view returns (uint256) {

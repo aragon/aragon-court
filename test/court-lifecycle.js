@@ -1,3 +1,5 @@
+const assertRevert = require('./helpers/assert-revert')
+
 const TokenFactory = artifacts.require('TokenFactory')
 const CourtMock = artifacts.require('CourtMock')
 
@@ -6,18 +8,6 @@ const MINIME = 'MiniMeToken'
 const getLog = (receipt, logName, argName) => {
   const log = receipt.logs.find(({ event }) => event == logName)
   return log ? log.args[argName] : null
-}
-
-const assertRevert = async (receiptPromise, reason) => {
-  try {
-    await receiptPromise
-    assert.fail(`Expected a revert for reason: ${reason}`)
-  } catch (e) {
-    if (reason) {
-      e.reason = e.message.replace('VM Exception while processing transaction: revert ', '')
-      assert.equal(e.reason, reason, 'Incorrect revert reason')
-    }
-  }
 }
 
 const deployedContract = async (receiptPromise, name) =>

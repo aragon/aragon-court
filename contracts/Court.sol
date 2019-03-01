@@ -28,7 +28,7 @@ contract Court is ERC900, ApproveAndCallFallBack {
         uint64 fromTerm;        // first term in which the juror can be drawn
         uint64 toTerm;          // last term in which the juror can be drawn
         uint64 pendingDisputes; // disputes in which the juror was drawn which haven't resolved
-        bytes32 sumTreeId;      // key in the sum tree used for sortition
+        uint256 sumTreeId;      // key in the sum tree used for sortition
     }
 
     struct FeeStructure {
@@ -99,7 +99,7 @@ contract Court is ERC900, ApproveAndCallFallBack {
     uint64 public term;
     uint64 public feeChangeTerm;
     mapping (address => Account) public accounts;
-    mapping (bytes32 => address) public jurorsByTreeId;
+    mapping (uint256 => address) public jurorsByTreeId;
     mapping (uint64 => Term) public terms;
     HexSumTree.Tree internal sumTree;
     Dispute[] public disputes;
@@ -197,7 +197,7 @@ contract Court is ERC900, ApproveAndCallFallBack {
         terms[ZERO_TERM].startTime = _firstTermStartTime - _termDuration;
 
         sumTree.init();
-        assert(sumTree.insert(0) == bytes32(0)); // first tree item is an empty juror
+        assert(sumTree.insert(0) == 0); // first tree item is an empty juror
     }
 
     function heartbeat(uint64 _termTransitions) public {
@@ -518,7 +518,7 @@ contract Court is ERC900, ApproveAndCallFallBack {
         for (uint256 j = 0; j < egressLength; j++) {
             address jurorEgress = _incomingTerm.egressQueue[j];
 
-            if (accounts[jurorEgress].sumTreeId != bytes32(0)) {
+            if (accounts[jurorEgress].sumTreeId != 0) {
                 sumTree.set(accounts[jurorEgress].sumTreeId, 0);
                 delete accounts[jurorEgress].sumTreeId;
             }
@@ -540,7 +540,7 @@ contract Court is ERC900, ApproveAndCallFallBack {
     }
 
     function _insertJurorToSumTree(address _jurorAddress) internal {
-        bytes32 sumTreeId = sumTree.insert(totalStakedFor(_jurorAddress));
+        uint256 sumTreeId = sumTree.insert(totalStakedFor(_jurorAddress));
         accounts[_jurorAddress].sumTreeId = sumTreeId;
         jurorsByTreeId[sumTreeId] = _jurorAddress;
     }

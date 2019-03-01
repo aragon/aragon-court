@@ -21,6 +21,7 @@ library HexSumTree {
 
     string private constant ERROR_SORTITION_OUT_OF_BOUNDS = "SUM_TREE_SORTITION_OUT_OF_BOUNDS";
     string private constant ERROR_NEW_KEY_NOT_ADJACENT = "SUM_TREE_NEW_KEY_NOT_ADJACENT";
+    string private constant ERROR_UPDATE_OVERFLOW = "SUM_UPDATE_OVERFLOW";
 
     function init(Tree storage self) internal {
         self.rootDepth = INSERTION_DEPTH + 1;
@@ -109,10 +110,11 @@ library HexSumTree {
             ancestorKey = ancestorKey >> shift << shift;
 
             // Invariant: this will never underflow.
-            // TODO: overflow?
             self.nodes[i][ancestorKey] = uint256(int256(self.nodes[i][ancestorKey]) + delta);
             shift += BITS_IN_NIBBLE;
         }
+        // it's only needed to check the last one, as the sum increases going up through the tree
+        require(delta <= 0 || self.nodes[self.rootDepth][ancestorKey] >= uint256(delta), ERROR_UPDATE_OVERFLOW);
     }
 
     function totalSum(Tree storage self) internal view returns (uint256) {

@@ -77,6 +77,16 @@ contract('Hex Sum Tree', (accounts) => {
     })
   })
 
+  it('fails inserting a number that makes sum overflow', async () => {
+    await tree.insert(5)
+    await tree.insert(5)
+
+    await assertRevert(async () => {
+      const MAX_UINT256 = (new web3.BigNumber(2)).pow(256).minus(1)
+      await tree.insert(MAX_UINT256)
+    })
+  })
+
   it('sortition', async () => {
     for (let i = 0; i < 20; i++) {
       await tree.insert(10)

@@ -97,13 +97,17 @@ library HexSumTree {
             self.rootDepth = newRootDepth;
         }
 
+        uint256 shift = BITS_IN_NIBBLE;
+        uint256 ancestorKey = key;
         for (uint256 i = 1; i <= self.rootDepth; i++) {
             // TODO: inline
-            uint256 ancestorKey = zeroSuffixNibbles(key, i);
+            //uint256 ancestorKey = zeroSuffixNibbles(key, i);
+            ancestorKey = ancestorKey >> shift << shift;
 
             // Invariant: this will never underflow.
             // TODO: overflow?
             self.nodes[i][ancestorKey] = uint256(int256(self.nodes[i][ancestorKey]) + delta);
+            shift += BITS_IN_NIBBLE;
         }
     }
 

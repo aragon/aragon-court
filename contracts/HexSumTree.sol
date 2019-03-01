@@ -8,10 +8,14 @@ library HexSumTree {
         mapping (uint256 => mapping (uint256 => uint256)) nodes; // depth -> key -> value
     }
 
+    /* @dev
+     * If you change any of the following 3 constants, make sure that:
+     * 2^BITS_IN_NIBBLE = CHILDREN
+     * BITS_IN_NIBBLE * MAX_DEPTH = 256
+     */
     uint256 private constant CHILDREN = 16;
     uint256 private constant MAX_DEPTH = 64;
     uint256 private constant BITS_IN_NIBBLE = 4;
-    // TODO: previous constants are correlated
     uint256 private constant INSERTION_DEPTH = 0;
     uint256 private constant BASE_KEY = 0; // tree starts on the very left
 

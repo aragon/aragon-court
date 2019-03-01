@@ -295,6 +295,8 @@ contract Court is ERC900, ApproveAndCallFallBack {
     string internal constant ERROR_ROUND_ALREADY_DRAFTED = "COURT_ROUND_ALREADY_DRAFTED";
     string internal constant ERROR_NOT_DRAFT_TERM = "COURT_NOT_DRAFT_TERM";
 
+    event JurorDrafted(uint256 indexed disputeId, address indexed juror, uint256 draftId);
+
     function draftAdjudicationRound(uint256 _disputeId)
         external
         ensureTerm
@@ -302,6 +304,7 @@ contract Court is ERC900, ApproveAndCallFallBack {
         Dispute storage dispute = disputes[_disputeId];
         uint256 roundId = dispute.rounds.length - 1;
         AdjudicationRound storage round = dispute.rounds[roundId];
+        Term storage draftTerm = terms[term];
 
         // TODO: Work on recovery if draft doesn't occur in the term it was supposed to
         // it should be scheduled for a future draft and require to pay the heartbeat fee for the term
@@ -309,6 +312,25 @@ contract Court is ERC900, ApproveAndCallFallBack {
         require(dispute.state == DisputeState.PreDraft, ERROR_ROUND_ALREADY_DRAFTED);
 
         // TODO: actually draft jurors
+        if (draftTerm.randomness == 0) {
+            // the blockhash could be 0 if the first dispute draft happens 256 blocks after the term starts
+            draftTerm.randomness = uint256(block.blockhash(draftTerm.randomnessBN));
+        }
+
+        uint256[] memory jurorKeys = sumTree.randomSortition(round.jurorNumber, draftTerm.randomness);
+        assert(jurorKeys.length == round.jurorNumber);
+
+        for (uint256 i = 0; i < jurorKeys.length; i++) {
+            address juror = jurorsByTreeId[jurorKeys[i]];
+
+            accounts[juror].pendingDisputes += 1;
+
+            JurorVote memory vote;
+            vote.juror = juror;
+            round.votes.push(vote);
+
+            emit JurorDrafted(_disputeId, juror, i);
+        }
 
         dispute.state = DisputeState.Adjudicating;
 

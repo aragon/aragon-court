@@ -162,7 +162,7 @@ contract('Court: Lifecycle', ([ poor, rich, governor, juror1, juror2 ]) => {
       assert.equal(await this.court.sortition(juror1Stake + juror2Stake / 2), juror2, 'sortition juror2')
       assert.equal(await this.court.sortition(juror1Stake + juror2Stake - 1), juror2, 'sortition juror2 end edge')
 
-      await assertRevert(this.court.sortition(juror1Stake + juror2Stake), 'SORTITION_OUT_OF_BOUNDS')
+      await assertRevert(this.court.sortition(juror1Stake + juror2Stake), 'SUM_TREE_SORTITION_OUT_OF_BOUNDS')
       await assertEqualBN(this.court.treeTotalSum(), juror1Stake + juror2Stake, 'both jurors in the tree')
     })
 

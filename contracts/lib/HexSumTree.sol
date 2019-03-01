@@ -48,6 +48,20 @@ library HexSumTree {
         return _sortition(self, value, BASE_KEY, self.rootDepth);
     }
 
+    function randomSortition(Tree storage self, uint256 n, uint256 seed) internal view returns (uint256[] memory keys) {
+        keys = new uint256[](n);
+
+        // cache in the stack. TODO: verify these don't go to memory
+        uint256 sum = totalSum(self);
+        uint256 rootDepth = self.rootDepth;
+        uint256 baseKey = BASE_KEY;
+
+        for (uint256 i = 0; i < n; i++) {
+            uint256 random = sum % (seed * i); // intended overflow
+            keys[i] = _sortition(self, random, baseKey, rootDepth);
+        }
+    }
+
     function _set(Tree storage self, uint256 key, uint256 value) private {
         uint256 oldValue = self.nodes[INSERTION_DEPTH][key];
         self.nodes[INSERTION_DEPTH][key] = value;

@@ -59,7 +59,7 @@ library HexSumTree {
         uint256 checkedValue = 0; // Can optimize by having checkedValue = value - remainingValue
 
         uint256 checkingLevel = depth - 1;
-        // Invariant: node has 0's "after the depth" (so no need for `zeroSuffixNibbles`)
+        // Invariant: node has 0's "after the depth" (so no need for masking)
         uint256 shift = checkingLevel * BITS_IN_NIBBLE;
         uint parentNode = node;
         uint256 child;
@@ -102,16 +102,14 @@ library HexSumTree {
             self.rootDepth = newRootDepth;
         }
 
-        uint256 shift = BITS_IN_NIBBLE;
+        uint256 mask = uint256(-1);
         uint256 ancestorKey = key;
         for (uint256 i = 1; i <= self.rootDepth; i++) {
-            // TODO: inline
-            //uint256 ancestorKey = zeroSuffixNibbles(key, i);
-            ancestorKey = ancestorKey >> shift << shift;
+            mask = mask << BITS_IN_NIBBLE;
+            ancestorKey = ancestorKey & mask;
 
             // Invariant: this will never underflow.
             self.nodes[i][ancestorKey] = uint256(int256(self.nodes[i][ancestorKey]) + delta);
-            shift += BITS_IN_NIBBLE;
         }
         // it's only needed to check the last one, as the sum increases going up through the tree
         require(delta <= 0 || self.nodes[self.rootDepth][ancestorKey] >= uint256(delta), ERROR_UPDATE_OVERFLOW);
@@ -127,15 +125,6 @@ library HexSumTree {
 
     function nextKey(uint256 fromKey) private pure returns (uint256) {
         return fromKey + 1;
-    }
-
-    function zeroSuffixNibbles(uint256 key, uint256 n) internal pure returns (uint256) {
-        if (n == MAX_DEPTH) {
-            return 0;
-        }
-
-        uint256 shift = n * BITS_IN_NIBBLE;
-        return (key >> shift) << shift;
     }
 
     function sharedPrefix(uint256 depth, uint256 key) internal pure returns (uint256) {

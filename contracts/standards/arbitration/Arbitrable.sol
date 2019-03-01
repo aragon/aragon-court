@@ -1,51 +1,53 @@
-/**
- *  @title Arbitrable
- *  @author Clément Lesaege - <clement@lesaege.com>
- *  Bug Bounties: This code hasn't undertaken a bug bounty program yet.
- */
-
 pragma solidity ^0.4.15;
 
 import "./IArbitrable.sol";
+import "../erc165/ERC165.sol";
 
-/** @title Arbitrable
- *  Arbitrable abstract contract.
- *  When developing arbitrable contracts, we need to:
- *  -Define the action taken when a ruling is received by the contract. We should do so in executeRuling.
- *  -Allow dispute creation. For this a function must:
- *      -Call arbitrator.createDispute.value(_fee)(_choices,_extraData);
- *      -Create the event Dispute(_arbitrator,_disputeID,_rulingOptions);
- */
-contract Arbitrable is IArbitrable {
-    Arbitrator public arbitrator;
-    bytes public arbitratorExtraData; // Extra data to require particular dispute and appeal behaviour.
 
-    modifier onlyArbitrator {require(msg.sender == address(arbitrator), "Can only be called by the arbitrator."); _;}
+contract Arbitrable is IArbitrable, ERC165 {
+    address public court; // TODO: replace for ICourt or Court interface
+
+    bytes4 private constant ERC165_INTERFACE_ID = 0x01ffc9a7;
+    bytes4 private constant ARBITRABLE_INTERFACE_ID = 0xabababab; // TODO: interface id
+
+    string private constant ERROR_NOT_COURT = "ARBITRABLE_NOT_COURT";
+    string private constant ERROR_CANNOT_SUBMIT_EVIDENCE = "ARBITRABLE_CANNOT_SUBMIT_EVIDENCE";
 
     /** @dev Constructor. Choose the arbitrator.
-     *  @param _arbitrator The arbitrator of the contract.
-     *  @param _arbitratorExtraData Extra data for the arbitrator.
+     *  @param _court The address of the court that arbitrates the contract.
      */
-    constructor(Arbitrator _arbitrator, bytes _arbitratorExtraData) public {
-        arbitrator = _arbitrator;
-        arbitratorExtraData = _arbitratorExtraData;
+    constructor(address _court) public {
+        court = _court;
     }
 
-    /** @dev Give a ruling for a dispute. Must be called by the arbitrator.
+    /**
+     *  @dev Give a ruling for a dispute. Must be called by the arbitrator.
      *  The purpose of this function is to ensure that the address calling it has the right to rule on the contract.
-     *  @param _disputeID ID of the dispute in the Arbitrator contract.
+     *  @param _disputeId Id of the dispute in the Court contract.
      *  @param _ruling Ruling given by the arbitrator. Note that 0 is reserved for "Not able/wanting to make a decision".
      */
-    function rule(uint _disputeID, uint _ruling) public onlyArbitrator {
-        emit Ruling(Arbitrator(msg.sender),_disputeID,_ruling);
+    function rule(uint256 _disputeId, uint256 _ruling) external {
+        require(msg.sender == court, ERROR_NOT_COURT);
 
-        executeRuling(_disputeID,_ruling);
+        _executeRuling(_disputeId, _ruling);
+
+        emit CourtRuling(msg.sender, _disputeId, _ruling);
     }
 
+    function submitEvidence(uint256 _disputeId, bytes _evidence) external {
+        require(canSubmitEvidence(_disputeId, msg.sender), ERROR_CANNOT_SUBMIT_EVIDENCE);
 
-    /** @dev Execute a ruling of a dispute.
-     *  @param _disputeID ID of the dispute in the Arbitrator contract.
+        emit NewEvidence(court, _disputeId, msg.sender, _evidence);
+    }
+
+    function supportsInterface(bytes4 _interfaceId) external pure returns (bool) {
+        return _interfaceId == ARBITRABLE_INTERFACE_ID || _interfaceId == ERC165_INTERFACE_ID;
+    }
+
+    /**
+     *  @dev Execute a ruling of a dispute.
+     *  @param _disputeId Id of the dispute in the Court contract.
      *  @param _ruling Ruling given by the arbitrator. Note that 0 is reserved for "Not able/wanting to make a decision".
      */
-    function executeRuling(uint _disputeID, uint _ruling) internal;
+    function _executeRuling(uint256 _disputeId, uint256 _ruling) internal;
 }

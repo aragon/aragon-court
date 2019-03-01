@@ -67,6 +67,8 @@ contract('Court: Lifecycle', ([ poor, rich, governor, juror1, juror2 ]) => {
       ZERO_ADDRESS,
       0,
       0,
+      0,
+      0,
       governor,
       firstTermStart,
       jurorActivationDust,

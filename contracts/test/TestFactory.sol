@@ -36,6 +36,8 @@ contract CourtFactory is Factory {
             ERC20(0), // no fees
             0,
             0,
+            0,
+            0,
             address(this),
             uint64(block.timestamp + 60 * 60),
             1,

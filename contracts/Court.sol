@@ -142,7 +142,7 @@ contract Court is ERC900, ApproveAndCallFallBack {
     string internal constant ERROR_ALREADY_VOTED = "COURT_ALREADY_VOTED";
     string internal constant ERROR_INVALID_VOTE = "COURT_INVALID_VOTE";
     string internal constant ERROR_INVALID_RULING_OPTIONS = "COURT_INVALID_RULING_OPTIONS";
-
+    string internal constant ERROR_FAILURE_COMMITMENT_CHECK = "COURT_FAILURE_COMMITMENT_CHECK";
 
     uint64 internal constant ZERO_TERM = 0; // invalid term that doesn't accept disputes
     uint64 public constant MANUAL_DEACTIVATION = uint64(-1);
@@ -181,6 +181,20 @@ contract Court is ERC900, ApproveAndCallFallBack {
         if (requiredTransitions > 0) {
             heartbeat(requiredTransitions);
         }
+
+        _;
+    }
+
+    modifier ensureDrafted(
+        uint256 _disputeId,
+        uint256 _roundId,
+        uint256 _draftId,
+        address _juror,
+        AdjudicationState _state
+    ) {
+        checkDisputeState(_disputeId, _roundId);
+        checkAdjudicationState(_disputeId, _roundId, _state);
+        require(getJurorVote(_disputeId, _roundId, _draftId).juror == _juror, ERROR_INVALID_JUROR);
 
         _;
     }
@@ -339,7 +353,6 @@ contract Court is ERC900, ApproveAndCallFallBack {
         require(round.draftTerm == term, ERROR_NOT_DRAFT_TERM);
         require(dispute.state == DisputeState.PreDraft, ERROR_ROUND_ALREADY_DRAFTED);
 
-        // TODO: actually draft jurors
         if (draftTerm.randomness == 0) {
             // the blockhash could be 0 if the first dispute draft happens 256 blocks after the term starts
             draftTerm.randomness = uint256(block.blockhash(draftTerm.randomnessBN));
@@ -376,8 +389,7 @@ contract Court is ERC900, ApproveAndCallFallBack {
     )
         external
         ensureTerm
-        ensureAdjudicationState(_disputeId, _roundId, AdjudicationState.Commit)
-        ensureDraft(_disputeId, _roundId, _draftId, msg.sender)
+        ensureDrafted(_disputeId, _roundId, _draftId, msg.sender, AdjudicationState.Commit)
     {
         JurorVote storage vote = getJurorVote(_disputeId, _roundId, _draftId);
         require(vote.commitment == bytes32(0) && vote.ruling == uint8(Ruling.Missing), ERROR_ALREADY_VOTED);
@@ -397,10 +409,10 @@ contract Court is ERC900, ApproveAndCallFallBack {
     )
         external
         ensureTerm
-        ensureAdjudicationState(_disputeId, _roundId, AdjudicationState.Commit)
-        ensureDraft(_disputeId, _roundId, _draftId, _juror)
-        ensureNoReveal(_disputeId, _roundId, _draftId, _leakedRuling, _salt)
+        ensureDrafted(_disputeId, _roundId, _draftId, _juror, AdjudicationState.Commit)
     {
+        checkVote(_disputeId, _roundId, _draftId, _leakedRuling, _salt);
+
         uint8 ruling = uint8(Ruling.RefusedRuling);
         JurorVote storage vote = getJurorVote(_disputeId, _roundId, _draftId);
         vote.ruling = ruling;
@@ -422,10 +434,10 @@ contract Court is ERC900, ApproveAndCallFallBack {
     )
         external
         ensureTerm
-        ensureAdjudicationState(_disputeId, _roundId, AdjudicationState.Reveal)
-        ensureDraft(_disputeId, _roundId, _draftId, msg.sender)
-        ensureNoReveal(_disputeId, _roundId, _draftId, _ruling, _salt)
+        ensureDrafted(_disputeId, _roundId, _draftId, msg.sender, AdjudicationState.Reveal)
     {
+        checkVote(_disputeId, _roundId, _draftId, _ruling, _salt);
+
         Dispute storage dispute = disputes[_disputeId];
         JurorVote storage vote = getJurorVote(_disputeId, _roundId, _draftId);
 
@@ -453,15 +465,14 @@ contract Court is ERC900, ApproveAndCallFallBack {
         }
     }
 
-    modifier ensureNoReveal(uint256 _disputeId, uint256 _roundId, uint256 _draftId, uint8 _ruling, bytes32 _salt) {
-        JurorVote storage vote = getJurorVote(_disputeId, _roundId, _draftId);
-        bytes32 commit = encryptVote(_ruling, _salt);
-        require(vote.commitment == commit && vote.ruling == uint8(Ruling.Missing), ERROR_ALREADY_VOTED);
+    function checkVote(uint256 _disputeId, uint256 _roundId, uint256 _draftId, uint8 _ruling, bytes32 _salt) internal {
+        JurorVote storage jurorVote = getJurorVote(_disputeId, _roundId, _draftId);
 
-        _;
+        require(jurorVote.commitment == encryptVote(_ruling, _salt), ERROR_FAILURE_COMMITMENT_CHECK);
+        require(jurorVote.ruling == uint8(Ruling.Missing), ERROR_ALREADY_VOTED);
     }
 
-    modifier ensureAdjudicationState(uint256 _disputeId, uint256 _roundId, AdjudicationState _state) {
+    function checkDisputeState(uint256 _disputeId, uint256 _roundId) internal {
         Dispute storage dispute = disputes[_disputeId];
         if (dispute.state == DisputeState.PreDraft) {
             draftAdjudicationRound(_disputeId);
@@ -469,22 +480,16 @@ contract Court is ERC900, ApproveAndCallFallBack {
 
         require(dispute.state == DisputeState.Adjudicating, ERROR_INVALID_DISPUTE_STATE);
         require(_roundId == dispute.rounds.length - 1, ERROR_INVALID_ADJUDICATION_ROUND);
+    }
 
-        AdjudicationRound storage round = dispute.rounds[_roundId];
+    function checkAdjudicationState(uint256 _disputeId, uint256 _roundId, AdjudicationState _state) internal {
+        AdjudicationRound storage round = disputes[_disputeId].rounds[_roundId];
 
         // fromTerm is inclusive, toTerm is exclusive
         uint256 fromTerm = _state == AdjudicationState.Commit ? round.draftTerm : round.draftTerm + COMMIT_TERMS;
         uint256 toTerm   = fromTerm + (_state == AdjudicationState.Commit ? COMMIT_TERMS : REVEAL_TERMS);
 
         require(term >= fromTerm && term < toTerm, ERROR_INVALID_ADJUDICATION_STATE);
-
-        _;
-    }
-
-    modifier ensureDraft(uint256 _disputeId, uint256 _roundId, uint256 _draftId, address _juror) {
-        require(getJurorVote(_disputeId, _roundId, _draftId).juror == _juror, ERROR_INVALID_JUROR);
-
-        _;
     }
 
     function getJurorVote(uint256 _disputeId, uint256 _roundId, uint256 _draftId) internal view returns (JurorVote storage) {

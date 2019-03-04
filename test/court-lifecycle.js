@@ -1,9 +1,11 @@
 const assertRevert = require('./helpers/assert-revert')
+const { promisify } = require('util')
 
 const TokenFactory = artifacts.require('TokenFactory')
 const CourtMock = artifacts.require('CourtMock')
 
 const MINIME = 'MiniMeToken'
+const BLOCK_GAS_LIMIT = 8e6
 
 const getLog = (receipt, logName, argName) => {
   const log = receipt.logs.find(({ event }) => event == logName)
@@ -79,6 +81,18 @@ contract('Court: Lifecycle', ([ poor, rich, governor, juror1, juror2 ]) => {
     await assertEqualBN(this.court.totalStakedFor(rich), richStake, 'rich stake')
     await assertEqualBN(this.court.totalStakedFor(juror1), juror1Stake, 'juror1 stake')
     await assertEqualBN(this.court.totalStakedFor(juror2), juror2Stake, 'juror2 stake')
+  })
+
+  it('can be deployed under the block gas limit', async () => {
+    const getReceipt = tx =>
+      new Promise((res, rej) =>
+        web3.eth.getTransactionReceipt(tx, (e, rec) => {
+          if (e) rej(e)
+          res(rec)
+        }))
+
+    const { gasUsed } = await getReceipt(this.court.transactionHash)
+    assert.isBelow(gasUsed, BLOCK_GAS_LIMIT, 'should be deployable to under the gas limit')
   })
 
   context('before first term', () => {

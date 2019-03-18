@@ -22,6 +22,7 @@ library HexSumTree {
     string private constant ERROR_SORTITION_OUT_OF_BOUNDS = "SUM_TREE_SORTITION_OUT_OF_BOUNDS";
     string private constant ERROR_NEW_KEY_NOT_ADJACENT = "SUM_TREE_NEW_KEY_NOT_ADJACENT";
     string private constant ERROR_UPDATE_OVERFLOW = "SUM_TREE_UPDATE_OVERFLOW";
+    string private constant ERROR_INEXISTENT_ITEM = "SUM_TREE_INEXISTENT_ITEM";
 
     function init(Tree storage self) internal {
         self.rootDepth = INSERTION_DEPTH + 1;
@@ -32,7 +33,9 @@ library HexSumTree {
         uint256 key = self.nextKey;
         self.nextKey = nextKey(key);
 
-        _set(self, key, value);
+        if (value > 0) {
+            _set(self, key, value);
+        }
 
         return key;
     }
@@ -40,6 +43,15 @@ library HexSumTree {
     function set(Tree storage self, uint256 key, uint256 value) internal {
         require(key <= self.nextKey, ERROR_NEW_KEY_NOT_ADJACENT);
         _set(self, key, value);
+    }
+
+    function update(Tree storage self, uint256 key, uint256 delta, bool positive) internal {
+        require(key < self.nextKey, ERROR_INEXISTENT_ITEM);
+
+        uint256 oldValue = self.nodes[INSERTION_DEPTH][key];
+        self.nodes[INSERTION_DEPTH][key] = positive ? oldValue + delta : oldValue - delta;
+
+        updateSums(self, key, delta, positive);
     }
 
     function sortition(Tree storage self, uint256 value) internal view returns (uint256 key) {
@@ -112,7 +124,7 @@ library HexSumTree {
         // Invariant: this point should never be reached
     }
 
-    function updateSums(Tree storage self, uint256 key, uint256 delta, bool sum) private {
+    function updateSums(Tree storage self, uint256 key, uint256 delta, bool positive) private {
         uint256 newRootDepth = sharedPrefix(self.rootDepth, key);
 
         if (self.rootDepth != newRootDepth) {
@@ -127,10 +139,10 @@ library HexSumTree {
             ancestorKey = ancestorKey & mask;
 
             // Invariant: this will never underflow.
-            self.nodes[i][ancestorKey] = sum ? self.nodes[i][ancestorKey] + delta : self.nodes[i][ancestorKey] - delta;
+            self.nodes[i][ancestorKey] = positive ? self.nodes[i][ancestorKey] + delta : self.nodes[i][ancestorKey] - delta;
         }
         // it's only needed to check the last one, as the sum increases going up through the tree
-        require(!sum || self.nodes[self.rootDepth][ancestorKey] >= delta, ERROR_UPDATE_OVERFLOW);
+        require(!positive || self.nodes[self.rootDepth][ancestorKey] >= delta, ERROR_UPDATE_OVERFLOW);
     }
 
     function totalSum(Tree storage self) internal view returns (uint256) {
@@ -139,6 +151,10 @@ library HexSumTree {
 
     function get(Tree storage self, uint256 depth, uint256 key) internal view returns (uint256) {
         return self.nodes[depth][key];
+    }
+
+    function getItem(Tree storage self, uint256 key) internal view returns (uint256) {
+        return self.nodes[INSERTION_DEPTH][key];
     }
 
     function nextKey(uint256 fromKey) private pure returns (uint256) {

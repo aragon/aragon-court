@@ -17,7 +17,7 @@ contract CourtMock is Court {
         uint16 _governanceShare,
         address _governor,
         uint64 _firstTermStartTime,
-        uint256 _jurorActivationDust,
+        uint256 _jurorMinStake,
         uint64 _jurorCooldownTerms
     ) Court(
         _termDuration,
@@ -29,7 +29,7 @@ contract CourtMock is Court {
         _governanceShare,
         _governor,
         _firstTermStartTime,
-        _jurorActivationDust,
+        _jurorMinStake,
         _jurorCooldownTerms
     ) public {}
 

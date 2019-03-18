@@ -101,7 +101,7 @@ contract Court is ERC900, ApproveAndCallFallBack {
     // Global config, configurable by governor
     address public governor; // TODO: consider using aOS' ACL
     uint64 public jurorCooldownTerms;
-    uint256 public jurorActivationDust;
+    uint256 public jurorMinStake;
     uint256 public maxAppeals = 5;
     FeeStructure[] public feeStructures;
 
@@ -124,7 +124,7 @@ contract Court is ERC900, ApproveAndCallFallBack {
     string internal constant ERROR_UNFINISHED_TERM = "COURT_UNFINISHED_TERM";
     string internal constant ERROR_PAST_TERM_FEE_CHANGE = "COURT_PAST_TERM_FEE_CHANGE";
     string internal constant ERROR_INVALID_ACCOUNT_STATE = "COURT_INVALID_ACCOUNT_STATE";
-    string internal constant ERROR_TOKENS_BELOW_DUST = "COURT_TOKENS_BELOW_DUST";
+    string internal constant ERROR_TOKENS_BELOW_MIN_STAKE = "COURT_TOKENS_BELOW_MIN_STAKE";
     string internal constant ERROR_INVALID_ACTIVATION_TERM = "COURT_INVALID_ACTIVATION_TERM";
     string internal constant ERROR_INVALID_DEACTIVATION_TERM = "COURT_INVALID_DEACTIVATION_TERM";
     string internal constant ERROR_JUROR_TOKENS_AT_STAKE = "COURT_JUROR_TOKENS_AT_STAKE";
@@ -209,7 +209,7 @@ contract Court is ERC900, ApproveAndCallFallBack {
      *  @param _governanceShare Share in ‱ of fees that are paid to the governor.
      *  @param _governor Address of the governor contract.
      *  @param _firstTermStartTime Timestamp in seconds when the court will open (to give time for juror onboarding)
-     *  @param _jurorActivationDust Minimum amount of juror tokens that can be activated
+     *  @param _jurorMinStake Minimum amount of juror tokens that can be activated
      *  @param _jurorCooldownTerms Number of terms before a juror tokens can be withdrawn after deactivation ()
      */
     constructor(
@@ -222,12 +222,12 @@ contract Court is ERC900, ApproveAndCallFallBack {
         uint16 _governanceShare,
         address _governor,
         uint64 _firstTermStartTime,
-        uint256 _jurorActivationDust,
+        uint256 _jurorMinStake,
         uint64 _jurorCooldownTerms
     ) public {
         termDuration = _termDuration;
         jurorToken = _jurorToken;
-        jurorActivationDust = _jurorActivationDust;
+        jurorMinStake = _jurorMinStake;
         governor = _governor;
         jurorCooldownTerms = _jurorCooldownTerms;
         
@@ -640,7 +640,10 @@ contract Court is ERC900, ApproveAndCallFallBack {
     }
 
     function totalStakedFor(address _addr) public view returns (uint256) {
-        return accounts[_addr].balances[jurorToken];
+        uint256 sumTreeId = accounts[_addr].sumTreeId;
+        uint256 activeTokens = sumTreeId > 0 ? tree.getItem(sumTreeId) : 0;
+
+        return accounts[_addr].balances[jurorToken] + activeTokens;
     }
 
     function totalStaked() external view returns (uint256) {
@@ -739,6 +742,10 @@ contract Court is ERC900, ApproveAndCallFallBack {
         uint256 sumTreeId = sumTree.insert(totalStakedFor(_jurorAddress));
         accounts[_jurorAddress].sumTreeId = sumTreeId;
         jurorsByTreeId[sumTreeId] = _jurorAddress;
+    }
+
+    function _applyTreeUpdate(UpdateQueueItem memory updateItem) internal {
+        sumTree.update(updateItem.sumTreeId, updateItem.delta, updateItem.positive);
     }
 
     function _stake(address _from, address _to, uint256 _amount) internal {

@@ -46,7 +46,7 @@ contract Court is ERC900, ApproveAndCallFallBack {
         uint64 dependingDrafts;  // disputes or appeals pegged to this term for randomness
         uint64 feeStructureId;  // fee structure for this term (index in feeStructures array)
         uint64 randomnessBN;    // block number for entropy
-        uint256 randomness;     // entropy from randomnessBN block hash
+        bytes32 randomness;     // entropy from randomnessBN block hash
         address[] ingressQueue; // jurors that will be added to the juror tree
         address[] egressQueue;  // jurors that will be removed from to the juror tree
         address[] updatesQueue; // jurors whose stake has been updated
@@ -194,7 +194,7 @@ contract Court is ERC900, ApproveAndCallFallBack {
     ) {
         checkDisputeState(_disputeId, _roundId);
         checkAdjudicationState(_disputeId, _roundId, _state);
-        require(getJurorVote(_disputeId, _roundId, _draftId).juror == _juror, ERROR_INVALID_JUROR);
+        require(_getJurorVote(_disputeId, _roundId, _draftId).juror == _juror, ERROR_INVALID_JUROR);
 
         _;
     }
@@ -284,7 +284,8 @@ contract Court is ERC900, ApproveAndCallFallBack {
 
     function createDispute(IArbitrable _subject, uint8 _possibleRulings, uint64 _jurorNumber, uint64 _draftTerm)
         external
-        ensureTerm    
+        ensureTerm
+        returns (uint256)
     {   
         // TODO: Limit the min amount of terms before drafting (to allow for evidence submission)
         // TODO: Limit the max amount of terms into the future that a dispute can be drafted
@@ -315,6 +316,8 @@ contract Court is ERC900, ApproveAndCallFallBack {
         terms[_draftTerm].dependingDrafts += 1;
 
         emit NewDispute(disputeId, _subject, _draftTerm, _jurorNumber);
+
+        return disputeId;
     }
 
     function dismissDispute(uint256 _disputeId)
@@ -353,13 +356,13 @@ contract Court is ERC900, ApproveAndCallFallBack {
         require(round.draftTerm == term, ERROR_NOT_DRAFT_TERM);
         require(dispute.state == DisputeState.PreDraft, ERROR_ROUND_ALREADY_DRAFTED);
 
-        if (draftTerm.randomness == 0) {
+        if (draftTerm.randomness == bytes32(0)) {
             // the blockhash could be 0 if the first dispute draft happens 256 blocks after the term starts
-            draftTerm.randomness = uint256(block.blockhash(draftTerm.randomnessBN));
+            draftTerm.randomness = block.blockhash(draftTerm.randomnessBN);
         }
 
-        uint256[] memory jurorKeys = sumTree.randomSortition(round.jurorNumber, draftTerm.randomness);
-        assert(jurorKeys.length == round.jurorNumber);
+        uint256[] memory jurorKeys = treeRandomSearch(round.jurorNumber, draftTerm.randomness, _disputeId);
+        require(jurorKeys.length == round.jurorNumber, "expected more jurors yo");
 
         for (uint256 i = 0; i < jurorKeys.length; i++) {
             address juror = jurorsByTreeId[jurorKeys[i]];
@@ -391,7 +394,7 @@ contract Court is ERC900, ApproveAndCallFallBack {
         ensureTerm
         ensureDrafted(_disputeId, _roundId, _draftId, msg.sender, AdjudicationState.Commit)
     {
-        JurorVote storage vote = getJurorVote(_disputeId, _roundId, _draftId);
+        JurorVote storage vote = _getJurorVote(_disputeId, _roundId, _draftId);
         require(vote.commitment == bytes32(0) && vote.ruling == uint8(Ruling.Missing), ERROR_ALREADY_VOTED);
 
         vote.commitment = _commitment;
@@ -414,7 +417,7 @@ contract Court is ERC900, ApproveAndCallFallBack {
         checkVote(_disputeId, _roundId, _draftId, _leakedRuling, _salt);
 
         uint8 ruling = uint8(Ruling.RefusedRuling);
-        JurorVote storage vote = getJurorVote(_disputeId, _roundId, _draftId);
+        JurorVote storage vote = _getJurorVote(_disputeId, _roundId, _draftId);
         vote.ruling = ruling;
 
         // TODO: slash juror
@@ -439,7 +442,7 @@ contract Court is ERC900, ApproveAndCallFallBack {
         checkVote(_disputeId, _roundId, _draftId, _ruling, _salt);
 
         Dispute storage dispute = disputes[_disputeId];
-        JurorVote storage vote = getJurorVote(_disputeId, _roundId, _draftId);
+        JurorVote storage vote = _getJurorVote(_disputeId, _roundId, _draftId);
 
         require(_ruling > uint8(Ruling.Missing) && _ruling <= dispute.possibleRulings + 1, ERROR_INVALID_VOTE);
         
@@ -466,7 +469,7 @@ contract Court is ERC900, ApproveAndCallFallBack {
     }
 
     function checkVote(uint256 _disputeId, uint256 _roundId, uint256 _draftId, uint8 _ruling, bytes32 _salt) internal {
-        JurorVote storage jurorVote = getJurorVote(_disputeId, _roundId, _draftId);
+        JurorVote storage jurorVote = _getJurorVote(_disputeId, _roundId, _draftId);
 
         require(jurorVote.commitment == encryptVote(_ruling, _salt), ERROR_FAILURE_COMMITMENT_CHECK);
         require(jurorVote.ruling == uint8(Ruling.Missing), ERROR_ALREADY_VOTED);
@@ -492,12 +495,23 @@ contract Court is ERC900, ApproveAndCallFallBack {
         require(term >= fromTerm && term < toTerm, ERROR_INVALID_ADJUDICATION_STATE);
     }
 
-    function getJurorVote(uint256 _disputeId, uint256 _roundId, uint256 _draftId) internal view returns (JurorVote storage) {
+    function getJurorVote(uint256 _disputeId, uint256 _roundId, uint256 _draftId) public view returns (address juror, uint8 ruling) {
+        JurorVote storage jurorVote = _getJurorVote(_disputeId, _roundId, _draftId);
+
+        return (jurorVote.juror, jurorVote.ruling);
+    }
+
+    function _getJurorVote(uint256 _disputeId, uint256 _roundId, uint256 _draftId) internal view returns (JurorVote storage) {
         return disputes[_disputeId].rounds[_roundId].votes[_draftId];
     }
 
     function encryptVote(uint8 _ruling, bytes32 _salt) public view returns (bytes32) {
         return keccak256(abi.encodePacked(_ruling, _salt));
+    }
+
+    function treeRandomSearch(uint64 _jurorNumber, bytes32 _termRandomness, uint256 _disputeId) internal returns (uint256[] memory) {
+        bytes32 seed = keccak256(abi.encodePacked(_termRandomness, _disputeId));
+        return sumTree.randomSortition(_jurorNumber, uint256(seed));
     }
 
     /**

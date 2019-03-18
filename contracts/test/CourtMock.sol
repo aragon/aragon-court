@@ -45,6 +45,10 @@ contract CourtMock is Court {
         mockBn = bn;
     }
 
+    function mock_blockTravel(uint64 inc) external {
+        mockBn += inc;
+    }
+
     function time() internal view returns (uint64) {
         return mockTime;
     }

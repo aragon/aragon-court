@@ -57,7 +57,7 @@ library HexSumTree {
         uint256 baseKey = BASE_KEY;
 
         for (uint256 i = 0; i < n; i++) {
-            uint256 random = sum % (seed * i); // intended overflow
+            uint256 random = (seed * i) % sum; // intended overflow
             keys[i] = _sortition(self, random, baseKey, rootDepth);
         }
     }

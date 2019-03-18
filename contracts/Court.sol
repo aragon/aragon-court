@@ -22,13 +22,19 @@ contract Court is ERC900, ApproveAndCallFallBack {
         PastJuror
     }
 
+    struct AccountUpdate {
+        bool positive; // TODO: optimize gas
+        uint256 delta;
+    }
+
     struct Account {
         mapping (address => uint256) balances; // token addr -> balance
         AccountState state;     // whether the account is not a juror, a current juror or a past juror
         uint64 fromTerm;        // first term in which the juror can be drawn
         uint64 toTerm;          // last term in which the juror can be drawn
-        uint64 pendingDisputes; // disputes in which the juror was drawn which haven't resolved
+        uint256 tokensAtStake;  // disputes in which the juror was drawn which haven't resolved
         uint256 sumTreeId;      // key in the sum tree used for sortition
+        AccountUpdate update;   // next account update
     }
 
     // TODO: Rename to TermConfig
@@ -47,9 +53,8 @@ contract Court is ERC900, ApproveAndCallFallBack {
         uint64 feeStructureId;  // fee structure for this term (index in feeStructures array)
         uint64 randomnessBN;    // block number for entropy
         bytes32 randomness;     // entropy from randomnessBN block hash
-        address[] ingressQueue; // jurors that will be added to the juror tree
+        address[] updateQueue;  // jurors whose stake needs to be updated
         address[] egressQueue;  // jurors that will be removed from to the juror tree
-        address[] updatesQueue; // jurors whose stake has been updated
     }
 
     struct JurorVote {
@@ -102,6 +107,7 @@ contract Court is ERC900, ApproveAndCallFallBack {
     address public governor; // TODO: consider using aOS' ACL
     uint64 public jurorCooldownTerms;
     uint256 public jurorMinStake;
+    uint256 public penalization; // ‱ of jurorMinStake that can be slashed (1/10,000)
     uint256 public maxAppeals = 5;
     FeeStructure[] public feeStructures;
 
@@ -552,18 +558,27 @@ contract Court is ERC900, ApproveAndCallFallBack {
     function activate(uint64 _fromTerm, uint64 _toTerm) external ensureTerm {
         address jurorAddress = msg.sender;
         Account storage account = accounts[jurorAddress];
+        uint256 balance = account.balances[jurorToken];
 
         require(_fromTerm > term, ERROR_INVALID_ACTIVATION_TERM);
         require(_toTerm > _fromTerm, ERROR_INVALID_DEACTIVATION_TERM);
         require(account.state == AccountState.NotJuror, ERROR_INVALID_ACCOUNT_STATE);
-        require(account.balances[jurorToken] >= jurorActivationDust, ERROR_TOKENS_BELOW_DUST);
+        require(balance >= jurorMinStake, ERROR_TOKENS_BELOW_MIN_STAKE);
+
+        uint256 sumTreeId = account.sumTreeId;
+        if (sumTreeId == 0) {
+            sumTreeId = sumTree.insert(0);
+            accounts[jurorAddress].sumTreeId = sumTreeId;
+            jurorsByTreeId[sumTreeId] = jurorAddress;
+        }
 
         if (term == ZERO_TERM && _fromTerm == ZERO_TERM + 1) {
             // allow direct juror onboardings before term 1 starts (no disputes depend on term 0)
-            _insertJurorToSumTree(jurorAddress);
+            sumTree.update(sumTreeId, balance, true);
         } else {
             // TODO: check queue size limit
-            terms[_fromTerm].ingressQueue.push(jurorAddress);
+            account.update = AccountUpdate({ delta: balance, positive: true });
+            terms[_fromTerm].updateQueue.push(jurorAddress);
         }
 
         if (_toTerm != MANUAL_DEACTIVATION) {
@@ -574,6 +589,7 @@ contract Court is ERC900, ApproveAndCallFallBack {
         account.fromTerm = _fromTerm;
         account.toTerm = _toTerm;
         account.state = AccountState.Juror;
+        account.balances[jurorToken] = 0;   // tokens are either pending the update or in the tree
 
         emit JurorActivate(jurorAddress, _fromTerm, _toTerm);
     }
@@ -591,7 +607,10 @@ contract Court is ERC900, ApproveAndCallFallBack {
 
         // Juror didn't actually become activated
         if (term < account.fromTerm && term != ZERO_TERM) {
-            terms[account.fromTerm].ingressQueue.deleteItem(jurorAddress);
+            terms[account.fromTerm].updateQueue.deleteItem(jurorAddress);
+            assert(account.update.positive); // If the juror didn't activate, its update can only be positive
+            account.balances[jurorToken] += account.update.delta;
+            delete account.update;
         }
 
         if (account.toTerm != MANUAL_DEACTIVATION) {
@@ -641,9 +660,11 @@ contract Court is ERC900, ApproveAndCallFallBack {
 
     function totalStakedFor(address _addr) public view returns (uint256) {
         uint256 sumTreeId = accounts[_addr].sumTreeId;
-        uint256 activeTokens = sumTreeId > 0 ? tree.getItem(sumTreeId) : 0;
+        uint256 activeTokens = sumTreeId > 0 ? sumTree.getItem(sumTreeId) : 0;
+        AccountUpdate storage update = accounts[_addr].update;
+        uint256 pendingTokens = update.positive ? update.delta : -update.delta;
 
-        return accounts[_addr].balances[jurorToken] + activeTokens;
+        return accounts[_addr].balances[jurorToken] + activeTokens + pendingTokens;
     }
 
     function totalStaked() external view returns (uint256) {
@@ -706,46 +727,36 @@ contract Court is ERC900, ApproveAndCallFallBack {
     }
 
     function _processJurorQueues(Term storage _incomingTerm) internal {
-        uint256 ingressLength = _incomingTerm.ingressQueue.length;
         uint256 egressLength = _incomingTerm.egressQueue.length;
-        uint256 updatesLength = _incomingTerm.updatesQueue.length;
+        uint256 updatesLength = _incomingTerm.updateQueue.length;
 
-        // Insert cost = 40k + tree insertion
-        for (uint256 i = 0; i < ingressLength; i++) {
-            _insertJurorToSumTree(_incomingTerm.ingressQueue[i]);
+        for (uint256 i = 0; i < updatesLength; i++) {
+            address jurorUpdate = _incomingTerm.updateQueue[i];
+            AccountUpdate storage update = accounts[jurorUpdate].update;
+
+            if (update.delta > 0) {
+                sumTree.update(accounts[jurorUpdate].sumTreeId, update.delta, update.positive);
+                delete accounts[jurorUpdate].update;
+            }
         }
         for (uint256 j = 0; j < egressLength; j++) {
             address jurorEgress = _incomingTerm.egressQueue[j];
 
-            if (accounts[jurorEgress].sumTreeId != 0) {
-                sumTree.set(accounts[jurorEgress].sumTreeId, 0);
+            uint256 sumTreeId = accounts[jurorEgress].sumTreeId;
+            if (sumTreeId != 0) {
+                uint256 treeBalance = sumTree.getItem(sumTreeId);
+                accounts[jurorEgress].balances[jurorToken] += treeBalance;
+                sumTree.set(sumTreeId, 0);
                 delete accounts[jurorEgress].sumTreeId;
             }
         }
-        for (uint256 k = 0; k < updatesLength; k++) {
-            address jurorUpdate = _incomingTerm.updatesQueue[k];
-            sumTree.set(accounts[jurorUpdate].sumTreeId, totalStakedFor(jurorUpdate));
-        }
 
-        if (ingressLength > 0) {
-            delete _incomingTerm.ingressQueue;
-        }
         if (egressLength > 0) {
             delete _incomingTerm.egressQueue;
         }
         if (updatesLength > 0) {
-            delete _incomingTerm.updatesQueue;
+            delete _incomingTerm.updateQueue;
         }
-    }
-
-    function _insertJurorToSumTree(address _jurorAddress) internal {
-        uint256 sumTreeId = sumTree.insert(totalStakedFor(_jurorAddress));
-        accounts[_jurorAddress].sumTreeId = sumTreeId;
-        jurorsByTreeId[sumTreeId] = _jurorAddress;
-    }
-
-    function _applyTreeUpdate(UpdateQueueItem memory updateItem) internal {
-        sumTree.update(updateItem.sumTreeId, updateItem.delta, updateItem.positive);
     }
 
     function _stake(address _from, address _to, uint256 _amount) internal {

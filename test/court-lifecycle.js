@@ -127,7 +127,7 @@ contract('Court: Lifecycle', ([ poor, rich, governor, juror1, juror2 ]) => {
 
     it('reverts if activating balance is below dust', async () => {
       await this.court.mock_setTime(firstTermStart - 1)
-      await assertRevert(this.court.activate(1, 10, { from: poor }), 'COURT_TOKENS_BELOW_DUST')
+      await assertRevert(this.court.activate(1, 10, { from: poor }), 'COURT_TOKENS_BELOW_MIN_STAKE')
     })
   })
 

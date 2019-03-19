@@ -33,24 +33,29 @@ contract Court is ERC900, ApproveAndCallFallBack {
         uint64 fromTerm;        // first term in which the juror can be drawn
         uint64 toTerm;          // last term in which the juror can be drawn
         uint256 tokensAtStake;  // disputes in which the juror was drawn which haven't resolved
+        uint64 pendingDisputes; // TODO: remove
         uint256 sumTreeId;      // key in the sum tree used for sortition
         AccountUpdate update;   // next account update
     }
 
-    // TODO: Rename to TermConfig
-    struct FeeStructure {
+    struct CourtConfig {
+        // Fee structure
         ERC20 feeToken;
-        uint16 governanceShare;  // ‱ of fees going to the governor (1/10,000)
-        uint256 jurorFee;        // per juror, total dispute fee = jurorFee * jurors drawn
-        uint256 heartbeatFee;    // per dispute, total heartbeat fee = heartbeatFee * disputes/appeals in term
-        uint256 draftFee;        // per dispute
-        // TODO: add commit/reveal/appeal durations
+        uint16 governanceFeeShare; // ‱ of fees going to the governor (1/10,000)
+        uint256 jurorFee;          // per juror, total dispute fee = jurorFee * jurors drawn
+        uint256 heartbeatFee;      // per dispute, total heartbeat fee = heartbeatFee * disputes/appeals in term
+        uint256 draftFee;          // per dispute
+        // Dispute config
+        uint64 commitTerms;
+        uint64 revealTerms;
+        uint64 appealTerms;
+        uint16 penaltyPct;
     }
 
     struct Term {
         uint64 startTime;       // timestamp when the term started 
-        uint64 dependingDrafts;  // disputes or appeals pegged to this term for randomness
-        uint64 feeStructureId;  // fee structure for this term (index in feeStructures array)
+        uint64 dependingDrafts; // disputes or appeals pegged to this term for randomness
+        uint64 courtConfigId;   // fee structure for this term (index in courtConfigs array)
         uint64 randomnessBN;    // block number for entropy
         bytes32 randomness;     // entropy from randomnessBN block hash
         address[] updateQueue;  // jurors whose stake needs to be updated
@@ -105,15 +110,13 @@ contract Court is ERC900, ApproveAndCallFallBack {
 
     // Global config, configurable by governor
     address public governor; // TODO: consider using aOS' ACL
-    uint64 public jurorCooldownTerms;
-    uint256 public jurorMinStake;
-    uint256 public penalization; // ‱ of jurorMinStake that can be slashed (1/10,000)
+    uint256 public jurorMinStake; // TODO: consider adding it to the conf
     uint256 public maxAppeals = 5;
-    FeeStructure[] public feeStructures;
+    CourtConfig[] public courtConfigs;
 
     // Court state
     uint64 public term;
-    uint64 public feeChangeTerm;
+    uint64 public configChangeTerm;
     mapping (address => Account) public accounts;
     mapping (uint256 => address) public jurorsByTreeId;
     mapping (uint64 => Term) public terms;
@@ -149,21 +152,18 @@ contract Court is ERC900, ApproveAndCallFallBack {
     string internal constant ERROR_INVALID_VOTE = "COURT_INVALID_VOTE";
     string internal constant ERROR_INVALID_RULING_OPTIONS = "COURT_INVALID_RULING_OPTIONS";
     string internal constant ERROR_FAILURE_COMMITMENT_CHECK = "COURT_FAILURE_COMMITMENT_CHECK";
+    string internal constant ERROR_CONFIG_PERIOD_ZERO_TERMS = "COURT_CONFIG_PERIOD_ZERO_TERMS";
 
     uint64 internal constant ZERO_TERM = 0; // invalid term that doesn't accept disputes
     uint64 public constant MANUAL_DEACTIVATION = uint64(-1);
     uint64 internal constant MODIFIER_ALLOWED_TERM_TRANSITIONS = 1;
     bytes4 private constant ARBITRABLE_INTERFACE_ID = 0xabababab; // TODO: interface id
-    uint16 internal constant GOVERNANCE_FEE_DIVISOR = 10000; // ‱
+    uint16 internal constant PCT_BASE = 10000; // ‱
     uint8 public constant MIN_RULING_OPTIONS = 2;
     uint8 public constant MAX_RULING_OPTIONS = 254;
 
-    // TODO: Move into term configuration (currently fee schedule)
-    uint64 public constant COMMIT_TERMS = 72;
-    uint64 public constant REVEAL_TERMS = 24;
-
     event NewTerm(uint64 term, address indexed heartbeatSender);
-    event NewFeeStructure(uint64 fromTerm, uint64 feeStructureId);
+    event NewCourtConfig(uint64 fromTerm, uint64 courtConfigId);
     event TokenBalanceChange(address indexed token, address indexed owner, uint256 amount, bool positive);
     event JurorActivate(address indexed juror, uint64 fromTerm, uint64 toTerm);
     event JurorDeactivate(address indexed juror, uint64 lastTerm);
@@ -212,11 +212,14 @@ contract Court is ERC900, ApproveAndCallFallBack {
      *  @param _jurorFee The amount of _feeToken that is paid per juror per dispute
      *  @param _heartbeatFee The amount of _feeToken per dispute to cover maintenance costs.
      *  @param _draftFee The amount of _feeToken per juror to cover the drafting cost.
-     *  @param _governanceShare Share in ‱ of fees that are paid to the governor.
+     *  @param _governanceFeeShare Share in ‱ of fees that are paid to the governor.
      *  @param _governor Address of the governor contract.
      *  @param _firstTermStartTime Timestamp in seconds when the court will open (to give time for juror onboarding)
      *  @param _jurorMinStake Minimum amount of juror tokens that can be activated
-     *  @param _jurorCooldownTerms Number of terms before a juror tokens can be withdrawn after deactivation ()
+     *  @param _commitTerms Number of terms that the vote commit period lasts in an adjudication round
+     *  @param _revealTerms Number of terms that the vote reveal period lasts in an adjudication round
+     *  @param _appealTerms Number of terms during which a court ruling can be appealed
+     *  @param _penaltyPct ‱ of jurorMinStake that can be slashed (1/10,000)
      */
     constructor(
         uint64 _termDuration,
@@ -225,26 +228,32 @@ contract Court is ERC900, ApproveAndCallFallBack {
         uint256 _jurorFee,
         uint256 _heartbeatFee,
         uint256 _draftFee,
-        uint16 _governanceShare,
+        uint16 _governanceFeeShare,
         address _governor,
         uint64 _firstTermStartTime,
         uint256 _jurorMinStake,
-        uint64 _jurorCooldownTerms
+        uint64 _commitTerms,
+        uint64 _revealTerms,
+        uint64 _appealTerms,
+        uint16 _penaltyPct
     ) public {
         termDuration = _termDuration;
         jurorToken = _jurorToken;
         jurorMinStake = _jurorMinStake;
         governor = _governor;
-        jurorCooldownTerms = _jurorCooldownTerms;
         
-        feeStructures.length = 1; // leave index 0 empty
-        _setFeeStructure(
+        courtConfigs.length = 1; // leave index 0 empty
+        _setCourtConfig(
             ZERO_TERM,
             _feeToken,
             _jurorFee,
             _heartbeatFee,
             _draftFee,
-            _governanceShare
+            _governanceFeeShare,
+            _commitTerms,
+            _revealTerms,
+            _appealTerms,
+            _penaltyPct
         );
         terms[ZERO_TERM].startTime = _firstTermStartTime - _termDuration;
 
@@ -260,10 +269,10 @@ contract Court is ERC900, ApproveAndCallFallBack {
         address heartbeatSender = msg.sender;
 
         // Set fee structure for term
-        if (nextTerm.feeStructureId == 0) {
-            nextTerm.feeStructureId = prevTerm.feeStructureId;
+        if (nextTerm.courtConfigId == 0) {
+            nextTerm.courtConfigId = prevTerm.courtConfigId;
         } else {
-            feeChangeTerm = ZERO_TERM; // fee structure changed in this term
+            configChangeTerm = ZERO_TERM; // fee structure changed in this term
         }
 
         // TODO: skip period if you can
@@ -273,11 +282,11 @@ contract Court is ERC900, ApproveAndCallFallBack {
         nextTerm.randomnessBN = blockNumber() + 1; // randomness source set to next block (unknown when heartbeat happens)
         _processJurorQueues(nextTerm);
 
-        FeeStructure storage feeStructure = feeStructures[nextTerm.feeStructureId];
-        uint256 totalFee = nextTerm.dependingDrafts * feeStructure.heartbeatFee;
+        CourtConfig storage courtConfig = courtConfigs[nextTerm.courtConfigId];
+        uint256 totalFee = nextTerm.dependingDrafts * courtConfig.heartbeatFee;
 
         if (totalFee > 0) {
-            _payFees(feeStructure.feeToken, heartbeatSender, totalFee, feeStructure.governanceShare);
+            _payFees(courtConfig.feeToken, heartbeatSender, totalFee, courtConfig.governanceFeeShare);
         }
 
         term += 1;
@@ -342,8 +351,8 @@ contract Court is ERC900, ApproveAndCallFallBack {
         terms[round.draftTerm].dependingDrafts -= 1;
 
         // refund fees
-        (ERC20 feeToken, uint256 feeAmount, uint16 governanceShare) = feeForJurorDraft(round.draftTerm, round.jurorNumber);
-        _payFees(feeToken, round.triggeredBy, feeAmount, governanceShare);
+        (ERC20 feeToken, uint256 feeAmount, uint16 governanceFeeShare) = feeForJurorDraft(round.draftTerm, round.jurorNumber);
+        _payFees(feeToken, round.triggeredBy, feeAmount, governanceFeeShare);
 
         emit DisputeStateChanged(_disputeId, dispute.state);
     }
@@ -353,9 +362,9 @@ contract Court is ERC900, ApproveAndCallFallBack {
         ensureTerm
     {
         Dispute storage dispute = disputes[_disputeId];
-        uint256 roundId = dispute.rounds.length - 1;
-        AdjudicationRound storage round = dispute.rounds[roundId];
+        AdjudicationRound storage round = dispute.rounds[dispute.rounds.length - 1];
         Term storage draftTerm = terms[term];
+        CourtConfig storage config = courtConfigs[draftTerm.courtConfigId]; // safe to use directly as it is the current term
 
         // TODO: Work on recovery if draft doesn't occur in the term it was supposed to
         // it should be scheduled for a future draft and require to pay the heartbeat fee for the term
@@ -367,25 +376,32 @@ contract Court is ERC900, ApproveAndCallFallBack {
             draftTerm.randomness = block.blockhash(draftTerm.randomnessBN);
         }
 
-        uint256[] memory jurorKeys = treeRandomSearch(round.jurorNumber, draftTerm.randomness, _disputeId);
-        require(jurorKeys.length == round.jurorNumber, "expected more jurors yo");
+        uint256 maxPenalty = _pct4(jurorMinStake, config.penaltyPct);
+        uint256 jurorNumber = round.jurorNumber;
+        uint256 skippedJurors = 0;
+        round.votes.length = jurorNumber;
 
-        for (uint256 i = 0; i < jurorKeys.length; i++) {
-            address juror = jurorsByTreeId[jurorKeys[i]];
+        for (uint256 i = 0; i < jurorNumber; i++) {
+            (uint256 jurorKey, uint256 stake) = treeSearch(draftTerm.randomness, _disputeId, i + skippedJurors);
+            address juror = jurorsByTreeId[jurorKey];
 
-            accounts[juror].pendingDisputes += 1;
-
-            JurorVote memory vote;
-            vote.juror = juror;
-            round.votes.push(vote);
-
+            // Account storage jurorAccount = accounts[juror]; // Hitting stack too deep
+            uint256 newAtStake = accounts[juror].tokensAtStake + maxPenalty;
+            if (stake >= newAtStake) {
+                accounts[juror].tokensAtStake += newAtStake;
+            } else {
+                // SECURITY: This has a chance of bricking the round depending on the state of the court
+                skippedJurors++;
+                i--;
+                continue;
+            }
+            round.votes[i].juror = juror;
             emit JurorDrafted(_disputeId, juror, i);
         }
 
         dispute.state = DisputeState.Adjudicating;
 
-        FeeStructure storage fees = feeStructureForTerm(term);
-        _payFees(fees.feeToken, msg.sender, fees.draftFee * round.jurorNumber, fees.governanceShare);
+        _payFees(config.feeToken, msg.sender, config.draftFee * jurorNumber, config.governanceFeeShare);
 
         emit DisputeStateChanged(_disputeId, dispute.state);
     }
@@ -493,10 +509,15 @@ contract Court is ERC900, ApproveAndCallFallBack {
 
     function checkAdjudicationState(uint256 _disputeId, uint256 _roundId, AdjudicationState _state) internal {
         AdjudicationRound storage round = disputes[_disputeId].rounds[_roundId];
+        uint64 configId = terms[round.draftTerm].courtConfigId;
+        CourtConfig storage config = courtConfigs[uint256(configId)];
+
+        uint64 commitTerms = config.commitTerms;
+        uint64 revealTerms = config.revealTerms;
 
         // fromTerm is inclusive, toTerm is exclusive
-        uint256 fromTerm = _state == AdjudicationState.Commit ? round.draftTerm : round.draftTerm + COMMIT_TERMS;
-        uint256 toTerm   = fromTerm + (_state == AdjudicationState.Commit ? COMMIT_TERMS : REVEAL_TERMS);
+        uint256 fromTerm = _state == AdjudicationState.Commit ? round.draftTerm : round.draftTerm + commitTerms;
+        uint256 toTerm   = fromTerm + (_state == AdjudicationState.Commit ? commitTerms : revealTerms);
 
         require(term >= fromTerm && term < toTerm, ERROR_INVALID_ADJUDICATION_STATE);
     }
@@ -515,43 +536,51 @@ contract Court is ERC900, ApproveAndCallFallBack {
         return keccak256(abi.encodePacked(_ruling, _salt));
     }
 
-    function treeRandomSearch(uint64 _jurorNumber, bytes32 _termRandomness, uint256 _disputeId) internal returns (uint256[] memory) {
-        bytes32 seed = keccak256(abi.encodePacked(_termRandomness, _disputeId));
-        return sumTree.randomSortition(_jurorNumber, uint256(seed));
+    function treeSearch(bytes32 _termRandomness, uint256 _disputeId, uint256 _iteration) internal returns (uint256 key, uint256 value) {
+        bytes32 seed = keccak256(abi.encodePacked(_termRandomness, _disputeId, _iteration));
+        // TODO: optimize by caching tree.totalSum(), and perform a `tree.unsafeSortition(seed % totalSum)` (unimplemented)
+        return sumTree.randomSortition(uint256(seed));
     }
 
     /**
      * @dev Assumes term is up to date
      */
-    function feeForJurorDraft(uint64 _draftTerm, uint64 _jurorNumber) public view returns (ERC20 feeToken, uint256 feeAmount, uint16 governanceShare) {
-        FeeStructure storage fees = feeStructureForTerm(_draftTerm);
+    function feeForJurorDraft(uint64 _draftTerm, uint64 _jurorNumber) public view returns (ERC20 feeToken, uint256 feeAmount, uint16 governanceFeeShare) {
+        CourtConfig storage fees = courtConfigForTerm(_draftTerm);
 
         feeToken = fees.feeToken;
-        governanceShare = fees.governanceShare;
+        governanceFeeShare = fees.governanceFeeShare;
         feeAmount = fees.heartbeatFee + _jurorNumber * (fees.jurorFee + fees.draftFee);
     }
 
-    function feeStructureForTerm(uint64 _term) internal view returns (FeeStructure storage) {
+    function courtConfigForTerm(uint64 _term) internal view returns (CourtConfig storage) {
         uint64 feeTerm;
 
         if (_term <= term) {
             feeTerm = _term; // for past terms, use the fee structure of the specific term
-        } else if (feeChangeTerm <= _term) {
-            feeTerm = feeChangeTerm; // if fees are changing before the draft, use the incoming fee schedule
+        } else if (configChangeTerm <= _term) {
+            feeTerm = configChangeTerm; // if fees are changing before the draft, use the incoming fee schedule
         } else {
             feeTerm = term; // if no changes are scheduled, use the current term fee schedule (which CANNOT change for this term)
         }
 
-        uint256 feeStructureId = uint256(terms[feeTerm].feeStructureId);
-        return feeStructures[feeStructureId];
+        uint256 courtConfigId = uint256(terms[feeTerm].courtConfigId);
+        return courtConfigs[courtConfigId];
     }
 
-    function _payFees(ERC20 _feeToken, address _to, uint256 _amount, uint16 _governanceShare) internal {
-        if (_amount == 0) return;
-        _assignTokens(_feeToken, _to, _amount * uint256(GOVERNANCE_FEE_DIVISOR - _governanceShare) / GOVERNANCE_FEE_DIVISOR);
+    function _payFees(ERC20 _feeToken, address _to, uint256 _amount, uint16 _governanceFeeShare) internal {
+        if (_amount == 0) {
+            return;
+        }
 
-        if (_governanceShare == 0) return;
-        _assignTokens(_feeToken, governor, _amount * uint256(_governanceShare) / GOVERNANCE_FEE_DIVISOR);
+        uint256 governanceFee = _pct4(_amount, _governanceFeeShare);
+        _assignTokens(_feeToken, _to, _amount - governanceFee);
+
+        if (governanceFee == 0) {
+            return;
+        }
+
+        _assignTokens(_feeToken, governor, governanceFee);
     }
 
     // TODO: should we charge heartbeat fees to jurors?
@@ -695,7 +724,7 @@ contract Court is ERC900, ApproveAndCallFallBack {
         
         if (_token == jurorToken) {
             if (account.state == AccountState.Juror) {
-                require(isJurorBalanceUnlocked(addr), ERROR_JUROR_TOKENS_AT_STAKE);
+                require(_amount <= unlockedBalanceOf(addr), ERROR_JUROR_TOKENS_AT_STAKE);
                 account.state = AccountState.PastJuror;
             }
 
@@ -710,20 +739,8 @@ contract Court is ERC900, ApproveAndCallFallBack {
 
     function unlockedBalanceOf(address _addr) public view returns (uint256) {
         Account storage account = accounts[_addr];
-        if (account.state == AccountState.Juror) {
-            if (!isJurorBalanceUnlocked(_addr)) {
-                return 0;
-            }
-        }
-        return account.balances[jurorToken];
-    }
-
-    function sortition(uint256 v) public view returns (address) {
-        return jurorsByTreeId[sumTree.sortition(v)];
-    }
-
-    function treeTotalSum() public view returns (uint256) {
-        return sumTree.totalSum();
+        // TODO: safe math
+        return account.balances[jurorToken] - account.tokensAtStake;
     }
 
     function _processJurorQueues(Term storage _incomingTerm) internal {
@@ -774,37 +791,49 @@ contract Court is ERC900, ApproveAndCallFallBack {
         emit TokenBalanceChange(_token, _to, _amount, true);
     }
 
-    function _setFeeStructure(
+    function _setCourtConfig(
         uint64 _fromTerm,
         ERC20 _feeToken,
         uint256 _jurorFee,
         uint256 _heartbeatFee,
         uint256 _draftFee,
-        uint16 _governanceShare
+        uint16 _governanceFeeShare,
+        uint64 _commitTerms,
+        uint64 _revealTerms,
+        uint64 _appealTerms,
+        uint16 _penaltyPct
     ) internal {
-        // TODO: Require fee changes happening at least X terms in the future
+        // TODO: Require config changes happening at least X terms in the future
         // Where X is the amount of terms in the future a dispute can be scheduled to be drafted at
 
-        require(feeChangeTerm > term || term == ZERO_TERM, ERROR_PAST_TERM_FEE_CHANGE);
-        require(_governanceShare <= GOVERNANCE_FEE_DIVISOR, ERROR_GOVENANCE_FEE_TOO_HIGH);
+        require(configChangeTerm > term || term == ZERO_TERM, ERROR_PAST_TERM_FEE_CHANGE);
+        require(_governanceFeeShare <= PCT_BASE, ERROR_GOVENANCE_FEE_TOO_HIGH);
 
-        if (feeChangeTerm != ZERO_TERM) {
-            terms[feeChangeTerm].feeStructureId = 0; // reset previously set fee structure change
+        require(_commitTerms > 0, ERROR_CONFIG_PERIOD_ZERO_TERMS);
+        require(_revealTerms > 0, ERROR_CONFIG_PERIOD_ZERO_TERMS);
+        require(_appealTerms > 0, ERROR_CONFIG_PERIOD_ZERO_TERMS);
+
+        if (configChangeTerm != ZERO_TERM) {
+            terms[configChangeTerm].courtConfigId = 0; // reset previously set fee structure change
         }
 
-        FeeStructure memory feeStructure = FeeStructure({
+        CourtConfig memory courtConfig = CourtConfig({
             feeToken: _feeToken,
-            governanceShare: _governanceShare,
+            governanceFeeShare: _governanceFeeShare,
             jurorFee: _jurorFee,
             heartbeatFee: _heartbeatFee,
-            draftFee: _draftFee
+            draftFee: _draftFee,
+            commitTerms: _commitTerms,
+            revealTerms: _revealTerms,
+            appealTerms: _appealTerms,
+            penaltyPct: _penaltyPct
         });
 
-        uint64 feeStructureId = uint64(feeStructures.push(feeStructure) - 1);
-        terms[feeChangeTerm].feeStructureId = feeStructureId;
-        feeChangeTerm = _fromTerm;
+        uint64 courtConfigId = uint64(courtConfigs.push(courtConfig) - 1);
+        terms[configChangeTerm].courtConfigId = courtConfigId;
+        configChangeTerm = _fromTerm;
 
-        emit NewFeeStructure(_fromTerm, feeStructureId);
+        emit NewCourtConfig(_fromTerm, courtConfigId);
     }
 
     function time() internal view returns (uint64) {
@@ -815,9 +844,8 @@ contract Court is ERC900, ApproveAndCallFallBack {
         return uint64(block.number);
     }
 
-    function isJurorBalanceUnlocked(address _jurorAddress) internal view returns (bool) {
-        Account storage account = accounts[_jurorAddress];
-        return term > account.toTerm + jurorCooldownTerms && account.pendingDisputes == 0;
+    function _pct4(uint256 _number, uint16 _pct) internal pure returns (uint256) {
+        return _number * uint256(_pct) / uint256(PCT_BASE);
     }
 }
 

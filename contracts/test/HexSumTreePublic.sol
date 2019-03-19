@@ -41,7 +41,8 @@ contract HexSumTreePublic {
     }
 
     function sortition(uint256 v) public view returns (uint256) {
-        return uint256(tree.sortition(v));
+        var (k,) = tree.sortition(v);
+        return uint256(k);
     }
 
     function get(uint256 l, uint256 key) public view returns (uint256) {

@@ -18,7 +18,10 @@ contract CourtMock is Court {
         address _governor,
         uint64 _firstTermStartTime,
         uint256 _jurorMinStake,
-        uint64 _jurorCooldownTerms
+        uint64 _commitTerms,
+        uint64 _revealTerms,
+        uint64 _appealTerms,
+        uint16 _penaltyPct
     ) Court(
         _termDuration,
         _jurorToken,
@@ -30,7 +33,10 @@ contract CourtMock is Court {
         _governor,
         _firstTermStartTime,
         _jurorMinStake,
-        _jurorCooldownTerms
+        _commitTerms,
+        _revealTerms,
+        _appealTerms,
+        _penaltyPct
     ) public {}
 
     function mock_setTime(uint64 time) external {
@@ -47,6 +53,15 @@ contract CourtMock is Court {
 
     function mock_blockTravel(uint64 inc) external {
         mockBn += inc;
+    }
+
+    function sortition(uint256 v) public view returns (address) {
+        var (k, ) = sumTree.sortition(v);
+        return jurorsByTreeId[k];
+    }
+
+    function treeTotalSum() public view returns (uint256) {
+        return sumTree.totalSum();
     }
 
     function time() internal view returns (uint64) {

@@ -41,7 +41,10 @@ contract CourtFactory is Factory {
             address(this),
             uint64(block.timestamp + 60 * 60),
             1,
-            1
+            1,
+            1,
+            1,
+            100
         );
 
         emit Deployed(address(court));

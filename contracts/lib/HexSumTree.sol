@@ -54,24 +54,14 @@ library HexSumTree {
         updateSums(self, key, delta, positive);
     }
 
-    function sortition(Tree storage self, uint256 value) internal view returns (uint256 key) {
+    function sortition(Tree storage self, uint256 value) internal view returns (uint256 key, uint256 nodeValue) {
         require(totalSum(self) > value, ERROR_SORTITION_OUT_OF_BOUNDS);
 
         return _sortition(self, value, BASE_KEY, self.rootDepth);
     }
 
-    function randomSortition(Tree storage self, uint256 n, uint256 seed) internal view returns (uint256[] memory keys) {
-        keys = new uint256[](n);
-
-        // cache in the stack. TODO: verify these don't go to memory
-        uint256 sum = totalSum(self);
-        uint256 rootDepth = self.rootDepth;
-        uint256 baseKey = BASE_KEY;
-
-        for (uint256 i = 0; i < n; i++) {
-            uint256 random = (seed * i) % sum; // intended overflow
-            keys[i] = _sortition(self, random, baseKey, rootDepth);
-        }
+    function randomSortition(Tree storage self, uint256 seed) internal view returns (uint256 key, uint256 nodeValue) {
+        return _sortition(self, seed % totalSum(self), BASE_KEY, self.rootDepth);
     }
 
     function _set(Tree storage self, uint256 key, uint256 value) private {
@@ -85,7 +75,7 @@ library HexSumTree {
         }
     }
 
-    function _sortition(Tree storage self, uint256 value, uint256 node, uint256 depth) private view returns (uint256 key) {
+    function _sortition(Tree storage self, uint256 value, uint256 node, uint256 depth) private view returns (uint256 key, uint256 nodeValue) {
         uint256 checkedValue = 0; // Can optimize by having checkedValue = value - remainingValue
 
         uint256 checkingLevel = depth - 1;
@@ -118,7 +108,7 @@ library HexSumTree {
             if (checkedValue + nodeSum <= value) { // not reached yet, move to next child
                 checkedValue += nodeSum;
             } else { // value reached
-                return checkingNode;
+                return (checkingNode, nodeSum);
             }
         }
         // Invariant: this point should never be reached

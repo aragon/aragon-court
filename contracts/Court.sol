@@ -9,12 +9,14 @@ import "./standards/erc900/ERC900.sol";
 import { ApproveAndCallFallBack } from "@aragon/apps-shared-minime/contracts/MiniMeToken.sol";
 import "@aragon/os/contracts/lib/token/ERC20.sol";
 import "@aragon/os/contracts/common/SafeERC20.sol";
+import "@aragon/os/contracts/lib/math/SafeMath.sol";
 
 
 contract Court is ERC900, ApproveAndCallFallBack {
     using HexSumTree for HexSumTree.Tree;
     using ArrayUtils for address[];
     using SafeERC20 for ERC20;
+    using SafeMath for uint256;
 
     enum AccountState {
         NotJuror,
@@ -160,7 +162,7 @@ contract Court is ERC900, ApproveAndCallFallBack {
     bytes4 private constant ARBITRABLE_INTERFACE_ID = 0xabababab; // TODO: interface id
     uint16 internal constant PCT_BASE = 10000; // ‱
     uint8 public constant MIN_RULING_OPTIONS = 2;
-    uint8 public constant MAX_RULING_OPTIONS = 254;
+    uint8 public constant MAX_RULING_OPTIONS = MIN_RULING_OPTIONS;
 
     event NewTerm(uint64 term, address indexed heartbeatSender);
     event NewCourtConfig(uint64 fromTerm, uint64 courtConfigId);
@@ -198,7 +200,6 @@ contract Court is ERC900, ApproveAndCallFallBack {
         address _juror,
         AdjudicationState _state
     ) {
-        checkDisputeState(_disputeId, _roundId);
         checkAdjudicationState(_disputeId, _roundId, _state);
         require(_getJurorVote(_disputeId, _roundId, _draftId).juror == _juror, ERROR_INVALID_JUROR);
 
@@ -305,7 +306,8 @@ contract Court is ERC900, ApproveAndCallFallBack {
         // TODO: Limit the min amount of terms before drafting (to allow for evidence submission)
         // TODO: Limit the max amount of terms into the future that a dispute can be drafted
         // TODO: Limit the max number of initial jurors
-        // TODO: ERC165 check that _subject conforms to the interface
+        // TODO: ERC165 check that _subject conforms to the Arbitrable interface
+        // TODO: Consider requiring that only the contract being arbitred can create a dispute
 
         require(_possibleRulings >= MIN_RULING_OPTIONS && _possibleRulings <= MAX_RULING_OPTIONS, ERROR_INVALID_RULING_OPTIONS);
 
@@ -497,7 +499,14 @@ contract Court is ERC900, ApproveAndCallFallBack {
         require(jurorVote.ruling == uint8(Ruling.Missing), ERROR_ALREADY_VOTED);
     }
 
-    function checkDisputeState(uint256 _disputeId, uint256 _roundId) internal {
+    function getWinningRuling(uint256 _disputeId, uint256 _roundId) public view returns (uint8 ruling, uint256 rulingVotes) {
+        AdjudicationRound storage round = disputes[_disputeId].rounds[_roundId];
+
+        ruling = round.winningRuling;
+        rulingVotes = round.rulingVotes[ruling];
+    }
+
+    function checkAdjudicationState(uint256 _disputeId, uint256 _roundId, AdjudicationState _state) internal {
         Dispute storage dispute = disputes[_disputeId];
         if (dispute.state == DisputeState.PreDraft) {
             draftAdjudicationRound(_disputeId);
@@ -505,9 +514,6 @@ contract Court is ERC900, ApproveAndCallFallBack {
 
         require(dispute.state == DisputeState.Adjudicating, ERROR_INVALID_DISPUTE_STATE);
         require(_roundId == dispute.rounds.length - 1, ERROR_INVALID_ADJUDICATION_ROUND);
-    }
-
-    function checkAdjudicationState(uint256 _disputeId, uint256 _roundId, AdjudicationState _state) internal {
         AdjudicationRound storage round = disputes[_disputeId].rounds[_roundId];
         uint64 configId = terms[round.draftTerm].courtConfigId;
         CourtConfig storage config = courtConfigs[uint256(configId)];
@@ -536,7 +542,7 @@ contract Court is ERC900, ApproveAndCallFallBack {
         return keccak256(abi.encodePacked(_ruling, _salt));
     }
 
-    function treeSearch(bytes32 _termRandomness, uint256 _disputeId, uint256 _iteration) internal returns (uint256 key, uint256 value) {
+    function treeSearch(bytes32 _termRandomness, uint256 _disputeId, uint256 _iteration) internal view returns (uint256 key, uint256 value) {
         bytes32 seed = keccak256(abi.encodePacked(_termRandomness, _disputeId, _iteration));
         // TODO: optimize by caching tree.totalSum(), and perform a `tree.unsafeSortition(seed % totalSum)` (unimplemented)
         return sumTree.randomSortition(uint256(seed));
@@ -739,8 +745,7 @@ contract Court is ERC900, ApproveAndCallFallBack {
 
     function unlockedBalanceOf(address _addr) public view returns (uint256) {
         Account storage account = accounts[_addr];
-        // TODO: safe math
-        return account.balances[jurorToken] - account.tokensAtStake;
+        return account.balances[jurorToken].sub(account.tokensAtStake);
     }
 
     function _processJurorQueues(Term storage _incomingTerm) internal {

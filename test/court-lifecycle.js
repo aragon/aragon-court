@@ -98,8 +98,9 @@ contract('Court: Lifecycle', ([ poor, rich, governor, juror1, juror2 ]) => {
           res(rec)
         }))
 
+    // TODO: This is actually measuring the deployment cost for CourtMock and not Court
     const { gasUsed } = await getReceipt(this.court.transactionHash)
-    assert.isBelow(gasUsed, BLOCK_GAS_LIMIT, 'should be deployable to under the gas limit')
+    assert.isBelow(gasUsed, BLOCK_GAS_LIMIT, 'CourtMock should be deployable to under the gas limit')
   })
 
   context('before first term', () => {

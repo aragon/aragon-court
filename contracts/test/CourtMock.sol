@@ -6,6 +6,7 @@ import "../Court.sol";
 contract CourtMock is Court {
     uint64 internal mockTime = 0;
     uint64 internal mockBn = 0;
+    bool internal treeSearchHijacked = false;
 
     constructor(
         uint64 _termDuration,
@@ -53,6 +54,19 @@ contract CourtMock is Court {
 
     function mock_blockTravel(uint64 inc) external {
         mockBn += inc;
+    }
+
+    function mock_hijackTreeSearch() external {
+        treeSearchHijacked = true;
+    }
+
+    function treeSearch(bytes32 _termRandomness, uint256 _disputeId, uint256 _iteration) internal view returns (uint256 key, uint256 value) {
+        if (!treeSearchHijacked) {
+            return super.treeSearch(_termRandomness, _disputeId, _iteration);
+        }
+
+        key = _iteration;
+        return (key, sumTree.getItem(key));
     }
 
     function sortition(uint256 v) public view returns (address) {

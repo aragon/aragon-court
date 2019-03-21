@@ -25,19 +25,19 @@ contract Court is ERC900, ApproveAndCallFallBack {
     }
 
     struct AccountUpdate {
+        uint64 term;
         bool positive; // TODO: optimize gas
         uint256 delta;
     }
 
     struct Account {
         mapping (address => uint256) balances; // token addr -> balance
-        AccountState state;     // whether the account is not a juror, a current juror or a past juror
-        uint64 fromTerm;        // first term in which the juror can be drawn
-        uint64 toTerm;          // last term in which the juror can be drawn
-        uint256 tokensAtStake;  // disputes in which the juror was drawn which haven't resolved
-        uint64 pendingDisputes; // TODO: remove
-        uint256 sumTreeId;      // key in the sum tree used for sortition
-        AccountUpdate update;   // next account update
+        AccountState state;      // whether the account is not a juror, a current juror or a past juror
+        uint64 fromTerm;         // first term in which the juror can be drawn
+        uint64 toTerm;           // last term in which the juror can be drawn
+        uint256 atStakeTokens;   // maximum amount of juror tokens that the juror could be slashed given their drafts
+        uint256 sumTreeId;       // key in the sum tree used for sortition
+        AccountUpdate update;    // next account update
     }
 
     struct CourtConfig {
@@ -88,8 +88,6 @@ contract Court is ERC900, ApproveAndCallFallBack {
     enum DisputeState {
         PreDraft,
         Adjudicating,
-        Appealable,   // TODO: do we need to store this state?
-        Executable,   // TODO: do we need to store this state?
         Executed,
         Dismissed
     }
@@ -102,8 +100,11 @@ contract Court is ERC900, ApproveAndCallFallBack {
     }
 
     enum AdjudicationState {
+        Invalid,
         Commit,
-        Reveal
+        Reveal,
+        Appealable,
+        Ended
     }
 
     // State constants which are set in the constructor and can't change
@@ -155,6 +156,7 @@ contract Court is ERC900, ApproveAndCallFallBack {
     string internal constant ERROR_INVALID_RULING_OPTIONS = "COURT_INVALID_RULING_OPTIONS";
     string internal constant ERROR_FAILURE_COMMITMENT_CHECK = "COURT_FAILURE_COMMITMENT_CHECK";
     string internal constant ERROR_CONFIG_PERIOD_ZERO_TERMS = "COURT_CONFIG_PERIOD_ZERO_TERMS";
+    string internal constant ERROR_CANT_DISMISS_APPEAL = "COURT_CANT_DISMISS_APPEAL";
 
     uint64 internal constant ZERO_TERM = 0; // invalid term that doesn't accept disputes
     uint64 public constant MANUAL_DEACTIVATION = uint64(-1);
@@ -167,8 +169,8 @@ contract Court is ERC900, ApproveAndCallFallBack {
     event NewTerm(uint64 term, address indexed heartbeatSender);
     event NewCourtConfig(uint64 fromTerm, uint64 courtConfigId);
     event TokenBalanceChange(address indexed token, address indexed owner, uint256 amount, bool positive);
-    event JurorActivate(address indexed juror, uint64 fromTerm, uint64 toTerm);
-    event JurorDeactivate(address indexed juror, uint64 lastTerm);
+    event JurorActivated(address indexed juror, uint64 fromTerm, uint64 toTerm);
+    event JurorDeactivated(address indexed juror, uint64 lastTerm);
     event JurorDrafted(uint256 indexed disputeId, address indexed juror, uint256 draftId);
     event DisputeStateChanged(uint256 indexed disputeId, DisputeState indexed state);
     event NewDispute(uint256 indexed disputeId, address indexed subject, uint64 indexed draftTerm, uint64 jurorNumber);
@@ -176,6 +178,7 @@ contract Court is ERC900, ApproveAndCallFallBack {
     event VoteCommitted(uint256 indexed disputeId, uint256 indexed roundId, address indexed juror, bytes32 commitment);
     event VoteRevealed(uint256 indexed disputeId, uint256 indexed roundId, address indexed juror, uint8 ruling);
     event VoteLeaked(uint256 indexed disputeId, uint256 indexed roundId, address indexed juror, address leaker);
+    event RulingAppealed(uint256 indexed disputeId, uint256 indexed roundId, uint64 indexed draftTerm, uint256 jurorNumber);
 
     modifier only(address _addr) {
         require(msg.sender == _addr, ERROR_INVALID_ADDR);
@@ -200,7 +203,7 @@ contract Court is ERC900, ApproveAndCallFallBack {
         address _juror,
         AdjudicationState _state
     ) {
-        checkAdjudicationState(_disputeId, _roundId, _state);
+        _checkAdjudicationState(_disputeId, _roundId, _state);
         require(_getJurorVote(_disputeId, _roundId, _draftId).juror == _juror, ERROR_INVALID_JUROR);
 
         _;
@@ -265,8 +268,9 @@ contract Court is ERC900, ApproveAndCallFallBack {
     function heartbeat(uint64 _termTransitions) public {
         require(canTransitionTerm(), ERROR_UNFINISHED_TERM);
 
-        Term storage prevTerm = terms[term];
-        Term storage nextTerm = terms[term + 1];
+        uint64 prevTermId = term;
+        Term storage prevTerm = terms[prevTermId];
+        Term storage nextTerm = terms[prevTermId + 1];
         address heartbeatSender = msg.sender;
 
         // Set fee structure for term
@@ -281,7 +285,7 @@ contract Court is ERC900, ApproveAndCallFallBack {
         // Set the start time of the term (ensures equally long terms, regardless of heartbeats)
         nextTerm.startTime = prevTerm.startTime + termDuration;
         nextTerm.randomnessBN = blockNumber() + 1; // randomness source set to next block (unknown when heartbeat happens)
-        _processJurorQueues(nextTerm);
+        _processJurorQueues(prevTermId, nextTerm);
 
         CourtConfig storage courtConfig = courtConfigs[nextTerm.courtConfigId];
         uint256 totalFee = nextTerm.dependingDrafts * courtConfig.heartbeatFee;
@@ -311,26 +315,14 @@ contract Court is ERC900, ApproveAndCallFallBack {
 
         require(_possibleRulings >= MIN_RULING_OPTIONS && _possibleRulings <= MAX_RULING_OPTIONS, ERROR_INVALID_RULING_OPTIONS);
 
-        (ERC20 feeToken, uint256 feeAmount,) = feeForJurorDraft(_draftTerm, _jurorNumber);
-        if (feeAmount > 0) {
-            require(feeToken.safeTransferFrom(msg.sender, this, feeAmount), ERROR_DEPOSIT_FAILED);
-        }
-
         uint256 disputeId = disputes.length;
         disputes.length = disputeId + 1;
 
         Dispute storage dispute = disputes[disputeId];
         dispute.subject = _subject;
-        dispute.state = DisputeState.PreDraft;
-        dispute.rounds.length = 1;
         dispute.possibleRulings = _possibleRulings;
 
-        AdjudicationRound storage round = dispute.rounds[0];
-        round.draftTerm = _draftTerm;
-        round.jurorNumber = _jurorNumber;
-        round.triggeredBy = msg.sender;
-
-        terms[_draftTerm].dependingDrafts += 1;
+        _newAdjudicationRound(dispute, _jurorNumber, _draftTerm);
 
         emit NewDispute(disputeId, _subject, _draftTerm, _jurorNumber);
 
@@ -347,8 +339,9 @@ contract Court is ERC900, ApproveAndCallFallBack {
 
         require(round.triggeredBy == msg.sender, ERROR_ENTITY_CANT_DISMISS);
         require(dispute.state == DisputeState.PreDraft && round.draftTerm > term, ERROR_CANT_DISMISS_AFTER_DRAFT);
+        require(roundId == 0, ERROR_CANT_DISMISS_APPEAL);
 
-        dispute.state = roundId == 0 ? DisputeState.Dismissed : DisputeState.Appealable;
+        dispute.state = DisputeState.Dismissed;
 
         terms[round.draftTerm].dependingDrafts -= 1;
 
@@ -388,9 +381,9 @@ contract Court is ERC900, ApproveAndCallFallBack {
             address juror = jurorsByTreeId[jurorKey];
 
             // Account storage jurorAccount = accounts[juror]; // Hitting stack too deep
-            uint256 newAtStake = accounts[juror].tokensAtStake + maxPenalty;
+            uint256 newAtStake = accounts[juror].atStakeTokens + maxPenalty;
             if (stake >= newAtStake) {
-                accounts[juror].tokensAtStake += newAtStake;
+                accounts[juror].atStakeTokens += newAtStake;
             } else {
                 // SECURITY: This has a chance of bricking the round depending on the state of the court
                 skippedJurors++;
@@ -476,6 +469,38 @@ contract Court is ERC900, ApproveAndCallFallBack {
         emit VoteRevealed(_disputeId, _roundId, msg.sender, _ruling);
     }
 
+    function appealRuling(uint256 _disputeId, uint256 _roundId) external ensureTerm {
+        _checkAdjudicationState(_disputeId, _roundId, AdjudicationState.Appealable);
+
+        Dispute storage dispute = disputes[_disputeId];
+        AdjudicationRound storage currentRound = dispute.rounds[_roundId];
+
+        uint64 appealJurorNumber = 2 * currentRound.jurorNumber + 1; // J' = 2J + 1
+        uint64 appealDraftTerm = term + 1; // Appeals are drafted in the next term
+
+        uint256 roundId = _newAdjudicationRound(dispute, appealJurorNumber, appealDraftTerm);
+        emit RulingAppealed(_disputeId, roundId, appealDraftTerm, appealJurorNumber);
+    }
+
+    function _newAdjudicationRound(Dispute storage dispute, uint64 _jurorNumber, uint64 _draftTerm) internal returns (uint256 roundId) {
+        (ERC20 feeToken, uint256 feeAmount,) = feeForJurorDraft(_draftTerm, _jurorNumber);
+        if (feeAmount > 0) {
+            require(feeToken.safeTransferFrom(msg.sender, this, feeAmount), ERROR_DEPOSIT_FAILED);
+        }
+
+        dispute.state = DisputeState.PreDraft;
+
+        roundId = dispute.rounds.length;
+        dispute.rounds.length = roundId + 1;
+
+        AdjudicationRound storage round = dispute.rounds[roundId];
+        round.draftTerm = _draftTerm;
+        round.jurorNumber = _jurorNumber;
+        round.triggeredBy = msg.sender;
+
+        terms[_draftTerm].dependingDrafts += 1;
+    }
+
     function updateTally(uint256 _disputeId, uint256 _roundId, uint8 _ruling) internal {
         AdjudicationRound storage round = disputes[_disputeId].rounds[_roundId];
 
@@ -499,33 +524,49 @@ contract Court is ERC900, ApproveAndCallFallBack {
         require(jurorVote.ruling == uint8(Ruling.Missing), ERROR_ALREADY_VOTED);
     }
 
-    function getWinningRuling(uint256 _disputeId, uint256 _roundId) public view returns (uint8 ruling, uint256 rulingVotes) {
-        AdjudicationRound storage round = disputes[_disputeId].rounds[_roundId];
+    function getWinningRuling(uint256 _disputeId) public view returns (uint8 ruling, uint256 rulingVotes) {
+        Dispute storage dispute = disputes[_disputeId];
+        AdjudicationRound storage round = dispute.rounds[dispute.rounds.length - 1];
 
         ruling = round.winningRuling;
         rulingVotes = round.rulingVotes[ruling];
     }
 
-    function checkAdjudicationState(uint256 _disputeId, uint256 _roundId, AdjudicationState _state) internal {
+    function _checkAdjudicationState(uint256 _disputeId, uint256 _roundId, AdjudicationState _state) internal {
         Dispute storage dispute = disputes[_disputeId];
-        if (dispute.state == DisputeState.PreDraft) {
+        DisputeState disputeState = dispute.state;
+        if (disputeState == DisputeState.PreDraft) {
             draftAdjudicationRound(_disputeId);
         }
 
-        require(dispute.state == DisputeState.Adjudicating, ERROR_INVALID_DISPUTE_STATE);
+        require(disputeState == DisputeState.Adjudicating, ERROR_INVALID_DISPUTE_STATE);
         require(_roundId == dispute.rounds.length - 1, ERROR_INVALID_ADJUDICATION_ROUND);
+        require(adjudicationStateAtTerm(_disputeId, _roundId, term) == _state, ERROR_INVALID_ADJUDICATION_STATE);
+    }
+
+    function adjudicationStateAtTerm(uint256 _disputeId, uint256 _roundId, uint64 _term) internal returns (AdjudicationState) {
+        Dispute storage dispute = disputes[_disputeId];
         AdjudicationRound storage round = disputes[_disputeId].rounds[_roundId];
-        uint64 configId = terms[round.draftTerm].courtConfigId;
+
+        uint64 draftTerm = round.draftTerm;
+        uint64 configId = terms[draftTerm].courtConfigId;
         CourtConfig storage config = courtConfigs[uint256(configId)];
 
-        uint64 commitTerms = config.commitTerms;
-        uint64 revealTerms = config.revealTerms;
+        uint64 revealStart = draftTerm + config.commitTerms;
+        uint64 appealStart = revealStart + config.revealTerms;
+        uint64 appealEnd = appealStart + config.appealTerms;
 
-        // fromTerm is inclusive, toTerm is exclusive
-        uint256 fromTerm = _state == AdjudicationState.Commit ? round.draftTerm : round.draftTerm + commitTerms;
-        uint256 toTerm   = fromTerm + (_state == AdjudicationState.Commit ? commitTerms : revealTerms);
-
-        require(term >= fromTerm && term < toTerm, ERROR_INVALID_ADJUDICATION_STATE);
+        if (_term < draftTerm) {
+            return AdjudicationState.Invalid;
+        } else if (_term < revealStart) {
+            return AdjudicationState.Commit;
+        } else if (_term < appealStart) {
+            return AdjudicationState.Reveal;
+        } else if (_term < appealEnd) {
+            return AdjudicationState.Appealable;
+        } else {
+            return AdjudicationState.Ended;
+        }
     }
 
     function getJurorVote(uint256 _disputeId, uint256 _roundId, uint256 _draftId) public view returns (address juror, uint8 ruling) {
@@ -612,7 +653,7 @@ contract Court is ERC900, ApproveAndCallFallBack {
             sumTree.update(sumTreeId, balance, true);
         } else {
             // TODO: check queue size limit
-            account.update = AccountUpdate({ delta: balance, positive: true });
+            account.update = AccountUpdate({ delta: balance, positive: true, term: _fromTerm });
             terms[_fromTerm].updateQueue.push(jurorAddress);
         }
 
@@ -626,7 +667,7 @@ contract Court is ERC900, ApproveAndCallFallBack {
         account.state = AccountState.Juror;
         account.balances[jurorToken] = 0;   // tokens are either pending the update or in the tree
 
-        emit JurorActivate(jurorAddress, _fromTerm, _toTerm);
+        emit JurorActivated(jurorAddress, _fromTerm, _toTerm);
     }
 
     // TODO: activate more tokens
@@ -655,7 +696,7 @@ contract Court is ERC900, ApproveAndCallFallBack {
         terms[_lastTerm].egressQueue.push(jurorAddress);
         account.toTerm = _lastTerm;
 
-        emit JurorDeactivate(jurorAddress, _lastTerm);
+        emit JurorDeactivated(jurorAddress, _lastTerm);
     }
 
     function canTransitionTerm() public view returns (bool) {
@@ -694,12 +735,13 @@ contract Court is ERC900, ApproveAndCallFallBack {
     }
 
     function totalStakedFor(address _addr) public view returns (uint256) {
-        uint256 sumTreeId = accounts[_addr].sumTreeId;
+        Account storage account = accounts[_addr];
+        uint256 sumTreeId = account.sumTreeId;
         uint256 activeTokens = sumTreeId > 0 ? sumTree.getItem(sumTreeId) : 0;
-        AccountUpdate storage update = accounts[_addr].update;
+        AccountUpdate storage update = account.update;
         uint256 pendingTokens = update.positive ? update.delta : -update.delta;
 
-        return accounts[_addr].balances[jurorToken] + activeTokens + pendingTokens;
+        return account.balances[jurorToken] + activeTokens + pendingTokens;
     }
 
     function totalStaked() external view returns (uint256) {
@@ -714,9 +756,7 @@ contract Court is ERC900, ApproveAndCallFallBack {
         return false;
     }
 
-    /** @dev Withdraw tokens. Note that we can't withdraw the tokens which are still atStake. 
-     *  Jurors can't withdraw their tokens if they have deposited some during this term.
-     *  This is to prevent jurors from withdrawing tokens they could lose.
+    /**
      *  @param _token Token to withdraw
      *  @param _amount The amount to withdraw.
      */
@@ -745,38 +785,63 @@ contract Court is ERC900, ApproveAndCallFallBack {
 
     function unlockedBalanceOf(address _addr) public view returns (uint256) {
         Account storage account = accounts[_addr];
-        return account.balances[jurorToken].sub(account.tokensAtStake);
+        return account.balances[jurorToken].sub(account.atStakeTokens);
     }
 
-    function _processJurorQueues(Term storage _incomingTerm) internal {
-        uint256 egressLength = _incomingTerm.egressQueue.length;
-        uint256 updatesLength = _incomingTerm.updateQueue.length;
+    function _processJurorQueues(uint64 _prevTermId, Term storage _incomingTerm) internal {
+        // Always process egress before updates
+        // If a juror update is scheduled for the same term, it will get settled processing its exit
+        _processEgressQueue(_incomingTerm, _prevTermId);
+        _processUpdateQueue(_incomingTerm);
+    }
 
-        for (uint256 i = 0; i < updatesLength; i++) {
-            address jurorUpdate = _incomingTerm.updateQueue[i];
-            AccountUpdate storage update = accounts[jurorUpdate].update;
+    function _processEgressQueue(Term storage _incomingTerm, uint64 _prevTermId) internal {
+        uint256 length = _incomingTerm.egressQueue.length;
 
-            if (update.delta > 0) {
-                sumTree.update(accounts[jurorUpdate].sumTreeId, update.delta, update.positive);
-                delete accounts[jurorUpdate].update;
+        for (uint256 i = 0; i < length; i++) {
+            address juror = _incomingTerm.egressQueue[i];
+            Account storage account = accounts[juror];
+
+            uint256 sumTreeId = account.sumTreeId;
+            uint256 treeBalance = sumTree.getItem(sumTreeId);
+
+            // Juror has their update in this term or in the future
+            // settle immediately and remove from updates queue
+            AccountUpdate storage futureUpdate = account.update;
+            if (futureUpdate.term >= _prevTermId) {
+                if (futureUpdate.positive) {
+                    treeBalance = treeBalance + futureUpdate.delta;
+                } else {
+                    treeBalance = treeBalance - futureUpdate.delta;
+                }
+
+                terms[futureUpdate.term].updateQueue.deleteItem(juror);
             }
-        }
-        for (uint256 j = 0; j < egressLength; j++) {
-            address jurorEgress = _incomingTerm.egressQueue[j];
 
-            uint256 sumTreeId = accounts[jurorEgress].sumTreeId;
-            if (sumTreeId != 0) {
-                uint256 treeBalance = sumTree.getItem(sumTreeId);
-                accounts[jurorEgress].balances[jurorToken] += treeBalance;
-                sumTree.set(sumTreeId, 0);
-                delete accounts[jurorEgress].sumTreeId;
-            }
+            sumTree.set(sumTreeId, 0);
+            account.balances[jurorToken] += treeBalance;
+            account.state = AccountState.PastJuror;
+            delete account.update;
+            delete account.sumTreeId;
         }
 
-        if (egressLength > 0) {
+        if (length > 0) {
             delete _incomingTerm.egressQueue;
         }
-        if (updatesLength > 0) {
+    }
+
+    function _processUpdateQueue(Term storage _incomingTerm) internal {
+        uint256 length = _incomingTerm.updateQueue.length;
+        for (uint256 i = 0; i < length; i++) {
+            Account storage account = accounts[_incomingTerm.updateQueue[i]];
+            AccountUpdate storage update = account.update;
+
+            if (update.delta > 0) {
+                sumTree.update(account.sumTreeId, update.delta, update.positive);
+                delete account.update;
+            }
+        }
+        if (length > 0) {
             delete _incomingTerm.updateQueue;
         }
     }

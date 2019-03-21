@@ -65,7 +65,7 @@ contract CourtMock is Court {
             return super.treeSearch(_termRandomness, _disputeId, _iteration);
         }
 
-        key = _iteration;
+        key = _iteration % sumTree.nextKey; // loop
         return (key, sumTree.getItem(key));
     }
 

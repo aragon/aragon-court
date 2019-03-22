@@ -136,6 +136,12 @@ contract('Court: Lifecycle', ([ poor, rich, governor, juror1, juror2 ]) => {
       await this.court.mock_setTime(firstTermStart - 1)
       await assertRevert(this.court.activate(1, 10, { from: poor }), 'COURT_TOKENS_BELOW_MIN_STAKE')
     })
+
+    it("doesn't perform more transitions than requested", async () => {
+      await this.court.mock_setTime(firstTermStart + termDuration * 100)
+      await this.court.heartbeat(3)
+      await assertEqualBN(this.court.term(), 3, 'current term')
+    })
   })
 
   context('on regular court terms', () => {

@@ -306,7 +306,7 @@ contract Court is ERC900, ApproveAndCallFallBack {
         term += 1;
         emit NewTerm(term, heartbeatSender);
 
-        if (_termTransitions > 0 && canTransitionTerm()) {
+        if (_termTransitions > 1 && canTransitionTerm()) {
             heartbeat(_termTransitions - 1);
         }
     }

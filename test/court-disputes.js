@@ -31,7 +31,7 @@ contract('Court: Disputes', ([ poor, rich, governor, juror1, juror2, juror3, arb
   
   const termDuration = 10
   const firstTermStart = 1
-  const jurorMinStake = 100
+  const jurorMinStake = 400
   const startBlock = 1000
   const commitTerms = 1
   const revealTerms = 1
@@ -50,6 +50,7 @@ contract('Court: Disputes', ([ poor, rich, governor, juror1, juror2, juror3, arb
   const VOTE_COMMITTED_EVENT = 'VoteCommitted'
   const VOTE_REVEALED_EVENT = 'VoteRevealed'
   const RULING_APPEALED_EVENT = 'RulingAppealed'
+  const ROUND_SLASHING_SETTLED_EVENT = 'RoundSlashingSettled'
 
   const SALT = soliditySha3('passw0rd')
 
@@ -58,6 +59,8 @@ contract('Court: Disputes', ([ poor, rich, governor, juror1, juror2, juror3, arb
       { t: 'uint8', v: ruling },
       { t: 'bytes32', v: salt }
     )
+
+  const pct4 = (n, p) => n * p / 1e4
 
   before(async () => {
     this.tokenFactory = await TokenFactory.new()
@@ -112,7 +115,7 @@ contract('Court: Disputes', ([ poor, rich, governor, juror1, juror2, juror3, arb
     assert.equal(await this.court.encryptVote(ruling, SALT), encryptVote(ruling))
   })
 
-  context.only('activating jurors', () => {
+  context('activating jurors', () => {
     const passTerms = async terms => {
       await this.court.mock_timeTravel(terms * termDuration)
       await this.court.heartbeat(terms)
@@ -252,6 +255,31 @@ contract('Court: Disputes', ([ poor, rich, governor, juror1, juror2, juror3, arb
             it('fails to appeal incorrect round', async () => {
               await passTerms(1) // term = 5
               await assertRevert(this.court.appealRuling(disputeId, firstRoundId + 1), 'COURT_INVALID_ADJUDICATION_ROUND')
+            })
+
+            context('settling round', () => {
+              const slashed = pct4(jurorMinStake, penaltyPct)
+
+              beforeEach(async () => {
+                await passTerms(2) // term = 6
+                await assertLogs(this.court.settleRoundSlashing(disputeId, firstRoundId), ROUND_SLASHING_SETTLED_EVENT)
+              })
+
+              it('slashed incoherent juror', async () => {
+                await assertEqualBN(this.court.totalStakedFor(juror1), juror1Stake - slashed, 'juror1 slashed')
+              })
+
+              it('coherent jurors can claim reward', async () => {
+                const reward = slashed / 2
+
+                await assertEqualBN(this.court.totalStakedFor(juror2), juror2Stake, 'juror2 pre-reward')
+                await assertLogs(this.court.settleReward(disputeId, firstRoundId, 1))
+                await assertEqualBN(this.court.totalStakedFor(juror2), juror2Stake + reward, 'juror2 post-reward')
+
+                await assertEqualBN(this.court.totalStakedFor(juror3), juror3Stake, 'juror3 pre-reward')
+                await assertLogs(this.court.settleReward(disputeId, firstRoundId, 2))
+                await assertEqualBN(this.court.totalStakedFor(juror3), juror3Stake + reward, 'juror3 post-reward')
+              })
             })
 
             context('on appeal', () => {

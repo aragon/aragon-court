@@ -584,12 +584,12 @@ contract Court is ERC900, ApproveAndCallFallBack {
         JurorVote storage vote = round.votes[_draftId];
         CourtConfig storage config = courtConfigs[terms[round.draftTerm].courtConfigId]; // safe to use directly as it is the current term
         uint8 ruling = getWinningRuling(_disputeId);
-    
+
         require(round.settledPenalties, ERROR_ROUND_NOT_SETTLED);
         require(vote.ruling == ruling, ERROR_JUROR_NOT_COHERENT);
         require(!vote.rewarded, ERROR_JUROR_ALREADY_REWARDED);
         vote.rewarded = true;
-    
+
         address juror = vote.juror;
         uint256 coherentJurors = round.rulingVotes[ruling];
         uint256 slashedTokens = round.slashedTokens;
@@ -609,7 +609,7 @@ contract Court is ERC900, ApproveAndCallFallBack {
     }
 
     /**
-     * @dev Sum nA + nB which can be positive or negative denoted by pA and pB 
+     * @dev Sum nA + nB which can be positive or negative denoted by pA and pB
      */
     function _signedSum(uint256 nA, bool pA, uint256 nB, bool pB) internal pure returns (uint256 nC, bool pC) {
         nC = nA + (pA == pB ? nB : -nB);

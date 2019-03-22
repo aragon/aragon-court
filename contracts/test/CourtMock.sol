@@ -67,20 +67,20 @@ contract CourtMock is Court {
         return (key, sumTree.getItem(key));
     }
 
-    function sortition(uint256 v) public view returns (address) {
+    function mock_sortition(uint256 v) public view returns (address) {
         var (k, ) = sumTree.sortition(v);
         return jurorsByTreeId[k];
     }
 
-    function treeTotalSum() public view returns (uint256) {
+    function mock_treeTotalSum() public view returns (uint256) {
         return sumTree.totalSum();
     }
 
-    function time() internal view returns (uint64) {
+    function _time() internal view returns (uint64) {
         return mockTime;
     }
 
-    function blockNumber() internal view returns (uint64) {
+    function _blockNumber() internal view returns (uint64) {
         return mockBn;
     }
 }

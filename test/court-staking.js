@@ -1,5 +1,5 @@
 const TokenFactory = artifacts.require('TokenFactory')
-const CourtFactory = artifacts.require('CourtFactory')
+const CourtMock = artifacts.require('CourtMock')
 
 const COURT = 'Court'
 const MINIME = 'MiniMeToken'
@@ -16,10 +16,10 @@ const assertEqualBN = async (actualPromise, expected, message) =>
 contract('Court: Staking', ([ pleb, rich ]) => {
   const INITIAL_BALANCE = 1e6
   const NO_DATA = ''
+  const ZERO_ADDRESS = '0x' + '00'.repeat(20)
 
   before(async () => {
     this.tokenFactory = await TokenFactory.new()
-    this.courtFactory = await CourtFactory.new()
   })
 
   beforeEach(async () => {
@@ -28,9 +28,21 @@ contract('Court: Staking', ([ pleb, rich ]) => {
     assertEqualBN(this.anj.balanceOf(rich), INITIAL_BALANCE, 'rich balance')
     assertEqualBN(this.anj.balanceOf(pleb), 0, 'pleb balance')
 
-    this.court = await deployedContract(this.courtFactory.newCourtStaking(this.anj.address), COURT)
-    assert.equal(await this.court.token(), this.anj.address, 'court token')
-    assert.equal(await this.court.jurorToken(), this.anj.address, 'court juror token');
+    this.court = await CourtMock.new(
+      10,
+      this.anj.address,
+      ZERO_ADDRESS, // no fees
+      0,
+      0,
+      0,
+      0,
+      0,
+      ZERO_ADDRESS,
+      1,
+      1,
+      [ 1, 1, 1 ],
+      1
+    )
   })
 
   const assertStaked = async (staker, amount, initialBalance, { recipient, initialStaked = 0 } = {}) => {

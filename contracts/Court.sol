@@ -221,20 +221,20 @@ contract Court is ERC900, ApproveAndCallFallBack {
         _;
     }
 
-    /** @dev Constructor.
-     *  @param _termDuration Duration in seconds per term (recommended 1 hour)
-     *  @param _jurorToken The address of the juror work token contract.
-     *  @param _feeToken The address of the token contract that is used to pay for fees.
-     *  @param _jurorFee The amount of _feeToken that is paid per juror per dispute
-     *  @param _heartbeatFee The amount of _feeToken per dispute to cover maintenance costs.
-     *  @param _draftFee The amount of _feeToken per juror to cover the drafting cost.
-     *  @param _settleFee The amount of _feeToken per juror to cover round settlement cost.
-     *  @param _governanceFeeShare Share in ‱ of fees that are paid to the governor.
-     *  @param _governor Address of the governor contract.
-     *  @param _firstTermStartTime Timestamp in seconds when the court will open (to give time for juror onboarding)
-     *  @param _jurorMinStake Minimum amount of juror tokens that can be activated
-     *  @param _roundStateDurations Number of terms that the different states a dispute round last
-     *  @param _penaltyPct ‱ of jurorMinStake that can be slashed (1/10,000)
+    /**
+     * @param _termDuration Duration in seconds per term (recommended 1 hour)
+     * @param _jurorToken The address of the juror work token contract.
+     * @param _feeToken The address of the token contract that is used to pay for fees.
+     * @param _jurorFee The amount of _feeToken that is paid per juror per dispute
+     * @param _heartbeatFee The amount of _feeToken per dispute to cover maintenance costs.
+     * @param _draftFee The amount of _feeToken per juror to cover the drafting cost.
+     * @param _settleFee The amount of _feeToken per juror to cover round settlement cost.
+     * @param _governanceFeeShare Share in ‱ of fees that are paid to the governor.
+     * @param _governor Address of the governor contract.
+     * @param _firstTermStartTime Timestamp in seconds when the court will open (to give time for juror onboarding)
+     * @param _jurorMinStake Minimum amount of juror tokens that can be activated
+     * @param _roundStateDurations Number of terms that the different states a dispute round last
+     * @param _penaltyPct ‱ of jurorMinStake that can be slashed (1/10,000)
      */
     constructor(
         uint64 _termDuration,
@@ -274,6 +274,9 @@ contract Court is ERC900, ApproveAndCallFallBack {
         assert(sumTree.insert(0) == 0); // first tree item is an empty juror
     }
 
+    /**
+     * @notice Send a heartbeat to the Court to transition up to `_termTransitions`
+     */
     function heartbeat(uint64 _termTransitions) public {
         require(canTransitionTerm(), ERROR_UNFINISHED_TERM);
 
@@ -293,7 +296,7 @@ contract Court is ERC900, ApproveAndCallFallBack {
 
         // Set the start time of the term (ensures equally long terms, regardless of heartbeats)
         nextTerm.startTime = prevTerm.startTime + termDuration;
-        nextTerm.randomnessBN = blockNumber() + 1; // randomness source set to next block (unknown when heartbeat happens)
+        nextTerm.randomnessBN = _blockNumber() + 1; // randomness source set to next block (unknown when heartbeat happens)
         _processJurorQueues(prevTermId, nextTerm);
 
         CourtConfig storage courtConfig = courtConfigs[nextTerm.courtConfigId];
@@ -311,6 +314,131 @@ contract Court is ERC900, ApproveAndCallFallBack {
         }
     }
 
+    /**
+     * @notice Stake `@tokenAmount(self.jurorToken(), _amount)` to the Court
+     */
+    function stake(uint256 _amount, bytes) external {
+        _stake(msg.sender, msg.sender, _amount);
+    }
+
+    /**
+     * @notice Stake `@tokenAmount(self.jurorToken(), _amount)` for `_to` to the Court
+     */
+    function stakeFor(address _to, uint256 _amount, bytes) external {
+        _stake(msg.sender, _to, _amount);
+    }
+
+    /**
+     * @notice Unstake `@tokenAmount(self.jurorToken(), _amount)` for `_to` from the Court
+     */
+    function unstake(uint256 _amount, bytes) external {
+        return withdraw(jurorToken, _amount); // withdraw() ensures the correct term
+    }
+
+    /**
+     * @notice Withdraw `@tokenAmount(_token, _amount)` from the Court
+     */
+    function withdraw(ERC20 _token, uint256 _amount) public ensureTerm {
+        require(_amount > 0, ERROR_ZERO_TRANSFER);
+
+        address addr = msg.sender;
+        Account storage account = accounts[addr];
+        uint256 balance = account.balances[_token];
+        require(balance >= _amount, ERROR_BALANCE_TOO_LOW);
+
+        if (_token == jurorToken) {
+            if (account.state == AccountState.Juror) {
+                require(_amount <= unlockedBalanceOf(addr), ERROR_JUROR_TOKENS_AT_STAKE);
+                account.state = AccountState.PastJuror;
+            }
+
+            emit Unstaked(addr, _amount, totalStakedFor(addr), "");
+        }
+
+        _removeTokens(_token, addr, _amount);
+        require(_token.safeTransfer(addr, _amount), ERROR_TOKEN_TRANSFER_FAILED);
+
+        emit TokenWithdrawal(_token, addr, _amount);
+    }
+
+    /**
+     * @notice Become an active juror on term `_fromTerm` until term `_toTerm`
+     */
+    function activate(uint64 _fromTerm, uint64 _toTerm) external ensureTerm {
+        // TODO: Charge activation fee to juror
+
+        address jurorAddress = msg.sender;
+        Account storage account = accounts[jurorAddress];
+        uint256 balance = account.balances[jurorToken];
+
+        require(_fromTerm > term, ERROR_INVALID_ACTIVATION_TERM);
+        require(_toTerm > _fromTerm, ERROR_INVALID_DEACTIVATION_TERM);
+        require(account.state == AccountState.NotJuror, ERROR_INVALID_ACCOUNT_STATE);
+        require(balance >= jurorMinStake, ERROR_TOKENS_BELOW_MIN_STAKE);
+
+        uint256 sumTreeId = account.sumTreeId;
+        if (sumTreeId == 0) {
+            sumTreeId = sumTree.insert(0);
+            accounts[jurorAddress].sumTreeId = sumTreeId;
+            jurorsByTreeId[sumTreeId] = jurorAddress;
+        }
+
+        if (term == ZERO_TERM && _fromTerm == ZERO_TERM + 1) {
+            // allow direct juror onboardings before term 1 starts (no disputes depend on term 0)
+            sumTree.update(sumTreeId, balance, true);
+        } else {
+            // TODO: check queue size limit
+            account.update = AccountUpdate({ delta: balance, positive: true, term: _fromTerm });
+            terms[_fromTerm].updateQueue.push(jurorAddress);
+        }
+
+        if (_toTerm != MANUAL_DEACTIVATION) {
+            // TODO: check queue size limit
+            terms[_toTerm].egressQueue.push(jurorAddress);
+        }
+
+        account.fromTerm = _fromTerm;
+        account.toTerm = _toTerm;
+        account.state = AccountState.Juror;
+        account.balances[jurorToken] = 0;   // tokens are either pending the update or in the tree
+
+        emit JurorActivated(jurorAddress, _fromTerm, _toTerm);
+    }
+
+    // TODO: Activate more tokens as a juror
+
+    /**
+     * @notice Stop being an active juror on term `_lastTerm`
+     */
+    function deactivate(uint64 _lastTerm) external ensureTerm {
+        address jurorAddress = msg.sender;
+        Account storage account = accounts[jurorAddress];
+
+        require(account.state == AccountState.Juror, ERROR_INVALID_ACCOUNT_STATE);
+        require(_lastTerm > term, ERROR_INVALID_DEACTIVATION_TERM);
+
+        // Juror didn't actually become activated
+        if (term < account.fromTerm && term != ZERO_TERM) {
+            terms[account.fromTerm].updateQueue.deleteItem(jurorAddress);
+            assert(account.update.positive); // If the juror didn't activate, its update can only be positive
+            account.balances[jurorToken] += account.update.delta;
+            delete account.update;
+        }
+
+        if (account.toTerm != MANUAL_DEACTIVATION) {
+            terms[account.toTerm].egressQueue.deleteItem(jurorAddress);
+        }
+
+        // TODO: check queue size limit
+        terms[_lastTerm].egressQueue.push(jurorAddress);
+        account.toTerm = _lastTerm;
+
+        emit JurorDeactivated(jurorAddress, _lastTerm);
+    }
+
+    /**
+     * @notice Create a dispute over `_subject` with `_possibleRulings` possible rulings, drafting `_jurorNumber` jurors in term `_draftTerm`
+     */
     function createDispute(IArbitrable _subject, uint8 _possibleRulings, uint64 _jurorNumber, uint64 _draftTerm)
         external
         ensureTerm
@@ -339,6 +467,9 @@ contract Court is ERC900, ApproveAndCallFallBack {
         return disputeId;
     }
 
+    /**
+     * @notice Dismissing dispute #`_disputeId`
+     */
     function dismissDispute(uint256 _disputeId)
         external
         ensureTerm
@@ -362,6 +493,9 @@ contract Court is ERC900, ApproveAndCallFallBack {
         emit DisputeStateChanged(_disputeId, dispute.state);
     }
 
+    /**
+     * @notice Draft jurors for the next round of dispute #`_disputeId`
+     */
     function draftAdjudicationRound(uint256 _disputeId)
         public
         ensureTerm
@@ -411,6 +545,9 @@ contract Court is ERC900, ApproveAndCallFallBack {
         emit DisputeStateChanged(_disputeId, dispute.state);
     }
 
+    /**
+     * @notice Commit juror vote for dispute #`_disputeId` (round #`_roundId`)
+     */
     function commitVote(
         uint256 _disputeId,
         uint256 _roundId,
@@ -429,6 +566,9 @@ contract Court is ERC900, ApproveAndCallFallBack {
         emit VoteCommitted(_disputeId, _roundId, msg.sender, _draftId, _commitment);
     }
 
+    /**
+     * @notice Leak vote for `_juror` in dispute #`_disputeId` (round #`_roundId`)
+     */
     function leakVote(
         uint256 _disputeId,
         uint256 _roundId,
@@ -455,6 +595,9 @@ contract Court is ERC900, ApproveAndCallFallBack {
         emit VoteRevealed(_disputeId, _roundId, _juror, _draftId, ruling);
     }
 
+    /**
+     * @notice Reveal juror `_ruling` vote in dispute #`_disputeId` (round #`_roundId`)
+     */
     function revealVote(
         uint256 _disputeId,
         uint256 _roundId,
@@ -479,6 +622,9 @@ contract Court is ERC900, ApproveAndCallFallBack {
         emit VoteRevealed(_disputeId, _roundId, msg.sender, _draftId, _ruling);
     }
 
+    /**
+     * @notice Appeal round #`_roundId` ruling in dispute #`_disputeId`
+     */
     function appealRuling(uint256 _disputeId, uint256 _roundId) external ensureTerm {
         // TODO: Implement appeals limit
         // TODO: Implement final appeal
@@ -495,6 +641,9 @@ contract Court is ERC900, ApproveAndCallFallBack {
         emit RulingAppealed(_disputeId, roundId, appealDraftTerm, appealJurorNumber);
     }
 
+    /**
+     * @notice Execute the final ruling of dispute #`_disputeId`
+     */
     function executeRuling(uint256 _disputeId, uint256 _roundId) external ensureTerm {
         // checks that dispute is in adjudication state
         _checkAdjudicationState(_disputeId, _roundId, AdjudicationState.Ended);
@@ -509,7 +658,10 @@ contract Court is ERC900, ApproveAndCallFallBack {
         emit RulingExecuted(_disputeId, ruling);
     }
 
-    // settle round just executes penalties, jurors should manually claim their rewards
+    /**
+     * @notice Execute the final ruling of dispute #`_disputeId`
+     * @dev Just executes penalties, jurors must manually claim their rewards
+     */
     function settleRoundSlashing(uint256 _disputeId, uint256 _roundId) external ensureTerm {
         Dispute storage dispute = disputes[_disputeId];
         AdjudicationRound storage round = dispute.rounds[_roundId];
@@ -578,6 +730,10 @@ contract Court is ERC900, ApproveAndCallFallBack {
         emit RoundSlashingSettled(_disputeId, _roundId, slashedTokens);
     }
 
+     /**
+     * @notice Claim juror reward for round #`_roundId` of dispute #`_disputeId`
+     * @dev Just executes penalties, jurors must manually claim their rewards
+     */
     function settleReward(uint256 _disputeId, uint256 _roundId, uint256 _draftId) external ensureTerm {
         Dispute storage dispute = disputes[_disputeId];
         AdjudicationRound storage round = dispute.rounds[_roundId];
@@ -602,6 +758,81 @@ contract Court is ERC900, ApproveAndCallFallBack {
         _payFees(config.feeToken, juror, totalFees / coherentJurors, config.governanceFeeShare);
 
         emit RewardSettled(_disputeId, _roundId, juror, _draftId);
+    }
+
+    function canTransitionTerm() public view returns (bool) {
+        return neededTermTransitions() >= 1;
+    }
+
+    function neededTermTransitions() public view returns (uint64) {
+        return (_time() - terms[term].startTime) / termDuration;
+    }
+
+    function getJurorVote(uint256 _disputeId, uint256 _roundId, uint256 _draftId) public view returns (address juror, uint8 ruling) {
+        JurorVote storage jurorVote = _getJurorVote(_disputeId, _roundId, _draftId);
+
+        return (jurorVote.juror, jurorVote.ruling);
+    }
+
+    function encryptVote(uint8 _ruling, bytes32 _salt) public view returns (bytes32) {
+        return keccak256(abi.encodePacked(_ruling, _salt));
+    }
+
+    /**
+     * @dev Assumes term is up to date
+     */
+    function feeForJurorDraft(uint64 _draftTerm, uint64 _jurorNumber) public view returns (ERC20 feeToken, uint256 feeAmount, uint16 governanceFeeShare) {
+        CourtConfig storage fees = courtConfigForTerm(_draftTerm);
+
+        feeToken = fees.feeToken;
+        governanceFeeShare = fees.governanceFeeShare;
+        feeAmount = fees.heartbeatFee + _jurorNumber * (fees.jurorFee + fees.draftFee + fees.settleFee);
+    }
+
+    /**
+     * @dev Callback of approveAndCall, allows staking directly with a transaction to the token contract.
+     * @param _from The address making the transfer.
+     * @param _amount Amount of tokens to transfer to Kleros (in basic units).
+     * @param _token Token address
+     */
+    function receiveApproval(address _from, uint256 _amount, address _token, bytes)
+        public
+        only(_token)
+    {
+        if (_token == address(jurorToken)) {
+            _stake(_from, _from, _amount);
+            // TODO: Activate depending on data
+        }
+    }
+
+    function totalStaked() external view returns (uint256) {
+        return jurorToken.balanceOf(this);
+    }
+
+    function token() external view returns (address) {
+        return address(jurorToken);
+    }
+
+    function supportsHistory() external pure returns (bool) {
+        return false;
+    }
+
+    function totalStakedFor(address _addr) public view returns (uint256) {
+        Account storage account = accounts[_addr];
+        uint256 sumTreeId = account.sumTreeId;
+        uint256 activeTokens = sumTreeId > 0 ? sumTree.getItem(sumTreeId) : 0;
+        AccountUpdate storage update = account.update;
+        uint256 pendingTokens = update.positive ? update.delta : -update.delta;
+
+        return account.balances[jurorToken] + activeTokens + pendingTokens;
+    }
+
+    /**
+     * @dev Assumes that it is always called ensuring the term
+     */
+    function unlockedBalanceOf(address _addr) public view returns (uint256) {
+        Account storage account = accounts[_addr];
+        return account.balances[jurorToken].sub(account.atStakeTokens);
     }
 
     function _editUpdate(AccountUpdate storage update, uint256 _delta, bool _positive) internal {
@@ -705,35 +936,14 @@ contract Court is ERC900, ApproveAndCallFallBack {
         }
     }
 
-    function getJurorVote(uint256 _disputeId, uint256 _roundId, uint256 _draftId) public view returns (address juror, uint8 ruling) {
-        JurorVote storage jurorVote = _getJurorVote(_disputeId, _roundId, _draftId);
-
-        return (jurorVote.juror, jurorVote.ruling);
-    }
-
     function _getJurorVote(uint256 _disputeId, uint256 _roundId, uint256 _draftId) internal view returns (JurorVote storage) {
         return disputes[_disputeId].rounds[_roundId].votes[_draftId];
-    }
-
-    function encryptVote(uint8 _ruling, bytes32 _salt) public view returns (bytes32) {
-        return keccak256(abi.encodePacked(_ruling, _salt));
     }
 
     function _treeSearch(bytes32 _termRandomness, uint256 _disputeId, uint256 _iteration) internal view returns (uint256 key, uint256 value) {
         bytes32 seed = keccak256(abi.encodePacked(_termRandomness, _disputeId, _iteration));
         // TODO: optimize by caching tree.totalSum(), and perform a `tree.unsafeSortition(seed % totalSum)` (unimplemented)
         return sumTree.randomSortition(uint256(seed));
-    }
-
-    /**
-     * @dev Assumes term is up to date
-     */
-    function feeForJurorDraft(uint64 _draftTerm, uint64 _jurorNumber) public view returns (ERC20 feeToken, uint256 feeAmount, uint16 governanceFeeShare) {
-        CourtConfig storage fees = courtConfigForTerm(_draftTerm);
-
-        feeToken = fees.feeToken;
-        governanceFeeShare = fees.governanceFeeShare;
-        feeAmount = fees.heartbeatFee + _jurorNumber * (fees.jurorFee + fees.draftFee + fees.settleFee);
     }
 
     function courtConfigForTerm(uint64 _term) internal view returns (CourtConfig storage) {
@@ -764,164 +974,6 @@ contract Court is ERC900, ApproveAndCallFallBack {
         }
 
         _assignTokens(_feeToken, governor, governanceFee);
-    }
-
-    // TODO: should we charge heartbeat fees to jurors?
-    function activate(uint64 _fromTerm, uint64 _toTerm) external ensureTerm {
-        address jurorAddress = msg.sender;
-        Account storage account = accounts[jurorAddress];
-        uint256 balance = account.balances[jurorToken];
-
-        require(_fromTerm > term, ERROR_INVALID_ACTIVATION_TERM);
-        require(_toTerm > _fromTerm, ERROR_INVALID_DEACTIVATION_TERM);
-        require(account.state == AccountState.NotJuror, ERROR_INVALID_ACCOUNT_STATE);
-        require(balance >= jurorMinStake, ERROR_TOKENS_BELOW_MIN_STAKE);
-
-        uint256 sumTreeId = account.sumTreeId;
-        if (sumTreeId == 0) {
-            sumTreeId = sumTree.insert(0);
-            accounts[jurorAddress].sumTreeId = sumTreeId;
-            jurorsByTreeId[sumTreeId] = jurorAddress;
-        }
-
-        if (term == ZERO_TERM && _fromTerm == ZERO_TERM + 1) {
-            // allow direct juror onboardings before term 1 starts (no disputes depend on term 0)
-            sumTree.update(sumTreeId, balance, true);
-        } else {
-            // TODO: check queue size limit
-            account.update = AccountUpdate({ delta: balance, positive: true, term: _fromTerm });
-            terms[_fromTerm].updateQueue.push(jurorAddress);
-        }
-
-        if (_toTerm != MANUAL_DEACTIVATION) {
-            // TODO: check queue size limit
-            terms[_toTerm].egressQueue.push(jurorAddress);
-        }
-
-        account.fromTerm = _fromTerm;
-        account.toTerm = _toTerm;
-        account.state = AccountState.Juror;
-        account.balances[jurorToken] = 0;   // tokens are either pending the update or in the tree
-
-        emit JurorActivated(jurorAddress, _fromTerm, _toTerm);
-    }
-
-    // TODO: activate more tokens
-
-    // this can't called if the juror is deactivated on the schedule specified when calling activate
-    // can be called many times to modify the deactivation date
-    function deactivate(uint64 _lastTerm) external ensureTerm {
-        address jurorAddress = msg.sender;
-        Account storage account = accounts[jurorAddress];
-
-        require(account.state == AccountState.Juror, ERROR_INVALID_ACCOUNT_STATE);
-        require(_lastTerm > term, ERROR_INVALID_DEACTIVATION_TERM);
-
-        // Juror didn't actually become activated
-        if (term < account.fromTerm && term != ZERO_TERM) {
-            terms[account.fromTerm].updateQueue.deleteItem(jurorAddress);
-            assert(account.update.positive); // If the juror didn't activate, its update can only be positive
-            account.balances[jurorToken] += account.update.delta;
-            delete account.update;
-        }
-
-        if (account.toTerm != MANUAL_DEACTIVATION) {
-            terms[account.toTerm].egressQueue.deleteItem(jurorAddress);
-        }
-
-        terms[_lastTerm].egressQueue.push(jurorAddress);
-        account.toTerm = _lastTerm;
-
-        emit JurorDeactivated(jurorAddress, _lastTerm);
-    }
-
-    function canTransitionTerm() public view returns (bool) {
-        return neededTermTransitions() >= 1;
-    }
-
-    function neededTermTransitions() public view returns (uint64) {
-        return (time() - terms[term].startTime) / termDuration;
-    }
-
-    // ERC900
-
-    function stake(uint256 _amount, bytes) external {
-        _stake(msg.sender, msg.sender, _amount);
-    }
-
-    function stakeFor(address _to, uint256 _amount, bytes) external {
-        _stake(msg.sender, _to, _amount);
-    }
-
-    /** @dev Callback of approveAndCall - transfer jurorTokens of a juror in the contract. Should be called by the jurorToken contract. TRUSTED.
-     *  @param _from The address making the transfer.
-     *  @param _amount Amount of tokens to transfer to Kleros (in basic units).
-     */
-    function receiveApproval(address _from, uint256 _amount, address token, bytes)
-        public
-        only(token)
-    {
-        if (token == address(jurorToken)) {
-            _stake(_from, _from, _amount);
-        }
-    }
-
-    function unstake(uint256 _amount, bytes) external {
-        return withdraw(jurorToken, _amount);
-    }
-
-    function totalStakedFor(address _addr) public view returns (uint256) {
-        Account storage account = accounts[_addr];
-        uint256 sumTreeId = account.sumTreeId;
-        uint256 activeTokens = sumTreeId > 0 ? sumTree.getItem(sumTreeId) : 0;
-        AccountUpdate storage update = account.update;
-        uint256 pendingTokens = update.positive ? update.delta : -update.delta;
-
-        return account.balances[jurorToken] + activeTokens + pendingTokens;
-    }
-
-    function totalStaked() external view returns (uint256) {
-        return jurorToken.balanceOf(this);
-    }
-
-    function token() external view returns (address) {
-        return address(jurorToken);
-    }
-
-    function supportsHistory() external pure returns (bool) {
-        return false;
-    }
-
-    /**
-     *  @param _token Token to withdraw
-     *  @param _amount The amount to withdraw.
-     */
-    function withdraw(ERC20 _token, uint256 _amount) public ensureTerm {
-        require(_amount > 0, ERROR_ZERO_TRANSFER);
-
-        address addr = msg.sender;
-        Account storage account = accounts[addr];
-        uint256 balance = account.balances[_token];
-        require(balance >= _amount, ERROR_BALANCE_TOO_LOW);
-        
-        if (_token == jurorToken) {
-            if (account.state == AccountState.Juror) {
-                require(_amount <= unlockedBalanceOf(addr), ERROR_JUROR_TOKENS_AT_STAKE);
-                account.state = AccountState.PastJuror;
-            }
-
-            emit Unstaked(addr, _amount, totalStakedFor(addr), "");
-        }
-        
-        _removeTokens(_token, addr, _amount);
-        require(_token.safeTransfer(addr, _amount), ERROR_TOKEN_TRANSFER_FAILED);
-
-        emit TokenWithdrawal(_token, addr, _amount);
-    }
-
-    function unlockedBalanceOf(address _addr) public view returns (uint256) {
-        Account storage account = accounts[_addr];
-        return account.balances[jurorToken].sub(account.atStakeTokens);
     }
 
     function _processJurorQueues(uint64 _prevTermId, Term storage _incomingTerm) internal {
@@ -1003,6 +1055,7 @@ contract Court is ERC900, ApproveAndCallFallBack {
         emit TokenBalanceChange(_token, _from, _amount, false);
     }
 
+    // TODO: Expose external function to change config
     function _setCourtConfig(
         uint64 _fromTerm,
         ERC20 _feeToken,
@@ -1048,11 +1101,11 @@ contract Court is ERC900, ApproveAndCallFallBack {
         emit NewCourtConfig(_fromTerm, courtConfigId);
     }
 
-    function time() internal view returns (uint64) {
+    function _time() internal view returns (uint64) {
         return uint64(block.timestamp);
     }
 
-    function blockNumber() internal view returns (uint64) {
+    function _blockNumber() internal view returns (uint64) {
         return uint64(block.number);
     }
 

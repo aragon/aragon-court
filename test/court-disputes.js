@@ -93,7 +93,7 @@ contract('Court: Disputes', ([ poor, rich, governor, juror1, juror2, juror3, arb
 
     assert.equal(await this.court.token(), this.anj.address, 'court token')
     assert.equal(await this.court.jurorToken(), this.anj.address, 'court juror token')
-    await assertEqualBN(this.court.treeTotalSum(), 0, 'empty sum tree')
+    await assertEqualBN(this.court.mock_treeTotalSum(), 0, 'empty sum tree')
     
     await this.anj.approveAndCall(this.court.address, richStake, NO_DATA, { from: rich })
 

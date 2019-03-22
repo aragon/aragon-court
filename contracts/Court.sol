@@ -162,6 +162,9 @@ contract Court is ERC900, ApproveAndCallFallBack {
     string internal constant ERROR_CANT_DISMISS_APPEAL = "COURT_CANT_DISMISS_APPEAL";
     string internal constant ERROR_PREV_ROUND_NOT_SETTLED = "COURT_PREV_ROUND_NOT_SETTLED";
     string internal constant ERROR_ROUND_ALREADY_SETTLED = "COURT_ROUND_ALREADY_SETTLED";
+    string internal constant ERROR_ROUND_NOT_SETTLED = "COURT_ROUND_NOT_SETTLED";
+    string internal constant ERROR_JUROR_ALREADY_REWARDED = "COURT_JUROR_ALREADY_REWARDED";
+    string internal constant ERROR_JUROR_NOT_COHERENT = "COURT_JUROR_NOT_COHERENT";
 
     uint64 internal constant ZERO_TERM = 0; // invalid term that doesn't accept disputes
     uint64 public constant MANUAL_DEACTIVATION = uint64(-1);
@@ -170,6 +173,7 @@ contract Court is ERC900, ApproveAndCallFallBack {
     uint16 internal constant PCT_BASE = 10000; // ‱
     uint8 public constant MIN_RULING_OPTIONS = 2;
     uint8 public constant MAX_RULING_OPTIONS = MIN_RULING_OPTIONS;
+    address internal constant BURN_ACCOUNT = 0xdead;
 
     event NewTerm(uint64 term, address indexed heartbeatSender);
     event NewCourtConfig(uint64 fromTerm, uint64 courtConfigId);
@@ -180,11 +184,13 @@ contract Court is ERC900, ApproveAndCallFallBack {
     event DisputeStateChanged(uint256 indexed disputeId, DisputeState indexed state);
     event NewDispute(uint256 indexed disputeId, address indexed subject, uint64 indexed draftTerm, uint64 jurorNumber);
     event TokenWithdrawal(address indexed token, address indexed account, uint256 amount);
-    event VoteCommitted(uint256 indexed disputeId, uint256 indexed roundId, address indexed juror, bytes32 commitment);
-    event VoteRevealed(uint256 indexed disputeId, uint256 indexed roundId, address indexed juror, uint8 ruling);
-    event VoteLeaked(uint256 indexed disputeId, uint256 indexed roundId, address indexed juror, address leaker);
+    event VoteCommitted(uint256 indexed disputeId, uint256 indexed roundId, address indexed juror, uint256 draftId, bytes32 commitment);
+    event VoteRevealed(uint256 indexed disputeId, uint256 indexed roundId, address indexed juror, uint256 draftId, uint8 ruling);
+    event VoteLeaked(uint256 indexed disputeId, uint256 indexed roundId, address indexed juror, uint256 draftId, address leaker);
     event RulingAppealed(uint256 indexed disputeId, uint256 indexed roundId, uint64 indexed draftTerm, uint256 jurorNumber);
     event RulingExecuted(uint256 indexed disputeId, uint8 indexed ruling);
+    event RoundSlashingSettled(uint256 indexed disputeId, uint256 indexed roundId, uint256 slashedTokens);
+    event RewardSettled(uint256 indexed disputeId, uint256 indexed roundId, address indexed juror, uint256 draftId);
 
     modifier only(address _addr) {
         require(msg.sender == _addr, ERROR_INVALID_ADDR);
@@ -420,7 +426,7 @@ contract Court is ERC900, ApproveAndCallFallBack {
 
         vote.commitment = _commitment;
 
-        emit VoteCommitted(_disputeId, _roundId, msg.sender, _commitment);
+        emit VoteCommitted(_disputeId, _roundId, msg.sender, _draftId, _commitment);
     }
 
     function leakVote(
@@ -445,8 +451,8 @@ contract Court is ERC900, ApproveAndCallFallBack {
 
         _updateTally(_disputeId, _roundId, ruling);
 
-        emit VoteLeaked(_disputeId, _roundId, _juror, msg.sender);
-        emit VoteRevealed(_disputeId, _roundId, _juror, ruling);
+        emit VoteLeaked(_disputeId, _roundId, _juror, _draftId, msg.sender);
+        emit VoteRevealed(_disputeId, _roundId, _juror, _draftId, ruling);
     }
 
     function revealVote(
@@ -470,7 +476,7 @@ contract Court is ERC900, ApproveAndCallFallBack {
         vote.ruling = _ruling;
         _updateTally(_disputeId, _roundId, _ruling);
 
-        emit VoteRevealed(_disputeId, _roundId, msg.sender, _ruling);
+        emit VoteRevealed(_disputeId, _roundId, msg.sender, _draftId, _ruling);
     }
 
     function appealRuling(uint256 _disputeId, uint256 _roundId) external ensureTerm {
@@ -538,7 +544,7 @@ contract Court is ERC900, ApproveAndCallFallBack {
 
                 if (account.state == AccountState.PastJuror) {
                     // Slash from balance if the account already deactivated
-                    account.balances[jurorToken] -= penalty;
+                    _removeTokens(jurorToken, vote.juror, penalty);
                 } else {
                     assert(account.state == AccountState.Juror);
                     _editUpdate(account.update, penalty, false); // edit their update for slashing
@@ -546,7 +552,7 @@ contract Court is ERC900, ApproveAndCallFallBack {
                     // Unless the juror already had an update scheduled for the term that they will be slashed at
                     if (account.update.term <= slashingUpdateTerm) {
                         if (account.update.term != 0) {
-                            // Juror had a pending 
+                            // Juror had a pending update already
                             terms[account.update.term].updateQueue.deleteItem(vote.juror);
                         }
 
@@ -560,7 +566,42 @@ contract Court is ERC900, ApproveAndCallFallBack {
         round.slashedTokens = slashedTokens;
         round.settledPenalties = true;
 
+        // No juror was coherent in the round
+        if (round.rulingVotes[ruling] == 0) {
+            // refund fees and burn ANJ
+            _payFees(config.feeToken, round.triggeredBy, config.jurorFee * round.jurorNumber, config.governanceFeeShare);
+            _assignTokens(jurorToken, BURN_ACCOUNT, slashedTokens);
+        }
+
         _payFees(config.feeToken, msg.sender, config.settleFee * round.jurorNumber, config.governanceFeeShare);
+
+        emit RoundSlashingSettled(_disputeId, _roundId, slashedTokens);
+    }
+
+    function settleReward(uint256 _disputeId, uint256 _roundId, uint256 _draftId) external ensureTerm {
+        Dispute storage dispute = disputes[_disputeId];
+        AdjudicationRound storage round = dispute.rounds[_roundId];
+        JurorVote storage vote = round.votes[_draftId];
+        CourtConfig storage config = courtConfigs[terms[round.draftTerm].courtConfigId]; // safe to use directly as it is the current term
+        uint8 ruling = getWinningRuling(_disputeId);
+    
+        require(round.settledPenalties, ERROR_ROUND_NOT_SETTLED);
+        require(vote.ruling == ruling, ERROR_JUROR_NOT_COHERENT);
+        require(!vote.rewarded, ERROR_JUROR_ALREADY_REWARDED);
+        vote.rewarded = true;
+    
+        address juror = vote.juror;
+        uint256 coherentJurors = round.rulingVotes[ruling];
+        uint256 slashedTokens = round.slashedTokens;
+
+        if (slashedTokens > 0) {
+            _assignTokens(jurorToken, juror, slashedTokens / coherentJurors);
+        }
+
+        uint256 totalFees = config.jurorFee * round.jurorNumber;
+        _payFees(config.feeToken, juror, totalFees / coherentJurors, config.governanceFeeShare);
+
+        emit RewardSettled(_disputeId, _roundId, juror, _draftId);
     }
 
     function _editUpdate(AccountUpdate storage update, uint256 _delta, bool _positive) internal {
@@ -568,7 +609,7 @@ contract Court is ERC900, ApproveAndCallFallBack {
     }
 
     /**
-     * @dev Sum nA + nB which can be positive or negative denoted by pA and pB
+     * @dev Sum nA + nB which can be positive or negative denoted by pA and pB 
      */
     function _signedSum(uint256 nA, bool pA, uint256 nB, bool pB) internal pure returns (uint256 nC, bool pC) {
         nC = nA + (pA == pB ? nB : -nB);
@@ -872,7 +913,7 @@ contract Court is ERC900, ApproveAndCallFallBack {
             emit Unstaked(addr, _amount, totalStakedFor(addr), "");
         }
         
-        account.balances[_token] -= _amount;
+        _removeTokens(_token, addr, _amount);
         require(_token.safeTransfer(addr, _amount), ERROR_TOKEN_TRANSFER_FAILED);
 
         emit TokenWithdrawal(_token, addr, _amount);
@@ -954,6 +995,12 @@ contract Court is ERC900, ApproveAndCallFallBack {
         accounts[_to].balances[_token] += _amount;
 
         emit TokenBalanceChange(_token, _to, _amount, true);
+    }
+
+    function _removeTokens(ERC20 _token, address _from, uint256 _amount) internal {
+        accounts[_from].balances[_token] -= _amount;
+
+        emit TokenBalanceChange(_token, _from, _amount, false);
     }
 
     function _setCourtConfig(

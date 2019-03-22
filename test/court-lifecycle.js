@@ -60,7 +60,8 @@ contract('Court: Lifecycle', ([ poor, rich, governor, juror1, juror2 ]) => {
     this.court = await CourtMock.new(
       termDuration,
       this.anj.address,
-      ZERO_ADDRESS,
+      ZERO_ADDRESS, // no fees
+      0,
       0,
       0,
       0,
@@ -68,9 +69,7 @@ contract('Court: Lifecycle', ([ poor, rich, governor, juror1, juror2 ]) => {
       governor,
       firstTermStart,
       jurorMinStake,
-      commitTerms,
-      revealTerms,
-      appealTerms,
+      [ commitTerms, appealTerms, revealTerms ],
       penaltyPct
     )
     await this.court.mock_setBlockNumber(startBlock)

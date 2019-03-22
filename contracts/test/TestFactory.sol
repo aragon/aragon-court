@@ -28,8 +28,13 @@ contract TokenFactory is Factory {
     }
 }
 
-contract CourtFactory is Factory {  
+contract CourtFactory is Factory {
     function newCourtStaking(ERC20 anj) external {
+        uint64[3] memory roundStateDurations;
+
+        roundStateDurations[0] = 1;
+        roundStateDurations[1] = 1;
+        roundStateDurations[2] = 1;
         Court court = new Court(
             60 * 60,  // 1h
             anj,
@@ -38,12 +43,11 @@ contract CourtFactory is Factory {
             0,
             0,
             0,
+            0,
             address(this),
             uint64(block.timestamp + 60 * 60),
             1,
-            1,
-            1,
-            1,
+            roundStateDurations,
             100
         );
 

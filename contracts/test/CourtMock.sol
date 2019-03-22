@@ -15,13 +15,12 @@ contract CourtMock is Court {
         uint256 _jurorFee,
         uint256 _heartbeatFee,
         uint256 _draftFee,
+        uint256 _settleFee,
         uint16 _governanceShare,
         address _governor,
         uint64 _firstTermStartTime,
         uint256 _jurorMinStake,
-        uint64 _commitTerms,
-        uint64 _revealTerms,
-        uint64 _appealTerms,
+        uint64[3] _roundStateDurations,
         uint16 _penaltyPct
     ) Court(
         _termDuration,
@@ -30,13 +29,12 @@ contract CourtMock is Court {
         _jurorFee,
         _heartbeatFee,
         _draftFee,
+        _settleFee,
         _governanceShare,
         _governor,
         _firstTermStartTime,
         _jurorMinStake,
-        _commitTerms,
-        _revealTerms,
-        _appealTerms,
+        _roundStateDurations,
         _penaltyPct
     ) public {}
 
@@ -60,9 +58,9 @@ contract CourtMock is Court {
         treeSearchHijacked = true;
     }
 
-    function treeSearch(bytes32 _termRandomness, uint256 _disputeId, uint256 _iteration) internal view returns (uint256 key, uint256 value) {
+    function _treeSearch(bytes32 _termRandomness, uint256 _disputeId, uint256 _iteration) internal view returns (uint256 key, uint256 value) {
         if (!treeSearchHijacked) {
-            return super.treeSearch(_termRandomness, _disputeId, _iteration);
+            return super._treeSearch(_termRandomness, _disputeId, _iteration);
         }
 
         key = _iteration % sumTree.nextKey; // loop

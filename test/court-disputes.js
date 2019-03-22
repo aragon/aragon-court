@@ -72,7 +72,8 @@ contract('Court: Disputes', ([ poor, rich, governor, juror1, juror2, juror3, arb
     this.court = await CourtMock.new(
       termDuration,
       this.anj.address,
-      ZERO_ADDRESS,
+      ZERO_ADDRESS, // no fees
+      0,
       0,
       0,
       0,
@@ -80,9 +81,7 @@ contract('Court: Disputes', ([ poor, rich, governor, juror1, juror2, juror3, arb
       governor,
       firstTermStart,
       jurorMinStake,
-      commitTerms,
-      revealTerms,
-      appealTerms,
+      [ commitTerms, appealTerms, revealTerms ],
       penaltyPct
     )
     await this.court.mock_setBlockNumber(startBlock)
@@ -243,10 +242,7 @@ contract('Court: Disputes', ([ poor, rich, governor, juror1, juror2, juror3, arb
             })
 
             it('has correct ruling result', async () => {
-              const [ ruling, rulingVotes ] = await this.court.getWinningRuling(disputeId)
-
-              assertEqualBN(ruling, round1Ruling, 'winning ruling')
-              assertEqualBN(rulingVotes, round1WinningVotes, 'winning ruling votes')
+              assertEqualBN(this.court.getWinningRuling(disputeId), round1Ruling, 'winning ruling')
             })
 
             it('fails to appeal during reveal period', async () => {

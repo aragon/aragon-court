@@ -11,7 +11,7 @@ contract Arbitrable is IArbitrable, ERC165 {
     bytes4 private constant ARBITRABLE_INTERFACE_ID = 0xabababab; // TODO: interface id
 
     string private constant ERROR_NOT_COURT = "ARBITRABLE_NOT_COURT";
-    string private constant ERROR_CANNOT_SUBMIT_EVIDENCE = "ARBITRABLE_CANNOT_SUBMIT_EVIDENCE";
+    string private constant ERROR_CANNOT_SUBMIT_EVIDENCE = "ARBITRABLE_CANNOT_SUBMIT_EV";
 
     /** @dev Constructor. Choose the arbitrator.
      *  @param _court The address of the court that arbitrates the contract.

@@ -150,6 +150,7 @@ contract Court is ERC900, ApproveAndCallFallBack {
     string internal constant ERROR_CANT_DISMISS_AFTER_DRAFT = "COURT_CANT_DISMISS_AFTER_DRAFT";
     string internal constant ERROR_ROUND_ALREADY_DRAFTED = "COURT_ROUND_ALREADY_DRAFTED";
     string internal constant ERROR_NOT_DRAFT_TERM = "COURT_NOT_DRAFT_TERM";
+    string internal constant ERROR_TERM_RANDOMNESS_UNAVAIL = "COURT_TERM_RANDOMNESS_UNAVAIL";
     string internal constant ERROR_INVALID_DISPUTE_STATE = "COURT_INVALID_DISPUTE_STATE";
     string internal constant ERROR_INVALID_ADJUDICATION_ROUND = "COURT_INVALID_ADJUDICATION_ROUND";
     string internal constant ERROR_INVALID_ADJUDICATION_STATE = "COURT_INVALID_ADJUDICATION_STATE";
@@ -378,8 +379,8 @@ contract Court is ERC900, ApproveAndCallFallBack {
 
         uint256 sumTreeId = account.sumTreeId;
         if (sumTreeId == 0) {
-            sumTreeId = sumTree.insert(0);
-            accounts[jurorAddress].sumTreeId = sumTreeId;
+            sumTreeId = sumTree.insert(0); // Always > 0 (as constructor inserts the first item)
+            account.sumTreeId = sumTreeId;
             jurorsByTreeId[sumTreeId] = jurorAddress;
         }
 
@@ -505,13 +506,11 @@ contract Court is ERC900, ApproveAndCallFallBack {
         Term storage draftTerm = terms[term];
         CourtConfig storage config = courtConfigs[draftTerm.courtConfigId]; // safe to use directly as it is the current term
 
-        // TODO: Work on recovery if draft doesn't occur in the term it was supposed to
-        // it should be scheduled for a future draft and require to pay the heartbeat fee for the term
         require(round.draftTerm == term, ERROR_NOT_DRAFT_TERM);
         require(dispute.state == DisputeState.PreDraft, ERROR_ROUND_ALREADY_DRAFTED);
+        require(draftTerm.randomnessBN >= _blockNumber(), ERROR_TERM_RANDOMNESS_UNAVAIL);
 
         if (draftTerm.randomness == bytes32(0)) {
-            // the blockhash could be 0 if the first dispute draft happens 256 blocks after the term starts
             draftTerm.randomness = block.blockhash(draftTerm.randomnessBN);
         }
 
@@ -768,7 +767,7 @@ contract Court is ERC900, ApproveAndCallFallBack {
         return (_time() - terms[term].startTime) / termDuration;
     }
 
-    function getJurorVote(uint256 _disputeId, uint256 _roundId, uint256 _draftId) public view returns (address juror, uint8 ruling) {
+    function getJurorVote(uint256 _disputeId, uint256 _roundId, uint256 _draftId) external view returns (address juror, uint8 ruling) {
         JurorVote storage jurorVote = _getJurorVote(_disputeId, _roundId, _draftId);
 
         return (jurorVote.juror, jurorVote.ruling);
@@ -782,7 +781,7 @@ contract Court is ERC900, ApproveAndCallFallBack {
      * @dev Assumes term is up to date
      */
     function feeForJurorDraft(uint64 _draftTerm, uint64 _jurorNumber) public view returns (ERC20 feeToken, uint256 feeAmount, uint16 governanceFeeShare) {
-        CourtConfig storage fees = courtConfigForTerm(_draftTerm);
+        CourtConfig storage fees = _courtConfigForTerm(_draftTerm);
 
         feeToken = fees.feeToken;
         governanceFeeShare = fees.governanceFeeShare;
@@ -946,7 +945,7 @@ contract Court is ERC900, ApproveAndCallFallBack {
         return sumTree.randomSortition(uint256(seed));
     }
 
-    function courtConfigForTerm(uint64 _term) internal view returns (CourtConfig storage) {
+    function _courtConfigForTerm(uint64 _term) internal view returns (CourtConfig storage) {
         uint64 feeTerm;
 
         if (_term <= term) {
@@ -969,11 +968,9 @@ contract Court is ERC900, ApproveAndCallFallBack {
         uint256 governanceFee = _pct4(_amount, _governanceFeeShare);
         _assignTokens(_feeToken, _to, _amount - governanceFee);
 
-        if (governanceFee == 0) {
-            return;
+        if (governanceFee > 0) {
+            _assignTokens(_feeToken, governor, governanceFee);
         }
-
-        _assignTokens(_feeToken, governor, governanceFee);
     }
 
     function _processJurorQueues(uint64 _prevTermId, Term storage _incomingTerm) internal {
@@ -1025,6 +1022,7 @@ contract Court is ERC900, ApproveAndCallFallBack {
             AccountUpdate storage update = account.update;
 
             if (update.delta > 0) {
+                // account.sumTreeId always > 0: as only a juror that activates can get in this queue (and gets its sumTreeId)
                 sumTree.update(account.sumTreeId, update.delta, update.positive);
                 delete account.update;
             }

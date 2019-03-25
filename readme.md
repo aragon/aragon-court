@@ -2,7 +2,7 @@
 
 The Aragon Court is a dispute resolution protocol that runs on Ethereum. It's one of the core components of the [Aragon Network](https://aragon.org/network/).
 
-#### 🐲 Project stage: Research and development
+#### 🐲 Project stage: research and development
 The Aragon Court is still in research phase and aspects of the mechanism are still being designed and implemented. The current implementation is rapidly changing and being improved, [see issues](https://github.com/aragon/aragon-court/issues).
 
 #### 🚨 Security review status: pre-audit
@@ -11,9 +11,9 @@ The code in this repo is highly experimental and hasn't undergone a professional
 #### 👋 Get started contributing with a [good first issue](https://github.com/aragon/aragon-court/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22)
 Don't be shy to contribute even the smallest tweak. Everyone will be especially nice and helpful to beginners to help you get started!
 
-## Description
+## How does it work
 
-**Full description of the mechanism**: [Aragon Forum - Aragon Court v1](TODO)
+**Full description of the mechanism: [Aragon Forum - Aragon Court v1](TODO)**
 
 The Aragon Court handles subjective disputes that cannot be solved by smart contracts. For this, it employs jurors that need to stake a token to the Court which allows them to get drafted to adjudicate disputes, that can earn them fees. The more tokens a juror has activated, the higher the chance to get drafted and earn more fees.
 
@@ -28,4 +28,4 @@ This first version of the Aragon Court has been heavily inspired by [Kleros prot
 
 ## Help shape the Aragon Court
 - Discuss in the [Aragon Forum](https://forum.aragon.org/tags/dispute-resolution)
-- Join the [#research channel in Aragon Chat](https://aragon.chat/channel/research)
+- Join the [#research channel](https://aragon.chat/channel/research) in [Aragon Chat](https://aragon.chat)

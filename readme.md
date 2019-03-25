@@ -1,4 +1,4 @@
-# Aragon Court <img align="right" src="https://raw.githubusercontent.com/aragon/design/master/readme-logo.png" height="80px" /> [![Travis branch](https://img.shields.io/travis/aragon/aragon-court/dev.svg?style=for-the-badge)](https://travis-ci.org/aragon/aragon-court/)
+# Aragon Court <img align="right" src="https://raw.githubusercontent.com/aragon/design/master/readme-logo.png" height="80px" /> [![Travis branch](https://img.shields.io/travis/aragon/aragon-court/master.svg?style=for-the-badge)](https://travis-ci.org/aragon/aragon-court/)
 
 The Aragon Court is a dispute resolution protocol that runs on Ethereum. It's one of the core components of the [Aragon Network](https://aragon.org/network/).
 

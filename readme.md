@@ -13,7 +13,7 @@ Don't be shy to contribute even the smallest tweak. Everyone will be especially 
 
 ## How does it work
 
-**Full description of the mechanism: [Aragon Forum - Aragon Court v1](TODO)**
+**Full description of the mechanism: [Aragon Forum - Aragon Court v1](https://forum.aragon.org/t/aragon-court-v1/691)**
 
 The Aragon Court handles subjective disputes that cannot be solved by smart contracts. For this, it employs jurors that need to stake a token to the Court which allows them to get drafted to adjudicate disputes, that can earn them fees. The more tokens a juror has activated, the higher the chance to get drafted and earn more fees.
 

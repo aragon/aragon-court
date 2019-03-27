@@ -1,11 +1,15 @@
 pragma solidity ^0.4.24;
 
+import "./Checkpointing.sol"; // TODO: import from Staking (or somewhere else)
+
 
 library HexSumTree {
+    using Checkpointing for Checkpointing.History;
+
     struct Tree {
         uint256 nextKey;
         uint256 rootDepth;
-        mapping (uint256 => mapping (uint256 => uint256)) nodes; // depth -> key -> value
+        mapping (uint256 => mapping (uint256 => Checkpointing.History)) nodes; // depth -> key -> value
     }
 
     /* @dev
@@ -48,8 +52,8 @@ library HexSumTree {
     function update(Tree storage self, uint256 key, uint256 delta, bool positive) internal {
         require(key < self.nextKey, ERROR_INEXISTENT_ITEM);
 
-        uint256 oldValue = self.nodes[INSERTION_DEPTH][key];
-        self.nodes[INSERTION_DEPTH][key] = positive ? oldValue + delta : oldValue - delta;
+        uint256 oldValue = self.nodes[INSERTION_DEPTH][key].getLast();
+        self.nodes[INSERTION_DEPTH][key].add(getBlockNumber64(), positive ? oldValue + delta : oldValue - delta);
 
         updateSums(self, key, delta, positive);
     }
@@ -65,8 +69,8 @@ library HexSumTree {
     }
 
     function _set(Tree storage self, uint256 key, uint256 value) private {
-        uint256 oldValue = self.nodes[INSERTION_DEPTH][key];
-        self.nodes[INSERTION_DEPTH][key] = value;
+        uint256 oldValue = self.nodes[INSERTION_DEPTH][key].getLast();
+        self.nodes[INSERTION_DEPTH][key].add(getBlockNumber64(), value);
 
         if (value > oldValue) {
             updateSums(self, key, value - oldValue, true);
@@ -91,7 +95,7 @@ library HexSumTree {
                 uint256 iterator = child << shift;
                 checkingNode = parentNode + iterator;
 
-                nodeSum = self.nodes[checkingLevel][checkingNode];
+                nodeSum = self.nodes[checkingLevel][checkingNode].getLast();
                 if (checkedValue + nodeSum <= value) { // not reached yet, move to next child
                     checkedValue += nodeSum;
                 } else { // value reached, move to next level
@@ -104,7 +108,7 @@ library HexSumTree {
         // Leaves level:
         for (child = 0; child < CHILDREN; child++) {
             checkingNode = parentNode + child;
-            nodeSum = self.nodes[INSERTION_DEPTH][checkingNode];
+            nodeSum = self.nodes[INSERTION_DEPTH][checkingNode].getLast();
             if (checkedValue + nodeSum <= value) { // not reached yet, move to next child
                 checkedValue += nodeSum;
             } else { // value reached
@@ -118,7 +122,7 @@ library HexSumTree {
         uint256 newRootDepth = sharedPrefix(self.rootDepth, key);
 
         if (self.rootDepth != newRootDepth) {
-            self.nodes[newRootDepth][BASE_KEY] = self.nodes[self.rootDepth][BASE_KEY];
+            self.nodes[newRootDepth][BASE_KEY].add(getBlockNumber64(), self.nodes[self.rootDepth][BASE_KEY].getLast());
             self.rootDepth = newRootDepth;
         }
 
@@ -129,22 +133,26 @@ library HexSumTree {
             ancestorKey = ancestorKey & mask;
 
             // Invariant: this will never underflow.
-            self.nodes[i][ancestorKey] = positive ? self.nodes[i][ancestorKey] + delta : self.nodes[i][ancestorKey] - delta;
+            self.nodes[i][ancestorKey].add(getBlockNumber64(), positive ? self.nodes[i][ancestorKey].getLast() + delta : self.nodes[i][ancestorKey].getLast() - delta);
         }
         // it's only needed to check the last one, as the sum increases going up through the tree
-        require(!positive || self.nodes[self.rootDepth][ancestorKey] >= delta, ERROR_UPDATE_OVERFLOW);
+        require(!positive || self.nodes[self.rootDepth][ancestorKey].getLast() >= delta, ERROR_UPDATE_OVERFLOW);
     }
 
     function totalSum(Tree storage self) internal view returns (uint256) {
-        return self.nodes[self.rootDepth][BASE_KEY];
+        return self.nodes[self.rootDepth][BASE_KEY].getLast();
     }
 
     function get(Tree storage self, uint256 depth, uint256 key) internal view returns (uint256) {
-        return self.nodes[depth][key];
+        return self.nodes[depth][key].getLast();
     }
 
     function getItem(Tree storage self, uint256 key) internal view returns (uint256) {
-        return self.nodes[INSERTION_DEPTH][key];
+        return self.nodes[INSERTION_DEPTH][key].getLast();
+    }
+
+    function getPastItem(Tree storage self, uint256 key, uint64 blockNumber) internal view returns (uint256) {
+        return self.nodes[INSERTION_DEPTH][key].get(blockNumber);
     }
 
     function nextKey(uint256 fromKey) private pure returns (uint256) {
@@ -178,4 +186,15 @@ library HexSumTree {
         return depth;
     }
     */
+
+    // TODO: import?
+    /*
+    function toUint64(uint256 a) internal pure returns (uint64) {
+        require(a <= MAX_UINT64, ERROR_NUMBER_TOO_BIG);
+        return uint64(a);
+    }
+    */
+    function getBlockNumber64() internal view returns (uint64) {
+        return uint64(block.number);
+    }
 }

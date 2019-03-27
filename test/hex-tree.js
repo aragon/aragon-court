@@ -14,20 +14,8 @@ contract('Hex Sum Tree', (accounts) => {
     assert.equal(bn.toNumber(), n, m)
   }
 
-  const logSortitionGas = async (value) => {
-    console.log(`Sortition ${value} gas:`, await tree.sortition.estimateGas(value))
-  }
-
   const logSortition = async (value) => {
     console.log(`Sortition ${value}:`, web3.toHex(await tree.sortition(value)))
-  }
-
-  const logGasStats = (title, gasArray) => {
-    console.log(title)
-    console.log('Size:   ', gasArray.length)
-    console.log('| Min     |', Math.min(...gasArray), '|')
-    console.log('| Max     |', Math.max(...gasArray), '|')
-    console.log('| Average |', Math.round(gasArray.reduce((a,b) => a + b, 0) / gasArray.length), '|')
   }
 
   it('inserts', async () => {
@@ -107,18 +95,13 @@ contract('Hex Sum Tree', (accounts) => {
   })
 
   it('inserts into another node', async () => {
-    let insertGas = []
     for (let i = 0; i < 270; i++) {
-      insertGas.push(await tree.insert.estimateGas(10))
       await tree.insert(10)
-      //console.log('insert gas:', await tree.insert.estimateGas(10))
       const [depth, key] = await tree.getState()
 
       //if (i % 10 == 0)
         //console.log(`#${i + 1}: Sum ${await tree.totalSum()}. Depth ${depth}. Next key ${web3.toHex(key)}`)
     }
-
-    logGasStats('Inserts', insertGas)
 
     assertBN(await tree.get(0, 16), 10, 'get node')
     assertBN(await tree.get(1, 0), 160, 'get sum 1.0')
@@ -126,80 +109,5 @@ contract('Hex Sum Tree', (accounts) => {
     assertBN(await tree.get(2, 0), 2560, 'get sum 2.0')
 
     assertBN(await tree.sortition(2605), 260)
-    //await logSortitionGas(2605)
-  })
-
-  it('lots of activity', async () => {
-    const INSERTS = 32
-    const REMOVES = 3
-    const ITERATIONS = 72 //129
-    const VALUE = 10
-
-    let insertGas = []
-    let removeGas = []
-    let sortitionGas = []
-
-    for (let i = 0; i < ITERATIONS; i++) {
-      // add nodes
-      for (let j = 0; j < INSERTS; j++) {
-        insertGas.push(await tree.insert.estimateGas(VALUE))
-        await tree.insert(VALUE)
-      }
-
-      // remove
-      for (let k = 0; k < REMOVES; k++) {
-        removeGas.push(await tree.remove.estimateGas((INSERTS - REMOVES) * i + k))
-        await tree.remove((INSERTS - REMOVES) * i + k)
-      }
-
-      //console.log(`Iteration ${i}:`, (await tree.totalSum()).toNumber())
-      // draw
-      const sum = (await tree.totalSum()).toNumber()
-      sortitionGas.push(await tree.sortition.estimateGas(0))
-      sortitionGas.push(await tree.sortition.estimateGas(Math.round(sum / 2)))
-      sortitionGas.push(await tree.sortition.estimateGas(sum - 1))
-    }
-
-    //console.log((await tree.getState()).map(x => x.toNumber()))
-    logGasStats('Inserts', insertGas)
-    logGasStats('Removes', removeGas)
-    logGasStats('Sortitions', sortitionGas)
-
-    assertBN(await tree.totalSum(), VALUE * ITERATIONS * (INSERTS - REMOVES), 'Total sum')
-  })
-
-  it('lots of activity, batched', async () => {
-    const INSERTS = 64
-    const REMOVES = 6
-    const ITERATIONS = 65//1025
-    const VALUE = 10
-
-    let insertGas = []
-    let removeGas = []
-    let sortitionGas = []
-
-    for (let i = 0; i < ITERATIONS; i++) {
-      // add nodes
-      insertGas.push(await tree.insertMultiple.estimateGas(VALUE, INSERTS))
-      await tree.insertMultiple(VALUE, INSERTS)
-
-      // remove
-      removeGas.push(await tree.removeMultiple.estimateGas((INSERTS - REMOVES) * i, REMOVES))
-      await tree.removeMultiple((INSERTS - REMOVES) * i, REMOVES)
-
-      //console.log(`Iteration ${i}:`, (await tree.totalSum()).toNumber())
-      // draw
-      const sum = (await tree.totalSum()).toNumber()
-      sortitionGas.push(await tree.sortition.estimateGas(0))
-      sortitionGas.push(await tree.sortition.estimateGas(Math.round(sum / 2)))
-      sortitionGas.push(await tree.sortition.estimateGas(sum - 1))
-    }
-
-    console.log((await tree.getState()).map(x => x.toNumber()))
-    logGasStats('Inserts', insertGas)
-    logGasStats('Removes', removeGas)
-    logGasStats('Sortitions', sortitionGas)
-
-    assertBN(await tree.totalSum(), VALUE * ITERATIONS * (INSERTS - REMOVES), 'Total sum')
   })
 })

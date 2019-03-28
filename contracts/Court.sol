@@ -942,7 +942,7 @@ contract Court is ERC900, ApproveAndCallFallBack {
     function _treeSearch(bytes32 _termRandomness, uint256 _disputeId, uint256 _iteration) internal view returns (uint256 key, uint256 value) {
         bytes32 seed = keccak256(abi.encodePacked(_termRandomness, _disputeId, _iteration));
         // TODO: optimize by caching tree.totalSum(), and perform a `tree.unsafeSortition(seed % totalSum)` (unimplemented)
-        return sumTree.randomSortition(uint256(seed));
+        return sumTree.randomSortition(uint256(seed), 0);
     }
 
     function _courtConfigForTerm(uint64 _term) internal view returns (CourtConfig storage) {

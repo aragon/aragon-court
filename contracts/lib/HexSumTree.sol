@@ -58,14 +58,14 @@ library HexSumTree {
         updateSums(self, key, delta, positive);
     }
 
-    function sortition(Tree storage self, uint256 value) internal view returns (uint256 key, uint256 nodeValue) {
+    function sortition(Tree storage self, uint256 value, uint256 blockNumber) internal view returns (uint256 key, uint256 nodeValue) {
         require(totalSum(self) > value, ERROR_SORTITION_OUT_OF_BOUNDS);
 
-        return _sortition(self, value, BASE_KEY, self.rootDepth);
+        return _sortition(self, value, BASE_KEY, self.rootDepth, blockNumber);
     }
 
-    function randomSortition(Tree storage self, uint256 seed) internal view returns (uint256 key, uint256 nodeValue) {
-        return _sortition(self, seed % totalSum(self), BASE_KEY, self.rootDepth);
+    function randomSortition(Tree storage self, uint256 seed, uint256 blockNumber) internal view returns (uint256 key, uint256 nodeValue) {
+        return _sortition(self, seed % totalSum(self), BASE_KEY, self.rootDepth, blockNumber);
     }
 
     function _set(Tree storage self, uint256 key, uint256 value) private {
@@ -79,7 +79,7 @@ library HexSumTree {
         }
     }
 
-    function _sortition(Tree storage self, uint256 value, uint256 node, uint256 depth) private view returns (uint256 key, uint256 nodeValue) {
+    function _sortition(Tree storage self, uint256 value, uint256 node, uint256 depth, uint256 blockNumber) private view returns (uint256 key, uint256 nodeValue) {
         uint256 checkedValue = 0; // Can optimize by having checkedValue = value - remainingValue
 
         uint256 checkingLevel = depth - 1;
@@ -92,10 +92,17 @@ library HexSumTree {
         for (; checkingLevel > INSERTION_DEPTH; checkingLevel--) {
             for (child = 0; child < CHILDREN; child++) {
                 // shift the iterator and add it to node 0x00..0i00 (for depth = 3)
-                uint256 iterator = child << shift;
-                checkingNode = parentNode + iterator;
+                checkingNode = parentNode + (child << shift);
 
-                nodeSum = self.nodes[checkingLevel][checkingNode].getLast();
+                // TODO: 3 options
+                // - leave it as is
+                // -> use always get(blockNumber), as Checkpointing already short cuts it
+                // - create another version of sortition for historic values, at the cost of repeating even more code
+                if (blockNumber > 0) {
+                    nodeSum = self.nodes[checkingLevel][checkingNode].get(blockNumber);
+                } else {
+                    nodeSum = self.nodes[checkingLevel][checkingNode].getLast();
+                }
                 if (checkedValue + nodeSum <= value) { // not reached yet, move to next child
                     checkedValue += nodeSum;
                 } else { // value reached, move to next level
@@ -108,7 +115,12 @@ library HexSumTree {
         // Leaves level:
         for (child = 0; child < CHILDREN; child++) {
             checkingNode = parentNode + child;
-            nodeSum = self.nodes[INSERTION_DEPTH][checkingNode].getLast();
+            // TODO: see above
+            if (blockNumber > 0) {
+                nodeSum = self.nodes[INSERTION_DEPTH][checkingNode].get(blockNumber);
+            } else {
+                nodeSum = self.nodes[INSERTION_DEPTH][checkingNode].getLast();
+            }
             if (checkedValue + nodeSum <= value) { // not reached yet, move to next child
                 checkedValue += nodeSum;
             } else { // value reached

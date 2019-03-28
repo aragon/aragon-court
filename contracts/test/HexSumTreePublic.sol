@@ -59,15 +59,15 @@ contract HexSumTreePublic {
         tree.nextKey = key;
     }
 
-    function sortition(uint256 v) external profileGas returns (uint256) {
-        var (k,) = tree.sortition(v);
+    function sortition(uint256 v, uint256 bn) external profileGas view returns (uint256) {
+        var (k,) = tree.sortition(v, bn);
         return uint256(k);
     }
 
-    function multiRandomSortition(uint256 number) external profileGas {
+    function multiRandomSortition(uint256 number, uint256 blockNumber) external profileGas {
         for (uint256 i = 0; i < number; i++) {
-            bytes32 seed = keccak256(abi.encodePacked(block.number, i));
-            tree.randomSortition(uint256(seed));
+            bytes32 seed = keccak256(abi.encodePacked(blockNumber, i));
+            tree.randomSortition(uint256(seed), blockNumber);
         }
     }
 

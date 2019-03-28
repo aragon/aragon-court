@@ -22,11 +22,11 @@ contract('Hex Sum Tree', (accounts) => {
   }
 
   const logSortitionHex = async (value) => {
-    console.log(`Sortition ${value}:`, web3.toHex(await tree.sortition(value)))
+    console.log(`Sortition ${value}:`, web3.toHex(await tree.sortition(value, 0)))
   }
 
   const logSortition = async (value) => {
-    console.log(`Sortition ${value}:`, (await tree.sortition(value)).toNumber())
+    console.log(`Sortition ${value}:`, (await tree.sortition(value, 0)).toNumber())
   }
 
   const multipleSetOnNode = async (node) => {
@@ -41,6 +41,10 @@ contract('Hex Sum Tree', (accounts) => {
       const v = await tree.getPastItem(node, setBns[i])
       //console.log(i, setBns[i], v.toNumber());
       assertBN(v, 10 + i, `Value for node ${node} on block number ${setBns[i]} should match`)
+      const value1 = (node + 1) * 10 + i - 1
+      const s1 = await tree.sortition(value1, setBns[i])
+      //console.log(i, setBns[i], s1.toNumber())
+      assertBN(s1, node, `Sortition for value ${value1} on block number ${setBns[i]} should match`)
     }
   }
 

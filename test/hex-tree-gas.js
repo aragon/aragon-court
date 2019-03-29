@@ -43,7 +43,9 @@ contract.skip('Hex Sum Tree (Gas analysis)', (accounts) => {
   }
 
   const logMultiSortitionGas = async (number, blockNumber) => {
-    console.log(`Sortition of ${number} elements gas:`, (await tree.multiRandomSortition.estimateGas(number, blockNumber)).toLocaleString())
+    const r = await tree.multiRandomSortition(number, blockNumber)
+    const gas = getGas(r)
+    console.log(`Sortition of ${number} elements gas:`, gas.total.toLocaleString(), gas.function.toLocaleString())
   }
 
   const formatDivision = (result, colSize) => {
@@ -71,7 +73,7 @@ contract.skip('Hex Sum Tree (Gas analysis)', (accounts) => {
 
     await logTreeState()
     console.log(`Insert gas:`, insertGas.total.toLocaleString(), insertGas.function.toLocaleString())
-    await logSortitionGas(5)
+    await logSortitionGas(5, 0)
   })
 
   it('inserts a few consecutive nodes', async () => {
@@ -185,15 +187,31 @@ contract.skip('Hex Sum Tree (Gas analysis)', (accounts) => {
       setBns.push(r.receipt.blockNumber)
     }
 
-    return setGas
+    return { setBns, setGas }
+  }
+
+  const historySortition = async (node, initialValue, setBns) => {
+    let sortitionGas = []
+    for (let i = 1; i < setBns.length; i++) {
+      const value = (node + 1) * initialValue + i - 1
+      const r = await tree.sortition(value, setBns[i])
+      const gas = getGas(r)
+      sortitionGas.push(gas)
+    }
+    return sortitionGas
   }
 
   it('inserts a lot of times into the first node', async () => {
     const NODE = 0
+    const UPDATES = 200
     await tree.insertNoLog(10)
 
-    const setGas = await multipleUpdatesOnSingleNode(0, 200, 10)
+    const { setBns, setGas } = await multipleUpdatesOnSingleNode(NODE, UPDATES, 10)
 
+    // check all past values
+    const sortitionGas = await historySortition(NODE, 10, setBns)
+
+    await logTreeState()
     logGasStats('Sets', setGas)
     logGasStats('Sortitions', sortitionGas)
   })
@@ -208,53 +226,85 @@ contract.skip('Hex Sum Tree (Gas analysis)', (accounts) => {
   }
 
   it('inserts a lot of times into a middle node', async () => {
-    const insertGas = await insertNodes(270, 10)
-    const setGas = await multipleUpdatesOnSingleNode(250, 200, 10)
+    const NODE = 250
+    const UPDATES = 200
+
+    const insertGas = await insertNodes(NODE + 20, 10)
+    const { setBns, setGas } = await multipleUpdatesOnSingleNode(NODE, UPDATES, 10)
+
+    // check all past values
+    const sortitionGas = await historySortition(NODE, 10, setBns)
 
     await logTreeState()
     logGasStats('Sets', setGas)
     logGasStats('Inserts', insertGas)
+    logGasStats('Sortitions', sortitionGas)
   })
 
   const multipleUpdatesOnMultipleNodes = async (nodes, updates, startingKey, initialValue) => {
+    let setBns = [[]]
     let setGas = []
     for (let i = 1; i <= updates; i++) {
+      setBns.push([])
       for (let j = 0; j < nodes; j++) {
         const r = await tree.set(startingKey.add(j), initialValue + i)
         setGas.push(getGas(r))
+        setBns[i].push(r.receipt.blockNumber)
       }
     }
-    return setGas
+    return { setBns, setGas }
   }
 
   it('inserts a lot of times into a all nodes of a (fake) big tree', async () => {
     const STARTING_KEY = (new web3.BigNumber(CHILDREN)).pow(7)
     const NODES = 17
-    const UPDATES = 100
+    const UPDATES = 80
     await tree.setNextKey(STARTING_KEY)
 
     const insertGas = await insertNodes(NODES, 10)
-    const setGas = await multipleUpdatesOnMultipleNodes(NODES, UPDATES, STARTING_KEY, 10)
+    const { setBns, setGas } = await multipleUpdatesOnMultipleNodes(NODES, UPDATES, STARTING_KEY, 10)
+
+    // check all past values
+    let sortitionGas = []
+    for (let i = 1; i <= UPDATES; i++) {
+      for (let j = 0; j < NODES; j++) {
+        const value = (j + 1) * 10 + i - 1
+        const r = await tree.sortition(value, setBns[i][j])
+        const gas = getGas(r)
+        sortitionGas.push(gas)
+      }
+    }
 
     await logTreeState()
     logGasStats('Inserts', insertGas)
     logGasStats('Sets', setGas)
-    await logSortitionGas(UPDATES * NODES)
+    logGasStats('Sortitions', sortitionGas)
   })
 
   it('multiple random sortition on a (fake) big tree with a lot of updates', async () => {
     const STARTING_KEY = (new web3.BigNumber(CHILDREN)).pow(5)
-    const NODES = 15
-    const UPDATES = 50
+    const NODES = 10
+    const UPDATES = 30
     const SORTITION_NUMBER = 10
     await tree.setNextKey(STARTING_KEY)
 
     const insertGas = await insertNodes(NODES, 10)
-    const setGas = await multipleUpdatesOnMultipleNodes(NODES, UPDATES, STARTING_KEY, 10)
+    const { setBns, setGas } = await multipleUpdatesOnMultipleNodes(NODES, UPDATES, STARTING_KEY, 10)
+
+    // check all past values
+    let sortitionGas = []
+    for (let i = 1; i <= UPDATES; i++) {
+      for (let j = 0; j < NODES; j++) {
+        const value = (j + 1) * 10 + i - 1
+        const r = await tree.multiRandomSortition(SORTITION_NUMBER, setBns[i][j])
+        const gas = getGas(r)
+        sortitionGas.push(gas)
+      }
+    }
 
     await logTreeState()
     logGasStats('Inserts', insertGas)
     logGasStats('Sets', setGas)
-    await logMultiSortitionGas(SORTITION_NUMBER)
+    logGasStats('Sortitions', sortitionGas)
   })
 })

@@ -40,6 +40,10 @@ contract HexSumTreePublic {
         tree.set(key, value);
     }
 
+    function update(uint256 key, uint256 delta, bool positive) external profileGas {
+        tree.update(key, delta, positive);
+    }
+
     function remove(uint256 key) external profileGas {
         tree.set(key, 0);
         emit LogKey(bytes32(key));
@@ -59,7 +63,7 @@ contract HexSumTreePublic {
         tree.nextKey = key;
     }
 
-    function sortition(uint256 v, uint256 bn) external profileGas view returns (uint256) {
+    function sortition(uint256 v, uint256 bn) external profileGas returns (uint256) {
         var (k,) = tree.sortition(v, bn);
         return uint256(k);
     }

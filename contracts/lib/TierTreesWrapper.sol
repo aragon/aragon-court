@@ -66,6 +66,16 @@ library TierTreesWrapper {
         return _sortition(self, value);
     }
 
+    function randomSortition(TierTrees storage self, uint256 seed, uint256 minTreeId) internal view returns (uint256 key, uint256 nodeValue) {
+        uint256 offset;
+        for (uint256 i = 0; i < minTreeId; i++) {
+            // this can't overflow because offset <= self.treeSum
+            offset += self.trees[i].totalSum();
+        }
+        uint256 value = offset + seed % (totalSum(self) - offset);
+        return _sortition(self, value);
+    }
+
     function totalSum(TierTrees storage self) internal view returns (uint256) {
         return self.treesSum;
     }
@@ -78,6 +88,10 @@ library TierTreesWrapper {
     function getItem(TierTrees storage self, uint256 key) internal view returns (uint256) {
         (uint256 treeId, uint256 treeKey) = decodeKey(self, key);
         return self.trees[treeId].getItem(treeKey);
+    }
+
+    function getTreeSum(TierTrees storage self, uint256 treeId) internal returns (uint256) {
+        return self.trees[treeId].totalSum();
     }
 
     function _updateSums(TierTrees storage self, uint256 delta, bool positive) private {

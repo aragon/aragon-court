@@ -65,8 +65,19 @@ contract TierTreesWrapperPublic {
         }
     }
 
+    function multiRandomSortitionWithMin(uint256 number, uint256 minTreeId) public {
+        for (uint256 i = 0; i < number; i++) {
+            bytes32 seed = keccak256(abi.encodePacked(block.number, i));
+            tierTrees.randomSortition(uint256(seed), minTreeId);
+        }
+    }
+
     function get(uint256 l, uint256 key) public view returns (uint256) {
         return tierTrees.get(l, key);
+    }
+
+    function getTreeSum(uint256 treeId) public returns (uint256) {
+        return tierTrees.getTreeSum(treeId);
     }
 
     function totalSum() public view returns (uint256) {

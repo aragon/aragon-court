@@ -6,6 +6,9 @@ import "../lib/HexSumTree.sol";
 contract HexSumTreePublic {
     using HexSumTree for HexSumTree.Tree;
 
+    // This must match the one in HexSumTree !
+    uint256 private constant BITS_IN_NIBBLE = 4;
+
     HexSumTree.Tree tree;
 
     event LogKey(bytes32 k);
@@ -55,8 +58,17 @@ contract HexSumTreePublic {
         }
     }
 
+    // to mock big trees
     function setNextKey(uint256 key) external {
         tree.nextKey = key;
+        // adjust depth
+        uint256 rootDepth = 0;
+        uint256 tmpKey = key;
+        while (tmpKey > 0) {
+            rootDepth++;
+            tmpKey = tmpKey >> BITS_IN_NIBBLE;
+        }
+        tree.rootDepth = rootDepth;
     }
 
     function sortition(uint256 v) external profileGas returns (uint256) {
@@ -79,7 +91,11 @@ contract HexSumTreePublic {
         return tree.totalSum();
     }
 
-    function getState() external view returns (uint256, uint256) {
+    function getSubTreeSum(uint256) external view returns (uint256) {
+        return tree.totalSum();
+    }
+
+    function getState(uint256) external view returns (uint256, uint256) {
         return (tree.rootDepth, tree.nextKey);
     }
 }

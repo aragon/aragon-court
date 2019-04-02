@@ -36,24 +36,47 @@ library TierTreesWrapper {
     function insert(TierTrees storage self, uint256 value) internal returns (uint256) {
         _updateSums(self, value, true);
 
-        for (uint256 i = 0; i < self.thresholds.length; i ++) {
-            if (value < self.thresholds[i]) {
-                return _encodeKey(i, self.trees[i].insert(value));
-            }
-        }
-
-        return _encodeKey(i, self.trees[i].insert(value));
+        uint256 treeId = _getTreeId(self, value);
+        uint256 treeKey = self.trees[treeId].insert(value);
+        return _encodeKey(treeId, treeKey);
     }
 
-    function set(TierTrees storage self, uint256 key, uint256 value) internal returns (uint256 delta, bool positive) {
+    function set(TierTrees storage self, uint256 key, uint256 value) internal returns (uint256 newKey, uint256 delta, bool positive) {
         (uint256 treeId, uint256 treeKey) = decodeKey(self, key);
-        (delta, positive) = self.trees[treeId].set(treeKey, value);
+        uint256 newTreeId = _getTreeId(self, value);
+        if (treeId == newTreeId) {
+            (newKey, delta, positive) = self.trees[treeId].set(treeKey, value);
+        } else {
+            uint256 oldValue = getItem(self, treeId, treeKey);
+            if (newTreeId > treeId) {
+                positive = true;
+                delta = value - oldValue;
+            } else {
+                positive = false;
+                delta = oldValue - value;
+            }
+            // remove from old tree
+            self.trees[treeId].set(treeKey, 0);
+            // add to new tree
+            newKey = _encodeKey(newTreeId, self.trees[newTreeId].insert(value));
+        }
         _updateSums(self, delta, positive);
     }
 
-    function update(TierTrees storage self, uint256 key, uint256 delta, bool positive) internal {
+    function update(TierTrees storage self, uint256 key, uint256 delta, bool positive) internal returns (uint256 newKey) {
         (uint256 treeId, uint256 treeKey) = decodeKey(self, key);
-        self.trees[treeId].update(treeKey, delta, positive);
+        uint256 oldValue = self.trees[treeId].getItem(key);
+        uint256 newValue = positive ? oldValue + delta : oldValue - delta;
+        uint256 newTreeId = _getTreeId(self, newValue);
+        if (treeId == newTreeId) {
+            self.trees[treeId].update(treeKey, delta, positive);
+            newKey = key;
+        } else {
+            // remove from old tree
+            self.trees[treeId].set(treeKey, 0);
+            // add to new tree
+            newKey = _encodeKey(newTreeId, self.trees[newTreeId].insert(newValue));
+        }
         _updateSums(self, delta, positive);
     }
 
@@ -90,8 +113,22 @@ library TierTreesWrapper {
         return self.trees[treeId].getItem(treeKey);
     }
 
+    function getItem(TierTrees storage self, uint256 treeId, uint256 treeKey) internal view returns (uint256) {
+        return self.trees[treeId].getItem(treeKey);
+    }
+
     function getTreeSum(TierTrees storage self, uint256 treeId) internal returns (uint256) {
         return self.trees[treeId].totalSum();
+    }
+
+    function _getTreeId(TierTrees storage self, uint256 value) private view returns (uint256) {
+        for (uint256 i = 0; i < self.thresholds.length; i++) {
+            if (value < self.thresholds[i]) {
+                return i;
+            }
+        }
+
+        return i;
     }
 
     function _updateSums(TierTrees storage self, uint256 delta, bool positive) private {
@@ -112,15 +149,15 @@ library TierTreesWrapper {
     }
 
     // we reserve the first byte for the tree id
-    function _encodeKey(uint256 _treeId, uint256 _treeKey) private pure returns (uint256 key) {
+    function _encodeKey(uint256 treeId, uint256 treeKey) private pure returns (uint256 key) {
         // not needed: there's no way the key can grow that big
-        //require(_key & 0x00FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF == _key);
-        key = _treeId << 248 + _treeKey;
+        //require(treeKey & 0x00FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF == key);
+        key = treeId << 248 + treeKey;
     }
 
-    function decodeKey(TierTrees storage self, uint256 _key) internal view returns (uint256 treeId, uint256 key) {
-        treeId = _key >> 248;
+    function decodeKey(TierTrees storage self, uint256 key) internal view returns (uint256 treeId, uint256 treeKey) {
+        treeId = key >> 248;
         require(treeId <= self.thresholds.length, ERROR_WRONG_KEY);
-        key = _key & 0x00FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF;
+        treeKey = key & 0x00FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF;
     }
 }

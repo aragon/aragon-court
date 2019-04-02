@@ -8,19 +8,64 @@ const getGas = (r) => {
   return { total: r.receipt.gasUsed, function: r.logs.filter(l => l.event == 'GasConsumed')[0].args['gas'].toNumber() }
 }
 
-for (const treeName of ['HexSumTreePublic', 'TierTreesWrapperPublic']) {
+const getTreeId = (value) => {
+  let i
+  for (i = 0; i < THRESHOLDS.length; i++) {
+    if (value < THRESHOLDS[i]) {
+      return i;
+    }
+  }
+  return i;
+}
+const getLastTreeKey = async (tree, treeId) => {
+  const [ depth, nextKey ] = await tree.getState(treeId)
+  return nextKey.sub(1)
+}
+const encodeKeyVoid = async (tree, node, oldValue, newValue) => {
+  return { key: node, newNode: node }
+}
+const encodeKey = async (tree, node, oldValue, newValue) => {
+  const oldTreeId = getTreeId(oldValue)
+  const newTreeId = getTreeId(newValue)
+  if (oldTreeId == newTreeId) {
+    return {
+      key: new web3.BigNumber(2).pow(248).mul(oldTreeId).add(node),
+      newNode: node
+    }
+  } else {
+    const treeKey = await getLastTreeKey(tree, newTreeId)
+    return {
+      key: new web3.BigNumber(2).pow(248).mul(newTreeId).add(treeKey),
+      newNode: treeKey
+    }
+  }
+}
+
+const TREE_CONTRACTS = {
+  /**/
+  HexSumTreePublic: {
+    initParams: {},
+    thresholds: [],
+    encodeKey: encodeKeyVoid
+  },
+   /**/
+  TierTreesWrapperPublic: {
+    initParams: THRESHOLDS,
+    thresholds: THRESHOLDS,
+    encodeKey: encodeKey
+  }
+  /**/
+}
+
+for (const treeName of Object.keys(TREE_CONTRACTS)) {
   const TreePublic = artifacts.require(treeName)
 
-  contract.skip(treeName + ' (Gas analysis)', (accounts) => {
+  contract(treeName + ' (Gas analysis)', (accounts) => {
     let tree
 
     beforeEach(async () => {
       tree = await TreePublic.new()
-      if (treeName == 'HexSumTreePublic') {
-        await tree.init()
-      } else {
-        await tree.init(THRESHOLDS)
-      }
+      await tree.init(TREE_CONTRACTS[treeName].initParams)
     })
 
     const assertBN = (bn, n, m) => {
@@ -28,11 +73,15 @@ for (const treeName of ['HexSumTreePublic', 'TierTreesWrapperPublic']) {
     }
 
     const logTreeState = async () => {
-      //console.log((await tree.getState()).map(x => x.toNumber()))
-      const [ depth, nextKey ] = await tree.getState()
-      console.log(`Tree depth:    ${depth}`);
-      console.log(`Tree next key: ${nextKey.toNumber().toLocaleString()}`);
+      for (let i = 0; i <= TREE_CONTRACTS[treeName].thresholds.length; i++) {
+        const [ depth, nextKey ] = await tree.getState(i)
+        console.log(`Tree ${i} depth:    ${depth}`);
+        console.log(`Tree ${i} next key: ${nextKey.toNumber().toLocaleString()}`);
+        console.log(`Tree ${i} total sum: `, (await tree.getSubTreeSum(i)).toNumber().toLocaleString())
+      }
+      console.log()
       console.log(`Tree total sum: `, (await tree.totalSum()).toNumber().toLocaleString())
+      console.log()
     }
 
     const logSortitionGas = async (value) => {
@@ -115,7 +164,6 @@ for (const treeName of ['HexSumTreePublic', 'TierTreesWrapperPublic']) {
           removeGas.push(getGas(r))
         }
 
-        //console.log(`Iteration ${i}:`, (await tree.totalSum()).toNumber())
         // draw
         const sum = (await tree.totalSum()).toNumber()
         for (const v of [0, Math.round(sum / 2), sum - 1]) {
@@ -151,7 +199,6 @@ for (const treeName of ['HexSumTreePublic', 'TierTreesWrapperPublic']) {
         const r2 = await tree.removeMultiple((INSERTS - REMOVES) * i, REMOVES)
         removeGas.push(getGas(r2))
 
-        //console.log(`Iteration ${i}:`, (await tree.totalSum()).toNumber())
         // draw
         const sum = (await tree.totalSum()).toNumber()
         for (const v of [0, Math.round(sum / 2), sum - 1]) {
@@ -185,9 +232,11 @@ for (const treeName of ['HexSumTreePublic', 'TierTreesWrapperPublic']) {
     const multipleUpdatesOnSingleNode = async (node, updates, initialValue) => {
       let setGas = []
       for (let i = 1; i <= updates; i++) {
-        const r = await tree.set(node, initialValue + i)
+        const value = initialValue + i
+        const { key, newNode } = await TREE_CONTRACTS[treeName].encodeKey(tree, node, value - 2, value - 1)
+        node = newNode
+        const r = await tree.set(key, value)
         setGas.push(getGas(r))
-        setGas.push(r.receipt.cumulativeGasUsed)
       }
       return setGas
     }
@@ -208,8 +257,8 @@ for (const treeName of ['HexSumTreePublic', 'TierTreesWrapperPublic']) {
       for (let i = 0; i < nodes; i++) {
         const r = await tree.insertNoLog(value)
         insertGas.push(getGas(r))
-        return insertGas
       }
+      return insertGas
     }
 
     it('inserts a lot of times into a middle node', async () => {
@@ -225,16 +274,20 @@ for (const treeName of ['HexSumTreePublic', 'TierTreesWrapperPublic']) {
 
     const multipleUpdatesOnMultipleNodes = async (nodes, updates, startingKey, initialValue) => {
       let setGas = []
-      for (let i = 1; i <= updates; i++) {
-        for (let j = 0; j < nodes; j++) {
-          const r = await tree.set(startingKey.add(j), initialValue + i)
+      for (let j = 0; j < nodes; j++) {
+        let node = startingKey.add(j)
+        for (let i = 1; i <= updates; i++) {
+          const value = initialValue + i
+          const { key, newNode } = await TREE_CONTRACTS[treeName].encodeKey(tree, node, value - 2, value - 1)
+          node = newNode
+          const r = await tree.set(key, value)
           setGas.push(getGas(r))
         }
-        return setGas
       }
+      return setGas
     }
 
-    it('inserts a lot of times into a all nodes of a (fake) big tree', async () => {
+    it('inserts a lot of times into all nodes of a (fake) big tree', async () => {
       const STARTING_KEY = (new web3.BigNumber(CHILDREN)).pow(7)
       const NODES = 17
       const UPDATES = 100

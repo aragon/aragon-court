@@ -40,9 +40,10 @@ library HexSumTree {
         return key;
     }
 
-    function set(Tree storage self, uint256 key, uint256 value) internal returns (uint256 delta, bool positive) {
+    function set(Tree storage self, uint256 key, uint256 value) internal returns (uint256 newKey, uint256 delta, bool positive) {
         require(key <= self.nextKey, ERROR_NEW_KEY_NOT_ADJACENT);
-        return _set(self, key, value);
+        (delta, positive) = _set(self, key, value);
+        newKey = key;
     }
 
     function update(Tree storage self, uint256 key, uint256 delta, bool positive) internal {

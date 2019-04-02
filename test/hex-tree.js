@@ -2,7 +2,16 @@ const assertRevert = require('./helpers/assert-revert')
 
 const THRESHOLDS = [50, 1000, 1000000]
 
-for (const treeName of ['HexSumTreePublic', 'TierTreesWrapperPublic']) {
+const TREE_CONTRACTS = {
+  HexSumTreePublic: {
+    initParams: {}
+  },
+  TierTreesWrapperPublic: {
+    initParams: THRESHOLDS
+  }
+}
+
+for (const treeName of Object.keys(TREE_CONTRACTS)) {
   const TreePublic = artifacts.require(treeName)
 
   contract(treeName, (accounts) => {
@@ -10,11 +19,7 @@ for (const treeName of ['HexSumTreePublic', 'TierTreesWrapperPublic']) {
 
     beforeEach(async () => {
       tree = await TreePublic.new()
-      if (treeName == 'HexSumTreePublic') {
-        await tree.init()
-      } else {
-        await tree.init(THRESHOLDS)
-      }
+      await tree.init(TREE_CONTRACTS[treeName].initParams)
     })
 
     const assertBN = (bn, n, m) => {

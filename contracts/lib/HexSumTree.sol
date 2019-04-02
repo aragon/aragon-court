@@ -31,7 +31,7 @@ library HexSumTree {
 
     function insert(Tree storage self, uint256 value) internal returns (uint256) {
         uint256 key = self.nextKey;
-        self.nextKey = nextKey(key);
+        self.nextKey = key + 1;
 
         if (value > 0) {
             _set(self, key, value);
@@ -40,9 +40,9 @@ library HexSumTree {
         return key;
     }
 
-    function set(Tree storage self, uint256 key, uint256 value) internal {
+    function set(Tree storage self, uint256 key, uint256 value) internal returns (uint256 delta, bool positive) {
         require(key <= self.nextKey, ERROR_NEW_KEY_NOT_ADJACENT);
-        _set(self, key, value);
+        return _set(self, key, value);
     }
 
     function update(Tree storage self, uint256 key, uint256 delta, bool positive) internal {
@@ -51,7 +51,7 @@ library HexSumTree {
         uint256 oldValue = self.nodes[INSERTION_DEPTH][key];
         self.nodes[INSERTION_DEPTH][key] = positive ? oldValue + delta : oldValue - delta;
 
-        updateSums(self, key, delta, positive);
+        _updateSums(self, key, delta, positive);
     }
 
     function sortition(Tree storage self, uint256 value) internal view returns (uint256 key, uint256 nodeValue) {
@@ -64,15 +64,18 @@ library HexSumTree {
         return _sortition(self, seed % totalSum(self), BASE_KEY, self.rootDepth);
     }
 
-    function _set(Tree storage self, uint256 key, uint256 value) private {
+    function _set(Tree storage self, uint256 key, uint256 value) private returns (uint256 delta, bool positive) {
         uint256 oldValue = self.nodes[INSERTION_DEPTH][key];
         self.nodes[INSERTION_DEPTH][key] = value;
 
         if (value > oldValue) {
-            updateSums(self, key, value - oldValue, true);
+            delta = value - oldValue;
+            positive = true;
         } else if (value < oldValue) {
-            updateSums(self, key, oldValue - value, false);
+            delta = oldValue - value;
+            positive = false;
         }
+        _updateSums(self, key, delta, positive);
     }
 
     function _sortition(Tree storage self, uint256 value, uint256 node, uint256 depth) private view returns (uint256 key, uint256 nodeValue) {
@@ -114,8 +117,8 @@ library HexSumTree {
         // Invariant: this point should never be reached
     }
 
-    function updateSums(Tree storage self, uint256 key, uint256 delta, bool positive) private {
-        uint256 newRootDepth = sharedPrefix(self.rootDepth, key);
+    function _updateSums(Tree storage self, uint256 key, uint256 delta, bool positive) private {
+        uint256 newRootDepth = _sharedPrefix(self.rootDepth, key);
 
         if (self.rootDepth != newRootDepth) {
             self.nodes[newRootDepth][BASE_KEY] = self.nodes[self.rootDepth][BASE_KEY];
@@ -147,11 +150,7 @@ library HexSumTree {
         return self.nodes[INSERTION_DEPTH][key];
     }
 
-    function nextKey(uint256 fromKey) private pure returns (uint256) {
-        return fromKey + 1;
-    }
-
-    function sharedPrefix(uint256 depth, uint256 key) internal pure returns (uint256) {
+    function _sharedPrefix(uint256 depth, uint256 key) private pure returns (uint256) {
         uint256 shift = depth * BITS_IN_NIBBLE;
         uint256 mask = uint256(-1) << shift;
         uint keyAncestor = key & mask;
@@ -163,7 +162,7 @@ library HexSumTree {
         return depth;
     }
     /*
-    function sharedPrefix(uint256 depth, uint256 key) internal pure returns (uint256) {
+    function _sharedPrefix(uint256 depth, uint256 key) private pure returns (uint256) {
         uint256 shift = depth * BITS_IN_NIBBLE;
         uint256 mask = uint256(-1) << shift;
         uint keyAncestor = key & mask;

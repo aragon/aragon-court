@@ -4,7 +4,11 @@ const HexSumTreePublic = artifacts.require('HexSumTreePublic')
 
 const CHILDREN = 16
 
-contract('Hex Sum Tree', (accounts) => {
+const getGas = (r) => {
+  return { total: r.receipt.gasUsed, function: r.logs.filter(l => l.event == 'GasConsumed')[0].args['gas'].toNumber() }
+}
+
+contract.skip('Hex Sum Tree (Gas analysis)', (accounts) => {
   let tree
 
   beforeEach(async () => {
@@ -18,14 +22,16 @@ contract('Hex Sum Tree', (accounts) => {
 
   const logTreeState = async () => {
     //console.log((await tree.getState()).map(x => x.toNumber()))
-    const state = await tree.getState()
-    console.log(`Tree depth:    ${state[0]}`);
-    console.log(`Tree next key: ${state[1].toNumber().toLocaleString()}`);
+    const [ depth, nextKey ] = await tree.getState()
+    console.log(`Tree depth:    ${depth}`);
+    console.log(`Tree next key: ${nextKey.toNumber().toLocaleString()}`);
     console.log(`Tree total sum: `, (await tree.totalSum()).toNumber().toLocaleString())
   }
 
   const logSortitionGas = async (value) => {
-    console.log(`Sortition ${value} gas:`, (await tree.sortition.estimateGas(value)).toLocaleString())
+    const r = await tree.sortition(value)
+    const gas = getGas(r)
+    console.log(`Sortition ${value} gas:`, gas.total.toLocaleString(), gas.function.toLocaleString())
   }
 
   const logSortitionHex = async (value) => {
@@ -47,25 +53,24 @@ contract('Hex Sum Tree', (accounts) => {
     const COL_SIZE = 7
     console.log(title)
     console.log('Size:   ', gasArray.length)
-    const TX_GAS = 21000
-    const min = Math.min(...gasArray)
-    const max = Math.max(...gasArray)
-    const avg = Math.round(gasArray.reduce((a,b) => a + b, 0) / gasArray.length)
+    const min = (k) => Math.min(...gasArray.map(x => x[k]))
+    const max = (k) => Math.max(...gasArray.map(x => x[k]))
+    const avg = (k) => Math.round(gasArray.map(x => x[k]).reduce((a,b) => a + b, 0) / gasArray.length)
     console.log()
-    console.log('|         |', 'Total'.padStart(COL_SIZE, ' '), '|', '- 21k'.padStart(COL_SIZE, ' '), '|')
+    console.log('|         |', 'Total'.padStart(COL_SIZE, ' '), '|', 'Function'.padStart(COL_SIZE, ' '), '|')
     console.log('|---------|' + '-'.padStart(COL_SIZE + 2, '-') + '|' + '-'.padStart(COL_SIZE + 2, '-') + '|')
-    console.log('| Min     |', formatDivision(min / batchSize, COL_SIZE), '|', formatDivision((min - TX_GAS) / batchSize, COL_SIZE), '|')
-    console.log('| Max     |', formatDivision(max / batchSize, COL_SIZE), '|', formatDivision((max - TX_GAS) / batchSize, COL_SIZE), '|')
-    console.log('| Average |', formatDivision(avg / batchSize, COL_SIZE), '|', formatDivision((avg - TX_GAS) / batchSize, COL_SIZE), '|')
+    console.log('| Min     |', formatDivision(min('total') / batchSize, COL_SIZE), '|', formatDivision(min('function') / batchSize, COL_SIZE), '|')
+    console.log('| Max     |', formatDivision(max('total') / batchSize, COL_SIZE), '|', formatDivision(max('function') / batchSize, COL_SIZE), '|')
+    console.log('| Average |', formatDivision(avg('total') / batchSize, COL_SIZE), '|', formatDivision(avg('function') / batchSize, COL_SIZE), '|')
     console.log()
   }
 
   it('inserts one node', async () => {
     const r = await tree.insertNoLog(10)
-    const insertGas = r.receipt.cumulativeGasUsed
+    const insertGas = getGas(r)
 
     await logTreeState()
-    console.log(`Insert gas:`, insertGas.toLocaleString())
+    console.log(`Insert gas:`, insertGas.total.toLocaleString(), insertGas.function.toLocaleString())
     await logSortitionGas(5)
   })
 
@@ -73,7 +78,7 @@ contract('Hex Sum Tree', (accounts) => {
     let insertGas = []
     for (let i = 0; i < 270; i++) {
       const r = await tree.insertNoLog(10)
-      insertGas.push(r.receipt.cumulativeGasUsed)
+      insertGas.push(getGas(r))
     }
 
     await logTreeState()
@@ -95,21 +100,22 @@ contract('Hex Sum Tree', (accounts) => {
       // add nodes
       for (let j = 0; j < INSERTS; j++) {
         const r = await tree.insertNoLog(VALUE)
-        insertGas.push(r.receipt.cumulativeGasUsed)
+        insertGas.push(getGas(r))
       }
 
       // remove
       for (let k = 0; k < REMOVES; k++) {
         const r = await tree.removeNoLog((INSERTS - REMOVES) * i + k)
-        removeGas.push(r.receipt.cumulativeGasUsed)
+        removeGas.push(getGas(r))
       }
 
       //console.log(`Iteration ${i}:`, (await tree.totalSum()).toNumber())
       // draw
       const sum = (await tree.totalSum()).toNumber()
-      sortitionGas.push(await tree.sortition.estimateGas(0))
-      sortitionGas.push(await tree.sortition.estimateGas(Math.round(sum / 2)))
-      sortitionGas.push(await tree.sortition.estimateGas(sum - 1))
+      for (const v of [0, Math.round(sum / 2), sum - 1]) {
+        const r = await tree.sortition(v)
+        sortitionGas.push(getGas(r))
+      }
     }
 
     await logTreeState()
@@ -133,18 +139,19 @@ contract('Hex Sum Tree', (accounts) => {
     for (let i = 0; i < ITERATIONS; i++) {
       // add nodes
       const r1 = await tree.insertMultiple(VALUE, INSERTS)
-      insertGas.push(r1.receipt.cumulativeGasUsed)
+      insertGas.push(getGas(r1))
 
       // remove
       const r2 = await tree.removeMultiple((INSERTS - REMOVES) * i, REMOVES)
-      removeGas.push(r2.receipt.cumulativeGasUsed)
+      removeGas.push(getGas(r2))
 
       //console.log(`Iteration ${i}:`, (await tree.totalSum()).toNumber())
       // draw
       const sum = (await tree.totalSum()).toNumber()
-      sortitionGas.push(await tree.sortition.estimateGas(0))
-      sortitionGas.push(await tree.sortition.estimateGas(Math.round(sum / 2)))
-      sortitionGas.push(await tree.sortition.estimateGas(sum - 1))
+      for (const v of [0, Math.round(sum / 2), sum - 1]) {
+        const r = await tree.sortition(v)
+        sortitionGas.push(getGas(r))
+      }
     }
 
     await logTreeState()
@@ -161,7 +168,7 @@ contract('Hex Sum Tree', (accounts) => {
     let insertGas = []
     for (let i = 0; i < 270; i++) {
       const r = await tree.insertNoLog(10)
-      insertGas.push(r.receipt.cumulativeGasUsed)
+      insertGas.push(getGas(r))
     }
 
     await logTreeState()
@@ -173,7 +180,7 @@ contract('Hex Sum Tree', (accounts) => {
     let setGas = []
     for (let i = 1; i <= updates; i++) {
       const r = await tree.set(node, initialValue + i)
-      setGas.push(r.receipt.cumulativeGasUsed)
+      setGas.push(getGas(r))
     }
     return setGas
   }
@@ -185,7 +192,7 @@ contract('Hex Sum Tree', (accounts) => {
 
     await logTreeState()
     logGasStats('Sets', setGas)
-    await logSortition(0)
+    //await logSortition(0)
     await logSortitionGas(0)
   })
 
@@ -193,7 +200,7 @@ contract('Hex Sum Tree', (accounts) => {
     let insertGas = []
     for (let i = 0; i < nodes; i++) {
       const r = await tree.insertNoLog(value)
-      insertGas.push(r.receipt.cumulativeGasUsed)
+      insertGas.push(getGas(r))
     }
     return insertGas
   }
@@ -205,7 +212,7 @@ contract('Hex Sum Tree', (accounts) => {
     await logTreeState()
     logGasStats('Inserts', insertGas)
     logGasStats('Sets', setGas)
-    await logSortition(2505)
+    //await logSortition(2505)
     await logSortitionGas(2505)
   })
 
@@ -214,7 +221,7 @@ contract('Hex Sum Tree', (accounts) => {
     for (let i = 1; i <= updates; i++) {
       for (let j = 0; j < nodes; j++) {
         const r = await tree.set(startingKey.add(j), initialValue + i)
-        setGas.push(r.receipt.cumulativeGasUsed)
+        setGas.push(getGas(r))
       }
     }
     return setGas

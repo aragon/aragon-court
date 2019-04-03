@@ -15,7 +15,7 @@ contract('Hex Sum Tree', (accounts) => {
   }
 
   const logSortition = async (value) => {
-    console.log(`Sortition ${value}:`, web3.toHex(await tree.sortition(value)))
+    console.log(`Sortition ${value}:`, web3.toHex(await tree.sortition.call(value)))
   }
 
   it('inserts', async () => {
@@ -58,11 +58,11 @@ contract('Hex Sum Tree', (accounts) => {
 
     for (let i = 0; i < 5; i++) {
       //await logSortition(i)
-      assertBN(await tree.sortition(i), 0, `Draw first, value ${i}`)
+      assertBN(await tree.sortition.call(i), 0, `Draw first, value ${i}`)
     }
     for (let i = 5; i < 10; i++) {
       //await logSortition(i)
-      assertBN(await tree.sortition(i), 1, `Draw second, value ${i}`)
+      assertBN(await tree.sortition.call(i), 1, `Draw second, value ${i}`)
     }
   })
 
@@ -89,9 +89,9 @@ contract('Hex Sum Tree', (accounts) => {
         //console.log(`#${i + 1}: Sum ${await tree.totalSum()}. Depth ${depth}. Next key ${web3.toHex(key)}`)
     }
 
-    assertBN(await tree.sortition(1), 0)
-    assertBN(await tree.sortition(11), 1)
-    assertBN(await tree.sortition(171), 17)
+    assertBN(await tree.sortition.call(1), 0)
+    assertBN(await tree.sortition.call(11), 1)
+    assertBN(await tree.sortition.call(171), 17)
   })
 
   it('inserts into another node', async () => {
@@ -108,6 +108,6 @@ contract('Hex Sum Tree', (accounts) => {
     assertBN(await tree.get(1, 16), 160, 'get sum 1.1')
     assertBN(await tree.get(2, 0), 2560, 'get sum 2.0')
 
-    assertBN(await tree.sortition(2605), 260)
+    assertBN(await tree.sortition.call(2605), 260)
   })
 })

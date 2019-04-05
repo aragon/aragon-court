@@ -111,4 +111,18 @@ contract('Hex Sum Tree', (accounts) => {
 
     assertBN(await tree.sortition.call(2605, 0), 260)
   })
+
+  it('tests sortition on all nodes', async () => {
+    const NODES = 512//16 ** 3
+    // insert
+    for (let i = 0; i < NODES; i++) {
+      await tree.insertNoLog(10)
+    }
+
+    // sortition
+    for (let i = 0; i < NODES; i++) {
+      //console.log(10 * i, (await tree.sortition.call(10 * i, 0)).toNumber(), i)
+      assertBN(await tree.sortition.call(10 * i, 0), i)
+    }
+  })
 })

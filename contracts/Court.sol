@@ -272,7 +272,7 @@ contract Court is ERC900, ApproveAndCallFallBack {
         terms[ZERO_TERM].startTime = _firstTermStartTime - _termDuration;
 
         sumTree.init();
-        assert(sumTree.insert(0) == 0); // first tree item is an empty juror
+        assert(sumTree.insert(ZERO_TERM, 0) == 0); // first tree item is an empty juror
     }
 
     /**
@@ -379,14 +379,14 @@ contract Court is ERC900, ApproveAndCallFallBack {
 
         uint256 sumTreeId = account.sumTreeId;
         if (sumTreeId == 0) {
-            sumTreeId = sumTree.insert(0); // Always > 0 (as constructor inserts the first item)
+            sumTreeId = sumTree.insert(term, 0); // Always > 0 (as constructor inserts the first item)
             account.sumTreeId = sumTreeId;
             jurorsByTreeId[sumTreeId] = jurorAddress;
         }
 
         if (term == ZERO_TERM && _fromTerm == ZERO_TERM + 1) {
             // allow direct juror onboardings before term 1 starts (no disputes depend on term 0)
-            sumTree.update(sumTreeId, balance, true);
+            sumTree.update(sumTreeId, term, balance, true);
         } else {
             // TODO: check queue size limit
             account.update = AccountUpdate({ delta: balance, positive: true, term: _fromTerm });
@@ -1003,7 +1003,7 @@ contract Court is ERC900, ApproveAndCallFallBack {
                 terms[futureUpdate.term].updateQueue.deleteItem(juror);
             }
 
-            sumTree.set(sumTreeId, 0);
+            sumTree.set(sumTreeId, term, 0);
             account.balances[jurorToken] += treeBalance;
             account.state = AccountState.PastJuror;
             delete account.update;
@@ -1023,7 +1023,7 @@ contract Court is ERC900, ApproveAndCallFallBack {
 
             if (update.delta > 0) {
                 // account.sumTreeId always > 0: as only a juror that activates can get in this queue (and gets its sumTreeId)
-                sumTree.update(account.sumTreeId, update.delta, update.positive);
+                sumTree.update(account.sumTreeId, term, update.delta, update.positive);
                 delete account.update;
             }
         }

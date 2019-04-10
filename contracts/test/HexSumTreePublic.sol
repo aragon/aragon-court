@@ -88,6 +88,14 @@ contract HexSumTreePublic {
         }
     }
 
+    function multiRandomSortitionLast(uint256 number) external profileGas {
+        uint64 checkpointTime = getCheckpointTime();
+        for (uint256 i = 0; i < number; i++) {
+            bytes32 seed = keccak256(abi.encodePacked(checkpointTime, i));
+            tree.randomSortition(uint256(seed), checkpointTime);
+        }
+    }
+
     function get(uint256 l, uint256 key) external view returns (uint256) {
         return tree.get(l, key);
     }

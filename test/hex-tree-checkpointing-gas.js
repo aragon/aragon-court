@@ -111,4 +111,41 @@ contract('Hex Sum Tree (Gas analysis)', (accounts) => {
       await round(blocksOffset)
     })
   }
+
+  it(`multiple random sortition on a (fake) big tree with a lot of updates in different terms, sortition always on last one`, async () => {
+    const STARTING_KEY = (new web3.BigNumber(CHILDREN)).pow(5)
+    const INITIAL_VALUE = 10
+    const NODES = 10
+    const UPDATES = 30
+    const SORTITION_NUMBER = 10
+    const initialBlockNumber = await tree.getBlockNumber64()
+    const initialCheckpointTime = await tree.getCheckpointTime()
+    console.log(`initial block number ${initialBlockNumber}, term ${initialCheckpointTime}`)
+    await tree.setNextKey(STARTING_KEY)
+
+    const insertGas = await insertNodes(NODES, 10)
+    let setGas = []
+    let sortitionGas = []
+    for (let i = 1; i <= UPDATES; i++) {
+      for (let j = 0; j < NODES; j++) {
+        const checkpointTime = await getCheckpointTime()
+        const value = INITIAL_VALUE + i
+        const r1 = await tree.set(STARTING_KEY.add(j), value)
+        setGas.push(getGas(r1))
+        await tree.advanceTime(256) // blocks
+        // sortition
+        const r2 = await tree.multiRandomSortitionLast(SORTITION_NUMBER)
+        sortitionGas.push(getGas(r2))
+      }
+    }
+
+    await logTreeState()
+    logGasStats('Inserts', insertGas)
+    logGasStats('Sets', setGas)
+    logGasStats('Sortitions', sortitionGas)
+
+    const finalBlockNumber = await tree.getBlockNumber64()
+    const finalCheckpointTime = await tree.getCheckpointTime()
+    console.log(`final block number ${finalBlockNumber}, term ${finalCheckpointTime}`)
+  })
 })

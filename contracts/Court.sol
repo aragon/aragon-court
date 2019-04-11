@@ -526,7 +526,7 @@ contract Court is ERC900, ApproveAndCallFallBack {
             // Account storage jurorAccount = accounts[juror]; // Hitting stack too deep
             uint256 newAtStake = accounts[juror].atStakeTokens + maxPenalty;
             if (stake >= newAtStake) {
-                accounts[juror].atStakeTokens += newAtStake;
+                accounts[juror].atStakeTokens = newAtStake;
             } else {
                 // SECURITY: This has a chance of bricking the round depending on the state of the court
                 skippedJurors++;

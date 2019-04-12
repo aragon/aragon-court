@@ -8,7 +8,9 @@ const getGas = (r) => {
   return { total: r.receipt.gasUsed, function: r.logs.filter(l => l.event == 'GasConsumed')[0].args['gas'].toNumber() }
 }
 
-contract.skip('Hex Sum Tree (Gas analysis)', (accounts) => {
+const testRunner = process.env.SUMTREE_GAS_ANALYSIS ? contract.only : contract.skip
+
+testRunner('Hex Sum Tree (Gas analysis)', (accounts) => {
   let tree
 
   beforeEach(async () => {

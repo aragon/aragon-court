@@ -112,7 +112,7 @@ contract('Hex Sum Tree', (accounts) => {
   })
 
   it('tests sortition on all nodes', async () => {
-    const NODES = 16 ** 3
+    const NODES = 513 // at least over 16^2 to hit 3 levels, 16^3 gives time outs on CI
     // insert
     for (let i = 0; i < NODES; i++) {
       await tree.insertNoLog(10)

@@ -78,10 +78,31 @@ library Checkpointing {
     }
 
     function getLast(History storage self) internal view returns (uint256) {
-        if (self.history.length > 0) {
-            return uint256(self.history[self.history.length - 1].value);
+        uint256 length = self.history.length;
+        if (length > 0) {
+            return uint256(self.history[length - 1].value);
         }
 
         return 0;
+    }
+
+    /**
+     * @dev We are seeking either last or second to last checkpoint, as there shouldn't be more than one in the future, so we do a backwards linear search from the end.
+     */
+    function getLastPresent(History storage self, uint64 currentTime) internal view returns (uint256) {
+        uint256 length = self.history.length;
+
+        if (length == 0) {
+            return 0;
+        }
+
+        uint256 index = length - 1;
+        Checkpoint storage checkpoint = self.history[index];
+        while (index > 0 && checkpoint.time > currentTime) {
+            index--;
+            checkpoint = self.history[index];
+        }
+
+        return checkpoint.time > currentTime ? 0 : uint256(checkpoint.value);
     }
 }

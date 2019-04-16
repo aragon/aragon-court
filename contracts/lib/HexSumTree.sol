@@ -17,6 +17,7 @@ library HexSumTree {
         uint256 keysLength;
         uint256 depth;
         uint64 time;
+        bool past;
         uint256 accumulatedValue;
         uint256 node;
     }
@@ -67,14 +68,14 @@ library HexSumTree {
         _updateSums(self, key, time, delta, positive);
     }
 
-    function sortition(Tree storage self, uint256 value, uint64 time) internal view returns (uint256 key, uint256 nodeValue) {
+    function sortition(Tree storage self, uint256 value, uint64 time, bool past) internal view returns (uint256 key, uint256 nodeValue) {
         require(totalSumPast(self, time) > value, ERROR_SORTITION_OUT_OF_BOUNDS);
 
-        return _sortition(self, value, BASE_KEY, self.rootDepth, time);
+        return _sortition(self, value, BASE_KEY, self.rootDepth, time, past);
     }
 
-    function randomSortition(Tree storage self, uint256 seed, uint64 time) internal view returns (uint256 key, uint256 nodeValue) {
-        return _sortition(self, seed % totalSumPast(self, time), BASE_KEY, self.rootDepth, time);
+    function randomSortition(Tree storage self, uint256 seed, uint64 time, bool past) internal view returns (uint256 key, uint256 nodeValue) {
+        return _sortition(self, seed % totalSumPast(self, time), BASE_KEY, self.rootDepth, time, past);
     }
 
     function _set(Tree storage self, uint256 key, uint64 time, uint256 value) private {
@@ -88,29 +89,27 @@ library HexSumTree {
         }
     }
 
-    function _sortition(Tree storage self, uint256 value, uint256 node, uint256 depth, uint64 time) private view returns (uint256 key, uint256 nodeValue) {
+    function _sortition(Tree storage self, uint256 value, uint256 node, uint256 depth, uint64 time, bool past) private view returns (uint256 key, uint256 nodeValue) {
         uint256 checkedValue = 0; // Can optimize by having checkedValue = value - remainingValue
 
         uint256 checkingLevel = depth - 1;
         // Invariant: node has 0's "after the depth" (so no need for masking)
-        uint256 shift = checkingLevel * BITS_IN_NIBBLE;
-        uint parentNode = node;
+        // TODO: removed because of stack too deep issue
+        //uint256 shift = checkingLevel * BITS_IN_NIBBLE;
+        uint256 parentNode = node;
         uint256 child;
         uint256 checkingNode;
         uint256 nodeSum;
         for (; checkingLevel > INSERTION_DEPTH; checkingLevel--) {
             for (child = 0; child < CHILDREN; child++) {
                 // shift the iterator and add it to node 0x00..0i00 (for depth = 3)
-                checkingNode = parentNode + (child << shift);
+                checkingNode = parentNode + (child << (checkingLevel * BITS_IN_NIBBLE)/* shift */);
 
-                // TODO: 3 options
-                // - leave it as is
-                // -> use always get(time), as Checkpointing already short cuts it
-                // - create another version of sortition for historic values, at the cost of repeating even more code
-                if (time > 0) {
+                // TODO: remove one??
+                if (past) {
                     nodeSum = self.nodes[checkingLevel][checkingNode].get(time);
                 } else {
-                    nodeSum = self.nodes[checkingLevel][checkingNode].getLast();
+                    nodeSum = self.nodes[checkingLevel][checkingNode].getLastPresent(time);
                 }
                 if (checkedValue + nodeSum <= value) { // not reached yet, move to next child
                     checkedValue += nodeSum;
@@ -119,16 +118,15 @@ library HexSumTree {
                     break;
                 }
             }
-            shift = shift - BITS_IN_NIBBLE;
+            //shift = shift - BITS_IN_NIBBLE;
         }
         // Leaves level:
         for (child = 0; child < CHILDREN; child++) {
             checkingNode = parentNode + child;
-            // TODO: see above
-            if (time > 0) {
+            if (past) {
                 nodeSum = self.nodes[INSERTION_DEPTH][checkingNode].get(time);
             } else {
-                nodeSum = self.nodes[INSERTION_DEPTH][checkingNode].getLast();
+                nodeSum = self.nodes[INSERTION_DEPTH][checkingNode].getLastPresent(time);
             }
             if (checkedValue + nodeSum <= value) { // not reached yet, move to next child
                 checkedValue += nodeSum;
@@ -142,8 +140,8 @@ library HexSumTree {
     /**
      * @param values Must be ordered ascending
      */
-    function multiSortition(Tree storage self, uint256[] values, uint64 time) internal view returns (uint256[] keys) {
-        return _multiSortition(self, values, PackedArguments(0, values.length, self.rootDepth, time, 0, BASE_KEY));
+    function multiSortition(Tree storage self, uint256[] values, uint64 time, bool past) internal view returns (uint256[] keys) {
+        return _multiSortition(self, values, PackedArguments(0, values.length, self.rootDepth, time, past, 0, BASE_KEY));
     }
 
     function _multiSortition(Tree storage self, uint256[] values, PackedArguments memory packedArguments) private view returns (uint256[] keys) {
@@ -158,7 +156,12 @@ library HexSumTree {
             }
             // shift the iterator and add it to node 0x00..0i00 (for depth = 3)
             uint256 checkingNode = packedArguments.node + (i << shift); // uint256
-            checkingValue = checkingValue + self.nodes[packedArguments.depth - 1][checkingNode].get(packedArguments.time);
+            // TODO: find a better way or remove if we only need getLastPresent
+            if (packedArguments.past) {
+                checkingValue = checkingValue + self.nodes[packedArguments.depth - 1][checkingNode].get(packedArguments.time);
+            } else {
+                checkingValue = checkingValue + self.nodes[packedArguments.depth - 1][checkingNode].getLastPresent(packedArguments.time);
+            }
 
             uint256 newLength = _getNodeValuesLength(values, checkingValue, packedArguments.valuesStart);
             if (newLength > 0) {
@@ -175,6 +178,7 @@ library HexSumTree {
                             newLength,
                             packedArguments.depth - 1,
                             packedArguments.time,
+                            packedArguments.past,
                             packedArguments.accumulatedValue,
                             checkingNode
                         )
@@ -224,6 +228,10 @@ library HexSumTree {
         return self.nodes[self.rootDepth][BASE_KEY].getLast();
     }
 
+    function totalSumPresent(Tree storage self, uint64 currentTime) internal view returns (uint256) {
+        return self.nodes[self.rootDepth][BASE_KEY].getLastPresent(currentTime);
+    }
+
     function totalSumPast(Tree storage self, uint64 time) internal view returns (uint256) {
         return self.nodes[self.rootDepth][BASE_KEY].get(time);
     }
@@ -232,12 +240,20 @@ library HexSumTree {
         return self.nodes[depth][key].getLast();
     }
 
+    function getPresent(Tree storage self, uint256 depth, uint256 key, uint64 currentTime) internal view returns (uint256) {
+        return self.nodes[depth][key].getLastPresent(currentTime);
+    }
+
     function getPast(Tree storage self, uint256 depth, uint256 key, uint64 time) internal view returns (uint256) {
         return self.nodes[depth][key].get(time);
     }
 
     function getItem(Tree storage self, uint256 key) internal view returns (uint256) {
         return self.nodes[INSERTION_DEPTH][key].getLast();
+    }
+
+    function getItemPresent(Tree storage self, uint256 key, uint64 currentTime) internal view returns (uint256) {
+        return self.nodes[INSERTION_DEPTH][key].getLastPresent(currentTime);
     }
 
     function getPastItem(Tree storage self, uint256 key, uint64 time) internal view returns (uint256) {

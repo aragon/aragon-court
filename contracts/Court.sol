@@ -977,7 +977,7 @@ contract Court is ERC900, ApproveAndCallFallBack {
         // Always process egress before updates
         // If a juror update is scheduled for the same term, it will get settled processing its exit
         _processEgressQueue(_incomingTerm, _prevTermId);
-        _processUpdateQueue(_incomingTerm);
+        _processUpdateQueue(_incomingTerm, _prevTermId);
     }
 
     function _processEgressQueue(Term storage _incomingTerm, uint64 _prevTermId) internal {
@@ -1015,7 +1015,7 @@ contract Court is ERC900, ApproveAndCallFallBack {
         }
     }
 
-    function _processUpdateQueue(Term storage _incomingTerm) internal {
+    function _processUpdateQueue(Term storage _incomingTerm, uint64 _prevTermId) internal {
         uint256 length = _incomingTerm.updateQueue.length;
         for (uint256 i = 0; i < length; i++) {
             Account storage account = accounts[_incomingTerm.updateQueue[i]];
@@ -1023,7 +1023,7 @@ contract Court is ERC900, ApproveAndCallFallBack {
 
             if (update.delta > 0) {
                 // account.sumTreeId always > 0: as only a juror that activates can get in this queue (and gets its sumTreeId)
-                sumTree.update(account.sumTreeId, term, update.delta, update.positive);
+                sumTree.update(account.sumTreeId, _prevTermId + 1, update.delta, update.positive);
                 delete account.update;
             }
         }

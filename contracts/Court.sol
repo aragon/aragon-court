@@ -386,7 +386,7 @@ contract Court is ERC900, ApproveAndCallFallBack {
 
         if (term == ZERO_TERM && _fromTerm == ZERO_TERM + 1) {
             // allow direct juror onboardings before term 1 starts (no disputes depend on term 0)
-            sumTree.update(sumTreeId, term, balance, true);
+            sumTree.update(sumTreeId, _fromTerm, balance, true);
         } else {
             // TODO: check queue size limit
             account.update = AccountUpdate({ delta: balance, positive: true, term: _fromTerm });
@@ -1003,7 +1003,7 @@ contract Court is ERC900, ApproveAndCallFallBack {
                 terms[futureUpdate.term].updateQueue.deleteItem(juror);
             }
 
-            sumTree.set(sumTreeId, term, 0);
+            sumTree.set(sumTreeId, _prevTermId + 1, 0);
             account.balances[jurorToken] += treeBalance;
             account.state = AccountState.PastJuror;
             delete account.update;

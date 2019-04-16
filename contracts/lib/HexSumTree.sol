@@ -86,7 +86,7 @@ library HexSumTree {
         uint256 checkingNode;
         uint256 nodeSum;
         for (; checkingLevel > INSERTION_DEPTH; checkingLevel--) {
-            for (; child < CHILDREN; child++) {
+            for (child = 0; child < CHILDREN; child++) {
                 // shift the iterator and add it to node 0x00..0i00 (for depth = 3)
                 uint256 iterator = child << shift;
                 checkingNode = parentNode + iterator;

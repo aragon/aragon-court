@@ -132,6 +132,23 @@ contract('Court: Lifecycle', ([ poor, rich, governor, juror1, juror2 ]) => {
       await assertEqualBN(this.court.mock_treeTotalSum(), richStake, 'total tree sum')
     })
 
+    it('gets the correct account details after activation', async () => {
+      const expectedAccountState = 1
+      const expectedFromTerm = 1
+      const expectedToTerm = 10
+      const expectedAtStake = 0
+      const expectedSumTreeId = 1
+      await this.court.activate(expectedFromTerm, expectedToTerm, {from: rich })
+
+      const accountDetails = await this.court.getAccount(rich)
+
+      assertEqualBN(accountDetails[0], expectedAccountState, 'COURT_INCORRECT_ACCOUNT_STATE')
+      assertEqualBN(accountDetails[1], expectedFromTerm, 'COURT_INCORRECT_ACCOUNT_FROM_TERM')
+      assertEqualBN(accountDetails[2], expectedToTerm, 'COURT_INCORRECT_ACCOUNT_TO_TERM')
+      assertEqualBN(accountDetails[3], expectedAtStake, 'COURT_INCORRECT_ACCOUNT_AT_STAKE')
+      assertEqualBN(accountDetails[4], expectedSumTreeId, 'COURT_INCORRECT_ACCOUNT_SUM_TREE_ID')
+    })
+
     it('reverts if activating balance is below dust', async () => {
       await this.court.mock_setTime(firstTermStart - 1)
       await assertRevert(this.court.activate(1, 10, { from: poor }), 'COURT_TOKENS_BELOW_MIN_STAKE')

@@ -141,30 +141,30 @@ contract('Court: Disputes', ([ poor, rich, governor, juror1, juror2, juror3, arb
       const firstRoundId = 0
 
       beforeEach(async () => {
-          await assertLogs(this.court.createDispute(arbitrable, rulings, jurors, term, { from: poor }), NEW_DISPUTE_EVENT)
+        await assertLogs(this.court.createDispute(arbitrable, rulings, jurors, term, { from: poor }), NEW_DISPUTE_EVENT)
       })
 
       it('gets the correct dispute details', async () => {
-          const dispute = await this.court.getDispute(disputeId)
+        const dispute = await this.court.getDispute(disputeId)
 
-          assert.strictEqual(dispute[0], arbitrable, 'COURT_INCORRECT_DISPUTE_SUBJECT')
-          assertEqualBN(dispute[1], rulings, 'COURT_INCORRECT_DISPUTE_RULINGS')
-          assertEqualBN(dispute[2], 0, 'COURT_INCORRECT_DISPUTE_STATE')
+        assert.strictEqual(dispute[0], arbitrable, 'COURT_INCORRECT_DISPUTE_SUBJECT')
+        assertEqualBN(dispute[1], rulings, 'COURT_INCORRECT_DISPUTE_RULINGS')
+        assertEqualBN(dispute[2], 0, 'COURT_INCORRECT_DISPUTE_STATE')
       })
 
       it('gets the correct dispute round details', async () => {
-          const expectedWinningRuling = 0
-          const exepctedRoundPenalties = false
-          const expectedRoundSlashing = 0
+        const expectedWinningRuling = 0
+        const exepctedRoundPenalties = false
+        const expectedRoundSlashing = 0
 
-          const round = await this.court.getAdjudicationRound(disputeId, firstRoundId)
+        const round = await this.court.getAdjudicationRound(disputeId, firstRoundId)
 
-          assertEqualBN(round[0], expectedWinningRuling, 'COURT_INCORRECT_ROUND_RULING')
-          assertEqualBN(await round[1], term, 'COURT_INCORRECT_ROUND_TERM')
-          assertEqualBN(await round[2], jurors, 'COURT_INCORRECT_ROUND_JURORS')
-          assert.strictEqual(round[3], poor, 'COURT_INCORRECT_ROUND_ACCOUNT')
-          assert.strictEqual(round[4], exepctedRoundPenalties, 'COURT_INCORRECT_ROUND_PENALTIES')
-          assertEqualBN(round[5], expectedRoundSlashing, 'COURT_INCORRECT_ROUND_SLASHING')
+        assertEqualBN(round[0], expectedWinningRuling, 'COURT_INCORRECT_ROUND_RULING')
+        assertEqualBN(await round[1], term, 'COURT_INCORRECT_ROUND_TERM')
+        assertEqualBN(await round[2], jurors, 'COURT_INCORRECT_ROUND_JURORS')
+        assert.strictEqual(round[3], poor, 'COURT_INCORRECT_ROUND_ACCOUNT')
+        assert.strictEqual(round[4], exepctedRoundPenalties, 'COURT_INCORRECT_ROUND_PENALTIES')
+        assertEqualBN(round[5], expectedRoundSlashing, 'COURT_INCORRECT_ROUND_SLASHING')
       })
 
 

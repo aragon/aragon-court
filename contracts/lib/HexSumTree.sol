@@ -18,7 +18,7 @@ library HexSumTree {
      * BITS_IN_NIBBLE * MAX_DEPTH = 256
      */
     uint256 private constant CHILDREN = 16;
-    uint256 private constant MAX_DEPTH = 64;
+    //uint256 private constant MAX_DEPTH = 64;
     uint256 private constant BITS_IN_NIBBLE = 4;
     uint256 private constant INSERTION_DEPTH = 0;
     uint256 private constant BASE_KEY = 0; // tree starts on the very left
@@ -27,6 +27,12 @@ library HexSumTree {
     string private constant ERROR_NEW_KEY_NOT_ADJACENT = "SUM_TREE_NEW_KEY_NOT_ADJACENT";
     string private constant ERROR_UPDATE_OVERFLOW = "SUM_TREE_UPDATE_OVERFLOW";
     string private constant ERROR_INEXISTENT_ITEM = "SUM_TREE_INEXISTENT_ITEM";
+
+    uint256 private constant SHIFT = 0;
+    uint256 private constant KEYS_INDEX = 1;
+    uint256 private constant I = 2;
+    uint256 private constant CHECKING_NODE = 3;
+    uint256 private constant MAX_VARIABLES = 4;
 
     function init(Tree storage self) internal {
         self.rootDepth = INSERTION_DEPTH + 1;
@@ -130,6 +136,66 @@ library HexSumTree {
         // Invariant: this point should never be reached
     }
 
+    /**
+     * @param values Must be ordered ascending
+     */
+    function multiSortition(Tree storage self, uint256[] values, uint64 time) internal view returns (uint256[] keys) {
+        return _multiSortition(self, values, 0, values.length, self.rootDepth, time, 0, BASE_KEY);
+    }
+
+    function _multiSortition(Tree storage self, uint256[] values, uint256 valuesStart, uint256 keysLength, uint256 depth, uint64 time, uint256 accumulatedValue, uint256 node) private view returns (uint256[] keys) {
+        keys = new uint256[](keysLength);
+        uint256[] memory variables = new uint256[](MAX_VARIABLES);
+
+        variables[SHIFT] = (depth - 1) * BITS_IN_NIBBLE;
+        uint256 checkingValue = accumulatedValue;
+        variables[KEYS_INDEX] = 0;
+        for (variables[I] = 0; variables[I] < CHILDREN; variables[I]++) {
+            if (valuesStart >= values.length) {
+                break;
+            }
+            // shift the iterator and add it to node 0x00..0i00 (for depth = 3)
+            variables[CHECKING_NODE] = node + (variables[I] << variables[SHIFT]); // uint256
+            checkingValue = checkingValue + self.nodes[depth - 1][variables[CHECKING_NODE]].get(time);
+
+            uint256 newLength = _getNodeValuesLength(values, checkingValue, valuesStart);
+            if (newLength > 0) {
+                uint256 k;
+                if (depth == 1) { // node found at the end of the tree
+                    for (k = 0; k < newLength; k++) {
+                        keys[variables[KEYS_INDEX] + k] = variables[CHECKING_NODE];
+                    }
+                } else {
+                    uint256[] memory subLevelKeys = _multiSortition(
+                        self,
+                        values,
+                        valuesStart,
+                        keysLength,
+                        depth - 1,
+                        time,
+                        accumulatedValue,
+                        variables[CHECKING_NODE]
+                    );
+                    for (k = 0; k < newLength; k++) {
+                        keys[variables[KEYS_INDEX] + k] = subLevelKeys[k];
+                    }
+                }
+                valuesStart += newLength;
+                variables[KEYS_INDEX] += newLength;
+            }
+            accumulatedValue = checkingValue;
+        }
+        return keys;
+    }
+
+    function _getNodeValuesLength(uint256[] values, uint256 checkingValue, uint256 valuesStart) private pure returns (uint256){
+        uint256 j = valuesStart;
+        while (j < values.length && values[j] < checkingValue) {
+            j++;
+        }
+        return j - valuesStart;
+    }
+
     function _updateSums(Tree storage self, uint256 key, uint64 time, uint256 delta, bool positive) private {
         uint256 newRootDepth = sharedPrefix(self.rootDepth, key);
 
@@ -202,4 +268,12 @@ library HexSumTree {
         return depth;
     }
     */
+
+    function getChildren(Tree storage) internal view returns (uint256) {
+        return CHILDREN;
+    }
+
+    function getBitsInNibble(Tree storage) internal view returns (uint256) {
+        return BITS_IN_NIBBLE;
+    }
 }

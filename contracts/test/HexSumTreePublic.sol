@@ -6,9 +6,6 @@ import "../lib/HexSumTree.sol";
 contract HexSumTreePublic {
     using HexSumTree for HexSumTree.Tree;
 
-    // This must match the one in HexSumTree !
-    uint256 private constant BITS_IN_NIBBLE = 4;
-
     HexSumTree.Tree tree;
 
     uint64 blockNumber;
@@ -71,29 +68,76 @@ contract HexSumTreePublic {
         uint256 tmpKey = key;
         while (tmpKey > 0) {
             rootDepth++;
-            tmpKey = tmpKey >> BITS_IN_NIBBLE;
+            tmpKey = tmpKey >> tree.getBitsInNibble();
         }
         tree.rootDepth = rootDepth;
     }
 
     function sortition(uint256 value, uint64 checkpointTime) external profileGas returns (uint256) {
-        (uint256 k,) = tree.sortition(value, checkpointTime);
-        return k;
+        //(uint256 k,) = tree.sortition(value, checkpointTime);
+        //return k;
+
+        uint256[] memory values = new uint256[](1);
+        values[0] = value;
+        uint256[] memory keys = tree.multiSortition(values, checkpointTime);
+
+        return keys[0];
     }
 
-    function multiRandomSortition(uint256 number, uint64 checkpointTime) external profileGas {
+    function multipleRandomSortition(uint256 number, uint64 checkpointTime) external profileGas {
         for (uint256 i = 0; i < number; i++) {
             bytes32 seed = keccak256(abi.encodePacked(checkpointTime, i));
             tree.randomSortition(uint256(seed), checkpointTime);
         }
     }
 
-    function multiRandomSortitionLast(uint256 number) external profileGas {
+    function multipleRandomSortitionLast(uint256 number) external profileGas {
         uint64 checkpointTime = getCheckpointTime();
         for (uint256 i = 0; i < number; i++) {
             bytes32 seed = keccak256(abi.encodePacked(checkpointTime, i));
             tree.randomSortition(uint256(seed), checkpointTime);
         }
+    }
+
+    function _getOrderedValues(uint256 number, uint64 checkpointTime) private returns (uint256[] values) {
+        values = new uint256[](number);
+        uint256 sum = tree.totalSumPast(checkpointTime);
+
+        for (uint256 i = 0; i < number; i++) {
+            bytes32 seed = keccak256(abi.encodePacked(checkpointTime, i));
+            uint256 value = uint256(seed) % sum;
+            values[i] = value;
+            // make sure it's ordered
+            uint256 j = i;
+            while (j > 0 && values[j] < values[j - 1]) {
+                // flip them
+                uint256 tmp = values[j - 1];
+                values[j - 1] = values[j];
+                values[j] = tmp;
+                j--;
+            }
+        }
+    }
+
+    //event LogValues(uint64 checkpointTime, uint256[] values);
+    //event LogKeys(uint64 checkpointTime, uint256[] keys);
+    function multipleRandomMultiSortition(uint256 number, uint64 checkpointTime) external profileGas returns (uint256[]) {
+        uint256[] memory values = _getOrderedValues(number, checkpointTime);
+        //emit LogValues(checkpointTime, values);
+        uint256[] memory keys = tree.multiSortition(values, checkpointTime);
+        //emit LogKeys(checkpointTime, keys);
+        return keys;
+    }
+
+    function multipleRandomMultiSortitionLast(uint256 number) external profileGas returns (uint256[]) {
+        uint64 checkpointTime = getCheckpointTime();
+        uint256[] memory values = _getOrderedValues(number, checkpointTime);
+        uint256[] memory keys = tree.multiSortition(values, checkpointTime);
+        return keys;
+    }
+
+    function multiSortition(uint256[] values, uint64 checkpointTime) external returns (uint256[]) {
+        return tree.multiSortition(values, checkpointTime);
     }
 
     function get(uint256 l, uint256 key) external view returns (uint256) {
@@ -104,12 +148,16 @@ contract HexSumTreePublic {
         return tree.getPast(l, key, checkpointTime);
     }
 
-    function getPastItem(uint256 key, uint64 checkpointTime) external view returns (uint256) {
+    function getPastItem(uint256 key, uint64 checkpointTime) external profileGas returns (uint256) {
         return tree.getPastItem(key, checkpointTime);
     }
 
     function totalSum() external view returns (uint256) {
         return tree.totalSum();
+    }
+
+    function totalSumPast(uint64 checkpointTime) external profileGas returns (uint256) {
+        return tree.totalSumPast(checkpointTime);
     }
 
     function getState() external view returns (uint256, uint256) {
@@ -127,5 +175,13 @@ contract HexSumTreePublic {
 
     function getCheckpointTime() public view returns (uint64) {
         return getBlockNumber64() / 256;
+    }
+
+    function getChildren() public view returns (uint256) {
+        return tree.getChildren();
+    }
+
+    function getBitsInNibble() public view returns (uint256) {
+        return tree.getBitsInNibble();
     }
 }

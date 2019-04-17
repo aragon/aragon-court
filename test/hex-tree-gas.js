@@ -43,7 +43,7 @@ contract.skip('Hex Sum Tree (Gas analysis)', (accounts) => {
   }
 
   const logMultiSortitionGas = async (number, blockNumber) => {
-    const r = await tree.multiRandomSortition(number, blockNumber)
+    const r = await tree.multipleRandomSortition(number, blockNumber)
     const gas = getGas(r)
     console.log(`Sortition of ${number} elements gas:`, gas.total.toLocaleString(), gas.function.toLocaleString())
   }
@@ -296,7 +296,7 @@ contract.skip('Hex Sum Tree (Gas analysis)', (accounts) => {
     for (let i = 1; i <= UPDATES; i++) {
       for (let j = 0; j < NODES; j++) {
         const value = (j + 1) * 10 + i - 1
-        const r = await tree.multiRandomSortition(SORTITION_NUMBER, setBns[i][j])
+        const r = await tree.multipleRandomSortition(SORTITION_NUMBER, setBns[i][j])
         const gas = getGas(r)
         sortitionGas.push(gas)
       }

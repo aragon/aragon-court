@@ -1,17 +1,17 @@
 const HexSumTreePublic = artifacts.require('HexSumTreePublic')
 
-const CHILDREN = 16
-
 const getGas = (r) => {
   return { total: r.receipt.gasUsed, function: r.logs.filter(l => l.event == 'GasConsumed')[0].args['gas'].toNumber() }
 }
 
-contract('Hex Sum Tree (Gas analysis)', (accounts) => {
+contract('Hex Sum Tree Checkpointing (Gas analysis)', (accounts) => {
+  let CHILDREN
   let tree
 
   beforeEach(async () => {
     tree = await HexSumTreePublic.new()
     await tree.init()
+    CHILDREN = (await tree.getChildren.call()).toNumber()
   })
 
   const logTreeState = async () => {
@@ -90,7 +90,7 @@ contract('Hex Sum Tree (Gas analysis)', (accounts) => {
     let sortitionGas = []
     for (let i = 1; i < setBns.length; i++) {
       for (let j = 0; j < setBns[i].length; j++) {
-        const r = await tree.multiRandomSortition(SORTITION_NUMBER, setBns[i][j])
+        const r = await tree.multipleRandomSortition(SORTITION_NUMBER, setBns[i][j])
         const gas = getGas(r)
         sortitionGas.push(gas)
       }
@@ -134,7 +134,121 @@ contract('Hex Sum Tree (Gas analysis)', (accounts) => {
         setGas.push(getGas(r1))
         await tree.advanceTime(256) // blocks
         // sortition
-        const r2 = await tree.multiRandomSortitionLast(SORTITION_NUMBER)
+        const r2 = await tree.multipleRandomSortitionLast(SORTITION_NUMBER)
+        sortitionGas.push(getGas(r2))
+      }
+    }
+
+    await logTreeState()
+    logGasStats('Inserts', insertGas)
+    logGasStats('Sets', setGas)
+    logGasStats('Sortitions', sortitionGas)
+
+    const finalBlockNumber = await tree.getBlockNumber64()
+    const finalCheckpointTime = await tree.getCheckpointTime()
+    console.log(`final block number ${finalBlockNumber}, term ${finalCheckpointTime}`)
+  })
+
+  it('Measure get and sum on a (fake) big tree with a lot of updates in different terms', async () => {
+    const STARTING_KEY = (new web3.BigNumber(CHILDREN)).pow(5)
+    const NODES = 10
+    const UPDATES = 30
+    const SORTITION_NUMBER = 10
+    const blocksOffset = 243
+
+    const initialBlockNumber = await tree.getBlockNumber64()
+    const initialCheckpointTime = await tree.getCheckpointTime()
+    console.log(`initial block number ${initialBlockNumber}, term ${initialCheckpointTime}`)
+    await tree.setNextKey(STARTING_KEY)
+
+    const insertGas = await insertNodes(NODES, 10)
+    const { setBns, setGas } = await multipleUpdatesOnMultipleNodes(NODES, UPDATES, STARTING_KEY, 10, blocksOffset)
+
+    // check all past total sums
+    let sumPastGas = []
+    let getPastGas = []
+    for (let i = 1; i < setBns.length; i++) {
+      for (let j = 0; j < setBns[i].length; j++) {
+        const r = await tree.totalSumPast(setBns[i][j])
+        const gas = getGas(r)
+        sumPastGas.push(gas)
+        for (let k = 0; k < NODES; k++) {
+          const r = await tree.getPastItem(STARTING_KEY.add(j), setBns[i][j])
+          getPastGas.push(getGas(r))
+        }
+      }
+    }
+
+    await logTreeState()
+    logGasStats('Inserts', insertGas)
+    logGasStats('Sets', setGas)
+    logGasStats('Total sum', sumPastGas)
+    logGasStats('Total get', getPastGas)
+
+    const finalBlockNumber = await tree.getBlockNumber64()
+    const finalCheckpointTime = await tree.getCheckpointTime()
+    console.log(`final block number ${finalBlockNumber}, term ${finalCheckpointTime}`)
+
+  })
+
+  it('multiple random multi-sortition (all at once) on a (fake) big tree with a lot of updates in different terms', async () => {
+    const STARTING_KEY = (new web3.BigNumber(CHILDREN)).pow(5)
+    const NODES = 10
+    const UPDATES = 30
+    const SORTITION_NUMBER = 10
+    const blocksOffset = 243
+    const initialBlockNumber = await tree.getBlockNumber64()
+    const initialCheckpointTime = await tree.getCheckpointTime()
+    console.log(`initial block number ${initialBlockNumber}, term ${initialCheckpointTime}`)
+    await tree.setNextKey(STARTING_KEY)
+
+    const insertGas = await insertNodes(NODES, 10)
+    const { setBns, setGas } = await multipleUpdatesOnMultipleNodes(NODES, UPDATES, STARTING_KEY, 10, blocksOffset)
+
+    // check all past values
+    let sortitionGas = []
+    for (let i = 1; i < setBns.length; i++) {
+      for (let j = 0; j < setBns[i].length; j++) {
+        const r = await tree.multipleRandomMultiSortition(SORTITION_NUMBER, setBns[i][j])
+        const gas = getGas(r)
+        sortitionGas.push(gas)
+        //console.log((await tree.multipleRandomMultiSortition.call(SORTITION_NUMBER, setBns[i][j])).map(v => v.toNumber()));
+      }
+    }
+
+    await logTreeState()
+    logGasStats('Inserts', insertGas)
+    logGasStats('Sets', setGas)
+    logGasStats('Sortitions', sortitionGas)
+
+    const finalBlockNumber = await tree.getBlockNumber64()
+    const finalCheckpointTime = await tree.getCheckpointTime()
+    console.log(`final block number ${finalBlockNumber}, term ${finalCheckpointTime}`)
+  })
+
+  it.only(`multiple random multi-sortition on a (fake) big tree with a lot of updates in different terms, sortition always on last one`, async () => {
+    const STARTING_KEY = (new web3.BigNumber(CHILDREN)).pow(5)
+    const INITIAL_VALUE = 10
+    const NODES = 10
+    const UPDATES = 30
+    const SORTITION_NUMBER = 10
+    const initialBlockNumber = await tree.getBlockNumber64()
+    const initialCheckpointTime = await tree.getCheckpointTime()
+    console.log(`initial block number ${initialBlockNumber}, term ${initialCheckpointTime}`)
+    await tree.setNextKey(STARTING_KEY)
+
+    const insertGas = await insertNodes(NODES, 10)
+    let setGas = []
+    let sortitionGas = []
+    for (let i = 1; i <= UPDATES; i++) {
+      for (let j = 0; j < NODES; j++) {
+        const checkpointTime = await getCheckpointTime()
+        const value = INITIAL_VALUE + i
+        const r1 = await tree.set(STARTING_KEY.add(j), value)
+        setGas.push(getGas(r1))
+        await tree.advanceTime(256) // blocks
+        // sortition
+        const r2 = await tree.multipleRandomMultiSortitionLast(SORTITION_NUMBER)
         sortitionGas.push(getGas(r2))
       }
     }

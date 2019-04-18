@@ -25,7 +25,7 @@ const assertLogs = async (receiptPromise, ...logNames) => {
   }
 }
 
-contract('Court: Disputes', ([ poor, rich, governor, juror1, juror2, juror3, arbitrable, other ]) => {
+contract('Court: Disputes', ([ poor, rich, governor, juror1, juror2, juror3, arbitrable, other, ...accounts ]) => {
   const NO_DATA = ''
   const ZERO_ADDRESS = '0x' + '00'.repeat(20)
   
@@ -116,11 +116,13 @@ contract('Court: Disputes', ([ poor, rich, governor, juror1, juror2, juror3, arb
   })
 
   context('activating jurors', () => {
+
     const passTerms = async terms => {
       await this.court.mock_timeTravel(terms * termDuration)
-      await this.court.heartbeat(terms)
+      const heartbeatReceipt = await this.court.heartbeat(terms)
       await this.court.mock_blockTravel(1)
       assert.isFalse(await this.court.canTransitionTerm(), 'all terms transitioned')
+      return heartbeatReceipt
     }
 
     beforeEach(async () => {
@@ -131,6 +133,67 @@ contract('Court: Disputes', ([ poor, rich, governor, juror1, juror2, juror3, arb
       }
       await passTerms(1) // term = 1
     })
+
+    it('heartbeat executes after many jurors have activated', async () => {
+
+      const activateJurors = async numberOfJurors => {
+        const activateTerm = 2
+        const deactivateTerm = 3
+
+        for (let jurorNumber = 0; jurorNumber < numberOfJurors; jurorNumber++) {
+          const juror = accounts[jurorNumber]
+          await this.anj.approve(this.court.address, jurorMinStake, { from: rich })
+          await this.court.stakeFor(juror, jurorMinStake, NO_DATA, { from: rich })
+          await this.court.activate(activateTerm, deactivateTerm, { from: juror })
+          console.log(`${jurorNumber + 1}) Total staked for juror ${juror}: ${await this.court.totalStakedFor(juror)}`)
+        }
+      }
+
+      // Adds an update to the accounts in the egress queue, mocking their state as if the accounts had been slashed.
+      // This increases the processing required when processing the egress queue. This gives us a better idea of the
+      // upper limit for the size of the egress queue.
+      const insertUpdates = async numberOfJurors => {
+        for (let jurorNumber = 0; jurorNumber < numberOfJurors; jurorNumber++) {
+          const juror = accounts[jurorNumber]
+          await this.court.mock_accountUpdate(juror, 3, false, 100)
+        }
+      }
+
+      const numberOfJurors = 195
+
+      await activateJurors(numberOfJurors)
+
+      const heartbeatUpdateQueueReceipt = await passTerms(1)
+      console.log(`Gas used for update heartbeat: ${heartbeatUpdateQueueReceipt.receipt.gasUsed}`)
+
+      await insertUpdates(numberOfJurors) // Can be commented out to show more typical gas usage
+
+      const heartbeatEgressQueueReceipt = await passTerms(1)
+      console.log(`Gas used for egress heartbeat: ${heartbeatEgressQueueReceipt.receipt.gasUsed}`)
+
+      /**
+       * Benchmarking results:
+       *
+       * 1 jurors: Update heartbeat: 58484 Egress heartbeat: 72059 (with inserted update: 66615)
+       * 10 jurors: Update heartbeat: 262858 Egress heartbeat: 338313 (with inserted update: 344174)
+       * 100 jurors: Update heartbeat: 2619489 Egress heartbeat: 3351588 (with inserted update: 3410099)
+       * 145 jurors: Update heartbeat: 3794366 Egress heartbeat: 4843805 (with inserted update: 4928641)
+       * 148 jurors: Update heartbeat: 3871194 Egress heartbeat: 4943288 (with inserted update: OOG)
+       * 149 jurors: Update heartbeat: 3896803 Egress heartbeat: 4976450
+       * 150 jurors: Update heartbeat: 3922412 Egress heartbeat: OOG
+       * 190 jurors: Update heartbeat: 4969307 Egress heartbeat: OOG
+       * 195 jurors: Update heartbeat: OOG Egress heartbeat: OOG
+       *
+       * Update queue processing limit ~190
+       * Egress queue processing limit ~149
+       * Egress queue with extra update limit ~145
+       *
+       * Update queue processing increases linearly, egress queue processing increases exponentially.
+       * It should be noted that the OOG for each queue doesn't seem to happen at the gas limit (10000000),
+       * but I believe this is due to the refund made after deleting data from storage.
+       */
+    })
+
 
     context('on dispute', () => {
       const jurors = 3

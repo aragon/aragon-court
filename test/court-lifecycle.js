@@ -151,9 +151,8 @@ contract('Court: Lifecycle', ([ poor, rich, governor, juror1, juror2, ...account
 
     const passTerms = async terms => {
       await this.court.mock_timeTravel(terms * termDuration)
-      const heartbeatReceipt = await this.court.heartbeat(terms)
+      await this.court.heartbeat(terms)
       assert.isFalse(await this.court.canTransitionTerm(), 'all terms transitioned')
-      return heartbeatReceipt
     }
 
     beforeEach(async () => {
@@ -172,15 +171,13 @@ contract('Court: Lifecycle', ([ poor, rich, governor, juror1, juror2, ...account
           await this.anj.approve(this.court.address, jurorMinStake, { from: rich })
           await this.court.stakeFor(juror, jurorMinStake, NO_DATA, { from: rich })
           assertLogs(this.court.activate(activateTerm, deactivateTerm, { from: juror }), JUROR_ACTIVATED_EVENT)
-          console.log(`${jurorNumber + 1}) Total staked for juror ${juror}: ${await this.court.totalStakedFor(juror)}`)
         }
       }
       await activateJurors(0, QUEUES_MAX_SIZE, 4, 5) // Fill the update queue of term 5
       await activateJurors(QUEUES_MAX_SIZE, QUEUES_MAX_SIZE * 2, 5, 6) // Fill the egress queue of term 5
-      await passTerms(1)
+      await passTerms(1) // Heartbeat for term 4
 
-      const heartbeatUpdateQueueReceipt = await passTerms(1) // Do heartbeat up to and including term 5
-      console.log(`Gas used for update heartbeat: ${heartbeatUpdateQueueReceipt.receipt.gasUsed}`)
+      await passTerms(1) // Heartbeat for term 5, must be done independently
     })
 
     it('has correct term state', async () => {

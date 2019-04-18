@@ -58,13 +58,6 @@ contract CourtMock is Court {
         treeSearchHijacked = true;
     }
 
-    function mock_accountUpdate(address account, uint64 term, bool positive, uint256 delta) external {
-        AccountUpdate storage update = accounts[account].update;
-        update.term = term;
-        update.positive = positive;
-        update.delta = delta;
-    }
-
     function _treeSearch(bytes32 _termRandomness, uint256 _disputeId, uint256 _iteration) internal view returns (uint256 key, uint256 value) {
         if (!treeSearchHijacked) {
             return super._treeSearch(_termRandomness, _disputeId, _iteration);

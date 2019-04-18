@@ -25,7 +25,7 @@ const assertLogs = async (receiptPromise, ...logNames) => {
   }
 }
 
-contract('Court: Disputes', ([ poor, rich, governor, juror1, juror2, juror3, arbitrable, other]) => {
+contract('Court: Disputes', ([ poor, rich, governor, juror1, juror2, juror3, arbitrable, other ]) => {
   const NO_DATA = ''
   const ZERO_ADDRESS = '0x' + '00'.repeat(20)
   
@@ -116,7 +116,6 @@ contract('Court: Disputes', ([ poor, rich, governor, juror1, juror2, juror3, arb
   })
 
   context('activating jurors', () => {
-
     const passTerms = async terms => {
       await this.court.mock_timeTravel(terms * termDuration)
       await this.court.heartbeat(terms)
@@ -132,7 +131,6 @@ contract('Court: Disputes', ([ poor, rich, governor, juror1, juror2, juror3, arb
       }
       await passTerms(1) // term = 1
     })
-
 
     context('on dispute', () => {
       const jurors = 3

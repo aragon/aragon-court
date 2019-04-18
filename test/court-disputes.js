@@ -134,62 +134,64 @@ contract('Court: Disputes', ([ poor, rich, governor, juror1, juror2, juror3, arb
       await passTerms(1) // term = 1
     })
 
-    const activateJurors = async numberOfJurors => {
-      const activateTerm = 2
-      const deactivateTerm = 3
-
-      for (let jurorNumber = 0; jurorNumber < numberOfJurors; jurorNumber++) {
-        const juror = accounts[jurorNumber]
-        await this.anj.approve(this.court.address, jurorMinStake, { from: rich })
-        await this.court.stakeFor(juror, jurorMinStake, NO_DATA, { from: rich })
-        await this.court.activate(activateTerm, deactivateTerm, { from: juror })
-        console.log(`${jurorNumber + 1}) Total staked for juror ${juror}: ${await this.court.totalStakedFor(juror)}`)
-      }
-    }
-
-    const insertUpdates = async numberOfJurors => {
-      for (let jurorNumber = 0; jurorNumber < numberOfJurors; jurorNumber++) {
-        const juror = accounts[jurorNumber]
-        await this.court.mock_accountUpdate(juror, 3, false, 100)
-      }
-    }
-
     it('heartbeat executes after many jurors have activated', async () => {
 
-      /**
-       * 1 jurors: Update heartbeat: 58484 Egress heartbeat: 72059 (with extra update: 66615)
-       * 2 jurors: Update heartbeat: 81192 Egress heartbeat: 96283
-       * Diff ^: 22708, 24224
-       * 3 jurors: Update heartbeat: 103900 Egress heartbeat: 126537
-       * Diff ^: 22708, 30254 (* ~ 1.249)
-       * 4 jurors: Update heartbeat: 126609 Egress heartbeat: 156791
-       * Diff ^: 22708, 30254
-       * 10 jurors: Update heartbeat: 262858 Egress heartbeat: 338313 (with extra update: 344174)
-       * 100 jurors: Update heartbeat: 2619489 Egress heartbeat: 3351588 (with extra update: 3410099)
-       * 125 jurors: Update heartbeat: 3274691 Egress heartbeat: 4180590
-       * 133 jurors: Update heartbeat: 3479560 Egress heartbeat: 4445874
-       * 140 jurors: Update heartbeat: 3658821 Egress heartbeat: 4678000
-       * 145 jurors: Update heartbeat: 3794366 Egress heartbeat: 4843805 (4928641)
-       * 148 jurors: Update heartbeat: 3871194 Egress heartbeat: 4943288 (OOG)
-       * 149 jurors: Update heartbeat: 3896803 Egress heartbeat: 4976450 (OOG)
-       * 150 jurors: Update heartbeat: 3922412 Egress heartbeat: OOG (OOG)
-       *
-       * update increases linearly, egress queue doesn't increase linearly maybe due to update of an array which increases
-       * in size and uses more gas to update the bigger it gets. Also adding the extra update doesn't increase gas cost
-       * in the egress queue update by much, presumably from the bigger gas refund from deleting more data.
-       */
+      const activateJurors = async numberOfJurors => {
+        const activateTerm = 2
+        const deactivateTerm = 3
 
-      const numberOfJurors = 148
+        for (let jurorNumber = 0; jurorNumber < numberOfJurors; jurorNumber++) {
+          const juror = accounts[jurorNumber]
+          await this.anj.approve(this.court.address, jurorMinStake, { from: rich })
+          await this.court.stakeFor(juror, jurorMinStake, NO_DATA, { from: rich })
+          await this.court.activate(activateTerm, deactivateTerm, { from: juror })
+          console.log(`${jurorNumber + 1}) Total staked for juror ${juror}: ${await this.court.totalStakedFor(juror)}`)
+        }
+      }
+
+      // Adds an update to the accounts in the egress queue, mocking their state as if the accounts had been slashed.
+      // This increases the processing required when processing the egress queue. This gives us a better idea of the
+      // upper limit for the size of the egress queue.
+      const insertUpdates = async numberOfJurors => {
+        for (let jurorNumber = 0; jurorNumber < numberOfJurors; jurorNumber++) {
+          const juror = accounts[jurorNumber]
+          await this.court.mock_accountUpdate(juror, 3, false, 100)
+        }
+      }
+
+      const numberOfJurors = 195
 
       await activateJurors(numberOfJurors)
 
       const heartbeatUpdateQueueReceipt = await passTerms(1)
       console.log(`Gas used for update heartbeat: ${heartbeatUpdateQueueReceipt.receipt.gasUsed}`)
 
-      await insertUpdates(numberOfJurors)
+      await insertUpdates(numberOfJurors) // Can be commented out to show more typical gas usage
 
       const heartbeatEgressQueueReceipt = await passTerms(1)
       console.log(`Gas used for egress heartbeat: ${heartbeatEgressQueueReceipt.receipt.gasUsed}`)
+
+      /**
+       * Benchmarking results:
+       *
+       * 1 jurors: Update heartbeat: 58484 Egress heartbeat: 72059 (with inserted update: 66615)
+       * 10 jurors: Update heartbeat: 262858 Egress heartbeat: 338313 (with inserted update: 344174)
+       * 100 jurors: Update heartbeat: 2619489 Egress heartbeat: 3351588 (with inserted update: 3410099)
+       * 145 jurors: Update heartbeat: 3794366 Egress heartbeat: 4843805 (with inserted update: 4928641)
+       * 148 jurors: Update heartbeat: 3871194 Egress heartbeat: 4943288 (with inserted update: OOG)
+       * 149 jurors: Update heartbeat: 3896803 Egress heartbeat: 4976450
+       * 150 jurors: Update heartbeat: 3922412 Egress heartbeat: OOG
+       * 190 jurors: Update heartbeat: 4969307 Egress heartbeat: OOG
+       * 195 jurors: Update heartbeat: OOG Egress heartbeat: OOG
+       *
+       * Update queue processing limit ~190
+       * Egress queue processing limit ~149
+       * Egress queue with extra update limit ~145
+       *
+       * Update queue processing increases linearly, egress queue processing increases exponentially.
+       * It should be noted that the OOG for each queue doesn't seem to happen at the gas limit (10000000),
+       * but I believe this is due to the refund made after deleting data from storage.
+       */
     })
 
 

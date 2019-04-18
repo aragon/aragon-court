@@ -164,20 +164,19 @@ contract('Court: Lifecycle', ([ poor, rich, governor, juror1, juror2, ...account
       await assertEqualBN(this.court.term(), term, 'term #3')
     })
 
-    it('heartbeat executes after max jurors have activated', async () => {
+    it("heartbeat doesn't revert after max jurors have activated", async () => {
       const activateJurors = async (fromJurorNumber, toJurorNumber, activateTerm, deactivateTerm) => {
         for (let jurorNumber = fromJurorNumber; jurorNumber < toJurorNumber; jurorNumber++) {
           const juror = accounts[jurorNumber]
           await this.anj.approve(this.court.address, jurorMinStake, { from: rich })
           await this.court.stakeFor(juror, jurorMinStake, NO_DATA, { from: rich })
-          assertLogs(this.court.activate(activateTerm, deactivateTerm, { from: juror }), JUROR_ACTIVATED_EVENT)
+          await assertLogs(this.court.activate(activateTerm, deactivateTerm, { from: juror }), JUROR_ACTIVATED_EVENT)
         }
       }
       await activateJurors(0, QUEUES_MAX_SIZE, 4, 5) // Fill the update queue of term 5
       await activateJurors(QUEUES_MAX_SIZE, QUEUES_MAX_SIZE * 2, 5, 6) // Fill the egress queue of term 5
-      await passTerms(1) // Heartbeat for term 4
-
-      await passTerms(1) // Heartbeat for term 5, must be done independently
+      await passTerms(1) // Heartbeat for creating term 4
+      await passTerms(1) // Heartbeat for creating term 5
     })
 
     it('has correct term state', async () => {

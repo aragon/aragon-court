@@ -142,6 +142,8 @@ contract Court is ERC900, ApproveAndCallFallBack {
     string internal constant ERROR_TOKENS_BELOW_MIN_STAKE = "COURT_TOKENS_BELOW_MIN_STAKE";
     string internal constant ERROR_INVALID_ACTIVATION_TERM = "COURT_INVALID_ACTIVATION_TERM";
     string internal constant ERROR_INVALID_DEACTIVATION_TERM = "COURT_INVALID_DEACTIVATION_TERM";
+    string internal constant ERROR_UPDATE_QUEUE_LIMIT_REACHED = "COURT_UPDATE_QUEUE_LIMIT_REACHED";
+    string internal constant ERROR_EGRESS_QUEUE_LIMIT_REACHED = "COURT_EGRESS_QUEUE_LIMIT_REACHED";
     string internal constant ERROR_JUROR_TOKENS_AT_STAKE = "COURT_JUROR_TOKENS_AT_STAKE";
     string internal constant ERROR_BALANCE_TOO_LOW = "COURT_BALANCE_TOO_LOW";
     string internal constant ERROR_TOKEN_TRANSFER_FAILED = "COURT_TOKEN_TRANSFER_FAILED";
@@ -175,6 +177,8 @@ contract Court is ERC900, ApproveAndCallFallBack {
     uint8 public constant MIN_RULING_OPTIONS = 2;
     uint8 public constant MAX_RULING_OPTIONS = MIN_RULING_OPTIONS;
     address internal constant BURN_ACCOUNT = 0xdead;
+    uint8 private constant UPDATE_QUEUE_MAX_SIZE = 72;
+    uint8 private constant EGRESS_QUEUE_MAX_SIZE = 72;
 
     event NewTerm(uint64 term, address indexed heartbeatSender);
     event NewCourtConfig(uint64 fromTerm, uint64 courtConfigId);
@@ -388,14 +392,18 @@ contract Court is ERC900, ApproveAndCallFallBack {
             // allow direct juror onboardings before term 1 starts (no disputes depend on term 0)
             sumTree.update(sumTreeId, balance, true);
         } else {
-            // TODO: check queue size limit
+            address[] storage activateTermUpdateQueue = terms[_fromTerm].updateQueue;
+            require(activateTermUpdateQueue.length <= UPDATE_QUEUE_MAX_SIZE, ERROR_UPDATE_QUEUE_LIMIT_REACHED);
+
             account.update = AccountUpdate({ delta: balance, positive: true, term: _fromTerm });
-            terms[_fromTerm].updateQueue.push(jurorAddress);
+            activateTermUpdateQueue.push(jurorAddress);
         }
 
         if (_toTerm != MANUAL_DEACTIVATION) {
-            // TODO: check queue size limit
-            terms[_toTerm].egressQueue.push(jurorAddress);
+            address[] storage deactivateTermEgressQueue = terms[_toTerm].egressQueue;
+            require(deactivateTermEgressQueue.length <= EGRESS_QUEUE_MAX_SIZE, ERROR_EGRESS_QUEUE_LIMIT_REACHED);
+
+            deactivateTermEgressQueue.push(jurorAddress);
         }
 
         account.fromTerm = _fromTerm;
@@ -414,9 +422,11 @@ contract Court is ERC900, ApproveAndCallFallBack {
     function deactivate(uint64 _lastTerm) external ensureTerm {
         address jurorAddress = msg.sender;
         Account storage account = accounts[jurorAddress];
+        address[] storage deactivateTermEgressQueue = terms[_lastTerm].egressQueue;
 
         require(account.state == AccountState.Juror, ERROR_INVALID_ACCOUNT_STATE);
         require(_lastTerm > term, ERROR_INVALID_DEACTIVATION_TERM);
+        require(deactivateTermEgressQueue.length <= EGRESS_QUEUE_MAX_SIZE, ERROR_EGRESS_QUEUE_LIMIT_REACHED);
 
         // Juror didn't actually become activated
         if (term < account.fromTerm && term != ZERO_TERM) {
@@ -430,8 +440,7 @@ contract Court is ERC900, ApproveAndCallFallBack {
             terms[account.toTerm].egressQueue.deleteItem(jurorAddress);
         }
 
-        // TODO: check queue size limit
-        terms[_lastTerm].egressQueue.push(jurorAddress);
+        deactivateTermEgressQueue.push(jurorAddress);
         account.toTerm = _lastTerm;
 
         emit JurorDeactivated(jurorAddress, _lastTerm);

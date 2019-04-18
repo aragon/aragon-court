@@ -173,8 +173,8 @@ contract('Court: Lifecycle', ([ poor, rich, governor, juror1, juror2, ...account
           await assertLogs(this.court.activate(activateTerm, deactivateTerm, { from: juror }), JUROR_ACTIVATED_EVENT)
         }
       }
-      await activateJurors(0, QUEUES_MAX_SIZE, 4, 5) // Fill the update queue of term 5
-      await activateJurors(QUEUES_MAX_SIZE, QUEUES_MAX_SIZE * 2, 5, 6) // Fill the egress queue of term 5
+      await activateJurors(0, QUEUES_MAX_SIZE, 4, 5) // Fill the egress queue of term 5
+      await activateJurors(QUEUES_MAX_SIZE, QUEUES_MAX_SIZE * 2, 5, 6) // Fill the update queue of term 5
       await passTerms(1) // Heartbeat for creating term 4
       await passTerms(1) // Heartbeat for creating term 5
     })

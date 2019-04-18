@@ -177,8 +177,7 @@ contract Court is ERC900, ApproveAndCallFallBack {
     uint8 public constant MIN_RULING_OPTIONS = 2;
     uint8 public constant MAX_RULING_OPTIONS = MIN_RULING_OPTIONS;
     address internal constant BURN_ACCOUNT = 0xdead;
-    uint8 private constant UPDATE_QUEUE_MAX_SIZE = 72;
-    uint8 private constant EGRESS_QUEUE_MAX_SIZE = 72;
+    uint8 private constant QUEUE_MAX_SIZE = 72;
 
     event NewTerm(uint64 term, address indexed heartbeatSender);
     event NewCourtConfig(uint64 fromTerm, uint64 courtConfigId);
@@ -393,7 +392,7 @@ contract Court is ERC900, ApproveAndCallFallBack {
             sumTree.update(sumTreeId, balance, true);
         } else {
             address[] storage activateTermUpdateQueue = terms[_fromTerm].updateQueue;
-            require(activateTermUpdateQueue.length <= UPDATE_QUEUE_MAX_SIZE, ERROR_UPDATE_QUEUE_LIMIT_REACHED);
+            require(activateTermUpdateQueue.length < QUEUE_MAX_SIZE, ERROR_UPDATE_QUEUE_LIMIT_REACHED);
 
             account.update = AccountUpdate({ delta: balance, positive: true, term: _fromTerm });
             activateTermUpdateQueue.push(jurorAddress);
@@ -401,7 +400,7 @@ contract Court is ERC900, ApproveAndCallFallBack {
 
         if (_toTerm != MANUAL_DEACTIVATION) {
             address[] storage deactivateTermEgressQueue = terms[_toTerm].egressQueue;
-            require(deactivateTermEgressQueue.length <= EGRESS_QUEUE_MAX_SIZE, ERROR_EGRESS_QUEUE_LIMIT_REACHED);
+            require(deactivateTermEgressQueue.length < QUEUE_MAX_SIZE, ERROR_EGRESS_QUEUE_LIMIT_REACHED);
 
             deactivateTermEgressQueue.push(jurorAddress);
         }
@@ -426,7 +425,7 @@ contract Court is ERC900, ApproveAndCallFallBack {
 
         require(account.state == AccountState.Juror, ERROR_INVALID_ACCOUNT_STATE);
         require(_lastTerm > term, ERROR_INVALID_DEACTIVATION_TERM);
-        require(deactivateTermEgressQueue.length <= EGRESS_QUEUE_MAX_SIZE, ERROR_EGRESS_QUEUE_LIMIT_REACHED);
+        require(deactivateTermEgressQueue.length < QUEUE_MAX_SIZE, ERROR_EGRESS_QUEUE_LIMIT_REACHED);
 
         // Juror didn't actually become activated
         if (term < account.fromTerm && term != ZERO_TERM) {
@@ -673,11 +672,14 @@ contract Court is ERC900, ApproveAndCallFallBack {
     function settleRoundSlashing(uint256 _disputeId, uint256 _roundId) external ensureTerm {
         Dispute storage dispute = disputes[_disputeId];
         AdjudicationRound storage round = dispute.rounds[_roundId];
+        uint64 slashingUpdateTerm = term + 1;
+        address[] storage slashingTermUpdateQueue = terms[slashingUpdateTerm].updateQueue;
 
         // Enforce that rounds are settled in order to avoid one round without incentive to settle
         // even if there is a settleFee, it may not be big enough and all jurors in the round are going to be slashed
         require(_roundId == 0 || dispute.rounds[_roundId - 1].settledPenalties, ERROR_PREV_ROUND_NOT_SETTLED);
         require(!round.settledPenalties, ERROR_ROUND_ALREADY_SETTLED);
+        require(slashingTermUpdateQueue.length < QUEUE_MAX_SIZE, ERROR_UPDATE_QUEUE_LIMIT_REACHED);
 
         if (dispute.state != DisputeState.Executed) {
             _checkAdjudicationState(_disputeId, dispute.rounds.length - 1, AdjudicationState.Ended);
@@ -691,7 +693,6 @@ contract Court is ERC900, ApproveAndCallFallBack {
 
         uint256 slashedTokens = 0;
         uint256 votesLength = round.votes.length;
-        uint64 slashingUpdateTerm = term + 1; // TODO: check update queue size
 
         for (uint256 i = 0; i < votesLength; i++) {
             JurorVote storage vote = round.votes[i];
@@ -717,7 +718,7 @@ contract Court is ERC900, ApproveAndCallFallBack {
                         }
 
                         account.update.term = slashingUpdateTerm;
-                        terms[slashingUpdateTerm].updateQueue.push(vote.juror);
+                        slashingTermUpdateQueue.push(vote.juror);
                     }
                 }
             }

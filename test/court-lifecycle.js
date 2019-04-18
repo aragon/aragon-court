@@ -25,9 +25,10 @@ const assertLogs = async (receiptPromise, ...logNames) => {
   }
 }
 
-contract('Court: Lifecycle', ([ poor, rich, governor, juror1, juror2 ]) => {
+contract('Court: Lifecycle', ([ poor, rich, governor, juror1, juror2, ...accounts ]) => {
   const NO_DATA = ''
   const ZERO_ADDRESS = '0x' + '00'.repeat(20)
+  const QUEUES_MAX_SIZE = 72;
   
   const termDuration = 10
   const firstTermStart = 5
@@ -46,6 +47,7 @@ contract('Court: Lifecycle', ([ poor, rich, governor, juror1, juror2 ]) => {
 
   const NEW_TERM_EVENT = 'NewTerm'
   const NEW_COURT_CONFIG_EVENT = 'NewCourtConfig'
+  const JUROR_ACTIVATED_EVENT = 'JurorActivated'
 
   before(async () => {
     this.tokenFactory = await TokenFactory.new()
@@ -149,8 +151,9 @@ contract('Court: Lifecycle', ([ poor, rich, governor, juror1, juror2 ]) => {
 
     const passTerms = async terms => {
       await this.court.mock_timeTravel(terms * termDuration)
-      await this.court.heartbeat(terms)
+      const heartbeatReceipt = await this.court.heartbeat(terms)
       assert.isFalse(await this.court.canTransitionTerm(), 'all terms transitioned')
+      return heartbeatReceipt
     }
 
     beforeEach(async () => {
@@ -160,6 +163,24 @@ contract('Court: Lifecycle', ([ poor, rich, governor, juror1, juror2 ]) => {
       await passTerms(2)
 
       await assertEqualBN(this.court.term(), term, 'term #3')
+    })
+
+    it('heartbeat executes after max jurors have activated', async () => {
+      const activateJurors = async (fromJurorNumber, toJurorNumber, activateTerm, deactivateTerm) => {
+        for (let jurorNumber = fromJurorNumber; jurorNumber < toJurorNumber; jurorNumber++) {
+          const juror = accounts[jurorNumber]
+          await this.anj.approve(this.court.address, jurorMinStake, { from: rich })
+          await this.court.stakeFor(juror, jurorMinStake, NO_DATA, { from: rich })
+          assertLogs(this.court.activate(activateTerm, deactivateTerm, { from: juror }), JUROR_ACTIVATED_EVENT)
+          console.log(`${jurorNumber + 1}) Total staked for juror ${juror}: ${await this.court.totalStakedFor(juror)}`)
+        }
+      }
+      await activateJurors(0, QUEUES_MAX_SIZE, 4, 5) // Fill the update queue of term 5
+      await activateJurors(QUEUES_MAX_SIZE, QUEUES_MAX_SIZE * 2, 5, 6) // Fill the egress queue of term 5
+      await passTerms(1)
+
+      const heartbeatUpdateQueueReceipt = await passTerms(1) // Do heartbeat up to and including term 5
+      console.log(`Gas used for update heartbeat: ${heartbeatUpdateQueueReceipt.receipt.gasUsed}`)
     })
 
     it('has correct term state', async () => {

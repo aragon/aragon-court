@@ -103,6 +103,13 @@ contract('Court: Lifecycle', ([ poor, rich, governor, juror1, juror2 ]) => {
   })
 
   context('before first term', () => {
+
+    const ACCOUNT_STATE = {
+      NOT_JUROR: 0,
+      JUROR: 1,
+      PAST_JUROR: 2,
+    }
+
     it('it in term #0', async () => {
       await assertEqualBN(this.court.term(), 0, 'court term #0')
     })
@@ -133,20 +140,25 @@ contract('Court: Lifecycle', ([ poor, rich, governor, juror1, juror2 ]) => {
     })
 
     it('gets the correct account details after activation', async () => {
-      const expectedAccountState = 1
       const expectedFromTerm = 1
       const expectedToTerm = 10
       const expectedAtStake = 0
       const expectedSumTreeId = 1
       await this.court.activate(expectedFromTerm, expectedToTerm, {from: rich })
 
-      const accountDetails = await this.court.getAccount(rich)
+      const [
+        actualState,
+        actualFromTerm,
+        actualToTerm,
+        actualAtStake,
+        actualSumTreeId
+      ] = await this.court.getAccount(rich)
 
-      assertEqualBN(accountDetails[0], expectedAccountState, 'COURT_INCORRECT_ACCOUNT_STATE')
-      assertEqualBN(accountDetails[1], expectedFromTerm, 'COURT_INCORRECT_ACCOUNT_FROM_TERM')
-      assertEqualBN(accountDetails[2], expectedToTerm, 'COURT_INCORRECT_ACCOUNT_TO_TERM')
-      assertEqualBN(accountDetails[3], expectedAtStake, 'COURT_INCORRECT_ACCOUNT_AT_STAKE')
-      assertEqualBN(accountDetails[4], expectedSumTreeId, 'COURT_INCORRECT_ACCOUNT_SUM_TREE_ID')
+      assertEqualBN(actualState, ACCOUNT_STATE.JUROR, 'incorrect account state')
+      assertEqualBN(actualFromTerm, expectedFromTerm, 'incorrect account from term')
+      assertEqualBN(actualToTerm, expectedToTerm, 'incorrect account to term')
+      assertEqualBN(actualAtStake, expectedAtStake, 'incorrect account at stake')
+      assertEqualBN(actualSumTreeId, expectedSumTreeId, 'incorrect account sum tree id')
     })
 
     it('reverts if activating balance is below dust', async () => {

@@ -844,8 +844,7 @@ contract Court is ERC900, ApproveAndCallFallBack {
         view
         returns (uint8 winningRuling, uint64 draftTerm, uint64 jurorNumber, address triggeredBy, bool settledPenalties, uint256 slashedTokens)
     {
-        Dispute storage dispute = disputes[_disputeId];
-        AdjudicationRound storage round = dispute.rounds[_roundId];
+        AdjudicationRound storage round = disputes[_disputeId].rounds[_roundId];
         return (round.winningRuling, round.draftTerm, round.jurorNumber, round.triggeredBy, round.settledPenalties, round.slashedTokens);
     }
 

@@ -110,10 +110,10 @@ contract('Court: Disputes', ([ poor, rich, governor, juror1, juror2, juror3, arb
     await assertEqualBN(this.court.totalStakedFor(juror3), juror3Stake, 'juror3 stake')
   })
 
-  // it('can encrypt votes', async () => {
-  //   const ruling = 10
-  //   assert.equal(await this.court.encryptVote(ruling, SALT), encryptVote(ruling))
-  // })
+  it('can encrypt votes', async () => {
+    const ruling = 10
+    assert.equal(await this.court.encryptVote(ruling, SALT), encryptVote(ruling))
+  })
 
   context('activating jurors', () => {
     const passTerms = async terms => {
@@ -147,38 +147,44 @@ contract('Court: Disputes', ([ poor, rich, governor, juror1, juror2, juror3, arb
         DISMISSED: 3
       }
 
+      const commitVotes = async votes => {
+        for (const [draftId, [juror, vote]] of votes.entries()) {
+          const receiptPromise = this.court.commitVote(disputeId, firstRoundId, draftId, encryptVote(vote), { from: juror })
+          await assertLogs(receiptPromise, VOTE_COMMITTED_EVENT)
+        }
+      }
+
+      const revealVotes = async votes => {
+        for (const [ draftId, [ juror, vote ]] of votes.entries()) {
+          const receiptPromise = this.court.revealVote(disputeId, firstRoundId, draftId, vote, SALT, { from: juror })
+          await assertLogs(receiptPromise, VOTE_REVEALED_EVENT)
+        }
+      }
+
       beforeEach(async () => {
         await assertLogs(this.court.createDispute(arbitrable, rulings, jurors, term, { from: poor }), NEW_DISPUTE_EVENT)
       })
 
-      // it('gets the correct dispute details', async () => {
-      //   const [actualSubject, actualRulings, actualState] = await this.court.getDispute(disputeId)
-      //
-      //   assert.strictEqual(actualSubject, arbitrable, 'incorrect dispute subject')
-      //   assertEqualBN(actualRulings, rulings, 'incorrect dispute rulings')
-      //   assertEqualBN(actualState, DISPUTE_STATES.PRE_DRAFT, 'incorrect dispute state')
-      // })
+      it('gets the correct dispute details', async () => {
+        const [actualSubject, actualRulings, actualState] = await this.court.getDispute(disputeId)
+
+        assert.strictEqual(actualSubject, arbitrable, 'incorrect dispute subject')
+        await assertEqualBN(actualRulings, rulings, 'incorrect dispute rulings')
+        await assertEqualBN(actualState, DISPUTE_STATES.PRE_DRAFT, 'incorrect dispute state')
+      })
 
       it('gets the correct dispute round details', async () => {
-        const expectedRuling = 0
-        const exepctedPenalties = false
-        const expectedSlashing = 0
-
+        const expectedRuling = 1
+        const expectedPenalties = true
+        const expectedSlashing = 4
+        const votes = [[juror1, 2], [juror2, 1], [juror3, 1]]
         await passTerms(2) // term = 3
-        const draftReceipt = await this.court.draftAdjudicationRound(disputeId)
-
-        const getRepeatingLogsArgs = (receipt, logName, argName) => {
-          const logs = receipt.logs.filter(({ event }) => event === logName)
-          return logs ? logs.map(log => log.args[argName]) : null
-        }
-
-        const [
-          draftedJuror1,
-          draftedJuror2,
-          draftedJuror3
-        ] = getRepeatingLogsArgs(draftReceipt, 'JurorDrafted', 'juror')
-
-        
+        await this.court.draftAdjudicationRound(disputeId)
+        await commitVotes(votes)
+        await passTerms(1)
+        await revealVotes(votes)
+        await passTerms(2)
+        await this.court.settleRoundSlashing(disputeId, firstRoundId)
 
         const [
           actualRuling,
@@ -189,182 +195,152 @@ contract('Court: Disputes', ([ poor, rich, governor, juror1, juror2, juror3, arb
           actualSlashing
         ] = await this.court.getAdjudicationRound(disputeId, firstRoundId)
 
-        console.log(actualRuling)
-        console.log(actualPenalties)
-        console.log(actualSlashing)
-
-
-        assertEqualBN(actualRuling, expectedRuling, 'incorrect round ruling')
-        assertEqualBN(actualTerm, term, 'incorrect round term')
-        assertEqualBN(actualJurors, jurors, 'incorrect round jurors')
+        await assertEqualBN(actualRuling, expectedRuling, 'incorrect round ruling')
+        await assertEqualBN(actualTerm, term, 'incorrect round term')
+        await assertEqualBN(actualJurors, jurors, 'incorrect round jurors')
         assert.strictEqual(actualAccount, poor, 'incorrect round account')
-        assert.strictEqual(actualPenalties, exepctedPenalties, 'incorrect round penalties')
-        assertEqualBN(actualSlashing, expectedSlashing, 'incorrect round slashing')
+        assert.strictEqual(actualPenalties, expectedPenalties, 'incorrect round penalties')
+        await assertEqualBN(actualSlashing, expectedSlashing, 'incorrect round slashing')
       })
 
+      it('fails to draft outside of the draft term', async () => {
+        await passTerms(1) // term = 2
+        await assertRevert(this.court.draftAdjudicationRound(firstRoundId), 'COURT_NOT_DRAFT_TERM')
+        await passTerms(2) // term = 4
+        await assertRevert(this.court.draftAdjudicationRound(firstRoundId), 'COURT_NOT_DRAFT_TERM')
+      })
 
+      context('on juror draft (hijacked)', () => {
+        beforeEach(async () => {
+          await passTerms(2) // term = 3
+          await assertLogs(this.court.draftAdjudicationRound(firstRoundId), JUROR_DRAFTED_EVENT, DISPUTE_STATE_CHANGED_EVENT)
+        })
 
+        it('selects expected jurors', async () => {
+          const expectedJurors = [juror1, juror2, juror3]
 
+          for (const [ draftId, juror ] of expectedJurors.entries()) {
+            const [ jurorAddr, ruling ] = await this.court.getJurorVote(disputeId, firstRoundId, draftId)
 
+            assert.equal(jurorAddr, juror, `juror #${draftId} address`)
+            assert.equal(ruling, 0, `juror #${draftId} vote`)
+          }
 
+          assertRevert(this.court.getJurorVote(0, 0, jurors)) // out of bounds
+        })
 
+        it('fails to draft a second time', async () => {
+          await assertRevert(this.court.draftAdjudicationRound(firstRoundId), 'COURT_ROUND_ALREADY_DRAFTED')
+        })
 
+        context('jurors commit', () => {
+          const votes = [[juror1, 2], [juror2, 1], [juror3, 1]]
+          const round1Ruling = 1
+          const round1WinningVotes = 2
 
+          beforeEach(async () => {
+            await commitVotes(votes)
+          })
 
+          it('fails to reveal during commit period', async () => {
+            const draftId = 0
+            const [ juror, vote ] = votes[draftId]
+            const receiptPromise = this.court.revealVote(disputeId, firstRoundId, draftId, vote, SALT, { from: juror })
+            assertRevert(receiptPromise, 'COURT_INVALID_ADJUDICATION_STATE')
+          })
 
+          it('fails to reveal if salt is incorrect', async () => {
+            await passTerms(1) // term = 4
+            const draftId = 0
+            const [ juror, vote ] = votes[draftId]
+            const badSalt = soliditySha3('not the salt')
+            const receiptPromise = this.court.revealVote(disputeId, firstRoundId, draftId, vote, badSalt, { from: juror })
+            assertRevert(receiptPromise, 'COURT_FAILURE_COMMITMENT_CHECK')
+          })
 
-      // it('fails to draft outside of the draft term', async () => {
-      //   await passTerms(1) // term = 2
-      //   await assertRevert(this.court.draftAdjudicationRound(firstRoundId), 'COURT_NOT_DRAFT_TERM')
-      //   await passTerms(2) // term = 4
-      //   await assertRevert(this.court.draftAdjudicationRound(firstRoundId), 'COURT_NOT_DRAFT_TERM')
-      // })
-      //
-      // context('on juror draft (hijacked)', () => {
-      //   const commitVotes = async votes => {
-      //     for (const [draftId, [juror, vote]] of votes.entries()) {
-      //       const receiptPromise = this.court.commitVote(disputeId, firstRoundId, draftId, encryptVote(vote), { from: juror })
-      //       await assertLogs(receiptPromise, VOTE_COMMITTED_EVENT)
-      //     }
-      //   }
-      //
-      //   beforeEach(async () => {
-      //     await passTerms(2) // term = 3
-      //     await assertLogs(this.court.draftAdjudicationRound(firstRoundId), JUROR_DRAFTED_EVENT, DISPUTE_STATE_CHANGED_EVENT)
-      //   })
-      //
-      //   it('selects expected jurors', async () => {
-      //     const expectedJurors = [juror1, juror2, juror3]
-      //
-      //     for (const [ draftId, juror ] of expectedJurors.entries()) {
-      //       const [ jurorAddr, ruling ] = await this.court.getJurorVote(disputeId, firstRoundId, draftId)
-      //
-      //       assert.equal(jurorAddr, juror, `juror #${draftId} address`)
-      //       assert.equal(ruling, 0, `juror #${draftId} vote`)
-      //     }
-      //
-      //     assertRevert(this.court.getJurorVote(0, 0, jurors)) // out of bounds
-      //   })
-      //
-      //   it('fails to draft a second time', async () => {
-      //     await assertRevert(this.court.draftAdjudicationRound(firstRoundId), 'COURT_ROUND_ALREADY_DRAFTED')
-      //   })
-      //
-      //   context('jurors commit', () => {
-      //     const votes = [[juror1, 2], [juror2, 1], [juror3, 1]]
-      //     const round1Ruling = 1
-      //     const round1WinningVotes = 2
-      //
-      //     const revealVotes = async votes => {
-      //       for (const [ draftId, [ juror, vote ]] of votes.entries()) {
-      //         const receiptPromise = this.court.revealVote(disputeId, firstRoundId, draftId, vote, SALT, { from: juror })
-      //         await assertLogs(receiptPromise, VOTE_REVEALED_EVENT)
-      //       }
-      //     }
-      //
-      //     beforeEach(async () => {
-      //       await commitVotes(votes)
-      //     })
-      //
-      //     it('fails to reveal during commit period', async () => {
-      //       const draftId = 0
-      //       const [ juror, vote ] = votes[draftId]
-      //       const receiptPromise = this.court.revealVote(disputeId, firstRoundId, draftId, vote, SALT, { from: juror })
-      //       assertRevert(receiptPromise, 'COURT_INVALID_ADJUDICATION_STATE')
-      //     })
-      //
-      //     it('fails to reveal if salt is incorrect', async () => {
-      //       await passTerms(1) // term = 4
-      //       const draftId = 0
-      //       const [ juror, vote ] = votes[draftId]
-      //       const badSalt = soliditySha3('not the salt')
-      //       const receiptPromise = this.court.revealVote(disputeId, firstRoundId, draftId, vote, badSalt, { from: juror })
-      //       assertRevert(receiptPromise, 'COURT_FAILURE_COMMITMENT_CHECK')
-      //     })
-      //
-      //     it('fails to reveal if already revealed', async () => {
-      //       await passTerms(1) // term = 4
-      //       const draftId = 0
-      //       const [ juror, vote ] = votes[draftId]
-      //       await this.court.revealVote(disputeId, firstRoundId, draftId, vote, SALT, { from: juror }) // reveal once
-      //       const receiptPromise = this.court.revealVote(disputeId, firstRoundId, draftId, vote, SALT, { from: juror })
-      //       assertRevert(receiptPromise, 'COURT_ALREADY_VOTED') // fails to reveal twice
-      //     })
-      //
-      //     it("fails to reveal if sender isn't the drafted juror", async () => {
-      //       await passTerms(1) // term = 4
-      //       const draftId = 0
-      //       const [, vote ] = votes[draftId]
-      //       const receiptPromise = this.court.revealVote(disputeId, firstRoundId, draftId, vote, SALT, { from: other })
-      //       assertRevert(receiptPromise, 'COURT_INVALID_JUROR')
-      //     })
-      //
-      //     context('jurors reveal', () => {
-      //       beforeEach(async () => {
-      //         await passTerms(1) // term = 4
-      //         await revealVotes(votes)
-      //       })
-      //
-      //       it('stored votes', async () => {
-      //         for (const [ draftId, [ juror, vote ]] of votes.entries()) {
-      //           const [, ruling ] = await this.court.getJurorVote(disputeId, firstRoundId, draftId)
-      //
-      //           assert.equal(ruling, vote, `juror #${draftId} revealed vote ${vote}`)
-      //         }
-      //       })
-      //
-      //       it('has correct ruling result', async () => {
-      //         assertEqualBN(this.court.getWinningRuling(disputeId), round1Ruling, 'winning ruling')
-      //       })
-      //
-      //       it('fails to appeal during reveal period', async () => {
-      //         await assertRevert(this.court.appealRuling(disputeId, firstRoundId), 'COURT_INVALID_ADJUDICATION_STATE')
-      //       })
-      //
-      //       it('fails to appeal incorrect round', async () => {
-      //         await passTerms(1) // term = 5
-      //         await assertRevert(this.court.appealRuling(disputeId, firstRoundId + 1), 'COURT_INVALID_ADJUDICATION_ROUND')
-      //       })
-      //
-      //       context('settling round', () => {
-      //         const slashed = pct4(jurorMinStake, penaltyPct)
-      //
-      //         beforeEach(async () => {
-      //           await passTerms(2) // term = 6
-      //           await assertLogs(this.court.settleRoundSlashing(disputeId, firstRoundId), ROUND_SLASHING_SETTLED_EVENT)
-      //         })
-      //
-      //         it('slashed incoherent juror', async () => {
-      //           await assertEqualBN(this.court.totalStakedFor(juror1), juror1Stake - slashed, 'juror1 slashed')
-      //         })
-      //
-      //         it('coherent jurors can claim reward', async () => {
-      //           const reward = slashed / 2
-      //
-      //           await assertEqualBN(this.court.totalStakedFor(juror2), juror2Stake, 'juror2 pre-reward')
-      //           await assertLogs(this.court.settleReward(disputeId, firstRoundId, 1))
-      //           await assertEqualBN(this.court.totalStakedFor(juror2), juror2Stake + reward, 'juror2 post-reward')
-      //
-      //           await assertEqualBN(this.court.totalStakedFor(juror3), juror3Stake, 'juror3 pre-reward')
-      //           await assertLogs(this.court.settleReward(disputeId, firstRoundId, 2))
-      //           await assertEqualBN(this.court.totalStakedFor(juror3), juror3Stake + reward, 'juror3 post-reward')
-      //         })
-      //       })
-      //
-      //       context('on appeal', () => {
-      //         beforeEach(async () => {
-      //           await passTerms(1) // term = 5
-      //           await assertLogs(this.court.appealRuling(disputeId, firstRoundId), RULING_APPEALED_EVENT)
-      //         })
-      //
-      //         it('drafts jurors', async () => {
-      //           await passTerms(1) // term = 6
-      //           await assertLogs(this.court.draftAdjudicationRound(firstRoundId), JUROR_DRAFTED_EVENT, DISPUTE_STATE_CHANGED_EVENT)
-      //         })
-      //       })
-      //     })
-        // })
-      // })
+          it('fails to reveal if already revealed', async () => {
+            await passTerms(1) // term = 4
+            const draftId = 0
+            const [ juror, vote ] = votes[draftId]
+            await this.court.revealVote(disputeId, firstRoundId, draftId, vote, SALT, { from: juror }) // reveal once
+            const receiptPromise = this.court.revealVote(disputeId, firstRoundId, draftId, vote, SALT, { from: juror })
+            assertRevert(receiptPromise, 'COURT_ALREADY_VOTED') // fails to reveal twice
+          })
+
+          it("fails to reveal if sender isn't the drafted juror", async () => {
+            await passTerms(1) // term = 4
+            const draftId = 0
+            const [, vote ] = votes[draftId]
+            const receiptPromise = this.court.revealVote(disputeId, firstRoundId, draftId, vote, SALT, { from: other })
+            assertRevert(receiptPromise, 'COURT_INVALID_JUROR')
+          })
+
+          context('jurors reveal', () => {
+            beforeEach(async () => {
+              await passTerms(1) // term = 4
+              await revealVotes(votes)
+            })
+
+            it('stored votes', async () => {
+              for (const [ draftId, [ juror, vote ]] of votes.entries()) {
+                const [, ruling ] = await this.court.getJurorVote(disputeId, firstRoundId, draftId)
+
+                assert.equal(ruling, vote, `juror #${draftId} revealed vote ${vote}`)
+              }
+            })
+
+            it('has correct ruling result', async () => {
+              assertEqualBN(this.court.getWinningRuling(disputeId), round1Ruling, 'winning ruling')
+            })
+
+            it('fails to appeal during reveal period', async () => {
+              await assertRevert(this.court.appealRuling(disputeId, firstRoundId), 'COURT_INVALID_ADJUDICATION_STATE')
+            })
+
+            it('fails to appeal incorrect round', async () => {
+              await passTerms(1) // term = 5
+              await assertRevert(this.court.appealRuling(disputeId, firstRoundId + 1), 'COURT_INVALID_ADJUDICATION_ROUND')
+            })
+
+            context('settling round', () => {
+              const slashed = pct4(jurorMinStake, penaltyPct)
+
+              beforeEach(async () => {
+                await passTerms(2) // term = 6
+                await assertLogs(this.court.settleRoundSlashing(disputeId, firstRoundId), ROUND_SLASHING_SETTLED_EVENT)
+              })
+
+              it('slashed incoherent juror', async () => {
+                await assertEqualBN(this.court.totalStakedFor(juror1), juror1Stake - slashed, 'juror1 slashed')
+              })
+
+              it('coherent jurors can claim reward', async () => {
+                const reward = slashed / 2
+
+                await assertEqualBN(this.court.totalStakedFor(juror2), juror2Stake, 'juror2 pre-reward')
+                await assertLogs(this.court.settleReward(disputeId, firstRoundId, 1))
+                await assertEqualBN(this.court.totalStakedFor(juror2), juror2Stake + reward, 'juror2 post-reward')
+
+                await assertEqualBN(this.court.totalStakedFor(juror3), juror3Stake, 'juror3 pre-reward')
+                await assertLogs(this.court.settleReward(disputeId, firstRoundId, 2))
+                await assertEqualBN(this.court.totalStakedFor(juror3), juror3Stake + reward, 'juror3 post-reward')
+              })
+            })
+
+            context('on appeal', () => {
+              beforeEach(async () => {
+                await passTerms(1) // term = 5
+                await assertLogs(this.court.appealRuling(disputeId, firstRoundId), RULING_APPEALED_EVENT)
+              })
+
+              it('drafts jurors', async () => {
+                await passTerms(1) // term = 6
+                await assertLogs(this.court.draftAdjudicationRound(firstRoundId), JUROR_DRAFTED_EVENT, DISPUTE_STATE_CHANGED_EVENT)
+              })
+            })
+          })
+        })
+      })
     })
   })
 })

@@ -154,11 +154,11 @@ contract('Court: Lifecycle', ([ poor, rich, governor, juror1, juror2 ]) => {
         actualSumTreeId
       ] = await this.court.getAccount(rich)
 
-      assertEqualBN(actualState, ACCOUNT_STATE.JUROR, 'incorrect account state')
-      assertEqualBN(actualFromTerm, expectedFromTerm, 'incorrect account from term')
-      assertEqualBN(actualToTerm, expectedToTerm, 'incorrect account to term')
-      assertEqualBN(actualAtStake, expectedAtStake, 'incorrect account at stake')
-      assertEqualBN(actualSumTreeId, expectedSumTreeId, 'incorrect account sum tree id')
+      await assertEqualBN(actualState, ACCOUNT_STATE.JUROR, 'incorrect account state')
+      await assertEqualBN(actualFromTerm, expectedFromTerm, 'incorrect account from term')
+      await assertEqualBN(actualToTerm, expectedToTerm, 'incorrect account to term')
+      await assertEqualBN(actualAtStake, expectedAtStake, 'incorrect account at stake')
+      await assertEqualBN(actualSumTreeId, expectedSumTreeId, 'incorrect account sum tree id')
     })
 
     it('reverts if activating balance is below dust', async () => {

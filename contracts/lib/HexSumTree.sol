@@ -12,6 +12,15 @@ library HexSumTree {
         mapping (uint256 => mapping (uint256 => Checkpointing.History)) nodes; // depth -> key -> value
     }
 
+    struct PackedArguments {
+        uint256 valuesStart;
+        uint256 keysLength;
+        uint256 depth;
+        uint64 time;
+        uint256 accumulatedValue;
+        uint256 node;
+    }
+
     /* @dev
      * If you change any of the following 3 constants, make sure that:
      * 2^BITS_IN_NIBBLE = CHILDREN
@@ -27,12 +36,6 @@ library HexSumTree {
     string private constant ERROR_NEW_KEY_NOT_ADJACENT = "SUM_TREE_NEW_KEY_NOT_ADJACENT";
     string private constant ERROR_UPDATE_OVERFLOW = "SUM_TREE_UPDATE_OVERFLOW";
     string private constant ERROR_INEXISTENT_ITEM = "SUM_TREE_INEXISTENT_ITEM";
-
-    uint256 private constant SHIFT = 0;
-    uint256 private constant KEYS_INDEX = 1;
-    uint256 private constant I = 2;
-    uint256 private constant CHECKING_NODE = 3;
-    uint256 private constant MAX_VARIABLES = 4;
 
     function init(Tree storage self) internal {
         self.rootDepth = INSERTION_DEPTH + 1;
@@ -140,50 +143,50 @@ library HexSumTree {
      * @param values Must be ordered ascending
      */
     function multiSortition(Tree storage self, uint256[] values, uint64 time) internal view returns (uint256[] keys) {
-        return _multiSortition(self, values, 0, values.length, self.rootDepth, time, 0, BASE_KEY);
+        return _multiSortition(self, values, PackedArguments(0, values.length, self.rootDepth, time, 0, BASE_KEY));
     }
 
-    function _multiSortition(Tree storage self, uint256[] values, uint256 valuesStart, uint256 keysLength, uint256 depth, uint64 time, uint256 accumulatedValue, uint256 node) private view returns (uint256[] keys) {
-        keys = new uint256[](keysLength);
-        uint256[] memory variables = new uint256[](MAX_VARIABLES);
+    function _multiSortition(Tree storage self, uint256[] values, PackedArguments memory packedArguments) private view returns (uint256[] keys) {
+        keys = new uint256[](packedArguments.keysLength);
 
-        variables[SHIFT] = (depth - 1) * BITS_IN_NIBBLE;
-        uint256 checkingValue = accumulatedValue;
-        variables[KEYS_INDEX] = 0;
-        for (variables[I] = 0; variables[I] < CHILDREN; variables[I]++) {
-            if (valuesStart >= values.length) {
+        uint256 shift = (packedArguments.depth - 1) * BITS_IN_NIBBLE;
+        uint256 checkingValue = packedArguments.accumulatedValue;
+        uint256 keysIndex = 0;
+        for (uint256 i = 0; i < CHILDREN; i++) {
+            if (packedArguments.valuesStart >= values.length) {
                 break;
             }
             // shift the iterator and add it to node 0x00..0i00 (for depth = 3)
-            variables[CHECKING_NODE] = node + (variables[I] << variables[SHIFT]); // uint256
-            checkingValue = checkingValue + self.nodes[depth - 1][variables[CHECKING_NODE]].get(time);
+            uint256 checkingNode = packedArguments.node + (i << shift); // uint256
+            checkingValue = checkingValue + self.nodes[packedArguments.depth - 1][checkingNode].get(packedArguments.time);
 
-            uint256 newLength = _getNodeValuesLength(values, checkingValue, valuesStart);
+            uint256 newLength = _getNodeValuesLength(values, checkingValue, packedArguments.valuesStart);
             if (newLength > 0) {
                 uint256 k;
-                if (depth == 1) { // node found at the end of the tree
+                if (packedArguments.depth == 1) { // node found at the end of the tree
                     for (k = 0; k < newLength; k++) {
-                        keys[variables[KEYS_INDEX] + k] = variables[CHECKING_NODE];
+                        keys[keysIndex + k] = checkingNode;
                     }
                 } else {
                     uint256[] memory subLevelKeys = _multiSortition(
                         self,
                         values,
-                        valuesStart,
-                        keysLength,
-                        depth - 1,
-                        time,
-                        accumulatedValue,
-                        variables[CHECKING_NODE]
+                        PackedArguments(packedArguments.valuesStart,
+                            packedArguments.keysLength,
+                            packedArguments.depth - 1,
+                            packedArguments.time,
+                            packedArguments.accumulatedValue,
+                            checkingNode
+                        )
                     );
                     for (k = 0; k < newLength; k++) {
-                        keys[variables[KEYS_INDEX] + k] = subLevelKeys[k];
+                        keys[keysIndex + k] = subLevelKeys[k];
                     }
                 }
-                valuesStart += newLength;
-                variables[KEYS_INDEX] += newLength;
+                packedArguments.valuesStart += newLength;
+                keysIndex += newLength;
             }
-            accumulatedValue = checkingValue;
+            packedArguments.accumulatedValue = checkingValue;
         }
         return keys;
     }

@@ -226,7 +226,7 @@ contract('Hex Sum Tree Checkpointing (Gas analysis)', (accounts) => {
     console.log(`final block number ${finalBlockNumber}, term ${finalCheckpointTime}`)
   })
 
-  it.only(`multiple random multi-sortition on a (fake) big tree with a lot of updates in different terms, sortition always on last one`, async () => {
+  it(`multiple random multi-sortition on a (fake) big tree with a lot of updates in different terms, sortition always on last one`, async () => {
     const STARTING_KEY = (new web3.BigNumber(CHILDREN)).pow(5)
     const INITIAL_VALUE = 10
     const NODES = 10

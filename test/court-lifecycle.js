@@ -28,7 +28,7 @@ const assertLogs = async (receiptPromise, ...logNames) => {
 contract('Court: Lifecycle', ([ poor, rich, governor, juror1, juror2, ...accounts ]) => {
   const NO_DATA = ''
   const ZERO_ADDRESS = '0x' + '00'.repeat(20)
-  const QUEUES_MAX_SIZE = 72;
+  const QUEUES_MAX_SIZE = 43;
   
   const termDuration = 10
   const firstTermStart = 5
@@ -165,6 +165,7 @@ contract('Court: Lifecycle', ([ poor, rich, governor, juror1, juror2, ...account
     })
 
     it("heartbeat doesn't revert after max jurors have activated", async () => {
+      const gasLimit = 6e6
       const activateJurors = async (fromJurorNumber, toJurorNumber, activateTerm, deactivateTerm) => {
         for (let jurorNumber = fromJurorNumber; jurorNumber < toJurorNumber; jurorNumber++) {
           const juror = accounts[jurorNumber]
@@ -176,7 +177,10 @@ contract('Court: Lifecycle', ([ poor, rich, governor, juror1, juror2, ...account
       await activateJurors(0, QUEUES_MAX_SIZE, 4, 5) // Fill the egress queue of term 5
       await activateJurors(QUEUES_MAX_SIZE, QUEUES_MAX_SIZE * 2, 5, 6) // Fill the update queue of term 5
       await passTerms(1) // Heartbeat for creating term 4
-      await passTerms(1) // Heartbeat for creating term 5
+      await this.court.mock_timeTravel(termDuration)
+
+      await this.court.heartbeat(1, { gas: gasLimit })
+      assert.isFalse(await this.court.canTransitionTerm(), 'all terms transitioned')
     })
 
     it('has correct term state', async () => {

@@ -177,7 +177,7 @@ contract Court is ERC900, ApproveAndCallFallBack {
     uint8 public constant MIN_RULING_OPTIONS = 2;
     uint8 public constant MAX_RULING_OPTIONS = MIN_RULING_OPTIONS;
     address internal constant BURN_ACCOUNT = 0xdead;
-    uint8 private constant QUEUE_MAX_SIZE = 72;
+    uint8 private constant QUEUE_MAX_SIZE = 43;
 
     event NewTerm(uint64 term, address indexed heartbeatSender);
     event NewCourtConfig(uint64 fromTerm, uint64 courtConfigId);

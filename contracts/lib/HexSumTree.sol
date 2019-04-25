@@ -172,7 +172,7 @@ library HexSumTree {
                         self,
                         values,
                         PackedArguments(packedArguments.valuesStart,
-                            packedArguments.keysLength,
+                            newLength,
                             packedArguments.depth - 1,
                             packedArguments.time,
                             packedArguments.accumulatedValue,

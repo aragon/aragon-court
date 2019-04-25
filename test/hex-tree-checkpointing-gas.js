@@ -4,7 +4,7 @@ const getGas = (r) => {
   return { total: r.receipt.gasUsed, function: r.logs.filter(l => l.event == 'GasConsumed')[0].args['gas'].toNumber() }
 }
 
-contract('Hex Sum Tree Checkpointing (Gas analysis)', (accounts) => {
+contract.skip('Hex Sum Tree Checkpointing (Gas analysis)', (accounts) => {
   let CHILDREN
   let tree
 

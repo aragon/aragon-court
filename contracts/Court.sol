@@ -834,6 +834,29 @@ contract Court is ERC900, ApproveAndCallFallBack {
         return account.balances[jurorToken].sub(account.atStakeTokens);
     }
 
+    function getDispute(uint256 _disputeId) external view returns (address subject, uint8 possibleRulings, DisputeState state) {
+        Dispute storage dispute = disputes[_disputeId];
+        return (dispute.subject, dispute.possibleRulings, dispute.state);
+    }
+
+    function getAdjudicationRound(uint256 _disputeId, uint256 _roundId)
+        external
+        view
+        returns (uint8 winningRuling, uint64 draftTerm, uint64 jurorNumber, address triggeredBy, bool settledPenalties, uint256 slashedTokens)
+    {
+        AdjudicationRound storage round = disputes[_disputeId].rounds[_roundId];
+        return (round.winningRuling, round.draftTerm, round.jurorNumber, round.triggeredBy, round.settledPenalties, round.slashedTokens);
+    }
+
+    function getAccount(address _accountAddress)
+        external
+        view
+        returns (AccountState state, uint64 fromTerm, uint64 toTerm, uint256 atStakeTokens, uint256 sumTreeId)
+    {
+        Account storage account = accounts[_accountAddress];
+        return (account.state, account.fromTerm, account.toTerm, account.atStakeTokens, account.sumTreeId);
+    }
+
     function _editUpdate(AccountUpdate storage update, uint256 _delta, bool _positive) internal {
         (update.delta, update.positive) = _signedSum(update.delta, update.positive, _delta, _positive);
     }

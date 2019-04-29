@@ -21,12 +21,12 @@ contract('Hex Sum Tree', (accounts) => {
     console.log(`Tree next key: ${state[1]}`);
   }
 
-  const logSortitionHex = async (value) => {
-    console.log(`Sortition ${value}:`, web3.toHex(await tree.sortition.call(value, 0)))
+  const logSortitionHex = async (value, sortitionFunction) => {
+    console.log(`Sortition ${value}:`, web3.toHex(await tree[sortitionFunction].call(value, 0)))
   }
 
-  const logSortition = async (value) => {
-    console.log(`Sortition ${value}:`, (await tree.sortition.call(value, 0)).toNumber())
+  const logSortition = async (value, sortitionFunction) => {
+    console.log(`Sortition ${value}:`, (await tree[sortitionFunction].call(value, 0)).toNumber())
   }
 
   const getCheckpointTime = async () => {
@@ -34,7 +34,7 @@ contract('Hex Sum Tree', (accounts) => {
     return (await tree.getCheckpointTime()).toNumber()
   }
 
-  const multipleSetOnNode = async (node) => {
+  const multipleSetOnNode = async (node, sortitionFunction) => {
     let setBns = [{}]
     for (let i = 1; i <= 200; i++) {
       const value = 10 + i
@@ -55,37 +55,39 @@ contract('Hex Sum Tree', (accounts) => {
       const v = await tree.getPastItem.call(node, setBns[i].time)
       assertBN(v, setBns[i].value, `Value for node ${node} on checkpoint time ${setBns[i].time} should match`)
       const value1 = (node + 1) * 10 + i - 1
-      const s1 = await tree.sortition.call(value1, setBns[i].time)
+      const s1 = await tree[sortitionFunction].call(value1, setBns[i].time)
       //console.log(i, setBns[i], s1.toNumber())
       assertBN(s1, node, `Sortition for value ${value1} on checkpoint time ${setBns[i].time} should match`)
     }
   }
 
-  it('inserts a lot of times into the first node', async () => {
-    const NODE = 0
-    await tree.insertNoLog(10)
-
-    await multipleSetOnNode(NODE)
-
-    await logTreeState()
-    await logSortition(NODE)
-    const finalCheckpointTime = await tree.getCheckpointTime()
-    const finalBlockNumber = await tree.getBlockNumber64()
-    console.log(`final block number ${finalBlockNumber}, term ${finalCheckpointTime}`)
-  })
-
-  it('inserts a lot of times into a middle node', async () => {
-    const NODE = 250
-    for (let i = 0; i < 270; i++) {
+  for (const sortitionFunction of ['sortition', 'sortitionSingleUsingMulti']) {
+    it(`inserts a lot of times into the first node using ${sortitionFunction}`, async () => {
+      const NODE = 0
       await tree.insertNoLog(10)
-    }
 
-    await multipleSetOnNode(NODE)
+      await multipleSetOnNode(NODE, sortitionFunction)
 
-    await logTreeState()
-    await logSortition(NODE * 10 + 5)
-    const finalCheckpointTime = await tree.getCheckpointTime()
-    const finalBlockNumber = await tree.getBlockNumber64()
-    console.log(`final block number ${finalBlockNumber}, term ${finalCheckpointTime}`)
-  })
+      await logTreeState()
+      await logSortition(NODE, sortitionFunction)
+      const finalCheckpointTime = await tree.getCheckpointTime()
+      const finalBlockNumber = await tree.getBlockNumber64()
+      console.log(`final block number ${finalBlockNumber}, term ${finalCheckpointTime}`)
+    })
+
+    it(`inserts a lot of times into a middle node using ${sortitionFunction}`, async () => {
+      const NODE = 250
+      for (let i = 0; i < 270; i++) {
+        await tree.insertNoLog(10)
+      }
+
+      await multipleSetOnNode(NODE, sortitionFunction)
+
+      await logTreeState()
+      await logSortition(NODE * 10 + 5, sortitionFunction)
+      const finalCheckpointTime = await tree.getCheckpointTime()
+      const finalBlockNumber = await tree.getBlockNumber64()
+      console.log(`final block number ${finalBlockNumber}, term ${finalCheckpointTime}`)
+    })
+  }
 })

@@ -74,9 +74,11 @@ contract HexSumTreePublic {
     }
 
     function sortition(uint256 value, uint64 checkpointTime) external profileGas returns (uint256) {
-        //(uint256 k,) = tree.sortition(value, checkpointTime);
-        //return k;
+        (uint256 k,) = tree.sortition(value, checkpointTime);
+        return k;
+    }
 
+    function sortitionSingleUsingMulti(uint256 value, uint64 checkpointTime) external profileGas returns (uint256) {
         uint256[] memory values = new uint256[](1);
         values[0] = value;
         uint256[] memory keys = tree.multiSortition(values, checkpointTime);

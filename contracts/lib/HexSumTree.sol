@@ -138,12 +138,22 @@ library HexSumTree {
     }
 
     /**
-     * @param values Must be ordered ascending
+     * @notice Performs sortition for several values at once
+     * @param values An array with the values sought in the sortition. Must be ordered ascending.
+     * @param time The checkpoint timestamp at which the sortition is performed
+     * @param past If true, it means that we are seeking a checkpoint in the past, therefore when descending the sum tree it will use binary searches for checkpoints. Otherwise, it will use linear searches from the end, as we are looking for the last or the previous one.
+     * @returns An array of keys, one for each value in input param (therefore the same size), and in the same order
      */
     function multiSortition(Tree storage self, uint256[] values, uint64 time, bool past) internal view returns (uint256[] keys) {
         return _multiSortition(self, values, PackedArguments(0, values.length, self.rootDepth, time, past, 0, BASE_KEY));
     }
 
+    /**
+     * @dev Recursive function to descend the Sum Tree.
+            Every time it checks a node, it traverses the input array to find the initial subset of elements that are below its accumulated value and passes that sub-array to the next iteration (actually the array is always the same, to avoid making exta copies, it just passes the initial index to start checking, to avoid checking values that went thru a different branch).
+            The accumulated value is carried over to next iterations, to avoid having to subtract to all elements in array.
+            PackedArguments struct is used to avoid "stack too deep" issue.
+     */
     function _multiSortition(Tree storage self, uint256[] values, PackedArguments memory packedArguments) private view returns (uint256[] keys) {
         keys = new uint256[](packedArguments.keysLength);
 
@@ -163,14 +173,19 @@ library HexSumTree {
                 checkingValue = checkingValue + self.nodes[packedArguments.depth - 1][checkingNode].getLastPresent(packedArguments.time);
             }
 
+            // Check how many values belong to this node. As they are ordered, it will be a contiguous subset starting from the beginning, so we only need to know the length of that subset
             uint256 newLength = _getNodeValuesLength(values, checkingValue, packedArguments.valuesStart);
+            // if the values subset belonging to this node is not empty
             if (newLength > 0) {
                 uint256 k;
-                if (packedArguments.depth == 1) { // node found at the end of the tree
+                // node found at the end of the tree
+                if (packedArguments.depth == 1) {
+                    // add this leave to the result, one time for each value belonging to it
                     for (k = 0; k < newLength; k++) {
                         keys[keysIndex + k] = checkingNode;
                     }
-                } else {
+                } else { // node found at upper levels
+                    // recursion step: descend one level
                     uint256[] memory subLevelKeys = _multiSortition(
                         self,
                         values,
@@ -183,13 +198,17 @@ library HexSumTree {
                             checkingNode
                         )
                     );
+                    // add the keys from this node's subtree to the result
                     for (k = 0; k < newLength; k++) {
                         keys[keysIndex + k] = subLevelKeys[k];
                     }
                 }
+                // for the next node we don't need to check values that were already assigned
                 packedArguments.valuesStart += newLength;
+                // we move forward also the index that points at the position in the result array where we have to copy next findings
                 keysIndex += newLength;
             }
+            // carry over already checked value to the next node in this level
             packedArguments.accumulatedValue = checkingValue;
         }
         return keys;

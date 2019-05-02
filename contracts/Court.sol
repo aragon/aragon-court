@@ -18,6 +18,8 @@ contract Court is ERC900, ApproveAndCallFallBack {
     using SafeERC20 for ERC20;
     using SafeMath for uint256;
 
+    uint256 private constant MAX_JURORS_PER_BATCH = 10; // to cap gas used on draft
+
     enum AccountState {
         NotJuror,
         Juror,
@@ -74,7 +76,8 @@ contract Court is ERC900, ApproveAndCallFallBack {
 
     struct AdjudicationRound {
         JurorVote[] votes;
-        mapping (uint8 => uint256) rulingVotes;
+        mapping (uint256 => uint256) rulingVotes;
+        uint32 nextJurorToDraft;
         uint8 winningRuling;
         uint64 draftTerm;
         uint64 jurorNumber;
@@ -514,32 +517,32 @@ contract Court is ERC900, ApproveAndCallFallBack {
             draftTerm.randomness = block.blockhash(draftTerm.randomnessBN);
         }
 
-        uint256 maxPenalty = _pct4(jurorMinStake, config.penaltyPct);
-        uint256 jurorNumber = round.jurorNumber;
-        uint256 skippedJurors = 0;
-        round.votes.length = jurorNumber;
+        // TODO: stack too deep
+        //uint256 jurorNumber = round.jurorNumber;
+        //uint256 nextJurorToDraft = round.nextJurorToDraft;
+        round.votes.length = round.jurorNumber;
 
-        for (uint256 i = 0; i < jurorNumber; i++) {
-            (uint256 jurorKey, uint256 stake) = _treeSearch(draftTerm.randomness, _disputeId, i + skippedJurors);
-            address juror = jurorsByTreeId[jurorKey];
+        uint256 addedJurors = 0;
+        while (addedJurors < round.jurorNumber) {
+            (uint256[] memory jurorKeys, uint256[] memory stakes) = _treeSearch(draftTerm.randomness, _disputeId, round.nextJurorToDraft, round.jurorNumber, addedJurors);
+            for (uint256 i = 0; i < jurorKeys.length; i++) {
+                address juror = jurorsByTreeId[jurorKeys[i]];
 
-            // Account storage jurorAccount = accounts[juror]; // Hitting stack too deep
-            uint256 newAtStake = accounts[juror].atStakeTokens + maxPenalty;
-            if (stake >= newAtStake) {
-                accounts[juror].atStakeTokens += newAtStake;
-            } else {
-                // SECURITY: This has a chance of bricking the round depending on the state of the court
-                skippedJurors++;
-                i--;
-                continue;
+                // Account storage jurorAccount = accounts[juror]; // Hitting stack too deep
+                uint256 newAtStake = accounts[juror].atStakeTokens + _pct4(jurorMinStake, config.penaltyPct); // maxPenalty
+                if (stakes[i] >= newAtStake) {
+                    accounts[juror].atStakeTokens += newAtStake;
+                    addedJurors++;
+                    round.votes[round.nextJurorToDraft + addedJurors].juror = juror;
+                    emit JurorDrafted(_disputeId, juror, round.nextJurorToDraft + addedJurors);
+                }
             }
-            round.votes[i].juror = juror;
-            emit JurorDrafted(_disputeId, juror, i);
         }
+        round.nextJurorToDraft += uint32(addedJurors);
 
         dispute.state = DisputeState.Adjudicating;
 
-        _payFees(config.feeToken, msg.sender, config.draftFee * jurorNumber, config.governanceFeeShare);
+        _payFees(config.feeToken, msg.sender, config.draftFee * round.jurorNumber, config.governanceFeeShare);
 
         emit DisputeStateChanged(_disputeId, dispute.state);
     }
@@ -767,6 +770,11 @@ contract Court is ERC900, ApproveAndCallFallBack {
         return (_time() - terms[term].startTime) / termDuration;
     }
 
+    function areAllJurorsDrafted(uint256 _disputeId, uint256 _roundId) public returns (bool) {
+        AdjudicationRound storage round = disputes[_disputeId].rounds[_roundId];
+        return round.nextJurorToDraft == (round.jurorNumber + 1);
+    }
+
     function getJurorVote(uint256 _disputeId, uint256 _roundId, uint256 _draftId) external view returns (address juror, uint8 ruling) {
         JurorVote storage jurorVote = _getJurorVote(_disputeId, _roundId, _draftId);
 
@@ -939,10 +947,62 @@ contract Court is ERC900, ApproveAndCallFallBack {
         return disputes[_disputeId].rounds[_roundId].votes[_draftId];
     }
 
-    function _treeSearch(bytes32 _termRandomness, uint256 _disputeId, uint256 _iteration) internal view returns (uint256 key, uint256 value) {
-        bytes32 seed = keccak256(abi.encodePacked(_termRandomness, _disputeId, _iteration));
-        // TODO: optimize by caching tree.totalSum(), and perform a `tree.unsafeSortition(seed % totalSum)` (unimplemented)
-        return sumTree.randomSortition(uint256(seed), term, false);
+    function _getStakeBounds(uint256 _nextJurorToDraft, uint256 _jurorNumber) internal view returns (uint256 stakeFrom, uint256 stakeTo) {
+        uint256 totalSum = sumTree.totalSumPresent(term);
+        uint256 ratio = totalSum / _jurorNumber;
+        // TODO: roundings?
+        stakeFrom = _nextJurorToDraft * ratio;
+        uint256 newNextJurorToDraft = _nextJurorToDraft + MAX_JURORS_PER_BATCH;
+        if (newNextJurorToDraft > _jurorNumber) {
+            newNextJurorToDraft = _jurorNumber;
+        }
+        stakeTo = newNextJurorToDraft * ratio;
+    }
+
+    function _getOrderedValues(
+        bytes32 _termRandomness,
+        uint256 _disputeId,
+        uint256 _nextJurorToDraft,
+        uint256 _jurorNumber,
+        uint256 _addedJurors
+    )
+        private
+        returns (uint256[] values)
+    {
+        values = new uint256[](_jurorNumber);
+
+        (uint256 stakeFrom, uint256 stakeTo) = _getStakeBounds(_nextJurorToDraft, _jurorNumber);
+        uint256 stakeSum = stakeTo - stakeFrom;
+        uint256 jurorsToDraft = _jurorNumber - _addedJurors;
+        for (uint256 i = 0; i < jurorsToDraft; i++) {
+            bytes32 seed = keccak256(abi.encodePacked(_termRandomness, _disputeId, i));
+            uint256 value = stakeFrom + uint256(seed) % stakeSum;
+            values[i] = value;
+            // make sure it's ordered
+            uint256 j = i;
+            while (j > 0 && values[j] < values[j - 1]) {
+                // flip them
+                uint256 tmp = values[j - 1];
+                values[j - 1] = values[j];
+                values[j] = tmp;
+                j--;
+            }
+        }
+    }
+
+    function _treeSearch(
+        bytes32 _termRandomness,
+        uint256 _disputeId,
+        uint256 _nextJurorToDraft,
+        uint256 _jurorNumber,
+        uint256 _addedJurors
+    )
+        internal
+        view
+        returns (uint256[] keys, uint256[] stakes)
+    {
+        uint256[] memory values = _getOrderedValues(_termRandomness, _disputeId, _nextJurorToDraft, _jurorNumber, _addedJurors);
+        (keys, stakes) = sumTree.multiSortition(values, term, false);
     }
 
     function _courtConfigForTerm(uint64 _term) internal view returns (CourtConfig storage) {

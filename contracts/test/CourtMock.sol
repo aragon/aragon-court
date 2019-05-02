@@ -58,13 +58,19 @@ contract CourtMock is Court {
         treeSearchHijacked = true;
     }
 
-    function _treeSearch(bytes32 _termRandomness, uint256 _disputeId, uint256 _iteration) internal view returns (uint256 key, uint256 value) {
+    function _treeSearch(bytes32 _termRandomness, uint256 _disputeId, uint256 _nextJurorToDraft, uint256 _jurorNumber, uint256 _addedJurors) internal view returns (uint256[] keys, uint256[] nodeValues) {
         if (!treeSearchHijacked) {
-            return super._treeSearch(_termRandomness, _disputeId, _iteration);
+            return super._treeSearch(_termRandomness, _disputeId, _nextJurorToDraft, _jurorNumber, _addedJurors);
         }
 
-        key = _iteration % sumTree.nextKey; // loop
-        return (key, sumTree.getItem(key));
+        uint256 length = _jurorNumber - _nextJurorToDraft;
+        keys = new uint256[](length);
+        nodeValues = new uint256[](length);
+        for (uint256 i = 0; i < length; i++) {
+            uint256 key = i % sumTree.nextKey; // loop
+            keys[i] = key;
+            nodeValues[i] = sumTree.getItem(key);
+        }
     }
 
     function mock_sortition(uint256 v) public view returns (address) {

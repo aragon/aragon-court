@@ -14,7 +14,6 @@ library HexSumTree {
 
     struct PackedArguments {
         uint256 valuesStart;
-        uint256 keysLength;
         uint256 depth;
         uint64 time;
         bool past;
@@ -142,24 +141,26 @@ library HexSumTree {
      * @param values An array with the values sought in the sortition. Must be ordered ascending.
      * @param time The checkpoint timestamp at which the sortition is performed
      * @param past If true, it means that we are seeking a checkpoint in the past, therefore when descending the sum tree it will use binary searches for checkpoints. Otherwise, it will use linear searches from the end, as we are looking for the last or the previous one.
-     * @returns An array of keys, one for each value in input param (therefore the same size), and in the same order
+     * @return An array of keys, one for each value in input param (therefore the same size), and in the same order, along with an array of the corresponding node values
      */
-    function multiSortition(Tree storage self, uint256[] values, uint64 time, bool past) internal view returns (uint256[] keys) {
-        return _multiSortition(self, values, PackedArguments(0, values.length, self.rootDepth, time, past, 0, BASE_KEY));
+    function multiSortition(Tree storage self, uint256[] values, uint64 time, bool past) internal view returns (uint256[] keys, uint256[] nodeValues) {
+        uint256 length = values.length;
+        // those two arrays will be used to fill in the results, they are passed as parameters to avoid extra copies
+        keys = new uint256[](length);
+        nodeValues = new uint256[](length);
+        _multiSortition(self, values, PackedArguments(0, self.rootDepth, time, past, 0, BASE_KEY), keys, nodeValues);
     }
 
     /**
      * @dev Recursive function to descend the Sum Tree.
-            Every time it checks a node, it traverses the input array to find the initial subset of elements that are below its accumulated value and passes that sub-array to the next iteration (actually the array is always the same, to avoid making exta copies, it just passes the initial index to start checking, to avoid checking values that went thru a different branch).
+            Every time it checks a node, it traverses the input array to find the initial subset of elements that are below its accumulated value and passes that sub-array to the next iteration. Actually the array is always the same, to avoid making exta copies, it just passes the initial index to start checking, to avoid checking values that went thru a different branch.
+            The same happens with the "result" arrays for keys and node values: it's always the same on every recursion step, the same initial index for input values acts as a needle to know where in those arrays the function has to write.
             The accumulated value is carried over to next iterations, to avoid having to subtract to all elements in array.
             PackedArguments struct is used to avoid "stack too deep" issue.
      */
-    function _multiSortition(Tree storage self, uint256[] values, PackedArguments memory packedArguments) private view returns (uint256[] keys) {
-        keys = new uint256[](packedArguments.keysLength);
-
+    function _multiSortition(Tree storage self, uint256[] values, PackedArguments memory packedArguments, uint256[] keys, uint256[] nodeValues) private view {
         uint256 shift = (packedArguments.depth - 1) * BITS_IN_NIBBLE;
         uint256 checkingValue = packedArguments.accumulatedValue;
-        uint256 keysIndex = 0;
         for (uint256 i = 0; i < CHILDREN; i++) {
             if (packedArguments.valuesStart >= values.length) {
                 break;
@@ -167,11 +168,13 @@ library HexSumTree {
             // shift the iterator and add it to node 0x00..0i00 (for depth = 3)
             uint256 checkingNode = packedArguments.node + (i << shift); // uint256
             // TODO: find a better way or remove if we only need getLastPresent
+            uint256 nodeValue;
             if (packedArguments.past) {
-                checkingValue = checkingValue + self.nodes[packedArguments.depth - 1][checkingNode].get(packedArguments.time);
+                nodeValue = self.nodes[packedArguments.depth - 1][checkingNode].get(packedArguments.time);
             } else {
-                checkingValue = checkingValue + self.nodes[packedArguments.depth - 1][checkingNode].getLastPresent(packedArguments.time);
+                nodeValue = self.nodes[packedArguments.depth - 1][checkingNode].getLastPresent(packedArguments.time);
             }
+            checkingValue = checkingValue + nodeValue;
 
             // Check how many values belong to this node. As they are ordered, it will be a contiguous subset starting from the beginning, so we only need to know the length of that subset
             uint256 newLength = _getNodeValuesLength(values, checkingValue, packedArguments.valuesStart);
@@ -181,37 +184,34 @@ library HexSumTree {
                 // node found at the end of the tree
                 if (packedArguments.depth == 1) {
                     // add this leave to the result, one time for each value belonging to it
+                    // use input values start index to write in the proper segment of the result arrays, which are global
                     for (k = 0; k < newLength; k++) {
-                        keys[keysIndex + k] = checkingNode;
+                        keys[packedArguments.valuesStart + k] = checkingNode;
+                        nodeValues[packedArguments.valuesStart + k] = nodeValue;
                     }
                 } else { // node found at upper levels
                     // recursion step: descend one level
-                    uint256[] memory subLevelKeys = _multiSortition(
+                    _multiSortition(
                         self,
                         values,
-                        PackedArguments(packedArguments.valuesStart,
-                            newLength,
+                        PackedArguments(
+                            packedArguments.valuesStart,
                             packedArguments.depth - 1,
                             packedArguments.time,
                             packedArguments.past,
                             packedArguments.accumulatedValue,
                             checkingNode
-                        )
+                        ),
+                        keys,
+                        nodeValues
                     );
-                    // add the keys from this node's subtree to the result
-                    for (k = 0; k < newLength; k++) {
-                        keys[keysIndex + k] = subLevelKeys[k];
-                    }
                 }
                 // for the next node we don't need to check values that were already assigned
                 packedArguments.valuesStart += newLength;
-                // we move forward also the index that points at the position in the result array where we have to copy next findings
-                keysIndex += newLength;
             }
             // carry over already checked value to the next node in this level
             packedArguments.accumulatedValue = checkingValue;
         }
-        return keys;
     }
 
     function _getNodeValuesLength(uint256[] values, uint256 checkingValue, uint256 valuesStart) private pure returns (uint256){

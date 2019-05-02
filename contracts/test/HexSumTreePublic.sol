@@ -81,7 +81,7 @@ contract HexSumTreePublic {
     function sortitionSingleUsingMulti(uint256 value, uint64 checkpointTime) external profileGas returns (uint256) {
         uint256[] memory values = new uint256[](1);
         values[0] = value;
-        uint256[] memory keys = tree.multiSortition(values, checkpointTime, true);
+        (uint256[] memory keys, ) = tree.multiSortition(values, checkpointTime, true);
 
         return keys[0];
     }
@@ -126,7 +126,7 @@ contract HexSumTreePublic {
     function multipleRandomMultiSortition(uint256 number, uint64 checkpointTime) external profileGas returns (uint256[]) {
         uint256[] memory values = _getOrderedValues(number, checkpointTime);
         //emit LogValues(checkpointTime, values);
-        uint256[] memory keys = tree.multiSortition(values, checkpointTime, true);
+        (uint256[] memory keys, ) = tree.multiSortition(values, checkpointTime, true);
         //emit LogKeys(checkpointTime, keys);
         return keys;
     }
@@ -134,11 +134,11 @@ contract HexSumTreePublic {
     function multipleRandomMultiSortitionLast(uint256 number) external profileGas returns (uint256[]) {
         uint64 checkpointTime = getCheckpointTime();
         uint256[] memory values = _getOrderedValues(number, checkpointTime);
-        uint256[] memory keys = tree.multiSortition(values, checkpointTime, false);
+        (uint256[] memory keys, ) = tree.multiSortition(values, checkpointTime, false);
         return keys;
     }
 
-    function multiSortition(uint256[] values, uint64 checkpointTime) external returns (uint256[]) {
+    function multiSortition(uint256[] values, uint64 checkpointTime) external returns (uint256[], uint256[]) {
         return tree.multiSortition(values, checkpointTime, true);
     }
 

@@ -1,7 +1,7 @@
 pragma solidity ^0.4.24; // TODO: pin solc
 
 // Inspired by: Kleros.sol https://github.com/kleros/kleros @ 7281e69
-import "./lib/HexSumTree.sol";
+import "./standards/sumtree/ISumTree.sol";
 import "./standards/arbitration/IArbitrable.sol";
 import "./standards/erc900/ERC900.sol";
 import "./standards/voting/ICRVoting.sol";
@@ -14,7 +14,6 @@ import "@aragon/os/contracts/lib/math/SafeMath.sol";
 
 
 contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
-    using HexSumTree for HexSumTree.Tree;
     using SafeERC20 for ERC20;
     using SafeMath for uint256;
 
@@ -119,7 +118,7 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
     mapping (address => Account) public accounts;
     mapping (uint256 => address) public jurorsByTreeId;
     mapping (uint64 => Term) public terms;
-    HexSumTree.Tree internal sumTree;
+    ISumTree internal sumTree;
     Dispute[] public disputes;
     mapping (uint32 => Vote) votes; // to map from voteId to disputeId and roundId
 
@@ -198,6 +197,8 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
      * @param _termDuration Duration in seconds per term (recommended 1 hour)
      * @param _jurorToken The address of the juror work token contract.
      * @param _feeToken The address of the token contract that is used to pay for fees.
+     * @param _voting The address of the Commit Reveal Voting contract.
+     * @param _sumTree The address of the contract storing de Sum Tree for sortitions.
      * @param _jurorFee The amount of _feeToken that is paid per juror per dispute
      * @param _heartbeatFee The amount of _feeToken per dispute to cover maintenance costs.
      * @param _draftFee The amount of _feeToken per juror to cover the drafting cost.
@@ -214,6 +215,7 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
         ERC20 _jurorToken,
         ERC20 _feeToken,
         ICRVoting _voting,
+        ISumTree _sumTree,
         uint256 _jurorFee,
         uint256 _heartbeatFee,
         uint256 _draftFee,
@@ -228,6 +230,7 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
         termDuration = _termDuration;
         jurorToken = _jurorToken;
         voting = _voting;
+        sumTree = _sumTree;
         jurorMinStake = _jurorMinStake;
         governor = _governor;
         
@@ -811,49 +814,6 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
         }
     }
 
-    function _getStakeBounds(uint256 _nextJurorToDraft, uint256 _jurorNumber) internal view returns (uint256 stakeFrom, uint256 stakeTo) {
-        uint256 totalSum = sumTree.totalSumPresent(term);
-        uint256 ratio = totalSum / _jurorNumber;
-        // TODO: roundings?
-        stakeFrom = _nextJurorToDraft * ratio;
-        uint256 newNextJurorToDraft = _nextJurorToDraft + MAX_JURORS_PER_BATCH;
-        if (newNextJurorToDraft > _jurorNumber) {
-            newNextJurorToDraft = _jurorNumber;
-        }
-        stakeTo = newNextJurorToDraft * ratio;
-    }
-
-    function _getOrderedValues(
-        bytes32 _termRandomness,
-        uint256 _disputeId,
-        uint256 _nextJurorToDraft,
-        uint256 _jurorNumber,
-        uint256 _addedJurors
-    )
-        private
-        returns (uint256[] values)
-    {
-        values = new uint256[](_jurorNumber);
-
-        (uint256 stakeFrom, uint256 stakeTo) = _getStakeBounds(_nextJurorToDraft, _jurorNumber);
-        uint256 stakeSum = stakeTo - stakeFrom;
-        uint256 jurorsToDraft = _jurorNumber - _addedJurors;
-        for (uint256 i = 0; i < jurorsToDraft; i++) {
-            bytes32 seed = keccak256(abi.encodePacked(_termRandomness, _disputeId, i));
-            uint256 value = stakeFrom + uint256(seed) % stakeSum;
-            values[i] = value;
-            // make sure it's ordered
-            uint256 j = i;
-            while (j > 0 && values[j] < values[j - 1]) {
-                // flip them
-                uint256 tmp = values[j - 1];
-                values[j - 1] = values[j];
-                values[j] = tmp;
-                j--;
-            }
-        }
-    }
-
     function _treeSearch(
         bytes32 _termRandomness,
         uint256 _disputeId,
@@ -865,8 +825,8 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
         view
         returns (uint256[] keys, uint256[] stakes)
     {
-        uint256[] memory values = _getOrderedValues(_termRandomness, _disputeId, _nextJurorToDraft, _jurorNumber, _addedJurors);
-        (keys, stakes) = sumTree.multiSortition(values, term, false);
+        (keys, stakes) =
+            sumTree.multiSortition(_termRandomness, _disputeId, _nextJurorToDraft, _jurorNumber, _addedJurors, term, false, MAX_JURORS_PER_BATCH);
     }
 
     function _courtConfigForTerm(uint64 _term) internal view returns (CourtConfig storage) {

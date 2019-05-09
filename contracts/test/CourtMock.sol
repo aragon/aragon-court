@@ -13,6 +13,7 @@ contract CourtMock is Court {
         ERC20 _jurorToken,
         ERC20 _feeToken,
         ICRVoting _voting,
+        ISumTree _sumTree,
         uint256 _jurorFee,
         uint256 _heartbeatFee,
         uint256 _draftFee,
@@ -28,6 +29,7 @@ contract CourtMock is Court {
         _jurorToken,
         _feeToken,
         _voting,
+        _sumTree,
         _jurorFee,
         _heartbeatFee,
         _draftFee,
@@ -69,7 +71,7 @@ contract CourtMock is Court {
         keys = new uint256[](length);
         nodeValues = new uint256[](length);
         for (uint256 i = 0; i < length; i++) {
-            uint256 key = i % sumTree.nextKey; // loop
+            uint256 key = i % sumTree.getNextKey(); // loop
             keys[i] = key;
             nodeValues[i] = sumTree.getItem(key);
         }
@@ -81,7 +83,7 @@ contract CourtMock is Court {
     }
 
     function mock_treeTotalSum() public view returns (uint256) {
-        return sumTree.totalSum();
+        // TODO!! return sumTree.totalSum();
     }
 
     function _time() internal view returns (uint64) {

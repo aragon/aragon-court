@@ -5,6 +5,7 @@ const { soliditySha3 } = require('web3-utils')
 const TokenFactory = artifacts.require('TokenFactory')
 const CourtMock = artifacts.require('CourtMock')
 const CRVoting = artifacts.require('CRVoting')
+const SumTree = artifacts.require('HexSumTreeWrapper')
 
 const MINIME = 'MiniMeToken'
 
@@ -74,12 +75,14 @@ contract('Court: Disputes', ([ poor, rich, governor, juror1, juror2, juror3, arb
     assertEqualBN(this.anj.balanceOf(poor), 0, 'poor balance')
 
     this.voting = await CRVoting.new()
+    this.sumTree = await SumTree.new()
 
     this.court = await CourtMock.new(
       termDuration,
       this.anj.address,
-      this.voting.address,
       ZERO_ADDRESS, // no fees
+      this.voting.address,
+      this.sumTree.address,
       0,
       0,
       0,
@@ -98,7 +101,7 @@ contract('Court: Disputes', ([ poor, rich, governor, juror1, juror2, juror3, arb
     await this.court.mock_hijackTreeSearch()
 
     assert.equal(await this.court.token(), this.anj.address, 'court token')
-    assert.equal(await this.court.jurorToken(), this.anj.address, 'court juror token')
+    //assert.equal(await this.court.jurorToken(), this.anj.address, 'court juror token')
     await assertEqualBN(this.court.mock_treeTotalSum(), 0, 'empty sum tree')
     
     await this.anj.approveAndCall(this.court.address, richStake, NO_DATA, { from: rich })
@@ -118,7 +121,7 @@ contract('Court: Disputes', ([ poor, rich, governor, juror1, juror2, juror3, arb
 
   it('can encrypt votes', async () => {
     const ruling = 10
-    assert.equal(await this.court.encryptVote(ruling, SALT), encryptVote(ruling))
+    assert.equal(await this.voting.encryptVote(ruling, SALT), encryptVote(ruling))
   })
 
   context('activating jurors', () => {
@@ -133,7 +136,7 @@ contract('Court: Disputes', ([ poor, rich, governor, juror1, juror2, juror3, arb
       const activateTerm = 1
       const deactivateTerm = 10000
       for (const juror of [juror1, juror2, juror3]) {
-        await this.court.activate(activateTerm, deactivateTerm, { from: juror })
+        await this.court.activate({ from: juror })
       }
       await passTerms(1) // term = 1
     })

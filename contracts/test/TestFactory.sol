@@ -1,15 +1,11 @@
 pragma solidity ^0.4.24;
 
 import "@aragon/apps-shared-minime/contracts/MiniMeToken.sol";
-import "../Court.sol";
 
-import "@aragon/apps-shared-migrations/contracts/Migrations.sol";
 
-contract Factory {
+contract TokenFactory {
     event Deployed(address addr);
-}
 
-contract TokenFactory is Factory {
     function newToken(string symbol, uint256 initialBalance) external {
         MiniMeToken token = new MiniMeToken(
             MiniMeTokenFactory(0),

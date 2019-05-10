@@ -3,6 +3,8 @@ const CourtMock = artifacts.require('CourtMock')
 
 const COURT = 'Court'
 const MINIME = 'MiniMeToken'
+const CRVoting = artifacts.require('CRVoting')
+const SumTree = artifacts.require('HexSumTreeWrapper')
 
 const getLog = (receipt, logName, argName) =>
   receipt.logs.find(({ event }) => event == logName).args[argName]
@@ -29,12 +31,14 @@ contract('Court: Staking', ([ pleb, rich ]) => {
     assertEqualBN(this.anj.balanceOf(pleb), 0, 'pleb balance')
 
     this.voting = await CRVoting.new()
+    this.sumTree = await SumTree.new()
 
     this.court = await CourtMock.new(
       10,
       this.anj.address,
-      this.voting.address,
       ZERO_ADDRESS, // no fees
+      this.voting.address,
+      this.sumTree.address,
       0,
       0,
       0,

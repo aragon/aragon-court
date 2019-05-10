@@ -133,8 +133,6 @@ contract('Court: Disputes', ([ poor, rich, governor, juror1, juror2, juror3, arb
     }
 
     beforeEach(async () => {
-      const activateTerm = 1
-      const deactivateTerm = 10000
       for (const juror of [juror1, juror2, juror3]) {
         await this.court.activate({ from: juror })
       }
@@ -148,9 +146,12 @@ contract('Court: Disputes', ([ poor, rich, governor, juror1, juror2, juror3, arb
 
       const disputeId = 0 // TODO: Get from NewDispute event
       const firstRoundId = 0
+      let voteId
 
       beforeEach(async () => {
-        await assertLogs(this.court.createDispute(arbitrable, rulings, jurors, term), NEW_DISPUTE_EVENT)
+        const receipt = await this.court.createDispute(arbitrable, rulings, jurors, term)
+        await assertLogs(receipt, NEW_DISPUTE_EVENT)
+        voteId = getLog(receipt, 'NewDispute', 'voteId')
       })
 
       it('fails to draft outside of the draft term', async () => {
@@ -179,7 +180,6 @@ contract('Court: Disputes', ([ poor, rich, governor, juror1, juror2, juror3, arb
           for (const [ draftId, juror ] of expectedJurors.entries()) {
             const ruling = await this.voting.getCastVote(voteId, juror)
 
-            assert.equal(jurorAddr, juror, `juror #${draftId} address`)
             assert.equal(ruling, 0, `juror #${draftId} vote`)
           }
 
@@ -189,7 +189,7 @@ contract('Court: Disputes', ([ poor, rich, governor, juror1, juror2, juror3, arb
         })
 
         it('fails to draft a second time', async () => {
-          await assertRevert(this.court.draftAdjudicationRound(firstRoundId), 'COURT_ROUND_ALREADY_DRAFTED') 
+          await assertRevert(this.court.draftAdjudicationRound(firstRoundId), 'COURT_ROUND_ALREADY_DRAFTED')
         })
 
         context('jurors commit', () => {
@@ -256,7 +256,7 @@ contract('Court: Disputes', ([ poor, rich, governor, juror1, juror2, juror3, arb
             })
 
             it('has correct ruling result', async () => {
-              assertEqualBN(this.court.getWinningRuling(disputeId), round1Ruling, 'winning ruling')
+              assert.equal((await this.voting.getVote(disputeId))[0].toNumber(), round1Ruling, 'winning ruling')
             })
 
             it('fails to appeal during reveal period', async () => {

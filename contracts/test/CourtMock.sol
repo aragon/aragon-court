@@ -71,7 +71,7 @@ contract CourtMock is Court {
         keys = new uint256[](length);
         nodeValues = new uint256[](length);
         for (uint256 i = 0; i < length; i++) {
-            uint256 key = i % sumTree.getNextKey(); // loop
+            uint256 key = i % sumTree.getNextKey() + 1; // loop, and avoid 0
             keys[i] = key;
             nodeValues[i] = sumTree.getItem(key);
         }
@@ -83,7 +83,7 @@ contract CourtMock is Court {
     }
 
     function mock_treeTotalSum() public view returns (uint256) {
-        // TODO!! return sumTree.totalSum();
+        return sumTree.totalSumPresent(_time());
     }
 
     function _time() internal view returns (uint64) {

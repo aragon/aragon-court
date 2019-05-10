@@ -171,9 +171,9 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
     event JurorDeactivated(address indexed juror, uint64 lastTerm);
     event JurorDrafted(uint256 indexed disputeId, address indexed juror, uint256 draftId);
     event DisputeStateChanged(uint256 indexed disputeId, DisputeState indexed state);
-    event NewDispute(uint256 indexed disputeId, address indexed subject, uint64 indexed draftTerm, uint64 jurorNumber);
+    event NewDispute(uint256 indexed disputeId, address indexed subject, uint64 indexed draftTerm, uint32 voteId, uint64 jurorNumber);
     event TokenWithdrawal(address indexed token, address indexed account, uint256 amount);
-    event RulingAppealed(uint256 indexed disputeId, uint256 indexed roundId, uint64 indexed draftTerm, uint256 jurorNumber);
+    event RulingAppealed(uint256 indexed disputeId, uint256 indexed roundId, uint64 indexed draftTerm, uint32 voteId, uint256 jurorNumber);
     event RulingExecuted(uint256 indexed disputeId, uint8 indexed ruling);
     event RoundSlashingSettled(uint256 indexed disputeId, uint256 indexed roundId, uint256 slashedTokens);
     event RewardSettled(uint256 indexed disputeId, uint256 indexed roundId, address indexed juror, uint256 draftId);
@@ -414,9 +414,9 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
         dispute.possibleRulings = _possibleRulings;
 
         // _newAdjudicationRound charges fees for starting the round
-        _newAdjudicationRound(dispute, _jurorNumber, _draftTerm);
+        (, uint32 voteId) = _newAdjudicationRound(disputeId, _jurorNumber, _draftTerm);
 
-        emit NewDispute(disputeId, _subject, _draftTerm, _jurorNumber);
+        emit NewDispute(disputeId, _subject, _draftTerm, voteId, _jurorNumber);
 
         return disputeId;
     }
@@ -475,17 +475,18 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
         uint256 addedJurors = 0;
         while (addedJurors < round.jurorNumber) {
             (uint256[] memory jurorKeys, uint256[] memory stakes) = _treeSearch(draftTerm.randomness, _disputeId, round.nextJurorToDraft, round.jurorNumber, addedJurors);
-            for (uint256 i = 0; i < jurorKeys.length; i++) {
+            for (uint256 i = 0; i < jurorKeys.length && addedJurors < round.jurorNumber; i++) {
                 address juror = jurorsByTreeId[jurorKeys[i]];
 
                 // Account storage jurorAccount = accounts[juror]; // Hitting stack too deep
                 uint256 newAtStake = accounts[juror].atStakeTokens + _pct4(jurorMinStake, config.penaltyPct); // maxPenalty
                 if (stakes[i] >= newAtStake) {
                     accounts[juror].atStakeTokens += newAtStake;
-                    addedJurors++;
+                    // uint256 draftId = round.nextJurorToDraft + addedJurors; // Stack too deep
                     round.jurors[round.nextJurorToDraft + addedJurors] = juror;
-                    round.jurorSlotStates[_getSlotId(juror, i)].drafted = true;
+                    round.jurorSlotStates[_getSlotId(juror, round.nextJurorToDraft + addedJurors)].drafted = true;
                     emit JurorDrafted(_disputeId, juror, round.nextJurorToDraft + addedJurors);
+                    addedJurors++;
                 }
             }
         }
@@ -514,8 +515,8 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
         uint64 appealDraftTerm = term + 1; // Appeals are drafted in the next term
 
         // _newAdjudicationRound charges fees for starting the round
-        uint256 roundId = _newAdjudicationRound(dispute, appealJurorNumber, appealDraftTerm);
-        emit RulingAppealed(_disputeId, roundId, appealDraftTerm, appealJurorNumber);
+        (uint256 roundId, uint32 voteId) = _newAdjudicationRound(_disputeId, appealJurorNumber, appealDraftTerm);
+        emit RulingAppealed(_disputeId, roundId, appealDraftTerm, voteId, appealJurorNumber);
     }
 
     /**
@@ -737,11 +738,13 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
         nC = pA == pC ? nC : -nC;
     }
 
-    function _newAdjudicationRound(Dispute storage dispute, uint64 _jurorNumber, uint64 _draftTerm) internal returns (uint256 roundId) {
+    function _newAdjudicationRound(uint256 _disputeId, uint64 _jurorNumber, uint64 _draftTerm) internal returns (uint256 roundId, uint32 voteId) {
         (ERC20 feeToken, uint256 feeAmount,) = feeForJurorDraft(_draftTerm, _jurorNumber);
         if (feeAmount > 0) {
             require(feeToken.safeTransferFrom(msg.sender, this, feeAmount), ERROR_DEPOSIT_FAILED);
         }
+
+        Dispute storage dispute = disputes[_disputeId];
 
         dispute.state = DisputeState.PreDraft;
 
@@ -749,9 +752,13 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
         dispute.rounds.length = roundId + 1;
 
         AdjudicationRound storage round = dispute.rounds[roundId];
+        voteId = uint32(voting.createVote(dispute.possibleRulings));
+        round.voteId = voteId;
         round.draftTerm = _draftTerm;
         round.jurorNumber = _jurorNumber;
         round.triggeredBy = msg.sender;
+
+        votes[voteId] = Vote(uint128(_disputeId), uint128(roundId));
 
         terms[_draftTerm].dependingDrafts += 1;
     }

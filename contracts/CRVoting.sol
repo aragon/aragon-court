@@ -54,11 +54,10 @@ contract CRVoting is ICRVoting {
         owner = _owner;
     }
 
-    function createVote(uint8 _possibleRulings) onlyOwner external returns(uint256) {
+    function createVote(uint8 _possibleRulings) onlyOwner external returns(uint256 voteId) {
         votes[votesLength].possibleRulings = _possibleRulings;
+        voteId = votesLength;
         votesLength++;
-
-        return votesLength;
     }
 
     /**

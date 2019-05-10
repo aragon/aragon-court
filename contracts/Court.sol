@@ -70,9 +70,10 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
         bool drafted;
         bool rewarded;
     }
+
     struct AdjudicationRound {
         address[] jurors;
-        mapping (address => JurorState) jurorStates;
+        mapping (bytes32 => JurorState) jurorSlotStates;
         uint32 voteId;
         uint32 nextJurorToDraft;
         uint64 draftTerm;
@@ -483,7 +484,7 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
                     accounts[juror].atStakeTokens += newAtStake;
                     addedJurors++;
                     round.jurors[round.nextJurorToDraft + addedJurors] = juror;
-                    round.jurorStates[juror].drafted = true;
+                    round.jurorSlotStates[_getSlotId(juror, i)].drafted = true;
                     emit JurorDrafted(_disputeId, juror, round.nextJurorToDraft + addedJurors);
                 }
             }
@@ -566,7 +567,7 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
             Account storage account = accounts[juror];
             account.atStakeTokens -= penalty;
 
-            (uint8 jurorRuling) = voting.getCastVote(round.voteId, juror);
+            (uint8 jurorRuling) = voting.getCastVote(round.voteId, juror, i);
             // If the juror didn't vote for the final ruling
             if (jurorRuling != ruling) {
                 slashedTokens += penalty;
@@ -607,11 +608,11 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
         CourtConfig storage config = courtConfigs[terms[round.draftTerm].courtConfigId]; // safe to use directly as it is the current term
         uint256 voteId = round.voteId;
         (uint8 winningRuling, uint256 coherentJurors) = voting.getVote(voteId);
-        uint8 jurorRuling = voting.getCastVote(voteId, juror);
+        uint8 jurorRuling = voting.getCastVote(voteId, juror, _draftId);
 
         require(round.settledPenalties, ERROR_ROUND_NOT_SETTLED);
         require(jurorRuling == winningRuling, ERROR_JUROR_NOT_COHERENT);
-        JurorState storage jurorState = round.jurorStates[juror];
+        JurorState storage jurorState = round.jurorSlotStates[_getSlotId(juror, _draftId)];
         require(!jurorState.rewarded, ERROR_JUROR_ALREADY_REWARDED);
         jurorState.rewarded = true;
 
@@ -696,24 +697,28 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
 
     // Voting interface fns
 
-    function canCommit(uint256 _voteId, address _voter) external ensureTerm returns (bool) {
-        return _canPerformVotingAction(_voteId, _voter, AdjudicationState.Commit);
+    function canCommit(uint256 _voteId, address _voter, uint256 _draftId) external ensureTerm returns (bool) {
+        return _canPerformVotingAction(_voteId, _voter, _draftId, AdjudicationState.Commit);
     }
 
-    function canReveal(uint256 _voteId, address _voter) external ensureTerm returns (bool) {
-        return _canPerformVotingAction(_voteId, _voter, AdjudicationState.Reveal);
+    function canReveal(uint256 _voteId, address _voter, uint256 _draftId) external ensureTerm returns (bool) {
+        return _canPerformVotingAction(_voteId, _voter, _draftId, AdjudicationState.Reveal);
     }
 
-    function _canPerformVotingAction(uint256 _voteId, address _voter, AdjudicationState _state) internal returns (bool) {
+    function _canPerformVotingAction(uint256 _voteId, address _voter, uint256 _draftId, AdjudicationState _state) internal returns (bool) {
         require(_voteId <= MAX_UINT32, ERROR_OVERFLOW);
         Vote storage vote = votes[uint32(_voteId)];
         uint256 disputeId = vote.disputeId;
         uint256 roundId = vote.roundId;
         _checkAdjudicationState(disputeId, roundId, _state);
         // _voter is drafted
-        require(disputes[disputeId].rounds[roundId].jurorStates[_voter].drafted, ERROR_INVALID_JUROR);
+        require(disputes[disputeId].rounds[roundId].jurorSlotStates[_getSlotId(_voter, _draftId)].drafted, ERROR_INVALID_JUROR);
 
         return true;
+    }
+
+    function _getSlotId(address _juror, uint256 _draftId) internal view returns (bytes32 slotId) {
+        slotId = keccak256(abi.encodePacked(_juror, _draftId));
     }
 
     function _updateIncomingBalance(Account storage account) internal {

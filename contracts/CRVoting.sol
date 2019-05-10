@@ -21,7 +21,7 @@ contract CRVoting is ICRVoting {
     struct Vote {
         uint8 possibleRulings;      // number of possible rulings that can be voted
         uint8 winningRuling;
-        mapping (address => CastVote) castVotes;
+        mapping (bytes32 => CastVote) castVotes;
         mapping (uint256 => uint256) rulingVotes;
     }
 
@@ -46,7 +46,11 @@ contract CRVoting is ICRVoting {
     }
 
     // TODO: initial setup? what do we deploy first? court? this? CREATE2? Use init function?
-    constructor(ICRVotingOwner _owner) public {
+    constructor() public {
+        owner = ICRVotingOwner(msg.sender);
+    }
+
+    function setOwner(ICRVotingOwner _owner) onlyOwner external {
         owner = _owner;
     }
 
@@ -60,14 +64,9 @@ contract CRVoting is ICRVoting {
     /**
      * @notice Commit juror vote for vote #`_voteId`
      */
-    function commitVote(
-        uint256 _voteId,
-        bytes32 _commitment
-    )
-        external
-    {
-        require(owner.canCommit(_voteId, msg.sender), ERROR_NOT_ALLOWED_BY_OWNER);
-        CastVote storage castVote = votes[_voteId].castVotes[msg.sender];
+    function commitVote(uint256 _voteId, uint256 _draftId, bytes32 _commitment) external {
+        require(owner.canCommit(_voteId, msg.sender, _draftId), ERROR_NOT_ALLOWED_BY_OWNER);
+        CastVote storage castVote = votes[_voteId].castVotes[_getSlotId(msg.sender, _draftId)];
         require(castVote.commitment == bytes32(0) && castVote.ruling == uint8(Ruling.Missing), ERROR_ALREADY_VOTED);
 
         castVote.commitment = _commitment;
@@ -78,20 +77,14 @@ contract CRVoting is ICRVoting {
     /**
      * @notice Leak vote for `_voter` in vote #`_voteId`
      */
-    function leakVote(
-        uint256 _voteId,
-        address _voter,
-        uint8 _leakedRuling,
-        bytes32 _salt
-    )
-        external
-    {
-        require(owner.canCommit(_voteId, _voter), ERROR_NOT_ALLOWED_BY_OWNER);
-
-        _checkVote(_voteId, _voter, _leakedRuling, _salt);
+    function leakVote(uint256 _voteId, address _voter, uint256 _draftId, uint8 _leakedRuling, bytes32 _salt) external {
+        require(owner.canCommit(_voteId, _voter, _draftId), ERROR_NOT_ALLOWED_BY_OWNER);
 
         uint8 ruling = uint8(Ruling.RefusedRuling);
-        votes[_voteId].castVotes[_voter].ruling = ruling;
+        CastVote storage castVote = votes[_voteId].castVotes[_getSlotId(_voter, _draftId)];
+        castVote.ruling = ruling;
+
+        _checkVote(castVote, _leakedRuling, _salt);
 
         // TODO: slash juror
 
@@ -104,19 +97,13 @@ contract CRVoting is ICRVoting {
     /**
      * @notice Reveal juror `_ruling` vote in dispute #`_disputeId` (round #`_roundId`)
      */
-    function revealVote(
-        uint256 _voteId,
-        uint8 _ruling,
-        bytes32 _salt
-    )
-        external
-    {
-        require(owner.canReveal(_voteId, msg.sender), ERROR_NOT_ALLOWED_BY_OWNER);
-
-        _checkVote(_voteId, msg.sender, _ruling, _salt);
+    function revealVote(uint256 _voteId, uint256 _draftId, uint8 _ruling, bytes32 _salt) external {
+        require(owner.canReveal(_voteId, msg.sender, _draftId), ERROR_NOT_ALLOWED_BY_OWNER);
 
         Vote storage vote = votes[_voteId];
-        CastVote storage castVote = vote.castVotes[msg.sender];
+        CastVote storage castVote = vote.castVotes[_getSlotId(msg.sender, _draftId)];
+
+        _checkVote(castVote, _ruling, _salt);
 
         require(_ruling > uint8(Ruling.Missing) && _ruling <= vote.possibleRulings + 1, ERROR_INVALID_VOTE);
 
@@ -135,8 +122,8 @@ contract CRVoting is ICRVoting {
         winningVoters = vote.rulingVotes[ruling];
     }
 
-    function getCastVote(uint256 _voteId, address _voter) external view returns (uint8) {
-        return votes[_voteId].castVotes[_voter].ruling;
+    function getCastVote(uint256 _voteId, address _voter, uint256 _draftId) external view returns (uint8) {
+        return votes[_voteId].castVotes[_getSlotId(_voter, _draftId)].ruling;
     }
 
     function getRulingVotes(uint256 _voteId, uint8 _ruling) external view returns (uint256) {
@@ -147,11 +134,13 @@ contract CRVoting is ICRVoting {
         return keccak256(abi.encodePacked(_ruling, _salt));
     }
 
-    function _checkVote(uint256 _voteId, address _voter, uint8 _ruling, bytes32 _salt) internal {
-        CastVote storage castVote = votes[_voteId].castVotes[_voter];
+    function _getSlotId(address _voter, uint256 _draftId) internal view returns (bytes32 slotId) {
+        slotId = keccak256(abi.encodePacked(_voter, _draftId));
+    }
 
-        require(castVote.commitment == encryptVote(_ruling, _salt), ERROR_FAILURE_COMMITMENT_CHECK);
-        require(castVote.ruling == uint8(Ruling.Missing), ERROR_ALREADY_VOTED);
+    function _checkVote(CastVote storage _castVote, uint8 _ruling, bytes32 _salt) internal {
+        require(_castVote.commitment == encryptVote(_ruling, _salt), ERROR_FAILURE_COMMITMENT_CHECK);
+        require(_castVote.ruling == uint8(Ruling.Missing), ERROR_ALREADY_VOTED);
     }
 
     function _updateTally(uint256 _voteId, uint8 _ruling) internal {

@@ -28,9 +28,12 @@ contract('Court: Staking', ([ pleb, rich ]) => {
     assertEqualBN(this.anj.balanceOf(rich), INITIAL_BALANCE, 'rich balance')
     assertEqualBN(this.anj.balanceOf(pleb), 0, 'pleb balance')
 
+    this.voting = await CRVoting.new()
+
     this.court = await CourtMock.new(
       10,
       this.anj.address,
+      this.voting.address,
       ZERO_ADDRESS, // no fees
       0,
       0,
@@ -43,6 +46,7 @@ contract('Court: Staking', ([ pleb, rich ]) => {
       [ 1, 1, 1 ],
       1
     )
+    await this.voting.setOwner(this.court.address)
   })
 
   const assertStaked = async (staker, amount, initialBalance, { recipient, initialStaked = 0 } = {}) => {

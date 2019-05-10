@@ -57,9 +57,12 @@ contract('Court: Lifecycle', ([ poor, rich, governor, juror1, juror2 ]) => {
     assertEqualBN(this.anj.balanceOf(rich), initialBalance, 'rich balance')
     assertEqualBN(this.anj.balanceOf(poor), 0, 'poor balance')
 
+    this.voting = await CRVoting.new()
+
     this.court = await CourtMock.new(
       termDuration,
       this.anj.address,
+      this.voting.address,
       ZERO_ADDRESS, // no fees
       0,
       0,
@@ -72,6 +75,8 @@ contract('Court: Lifecycle', ([ poor, rich, governor, juror1, juror2 ]) => {
       [ commitTerms, appealTerms, revealTerms ],
       penaltyPct
     )
+    await this.voting.setOwner(this.court.address)
+
     await this.court.mock_setBlockNumber(startBlock)
 
     assert.equal(await this.court.token(), this.anj.address, 'court token')

@@ -4,6 +4,7 @@ const { soliditySha3 } = require('web3-utils')
 
 const TokenFactory = artifacts.require('TokenFactory')
 const CourtMock = artifacts.require('CourtMock')
+const CRVoting = artifacts.require('CRVoting')
 
 const MINIME = 'MiniMeToken'
 
@@ -72,9 +73,12 @@ contract('Court: Disputes', ([ poor, rich, governor, juror1, juror2, juror3, arb
     assertEqualBN(this.anj.balanceOf(rich), initialBalance, 'rich balance')
     assertEqualBN(this.anj.balanceOf(poor), 0, 'poor balance')
 
+    this.voting = await CRVoting.new()
+
     this.court = await CourtMock.new(
       termDuration,
       this.anj.address,
+      this.voting.address,
       ZERO_ADDRESS, // no fees
       0,
       0,
@@ -87,6 +91,8 @@ contract('Court: Disputes', ([ poor, rich, governor, juror1, juror2, juror3, arb
       [ commitTerms, appealTerms, revealTerms ],
       penaltyPct
     )
+    await this.voting.setOwner(this.court.address)
+
     await this.court.mock_setBlockNumber(startBlock)
     // tree searches always return jurors in the order that they were added to the tree
     await this.court.mock_hijackTreeSearch()

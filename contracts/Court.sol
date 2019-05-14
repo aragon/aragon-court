@@ -482,10 +482,16 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
                 uint256 newAtStake = accounts[juror].atStakeTokens + _pct4(jurorMinStake, config.penaltyPct); // maxPenalty
                 if (stakes[i] >= newAtStake) {
                     accounts[juror].atStakeTokens += newAtStake;
-                    round.jurors[round.nextJurorToDraft + addedJurors] = juror;
+                    uint256 draftIndex = round.nextJurorToDraft + addedJurors;
+                    // check repeated juror, we assume jurors come ordered from tree search
+                    if (draftIndex > 0 && round.jurors[draftIndex - 1] == juror) {
+                        round.jurors.length--;
+                    } else {
+                        round.jurors[draftIndex] = juror;
+                        addedJurors++;
+                    }
                     round.jurorSlotStates[juror].weight++;
                     emit JurorDrafted(_disputeId, juror);
-                    addedJurors++;
                 }
             }
         }
@@ -556,7 +562,7 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
 
         (uint8 ruling, ) = voting.getVote(round.voteId);
         CourtConfig storage config = courtConfigs[terms[round.draftTerm].courtConfigId]; // safe to use directly as it is the current term
-        uint256 penalty = _pct4(jurorMinStake, config.penaltyPct);
+        // uint256 penalty = _pct4(jurorMinStake, config.penaltyPct); // TODO: stack too deep
 
         uint256 slashedTokens = 0;
         uint256 votesLength = round.jurors.length;
@@ -564,20 +570,22 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
 
         for (uint256 i = 0; i < votesLength; i++) {
             address juror = round.jurors[i];
+            //uint256 weightedPenalty = penalty * round.jurorSlotStates[juror].weight; // TODO: stack too deep
+            uint256 weightedPenalty = _pct4(jurorMinStake, config.penaltyPct) * round.jurorSlotStates[juror].weight;
             Account storage account = accounts[juror];
-            account.atStakeTokens -= penalty;
+            account.atStakeTokens -= weightedPenalty;
 
             uint8 jurorRuling = voting.getCastVote(round.voteId, juror);
             // If the juror didn't vote for the final ruling
             if (jurorRuling != ruling) {
-                slashedTokens += penalty;
+                slashedTokens += weightedPenalty;
 
                 if (account.state == AccountState.NotJuror) {
                     // Slash from balance if the account already deactivated
-                    _removeTokens(jurorToken, juror, penalty);
+                    _removeTokens(jurorToken, juror, weightedPenalty);
                 } else {
                     // account.sumTreeId always > 0: as the juror has activated (and gots its sumTreeId)
-                    sumTree.update(account.sumTreeId, slashingUpdateTerm, penalty, false);
+                    sumTree.update(account.sumTreeId, slashingUpdateTerm, weightedPenalty, false);
                 }
             }
         }

@@ -52,6 +52,7 @@ contract Court is ERC900, ApproveAndCallFallBack {
         uint64 commitTerms;
         uint64 revealTerms;
         uint64 appealTerms;
+        uint64 appealConfirmTerms;
         uint16 penaltyPct;
     }
 
@@ -74,13 +75,22 @@ contract Court is ERC900, ApproveAndCallFallBack {
 
     struct AdjudicationRound {
         JurorVote[] votes;
+        Appealer[] appealers;
         mapping (uint8 => uint256) rulingVotes;
         uint8 winningRuling;
         uint64 draftTerm;
         uint64 jurorNumber;
         address triggeredBy;
         bool settledPenalties;
+        bool settledAppeals;
         uint256 slashedTokens;
+    }
+
+    struct Appealer {
+        address appealer;
+        uint8 forRuling;
+        ERC20 depositToken;
+        uint256 depositAmount;
     }
 
     enum Ruling {
@@ -107,7 +117,8 @@ contract Court is ERC900, ApproveAndCallFallBack {
         Invalid,
         Commit,
         Reveal,
-        Appealable,
+        Appeal,
+        AppealConfirm,
         Ended
     }
 
@@ -169,6 +180,8 @@ contract Court is ERC900, ApproveAndCallFallBack {
 
     uint64 internal constant ZERO_TERM = 0; // invalid term that doesn't accept disputes
     uint64 public constant MANUAL_DEACTIVATION = uint64(-1);
+    uint8 public constant APPEAL_COLLATERAL_FACTOR = 3; // multiple of juror fees required to appeal a preliminary ruling
+    uint8 public constant APPEAL_CONFIRMATION_COLLATERAL_FACTOR = 2; // multiple of juror fees required to confirm appeal
     uint64 internal constant MODIFIER_ALLOWED_TERM_TRANSITIONS = 1;
     bytes4 private constant ARBITRABLE_INTERFACE_ID = 0xabababab; // TODO: interface id
     uint16 internal constant PCT_BASE = 10000; // ‱
@@ -188,7 +201,8 @@ contract Court is ERC900, ApproveAndCallFallBack {
     event VoteCommitted(uint256 indexed disputeId, uint256 indexed roundId, address indexed juror, uint256 draftId, bytes32 commitment);
     event VoteRevealed(uint256 indexed disputeId, uint256 indexed roundId, address indexed juror, uint256 draftId, uint8 ruling);
     event VoteLeaked(uint256 indexed disputeId, uint256 indexed roundId, address indexed juror, uint256 draftId, address leaker);
-    event RulingAppealed(uint256 indexed disputeId, uint256 indexed roundId, uint64 indexed draftTerm, uint256 jurorNumber);
+    event RulingAppealed(uint256 indexed disputeId, uint256 indexed roundId, uint8 forRuling);
+    event RulingAppealConfirmed(uint256 indexed disputeId, uint256 indexed roundId, uint64 indexed draftTerm, uint256 jurorNumber);
     event RulingExecuted(uint256 indexed disputeId, uint8 indexed ruling);
     event RoundSlashingSettled(uint256 indexed disputeId, uint256 indexed roundId, uint256 slashedTokens);
     event RewardSettled(uint256 indexed disputeId, uint256 indexed roundId, address indexed juror, uint256 draftId);
@@ -249,7 +263,7 @@ contract Court is ERC900, ApproveAndCallFallBack {
         address _governor,
         uint64 _firstTermStartTime,
         uint256 _jurorMinStake,
-        uint64[3] _roundStateDurations,
+        uint64[4] _roundStateDurations,
         uint16 _penaltyPct
     ) public {
         termDuration = _termDuration;
@@ -460,7 +474,10 @@ contract Court is ERC900, ApproveAndCallFallBack {
         dispute.subject = _subject;
         dispute.possibleRulings = _possibleRulings;
 
-        // _newAdjudicationRound charges fees for starting the round
+        (ERC20 feeToken, uint256 feeAmount,) = feeForJurorDraft(_draftTerm, _jurorNumber);
+        if (feeAmount > 0) {
+            require(feeToken.safeTransferFrom(msg.sender, this, feeAmount), ERROR_DEPOSIT_FAILED);
+        }
         _newAdjudicationRound(dispute, _jurorNumber, _draftTerm);
 
         emit NewDispute(disputeId, _subject, _draftTerm, _jurorNumber);
@@ -621,23 +638,107 @@ contract Court is ERC900, ApproveAndCallFallBack {
         emit VoteRevealed(_disputeId, _roundId, msg.sender, _draftId, _ruling);
     }
 
+    function _endTermForAdjudicationRound(AdjudicationRound storage round) internal view returns (uint64) {
+        uint64 draftTerm = round.draftTerm;
+        uint64 configId = terms[draftTerm].courtConfigId;
+        CourtConfig storage config = courtConfigs[uint256(configId)];
+
+        return draftTerm + config.commitTerms + config.revealTerms + config.appealTerms + config.appealConfirmTerms;
+    }
+
     /**
      * @notice Appeal round #`_roundId` ruling in dispute #`_disputeId`
      */
-    function appealRuling(uint256 _disputeId, uint256 _roundId) external ensureTerm {
+    function appealRuling(uint256 _disputeId, uint256 _roundId, uint8 _forRuling) external ensureTerm {
+        require(_forRuling > uint8(Ruling.RefusedRuling));
+
         // TODO: Implement appeals limit
         // TODO: Implement final appeal
-        _checkAdjudicationState(_disputeId, _roundId, AdjudicationState.Appealable);
+        _checkAdjudicationState(_disputeId, _roundId, AdjudicationState.Appeal);
 
         Dispute storage dispute = disputes[_disputeId];
         AdjudicationRound storage currentRound = dispute.rounds[_roundId];
 
-        uint64 appealJurorNumber = 2 * currentRound.jurorNumber + 1; // J' = 2J + 1
-        uint64 appealDraftTerm = term + 1; // Appeals are drafted in the next term
+        uint8 currentRuling = getWinningRuling(_disputeId);
+        require(currentRuling != _forRuling);
+        require(currentRound.appealers.length == 0); // This ruling hasn't been appealed yet
 
-        // _newAdjudicationRound charges fees for starting the round
+        uint64 appealJurorNumber = 2 * currentRound.jurorNumber + 1; // J' = 2J + 1
+        uint64 appealDraftTerm = _endTermForAdjudicationRound(currentRound);
+
+        (ERC20 feeToken, uint256 jurorFeeAmount,) = feeForJurorDraft(appealDraftTerm, appealJurorNumber);
+        uint256 appealDeposit = jurorFeeAmount * APPEAL_COLLATERAL_FACTOR;
+        if (appealDeposit > 0) {
+            require(feeToken.safeTransferFrom(msg.sender, this, appealDeposit), ERROR_DEPOSIT_FAILED);
+        }
+        currentRound.appealers.push(Appealer(msg.sender, _forRuling, feeToken, appealDeposit));
+
+        emit RulingAppealed(_disputeId, _roundId, _forRuling);
+    }
+
+    /**
+     * @notice Confirm appeal for #`_roundId` ruling in dispute #`_disputeId`
+     */
+    function appealConfirm(uint256 _disputeId, uint256 _roundId, uint8 _forRuling) external ensureTerm {
+        require(_forRuling > uint8(Ruling.RefusedRuling));
+
+        _checkAdjudicationState(_disputeId, _roundId, AdjudicationState.AppealConfirm);
+
+        Dispute storage dispute = disputes[_disputeId];
+        AdjudicationRound storage currentRound = dispute.rounds[_roundId];
+
+        require(currentRound.appealers.length == 1); // The ruling was appealed and not confirmed
+        require(currentRound.appealers[0].forRuling != _forRuling); // Appealing for a different ruling
+
+        uint64 appealJurorNumber = 2 * currentRound.jurorNumber + 1; // J' = 2J + 1
+        uint64 appealDraftTerm = _endTermForAdjudicationRound(currentRound);
+
+        (ERC20 feeToken, uint256 jurorFeeAmount,) = feeForJurorDraft(appealDraftTerm, appealJurorNumber);
+        uint256 appealDeposit = jurorFeeAmount * APPEAL_CONFIRMATION_COLLATERAL_FACTOR;
+        if (appealDeposit > 0) {
+            require(feeToken.safeTransferFrom(msg.sender, this, appealDeposit), ERROR_DEPOSIT_FAILED);
+        }
+        currentRound.appealers.push(Appealer(msg.sender, _forRuling, feeToken, appealDeposit));
+
         uint256 roundId = _newAdjudicationRound(dispute, appealJurorNumber, appealDraftTerm);
-        emit RulingAppealed(_disputeId, roundId, appealDraftTerm, appealJurorNumber);
+        emit RulingAppealConfirmed(_disputeId, roundId, appealDraftTerm, appealJurorNumber);
+    }
+
+    /**
+     * @notice Settle appeal deposits for #`_roundId` ruling in dispute #`_disputeId`
+     */
+    function settleAppealDeposit(uint256 _disputeId, uint256 _roundId) external ensureTerm {
+        Dispute storage dispute = disputes[_disputeId];
+        AdjudicationRound storage round = dispute.rounds[_roundId];
+        uint256 appealsLength = round.appealers.length;
+
+        require(round.settledPenalties);
+        require(!round.settledAppeals);
+        require(appealsLength > 0);
+
+        if (appealsLength == 1) {
+            // return entire deposit to appealer
+            Appealer storage appealer = round.appealers[0];
+            _assignTokens(appealer.depositToken, appealer.appealer, appealer.depositAmount);
+        } else {
+            Appealer storage appealer1 = round.appealers[0];
+            Appealer storage appealer2 = round.appealers[1];
+
+            uint8 winningRuling = getWinningRuling(_disputeId);
+            uint256 totalDepositMultiplier = APPEAL_COLLATERAL_FACTOR + APPEAL_CONFIRMATION_COLLATERAL_FACTOR;
+            uint256 totalDeposit = appealer1.depositAmount + appealer2.depositAmount;
+            // deposits are a multiple of juror fees, given that the round was initiated
+            uint256 jurorFees = totalDeposit / totalDepositMultiplier;
+
+            if (appealer1.forRuling == winningRuling) {
+                _assignTokens(appealer1.depositToken, appealer1.appealer, totalDeposit - jurorFees);
+            } else if (appealer2.forRuling == winningRuling) {
+                _assignTokens(appealer1.depositToken, appealer2.appealer, totalDeposit - jurorFees);
+            } else {
+                _assignTokens(appealer1.depositToken, appealer1.appealer, appealer1.depositAmount - jurorFees / 2);
+                _assignTokens(appealer1.depositToken, appealer2.appealer, appealer2.depositAmount - jurorFees / 2);
+            }
+        }
     }
 
     /**
@@ -834,6 +935,29 @@ contract Court is ERC900, ApproveAndCallFallBack {
         return account.balances[jurorToken].sub(account.atStakeTokens);
     }
 
+    function getDispute(uint256 _disputeId) external view returns (address subject, uint8 possibleRulings, DisputeState state) {
+        Dispute storage dispute = disputes[_disputeId];
+        return (dispute.subject, dispute.possibleRulings, dispute.state);
+    }
+
+    function getAdjudicationRound(uint256 _disputeId, uint256 _roundId)
+        external
+        view
+        returns (uint8 winningRuling, uint64 draftTerm, uint64 jurorNumber, address triggeredBy, bool settledPenalties, uint256 slashedTokens)
+    {
+        AdjudicationRound storage round = disputes[_disputeId].rounds[_roundId];
+        return (round.winningRuling, round.draftTerm, round.jurorNumber, round.triggeredBy, round.settledPenalties, round.slashedTokens);
+    }
+
+    function getAccount(address _accountAddress)
+        external
+        view
+        returns (AccountState state, uint64 fromTerm, uint64 toTerm, uint256 atStakeTokens, uint256 sumTreeId)
+    {
+        Account storage account = accounts[_accountAddress];
+        return (account.state, account.fromTerm, account.toTerm, account.atStakeTokens, account.sumTreeId);
+    }
+
     function _editUpdate(AccountUpdate storage update, uint256 _delta, bool _positive) internal {
         (update.delta, update.positive) = _signedSum(update.delta, update.positive, _delta, _positive);
     }
@@ -848,11 +972,6 @@ contract Court is ERC900, ApproveAndCallFallBack {
     }
 
     function _newAdjudicationRound(Dispute storage dispute, uint64 _jurorNumber, uint64 _draftTerm) internal returns (uint256 roundId) {
-        (ERC20 feeToken, uint256 feeAmount,) = feeForJurorDraft(_draftTerm, _jurorNumber);
-        if (feeAmount > 0) {
-            require(feeToken.safeTransferFrom(msg.sender, this, feeAmount), ERROR_DEPOSIT_FAILED);
-        }
-
         dispute.state = DisputeState.PreDraft;
 
         roundId = dispute.rounds.length;
@@ -893,7 +1012,13 @@ contract Court is ERC900, ApproveAndCallFallBack {
         Dispute storage dispute = disputes[_disputeId];
         AdjudicationRound storage round = dispute.rounds[dispute.rounds.length - 1];
 
-        ruling = round.winningRuling;
+        // If an appeal was started and not confirmed, the ruling is immediately flipped
+        if (round.appealers.length == 1) {
+            ruling = round.appealers[0].forRuling;
+        } else {
+            ruling = round.winningRuling;
+        }
+
         if (Ruling(ruling) == Ruling.Missing) {
             ruling = uint8(Ruling.RefusedRuling);
         }
@@ -920,7 +1045,8 @@ contract Court is ERC900, ApproveAndCallFallBack {
 
         uint64 revealStart = draftTerm + config.commitTerms;
         uint64 appealStart = revealStart + config.revealTerms;
-        uint64 appealEnd = appealStart + config.appealTerms;
+        uint64 appealConfStart = appealStart + config.appealTerms;
+        uint64 appealConfEnded = appealStart + config.appealConfirmTerms;
 
         if (_term < draftTerm) {
             return AdjudicationState.Invalid;
@@ -928,8 +1054,10 @@ contract Court is ERC900, ApproveAndCallFallBack {
             return AdjudicationState.Commit;
         } else if (_term < appealStart) {
             return AdjudicationState.Reveal;
-        } else if (_term < appealEnd) {
-            return AdjudicationState.Appealable;
+        } else if (_term < appealConfStart) {
+            return AdjudicationState.Appeal;
+        } else if (_term < appealConfEnded) {
+            return AdjudicationState.AppealConfirm;
         } else {
             return AdjudicationState.Ended;
         }
@@ -1062,11 +1190,13 @@ contract Court is ERC900, ApproveAndCallFallBack {
         uint256 _draftFee,
         uint256 _settleFee,
         uint16 _governanceFeeShare,
-        uint64[3] _roundStateDurations,
+        uint64[4] _roundStateDurations,
         uint16 _penaltyPct
     ) internal {
         // TODO: Require config changes happening at least X terms in the future
         // Where X is the amount of terms in the future a dispute can be scheduled to be drafted at
+
+        // TODO: add reasonable limits for durations
 
         require(configChangeTerm > term || term == ZERO_TERM, ERROR_PAST_TERM_FEE_CHANGE);
         require(_governanceFeeShare <= PCT_BASE, ERROR_GOVENANCE_FEE_TOO_HIGH);
@@ -1089,6 +1219,7 @@ contract Court is ERC900, ApproveAndCallFallBack {
             commitTerms: _roundStateDurations[0],
             revealTerms: _roundStateDurations[1],
             appealTerms: _roundStateDurations[2],
+            appealConfirmTerms: _roundStateDurations[3],
             penaltyPct: _penaltyPct
         });
 

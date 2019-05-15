@@ -649,7 +649,7 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
         return (_time() - terms[term].startTime) / termDuration;
     }
 
-    function areAllJurorsDrafted(uint256 _disputeId, uint256 _roundId) public returns (bool) {
+    function areAllJurorsDrafted(uint256 _disputeId, uint256 _roundId) public view returns (bool) {
         AdjudicationRound storage round = disputes[_disputeId].rounds[_roundId];
         return round.nextJurorToDraft == (round.jurorNumber + 1);
     }

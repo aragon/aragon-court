@@ -307,11 +307,11 @@ library HexSumTree {
     }
     */
 
-    function getChildren(Tree storage) internal view returns (uint256) {
+    function getChildren(Tree storage) internal pure returns (uint256) {
         return CHILDREN;
     }
 
-    function getBitsInNibble(Tree storage) internal view returns (uint256) {
+    function getBitsInNibble(Tree storage) internal pure returns (uint256) {
         return BITS_IN_NIBBLE;
     }
 }

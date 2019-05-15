@@ -12,7 +12,7 @@ interface ISumTree {
 
     function getItem(uint256 _key) external view returns (uint256);
 
-    function totalSumPresent(uint64 _checkpointTime) external returns (uint256);
+    function totalSumPresent(uint64 _checkpointTime) external view returns (uint256);
 
     function sortition(uint256 value, uint64 time, bool past) external view returns (uint256 key, uint256 nodeValue);
 

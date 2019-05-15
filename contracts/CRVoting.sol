@@ -130,11 +130,11 @@ contract CRVoting is ICRVoting {
         return votes[_voteId].rulingVotes[_ruling];
     }
 
-    function encryptVote(uint8 _ruling, bytes32 _salt) public view returns (bytes32) {
+    function encryptVote(uint8 _ruling, bytes32 _salt) public pure returns (bytes32) {
         return keccak256(abi.encodePacked(_ruling, _salt));
     }
 
-    function _checkVote(CastVote storage _castVote, uint8 _ruling, bytes32 _salt) internal {
+    function _checkVote(CastVote storage _castVote, uint8 _ruling, bytes32 _salt) internal view {
         require(_castVote.commitment == encryptVote(_ruling, _salt), ERROR_FAILURE_COMMITMENT_CHECK);
         require(_castVote.ruling == uint8(Ruling.Missing), ERROR_ALREADY_VOTED);
     }

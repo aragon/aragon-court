@@ -28,7 +28,7 @@ contract HexSumTreeWrapper {
         return tree.getItem(_key);
     }
 
-   function totalSumPresent(uint64 _checkpointTime) external returns (uint256) {
+   function totalSumPresent(uint64 _checkpointTime) external view returns (uint256) {
         return tree.totalSumPresent(_checkpointTime);
     }
 

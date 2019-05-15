@@ -4,7 +4,9 @@
   "description": "",
   "scripts": {
     "test": "TRUFFLE_TEST=true npm run ganache-cli:test",
-    "ganache-cli:test": "./node_modules/@aragon/test-helpers/ganache-cli.sh"
+    "coverage": "SOLIDITY_COVERAGE=true npm run ganache-cli:test",
+    "ganache-cli:test": "./node_modules/@aragon/test-helpers/ganache-cli.sh",
+    "lint": "solium --dir ./contracts"
   },
   "author": "Aragon Association",
   "license": "GPL-3.0",
@@ -12,6 +14,8 @@
     "@aragon/apps-shared-migrations": "^1.0.0",
     "@aragon/test-helpers": "^1.0.1",
     "ganache-cli": "^6.1.0",
+    "solidity-coverage": "0.5.8",
+    "solium": "^1.2.3",
     "truffle": "^4.1.14",
     "web3-utils": "^1.0.0-beta.50"
   },

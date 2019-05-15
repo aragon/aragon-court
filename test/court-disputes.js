@@ -144,21 +144,22 @@ contract('Court: Disputes', ([ poor, rich, governor, juror1, juror2, juror3, arb
       const term = 3
       const rulings = 2
 
-      const disputeId = 0 // TODO: Get from NewDispute event
+      let disputeId = 0
       const firstRoundId = 0
       let voteId
 
       beforeEach(async () => {
         const receipt = await this.court.createDispute(arbitrable, rulings, jurors, term)
         await assertLogs(receipt, NEW_DISPUTE_EVENT)
-        voteId = getLog(receipt, 'NewDispute', 'voteId')
+        disputeId = getLog(receipt, NEW_DISPUTE_EVENT, 'voteId')
+        voteId = getLog(receipt, NEW_DISPUTE_EVENT, 'voteId')
       })
 
       it('fails to draft outside of the draft term', async () => {
         await passTerms(1) // term = 2
-        await assertRevert(this.court.draftAdjudicationRound(firstRoundId), 'COURT_NOT_DRAFT_TERM')
+        await assertRevert(this.court.draftAdjudicationRound(disputeId), 'COURT_NOT_DRAFT_TERM')
         await passTerms(2) // term = 4
-        await assertRevert(this.court.draftAdjudicationRound(firstRoundId), 'COURT_NOT_DRAFT_TERM')
+        await assertRevert(this.court.draftAdjudicationRound(disputeId), 'COURT_NOT_DRAFT_TERM')
       })
 
       context('on juror draft (hijacked)', () => {
@@ -171,7 +172,7 @@ contract('Court: Disputes', ([ poor, rich, governor, juror1, juror2, juror3, arb
 
         beforeEach(async () => {
           await passTerms(2) // term = 3
-          await assertLogs(this.court.draftAdjudicationRound(firstRoundId), JUROR_DRAFTED_EVENT, DISPUTE_STATE_CHANGED_EVENT)
+          await assertLogs(this.court.draftAdjudicationRound(disputeId), JUROR_DRAFTED_EVENT, DISPUTE_STATE_CHANGED_EVENT)
         })
 
         it('selects expected jurors', async () => {
@@ -189,7 +190,7 @@ contract('Court: Disputes', ([ poor, rich, governor, juror1, juror2, juror3, arb
         })
 
         it('fails to draft a second time', async () => {
-          await assertRevert(this.court.draftAdjudicationRound(firstRoundId), 'COURT_ROUND_ALREADY_DRAFTED')
+          await assertRevert(this.court.draftAdjudicationRound(disputeId), 'COURT_ROUND_ALREADY_DRAFTED')
         })
 
         context('jurors commit', () => {
@@ -301,7 +302,7 @@ contract('Court: Disputes', ([ poor, rich, governor, juror1, juror2, juror3, arb
 
               it('drafts jurors', async () => {
                 await passTerms(1) // term = 6
-                await assertLogs(this.court.draftAdjudicationRound(firstRoundId), JUROR_DRAFTED_EVENT, DISPUTE_STATE_CHANGED_EVENT)
+                await assertLogs(this.court.draftAdjudicationRound(disputeId), JUROR_DRAFTED_EVENT, DISPUTE_STATE_CHANGED_EVENT)
               })
             })
           })

@@ -202,7 +202,7 @@ contract('Court: Lifecycle', ([ poor, rich, governor, juror1, juror2 ]) => {
       await assertEqualBN(this.court.mock_treeTotalSum(), juror1Stake + juror2Stake, 'both jurors in the tree')
     })
 
-    it('jurors can deactivate', async () => {
+    const activateDeactivate = async () => {
       await this.court.activate({ from: juror1 })
       await this.court.activate({ from: juror2 })
       await passTerms(1)
@@ -213,9 +213,18 @@ contract('Court: Lifecycle', ([ poor, rich, governor, juror1, juror2 ]) => {
       await this.court.deactivate({ from: juror2 })
       await passTerms(1)
       await assertEqualBN(this.court.mock_treeTotalSum(), 0, 'no jurors in tree')
+    }
+
+    it('jurors can deactivate', async () => {
+      await activateDeactivate()
     })
 
-    it('juror can manually deactivate')
+    it('jurors can activate, deactivate and so on multiple times', async () => {
+      const iterations = 3
+      for (let i = 0; i < iterations; i++) {
+        await activateDeactivate()
+      }
+    })
 
     // TODO: refactor to use at stake tokens
     it.skip('juror can withdraw after cooldown', async () => {

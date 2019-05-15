@@ -17,7 +17,7 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
     using SafeERC20 for ERC20;
     using SafeMath for uint256;
 
-    uint256 private constant MAX_JURORS_PER_BATCH = 10; // to cap gas used on draft
+    uint256 internal constant MAX_JURORS_PER_BATCH = 10; // to cap gas used on draft
 
     enum AccountState {
         NotJuror,
@@ -74,7 +74,8 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
         address[] jurors;
         mapping (address => JurorState) jurorSlotStates;
         uint32 voteId;
-        uint32 nextJurorToDraft;
+        uint32 nextJurorIndex;
+        uint32 filledSeats;
         uint64 draftTerm;
         uint64 jurorNumber;
         address triggeredBy;
@@ -472,37 +473,43 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
 
         // TODO: stack too deep
         //uint256 jurorNumber = round.jurorNumber;
-        //uint256 nextJurorToDraft = round.nextJurorToDraft;
+        //uint256 nextJurorIndex = round.nextJurorIndex;
         round.jurors.length = round.jurorNumber;
 
         uint256 addedJurors = 0;
-        while (addedJurors < round.jurorNumber) {
-            (uint256[] memory jurorKeys, uint256[] memory stakes) = _treeSearch(draftTerm.randomness, _disputeId, round.nextJurorToDraft, round.jurorNumber, addedJurors);
-            for (uint256 i = 0; i < jurorKeys.length && addedJurors < round.jurorNumber; i++) {
+        uint256 jurorsRequested = round.jurorNumber - round.filledSeats;
+        if (jurorsRequested > MAX_JURORS_PER_BATCH) {
+            jurorsRequested = MAX_JURORS_PER_BATCH;
+        }
+        while (jurorsRequested > 0) {
+            (uint256[] memory jurorKeys, uint256[] memory stakes) = _treeSearch(draftTerm.randomness, _disputeId, round.filledSeats, jurorsRequested, round.jurorNumber);
+            for (uint256 i = 0; i < jurorKeys.length; i++) {
                 address juror = jurorsByTreeId[jurorKeys[i]];
 
                 // Account storage jurorAccount = accounts[juror]; // Hitting stack too deep
                 uint256 newAtStake = accounts[juror].atStakeTokens + _pct4(jurorMinStake, config.penaltyPct); // maxPenalty
                 if (stakes[i] >= newAtStake) {
                     accounts[juror].atStakeTokens += newAtStake;
-                    uint256 draftIndex = round.nextJurorToDraft + addedJurors;
                     // check repeated juror, we assume jurors come ordered from tree search
-                    if (draftIndex > 0 && round.jurors[draftIndex - 1] == juror) {
+                    if (round.nextJurorIndex > 0 && round.jurors[round.nextJurorIndex - 1] == juror) {
                         round.jurors.length--;
                     } else {
-                        round.jurors[draftIndex] = juror;
-                        addedJurors++;
+                        round.jurors[round.nextJurorIndex] = juror;
+                        round.nextJurorIndex++;
                     }
                     round.jurorSlotStates[juror].weight++;
+                    round.filledSeats++;
+
                     emit JurorDrafted(_disputeId, juror);
+
+                    jurorsRequested--;
                 }
             }
         }
-        round.nextJurorToDraft += uint32(addedJurors);
 
         _payFees(config.feeToken, msg.sender, config.draftFee * round.jurorNumber, config.governanceFeeShare);
 
-        if (addedJurors == round.jurorNumber) {
+        if (round.filledSeats == round.jurorNumber) {
             dispute.state = DisputeState.Adjudicating;
             emit DisputeStateChanged(_disputeId, dispute.state);
         }
@@ -571,6 +578,7 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
         uint256 votesLength = round.jurors.length;
         uint64 slashingUpdateTerm = term + 1;
 
+        // should we batch this too?? OOG?
         for (uint256 i = 0; i < votesLength; i++) {
             address juror = round.jurors[i];
             //uint256 weightedPenalty = penalty * round.jurorSlotStates[juror].weight; // TODO: stack too deep
@@ -651,7 +659,7 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
 
     function areAllJurorsDrafted(uint256 _disputeId, uint256 _roundId) public view returns (bool) {
         AdjudicationRound storage round = disputes[_disputeId].rounds[_roundId];
-        return round.nextJurorToDraft == (round.jurorNumber + 1);
+        return round.filledSeats == round.jurorNumber;
     }
 
     /**
@@ -734,7 +742,11 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
         uint256 roundId = vote.roundId;
         _checkAdjudicationState(disputeId, roundId, _state);
 
-        return disputes[disputeId].rounds[roundId].jurorSlotStates[_voter].weight;
+        return getJurorWeight(disputeId, roundId, _voter);
+    }
+
+    function getJurorWeight(uint256 _disputeId, uint256 _roundId, address _juror) public view returns (uint256) {
+        return disputes[_disputeId].rounds[_roundId].jurorSlotStates[_juror].weight;
     }
 
     function _updateIncomingBalance(Account storage account) internal {
@@ -817,16 +829,16 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
     function _treeSearch(
         bytes32 _termRandomness,
         uint256 _disputeId,
-        uint256 _nextJurorToDraft,
-        uint256 _jurorNumber,
-        uint256 _addedJurors
+        uint256 _filledSeats,
+        uint256 _jurorsRequested,
+        uint256 _jurorNumber
     )
         internal
         view
         returns (uint256[] keys, uint256[] stakes)
     {
         (keys, stakes) =
-            sumTree.multiSortition(_termRandomness, _disputeId, _nextJurorToDraft, _jurorNumber, _addedJurors, term, false, MAX_JURORS_PER_BATCH);
+            sumTree.multiSortition(_termRandomness, _disputeId, term, false, _filledSeats, _jurorsRequested, _jurorNumber);
     }
 
     function _courtConfigForTerm(uint64 _term) internal view returns (CourtConfig storage) {

@@ -39,18 +39,17 @@ contract HexSumTreeWrapper {
     function multiSortition(
         bytes32 _termRandomness,
         uint256 _disputeId,
-        uint256 _nextJurorToDraft,
-        uint256 _jurorNumber,
-        uint256 _addedJurors,
         uint64 _time,
         bool _past,
-        uint256 _maxJurorsPerBatch
+        uint256 _filledSeats,
+        uint256 _jurorsRequested,
+        uint256 _jurorNumber
     )
         external
         view
         returns (uint256[] keys, uint256[] nodeValues)
     {
-        uint256[] memory values = _getOrderedValues(_termRandomness, _disputeId, _nextJurorToDraft, _jurorNumber, _addedJurors, _time, _maxJurorsPerBatch);
+        uint256[] memory values = _getOrderedValues(_termRandomness, _disputeId, _time, _filledSeats, _jurorsRequested, _jurorNumber);
         return tree.multiSortition(values, _time, _past);
     }
 
@@ -58,39 +57,40 @@ contract HexSumTreeWrapper {
         return tree.nextKey;
     }
 
-    function _getStakeBounds(uint256 _nextJurorToDraft, uint256 _jurorNumber, uint64 _time, uint256 _maxJurorsPerBatch) internal view returns (uint256 stakeFrom, uint256 stakeTo) {
+    function _getStakeBounds(uint64 _time, uint256 _filledSeats, uint256 _jurorsRequested, uint256 _jurorNumber) internal view returns (uint256 stakeFrom, uint256 stakeTo) {
         uint256 totalSum = tree.totalSumPresent(_time);
         uint256 ratio = totalSum / _jurorNumber;
         // TODO: roundings?
-        stakeFrom = _nextJurorToDraft * ratio;
-        uint256 newNextJurorToDraft = _nextJurorToDraft + _maxJurorsPerBatch;
-        if (newNextJurorToDraft > _jurorNumber) {
-            newNextJurorToDraft = _jurorNumber;
+        stakeFrom = _filledSeats * ratio;
+        uint256 newFilledSeats = _filledSeats + _jurorsRequested;
+        // TODO: this should never happen
+        /*
+        if (newFilledSeats > _jurorNumber) {
+            newFilledSeats = _jurorNumber;
         }
-        stakeTo = newNextJurorToDraft * ratio;
+        */
+        stakeTo = newFilledSeats * ratio;
     }
 
     function _getOrderedValues(
         bytes32 _termRandomness,
         uint256 _disputeId,
-        uint256 _nextJurorToDraft,
-        uint256 _jurorNumber,
-        uint256 _addedJurors,
         uint64 _time,
-        uint256 _maxJurorsPerBatch
+        uint256 _filledSeats,
+        uint256 _jurorsRequested,
+        uint256 _jurorNumber
     )
         private
+        view
         returns (uint256[] values)
     {
-        values = new uint256[](_jurorNumber);
+        values = new uint256[](_jurorsRequested);
 
-        (uint256 stakeFrom, uint256 stakeTo) = _getStakeBounds(_nextJurorToDraft, _jurorNumber, _time, _maxJurorsPerBatch);
-        // TODO: stack too deep: uint256 stakeSum = stakeTo - stakeFrom;
-        uint256 jurorsToDraft = _jurorNumber - _addedJurors;
-        for (uint256 i = 0; i < jurorsToDraft; i++) {
+        (uint256 stakeFrom, uint256 stakeTo) = _getStakeBounds(_time, _filledSeats, _jurorsRequested, _jurorNumber);
+        uint256 stakeInterval = stakeTo - stakeFrom;
+        for (uint256 i = 0; i < _jurorsRequested; i++) {
             bytes32 seed = keccak256(abi.encodePacked(_termRandomness, _disputeId, i));
-            // TODO: stack too deep: uint256 value = stakeFrom + uint256(seed) % stakeSum;
-            uint256 value = stakeFrom + uint256(seed) % (stakeTo - stakeFrom);
+            uint256 value = stakeFrom + uint256(seed) % stakeInterval;
             values[i] = value;
             // make sure it's ordered
             uint256 j = i;

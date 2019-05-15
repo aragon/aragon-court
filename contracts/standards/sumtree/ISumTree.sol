@@ -19,12 +19,11 @@ interface ISumTree {
     function multiSortition(
         bytes32 _termRandomness,
         uint256 _disputeId,
-        uint256 _nextJurorToDraft,
-        uint256 _jurorNumber,
-        uint256 _addedJurors,
         uint64 _time,
         bool _past,
-        uint256 _maxJurorsPerBatch
+        uint256 _nextJurorToDraft,
+        uint256 _jurorsRequested,
+        uint256 _jurorNumber
     )
         external
         view

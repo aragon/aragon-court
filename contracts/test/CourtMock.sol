@@ -62,16 +62,25 @@ contract CourtMock is Court {
         treeSearchHijacked = true;
     }
 
-    function _treeSearch(bytes32 _termRandomness, uint256 _disputeId, uint256 _nextJurorToDraft, uint256 _jurorNumber, uint256 _addedJurors) internal view returns (uint256[] keys, uint256[] nodeValues) {
+    function _treeSearch(
+        bytes32 _termRandomness,
+        uint256 _disputeId,
+        uint256 _nextJurorToDraft,
+        uint256 _jurorsRequested,
+        uint256 _jurorNumber
+    )
+        internal
+        view
+        returns (uint256[] keys, uint256[] nodeValues)
+    {
         if (!treeSearchHijacked) {
-            return super._treeSearch(_termRandomness, _disputeId, _nextJurorToDraft, _jurorNumber, _addedJurors);
+            return super._treeSearch(_termRandomness, _disputeId, _nextJurorToDraft, _jurorsRequested, _jurorNumber);
         }
 
-        uint256 length = _jurorNumber - _nextJurorToDraft;
-        keys = new uint256[](length);
-        nodeValues = new uint256[](length);
-        for (uint256 i = 0; i < length; i++) {
-            uint256 key = i % sumTree.getNextKey() + 1; // loop, and avoid 0
+        keys = new uint256[](_jurorsRequested);
+        nodeValues = new uint256[](_jurorsRequested);
+        for (uint256 i = 0; i < _jurorsRequested; i++) {
+            uint256 key = i % (sumTree.getNextKey() - 1) + 1; // loop, and avoid 0
             keys[i] = key;
             nodeValues[i] = sumTree.getItem(key);
         }
@@ -84,6 +93,10 @@ contract CourtMock is Court {
 
     function mock_treeTotalSum() public view returns (uint256) {
         return sumTree.totalSumPresent(_time());
+    }
+
+    function getMaxJurorsPerBatch() public pure returns (uint256) {
+        return MAX_JURORS_PER_BATCH;
     }
 
     function _time() internal view returns (uint64) {

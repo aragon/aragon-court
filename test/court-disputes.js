@@ -185,10 +185,10 @@ contract('Court: Disputes', ([ poor, rich, governor, juror1, juror2, juror3, arb
 
             assert.equal(ruling, 0, `juror #${draftId} vote`)
           }
+        })
 
-          // TODO:
-          //await assertRevert(this.voting.getCastVote(voteId + 1, juror1)) // out of bounds
-          //await assertRevert(this.voting.getCastVote(voteId, other)) // out of bounds
+        it('fails to get cast vote out of bounds', async () => {
+          await assertRevert(this.voting.getCastVote(voteId + 1, juror1)) // out of bounds
         })
 
         it('fails to draft a second time', async () => {

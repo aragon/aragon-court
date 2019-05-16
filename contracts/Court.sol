@@ -13,6 +13,7 @@ import "@aragon/os/contracts/common/SafeERC20.sol";
 import "@aragon/os/contracts/lib/math/SafeMath.sol";
 
 
+// solium-disable function-order
 contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
     using SafeERC20 for ERC20;
     using SafeMath for uint256;
@@ -50,7 +51,7 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
     }
 
     struct Term {
-        uint64 startTime;       // timestamp when the term started 
+        uint64 startTime;       // timestamp when the term started
         uint64 dependingDrafts; // disputes or appeals pegged to this term for randomness
         uint64 courtConfigId;   // fee structure for this term (index in courtConfigs array)
         uint64 randomnessBN;    // block number for entropy
@@ -234,7 +235,7 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
         sumTree = _sumTree;
         jurorMinStake = _jurorMinStake;
         governor = _governor;
-        
+
         courtConfigs.length = 1; // leave index 0 empty
         _setCourtConfig(
             ZERO_TERM,
@@ -398,7 +399,7 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
         external
         ensureTerm
         returns (uint256)
-    {   
+    {
         // TODO: Limit the min amount of terms before drafting (to allow for evidence submission)
         // TODO: Limit the max amount of terms into the future that a dispute can be drafted
         // TODO: Limit the max number of initial jurors
@@ -473,13 +474,21 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
         //uint256 nextJurorIndex = round.nextJurorIndex;
         round.jurors.length = round.jurorNumber;
 
-        uint256 addedJurors = 0;
         uint256 jurorsRequested = round.jurorNumber - round.filledSeats;
         if (jurorsRequested > MAX_JURORS_PER_BATCH) {
             jurorsRequested = MAX_JURORS_PER_BATCH;
         }
         while (jurorsRequested > 0) {
-            (uint256[] memory jurorKeys, uint256[] memory stakes) = _treeSearch(draftTerm.randomness, _disputeId, round.filledSeats, jurorsRequested, round.jurorNumber);
+            (
+                uint256[] memory jurorKeys,
+                uint256[] memory stakes
+            ) = _treeSearch(
+                draftTerm.randomness,
+                _disputeId,
+                round.filledSeats,
+                jurorsRequested,
+                round.jurorNumber
+            );
             for (uint256 i = 0; i < jurorKeys.length; i++) {
                 address juror = jurorsByTreeId[jurorKeys[i]];
 
@@ -662,7 +671,14 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
     /**
      * @dev Assumes term is up to date
      */
-    function feeForJurorDraft(uint64 _draftTerm, uint64 _jurorNumber) public view returns (ERC20 feeToken, uint256 feeAmount, uint16 governanceFeeShare) {
+    function feeForJurorDraft(
+        uint64 _draftTerm,
+        uint64 _jurorNumber
+    )
+        public
+        view
+        returns (ERC20 feeToken, uint256 feeAmount, uint16 governanceFeeShare)
+    {
         CourtConfig storage fees = _courtConfigForTerm(_draftTerm);
 
         feeToken = fees.feeToken;
@@ -762,7 +778,14 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
         nC = pA == pC ? nC : -nC;
     }
 
-    function _newAdjudicationRound(uint256 _disputeId, uint64 _jurorNumber, uint64 _draftTerm) internal returns (uint256 roundId, uint32 voteId) {
+    function _newAdjudicationRound(
+        uint256 _disputeId,
+        uint64 _jurorNumber,
+        uint64 _draftTerm
+    )
+        internal
+        returns (uint256 roundId, uint32 voteId)
+    {
         (ERC20 feeToken, uint256 feeAmount,) = feeForJurorDraft(_draftTerm, _jurorNumber);
         if (feeAmount > 0) {
             require(feeToken.safeTransferFrom(msg.sender, this, feeAmount), ERROR_DEPOSIT_FAILED);
@@ -834,8 +857,15 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
         view
         returns (uint256[] keys, uint256[] stakes)
     {
-        (keys, stakes) =
-            sumTree.multiSortition(_termRandomness, _disputeId, term, false, _filledSeats, _jurorsRequested, _jurorNumber);
+        (keys, stakes) = sumTree.multiSortition(
+            _termRandomness,
+            _disputeId,
+            term,
+            false,
+            _filledSeats,
+            _jurorsRequested,
+            _jurorNumber
+        );
     }
 
     function _courtConfigForTerm(uint64 _term) internal view returns (CourtConfig storage) {
@@ -898,7 +928,9 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
         uint16 _governanceFeeShare,
         uint64[3] _roundStateDurations,
         uint16 _penaltyPct
-    ) internal {
+    )
+        internal
+    {
         // TODO: Require config changes happening at least X terms in the future
         // Where X is the amount of terms in the future a dispute can be scheduled to be drafted at
 
@@ -945,4 +977,3 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
         return _number * uint256(_pct) / uint256(PCT_BASE);
     }
 }
-

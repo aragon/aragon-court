@@ -50,11 +50,11 @@ contract CRVoting is ICRVoting {
         owner = ICRVotingOwner(msg.sender);
     }
 
-    function setOwner(ICRVotingOwner _owner) onlyOwner external {
+    function setOwner(ICRVotingOwner _owner) external onlyOwner {
         owner = _owner;
     }
 
-    function createVote(uint8 _possibleRulings) onlyOwner external returns(uint256 voteId) {
+    function createVote(uint8 _possibleRulings) external onlyOwner returns(uint256 voteId) {
         votes[votesLength].possibleRulings = _possibleRulings;
         voteId = votesLength;
         votesLength++;

@@ -22,19 +22,19 @@ contract HexSumTreeWrapper {
         assert(tree.insert(0, 0) == 0); // first tree item is an empty juror
     }
 
-    function setOwner(address _owner) onlyOwner external {
+    function setOwner(address _owner) external onlyOwner {
         owner = _owner;
     }
 
-    function insert(uint64 _checkpointTime, uint256 _value) onlyOwner external returns (uint256) {
+    function insert(uint64 _checkpointTime, uint256 _value) external onlyOwner returns (uint256) {
         return tree.insert(_checkpointTime, _value);
     }
 
-    function set(uint256 _key, uint64 _checkpointTime, uint256 _value) onlyOwner external {
+    function set(uint256 _key, uint64 _checkpointTime, uint256 _value) external onlyOwner {
         tree.set(_key, _checkpointTime, _value);
     }
 
-    function update(uint256 _key, uint64 _checkpointTime, uint256 _delta, bool _positive) onlyOwner external {
+    function update(uint256 _key, uint64 _checkpointTime, uint256 _delta, bool _positive) external onlyOwner {
         tree.update(_key, _checkpointTime, _delta, _positive);
     }
 
@@ -42,7 +42,7 @@ contract HexSumTreeWrapper {
         return tree.getItem(_key);
     }
 
-   function totalSumPresent(uint64 _checkpointTime) external view returns (uint256) {
+    function totalSumPresent(uint64 _checkpointTime) external view returns (uint256) {
         return tree.totalSumPresent(_checkpointTime);
     }
 
@@ -71,7 +71,16 @@ contract HexSumTreeWrapper {
         return tree.nextKey;
     }
 
-    function _getStakeBounds(uint64 _time, uint256 _filledSeats, uint256 _jurorsRequested, uint256 _jurorNumber) internal view returns (uint256 stakeFrom, uint256 stakeTo) {
+    function _getStakeBounds(
+        uint64 _time,
+        uint256 _filledSeats,
+        uint256 _jurorsRequested,
+        uint256 _jurorNumber
+    )
+        internal
+        view
+        returns (uint256 stakeFrom, uint256 stakeTo)
+    {
         uint256 totalSum = tree.totalSumPresent(_time);
         uint256 ratio = totalSum / _jurorNumber;
         // TODO: roundings?

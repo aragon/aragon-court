@@ -50,7 +50,9 @@ contract('Court: Staking', ([ pleb, rich ]) => {
       [ 1, 1, 1 ],
       1
     )
+
     await this.voting.setOwner(this.court.address)
+    await this.sumTree.setOwner(this.court.address)
   })
 
   const assertStaked = async (staker, amount, initialBalance, { recipient, initialStaked = 0 } = {}) => {

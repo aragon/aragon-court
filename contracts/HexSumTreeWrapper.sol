@@ -6,21 +6,35 @@ import "./lib/HexSumTree.sol";
 contract HexSumTreeWrapper {
     using HexSumTree for HexSumTree.Tree;
 
-    HexSumTree.Tree tree;
+    string internal constant ERROR_NOT_OWNER = "SUMTREE_NOT_OWNER";
 
-    function init() public {
-        tree.init();
+    HexSumTree.Tree tree;
+    address owner;
+
+    modifier onlyOwner {
+        require(msg.sender == address(owner), ERROR_NOT_OWNER);
+        _;
     }
 
-    function insert(uint64 _checkpointTime, uint256 _value) external returns (uint256) {
+    constructor() public {
+        owner = msg.sender;
+        tree.init();
+        assert(tree.insert(0, 0) == 0); // first tree item is an empty juror
+    }
+
+    function setOwner(address _owner) onlyOwner external {
+        owner = _owner;
+    }
+
+    function insert(uint64 _checkpointTime, uint256 _value) onlyOwner external returns (uint256) {
         return tree.insert(_checkpointTime, _value);
     }
 
-    function set(uint256 _key, uint64 _checkpointTime, uint256 _value) external {
+    function set(uint256 _key, uint64 _checkpointTime, uint256 _value) onlyOwner external {
         tree.set(_key, _checkpointTime, _value);
     }
 
-    function update(uint256 _key, uint64 _checkpointTime, uint256 _delta, bool _positive) external {
+    function update(uint256 _key, uint64 _checkpointTime, uint256 _delta, bool _positive) onlyOwner external {
         tree.update(_key, _checkpointTime, _delta, _positive);
     }
 

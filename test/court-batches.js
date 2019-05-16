@@ -83,11 +83,12 @@ contract('Court: Batches', ([ rich, governor, arbitrable, juror1, juror2, juror3
       penaltyPct
     )
 
-    MAX_JURORS_PER_BATCH = (await this.court.getMaxJurorsPerBatch.call()).toNumber()
-
     await this.voting.setOwner(this.court.address)
+    await this.sumTree.setOwner(this.court.address)
 
     await this.court.mock_setBlockNumber(startBlock)
+
+    MAX_JURORS_PER_BATCH = (await this.court.getMaxJurorsPerBatch.call()).toNumber()
 
     assert.equal(await this.court.token(), this.anj.address, 'court token')
     //assert.equal(await this.court.jurorToken(), this.anj.address, 'court juror token')

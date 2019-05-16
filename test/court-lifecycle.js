@@ -79,7 +79,9 @@ contract('Court: Lifecycle', ([ poor, rich, governor, juror1, juror2 ]) => {
       [ commitTerms, appealTerms, revealTerms ],
       penaltyPct
     )
+
     await this.voting.setOwner(this.court.address)
+    await this.sumTree.setOwner(this.court.address)
 
     await this.court.mock_setBlockNumber(startBlock)
 

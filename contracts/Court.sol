@@ -248,9 +248,6 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
             _penaltyPct
         );
         terms[ZERO_TERM].startTime = _firstTermStartTime - _termDuration;
-
-        sumTree.init();
-        assert(sumTree.insert(ZERO_TERM, 0) == 0); // first tree item is an empty juror
     }
 
     /**

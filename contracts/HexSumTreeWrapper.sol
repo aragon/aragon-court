@@ -9,7 +9,7 @@ contract HexSumTreeWrapper {
     string internal constant ERROR_NOT_OWNER = "SUMTREE_NOT_OWNER";
 
     HexSumTree.Tree tree;
-    address owner;
+    address public owner;
 
     modifier onlyOwner {
         require(msg.sender == address(owner), ERROR_NOT_OWNER);

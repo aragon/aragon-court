@@ -17,6 +17,7 @@ const encryptVote = (ruling, salt = SALT) =>
   )
 
 const ERROR_NOT_ALLOWED_BY_OWNER = 'CRV_NOT_ALLOWED_BY_OWNER'
+const ERROR_OUT_OF_BOUNDS = 'CRV_OUT_OF_BOUNDS'
 
 contract('CRVoting', ([ account0, account1 ]) => {
 
@@ -57,6 +58,10 @@ contract('CRVoting', ([ account0, account1 ]) => {
         // TODO
       })
 
+      it('fails commiting non-existing vote', async () => {
+        await assertRevert(this.voting.commitVote(voteId + 1, encryptVote(vote)), ERROR_OUT_OF_BOUNDS)
+      })
+
       it('fails commiting vote if owner does not allow', async () => {
         await votingOwner.setResponse(0)
         await assertRevert(this.voting.commitVote(voteId, encryptVote(vote)), ERROR_NOT_ALLOWED_BY_OWNER)
@@ -74,6 +79,10 @@ contract('CRVoting', ([ account0, account1 ]) => {
         // TODO
       })
 
+      it('fails leaking non-existing vote', async () => {
+        await assertRevert(this.voting.commitVote(voteId + 1, encryptVote(vote)), ERROR_OUT_OF_BOUNDS)
+      })
+
       it('fails leaking vote if owner does not allow', async () => {
         await votingOwner.setResponse(0)
         await assertRevert(this.voting.leakVote(voteId, account0, vote, SALT), ERROR_NOT_ALLOWED_BY_OWNER)
@@ -85,12 +94,16 @@ contract('CRVoting', ([ account0, account1 ]) => {
         await this.voting.commitVote(voteId, encryptVote(vote))
       })
 
-      it('leaks vote', async () => {
+      it('reveals vote', async () => {
         await this.voting.revealVote(voteId, vote, SALT)
         // TODO
       })
 
-      it('fails leaking vote if owner does not allow', async () => {
+      it('fails revealing non-existing vote', async () => {
+        await assertRevert(this.voting.commitVote(voteId + 1, encryptVote(vote)), ERROR_OUT_OF_BOUNDS)
+      })
+
+      it('fails revealing vote if owner does not allow', async () => {
         await votingOwner.setResponse(0)
         await assertRevert(this.voting.revealVote(voteId, vote, SALT), ERROR_NOT_ALLOWED_BY_OWNER)
       })

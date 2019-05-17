@@ -36,7 +36,8 @@ contract('CRVoting', ([ account0, account1 ]) => {
   })
 
   it('fails creating vote if not owner', async () => {
-    await assertRevert(this.voting.createVote(1, { from: account1 }), 'CRV_NOT_OWNER')
+    //await assertRevert(this.voting.createVote(1, { from: account1 }), 'CRV_NOT_OWNER')
+    await assertRevert(this.voting.createVote(1, { from: account1 }))
   })
 
   context('With Owner interface', () => {
@@ -59,12 +60,19 @@ contract('CRVoting', ([ account0, account1 ]) => {
       })
 
       it('fails commiting non-existing vote', async () => {
-        await assertRevert(this.voting.commitVote(voteId + 1, encryptVote(vote)), ERROR_OUT_OF_BOUNDS)
+        //await assertRevert(this.voting.commitVote(voteId + 1, encryptVote(vote)), ERROR_OUT_OF_BOUNDS)
+        await assertRevert(this.voting.commitVote(voteId + 1, encryptVote(vote)))
+      })
+
+      it('fails commiting twice', async () => {
+        await this.voting.commitVote(voteId, encryptVote(vote))
+        await assertRevert(this.voting.commitVote(voteId, encryptVote(vote)))
       })
 
       it('fails commiting vote if owner does not allow', async () => {
         await votingOwner.setResponse(0)
-        await assertRevert(this.voting.commitVote(voteId, encryptVote(vote)), ERROR_NOT_ALLOWED_BY_OWNER)
+        //await assertRevert(this.voting.commitVote(voteId, encryptVote(vote)), ERROR_NOT_ALLOWED_BY_OWNER)
+        await assertRevert(this.voting.commitVote(voteId, encryptVote(vote)))
       })
     })
 
@@ -80,12 +88,14 @@ contract('CRVoting', ([ account0, account1 ]) => {
       })
 
       it('fails leaking non-existing vote', async () => {
-        await assertRevert(this.voting.commitVote(voteId + 1, encryptVote(vote)), ERROR_OUT_OF_BOUNDS)
+        //await assertRevert(this.voting.commitVote(voteId + 1, encryptVote(vote)), ERROR_OUT_OF_BOUNDS)
+        await assertRevert(this.voting.commitVote(voteId + 1, encryptVote(vote)))
       })
 
       it('fails leaking vote if owner does not allow', async () => {
         await votingOwner.setResponse(0)
-        await assertRevert(this.voting.leakVote(voteId, account0, vote, SALT), ERROR_NOT_ALLOWED_BY_OWNER)
+        //await assertRevert(this.voting.leakVote(voteId, account0, vote, SALT), ERROR_NOT_ALLOWED_BY_OWNER)
+        await assertRevert(this.voting.leakVote(voteId, account0, vote, SALT))
       })
     })
 
@@ -100,12 +110,14 @@ contract('CRVoting', ([ account0, account1 ]) => {
       })
 
       it('fails revealing non-existing vote', async () => {
-        await assertRevert(this.voting.commitVote(voteId + 1, encryptVote(vote)), ERROR_OUT_OF_BOUNDS)
+        //await assertRevert(this.voting.commitVote(voteId + 1, encryptVote(vote)), ERROR_OUT_OF_BOUNDS)
+        await assertRevert(this.voting.commitVote(voteId + 1, encryptVote(vote)))
       })
 
       it('fails revealing vote if owner does not allow', async () => {
         await votingOwner.setResponse(0)
-        await assertRevert(this.voting.revealVote(voteId, vote, SALT), ERROR_NOT_ALLOWED_BY_OWNER)
+        //await assertRevert(this.voting.revealVote(voteId, vote, SALT), ERROR_NOT_ALLOWED_BY_OWNER)
+        await assertRevert(this.voting.revealVote(voteId, vote, SALT))
       })
     })
   })

@@ -228,6 +228,21 @@ contract('Court: Lifecycle', ([ poor, rich, governor, juror1, juror2 ]) => {
       }
     })
 
+    it('fails trying to activate twice', async () => {
+      await this.court.activate({ from: juror1 })
+      await passTerms(1)
+      await assertEqualBN(this.court.mock_treeTotalSum(), juror1Stake, 'juror is in the tree')
+      await passTerms(1)
+      //await assertRevert(this.court.activate({ from: juror1 }), 'COURT_INVALID_ACCOUNT_STATE')
+      await assertRevert(this.court.activate({ from: juror1 }))
+    })
+
+    it('fails trying to deactivate twice', async () => {
+      await activateDeactivate()
+      //await assertRevert(this.court.deactivate({ from: juror1 }), 'COURT_INVALID_ACCOUNT_STATE')
+      await assertRevert(this.court.deactivate({ from: juror1 }))
+    })
+
     // TODO: refactor to use at stake tokens
     it.skip('juror can withdraw after cooldown', async () => {
       await this.court.activate({ from: juror1 })

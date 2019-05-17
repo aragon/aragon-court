@@ -69,7 +69,7 @@ contract('CRVoting', ([ account0, account1 ]) => {
       })
 
       // TODO
-      it.skip('leaks vote', async () => {
+      it('leaks vote', async () => {
         await this.voting.leakVote(voteId, account0, vote, SALT)
         // TODO
       })

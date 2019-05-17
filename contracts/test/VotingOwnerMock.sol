@@ -18,11 +18,11 @@ contract VotingOwnerMock is ICRVotingOwner {
         emit VoteCreated(voteId);
     }
 
-    function canCommit(uint256 voteId, address voter) external returns (uint256) {
+    function canCommit(uint256, address) external returns (uint256) {
         return response;
     }
 
-    function canReveal(uint256 voteId, address voter) external returns (uint256) {
+    function canReveal(uint256, address) external returns (uint256) {
         return response;
     }
 }

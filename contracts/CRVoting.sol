@@ -84,9 +84,10 @@ contract CRVoting is ICRVoting {
 
         uint8 ruling = uint8(Ruling.RefusedRuling);
         CastVote storage castVote = votes[_voteId].castVotes[_voter];
-        castVote.ruling = ruling;
 
         _checkVote(castVote, _leakedRuling, _salt);
+
+        castVote.ruling = ruling;
 
         // TODO: slash juror
 

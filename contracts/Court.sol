@@ -20,17 +20,10 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
 
     uint256 internal constant MAX_JURORS_PER_BATCH = 10; // to cap gas used on draft
 
-    enum AccountState {
-        NotJuror,
-        Juror
-    }
-
     struct Account {
         mapping (address => uint256) balances; // token addr -> balance
         // when deactivating, balance becomes available on next term:
-        uint64 incomingBalanceTerm;
-        uint192 incomingBalance;
-        AccountState state;      // whether the account is or not a juror
+        uint64 deactivationTerm;
         uint256 atStakeTokens;   // maximum amount of juror tokens that the juror could be slashed given their drafts
         uint256 sumTreeId;       // key in the sum tree used for sortition
     }
@@ -163,7 +156,7 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
     uint8 internal constant MAX_RULING_OPTIONS = MIN_RULING_OPTIONS;
     address internal constant BURN_ACCOUNT = 0xdead;
     uint256 internal constant MAX_UINT32 = uint32(-1);
-    uint256 internal constant MAX_UINT192 = uint192(-1);
+    uint64 internal constant MAX_UINT64 = uint64(-1);
 
     event NewTerm(uint64 term, address indexed heartbeatSender);
     event NewCourtConfig(uint64 fromTerm, uint64 courtConfigId);
@@ -322,6 +315,8 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
         require(balance >= _amount, ERROR_BALANCE_TOO_LOW);
 
         if (_token == jurorToken) {
+            // Make sure deactivation has finished before withdrawing
+            require(account.deactivationTerm <= term, ERROR_INVALID_ACCOUNT_STATE);
             require(_amount <= unlockedBalanceOf(addr), ERROR_JUROR_TOKENS_AT_STAKE);
 
             emit Unstaked(addr, _amount, totalStakedFor(addr), "");
@@ -341,10 +336,9 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
 
         address jurorAddress = msg.sender;
         Account storage account = accounts[jurorAddress];
-        _updateIncomingBalance(account);
         uint256 balance = account.balances[jurorToken];
 
-        require(account.state == AccountState.NotJuror, ERROR_INVALID_ACCOUNT_STATE);
+        require(account.deactivationTerm <= term, ERROR_INVALID_ACCOUNT_STATE);
         require(balance >= jurorMinStake, ERROR_TOKENS_BELOW_MIN_STAKE);
 
         uint256 sumTreeId = account.sumTreeId;
@@ -357,7 +351,7 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
         uint64 fromTerm = term + 1;
         sumTree.update(sumTreeId, fromTerm, balance, true);
 
-        account.state = AccountState.Juror;
+        account.deactivationTerm = MAX_UINT64;
         account.balances[jurorToken] = 0; // tokens are in the tree (present or future)
 
         emit JurorActivated(jurorAddress, fromTerm);
@@ -372,21 +366,15 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
         address jurorAddress = msg.sender;
         Account storage account = accounts[jurorAddress];
 
-        require(account.state == AccountState.Juror, ERROR_INVALID_ACCOUNT_STATE);
+        require(account.deactivationTerm == MAX_UINT64, ERROR_INVALID_ACCOUNT_STATE);
 
         // Always account.sumTreeId > 0, as juror has activated before
         uint256 treeBalance = sumTree.getItem(account.sumTreeId);
-        // The juror could withdraw all the tokens and still be drafted, so it wouldn't be able to be slashed. To avoid this, we temporarily uphold this incoming balance.
-        // Carry over previous incoming balance first
-        _updateIncomingBalance(account);
-        account.incomingBalanceTerm = term;
-        require(treeBalance <= MAX_UINT192, ERROR_OVERFLOW);
-        account.incomingBalance += uint192(treeBalance);
-        require(uint256(account.incomingBalance) >= treeBalance, ERROR_OVERFLOW);
-
-        account.state = AccountState.NotJuror;
+        account.balances[jurorToken] += treeBalance;
 
         uint64 lastTerm = term + 1;
+        account.deactivationTerm = lastTerm;
+
         sumTree.set(account.sumTreeId, lastTerm, 0);
 
         emit JurorDeactivated(jurorAddress, lastTerm);
@@ -597,7 +585,7 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
             if (jurorRuling != ruling) {
                 slashedTokens += weightedPenalty;
 
-                if (account.state == AccountState.NotJuror) {
+                if (account.deactivationTerm <= slashingUpdateTerm) {
                     // Slash from balance if the account already deactivated
                     _removeTokens(jurorToken, juror, weightedPenalty);
                 } else {
@@ -719,7 +707,7 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
         uint256 sumTreeId = account.sumTreeId;
         uint256 activeTokens = sumTreeId > 0 ? sumTree.getItem(sumTreeId) : 0;
 
-        return account.balances[jurorToken] + account.incomingBalance + activeTokens;
+        return account.balances[jurorToken] + activeTokens;
     }
 
     /**
@@ -760,13 +748,6 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
 
     function getJurorWeight(uint256 _disputeId, uint256 _roundId, address _juror) public view returns (uint256) {
         return disputes[_disputeId].rounds[_roundId].jurorSlotStates[_juror].weight;
-    }
-
-    function _updateIncomingBalance(Account storage account) internal {
-        if (account.incomingBalanceTerm <= term) {
-            account.balances[jurorToken] += account.incomingBalance;
-            account.incomingBalance = 0;
-        }
     }
 
     /**

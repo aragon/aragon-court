@@ -1,3 +1,5 @@
+const assertRevert = require('./helpers/assert-revert')
+
 const TokenFactory = artifacts.require('TokenFactory')
 const CourtMock = artifacts.require('CourtMock')
 
@@ -15,10 +17,14 @@ const deployedContract = async (receipt, name) =>
 const assertEqualBN = async (actualPromise, expected, message) =>
   assert.equal((await actualPromise).toNumber(), expected, message)
 
+const ERROR_INVALID_ACCOUNT_STATE = 'COURT_INVALID_ACCOUNT_STATE'
+
 contract('Court: Staking', ([ pleb, rich ]) => {
   const INITIAL_BALANCE = 1e6
   const NO_DATA = ''
   const ZERO_ADDRESS = '0x' + '00'.repeat(20)
+
+  const termDuration = 10
 
   before(async () => {
     this.tokenFactory = await TokenFactory.new()
@@ -34,7 +40,7 @@ contract('Court: Staking', ([ pleb, rich ]) => {
     this.sumTree = await SumTree.new()
 
     this.court = await CourtMock.new(
-      10,
+      termDuration,
       this.anj.address,
       ZERO_ADDRESS, // no fees
       this.voting.address,
@@ -112,7 +118,32 @@ contract('Court: Staking', ([ pleb, rich ]) => {
       await assertStaked(rich, -unstaking, INITIAL_BALANCE - amount, { initialStaked: amount })
     })
 
-    it('reverts if unstaking tokens at stake')
-    it('reverts if unstaking while juror is active')
+    context('Being activated', () => {
+      const passTerms = async terms => {
+        await this.court.mock_timeTravel(terms * termDuration)
+        await this.court.heartbeat(terms)
+        assert.isFalse(await this.court.canTransitionTerm(), 'all terms transitioned')
+      }
+
+      beforeEach(async () => {
+        await this.court.activate({ from: rich })
+        await passTerms(1)
+      })
+
+      it('reverts if unstaking tokens at stake')
+
+      it('reverts if unstaking while juror is active', async () => {
+        await this.anj.approveAndCall(this.court.address, amount, NO_DATA, { from: rich })
+        const unstaking = amount / 3
+        await assertRevert(this.court.unstake(unstaking, NO_DATA, { from: rich }), ERROR_INVALID_ACCOUNT_STATE)
+        // deactivate
+        await this.court.deactivate({ from: rich })
+        // still unable to withdraw, must pass to next term
+        await assertRevert(this.court.unstake(unstaking, NO_DATA, { from: rich }), ERROR_INVALID_ACCOUNT_STATE)
+        await passTerms(1)
+        await this.court.unstake(unstaking, NO_DATA, { from: rich })
+      })
+    })
+
   })
 })

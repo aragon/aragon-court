@@ -69,14 +69,15 @@ contract CourtMock is Court {
         uint256 _disputeId,
         uint256 _nextJurorToDraft,
         uint256 _jurorsRequested,
-        uint256 _jurorNumber
+        uint256 _jurorNumber,
+        uint256 _sortitionIteration
     )
         internal
         view
         returns (uint256[] keys, uint256[] nodeValues)
     {
         if (!treeSearchHijacked) {
-            return super._treeSearch(_termRandomness, _disputeId, _nextJurorToDraft, _jurorsRequested, _jurorNumber);
+            return super._treeSearch(_termRandomness, _disputeId, _nextJurorToDraft, _jurorsRequested, _jurorNumber, _sortitionIteration);
         }
 
         keys = new uint256[](_jurorsRequested);

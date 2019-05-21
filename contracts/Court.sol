@@ -470,6 +470,11 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
         if (jurorsRequested > MAX_JURORS_PER_BATCH) {
             jurorsRequested = MAX_JURORS_PER_BATCH;
         }
+
+        // to add "randomness" to sortition call in order to avoid getting stuck by
+        // getting the same overleveraged juror over and over
+        uint256 sortitionIteration = 0;
+
         while (jurorsRequested > 0) {
             (
                 uint256[] memory jurorKeys,
@@ -479,7 +484,8 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
                 _disputeId,
                 round.filledSeats,
                 jurorsRequested,
-                round.jurorNumber
+                round.jurorNumber,
+                sortitionIteration
             );
             for (uint256 i = 0; i < jurorKeys.length; i++) {
                 address juror = jurorsByTreeId[jurorKeys[i]];
@@ -503,6 +509,7 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
                     jurorsRequested--;
                 }
             }
+            sortitionIteration++;
         }
 
         _payFees(config.feeToken, msg.sender, config.draftFee * round.jurorNumber, config.governanceFeeShare);
@@ -836,7 +843,8 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
         uint256 _disputeId,
         uint256 _filledSeats,
         uint256 _jurorsRequested,
-        uint256 _jurorNumber
+        uint256 _jurorNumber,
+        uint256 _sortitionIteration
     )
         internal
         view
@@ -849,7 +857,8 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
             false,
             _filledSeats,
             _jurorsRequested,
-            _jurorNumber
+            _jurorNumber,
+            _sortitionIteration
         );
     }
 

@@ -63,13 +63,22 @@ contract HexSumTreeWrapper {
         bool _past,
         uint256 _filledSeats,
         uint256 _jurorsRequested,
-        uint256 _jurorNumber
+        uint256 _jurorNumber,
+        uint256 _sortitionIteration
     )
         external
         view
         returns (uint256[] keys, uint256[] nodeValues)
     {
-        uint256[] memory values = _getOrderedValues(_termRandomness, _disputeId, _time, _filledSeats, _jurorsRequested, _jurorNumber);
+        uint256[] memory values = _getOrderedValues(
+            _termRandomness,
+            _disputeId,
+            _time,
+            _filledSeats,
+            _jurorsRequested,
+            _jurorNumber,
+            _sortitionIteration
+        );
         return tree.multiSortition(values, _time, _past);
     }
 
@@ -107,7 +116,8 @@ contract HexSumTreeWrapper {
         uint64 _time,
         uint256 _filledSeats,
         uint256 _jurorsRequested,
-        uint256 _jurorNumber
+        uint256 _jurorNumber,
+        uint256 _sortitionIteration
     )
         private
         view
@@ -118,7 +128,7 @@ contract HexSumTreeWrapper {
         (uint256 stakeFrom, uint256 stakeTo) = _getStakeBounds(_time, _filledSeats, _jurorsRequested, _jurorNumber);
         uint256 stakeInterval = stakeTo - stakeFrom;
         for (uint256 i = 0; i < _jurorsRequested; i++) {
-            bytes32 seed = keccak256(abi.encodePacked(_termRandomness, _disputeId, i));
+            bytes32 seed = keccak256(abi.encodePacked(_termRandomness, _disputeId, i, _sortitionIteration));
             uint256 value = stakeFrom + uint256(seed) % stakeInterval;
             values[i] = value;
             // make sure it's ordered

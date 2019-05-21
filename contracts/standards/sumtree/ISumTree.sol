@@ -23,7 +23,8 @@ interface ISumTree {
         bool _past,
         uint256 _nextJurorToDraft,
         uint256 _jurorsRequested,
-        uint256 _jurorNumber
+        uint256 _jurorNumber,
+        uint256 _sortitionIteration
     )
         external
         view

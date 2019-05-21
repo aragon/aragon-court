@@ -7,23 +7,25 @@ contract HexSumTreeWrapper {
     using HexSumTree for HexSumTree.Tree;
 
     string internal constant ERROR_NOT_OWNER = "SUMTREE_NOT_OWNER";
+    string internal constant ERROR_WRONG_INIT_CODE = "SUMTREE_WRONG_INIT_CODE";
 
-    HexSumTree.Tree tree;
-    address public owner;
+    HexSumTree.Tree private tree;
+    address private owner;
 
     modifier onlyOwner {
         require(msg.sender == address(owner), ERROR_NOT_OWNER);
         _;
     }
 
-    constructor() public {
-        owner = msg.sender;
-        tree.init();
-        assert(tree.insert(0, 0) == 0); // first tree item is an empty juror
+    constructor(address _preOwner) public {
+        owner = address(_preOwner);
     }
 
-    function setOwner(address _owner) external onlyOwner {
+    function init(address _owner, bytes32 _initCode) external {
+        require(address(owner) == address(keccak256(abi.encodePacked(_initCode))),  ERROR_WRONG_INIT_CODE);
         owner = _owner;
+        tree.init();
+        assert(tree.insert(0, 0) == 0); // first tree item is an empty juror
     }
 
     function insert(uint64 _checkpointTime, uint256 _value) external onlyOwner returns (uint256) {
@@ -36,6 +38,10 @@ contract HexSumTreeWrapper {
 
     function update(uint256 _key, uint64 _checkpointTime, uint256 _delta, bool _positive) external onlyOwner {
         tree.update(_key, _checkpointTime, _delta, _positive);
+    }
+
+    function getOwner() external view returns (address) {
+        return owner;
     }
 
     function getItem(uint256 _key) external view returns (uint256) {

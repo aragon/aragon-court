@@ -2,6 +2,8 @@ pragma solidity ^0.4.24;
 
 
 interface ISumTree {
+    function init(address _owner, bytes32 initCode) external;
+
     function insert(uint64 _checkpointTime, uint256 _value) external returns (uint256);
 
     function set(uint256 _key, uint64 _checkpointTime, uint256 _value) external;
@@ -26,6 +28,8 @@ interface ISumTree {
         external
         view
         returns (uint256[] keys, uint256[] nodeValues);
+
+    function getOwner() external view returns (address);
 
     function getNextKey() external view returns (uint256);
 }

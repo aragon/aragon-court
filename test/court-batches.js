@@ -1,4 +1,5 @@
 const assertRevert = require('./helpers/assert-revert')
+const { soliditySha3 } = require('web3-utils')
 
 const TokenFactory = artifacts.require('TokenFactory')
 const CourtMock = artifacts.require('CourtMock')
@@ -53,6 +54,8 @@ contract('Court: Batches', ([ rich, governor, arbitrable, juror1, juror2, juror3
   const JUROR_DRAFTED_EVENT = 'JurorDrafted'
   const DISPUTE_STATE_CHANGED_EVENT = 'DisputeStateChanged'
 
+  const SALT = soliditySha3('passw0rd')
+
   before(async () => {
     this.tokenFactory = await TokenFactory.new()
   })
@@ -62,8 +65,10 @@ contract('Court: Batches', ([ rich, governor, arbitrable, juror1, juror2, juror3
     this.anj = await deployedContract(this.tokenFactory.newToken('ANJ', initialBalance, { from: rich }), MINIME)
     assertEqualBN(this.anj.balanceOf(rich), initialBalance, 'rich balance')
 
-    this.voting = await CRVoting.new()
-    this.sumTree = await SumTree.new()
+    const initPwd = SALT
+    const preOwner = '0x' + soliditySha3(initPwd).slice(-40)
+    this.voting = await CRVoting.new(preOwner)
+    this.sumTree = await SumTree.new(preOwner)
 
     this.court = await CourtMock.new(
       termDuration,
@@ -71,6 +76,7 @@ contract('Court: Batches', ([ rich, governor, arbitrable, juror1, juror2, juror3
       ZERO_ADDRESS, // no fees
       this.voting.address,
       this.sumTree.address,
+      initPwd,
       0,
       0,
       0,
@@ -82,9 +88,6 @@ contract('Court: Batches', ([ rich, governor, arbitrable, juror1, juror2, juror3
       [ commitTerms, appealTerms, revealTerms ],
       penaltyPct
     )
-
-    await this.voting.setOwner(this.court.address)
-    await this.sumTree.setOwner(this.court.address)
 
     await this.court.mock_setBlockNumber(startBlock)
 

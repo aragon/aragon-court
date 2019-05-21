@@ -1,4 +1,5 @@
 const assertRevert = require('./helpers/assert-revert')
+const { soliditySha3 } = require('web3-utils')
 
 const TokenFactory = artifacts.require('TokenFactory')
 const CourtMock = artifacts.require('CourtMock')
@@ -26,6 +27,8 @@ contract('Court: Staking', ([ pleb, rich ]) => {
 
   const termDuration = 10
 
+  const SALT = soliditySha3('passw0rd')
+
   before(async () => {
     this.tokenFactory = await TokenFactory.new()
   })
@@ -36,8 +39,10 @@ contract('Court: Staking', ([ pleb, rich ]) => {
     assertEqualBN(this.anj.balanceOf(rich), INITIAL_BALANCE, 'rich balance')
     assertEqualBN(this.anj.balanceOf(pleb), 0, 'pleb balance')
 
-    this.voting = await CRVoting.new()
-    this.sumTree = await SumTree.new()
+    const initPwd = SALT
+    const preOwner = '0x' + soliditySha3(initPwd).slice(-40)
+    this.voting = await CRVoting.new(preOwner)
+    this.sumTree = await SumTree.new(preOwner)
 
     this.court = await CourtMock.new(
       termDuration,
@@ -45,6 +50,7 @@ contract('Court: Staking', ([ pleb, rich ]) => {
       ZERO_ADDRESS, // no fees
       this.voting.address,
       this.sumTree.address,
+      initPwd,
       0,
       0,
       0,
@@ -56,9 +62,6 @@ contract('Court: Staking', ([ pleb, rich ]) => {
       [ 1, 1, 1 ],
       1
     )
-
-    await this.voting.setOwner(this.court.address)
-    await this.sumTree.setOwner(this.court.address)
   })
 
   const assertStaked = async (staker, amount, initialBalance, { recipient, initialStaked = 0 } = {}) => {

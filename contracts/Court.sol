@@ -211,6 +211,7 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
         ERC20 _feeToken,
         ICRVoting _voting,
         ISumTree _sumTree,
+        bytes32 _initCode,
         uint256 _jurorFee,
         uint256 _heartbeatFee,
         uint256 _draftFee,
@@ -228,6 +229,9 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
         sumTree = _sumTree;
         jurorMinStake = _jurorMinStake;
         governor = _governor;
+
+        voting.setOwner(ICRVotingOwner(this), _initCode);
+        sumTree.init(address(this), _initCode);
 
         courtConfigs.length = 1; // leave index 0 empty
         _setCourtConfig(

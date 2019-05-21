@@ -7,6 +7,7 @@ import "./standards/voting/ICRVotingOwner.sol";
 // TODO: Aragon App? CREATE_VOTE role?
 contract CRVoting is ICRVoting {
     string internal constant ERROR_NOT_OWNER = "CRV_NOT_OWNER";
+    string internal constant ERROR_WRONG_INIT_CODE = "CRV_WRONG_INIT_CODE";
     string internal constant ERROR_NOT_ALLOWED_BY_OWNER = "CRV_NOT_ALLOWED_BY_OWNER";
     string internal constant ERROR_ALREADY_VOTED = "CRV_ALREADY_VOTED";
     string internal constant ERROR_INVALID_VOTE = "CRV_INVALID_VOTE";
@@ -32,7 +33,7 @@ contract CRVoting is ICRVoting {
         // ruling options are dispute specific
     }
 
-    ICRVotingOwner public owner;
+    ICRVotingOwner private owner;
     mapping (uint256 => Vote) internal votes;
     uint256 public votesLength;
 
@@ -45,12 +46,12 @@ contract CRVoting is ICRVoting {
         _;
     }
 
-    // TODO: initial setup? what do we deploy first? court? this? CREATE2? Use init function?
-    constructor() public {
-        owner = ICRVotingOwner(msg.sender);
+    constructor(address _preOwner) public {
+        owner = ICRVotingOwner(_preOwner);
     }
 
-    function setOwner(ICRVotingOwner _owner) external onlyOwner {
+    function setOwner(ICRVotingOwner _owner, bytes32 _initCode) external {
+        require(address(owner) == address(keccak256(abi.encodePacked(_initCode))), ERROR_WRONG_INIT_CODE);
         owner = _owner;
     }
 
@@ -116,6 +117,10 @@ contract CRVoting is ICRVoting {
         _updateTally(_voteId, _ruling, weight);
 
         emit VoteRevealed(_voteId, msg.sender, _ruling);
+    }
+
+    function getOwner() external view returns (address) {
+        return address(owner);
     }
 
     function getVote(uint256 _voteId) external view returns (uint8 ruling, uint256 winningVoters) {

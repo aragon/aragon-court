@@ -74,8 +74,10 @@ contract('Court: Disputes', ([ poor, rich, governor, juror1, juror2, juror3, arb
     assertEqualBN(this.anj.balanceOf(rich), initialBalance, 'rich balance')
     assertEqualBN(this.anj.balanceOf(poor), 0, 'poor balance')
 
-    this.voting = await CRVoting.new()
-    this.sumTree = await SumTree.new()
+    const initPwd = SALT
+    const preOwner = '0x' + soliditySha3(initPwd).slice(-40)
+    this.voting = await CRVoting.new(preOwner)
+    this.sumTree = await SumTree.new(preOwner)
 
     this.court = await CourtMock.new(
       termDuration,
@@ -83,6 +85,7 @@ contract('Court: Disputes', ([ poor, rich, governor, juror1, juror2, juror3, arb
       ZERO_ADDRESS, // no fees
       this.voting.address,
       this.sumTree.address,
+      initPwd,
       0,
       0,
       0,
@@ -94,9 +97,6 @@ contract('Court: Disputes', ([ poor, rich, governor, juror1, juror2, juror3, arb
       [ commitTerms, appealTerms, revealTerms ],
       penaltyPct
     )
-
-    await this.voting.setOwner(this.court.address)
-    await this.sumTree.setOwner(this.court.address)
 
     await this.court.mock_setBlockNumber(startBlock)
     // tree searches always return jurors in the order that they were added to the tree

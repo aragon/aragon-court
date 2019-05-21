@@ -1,5 +1,6 @@
 const assertRevert = require('./helpers/assert-revert')
 const { promisify } = require('util')
+const { soliditySha3 } = require('web3-utils')
 
 const TokenFactory = artifacts.require('TokenFactory')
 const CourtMock = artifacts.require('CourtMock')
@@ -49,6 +50,8 @@ contract('Court: Lifecycle', ([ poor, rich, governor, juror1, juror2 ]) => {
   const NEW_TERM_EVENT = 'NewTerm'
   const NEW_COURT_CONFIG_EVENT = 'NewCourtConfig'
 
+  const SALT = soliditySha3('passw0rd')
+
   before(async () => {
     this.tokenFactory = await TokenFactory.new()
   })
@@ -59,8 +62,10 @@ contract('Court: Lifecycle', ([ poor, rich, governor, juror1, juror2 ]) => {
     assertEqualBN(this.anj.balanceOf(rich), initialBalance, 'rich balance')
     assertEqualBN(this.anj.balanceOf(poor), 0, 'poor balance')
 
-    this.voting = await CRVoting.new()
-    this.sumTree = await SumTree.new()
+    const initPwd = SALT
+    const preOwner = '0x' + soliditySha3(initPwd).slice(-40)
+    this.voting = await CRVoting.new(preOwner)
+    this.sumTree = await SumTree.new(preOwner)
 
     this.court = await CourtMock.new(
       termDuration,
@@ -68,6 +73,7 @@ contract('Court: Lifecycle', ([ poor, rich, governor, juror1, juror2 ]) => {
       ZERO_ADDRESS, // no fees
       this.voting.address,
       this.sumTree.address,
+      initPwd,
       0,
       0,
       0,
@@ -79,9 +85,6 @@ contract('Court: Lifecycle', ([ poor, rich, governor, juror1, juror2 ]) => {
       [ commitTerms, appealTerms, revealTerms ],
       penaltyPct
     )
-
-    await this.voting.setOwner(this.court.address)
-    await this.sumTree.setOwner(this.court.address)
 
     await this.court.mock_setBlockNumber(startBlock)
 

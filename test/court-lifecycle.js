@@ -1,4 +1,4 @@
-const assertRevert = require('./helpers/assert-revert')
+const { assertRevert } = require('@aragon/os/test/helpers/assertThrow')
 const { promisify } = require('util')
 const { soliditySha3 } = require('web3-utils')
 
@@ -236,14 +236,12 @@ contract('Court: Lifecycle', ([ poor, rich, governor, juror1, juror2 ]) => {
       await passTerms(1)
       await assertEqualBN(this.court.mock_treeTotalSum(), juror1Stake, 'juror is in the tree')
       await passTerms(1)
-      //await assertRevert(this.court.activate({ from: juror1 }), 'COURT_INVALID_ACCOUNT_STATE')
-      await assertRevert(this.court.activate({ from: juror1 }))
+      await assertRevert(this.court.activate({ from: juror1 }), 'COURT_INVALID_ACCOUNT_STATE')
     })
 
     it('fails trying to deactivate twice', async () => {
       await activateDeactivate()
-      //await assertRevert(this.court.deactivate({ from: juror1 }), 'COURT_INVALID_ACCOUNT_STATE')
-      await assertRevert(this.court.deactivate({ from: juror1 }))
+      await assertRevert(this.court.deactivate({ from: juror1 }), 'COURT_INVALID_ACCOUNT_STATE')
     })
 
     // TODO: refactor to use at stake tokens

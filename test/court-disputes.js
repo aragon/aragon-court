@@ -1,4 +1,4 @@
-const assertRevert = require('./helpers/assert-revert')
+const { assertRevert } = require('@aragon/os/test/helpers/assertThrow')
 const { promisify } = require('util')
 const { soliditySha3 } = require('web3-utils')
 

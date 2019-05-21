@@ -1,4 +1,4 @@
-const assertRevert = require('./helpers/assert-revert')
+const { assertRevert } = require('@aragon/os/test/helpers/assertThrow')
 const { soliditySha3 } = require('web3-utils')
 
 const SumTree = artifacts.require('HexSumTreeWrapper')
@@ -27,8 +27,7 @@ contract('HexSumTreeWrapper', ([ account0, account1 ]) => {
     })
 
     it('fails inserting if not owner', async () => {
-      //await assertRevert(this.sumTree.insert(0, 1, { from: account1 }), 'SUMTREE_NOT_OWNER')
-      await assertRevert(this.sumTree.insert(0, 1, { from: account1 }))
+      await assertRevert(this.sumTree.insert(0, 1, { from: account1 }), 'SUMTREE_NOT_OWNER')
     })
 
     context('Multisortition', () => {

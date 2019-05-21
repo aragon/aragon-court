@@ -36,8 +36,8 @@ contract('Court: Staking', ([ pleb, rich ]) => {
   beforeEach(async () => {
     // Mints 1,000,000 tokens for sender
     this.anj = await deployedContract(this.tokenFactory.newToken('ANJ', INITIAL_BALANCE, { from: rich }), MINIME)
-    assertEqualBN(this.anj.balanceOf(rich), INITIAL_BALANCE, 'rich balance')
-    assertEqualBN(this.anj.balanceOf(pleb), 0, 'pleb balance')
+    await assertEqualBN(this.anj.balanceOf(rich), INITIAL_BALANCE, 'rich balance')
+    await assertEqualBN(this.anj.balanceOf(pleb), 0, 'pleb balance')
 
     const initPwd = SALT
     const preOwner = '0x' + soliditySha3(initPwd).slice(-40)

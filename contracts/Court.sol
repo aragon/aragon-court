@@ -135,6 +135,8 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
     string internal constant ERROR_ROUND_ALREADY_DRAFTED = "COURT_ROUND_ALREADY_DRAFTED";
     string internal constant ERROR_NOT_DRAFT_TERM = "COURT_NOT_DRAFT_TERM";
     string internal constant ERROR_TERM_RANDOMNESS_UNAVAIL = "COURT_TERM_RANDOMNESS_UNAVAIL";
+    string internal constant ERROR_SORTITION_LENGTHS_MIMATCH = "COURT_SORTITION_LENGTHS_MIMATCH";
+    string internal constant ERROR_SORTITION_WRONG_LENGTH = "COURT_SORTITION_WRONG_LENGTH";
     string internal constant ERROR_INVALID_DISPUTE_STATE = "COURT_INVALID_DISPUTE_STATE";
     string internal constant ERROR_INVALID_ADJUDICATION_ROUND = "COURT_INVALID_ADJUDICATION_ROUND";
     string internal constant ERROR_INVALID_ADJUDICATION_STATE = "COURT_INVALID_ADJUDICATION_STATE";
@@ -336,8 +338,6 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
      * @notice Become an active juror on next term
      */
     function activate() external ensureTerm {
-        // TODO: Charge activation fee to juror
-
         address jurorAddress = msg.sender;
         Account storage account = accounts[jurorAddress];
         uint256 balance = account.balances[jurorToken];
@@ -464,7 +464,9 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
         // TODO: stack too deep
         //uint256 jurorNumber = round.jurorNumber;
         //uint256 nextJurorIndex = round.nextJurorIndex;
-        round.jurors.length = round.jurorNumber;
+        if (round.jurors.length == 0) {
+            round.jurors.length = round.jurorNumber;
+        }
 
         uint256 jurorsRequested = round.jurorNumber - round.filledSeats;
         if (jurorsRequested > MAX_JURORS_PER_BATCH) {
@@ -487,13 +489,17 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
                 round.jurorNumber,
                 sortitionIteration
             );
+            require(jurorKeys.length == stakes.length, ERROR_SORTITION_LENGTHS_MIMATCH);
+            require(jurorKeys.length == jurorsRequested, ERROR_SORTITION_WRONG_LENGTH);
+
             for (uint256 i = 0; i < jurorKeys.length; i++) {
                 address juror = jurorsByTreeId[jurorKeys[i]];
 
                 // Account storage jurorAccount = accounts[juror]; // Hitting stack too deep
                 uint256 newAtStake = accounts[juror].atStakeTokens + _pct4(jurorMinStake, config.penaltyPct); // maxPenalty
+                // Only select a juror if their stake is greater than or equal than the amount of tokens that they can lose, otherwise skip it
                 if (stakes[i] >= newAtStake) {
-                    accounts[juror].atStakeTokens += newAtStake;
+                    accounts[juror].atStakeTokens = newAtStake;
                     // check repeated juror, we assume jurors come ordered from tree search
                     if (round.nextJurorIndex > 0 && round.jurors[round.nextJurorIndex - 1] == juror) {
                         round.jurors.length--;
@@ -892,9 +898,9 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
 
     function _stake(address _from, address _to, uint256 _amount) internal {
         require(_amount > 0, ERROR_ZERO_TRANSFER);
-        require(jurorToken.safeTransferFrom(_from, this, _amount), ERROR_DEPOSIT_FAILED);
 
-        accounts[_to].balances[jurorToken] += _amount;
+        _assignTokens(jurorToken, _to, _amount);
+        require(jurorToken.safeTransferFrom(_from, this, _amount), ERROR_DEPOSIT_FAILED);
 
         emit Staked(_to, _amount, totalStakedFor(_to), "");
     }

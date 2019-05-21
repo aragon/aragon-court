@@ -26,7 +26,6 @@ contract CRVoting is ICRVoting {
         mapping (uint256 => uint256) rulingVotes;
     }
 
-    // TODO: repeated in Court.sol
     enum Ruling {
         Missing,
         RefusedRuling

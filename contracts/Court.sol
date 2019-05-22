@@ -888,12 +888,14 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
             return;
         }
 
-        uint256 governanceFee = _pct4(_amount, _governanceFeeShare);
-        _assignTokens(_feeToken, _to, _amount - governanceFee);
+        uint256 governanceFee = 0;
 
-        if (governanceFee > 0) {
+        if (_governanceFeeShare > 0) {
+            governanceFee = _pct4(_amount, _governanceFeeShare);
             _assignTokens(_feeToken, governor, governanceFee);
         }
+
+        _assignTokens(_feeToken, _to, _amount - governanceFee);
     }
 
     function _stake(address _from, address _to, uint256 _amount) internal {

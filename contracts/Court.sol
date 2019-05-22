@@ -443,6 +443,7 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
 
     /**
      * @notice Draft jurors for the next round of dispute #`_disputeId`
+     * @dev Allows for batches, so only up to MAX_JURORS_PER_BATCH will be drafted in each call
      */
     function draftAdjudicationRound(uint256 _disputeId)
         public
@@ -628,8 +629,7 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
     }
 
      /**
-     * @notice Claim juror reward for round #`_roundId` of dispute #`_disputeId`
-     * @dev Just executes penalties, jurors must manually claim their rewards
+     * @notice Claim reward for round #`_roundId` of dispute #`_disputeId` for juror `_juror`
      */
     function settleReward(uint256 _disputeId, uint256 _roundId, address _juror) external ensureTerm {
         Dispute storage dispute = disputes[_disputeId];

@@ -122,15 +122,15 @@ contract CRVoting is ICRVoting {
         return address(owner);
     }
 
-    function getVote(uint256 _voteId) external view returns (uint8 ruling, uint256 winningVoters) {
+    function getVote(uint256 _voteId) external view returns (uint8 winningRuling, uint256 winningVoters) {
         require(_voteId < votesLength, ERROR_OUT_OF_BOUNDS);
 
         Vote storage vote = votes[_voteId];
-        ruling = vote.winningRuling;
-        if (Ruling(ruling) == Ruling.Missing) {
-            ruling = uint8(Ruling.RefusedRuling);
+        winningRuling = vote.winningRuling;
+        if (Ruling(winningRuling) == Ruling.Missing) {
+            winningRuling = uint8(Ruling.RefusedRuling);
         }
-        winningVoters = vote.rulingVotes[ruling];
+        winningVoters = vote.rulingVotes[winningRuling];
     }
 
     function getCastVote(uint256 _voteId, address _voter) external view returns (uint8) {

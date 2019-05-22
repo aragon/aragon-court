@@ -555,11 +555,11 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
         Dispute storage dispute = disputes[_disputeId];
         dispute.state = DisputeState.Executed;
 
-        (uint8 ruling, ) = voting.getVote(dispute.rounds[_roundId].voteId);
+        (uint8 winningRuling, ) = voting.getVote(dispute.rounds[_roundId].voteId);
 
-        dispute.subject.rule(_disputeId, uint256(ruling));
+        dispute.subject.rule(_disputeId, uint256(winningRuling));
 
-        emit RulingExecuted(_disputeId, ruling);
+        emit RulingExecuted(_disputeId, winningRuling);
     }
 
     /**
@@ -581,7 +581,7 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
             revert(ERROR_INVALID_DISPUTE_STATE);
         }
 
-        (uint8 ruling, ) = voting.getVote(round.voteId);
+        (uint8 winningRuling, ) = voting.getVote(round.voteId);
         CourtConfig storage config = courtConfigs[terms[round.draftTerm].courtConfigId]; // safe to use directly as it is the current term
         // uint256 penalty = _pct4(jurorMinStake, config.penaltyPct); // TODO: stack too deep
 
@@ -598,8 +598,8 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
             account.atStakeTokens -= weightedPenalty;
 
             uint8 jurorRuling = voting.getCastVote(round.voteId, juror);
-            // If the juror didn't vote for the final ruling
-            if (jurorRuling != ruling) {
+            // If the juror didn't vote for the final winning ruling
+            if (jurorRuling != winningRuling) {
                 slashedTokens += weightedPenalty;
 
                 if (account.deactivationTerm <= slashingUpdateTerm) {
@@ -616,7 +616,7 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
         round.settledPenalties = true;
 
         // No juror was coherent in the round
-        if (voting.getRulingVotes(round.voteId, ruling) == 0) {
+        if (voting.getRulingVotes(round.voteId, winningRuling) == 0) {
             // refund fees and burn ANJ
             _payFees(config.feeToken, round.triggeredBy, config.jurorFee * round.jurorNumber, config.governanceFeeShare);
             _assignTokens(jurorToken, BURN_ACCOUNT, slashedTokens);

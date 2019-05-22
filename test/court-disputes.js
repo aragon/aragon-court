@@ -259,7 +259,7 @@ contract('Court: Disputes', ([ poor, rich, governor, juror1, juror2, juror3, arb
             })
 
             it('has correct ruling result', async () => {
-              assert.equal((await this.voting.getVote(disputeId))[0].toNumber(), round1Ruling, 'winning ruling')
+              assert.equal((await this.voting.getVote(disputeId)).toNumber(), round1Ruling, 'winning ruling')
             })
 
             it('fails to appeal during reveal period', async () => {

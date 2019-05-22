@@ -555,7 +555,7 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
         Dispute storage dispute = disputes[_disputeId];
         dispute.state = DisputeState.Executed;
 
-        (uint8 winningRuling, ) = voting.getVote(dispute.rounds[_roundId].voteId);
+        uint8 winningRuling = _getWinningRuling(dispute);
 
         dispute.subject.rule(_disputeId, uint256(winningRuling));
 
@@ -581,7 +581,7 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
             revert(ERROR_INVALID_DISPUTE_STATE);
         }
 
-        (uint8 winningRuling, ) = voting.getVote(round.voteId);
+        uint8 winningRuling = _getWinningRuling(dispute);
         CourtConfig storage config = courtConfigs[terms[round.draftTerm].courtConfigId]; // safe to use directly as it is the current term
         // uint256 penalty = _pct4(jurorMinStake, config.penaltyPct); // TODO: stack too deep
 
@@ -643,7 +643,8 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
         jurorState.rewarded = true;
 
         uint256 voteId = round.voteId;
-        (uint8 winningRuling, uint256 coherentJurors) = voting.getVote(voteId);
+        uint8 winningRuling = _getWinningRuling(dispute);
+        uint256 coherentJurors = voting.getRulingVotes(voteId, winningRuling);
         uint8 jurorRuling = voting.getCastVote(voteId, _juror);
 
         require(jurorRuling == winningRuling, ERROR_JUROR_NOT_COHERENT);
@@ -806,6 +807,12 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
         votes[voteId] = Vote(uint128(_disputeId), uint128(roundId));
 
         terms[_draftTerm].dependingDrafts += 1;
+    }
+
+    function _getWinningRuling(Dispute storage dispute) internal view returns (uint8) {
+        // TODO: logic for non-confirmed appeals
+
+        return voting.getVote(dispute.rounds[dispute.rounds.length - 1].voteId);
     }
 
     function _checkAdjudicationState(uint256 _disputeId, uint256 _roundId, AdjudicationState _state) internal {

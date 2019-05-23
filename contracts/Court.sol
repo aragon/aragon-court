@@ -272,7 +272,7 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
 
         // Set the start time of the term (ensures equally long terms, regardless of heartbeats)
         nextTerm.startTime = prevTerm.startTime + termDuration;
-        nextTerm.randomnessBN = _blockNumber() + 1; // randomness source set to next block (unknown when heartbeat happens)
+        nextTerm.randomnessBN = _blockNumber() + 1; // randomness source set to next block (content unknown when heartbeat happens)
 
         CourtConfig storage courtConfig = courtConfigs[nextTerm.courtConfigId];
         uint256 totalFee = nextTerm.dependingDrafts * courtConfig.heartbeatFee;
@@ -459,7 +459,7 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
         require(draftTerm.randomnessBN >= _blockNumber(), ERROR_TERM_RANDOMNESS_UNAVAIL);
 
         if (draftTerm.randomness == bytes32(0)) {
-            draftTerm.randomness = block.blockhash(draftTerm.randomnessBN);
+            draftTerm.randomness = blockhash(draftTerm.randomnessBN);
         }
 
         // TODO: stack too deep

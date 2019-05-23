@@ -160,8 +160,6 @@ contract('Court: Disputes', ([ poor, rich, governor, juror1, juror2, juror3, arb
       it('fails to draft outside of the draft term', async () => {
         await passTerms(1) // term = 2
         await assertRevert(this.court.draftAdjudicationRound(disputeId), 'COURT_NOT_DRAFT_TERM')
-        await passTerms(2) // term = 4
-        await assertRevert(this.court.draftAdjudicationRound(disputeId), 'COURT_NOT_DRAFT_TERM')
       })
 
       context('on juror draft (hijacked)', () => {

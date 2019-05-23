@@ -118,14 +118,14 @@ contract('Court: Lifecycle', ([ poor, rich, governor, juror1, juror2 ]) => {
 
   context('before first term', () => {
     it('it in term #0', async () => {
-      await assertEqualBN(this.court.term(), 0, 'court term #0')
+      await assertEqualBN(this.court.termId(), 0, 'court term #0')
     })
 
     it('transitions to term #1 on heartbeat', async () => {
       await this.court.mock_setTime(10)
       await assertLogs(this.court.heartbeat(1), NEW_TERM_EVENT)
       
-      await assertEqualBN(this.court.term(), 1, 'court term #1')
+      await assertEqualBN(this.court.termId(), 1, 'court term #1')
       const [
         startTime,
         dependingDraws,
@@ -154,7 +154,7 @@ contract('Court: Lifecycle', ([ poor, rich, governor, juror1, juror2 ]) => {
     it("doesn't perform more transitions than requested", async () => {
       await this.court.mock_setTime(firstTermStart + termDuration * 100)
       await this.court.heartbeat(3)
-      await assertEqualBN(this.court.term(), 3, 'current term')
+      await assertEqualBN(this.court.termId(), 3, 'current term')
     })
   })
 
@@ -173,7 +173,7 @@ contract('Court: Lifecycle', ([ poor, rich, governor, juror1, juror2 ]) => {
 
       await passTerms(2)
 
-      await assertEqualBN(this.court.term(), term, 'term #3')
+      await assertEqualBN(this.court.termId(), term, 'term #3')
     })
 
     it('has correct term state', async () => {

@@ -153,7 +153,7 @@ contract('Court: Disputes', ([ poor, rich, governor, juror1, juror2, juror3, arb
       beforeEach(async () => {
         const receipt = await this.court.createDispute(arbitrable, rulings, jurors, term)
         await assertLogs(receipt, NEW_DISPUTE_EVENT)
-        disputeId = getLog(receipt, NEW_DISPUTE_EVENT, 'voteId')
+        disputeId = getLog(receipt, NEW_DISPUTE_EVENT, 'disputeId')
         voteId = getLog(receipt, NEW_DISPUTE_EVENT, 'voteId')
       })
 

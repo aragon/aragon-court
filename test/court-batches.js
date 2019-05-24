@@ -136,7 +136,7 @@ contract('Court: Batches', ([ rich, governor, arbitrable, juror1, juror2, juror3
       jurors = Math.round(MAX_JURORS_PER_BATCH * 7 /2)
       const receipt = await this.court.createDispute(arbitrable, rulings, jurors, term)
       await assertLogs(receipt, NEW_DISPUTE_EVENT)
-      disputeId = getLog(receipt, NEW_DISPUTE_EVENT, 'voteId')
+      disputeId = getLog(receipt, NEW_DISPUTE_EVENT, 'disputeId')
       voteId = getLog(receipt, NEW_DISPUTE_EVENT, 'voteId')
       await passTerms(2) // term = 3
 

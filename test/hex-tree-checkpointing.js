@@ -52,7 +52,7 @@ contract('Hex Sum Tree', (accounts) => {
 
     // check all past values
     for (let i = 1; i < setBns.length; i++) {
-      const v = await tree.getPastItem.call(node, setBns[i].time)
+      const v = await tree.getItemPast.call(node, setBns[i].time)
       assertBN(v, setBns[i].value, `Value for node ${node} on checkpoint time ${setBns[i].time} should match`)
       const value1 = (node + 1) * 10 + i - 1
       const s1 = await tree[sortitionFunction].call(value1, setBns[i].time)

@@ -150,8 +150,8 @@ contract HexSumTreePublic {
         return tree.getPast(l, key, checkpointTime);
     }
 
-    function getPastItem(uint256 key, uint64 checkpointTime) external profileGas returns (uint256) {
-        return tree.getPastItem(key, checkpointTime);
+    function getItemPast(uint256 key, uint64 checkpointTime) external profileGas returns (uint256) {
+        return tree.getItemPast(key, checkpointTime);
     }
 
     function totalSum() external view returns (uint256) {

@@ -275,7 +275,7 @@ library HexSumTree {
         return self.nodes[INSERTION_DEPTH][key].getLastPresent(currentTime);
     }
 
-    function getPastItem(Tree storage self, uint256 key, uint64 time) internal view returns (uint256) {
+    function getItemPast(Tree storage self, uint256 key, uint64 time) internal view returns (uint256) {
         return self.nodes[INSERTION_DEPTH][key].get(time);
     }
 

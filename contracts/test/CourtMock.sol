@@ -102,6 +102,10 @@ contract CourtMock is Court {
         return MAX_JURORS_PER_BATCH;
     }
 
+    function getMaxDraftRounds() public pure returns (uint256) {
+        return MAX_DRAFT_ROUNDS;
+    }
+
     function getAdjudicationState(uint256 _disputeId, uint256 _roundId, uint64 _termId) public view returns (AdjudicationState) {
         return _adjudicationStateAtTerm(_disputeId, _roundId, _termId);
     }

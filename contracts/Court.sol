@@ -19,6 +19,8 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
     using SafeMath for uint256;
 
     uint256 internal constant MAX_JURORS_PER_BATCH = 10; // to cap gas used on draft
+    uint256 internal constant MAX_DRAFT_ROUNDS = 4; // before the final appeal
+    // TODO: move all other constants up here
 
     struct Account {
         mapping (address => uint256) balances; // token addr -> balance
@@ -515,8 +517,15 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
         uint32 appealJurorNumber = 2 * currentRound.jurorNumber + 1; // J' = 2J + 1
         uint64 appealDraftTermId = termId + 1; // Appeals are drafted in the next term
 
-        // _newAdjudicationRound charges fees for starting the round
-        (uint256 roundId, uint32 voteId) = _newAdjudicationRound(_disputeId, appealJurorNumber, appealDraftTermId);
+        uint256 roundId;
+        uint32 voteId;
+        if (_roundId == MAX_DRAFT_ROUNDS - 1) { // roundId starts at 0
+            (roundId, voteId) = _finalAdjudicationRound(_disputeId, appealDraftTermId);
+        } else {
+            // _newAdjudicationRound charges fees for starting the round
+            (roundId, voteId) = _newAdjudicationRound(_disputeId, appealJurorNumber, appealDraftTermId);
+        }
+
         emit RulingAppealed(_disputeId, roundId, appealDraftTermId, voteId, appealJurorNumber);
     }
 
@@ -735,6 +744,11 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
         uint256 roundId = vote.roundId;
         _checkAdjudicationState(disputeId, roundId, _state);
 
+        // for the final round
+        if (roundId == MAX_DRAFT_ROUNDS) {
+            return sumTree.getItemPast(accounts[_voter].sumTreeId, disputes[disputeId].rounds[roundId].draftTermId);
+        }
+
         return getJurorWeight(disputeId, roundId, _voter);
     }
 
@@ -764,23 +778,51 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
             require(feeToken.safeTransferFrom(msg.sender, this, feeAmount), ERROR_DEPOSIT_FAILED);
         }
 
-        Dispute storage dispute = disputes[_disputeId];
+        (roundId, voteId) = _createRound(_disputeId, DisputeState.PreDraft, _draftTermId, _jurorNumber, 0);
 
-        dispute.state = DisputeState.PreDraft;
+        terms[_draftTermId].dependingDrafts += 1;
+    }
+
+    function _finalAdjudicationRound(
+        uint256 _disputeId,
+        uint64 _draftTermId
+    )
+        internal
+        returns (uint256 roundId, uint32 voteId)
+    {
+        // TODO: fees
+
+        uint32 jurorNumber = uint32(sumTree.getNextKey() - 1); // TODO: check overflow?
+
+        (roundId, voteId) = _createRound(_disputeId, DisputeState.Adjudicating, _draftTermId, jurorNumber, jurorNumber);
+    }
+
+    function _createRound(
+        uint256 _disputeId,
+        DisputeState _disputeState,
+        uint64 _draftTermId,
+        uint32 _jurorNumber,
+        uint32 _filledSeats
+    )
+        internal
+        returns (uint256 roundId, uint32 voteId)
+    {
+        Dispute storage dispute = disputes[_disputeId];
+        dispute.state = _disputeState;
 
         roundId = dispute.rounds.length;
         dispute.rounds.length = roundId + 1;
 
         AdjudicationRound storage round = dispute.rounds[roundId];
         voteId = uint32(voting.createVote(dispute.possibleRulings));
+        // TODO: should we check that is new or can we trust voting?
         round.voteId = voteId;
         round.draftTermId = _draftTermId;
         round.jurorNumber = _jurorNumber;
+        round.filledSeats = _filledSeats;
         round.triggeredBy = msg.sender;
 
         votes[voteId] = Vote(uint128(_disputeId), uint128(roundId));
-
-        terms[_draftTermId].dependingDrafts += 1;
     }
 
     function _getWinningRuling(Dispute storage dispute) internal view returns (uint8) {
@@ -818,7 +860,7 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
             return AdjudicationState.Commit;
         } else if (_termId < appealStart) {
             return AdjudicationState.Reveal;
-        } else if (_termId < appealEnd) {
+        } else if (_termId < appealEnd && _roundId < MAX_DRAFT_ROUNDS) {
             return AdjudicationState.Appealable;
         } else {
             return AdjudicationState.Ended;

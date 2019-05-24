@@ -11,6 +11,7 @@ interface ISumTree {
     function update(uint256 _key, uint64 _checkpointTime, uint256 _delta, bool _positive) external;
 
     function getItem(uint256 _key) external view returns (uint256);
+    function getItemPast(uint256 _key, uint64 _checkpointTime) external view returns (uint256);
 
     function totalSumPresent(uint64 _checkpointTime) external view returns (uint256);
 

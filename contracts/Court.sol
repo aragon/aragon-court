@@ -507,8 +507,6 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
      * @notice Appeal round #`_roundId` ruling in dispute #`_disputeId`
      */
     function appealRuling(uint256 _disputeId, uint256 _roundId) external ensureTerm {
-        // TODO: Implement appeals limit
-        // TODO: Implement final appeal
         _checkAdjudicationState(_disputeId, _roundId, AdjudicationState.Appealable);
 
         Dispute storage dispute = disputes[_disputeId];
@@ -521,7 +519,7 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
         uint32 voteId;
         if (_roundId == MAX_DRAFT_ROUNDS - 1) { // roundId starts at 0
             (roundId, voteId) = _finalAdjudicationRound(_disputeId, appealDraftTermId);
-        } else {
+        } else { // no need for more checks, as final appeal won't ever be in Appealable state, so it would never reach here (first check would fail)
             // _newAdjudicationRound charges fees for starting the round
             (roundId, voteId) = _newAdjudicationRound(_disputeId, appealJurorNumber, appealDraftTermId);
         }

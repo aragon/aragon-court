@@ -59,6 +59,8 @@ contract('Court: final appeal', ([ poor, rich, governor, juror1, juror2, juror3,
   const RULING_APPEALED_EVENT = 'RulingAppealed'
   const ROUND_SLASHING_SETTLED_EVENT = 'RoundSlashingSettled'
 
+  const ERROR_INVALID_ADJUDICATION_STATE = 'COURT_INVALID_ADJUDICATION_STATE'
+
   const SALT = soliditySha3('passw0rd')
 
   const encryptVote = (ruling, salt = SALT) =>
@@ -157,20 +159,24 @@ contract('Court: final appeal', ([ poor, rich, governor, juror1, juror2, juror3,
       voteId = getLog(receipt, NEW_DISPUTE_EVENT, 'voteId')
     })
 
+    const draftAdjudicationRound = async (roundJurors) => {
+      let roundJurorsDrafted = 0
+      let draftReceipt
+      while (roundJurorsDrafted < roundJurors) {
+        draftReceipt = await this.court.draftAdjudicationRound(disputeId)
+        const callJurorsDrafted = getLogCount(draftReceipt, JUROR_DRAFTED_EVENT)
+        roundJurorsDrafted += callJurorsDrafted
+      }
+      await assertLogs(draftReceipt, DISPUTE_STATE_CHANGED_EVENT)
+    }
+
     const moveForwardToFinalRound = async () => {
       await passTerms(2) // term = 3, dispute init
 
       for (let roundId = 0; roundId < MAX_DRAFT_ROUNDS; roundId++) {
         const roundJurors = (2**roundId) * jurorNumber + 2**roundId - 1
         // draft
-        let roundJurorsDrafted = 0
-        let draftReceipt
-        while (roundJurorsDrafted < roundJurors) {
-          draftReceipt = await this.court.draftAdjudicationRound(disputeId)
-          const callJurorsDrafted = getLogCount(draftReceipt, JUROR_DRAFTED_EVENT)
-          roundJurorsDrafted += callJurorsDrafted
-        }
-        await assertLogs(draftReceipt, DISPUTE_STATE_CHANGED_EVENT)
+        await draftAdjudicationRound(roundJurors)
 
         // commit
         await passTerms(commitTerms)
@@ -194,5 +200,22 @@ contract('Court: final appeal', ([ poor, rich, governor, juror1, juror2, juror3,
         await assertLogs(receiptPromise, VOTE_COMMITTED_EVENT)
       }
     })
+
+    it('fails appealing after final appeal', async () => {
+      await moveForwardToFinalRound()
+
+      const roundJurors = (await this.sumTree.getNextKey()).toNumber() - 1
+      // no need to draft (as it's all jurors)
+
+      // commit
+      await passTerms(commitTerms)
+
+      // reveal
+      await passTerms(revealTerms)
+
+      // appeal
+      await assertRevert(this.court.appealRuling(disputeId, MAX_DRAFT_ROUNDS), ERROR_INVALID_ADJUDICATION_STATE)
+    })
+
   })
 })

@@ -26,6 +26,7 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
         mapping (address => uint256) balances; // token addr -> balance
         // when deactivating, balance becomes available on next term:
         uint64 deactivationTermId;
+        uint64 nextFinalRoundDisputeToSettle; // id in finalRoundDisputeIds array of the next pending final appeal round to settle
         uint256 atStakeTokens;   // maximum amount of juror tokens that the juror could be slashed given their drafts
         uint256 sumTreeId;       // key in the sum tree used for sortition
     }
@@ -33,16 +34,17 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
     struct CourtConfig {
         // Fee structure
         ERC20 feeToken;
-        uint16 governanceFeeShare; // ‱ of fees going to the governor (1/10,000)
-        uint256 jurorFee;          // per juror, total round juror fee = jurorFee * jurors drawn
-        uint256 heartbeatFee;      // per dispute, total heartbeat fee = heartbeatFee * disputes/appeals in term
-        uint256 draftFee;          // per juror, total round draft fee = draftFee * jurors drawn
-        uint256 settleFee;         // per juror, total round draft fee = settleFee * jurors drawn
+        uint16 governanceFeeShare;  // ‱ of fees going to the governor (1/10,000)
+        uint256 jurorFee;           // per juror, total round juror fee = jurorFee * jurors drawn
+        uint256 heartbeatFee;       // per dispute, total heartbeat fee = heartbeatFee * disputes/appeals in term
+        uint256 draftFee;           // per juror, total round draft fee = draftFee * jurors drawn
+        uint256 settleFee;          // per juror, total round draft fee = settleFee * jurors drawn
         // Dispute config
         uint64 commitTerms;
         uint64 revealTerms;
         uint64 appealTerms;
         uint16 penaltyPct;
+        uint16 finalRoundReduction; // ‱ of reduction applied for final appeal round (1/10,000)
     }
 
     struct Term {
@@ -75,6 +77,8 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
         uint64 draftTermId;
         uint64 delayTerms;
         uint32 jurorNumber;
+        uint8 winningRuling;
+        uint32 coherentJurors;
         address triggeredBy;
         bool settledPenalties;
         uint256 slashedTokens;
@@ -118,6 +122,7 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
     ISumTree internal sumTree;
     Dispute[] public disputes;
     mapping (uint32 => Vote) votes; // to map from voteId to disputeId and roundId
+    uint256[] finalRoundDisputeIds; // Disputes that made it to the final appeal round
 
     string internal constant ERROR_INVALID_ADDR = "COURT_INVALID_ADDR";
     string internal constant ERROR_DEPOSIT_FAILED = "COURT_DEPOSIT_FAILED";
@@ -223,6 +228,8 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
         uint256 _jurorMinStake,
         uint64[3] _roundStateDurations,
         uint16 _penaltyPct
+        // TODO: stack too deep
+        //uint16 _finalRoundReduction
     ) public {
         termDuration = _termDuration;
         jurorToken = _jurorToken;
@@ -244,7 +251,10 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
             _settleFee,
             _governanceFeeShare,
             _roundStateDurations,
-            _penaltyPct
+            _penaltyPct,
+            // TODO: stack too deep
+            //_finalRoundReduction
+            5000
         );
         terms[ZERO_TERM_ID].startTime = _firstTermStartTime - _termDuration;
     }
@@ -473,7 +483,11 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
                 address juror = jurorsByTreeId[jurorKeys[i]];
 
                 // Account storage jurorAccount = accounts[juror]; // Hitting stack too deep
-                uint256 newAtStake = accounts[juror].atStakeTokens + _pct4(jurorMinStake, config.penaltyPct); // maxPenalty
+                // account also for pending final rounds
+                // TODO: what if config changes?
+                // TODO: finalRoundDisputeIds has only final rounds that have been settled, but we should also include ongoing ones (in commit or reveal stage)
+                uint256 newAtStake = accounts[juror].atStakeTokens +
+                    _pct4(jurorMinStake, config.penaltyPct) * (1 + finalRoundDisputeIds.length - accounts[juror].nextFinalRoundDisputeToSettle); // maxPenalty
                 // Only select a juror if their stake is greater than or equal than the amount of tokens that they can lose, otherwise skip it
                 if (stakes[i] >= newAtStake) {
                     accounts[juror].atStakeTokens = newAtStake;
@@ -512,14 +526,15 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
         Dispute storage dispute = disputes[_disputeId];
         AdjudicationRound storage currentRound = dispute.rounds[_roundId];
 
-        uint32 appealJurorNumber = 2 * currentRound.jurorNumber + 1; // J' = 2J + 1
+        uint32 appealJurorNumber;
         uint64 appealDraftTermId = termId + 1; // Appeals are drafted in the next term
 
         uint256 roundId;
         uint32 voteId;
         if (_roundId == MAX_DRAFT_ROUNDS - 1) { // roundId starts at 0
-            (roundId, voteId) = _finalAdjudicationRound(_disputeId, appealDraftTermId);
+            (roundId, voteId, appealJurorNumber) = _finalAdjudicationRound(_disputeId, appealDraftTermId);
         } else { // no need for more checks, as final appeal won't ever be in Appealable state, so it would never reach here (first check would fail)
+            appealJurorNumber = 2 * currentRound.jurorNumber + 1; // J' = 2J + 1
             // _newAdjudicationRound charges fees for starting the round
             (roundId, voteId) = _newAdjudicationRound(_disputeId, appealJurorNumber, appealDraftTermId);
         }
@@ -537,7 +552,7 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
         Dispute storage dispute = disputes[_disputeId];
         dispute.state = DisputeState.Executed;
 
-        uint8 winningRuling = _getWinningRuling(dispute);
+        uint8 winningRuling = dispute.rounds[_roundId].winningRuling;
 
         dispute.subject.rule(_disputeId, uint256(winningRuling));
 
@@ -551,6 +566,7 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
     function settleRoundSlashing(uint256 _disputeId, uint256 _roundId) external ensureTerm {
         Dispute storage dispute = disputes[_disputeId];
         AdjudicationRound storage round = dispute.rounds[_roundId];
+        CourtConfig storage config = courtConfigs[terms[round.draftTermId].courtConfigId]; // safe to use directly as it is the current term
 
         // Enforce that rounds are settled in order to avoid one round without incentive to settle
         // even if there is a settleFee, it may not be big enough and all jurors in the round are going to be slashed
@@ -564,24 +580,54 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
         }
 
         uint8 winningRuling = _getWinningRuling(dispute);
-        CourtConfig storage config = courtConfigs[terms[round.draftTermId].courtConfigId]; // safe to use directly as it is the current term
-        // uint256 penalty = _pct4(jurorMinStake, config.penaltyPct); // TODO: stack too deep
+        round.winningRuling = winningRuling;
+        uint256 coherentJurors = voting.getRulingVotes(round.voteId, winningRuling);
+        round.coherentJurors = uint32(coherentJurors);
 
-        uint256 slashedTokens = 0;
-        uint256 votesLength = round.jurors.length;
+        uint256 slashedTokens;
+        if (_roundId < MAX_DRAFT_ROUNDS) {
+            slashedTokens = _settleRegularRoundSlashing(round, config.penaltyPct, winningRuling);
+            _payFees(config.feeToken, msg.sender, config.settleFee * round.jurorNumber, config.governanceFeeShare);
+        } else {
+            slashedTokens = _settleFinalRoundSlashing(_disputeId, round, config.penaltyPct);
+        }
+
+        round.slashedTokens = slashedTokens;
+        round.settledPenalties = true;
+
+        // No juror was coherent in the round
+        if (coherentJurors == 0) {
+            // refund fees and burn ANJ
+            _payFees(config.feeToken, round.triggeredBy, config.jurorFee * round.jurorNumber, config.governanceFeeShare);
+            _assignTokens(jurorToken, BURN_ACCOUNT, slashedTokens);
+        }
+
+        emit RoundSlashingSettled(_disputeId, _roundId, slashedTokens);
+    }
+
+    function _settleRegularRoundSlashing(
+        AdjudicationRound storage _round,
+        uint16 _penaltyPct,
+        uint8 _winningRuling
+    )
+        internal
+        returns (uint256 slashedTokens)
+    {
+        uint256 penalty = _pct4(jurorMinStake, _penaltyPct); // TODO: stack too deep
+
+        uint256 votesLength = _round.jurors.length;
         uint64 slashingUpdateTermId = termId + 1;
 
         // should we batch this too?? OOG?
         for (uint256 i = 0; i < votesLength; i++) {
-            address juror = round.jurors[i];
-            //uint256 weightedPenalty = penalty * round.jurorSlotStates[juror].weight; // TODO: stack too deep
-            uint256 weightedPenalty = _pct4(jurorMinStake, config.penaltyPct) * round.jurorSlotStates[juror].weight;
+            address juror = _round.jurors[i];
+            uint256 weightedPenalty = penalty * _round.jurorSlotStates[juror].weight; // TODO: stack too deep
             Account storage account = accounts[juror];
             account.atStakeTokens -= weightedPenalty;
 
-            uint8 jurorRuling = voting.getCastVote(round.voteId, juror);
+            uint8 jurorRuling = voting.getCastVote(_round.voteId, juror);
             // If the juror didn't vote for the final winning ruling
-            if (jurorRuling != winningRuling) {
+            if (jurorRuling != _winningRuling) {
                 slashedTokens += weightedPenalty;
 
                 if (account.deactivationTermId <= slashingUpdateTermId) {
@@ -593,20 +639,21 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
                 }
             }
         }
+    }
 
-        round.slashedTokens = slashedTokens;
-        round.settledPenalties = true;
+    function _settleFinalRoundSlashing(
+        uint256 _disputeId,
+        AdjudicationRound storage _round,
+        uint16 _penaltyPct
+    )
+        internal
+        returns (uint256 slashedTokens)
+    {
+        slashedTokens = _pct4(jurorMinStake, _penaltyPct) * (_round.jurorNumber - _round.coherentJurors);
 
-        // No juror was coherent in the round
-        if (voting.getRulingVotes(round.voteId, winningRuling) == 0) {
-            // refund fees and burn ANJ
-            _payFees(config.feeToken, round.triggeredBy, config.jurorFee * round.jurorNumber, config.governanceFeeShare);
-            _assignTokens(jurorToken, BURN_ACCOUNT, slashedTokens);
-        }
-
-        _payFees(config.feeToken, msg.sender, config.settleFee * round.jurorNumber, config.governanceFeeShare);
-
-        emit RoundSlashingSettled(_disputeId, _roundId, slashedTokens);
+        uint256 finalRoundDisputeIdsLength = finalRoundDisputeIds.length;
+        finalRoundDisputeIds.length = finalRoundDisputeIdsLength + 1;
+        finalRoundDisputeIds[finalRoundDisputeIdsLength] = _disputeId;
     }
 
      /**
@@ -623,12 +670,10 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
 
         jurorState.rewarded = true;
 
-        uint256 voteId = round.voteId;
-        uint8 winningRuling = _getWinningRuling(dispute);
-        uint256 coherentJurors = voting.getRulingVotes(voteId, winningRuling);
-        uint8 jurorRuling = voting.getCastVote(voteId, _juror);
+        uint256 coherentJurors = round.coherentJurors;
+        uint8 jurorRuling = voting.getCastVote(round.voteId, _juror);
 
-        require(jurorRuling == winningRuling, ERROR_JUROR_NOT_COHERENT);
+        require(jurorRuling == round.winningRuling, ERROR_JUROR_NOT_COHERENT);
 
         uint256 slashedTokens = round.slashedTokens;
 
@@ -636,10 +681,50 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
             _assignTokens(jurorToken, _juror, slashedTokens / coherentJurors);
         }
 
-        CourtConfig storage config = courtConfigs[terms[round.draftTermId].courtConfigId]; // safe to use directly as it is the current term
+        CourtConfig storage config = courtConfigs[terms[round.draftTermId].courtConfigId]; // safe to use directly as it is a past term
         _payFees(config.feeToken, _juror, config.jurorFee * round.jurorNumber / coherentJurors, config.governanceFeeShare);
 
         emit RewardSettled(_disputeId, _roundId, _juror);
+    }
+
+    function settleFinalRounds(address _juror) external {
+        Account storage account = accounts[_juror];
+        uint256 finalRoundDisputeIdsLength = finalRoundDisputeIds.length;
+
+        for (uint256 i = account.nextFinalRoundDisputeToSettle; i < finalRoundDisputeIdsLength; i++) {
+            _settleFinalRound(_juror, account, finalRoundDisputeIds[i]);
+        }
+
+        account.nextFinalRoundDisputeToSettle = uint64(finalRoundDisputeIdsLength);
+    }
+
+    function _settleFinalRound(address _juror, Account storage _account, uint256 _disputeId) internal {
+        Dispute storage dispute = disputes[_disputeId];
+        AdjudicationRound storage round = dispute.rounds[MAX_DRAFT_ROUNDS];
+        CourtConfig storage config = courtConfigs[terms[round.draftTermId].courtConfigId]; // safe to use directly as it is a past term
+
+        require(round.settledPenalties, ERROR_ROUND_NOT_SETTLED);
+
+        uint256 coherentJurors = round.coherentJurors;
+        uint8 jurorRuling = voting.getCastVote(round.voteId, _juror);
+        uint256 weight = _getJurorWeight(_disputeId, MAX_DRAFT_ROUNDS, _juror);
+
+        if (jurorRuling == round.winningRuling) {
+            _assignTokens(jurorToken, _juror, round.slashedTokens * weight / coherentJurors);
+            _payFees(config.feeToken, _juror, config.jurorFee * round.jurorNumber * weight / coherentJurors, config.governanceFeeShare);
+
+            emit RewardSettled(_disputeId, MAX_DRAFT_ROUNDS, _juror);
+        } else {
+            uint256 penalty = _pct4(jurorMinStake, config.penaltyPct) * weight;
+            uint64 slashingUpdateTermId = termId + 1;
+            if (_account.deactivationTermId <= slashingUpdateTermId) {
+                // Slash from balance if the account already deactivated
+                _removeTokens(jurorToken, _juror, penalty);
+            } else {
+                // account.sumTreeId always > 0: as the juror has activated (and gots its sumTreeId)
+                sumTree.update(_account.sumTreeId, slashingUpdateTermId, penalty, false);
+            }
+        }
     }
 
     function canTransitionTerm() public view returns (bool) {
@@ -742,15 +827,19 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
         uint256 roundId = vote.roundId;
         _checkAdjudicationState(disputeId, roundId, _state);
 
-        // for the final round
-        if (roundId == MAX_DRAFT_ROUNDS) {
-            return sumTree.getItemPast(accounts[_voter].sumTreeId, disputes[disputeId].rounds[roundId].draftTermId);
-        }
-
-        return getJurorWeight(disputeId, roundId, _voter);
+        return _getJurorWeight(disputeId, roundId, _voter);
     }
 
-    function getJurorWeight(uint256 _disputeId, uint256 _roundId, address _juror) public view returns (uint256) {
+    function getJurorWeight(uint256 _disputeId, uint256 _roundId, address _juror) external view returns (uint256) {
+        return _getJurorWeight(_disputeId, _roundId, _juror);
+    }
+
+    function _getJurorWeight(uint256 _disputeId, uint256 _roundId, address _juror) internal view returns (uint256) {
+        // for the final round
+        if (_roundId == MAX_DRAFT_ROUNDS) {
+            return sumTree.getItemPast(accounts[_juror].sumTreeId, disputes[_disputeId].rounds[_roundId].draftTermId) / jurorMinStake;
+        }
+
         return disputes[_disputeId].rounds[_roundId].jurorSlotStates[_juror].weight;
     }
 
@@ -777,8 +866,6 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
         }
 
         (roundId, voteId) = _createRound(_disputeId, DisputeState.PreDraft, _draftTermId, _jurorNumber, 0);
-
-        terms[_draftTermId].dependingDrafts += 1;
     }
 
     function _finalAdjudicationRound(
@@ -786,11 +873,18 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
         uint64 _draftTermId
     )
         internal
-        returns (uint256 roundId, uint32 voteId)
+        returns (uint256 roundId, uint32 voteId, uint32 jurorNumber)
     {
-        // TODO: fees
+        // TODO: check overflow? make it bigger? (uint32 feels too small)
+        // TODO: take care of rounding
+        jurorNumber = uint32(sumTree.totalSumPresent(termId) / jurorMinStake);
 
-        uint32 jurorNumber = uint32(sumTree.getNextKey() - 1); // TODO: check overflow?
+        CourtConfig storage config = _courtConfigForTerm(_draftTermId);
+        // apply final round discount
+        uint256 feeAmount = config.heartbeatFee + _pct4(jurorNumber * config.jurorFee, config.finalRoundReduction);
+        if (feeAmount > 0) {
+            require(config.feeToken.safeTransferFrom(msg.sender, this, feeAmount), ERROR_DEPOSIT_FAILED);
+        }
 
         (roundId, voteId) = _createRound(_disputeId, DisputeState.Adjudicating, _draftTermId, jurorNumber, jurorNumber);
     }
@@ -821,6 +915,8 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
         round.triggeredBy = msg.sender;
 
         votes[voteId] = Vote(uint128(_disputeId), uint128(roundId));
+
+        terms[_draftTermId].dependingDrafts += 1;
     }
 
     function _getWinningRuling(Dispute storage dispute) internal view returns (uint8) {
@@ -950,7 +1046,8 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
         uint256 _settleFee,
         uint16 _governanceFeeShare,
         uint64[3] _roundStateDurations,
-        uint16 _penaltyPct
+        uint16 _penaltyPct,
+        uint16 _finalRoundReduction
     )
         internal
     {
@@ -978,7 +1075,8 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
             commitTerms: _roundStateDurations[0],
             revealTerms: _roundStateDurations[1],
             appealTerms: _roundStateDurations[2],
-            penaltyPct: _penaltyPct
+            penaltyPct: _penaltyPct,
+            finalRoundReduction: _finalRoundReduction
         });
 
         uint64 courtConfigId = uint64(courtConfigs.push(courtConfig) - 1);

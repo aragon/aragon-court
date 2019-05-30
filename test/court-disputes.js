@@ -52,6 +52,7 @@ contract('Court: Disputes', ([ poor, rich, governor, juror1, juror2, juror3, arb
   const VOTE_COMMITTED_EVENT = 'VoteCommitted'
   const VOTE_REVEALED_EVENT = 'VoteRevealed'
   const RULING_APPEALED_EVENT = 'RulingAppealed'
+  const RULING_EXECUTED_EVENT = 'RulingExecuted'
   const ROUND_SLASHING_SETTLED_EVENT = 'RoundSlashingSettled'
 
   const SALT = soliditySha3('passw0rd')
@@ -267,6 +268,15 @@ contract('Court: Disputes', ([ poor, rich, governor, juror1, juror2, juror3, arb
             it('fails to appeal incorrect round', async () => {
               await passTerms(1) // term = 5
               await assertRevert(this.court.appealRuling(disputeId, firstRoundId + 1), 'COURT_INVALID_ADJUDICATION_ROUND')
+            })
+
+            it('can settle if executed', async () => {
+              await passTerms(2) // term = 6
+              // execute
+              const executeReceiptPromise = await this.court.executeRuling(disputeId, firstRoundId)
+              await assertLogs(executeReceiptPromise, RULING_EXECUTED_EVENT)
+              // settle
+              await assertLogs(this.court.settleRoundSlashing(disputeId, firstRoundId), ROUND_SLASHING_SETTLED_EVENT)
             })
 
             context('settling round', () => {

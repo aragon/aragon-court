@@ -547,8 +547,6 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
 
         if (dispute.state != DisputeState.Executed) {
             _checkAdjudicationState(_disputeId, dispute.rounds.length - 1, AdjudicationState.Ended);
-        } else {
-            revert(ERROR_INVALID_DISPUTE_STATE);
         }
 
         uint256 voteId = _getVoteId(_disputeId, _roundId);

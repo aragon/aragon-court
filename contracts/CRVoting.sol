@@ -129,7 +129,7 @@ contract CRVoting is ICRVoting {
 
         winningRuling = vote.winningRuling;
 
-        if (Ruling(winningRuling) == Ruling.Missing) {
+        if (winningRuling == uint8(Ruling.Missing)) {
             winningRuling = uint8(Ruling.RefusedRuling);
         }
     }

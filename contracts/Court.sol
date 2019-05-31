@@ -728,7 +728,7 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
         return _canPerformVotingAction(_voteId, _voter, AdjudicationState.Reveal);
     }
 
-    function _canPerformVotingAction(uint256 _voteId, address _voter, AdjudicationState _state) internal returns (uint256) {
+    function _canPerformVotingAction(uint256 _voteId, address _voter, AdjudicationState _state) internal view returns (uint256) {
         require(_voteId <= MAX_UINT32, ERROR_OVERFLOW);
         Vote storage vote = votes[uint32(_voteId)];
         uint256 disputeId = vote.disputeId;
@@ -789,12 +789,9 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
         return voting.getVote(dispute.rounds[dispute.rounds.length - 1].voteId);
     }
 
-    function _checkAdjudicationState(uint256 _disputeId, uint256 _roundId, AdjudicationState _state) internal {
+    function _checkAdjudicationState(uint256 _disputeId, uint256 _roundId, AdjudicationState _state) internal view {
         Dispute storage dispute = disputes[_disputeId];
         DisputeState disputeState = dispute.state;
-        if (disputeState == DisputeState.PreDraft) {
-            draftAdjudicationRound(_disputeId);
-        }
 
         require(disputeState == DisputeState.Adjudicating, ERROR_INVALID_DISPUTE_STATE);
         require(_roundId == dispute.rounds.length - 1, ERROR_INVALID_ADJUDICATION_ROUND);

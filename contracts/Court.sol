@@ -219,9 +219,8 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
         uint64 _firstTermStartTime,
         uint256 _jurorMinStake,
         uint64[3] _roundStateDurations,
-        uint16 _penaltyPct
-        // TODO: stack too deep
-        //uint16 _finalRoundReduction
+        uint16 _penaltyPct,
+        uint16 _finalRoundReduction
     ) public {
         termDuration = _termDuration;
         jurorToken = _jurorToken;
@@ -243,9 +242,7 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
             _settleFee,
             _roundStateDurations,
             _penaltyPct,
-            // TODO: stack too deep
-            //_finalRoundReduction
-            5000
+            _finalRoundReduction
         );
         terms[ZERO_TERM_ID].startTime = _firstTermStartTime - _termDuration;
     }

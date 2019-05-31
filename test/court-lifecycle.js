@@ -41,6 +41,7 @@ contract('Court: Lifecycle', ([ poor, rich, governor, juror1, juror2 ]) => {
   const revealTerms = 1
   const appealTerms = 1
   const penaltyPct = 100 // 100‱ = 1%
+  const finalRoundReduction = 3300 // 100‱ = 1%
   
   const initialBalance = 1e6
   const richStake = 1000
@@ -79,7 +80,8 @@ contract('Court: Lifecycle', ([ poor, rich, governor, juror1, juror2 ]) => {
       firstTermStart,
       jurorMinStake,
       [ commitTerms, appealTerms, revealTerms ],
-      penaltyPct
+      penaltyPct,
+      finalRoundReduction
     )
 
     await this.court.mock_setBlockNumber(startBlock)

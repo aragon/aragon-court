@@ -52,7 +52,6 @@ contract('Court: Staking', ([ pleb, rich ]) => {
       0,
       0,
       0,
-      0,
       ZERO_ADDRESS,
       1,
       1,

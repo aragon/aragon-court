@@ -78,7 +78,6 @@ contract('Court: Batches', ([ rich, governor, arbitrable, juror1, juror2, juror3
       0,
       0,
       0,
-      0,
       governor,
       firstTermStart,
       jurorMinStake,

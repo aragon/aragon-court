@@ -52,6 +52,7 @@ contract('Court: final appeal (non-exact)', ([ poor, rich, governor, juror1, jur
   const revealTerms = 1
   const appealTerms = 1
   const penaltyPct = 100 // 100‱ = 1%
+  const finalRoundReduction = 3300 // 100‱ = 1%
 
   const initialBalance = new web3.BigNumber(1e6).mul(DECIMALS)
   const richStake = new web3.BigNumber(10000).mul(DECIMALS)
@@ -99,12 +100,12 @@ contract('Court: final appeal (non-exact)', ([ poor, rich, governor, juror1, jur
       0,
       0,
       0,
-      0,
       governor,
       firstTermStart,
       jurorMinStake,
       [ commitTerms, appealTerms, revealTerms ],
-      penaltyPct
+      penaltyPct,
+      finalRoundReduction
     )
 
     MAX_REGULAR_APPEAL_ROUNDS = (await this.court.getMaxRegularAppealRounds.call()).toNumber()

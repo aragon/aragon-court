@@ -97,7 +97,6 @@ contract('Court: Disputes', ([ poor, rich, governor, juror1, juror2, juror3, oth
       0,
       0,
       0,
-      0,
       governor,
       firstTermStart,
       jurorMinStake,

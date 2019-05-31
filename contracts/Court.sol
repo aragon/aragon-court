@@ -35,7 +35,6 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
     struct CourtConfig {
         // Fee structure
         ERC20 feeToken;
-        uint16 governanceFeeShare;  // ‱ of fees going to the governor (1/10,000)
         uint256 jurorFee;           // per juror, total round juror fee = jurorFee * jurors drawn
         uint256 heartbeatFee;       // per dispute, total heartbeat fee = heartbeatFee * disputes/appeals in term
         uint256 draftFee;           // per juror, total round draft fee = draftFee * jurors drawn
@@ -134,7 +133,6 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
     string internal constant ERROR_BALANCE_TOO_LOW = "COURT_BALANCE_TOO_LOW";
     string internal constant ERROR_OVERFLOW = "COURT_OVERFLOW";
     string internal constant ERROR_TOKEN_TRANSFER_FAILED = "COURT_TOKEN_TRANSFER_FAILED";
-    string internal constant ERROR_GOVENANCE_FEE_TOO_HIGH = "COURT_GOVENANCE_FEE_TOO_HIGH";
     string internal constant ERROR_ROUND_ALREADY_DRAFTED = "COURT_ROUND_ALREADY_DRAFTED";
     string internal constant ERROR_NOT_DRAFT_TERM = "COURT_NOT_DRAFT_TERM";
     string internal constant ERROR_TERM_RANDOMNESS_NOT_YET = "COURT_TERM_RANDOMNESS_NOT_YET";
@@ -201,7 +199,6 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
      * @param _heartbeatFee The amount of _feeToken per dispute to cover maintenance costs.
      * @param _draftFee The amount of _feeToken per juror to cover the drafting cost.
      * @param _settleFee The amount of _feeToken per juror to cover round settlement cost.
-     * @param _governanceFeeShare Share in ‱ of fees that are paid to the governor.
      * @param _governor Address of the governor contract.
      * @param _firstTermStartTime Timestamp in seconds when the court will open (to give time for juror onboarding)
      * @param _jurorMinStake Minimum amount of juror tokens that can be activated
@@ -218,7 +215,6 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
         uint256 _heartbeatFee,
         uint256 _draftFee,
         uint256 _settleFee,
-        uint16 _governanceFeeShare,
         address _governor,
         uint64 _firstTermStartTime,
         uint256 _jurorMinStake,
@@ -245,7 +241,6 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
             _heartbeatFee,
             _draftFee,
             _settleFee,
-            _governanceFeeShare,
             _roundStateDurations,
             _penaltyPct,
             // TODO: stack too deep
@@ -283,7 +278,7 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
         uint256 totalFee = nextTerm.dependingDrafts * courtConfig.heartbeatFee;
 
         if (totalFee > 0) {
-            _payFees(courtConfig.feeToken, heartbeatSender, totalFee, courtConfig.governanceFeeShare);
+            _assignTokens(courtConfig.feeToken, heartbeatSender, totalFee);
         }
 
         emit NewTerm(termId, heartbeatSender);
@@ -505,7 +500,7 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
             sortitionIteration++;
         }
 
-        _payFees(config.feeToken, msg.sender, config.draftFee * round.jurorNumber, config.governanceFeeShare);
+        _assignTokens(config.feeToken, msg.sender, config.draftFee * round.jurorNumber);
 
         // drafting is over
         if (round.filledSeats == round.jurorNumber) {
@@ -591,7 +586,7 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
             uint256 jurorsSettled;
             (collectedTokens, jurorsSettled) = _settleRegularRoundSlashing(round, voteId, config.penaltyPct, winningRuling, _jurorsToSettle);
             round.collectedTokens = collectedTokens;
-            _payFees(config.feeToken, msg.sender, config.settleFee * jurorsSettled, config.governanceFeeShare);
+            _assignTokens(config.feeToken, msg.sender, config.settleFee * jurorsSettled);
         } else { // final round
             // this was accounted for on juror's vote commit
             collectedTokens = round.collectedTokens;
@@ -603,7 +598,7 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
             // No juror was coherent in the round
             if (round.coherentJurors == 0) {
                 // refund fees and burn ANJ
-                _payFees(config.feeToken, round.triggeredBy, round.jurorFees, config.governanceFeeShare);
+                _assignTokens(config.feeToken, round.triggeredBy, round.jurorFees);
                 _assignTokens(jurorToken, BURN_ACCOUNT, collectedTokens);
             }
 
@@ -706,7 +701,7 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
 
         uint256 jurorFee = round.jurorFees * jurorState.weight / coherentJurors;
         CourtConfig storage config = courtConfigs[terms[round.draftTermId].courtConfigId]; // safe to use directly as it is a past term
-        _payFees(config.feeToken, _juror, jurorFee, config.governanceFeeShare);
+        _assignTokens(config.feeToken, _juror, jurorFee);
 
         emit RewardSettled(_disputeId, _roundId, _juror);
     }
@@ -1040,21 +1035,6 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
         return courtConfigs[courtConfigId];
     }
 
-    function _payFees(ERC20 _feeToken, address _to, uint256 _amount, uint16 _governanceFeeShare) internal {
-        if (_amount == 0) {
-            return;
-        }
-
-        uint256 governanceFee = 0;
-
-        if (_governanceFeeShare > 0) {
-            governanceFee = _pct4(_amount, _governanceFeeShare);
-            _assignTokens(_feeToken, governor, governanceFee);
-        }
-
-        _assignTokens(_feeToken, _to, _amount - governanceFee);
-    }
-
     function _stake(address _from, address _to, uint256 _amount) internal {
         require(_amount > 0, ERROR_ZERO_TRANSFER);
 
@@ -1086,7 +1066,6 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
         uint256 _heartbeatFee,
         uint256 _draftFee,
         uint256 _settleFee,
-        uint16 _governanceFeeShare,
         uint64[3] _roundStateDurations,
         uint16 _penaltyPct,
         uint16 _finalRoundReduction
@@ -1097,7 +1076,6 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
         // Where X is the amount of terms in the future a dispute can be scheduled to be drafted at
 
         require(configChangeTermId > termId || termId == ZERO_TERM_ID, ERROR_PAST_TERM_FEE_CHANGE);
-        require(_governanceFeeShare <= PCT_BASE, ERROR_GOVENANCE_FEE_TOO_HIGH);
 
         for (uint i = 0; i < _roundStateDurations.length; i++) {
             require(_roundStateDurations[i] > 0, ERROR_CONFIG_PERIOD_ZERO_TERMS);
@@ -1109,7 +1087,6 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
 
         CourtConfig memory courtConfig = CourtConfig({
             feeToken: _feeToken,
-            governanceFeeShare: _governanceFeeShare,
             jurorFee: _jurorFee,
             heartbeatFee: _heartbeatFee,
             draftFee: _draftFee,

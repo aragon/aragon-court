@@ -80,8 +80,7 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
     enum DisputeState {
         PreDraft,
         Adjudicating,
-        Executed,
-        Dismissed
+        Executed
     }
 
     struct Dispute {
@@ -130,8 +129,6 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
     string internal constant ERROR_OVERFLOW = "COURT_OVERFLOW";
     string internal constant ERROR_TOKEN_TRANSFER_FAILED = "COURT_TOKEN_TRANSFER_FAILED";
     string internal constant ERROR_GOVENANCE_FEE_TOO_HIGH = "COURT_GOVENANCE_FEE_TOO_HIGH";
-    string internal constant ERROR_ENTITY_CANT_DISMISS = "COURT_ENTITY_CANT_DISMISS";
-    string internal constant ERROR_CANT_DISMISS_AFTER_DRAFT = "COURT_CANT_DISMISS_AFTER_DRAFT";
     string internal constant ERROR_ROUND_ALREADY_DRAFTED = "COURT_ROUND_ALREADY_DRAFTED";
     string internal constant ERROR_NOT_DRAFT_TERM = "COURT_NOT_DRAFT_TERM";
     string internal constant ERROR_TERM_RANDOMNESS_UNAVAIL = "COURT_TERM_RANDOMNESS_UNAVAIL";
@@ -143,7 +140,6 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
     string internal constant ERROR_INVALID_JUROR = "COURT_INVALID_JUROR";
     string internal constant ERROR_INVALID_RULING_OPTIONS = "COURT_INVALID_RULING_OPTIONS";
     string internal constant ERROR_CONFIG_PERIOD_ZERO_TERMS = "COURT_CONFIG_PERIOD_ZERO_TERMS";
-    string internal constant ERROR_CANT_DISMISS_APPEAL = "COURT_CANT_DISMISS_APPEAL";
     string internal constant ERROR_PREV_ROUND_NOT_SETTLED = "COURT_PREV_ROUND_NOT_SETTLED";
     string internal constant ERROR_ROUND_ALREADY_SETTLED = "COURT_ROUND_ALREADY_SETTLED";
     string internal constant ERROR_ROUND_NOT_SETTLED = "COURT_ROUND_NOT_SETTLED";
@@ -413,32 +409,6 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
         emit NewDispute(disputeId, _subject, _draftTermId, voteId, _jurorNumber);
 
         return disputeId;
-    }
-
-    /**
-     * @notice Dismissing dispute #`_disputeId`
-     */
-    function dismissDispute(uint256 _disputeId)
-        external
-        ensureTerm
-    {
-        Dispute storage dispute = disputes[_disputeId];
-        uint256 roundId = dispute.rounds.length - 1;
-        AdjudicationRound storage round = dispute.rounds[roundId];
-
-        require(round.triggeredBy == msg.sender, ERROR_ENTITY_CANT_DISMISS);
-        require(dispute.state == DisputeState.PreDraft && round.draftTermId > termId, ERROR_CANT_DISMISS_AFTER_DRAFT);
-        require(roundId == 0, ERROR_CANT_DISMISS_APPEAL);
-
-        dispute.state = DisputeState.Dismissed;
-
-        terms[round.draftTermId].dependingDrafts -= 1;
-
-        // refund fees
-        (ERC20 feeToken, uint256 feeAmount, uint16 governanceFeeShare) = feeForJurorDraft(round.draftTermId, round.jurorNumber);
-        _payFees(feeToken, round.triggeredBy, feeAmount, governanceFeeShare);
-
-        emit DisputeStateChanged(_disputeId, dispute.state);
     }
 
     /**

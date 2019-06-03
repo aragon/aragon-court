@@ -3,23 +3,23 @@ const { soliditySha3 } = require('web3-utils')
 
 const SumTree = artifacts.require('HexSumTreeWrapper')
 
+const ZERO_ADDRESS = '0x' + '00'.repeat(20)
+
 contract('HexSumTreeWrapper', ([ account0, account1 ]) => {
-  const initPwd = soliditySha3('passw0rd')
-  const preOwner = '0x' + soliditySha3(initPwd).slice(-40)
 
   beforeEach(async () => {
-    this.sumTree = await SumTree.new(preOwner)
+    this.sumTree = await SumTree.new()
   })
 
   it('can set owner', async () => {
-    assert.equal(await this.sumTree.getOwner.call(), preOwner, 'wrong owner before change')
-    await this.sumTree.init(account1, initPwd)
+    assert.equal(await this.sumTree.getOwner.call(), ZERO_ADDRESS, 'wrong owner before change')
+    await this.sumTree.init(account1)
     assert.equal(await this.sumTree.getOwner.call(), account1, 'wrong owner after change')
   })
 
   context('Initialized', () => {
     beforeEach(async () => {
-      await this.sumTree.init(account0, initPwd)
+      await this.sumTree.init(account0)
     })
 
     it('can insert as owner', async () => {

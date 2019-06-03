@@ -9,6 +9,7 @@ const getLog = (receipt, logName, argName) => {
   return log ? log.args[argName] : null
 }
 
+const ZERO_ADDRESS = '0x' + '00'.repeat(20)
 const SALT = soliditySha3('passw0rd')
 const encryptVote = (ruling, salt = SALT) =>
   soliditySha3(
@@ -20,16 +21,14 @@ const ERROR_NOT_ALLOWED_BY_OWNER = 'CRV_NOT_ALLOWED_BY_OWNER'
 const ERROR_OUT_OF_BOUNDS = 'CRV_OUT_OF_BOUNDS'
 
 contract('CRVoting', ([ account0, account1 ]) => {
-  const initPwd = SALT
-  const preOwner = '0x' + soliditySha3(initPwd).slice(-40)
 
   beforeEach(async () => {
-    this.voting = await CRVoting.new(preOwner)
+    this.voting = await CRVoting.new()
   })
 
   it('can set owner', async () => {
-    assert.equal(await this.voting.getOwner.call(), preOwner, 'wrong owner before change')
-    await this.voting.setOwner(account1, initPwd)
+    assert.equal(await this.voting.getOwner.call(), ZERO_ADDRESS, 'wrong owner before change')
+    await this.voting.setOwner(account1)
     assert.equal(await this.voting.getOwner.call(), account1, 'wrong owner after change')
   })
 
@@ -43,7 +42,7 @@ contract('CRVoting', ([ account0, account1 ]) => {
 
     beforeEach(async () => {
       votingOwner = await VotingOwner.new()
-      await this.voting.setOwner(votingOwner.address, initPwd)
+      await this.voting.setOwner(votingOwner.address)
     })
 
     it('can create vote as owner', async () => {

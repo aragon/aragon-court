@@ -7,7 +7,7 @@ contract HexSumTreeWrapper {
     using HexSumTree for HexSumTree.Tree;
 
     string internal constant ERROR_NOT_OWNER = "SUMTREE_NOT_OWNER";
-    string internal constant ERROR_WRONG_INIT_CODE = "SUMTREE_WRONG_INIT_CODE";
+    string internal constant ERROR_OWNER_ALREADY_SET = "SUMTREE_OWNER_ALREADY_SET";
 
     HexSumTree.Tree private tree;
     address private owner;
@@ -17,12 +17,12 @@ contract HexSumTreeWrapper {
         _;
     }
 
-    constructor(address _preOwner) public {
-        owner = address(_preOwner);
-    }
-
-    function init(address _owner, bytes32 _initCode) external {
-        require(address(owner) == address(keccak256(abi.encodePacked(_initCode))),  ERROR_WRONG_INIT_CODE);
+    /**
+     * @dev This can be frontrunned, and ownership stolen, but the Court will notice,
+     *      because its call to this function will revert
+     */
+    function init(address _owner) external {
+        require(address(owner) == address(0), ERROR_OWNER_ALREADY_SET);
         owner = _owner;
         tree.init();
         assert(tree.insert(0, 0) == 0); // first tree item is an empty juror

@@ -2,7 +2,7 @@ pragma solidity ^0.4.24;
 
 
 interface ISumTree {
-    function init(address _owner, bytes32 initCode) external;
+    function init(address _owner) external;
 
     function insert(uint64 _checkpointTime, uint256 _value) external returns (uint256);
 

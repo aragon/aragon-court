@@ -39,10 +39,8 @@ contract('Court: Staking', ([ pleb, rich ]) => {
     await assertEqualBN(this.anj.balanceOf(rich), INITIAL_BALANCE, 'rich balance')
     await assertEqualBN(this.anj.balanceOf(pleb), 0, 'pleb balance')
 
-    const initPwd = SALT
-    const preOwner = '0x' + soliditySha3(initPwd).slice(-40)
-    this.voting = await CRVoting.new(preOwner)
-    this.sumTree = await SumTree.new(preOwner)
+    this.voting = await CRVoting.new()
+    this.sumTree = await SumTree.new()
 
     this.court = await CourtMock.new(
       termDuration,
@@ -50,7 +48,6 @@ contract('Court: Staking', ([ pleb, rich ]) => {
       ZERO_ADDRESS, // no fees
       this.voting.address,
       this.sumTree.address,
-      initPwd,
       0,
       0,
       0,

@@ -65,10 +65,8 @@ contract('Court: Batches', ([ rich, governor, arbitrable, juror1, juror2, juror3
     this.anj = await deployedContract(this.tokenFactory.newToken('ANJ', initialBalance, { from: rich }), MINIME)
     await assertEqualBN(this.anj.balanceOf(rich), initialBalance, 'rich balance')
 
-    const initPwd = SALT
-    const preOwner = '0x' + soliditySha3(initPwd).slice(-40)
-    this.voting = await CRVoting.new(preOwner)
-    this.sumTree = await SumTree.new(preOwner)
+    this.voting = await CRVoting.new()
+    this.sumTree = await SumTree.new()
 
     this.court = await CourtMock.new(
       termDuration,
@@ -76,7 +74,6 @@ contract('Court: Batches', ([ rich, governor, arbitrable, juror1, juror2, juror3
       ZERO_ADDRESS, // no fees
       this.voting.address,
       this.sumTree.address,
-      initPwd,
       0,
       0,
       0,

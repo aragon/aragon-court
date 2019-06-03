@@ -135,8 +135,7 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
     string internal constant ERROR_ROUND_ALREADY_DRAFTED = "COURT_ROUND_ALREADY_DRAFTED";
     string internal constant ERROR_NOT_DRAFT_TERM = "COURT_NOT_DRAFT_TERM";
     string internal constant ERROR_TERM_RANDOMNESS_UNAVAIL = "COURT_TERM_RANDOMNESS_UNAVAIL";
-    string internal constant ERROR_SORTITION_LENGTHS_MIMATCH = "COURT_SORTITION_LENGTHS_MIMATCH";
-    string internal constant ERROR_SORTITION_WRONG_LENGTH = "COURT_SORTITION_WRONG_LENGTH";
+    string internal constant ERROR_SORTITION_LENGTHS_MISMATCH = "COURT_SORTITION_LENGTHS_MISMATCH";
     string internal constant ERROR_INVALID_DISPUTE_STATE = "COURT_INVALID_DISPUTE_STATE";
     string internal constant ERROR_INVALID_ADJUDICATION_ROUND = "COURT_INVALID_ADJUDICATION_ROUND";
     string internal constant ERROR_INVALID_ADJUDICATION_STATE = "COURT_INVALID_ADJUDICATION_STATE";
@@ -213,7 +212,6 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
         ERC20 _feeToken,
         ICRVoting _voting,
         ISumTree _sumTree,
-        bytes32 _initCode,
         uint256 _jurorFee,
         uint256 _heartbeatFee,
         uint256 _draftFee,
@@ -232,8 +230,8 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
         jurorMinStake = _jurorMinStake;
         governor = _governor;
 
-        voting.setOwner(ICRVotingOwner(this), _initCode);
-        sumTree.init(address(this), _initCode);
+        voting.setOwner(ICRVotingOwner(this));
+        sumTree.init(address(this));
 
         courtConfigs.length = 1; // leave index 0 empty
         _setCourtConfig(
@@ -490,8 +488,8 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
                 round.jurorNumber,
                 sortitionIteration
             );
-            require(jurorKeys.length == stakes.length, ERROR_SORTITION_LENGTHS_MIMATCH);
-            require(jurorKeys.length == jurorsRequested, ERROR_SORTITION_WRONG_LENGTH);
+            require(jurorKeys.length == stakes.length, ERROR_SORTITION_LENGTHS_MISMATCH);
+            require(jurorKeys.length == jurorsRequested, ERROR_SORTITION_LENGTHS_MISMATCH);
 
             for (uint256 i = 0; i < jurorKeys.length; i++) {
                 address juror = jurorsByTreeId[jurorKeys[i]];

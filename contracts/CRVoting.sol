@@ -7,7 +7,7 @@ import "./standards/voting/ICRVotingOwner.sol";
 // TODO: Aragon App? CREATE_VOTE role?
 contract CRVoting is ICRVoting {
     string internal constant ERROR_NOT_OWNER = "CRV_NOT_OWNER";
-    string internal constant ERROR_WRONG_INIT_CODE = "CRV_WRONG_INIT_CODE";
+    string internal constant ERROR_OWNER_ALREADY_SET = "CRV_OWNER_ALREADY_SET";
     string internal constant ERROR_NOT_ALLOWED_BY_OWNER = "CRV_NOT_ALLOWED_BY_OWNER";
     string internal constant ERROR_ALREADY_VOTED = "CRV_ALREADY_VOTED";
     string internal constant ERROR_INVALID_VOTE = "CRV_INVALID_VOTE";
@@ -45,12 +45,12 @@ contract CRVoting is ICRVoting {
         _;
     }
 
-    constructor(address _preOwner) public {
-        owner = ICRVotingOwner(_preOwner);
-    }
-
-    function setOwner(ICRVotingOwner _owner, bytes32 _initCode) external {
-        require(address(owner) == address(keccak256(abi.encodePacked(_initCode))), ERROR_WRONG_INIT_CODE);
+    /**
+     * @dev This can be frontrunned, and ownership stolen, but the Court will notice,
+     *      because its call to this function will revert
+     */
+    function setOwner(ICRVotingOwner _owner) external {
+        require(address(owner) == address(0), ERROR_OWNER_ALREADY_SET);
         owner = _owner;
     }
 

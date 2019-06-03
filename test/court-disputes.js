@@ -74,10 +74,8 @@ contract('Court: Disputes', ([ poor, rich, governor, juror1, juror2, juror3, arb
     await assertEqualBN(this.anj.balanceOf(rich), initialBalance, 'rich balance')
     await assertEqualBN(this.anj.balanceOf(poor), 0, 'poor balance')
 
-    const initPwd = SALT
-    const preOwner = '0x' + soliditySha3(initPwd).slice(-40)
-    this.voting = await CRVoting.new(preOwner)
-    this.sumTree = await SumTree.new(preOwner)
+    this.voting = await CRVoting.new()
+    this.sumTree = await SumTree.new()
 
     this.court = await CourtMock.new(
       termDuration,
@@ -85,7 +83,6 @@ contract('Court: Disputes', ([ poor, rich, governor, juror1, juror2, juror3, arb
       ZERO_ADDRESS, // no fees
       this.voting.address,
       this.sumTree.address,
-      initPwd,
       0,
       0,
       0,

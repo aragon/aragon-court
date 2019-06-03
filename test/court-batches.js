@@ -34,7 +34,8 @@ const assertLogs = async (receiptPromise, ...logNames) => {
 contract('Court: Batches', ([ rich, governor, arbitrable, juror1, juror2, juror3, juror4, juror5, juror6, juror7 ]) => {
   const NO_DATA = ''
   const ZERO_ADDRESS = '0x' + '00'.repeat(20)
-  let MAX_JURORS_PER_BATCH
+  let MAX_JURORS_PER_DRAFT_BATCH
+  let MAX_JURORS_PER_SETTLE_BATCH
 
   const termDuration = 10
   const firstTermStart = 1
@@ -53,6 +54,7 @@ contract('Court: Batches', ([ rich, governor, arbitrable, juror1, juror2, juror3
   const NEW_DISPUTE_EVENT = 'NewDispute'
   const JUROR_DRAFTED_EVENT = 'JurorDrafted'
   const DISPUTE_STATE_CHANGED_EVENT = 'DisputeStateChanged'
+  const ROUND_SLASHING_SETTLED_EVENT = 'RoundSlashingSettled'
 
   const ERROR_TERM_RANDOMNESS_UNAVAIL = 'COURT_TERM_RANDOMNESS_UNAVAIL'
 
@@ -90,7 +92,8 @@ contract('Court: Batches', ([ rich, governor, arbitrable, juror1, juror2, juror3
 
     await this.court.mock_setBlockNumber(startBlock)
 
-    MAX_JURORS_PER_BATCH = (await this.court.getMaxJurorsPerBatch.call()).toNumber()
+    MAX_JURORS_PER_DRAFT_BATCH = (await this.court.getMaxJurorsPerDraftBatch.call()).toNumber()
+    MAX_JURORS_PER_SETTLE_BATCH = (await this.court.getMaxJurorsPerSettleBatch.call()).toNumber()
 
     assert.equal(await this.court.token(), this.anj.address, 'court token')
     //assert.equal(await this.court.jurorToken(), this.anj.address, 'court juror token')
@@ -119,7 +122,7 @@ contract('Court: Batches', ([ rich, governor, arbitrable, juror1, juror2, juror3
     assert.isFalse(await this.court.canTransitionTerm(), 'all terms transitioned')
   }
 
-  context('on multiple batches', () => {
+  context('on multiple draft batches', () => {
     let jurors
     const term = 3
     const rulings = 2
@@ -132,7 +135,7 @@ contract('Court: Batches', ([ rich, governor, arbitrable, juror1, juror2, juror3
       }
       await passTerms(1) // term = 1
 
-      jurors = Math.round(MAX_JURORS_PER_BATCH * 7 /2)
+      jurors = Math.round(MAX_JURORS_PER_DRAFT_BATCH * 7 / 2)
       const receipt = await this.court.createDispute(arbitrable, rulings, jurors, term)
       await assertLogs(receipt, NEW_DISPUTE_EVENT)
       disputeId = getLog(receipt, NEW_DISPUTE_EVENT, 'disputeId')
@@ -262,15 +265,64 @@ contract('Court: Batches', ([ rich, governor, arbitrable, juror1, juror2, juror3
       })
 
       it('selects expected juror amount', async () => {
-        await this.court.setTermRandomness()
-        // assuming jurors is not multiple of MAX_JURORS_PER_BATCH
-        for (let i = 0; i < Math.floor(jurors / MAX_JURORS_PER_BATCH); i++) {
+          await this.court.setTermRandomness()
+        // assuming jurors is not multiple of MAX_JURORS_PER_DRAFT_BATCH
+        for (let i = 0; i < Math.floor(jurors / MAX_JURORS_PER_DRAFT_BATCH); i++) {
           const callJurorsDrafted = getLogCount(await this.court.draftAdjudicationRound(disputeId), JUROR_DRAFTED_EVENT)
-          assert.equal(callJurorsDrafted, MAX_JURORS_PER_BATCH, `wrong number of jurors drafed on iteration #${i}`)
+          assert.equal(callJurorsDrafted, MAX_JURORS_PER_DRAFT_BATCH, `wrong number of jurors drafed on iteration #${i}`)
         }
         const callJurorsDrafted = getLogCount(await this.court.draftAdjudicationRound(disputeId), JUROR_DRAFTED_EVENT)
-        assert.equal(callJurorsDrafted, jurors % MAX_JURORS_PER_BATCH, `wrong number of jurors drafed on iteration #{i}`)
+        assert.equal(callJurorsDrafted, jurors % MAX_JURORS_PER_DRAFT_BATCH, `wrong number of jurors drafed on iteration #{i}`)
       })
+    })
+  })
+
+  context('on multiple settle batches', () => {
+    let jurors
+    const term = 3
+    const rulings = 2
+    let disputeId, voteId
+    const firstRoundId = 0
+
+    const createDispute = async () => {
+      for (const juror of [juror1, juror2, juror3, juror4, juror5, juror6, juror7]) {
+        await this.court.activate({ from: juror })
+      }
+      await passTerms(1) // term = 1
+
+      jurors = 50
+      const receipt = await this.court.createDispute(arbitrable, rulings, jurors, term)
+      await assertLogs(receipt, NEW_DISPUTE_EVENT)
+      disputeId = getLog(receipt, NEW_DISPUTE_EVENT, 'disputeId')
+      voteId = getLog(receipt, NEW_DISPUTE_EVENT, 'voteId')
+      await passTerms(2) // term = 3
+      await this.court.mock_blockTravel(1)
+    }
+
+    beforeEach(async () => {
+      // tree searches always return jurors in the order that they were added to the tree
+      await this.court.mock_hijackTreeSearch()
+
+      // create dispute
+      await createDispute()
+
+      // draft
+      let totalJurorsDrafted = 0
+      while(totalJurorsDrafted < jurors) {
+        assert.isFalse(await this.court.areAllJurorsDrafted.call(disputeId, firstRoundId))
+        const callJurorsDrafted = getLogCount(await this.court.draftAdjudicationRound(disputeId), JUROR_DRAFTED_EVENT)
+        totalJurorsDrafted += callJurorsDrafted
+      }
+      assert.isTrue(await this.court.areAllJurorsDrafted.call(disputeId, firstRoundId))
+      await passTerms(3)
+    })
+
+    it('settles in 2 batches', async () => {
+      await this.court.settleRoundSlashing(disputeId, firstRoundId)
+      assert.isFalse(await this.court.areAllJurorsSettled.call(disputeId, firstRoundId))
+      const receipt = await this.court.settleRoundSlashing(disputeId, firstRoundId)
+      assertLogs(receipt, ROUND_SLASHING_SETTLED_EVENT)
+      assert.isTrue(await this.court.areAllJurorsSettled.call(disputeId, firstRoundId))
     })
   })
 })

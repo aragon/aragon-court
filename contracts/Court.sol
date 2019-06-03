@@ -18,7 +18,8 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
     using SafeERC20 for ERC20;
     using SafeMath for uint256;
 
-    uint256 internal constant MAX_JURORS_PER_BATCH = 10; // to cap gas used on draft
+    uint256 internal constant MAX_JURORS_PER_DRAFT_BATCH = 10; // to cap gas used on draft
+    uint256 internal constant MAX_JURORS_PER_SETTLE_BATCH = 40; // to cap gas used on settleRoundSlashing
     uint256 internal constant MAX_REGULAR_APPEAL_ROUNDS = 4; // before the final appeal
     uint256 internal constant FINAL_ROUND_WEIGHT_PRECISION = 1000; // to improve roundings
     uint32 internal constant APPEAL_STEP_FACTOR = 3;
@@ -72,13 +73,14 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
     struct AdjudicationRound {
         address[] jurors;
         mapping (address => JurorState) jurorSlotStates;
-        uint32 nextJurorIndex;
-        uint32 filledSeats;
         uint64 draftTermId;
         uint64 delayTerms;
         uint64 jurorNumber;
         uint64 coherentJurors;
         address triggeredBy;
+        uint32 settledJurors;
+        uint24 nextJurorIndex;
+        uint32 filledSeats;
         bool settledPenalties;
         uint256 jurorFees;
         // for regular rounds this contains penalties from non-winning jurors, collected after reveal period
@@ -422,7 +424,7 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
 
     /**
      * @notice Draft jurors for the next round of dispute #`_disputeId`
-     * @dev Allows for batches, so only up to MAX_JURORS_PER_BATCH will be drafted in each call
+     * @dev Allows for batches, so only up to MAX_JURORS_PER_DRAFT_BATCH will be drafted in each call
      */
     function draftAdjudicationRound(uint256 _disputeId)
         public
@@ -456,8 +458,8 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
         }
 
         uint256 jurorsRequested = round.jurorNumber - round.filledSeats;
-        if (jurorsRequested > MAX_JURORS_PER_BATCH) {
-            jurorsRequested = MAX_JURORS_PER_BATCH;
+        if (jurorsRequested > MAX_JURORS_PER_DRAFT_BATCH) {
+            jurorsRequested = MAX_JURORS_PER_DRAFT_BATCH;
         }
 
         // to add "randomness" to sortition call in order to avoid getting stuck by
@@ -579,8 +581,10 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
 
         uint8 winningRuling = _ensureFinalRuling(_disputeId);
         uint256 voteId = _getVoteId(_disputeId, _roundId);
-        uint256 coherentJurors = voting.getRulingVotes(voteId, winningRuling);
-        round.coherentJurors = uint64(coherentJurors);
+        // let's fetch them only the first time
+        if (round.settledJurors == 0) {
+            round.coherentJurors = uint64(voting.getRulingVotes(voteId, winningRuling));
+        }
 
         uint256 collectedTokens;
         if (_roundId < MAX_REGULAR_APPEAL_ROUNDS) {
@@ -590,19 +594,20 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
         } else { // final round
             // this was accounted for on juror's vote commit
             collectedTokens = round.collectedTokens;
+            round.settledPenalties = true;
             // there's no settleFee in this round
         }
 
-        round.settledPenalties = true;
+        if (round.settledPenalties) {
+            // No juror was coherent in the round
+            if (round.coherentJurors == 0) {
+                // refund fees and burn ANJ
+                _payFees(config.feeToken, round.triggeredBy, round.jurorFees, config.governanceFeeShare);
+                _assignTokens(jurorToken, BURN_ACCOUNT, collectedTokens);
+            }
 
-        // No juror was coherent in the round
-        if (coherentJurors == 0) {
-            // refund fees and burn ANJ
-            _payFees(config.feeToken, round.triggeredBy, round.jurorFees, config.governanceFeeShare);
-            _assignTokens(jurorToken, BURN_ACCOUNT, collectedTokens);
+            emit RoundSlashingSettled(_disputeId, _roundId, collectedTokens);
         }
-
-        emit RoundSlashingSettled(_disputeId, _roundId, collectedTokens);
     }
 
     function _ensureFinalRuling(uint256 _disputeId) internal returns (uint8 winningRuling) {
@@ -635,8 +640,12 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
         uint256 votesLength = _round.jurors.length;
         uint64 slashingUpdateTermId = termId + 1;
 
-        // should we batch this too?? OOG?
-        for (uint256 i = 0; i < votesLength; i++) {
+        if (votesLength - _round.settledJurors > MAX_JURORS_PER_SETTLE_BATCH) {
+            votesLength = _round.settledJurors + MAX_JURORS_PER_SETTLE_BATCH;
+        } else { // we are reaching the end of the array, so it's the last batch
+            _round.settledPenalties = true;
+        }
+        for (uint256 i = _round.settledJurors; i < votesLength; i++) {
             address juror = _round.jurors[i];
             uint256 weightedPenalty = penalty * _round.jurorSlotStates[juror].weight;
             Account storage account = accounts[juror];
@@ -656,6 +665,9 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
                 }
             }
         }
+
+        _round.settledJurors = uint32(votesLength); // TODO: check overflow
+        _round.collectedTokens = _round.collectedTokens.add(collectedTokens);
     }
 
     /**
@@ -706,6 +718,11 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
     function areAllJurorsDrafted(uint256 _disputeId, uint256 _roundId) public view returns (bool) {
         AdjudicationRound storage round = disputes[_disputeId].rounds[_roundId];
         return round.filledSeats == round.jurorNumber;
+    }
+
+    function areAllJurorsSettled(uint256 _disputeId, uint256 _roundId) public view returns (bool) {
+        AdjudicationRound storage round = disputes[_disputeId].rounds[_roundId];
+        return uint256(round.settledJurors) == round.jurors.length;
     }
 
     /**

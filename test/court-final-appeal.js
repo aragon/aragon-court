@@ -39,7 +39,7 @@ contract('Court: final appeal', ([ poor, rich, governor, juror1, juror2, juror3,
   const jurors = [juror1, juror2, juror3, juror4, juror5, juror6, juror7]
   const NO_DATA = ''
   const ZERO_ADDRESS = '0x' + '00'.repeat(20)
-  let MAX_JURORS_PER_BATCH
+  let MAX_JURORS_PER_DRAFT_BATCH
   let MAX_REGULAR_APPEAL_ROUNDS
   let APPEAL_STEP_FACTOR
 
@@ -112,7 +112,7 @@ contract('Court: final appeal', ([ poor, rich, governor, juror1, juror2, juror3,
       penaltyPct
     )
 
-    MAX_JURORS_PER_BATCH = (await this.court.getMaxJurorsPerBatch.call()).toNumber()
+    MAX_JURORS_PER_DRAFT_BATCH = (await this.court.getMaxJurorsPerDraftBatch.call()).toNumber()
     MAX_REGULAR_APPEAL_ROUNDS = (await this.court.getMaxRegularAppealRounds.call()).toNumber()
     APPEAL_STEP_FACTOR = (await this.court.getAppealStepFactor.call()).toNumber()
 
@@ -143,8 +143,7 @@ contract('Court: final appeal', ([ poor, rich, governor, juror1, juror2, juror3,
   }
 
   context('Final appeal', () => {
-
-    const jurorNumber = 3
+    const initialJurorNumber = 3
     const term = 3
     const rulings = 2
 
@@ -159,7 +158,7 @@ contract('Court: final appeal', ([ poor, rich, governor, juror1, juror2, juror3,
       await passTerms(1) // term = 1
 
       const arbitrable = poor // it doesn't matter, just an address
-      const receipt = await this.court.createDispute(arbitrable, rulings, jurorNumber, term)
+      const receipt = await this.court.createDispute(arbitrable, rulings, initialJurorNumber, term)
       await assertLogs(receipt, NEW_DISPUTE_EVENT)
       disputeId = getLog(receipt, NEW_DISPUTE_EVENT, 'disputeId')
       voteId = getVoteId(disputeId, firstRoundId)
@@ -179,8 +178,6 @@ contract('Court: final appeal', ([ poor, rich, governor, juror1, juror2, juror3,
     const moveForwardToFinalRound = async () => {
       await passTerms(2) // term = 3, dispute init
       await this.court.mock_blockTravel(1)
-
-      const initialJurorNumber = 3
 
       for (let roundId = 0; roundId < MAX_REGULAR_APPEAL_ROUNDS; roundId++) {
         let roundJurors = initialJurorNumber * (APPEAL_STEP_FACTOR ** roundId)
@@ -270,8 +267,11 @@ contract('Court: final appeal', ([ poor, rich, governor, juror1, juror2, juror3,
 
         // settle
         for (let roundId = 0; roundId <= MAX_REGULAR_APPEAL_ROUNDS; roundId++) {
-          const receiptPromise = this.court.settleRoundSlashing(disputeId, roundId)
-          await assertLogs(receiptPromise, ROUND_SLASHING_SETTLED_EVENT)
+          let roundSlashingEvent = 0
+          while (roundSlashingEvent == 0) {
+            const receiptPromise = await this.court.settleRoundSlashing(disputeId, roundId)
+            roundSlashingEvent = getLogCount(receiptPromise, ROUND_SLASHING_SETTLED_EVENT)
+          }
         }
       })
 
@@ -291,7 +291,7 @@ contract('Court: final appeal', ([ poor, rich, governor, juror1, juror2, juror3,
       })
 
       it('losers jurors have penalty', async () => {
-        for (let i = winningJurors; i < jurorNumber; i++) {
+        for (let i = winningJurors; i < initialJurorNumber; i++) {
           const tokenBalance = (await this.anj.balanceOf(jurors[i])).toNumber()
           const courtBalance = (await this.court.totalStakedFor(jurors[i])).toNumber()
           const receiptPromise = this.court.settleFinalRounds(jurors[i], 2)

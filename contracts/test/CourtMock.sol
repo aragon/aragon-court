@@ -121,8 +121,12 @@ contract CourtMock is Court {
         return sumTree.totalSumPresent(_time());
     }
 
-    function getMaxJurorsPerBatch() public pure returns (uint256) {
-        return MAX_JURORS_PER_BATCH;
+    function getMaxJurorsPerDraftBatch() public pure returns (uint256) {
+        return MAX_JURORS_PER_DRAFT_BATCH;
+    }
+
+    function getMaxJurorsPerSettleBatch() public pure returns (uint256) {
+        return MAX_JURORS_PER_SETTLE_BATCH;
     }
 
     function getMaxRegularAppealRounds() public pure returns (uint256) {

@@ -137,7 +137,7 @@ contract('Court: final appeal (non-exact)', ([ poor, rich, governor, juror1, jur
   }
 
   context('Final appeal, non-exact stakes', () => {
-    const jurorNumber = 3
+    const initialJurorNumber = 3
     const term = 3
     const rulings = 2
 
@@ -152,7 +152,7 @@ contract('Court: final appeal (non-exact)', ([ poor, rich, governor, juror1, jur
       await passTerms(1) // term = 1
 
       const arbitrable = poor // it doesn't matter, just an address
-      const receipt = await this.court.createDispute(arbitrable, rulings, jurorNumber, term)
+      const receipt = await this.court.createDispute(arbitrable, rulings, initialJurorNumber, term)
       await assertLogs(receipt, NEW_DISPUTE_EVENT)
       disputeId = getLog(receipt, NEW_DISPUTE_EVENT, 'disputeId')
       voteId = getVoteId(disputeId, firstRoundId)
@@ -202,8 +202,6 @@ contract('Court: final appeal (non-exact)', ([ poor, rich, governor, juror1, jur
       await passTerms(2) // term = 3, dispute init
       await this.court.mock_blockTravel(1)
 
-      const initialJurorNumber = 3
-
       for (let roundId = 0; roundId < MAX_REGULAR_APPEAL_ROUNDS; roundId++) {
         let roundJurors = initialJurorNumber * (APPEAL_STEP_FACTOR ** roundId)
         if (roundJurors % 2 == 0) {
@@ -236,8 +234,11 @@ contract('Court: final appeal (non-exact)', ([ poor, rich, governor, juror1, jur
 
         // settle
         for (let roundId = 0; roundId <= MAX_REGULAR_APPEAL_ROUNDS; roundId++) {
-          const receiptPromise = this.court.settleRoundSlashing(disputeId, roundId)
-          await assertLogs(receiptPromise, ROUND_SLASHING_SETTLED_EVENT)
+          let roundSlashingEvent = 0
+          while (roundSlashingEvent == 0) {
+            const receiptPromise = await this.court.settleRoundSlashing(disputeId, roundId)
+            roundSlashingEvent = getLogCount(receiptPromise, ROUND_SLASHING_SETTLED_EVENT)
+          }
         }
 
         // checks

@@ -26,7 +26,7 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
         mapping (address => uint256) balances; // token addr -> balance
         // when deactivating, balance becomes available on next term:
         uint64 deactivationTermId;
-        uint64 nextFinalRoundDisputeToSettle; // id in finalRoundDisputeIds array of the next pending final appeal round to settle
+        uint64 nextFinalAdjudicationRoundToSettle; // id in finalAdjudicationRounds array of the next pending final appeal round to settle
         uint256 atStakeTokens;   // maximum amount of juror tokens that the juror could be slashed given their drafts
         uint256 sumTreeId;       // key in the sum tree used for sortition
     }
@@ -97,6 +97,11 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
         AdjudicationRound[] rounds;
     }
 
+    struct FinalAdjudicationRound {
+        uint256 disputeId;
+        uint256 lockedStakePerJuror;
+    }
+
     // to map from voteId to disputeId and roundId
     struct Vote {
         uint128 disputeId;
@@ -122,7 +127,7 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
     ISumTree internal sumTree;
     Dispute[] public disputes;
     mapping (uint32 => Vote) votes; // to map from voteId to disputeId and roundId
-    uint256[] finalRoundDisputeIds; // Disputes that made it to the final appeal round
+    FinalAdjudicationRound[] finalAdjudicationRounds; // Disputes that made it to the final appeal round
 
     string internal constant ERROR_INVALID_ADDR = "COURT_INVALID_ADDR";
     string internal constant ERROR_DEPOSIT_FAILED = "COURT_DEPOSIT_FAILED";
@@ -153,6 +158,7 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
     string internal constant ERROR_ROUND_NOT_SETTLED = "COURT_ROUND_NOT_SETTLED";
     string internal constant ERROR_JUROR_ALREADY_REWARDED = "COURT_JUROR_ALREADY_REWARDED";
     string internal constant ERROR_JUROR_NOT_COHERENT = "COURT_JUROR_NOT_COHERENT";
+    string internal constant ERROR_FINAL_ROUND_NOT_FOUND = "COURT_FINAL_ROUND_NOT_FOUND";
 
     uint64 internal constant ZERO_TERM_ID = 0; // invalid term that doesn't accept disputes
     uint64 internal constant MODIFIER_ALLOWED_TERM_TRANSITIONS = 1;
@@ -484,10 +490,7 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
 
                 // Account storage jurorAccount = accounts[juror]; // Hitting stack too deep
                 // account also for pending final rounds
-                // TODO: what if config changes?
-                // TODO: finalRoundDisputeIds has only final rounds that have been settled, but we should also include ongoing ones (in commit or reveal stage)
-                uint256 newAtStake = accounts[juror].atStakeTokens +
-                    _pct4(jurorMinStake, config.penaltyPct) * (1 + finalRoundDisputeIds.length - accounts[juror].nextFinalRoundDisputeToSettle); // maxPenalty
+                uint256 newAtStake = accounts[juror].atStakeTokens + _finalRoundsLockedAmount(accounts[juror]) + _pct4(jurorMinStake, config.penaltyPct);
                 // Only select a juror if their stake is greater than or equal than the amount of tokens that they can lose, otherwise skip it
                 if (stakes[i] >= newAtStake) {
                     accounts[juror].atStakeTokens = newAtStake;
@@ -645,13 +648,15 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
         uint16 _penaltyPct
     )
         internal
-        returns (uint256 slashedTokens)
+        returns (uint256)
     {
-        slashedTokens = _pct4(jurorMinStake, _penaltyPct) * (_round.jurorNumber - _round.coherentJurors);
-
-        uint256 finalRoundDisputeIdsLength = finalRoundDisputeIds.length;
-        finalRoundDisputeIds.length = finalRoundDisputeIdsLength + 1;
-        finalRoundDisputeIds[finalRoundDisputeIdsLength] = _disputeId;
+        for (uint256 i = finalAdjudicationRounds.length; i > 0; i--) {
+            if (finalAdjudicationRounds[i - 1].disputeId == _disputeId) {
+                return finalAdjudicationRounds[i - 1].lockedStakePerJuror * (_round.jurorNumber - _round.coherentJurors);
+            }
+        }
+        // reaching here means final round not found
+        revert(ERROR_FINAL_ROUND_NOT_FOUND);
     }
 
      /**
@@ -685,19 +690,28 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
         emit RewardSettled(_disputeId, _roundId, _juror);
     }
 
-    function settleFinalRounds(address _juror) external {
+    /**
+     * @notice Settles pending final round rewards and slashes for juror `_juror`
+     * @dev It can happen that finalAdjudicationRounds array is unordered if settleRoundSlashing is not called in the same order as appealRuling.
+     *      In this case jurors should wait for the missed final round to be settled or do it themselves before.
+     * @param _juror Juror whose final rounds are going to be settled.
+     * @param _roundsToSettle Max number of rounds to settle. To avoid getting stuck because of out of gas if too many are still pending,
+     *        and to avoid reaching rounds without settled penalties that would mak the call revert.
+     */
+    function settleFinalRounds(address _juror, uint256 _roundsToSettle) external {
         Account storage account = accounts[_juror];
-        uint256 finalRoundDisputeIdsLength = finalRoundDisputeIds.length;
+        uint256 finalAdjudicationRoundsLength = finalAdjudicationRounds.length;
 
-        for (uint256 i = account.nextFinalRoundDisputeToSettle; i < finalRoundDisputeIdsLength; i++) {
-            _settleFinalRound(_juror, account, finalRoundDisputeIds[i]);
+        for (uint256 i = account.nextFinalAdjudicationRoundToSettle; i < finalAdjudicationRoundsLength && i < _roundsToSettle; i++) {
+            _settleFinalRound(_juror, account, finalAdjudicationRounds[i]);
         }
 
-        account.nextFinalRoundDisputeToSettle = uint64(finalRoundDisputeIdsLength);
+        account.nextFinalAdjudicationRoundToSettle = uint64(i);
     }
 
-    function _settleFinalRound(address _juror, Account storage _account, uint256 _disputeId) internal {
-        Dispute storage dispute = disputes[_disputeId];
+    function _settleFinalRound(address _juror, Account storage _account, FinalAdjudicationRound _finalAdjudicationRound) internal {
+        uint256 disputeId = _finalAdjudicationRound.disputeId;
+        Dispute storage dispute = disputes[disputeId];
         AdjudicationRound storage round = dispute.rounds[MAX_DRAFT_ROUNDS];
         CourtConfig storage config = courtConfigs[terms[round.draftTermId].courtConfigId]; // safe to use directly as it is a past term
 
@@ -705,15 +719,15 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
 
         uint256 coherentJurors = round.coherentJurors;
         uint8 jurorRuling = voting.getCastVote(round.voteId, _juror);
-        uint256 weight = _getJurorWeight(_disputeId, MAX_DRAFT_ROUNDS, _juror);
+        uint256 weight = _getJurorWeight(disputeId, MAX_DRAFT_ROUNDS, _juror);
 
         if (jurorRuling == round.winningRuling) {
             _assignTokens(jurorToken, _juror, round.slashedTokens * weight / coherentJurors);
             _payFees(config.feeToken, _juror, config.jurorFee * round.jurorNumber * weight / coherentJurors, config.governanceFeeShare);
 
-            emit RewardSettled(_disputeId, MAX_DRAFT_ROUNDS, _juror);
+            emit RewardSettled(disputeId, MAX_DRAFT_ROUNDS, _juror);
         } else {
-            uint256 penalty = _pct4(jurorMinStake, config.penaltyPct) * weight;
+            uint256 penalty = _finalAdjudicationRound.lockedStakePerJuror * weight;
             uint64 slashingUpdateTermId = termId + 1;
             if (_account.deactivationTermId <= slashingUpdateTermId) {
                 // Slash from balance if the account already deactivated
@@ -797,7 +811,17 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
      */
     function unlockedBalanceOf(address _addr) public view returns (uint256) {
         Account storage account = accounts[_addr];
-        return account.balances[jurorToken].sub(account.atStakeTokens);
+        return account.balances[jurorToken].sub(account.atStakeTokens).sub(_finalRoundsLockedAmount(account));
+    }
+
+    function _finalRoundsLockedAmount(Account storage _account) internal returns (uint256) {
+        uint256 finalAdjudicationRoundsLength = finalAdjudicationRounds.length;
+        uint256 lockedAmount = 0;
+        for (uint256 i = _account.nextFinalAdjudicationRoundToSettle; i < finalAdjudicationRoundsLength; i++) {
+            lockedAmount = lockedAmount.add(finalAdjudicationRounds[i].lockedStakePerJuror);
+        }
+
+        return lockedAmount;
     }
 
     // Voting interface fns
@@ -885,6 +909,12 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
         }
 
         (roundId, voteId) = _createRound(_disputeId, DisputeState.Adjudicating, _draftTermId, jurorNumber, jurorNumber);
+
+        // add it to array of final appeal rounds for locking, slashing and rewards
+        uint256 finalAdjudicationRoundsLength = finalAdjudicationRounds.length;
+        finalAdjudicationRounds.length = finalAdjudicationRoundsLength + 1;
+        finalAdjudicationRounds[finalAdjudicationRoundsLength].disputeId = _disputeId;
+        finalAdjudicationRounds[finalAdjudicationRoundsLength].lockedStakePerJuror = _pct4(jurorMinStake, config.penaltyPct);
     }
 
     function _createRound(

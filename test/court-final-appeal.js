@@ -255,7 +255,7 @@ contract('Court: final appeal', ([ poor, rich, governor, juror1, juror2, juror3,
         for (let i = 0; i < winningJurors; i++) {
           const tokenBalance = (await this.anj.balanceOf(jurors[i])).toNumber()
           const courtBalance = (await this.court.totalStakedFor(jurors[i])).toNumber()
-          const receiptPromise = this.court.settleFinalRounds(jurors[i])
+          const receiptPromise = this.court.settleFinalRounds(jurors[i], 2)
           await assertLogs(receiptPromise, REWARD_SETTLED_EVENT)
 
           // as jurors are not withdrawing here, real token balance shouldn't change
@@ -270,7 +270,7 @@ contract('Court: final appeal', ([ poor, rich, governor, juror1, juror2, juror3,
         for (let i = winningJurors; i < jurorNumber; i++) {
           const tokenBalance = (await this.anj.balanceOf(jurors[i])).toNumber()
           const courtBalance = (await this.court.totalStakedFor(jurors[i])).toNumber()
-          const receiptPromise = this.court.settleFinalRounds(jurors[i])
+          const receiptPromise = this.court.settleFinalRounds(jurors[i], 2)
           await assertLogs(receiptPromise, REWARD_SETTLED_EVENT)
 
           // as jurors are not withdrawing here, real token balance shouldn't change

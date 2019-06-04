@@ -101,6 +101,7 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
     ERC20 internal jurorToken;
     uint64 public termDuration; // recomended value ~1 hour as 256 blocks (available block hash) around an hour to mine
     ICRVoting internal voting;
+    ISumTree internal sumTree;
 
     // Global config, configurable by governor
     address public governor; // TODO: consider using aOS' ACL
@@ -113,7 +114,6 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
     mapping (address => Account) public accounts;
     mapping (uint256 => address) public jurorsByTreeId;
     mapping (uint64 => Term) public terms;
-    ISumTree internal sumTree;
     Dispute[] public disputes;
     mapping (uint32 => Vote) votes; // to map from voteId to disputeId and roundId
 
@@ -719,7 +719,7 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
      * @notice Check that adjudication state is correct
      * @return `_voter`'s weight
      */
-    function canCommit(uint256 _voteId, address _voter) external ensureTerm returns (uint256) {
+    function canCommit(uint256 _voteId, address _voter) external ensureTerm only(voting) returns (uint256) {
         return _canPerformVotingAction(_voteId, _voter, AdjudicationState.Commit);
     }
 
@@ -727,7 +727,7 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
      * @notice Check that adjudication state is correct
      * @return `_voter`'s weight
      */
-    function canReveal(uint256 _voteId, address _voter) external ensureTerm returns (uint256) {
+    function canReveal(uint256 _voteId, address _voter) external ensureTerm only(voting) returns (uint256) {
         return _canPerformVotingAction(_voteId, _voter, AdjudicationState.Reveal);
     }
 
@@ -743,15 +743,6 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
 
     function getJurorWeight(uint256 _disputeId, uint256 _roundId, address _juror) public view returns (uint256) {
         return disputes[_disputeId].rounds[_roundId].jurorSlotStates[_juror].weight;
-    }
-
-    /**
-     * @dev Sum nA + nB which can be positive or negative denoted by pA and pB
-     */
-    function _signedSum(uint256 nA, bool pA, uint256 nB, bool pB) internal pure returns (uint256 nC, bool pC) {
-        nC = nA + (pA == pB ? nB : -nB);
-        pC = pB ? nC >= nA : nA >= nC;
-        nC = pA == pC ? nC : -nC;
     }
 
     function _newAdjudicationRound(

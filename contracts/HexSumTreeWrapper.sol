@@ -6,8 +6,9 @@ import "./lib/HexSumTree.sol";
 contract HexSumTreeWrapper {
     using HexSumTree for HexSumTree.Tree;
 
-    string internal constant ERROR_NOT_OWNER = "SUMTREE_NOT_OWNER";
     string internal constant ERROR_OWNER_ALREADY_SET = "SUMTREE_OWNER_ALREADY_SET";
+    string internal constant ERROR_TREE_ALREADY_INITIALIZED = "SUMTREE_TREE_ALREADY_INITIALIZED";
+    string internal constant ERROR_NOT_OWNER = "SUMTREE_NOT_OWNER";
 
     HexSumTree.Tree private tree;
     address private owner;
@@ -24,6 +25,8 @@ contract HexSumTreeWrapper {
     function init(address _owner) external {
         require(address(owner) == address(0), ERROR_OWNER_ALREADY_SET);
         owner = _owner;
+
+        require(tree.rootDepth == 0, ERROR_TREE_ALREADY_INITIALIZED);
         tree.init();
         assert(tree.insert(0, 0) == 0); // first tree item is an empty juror
     }

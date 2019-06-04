@@ -422,11 +422,12 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
     {
         Dispute storage dispute = disputes[_disputeId];
         AdjudicationRound storage round = dispute.rounds[dispute.rounds.length - 1];
+        // TODO: stack too deep: uint64 draftTermId = round.draftTermId;
         Term storage draftTerm = terms[termId];
-        CourtConfig storage config = courtConfigs[draftTerm.courtConfigId]; // safe to use directly as it is the current term
+        CourtConfig storage config = courtConfigs[terms[round.draftTermId].courtConfigId]; // safe to use directly as it is the current or past term
 
         require(dispute.state == DisputeState.PreDraft, ERROR_ROUND_ALREADY_DRAFTED);
-        require(draftTerm.randomnessBN > 0, ERROR_TERM_RANDOMNESS_UNAVAIL);
+        require(_blockNumber() > draftTerm.randomnessBN, ERROR_TERM_RANDOMNESS_UNAVAIL);
         require(round.draftTermId <= termId, ERROR_NOT_DRAFT_TERM);
 
         if (round.draftTermId < termId) {
@@ -801,8 +802,10 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
     function _adjudicationStateAtTerm(uint256 _disputeId, uint256 _roundId, uint64 _termId) internal view returns (AdjudicationState) {
         AdjudicationRound storage round = disputes[_disputeId].rounds[_roundId];
 
-        uint64 draftTermId = round.draftTermId + round.delayTerms;
+        // we use the config for the original draft term and only use the delay for the timing of the rounds
+        uint64 draftTermId = round.draftTermId;
         uint64 configId = terms[draftTermId].courtConfigId;
+        draftTermId = draftTermId + round.delayTerms;
         CourtConfig storage config = courtConfigs[uint256(configId)];
 
         uint64 revealStart = draftTermId + config.commitTerms;

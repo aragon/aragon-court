@@ -139,7 +139,7 @@ contract('Court: Batches', ([ rich, governor, arbitrable, juror1, juror2, juror3
       disputeId = getLog(receipt, NEW_DISPUTE_EVENT, 'disputeId')
       voteId = getLog(receipt, NEW_DISPUTE_EVENT, 'voteId')
       await passTerms(2) // term = 3
-
+      await this.court.mock_blockTravel(1)
     }
 
     context('hijacked', () => {
@@ -233,6 +233,7 @@ contract('Court: Batches', ([ rich, governor, arbitrable, juror1, juror2, juror3
           await checkAdjudicationState(disputeId, firstRoundId, initialTermId + termsPassed)
           await passTerms(1)
           termsPassed++
+          await this.court.mock_blockTravel(1)
         }
         assert.isTrue(await this.court.areAllJurorsDrafted.call(disputeId, firstRoundId))
         assert.isTrue(termsPassed > 1, 'draft was not split')

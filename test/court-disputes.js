@@ -159,6 +159,7 @@ contract('Court: Disputes', ([ poor, rich, governor, juror1, juror2, juror3, arb
 
       it('fails to draft outside of the draft term', async () => {
         await passTerms(1) // term = 2
+        await this.court.mock_blockTravel(1)
         await assertRevert(this.court.draftAdjudicationRound(disputeId), 'COURT_NOT_DRAFT_TERM')
       })
 
@@ -172,6 +173,7 @@ contract('Court: Disputes', ([ poor, rich, governor, juror1, juror2, juror3, arb
 
         beforeEach(async () => {
           await passTerms(2) // term = 3
+          await this.court.mock_blockTravel(1)
           await assertLogs(this.court.draftAdjudicationRound(disputeId), JUROR_DRAFTED_EVENT, DISPUTE_STATE_CHANGED_EVENT)
         })
 
@@ -302,6 +304,7 @@ contract('Court: Disputes', ([ poor, rich, governor, juror1, juror2, juror3, arb
 
               it('drafts jurors', async () => {
                 await passTerms(1) // term = 6
+                await this.court.mock_blockTravel(1)
                 await assertLogs(this.court.draftAdjudicationRound(disputeId), JUROR_DRAFTED_EVENT, DISPUTE_STATE_CHANGED_EVENT)
               })
             })

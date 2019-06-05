@@ -100,6 +100,10 @@ contract CourtMock is Court {
         return MAX_JURORS_PER_BATCH;
     }
 
+    function getAdjudicationState(uint256 _disputeId, uint256 _roundId, uint64 _termId) public view returns (AdjudicationState) {
+        return _adjudicationStateAtTerm(_disputeId, _roundId, _termId);
+    }
+
     function _time() internal view returns (uint64) {
         return mockTime;
     }

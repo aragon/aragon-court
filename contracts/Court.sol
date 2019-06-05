@@ -71,7 +71,8 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
         uint32 nextJurorIndex;
         uint32 filledSeats;
         uint64 draftTermId;
-        uint64 jurorNumber;
+        uint64 delayTerms;
+        uint32 jurorNumber;
         address triggeredBy;
         bool settledPenalties;
         uint256 slashedTokens;
@@ -80,8 +81,7 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
     enum DisputeState {
         PreDraft,
         Adjudicating,
-        Executed,
-        Dismissed
+        Executed
     }
 
     struct Dispute {
@@ -130,8 +130,6 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
     string internal constant ERROR_OVERFLOW = "COURT_OVERFLOW";
     string internal constant ERROR_TOKEN_TRANSFER_FAILED = "COURT_TOKEN_TRANSFER_FAILED";
     string internal constant ERROR_GOVENANCE_FEE_TOO_HIGH = "COURT_GOVENANCE_FEE_TOO_HIGH";
-    string internal constant ERROR_ENTITY_CANT_DISMISS = "COURT_ENTITY_CANT_DISMISS";
-    string internal constant ERROR_CANT_DISMISS_AFTER_DRAFT = "COURT_CANT_DISMISS_AFTER_DRAFT";
     string internal constant ERROR_ROUND_ALREADY_DRAFTED = "COURT_ROUND_ALREADY_DRAFTED";
     string internal constant ERROR_NOT_DRAFT_TERM = "COURT_NOT_DRAFT_TERM";
     string internal constant ERROR_TERM_RANDOMNESS_UNAVAIL = "COURT_TERM_RANDOMNESS_UNAVAIL";
@@ -142,7 +140,6 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
     string internal constant ERROR_INVALID_JUROR = "COURT_INVALID_JUROR";
     string internal constant ERROR_INVALID_RULING_OPTIONS = "COURT_INVALID_RULING_OPTIONS";
     string internal constant ERROR_CONFIG_PERIOD_ZERO_TERMS = "COURT_CONFIG_PERIOD_ZERO_TERMS";
-    string internal constant ERROR_CANT_DISMISS_APPEAL = "COURT_CANT_DISMISS_APPEAL";
     string internal constant ERROR_PREV_ROUND_NOT_SETTLED = "COURT_PREV_ROUND_NOT_SETTLED";
     string internal constant ERROR_ROUND_ALREADY_SETTLED = "COURT_ROUND_ALREADY_SETTLED";
     string internal constant ERROR_ROUND_NOT_SETTLED = "COURT_ROUND_NOT_SETTLED";
@@ -166,9 +163,9 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
     event JurorDeactivated(address indexed juror, uint64 lastTermId);
     event JurorDrafted(uint256 indexed disputeId, address juror);
     event DisputeStateChanged(uint256 indexed disputeId, DisputeState indexed state);
-    event NewDispute(uint256 indexed disputeId, address indexed subject, uint64 indexed draftTermId, uint32 voteId, uint64 jurorNumber);
+    event NewDispute(uint256 indexed disputeId, address indexed subject, uint64 indexed draftTermId, uint32 voteId, uint32 jurorNumber);
     event TokenWithdrawal(address indexed token, address indexed account, uint256 amount);
-    event RulingAppealed(uint256 indexed disputeId, uint256 indexed roundId, uint64 indexed draftTermId, uint32 voteId, uint256 jurorNumber);
+    event RulingAppealed(uint256 indexed disputeId, uint256 indexed roundId, uint64 indexed draftTermId, uint32 voteId, uint32 jurorNumber);
     event RulingExecuted(uint256 indexed disputeId, uint8 indexed ruling);
     event RoundSlashingSettled(uint256 indexed disputeId, uint256 indexed roundId, uint256 slashedTokens);
     event RewardSettled(uint256 indexed disputeId, uint256 indexed roundId, address juror);
@@ -385,7 +382,7 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
     /**
      * @notice Create a dispute over `_subject` with `_possibleRulings` possible rulings, drafting `_jurorNumber` jurors in term `_draftTermId`
      */
-    function createDispute(IArbitrable _subject, uint8 _possibleRulings, uint64 _jurorNumber, uint64 _draftTermId)
+    function createDispute(IArbitrable _subject, uint8 _possibleRulings, uint32 _jurorNumber, uint64 _draftTermId)
         external
         ensureTerm
         returns (uint256)
@@ -414,32 +411,6 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
     }
 
     /**
-     * @notice Dismissing dispute #`_disputeId`
-     */
-    function dismissDispute(uint256 _disputeId)
-        external
-        ensureTerm
-    {
-        Dispute storage dispute = disputes[_disputeId];
-        uint256 roundId = dispute.rounds.length - 1;
-        AdjudicationRound storage round = dispute.rounds[roundId];
-
-        require(round.triggeredBy == msg.sender, ERROR_ENTITY_CANT_DISMISS);
-        require(dispute.state == DisputeState.PreDraft && round.draftTermId > termId, ERROR_CANT_DISMISS_AFTER_DRAFT);
-        require(roundId == 0, ERROR_CANT_DISMISS_APPEAL);
-
-        dispute.state = DisputeState.Dismissed;
-
-        terms[round.draftTermId].dependingDrafts -= 1;
-
-        // refund fees
-        (ERC20 feeToken, uint256 feeAmount, uint16 governanceFeeShare) = feeForJurorDraft(round.draftTermId, round.jurorNumber);
-        _payFees(feeToken, round.triggeredBy, feeAmount, governanceFeeShare);
-
-        emit DisputeStateChanged(_disputeId, dispute.state);
-    }
-
-    /**
      * @notice Draft jurors for the next round of dispute #`_disputeId`
      * @dev Allows for batches, so only up to MAX_JURORS_PER_BATCH will be drafted in each call
      */
@@ -449,19 +420,23 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
     {
         Dispute storage dispute = disputes[_disputeId];
         AdjudicationRound storage round = dispute.rounds[dispute.rounds.length - 1];
+        // TODO: stack too deep: uint64 draftTermId = round.draftTermId;
+        // We keep the inintial term for config, but we update it for randomness seed,
+        // as otherwise it would be easier for some juror to add tokens to the tree (or remove them)
+        // in order to change the result of the next draft batch
         Term storage draftTerm = terms[termId];
-        CourtConfig storage config = courtConfigs[draftTerm.courtConfigId]; // safe to use directly as it is the current term
+        CourtConfig storage config = courtConfigs[terms[round.draftTermId].courtConfigId]; // safe to use directly as it is the current or past term
 
-        require(round.draftTermId == termId, ERROR_NOT_DRAFT_TERM);
         require(dispute.state == DisputeState.PreDraft, ERROR_ROUND_ALREADY_DRAFTED);
-        require(draftTerm.randomnessBN >= _blockNumber(), ERROR_TERM_RANDOMNESS_UNAVAIL);
+        require(_blockNumber() > draftTerm.randomnessBN, ERROR_TERM_RANDOMNESS_UNAVAIL);
+        require(round.draftTermId <= termId, ERROR_NOT_DRAFT_TERM);
 
         if (draftTerm.randomness == bytes32(0)) {
             draftTerm.randomness = blockhash(draftTerm.randomnessBN);
         }
 
         // TODO: stack too deep
-        //uint256 jurorNumber = round.jurorNumber;
+        //uint32 jurorNumber = round.jurorNumber;
         //uint256 nextJurorIndex = round.nextJurorIndex;
         if (round.jurors.length == 0) {
             round.jurors.length = round.jurorNumber;
@@ -519,7 +494,11 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
 
         _payFees(config.feeToken, msg.sender, config.draftFee * round.jurorNumber, config.governanceFeeShare);
 
+        // drafting is over
         if (round.filledSeats == round.jurorNumber) {
+            if (round.draftTermId < termId) {
+                round.delayTerms = termId - round.draftTermId;
+            }
             dispute.state = DisputeState.Adjudicating;
             emit DisputeStateChanged(_disputeId, dispute.state);
         }
@@ -536,7 +515,7 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
         Dispute storage dispute = disputes[_disputeId];
         AdjudicationRound storage currentRound = dispute.rounds[_roundId];
 
-        uint64 appealJurorNumber = 2 * currentRound.jurorNumber + 1; // J' = 2J + 1
+        uint32 appealJurorNumber = 2 * currentRound.jurorNumber + 1; // J' = 2J + 1
         uint64 appealDraftTermId = termId + 1; // Appeals are drafted in the next term
 
         // _newAdjudicationRound charges fees for starting the round
@@ -677,7 +656,7 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
      */
     function feeForJurorDraft(
         uint64 _draftTermId,
-        uint64 _jurorNumber
+        uint32 _jurorNumber
     )
         public
         view
@@ -752,7 +731,7 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
         return _canPerformVotingAction(_voteId, _voter, AdjudicationState.Reveal);
     }
 
-    function _canPerformVotingAction(uint256 _voteId, address _voter, AdjudicationState _state) internal returns (uint256) {
+    function _canPerformVotingAction(uint256 _voteId, address _voter, AdjudicationState _state) internal view returns (uint256) {
         require(_voteId <= MAX_UINT32, ERROR_OVERFLOW);
         Vote storage vote = votes[uint32(_voteId)];
         uint256 disputeId = vote.disputeId;
@@ -777,7 +756,7 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
 
     function _newAdjudicationRound(
         uint256 _disputeId,
-        uint64 _jurorNumber,
+        uint32 _jurorNumber,
         uint64 _draftTermId
     )
         internal
@@ -813,12 +792,9 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
         return voting.getVote(dispute.rounds[dispute.rounds.length - 1].voteId);
     }
 
-    function _checkAdjudicationState(uint256 _disputeId, uint256 _roundId, AdjudicationState _state) internal {
+    function _checkAdjudicationState(uint256 _disputeId, uint256 _roundId, AdjudicationState _state) internal view {
         Dispute storage dispute = disputes[_disputeId];
         DisputeState disputeState = dispute.state;
-        if (disputeState == DisputeState.PreDraft) {
-            draftAdjudicationRound(_disputeId);
-        }
 
         require(disputeState == DisputeState.Adjudicating, ERROR_INVALID_DISPUTE_STATE);
         require(_roundId == dispute.rounds.length - 1, ERROR_INVALID_ADJUDICATION_ROUND);
@@ -828,15 +804,17 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
     function _adjudicationStateAtTerm(uint256 _disputeId, uint256 _roundId, uint64 _termId) internal view returns (AdjudicationState) {
         AdjudicationRound storage round = disputes[_disputeId].rounds[_roundId];
 
+        // we use the config for the original draft term and only use the delay for the timing of the rounds
         uint64 draftTermId = round.draftTermId;
         uint64 configId = terms[draftTermId].courtConfigId;
+        uint64 draftFinishedTermId = draftTermId + round.delayTerms;
         CourtConfig storage config = courtConfigs[uint256(configId)];
 
-        uint64 revealStart = draftTermId + config.commitTerms;
+        uint64 revealStart = draftFinishedTermId + config.commitTerms;
         uint64 appealStart = revealStart + config.revealTerms;
         uint64 appealEnd = appealStart + config.appealTerms;
 
-        if (_termId < draftTermId) {
+        if (_termId < draftFinishedTermId) {
             return AdjudicationState.Invalid;
         } else if (_termId < revealStart) {
             return AdjudicationState.Commit;

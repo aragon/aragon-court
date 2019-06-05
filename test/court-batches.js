@@ -136,7 +136,7 @@ contract('Court: Batches', ([ rich, governor, arbitrable, juror1, juror2, juror3
       disputeId = getLog(receipt, NEW_DISPUTE_EVENT, 'disputeId')
       voteId = getLog(receipt, NEW_DISPUTE_EVENT, 'voteId')
       await passTerms(2) // term = 3
-
+      await this.court.mock_blockTravel(1)
     }
 
     context('hijacked', () => {
@@ -168,6 +168,42 @@ contract('Court: Batches', ([ rich, governor, arbitrable, juror1, juror2, juror3
         }
       }
 
+      const checkAdjudicationState = async (disputeId, roundId, initialTermId, termsPassed) => {
+        const states = [
+          {
+            name: "Invalid",
+            state: 0,
+            offset: -1
+          },
+          {
+            name: "Commit",
+            state: 1,
+            offset: 0
+          },
+          {
+            name: "Reveal",
+            state: 2,
+            offset: commitTerms
+          },
+          {
+            name: "Appealable",
+            state: 3,
+            offset: commitTerms + revealTerms
+          },
+          {
+            name: "Ended",
+            state: 4,
+            offset: commitTerms + revealTerms + appealTerms
+          }
+        ]
+        const isDraftingOver = await this.court.areAllJurorsDrafted.call(disputeId, firstRoundId)
+        const baseTermId = isDraftingOver ? initialTermId + termsPassed : initialTermId
+        for (const state of states) {
+          const stateResult = (await this.court.getAdjudicationState(disputeId, roundId, baseTermId + state.offset)).toNumber()
+          assert.equal(stateResult, state.state, `Wrong state for ${state.name}`)
+        }
+      }
+
       it('selects expected jurors', async () => {
         let totalJurorsDrafted = 0
         let callsHistory = []
@@ -180,6 +216,27 @@ contract('Court: Batches', ([ rich, governor, arbitrable, juror1, juror2, juror3
         }
         assert.isTrue(await this.court.areAllJurorsDrafted.call(disputeId, firstRoundId))
       })
+
+      it('continues draft at a later term (missing batches)', async () => {
+        let totalJurorsDrafted = 0
+        let callsHistory = []
+        const initialTermId = (await this.court.termId()).toNumber()
+        let termsPassed = 0
+        while(totalJurorsDrafted < jurors) {
+          assert.isFalse(await this.court.areAllJurorsDrafted.call(disputeId, firstRoundId))
+          const callJurorsDrafted = getLogCount(await this.court.draftAdjudicationRound(disputeId), JUROR_DRAFTED_EVENT)
+          callsHistory.push(callJurorsDrafted)
+          totalJurorsDrafted += callJurorsDrafted
+          await checkWeights(callsHistory)
+          await checkAdjudicationState(disputeId, firstRoundId, initialTermId, termsPassed)
+          await passTerms(1)
+          termsPassed++
+          await this.court.mock_blockTravel(1)
+        }
+        assert.isTrue(await this.court.areAllJurorsDrafted.call(disputeId, firstRoundId))
+        assert.isTrue(termsPassed > 1, 'draft was not split')
+      })
+
     })
 
     context('not hijacked', () => {

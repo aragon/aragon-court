@@ -54,6 +54,8 @@ contract('Court: Batches', ([ rich, governor, arbitrable, juror1, juror2, juror3
   const JUROR_DRAFTED_EVENT = 'JurorDrafted'
   const DISPUTE_STATE_CHANGED_EVENT = 'DisputeStateChanged'
 
+  const ERROR_TERM_RANDOMNESS_UNAVAIL = 'COURT_TERM_RANDOMNESS_UNAVAIL'
+
   const SALT = soliditySha3('passw0rd')
 
   before(async () => {
@@ -207,6 +209,7 @@ contract('Court: Batches', ([ rich, governor, arbitrable, juror1, juror2, juror3
       it('selects expected jurors', async () => {
         let totalJurorsDrafted = 0
         let callsHistory = []
+        await this.court.setTermRandomness()
         while(totalJurorsDrafted < jurors) {
           assert.isFalse(await this.court.areAllJurorsDrafted.call(disputeId, firstRoundId))
           const callJurorsDrafted = getLogCount(await this.court.draftAdjudicationRound(disputeId), JUROR_DRAFTED_EVENT)
@@ -224,6 +227,7 @@ contract('Court: Batches', ([ rich, governor, arbitrable, juror1, juror2, juror3
         let termsPassed = 0
         while(totalJurorsDrafted < jurors) {
           assert.isFalse(await this.court.areAllJurorsDrafted.call(disputeId, firstRoundId))
+          await this.court.setTermRandomness()
           const callJurorsDrafted = getLogCount(await this.court.draftAdjudicationRound(disputeId), JUROR_DRAFTED_EVENT)
           callsHistory.push(callJurorsDrafted)
           totalJurorsDrafted += callJurorsDrafted
@@ -237,6 +241,23 @@ contract('Court: Batches', ([ rich, governor, arbitrable, juror1, juror2, juror3
         assert.isTrue(termsPassed > 1, 'draft was not split')
       })
 
+
+      it('needs to wait until next term if randomness is missing', async () => {
+        let totalJurorsDrafted = 0
+        let callsHistory = []
+        const initialTermId = (await this.court.termId()).toNumber()
+        let termsPassed = 0
+        // make sure we miss randomness
+        await this.court.mock_blockTravel(257)
+        await assertRevert(this.court.draftAdjudicationRound(disputeId), ERROR_TERM_RANDOMNESS_UNAVAIL)
+        // move forward to next term
+        await passTerms(1)
+        await this.court.mock_blockTravel(1)
+        // make sure now we do have randomness
+        await this.court.setTermRandomness()
+        const callJurorsDrafted = getLogCount(await this.court.draftAdjudicationRound(disputeId), JUROR_DRAFTED_EVENT)
+        assert.isTrue(callJurorsDrafted > 0, 'no jurors were drafted in next term')
+      })
     })
 
     context('not hijacked', () => {
@@ -245,6 +266,7 @@ contract('Court: Batches', ([ rich, governor, arbitrable, juror1, juror2, juror3
       })
 
       it('selects expected juror amount', async () => {
+        await this.court.setTermRandomness()
         // assuming jurors is not multiple of MAX_JURORS_PER_BATCH
         for (let i = 0; i < Math.floor(jurors / MAX_JURORS_PER_BATCH); i++) {
           const callJurorsDrafted = getLogCount(await this.court.draftAdjudicationRound(disputeId), JUROR_DRAFTED_EVENT)

@@ -132,6 +132,7 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
     string internal constant ERROR_GOVENANCE_FEE_TOO_HIGH = "COURT_GOVENANCE_FEE_TOO_HIGH";
     string internal constant ERROR_ROUND_ALREADY_DRAFTED = "COURT_ROUND_ALREADY_DRAFTED";
     string internal constant ERROR_NOT_DRAFT_TERM = "COURT_NOT_DRAFT_TERM";
+    string internal constant ERROR_TERM_RANDOMNESS_NOT_YET = "COURT_TERM_RANDOMNESS_NOT_YET";
     string internal constant ERROR_TERM_RANDOMNESS_UNAVAIL = "COURT_TERM_RANDOMNESS_UNAVAIL";
     string internal constant ERROR_SORTITION_LENGTHS_MISMATCH = "COURT_SORTITION_LENGTHS_MISMATCH";
     string internal constant ERROR_INVALID_DISPUTE_STATE = "COURT_INVALID_DISPUTE_STATE";
@@ -428,12 +429,15 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
         CourtConfig storage config = courtConfigs[terms[round.draftTermId].courtConfigId]; // safe to use directly as it is the current or past term
 
         require(dispute.state == DisputeState.PreDraft, ERROR_ROUND_ALREADY_DRAFTED);
-        require(_blockNumber() > draftTerm.randomnessBN, ERROR_TERM_RANDOMNESS_UNAVAIL);
+        require(_blockNumber() > draftTerm.randomnessBN, ERROR_TERM_RANDOMNESS_NOT_YET);
         require(round.draftTermId <= termId, ERROR_NOT_DRAFT_TERM);
 
         if (draftTerm.randomness == bytes32(0)) {
             draftTerm.randomness = blockhash(draftTerm.randomnessBN);
         }
+        // as we already allow to move drafting to later terms, if current term has gone
+        // more than 256 blocks beyond the randomness BN, it will have to wait until next term
+        require(draftTerm.randomness != bytes32(0), ERROR_TERM_RANDOMNESS_UNAVAIL);
 
         // TODO: stack too deep
         //uint32 jurorNumber = round.jurorNumber;

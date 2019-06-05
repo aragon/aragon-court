@@ -171,7 +171,7 @@ contract('Court: Batches', ([ rich, governor, arbitrable, juror1, juror2, juror3
         }
       }
 
-      const checkAdjudicationState = async (disputeId, roundId, baseTermId) => {
+      const checkAdjudicationState = async (disputeId, roundId, initialTermId, termsPassed) => {
         const states = [
           {
             name: "Invalid",
@@ -199,7 +199,8 @@ contract('Court: Batches', ([ rich, governor, arbitrable, juror1, juror2, juror3
             offset: commitTerms + revealTerms + appealTerms
           }
         ]
-        const termId = baseTermId
+        const isDraftingOver = await this.court.areAllJurorsDrafted.call(disputeId, firstRoundId)
+        const baseTermId = isDraftingOver ? initialTermId + termsPassed : initialTermId
         for (const state of states) {
           const stateResult = (await this.court.getAdjudicationState(disputeId, roundId, baseTermId + state.offset)).toNumber()
           assert.equal(stateResult, state.state, `Wrong state for ${state.name}`)
@@ -230,7 +231,7 @@ contract('Court: Batches', ([ rich, governor, arbitrable, juror1, juror2, juror3
           callsHistory.push(callJurorsDrafted)
           totalJurorsDrafted += callJurorsDrafted
           await checkWeights(callsHistory)
-          await checkAdjudicationState(disputeId, firstRoundId, initialTermId + termsPassed)
+          await checkAdjudicationState(disputeId, firstRoundId, initialTermId, termsPassed)
           await passTerms(1)
           termsPassed++
           await this.court.mock_blockTravel(1)

@@ -423,6 +423,9 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
         Dispute storage dispute = disputes[_disputeId];
         AdjudicationRound storage round = dispute.rounds[dispute.rounds.length - 1];
         // TODO: stack too deep: uint64 draftTermId = round.draftTermId;
+        // We keep the inintial term for config, but we update it for randomness seed,
+        // as otherwise it would be easier for some juror to add tokens to the tree (or remove them)
+        // in order to change the result of the next draft batch
         Term storage draftTerm = terms[termId];
         CourtConfig storage config = courtConfigs[terms[round.draftTermId].courtConfigId]; // safe to use directly as it is the current or past term
 
@@ -430,9 +433,6 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
         require(_blockNumber() > draftTerm.randomnessBN, ERROR_TERM_RANDOMNESS_UNAVAIL);
         require(round.draftTermId <= termId, ERROR_NOT_DRAFT_TERM);
 
-        if (round.draftTermId < termId) {
-            round.delayTerms = termId - round.draftTermId;
-        }
         if (draftTerm.randomness == bytes32(0)) {
             draftTerm.randomness = blockhash(draftTerm.randomnessBN);
         }
@@ -496,7 +496,11 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
 
         _payFees(config.feeToken, msg.sender, config.draftFee * round.jurorNumber, config.governanceFeeShare);
 
+        // drafting is over
         if (round.filledSeats == round.jurorNumber) {
+            if (round.draftTermId < termId) {
+                round.delayTerms = termId - round.draftTermId;
+            }
             dispute.state = DisputeState.Adjudicating;
             emit DisputeStateChanged(_disputeId, dispute.state);
         }
@@ -805,14 +809,14 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
         // we use the config for the original draft term and only use the delay for the timing of the rounds
         uint64 draftTermId = round.draftTermId;
         uint64 configId = terms[draftTermId].courtConfigId;
-        draftTermId = draftTermId + round.delayTerms;
+        uint64 draftFinishedTermId = draftTermId + round.delayTerms;
         CourtConfig storage config = courtConfigs[uint256(configId)];
 
-        uint64 revealStart = draftTermId + config.commitTerms;
+        uint64 revealStart = draftFinishedTermId + config.commitTerms;
         uint64 appealStart = revealStart + config.revealTerms;
         uint64 appealEnd = appealStart + config.appealTerms;
 
-        if (_termId < draftTermId) {
+        if (_termId < draftFinishedTermId) {
             return AdjudicationState.Invalid;
         } else if (_termId < revealStart) {
             return AdjudicationState.Commit;

@@ -24,6 +24,8 @@ contract CourtMock is Court {
         uint256 _jurorMinStake,
         uint64[3] _roundStateDurations,
         uint16 _penaltyPct
+        // TODO: stack too deep:
+        //uint16 _finalRoundReduction
     ) Court(
         _termDuration,
         _jurorToken,
@@ -40,6 +42,8 @@ contract CourtMock is Court {
         _jurorMinStake,
         _roundStateDurations,
         _penaltyPct
+        // TODO: stack too deep:
+        //_finalRoundReduction
     ) public {}
 
     function mock_setTime(uint64 time) external {
@@ -113,6 +117,10 @@ contract CourtMock is Court {
 
     function getMaxJurorsPerBatch() public pure returns (uint256) {
         return MAX_JURORS_PER_BATCH;
+    }
+
+    function getMaxRegularAppealRounds() public pure returns (uint256) {
+        return MAX_REGULAR_APPEAL_ROUNDS;
     }
 
     function getAdjudicationState(uint256 _disputeId, uint256 _roundId, uint64 _termId) public view returns (AdjudicationState) {

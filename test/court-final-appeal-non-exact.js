@@ -40,6 +40,7 @@ contract('Court: final appeal (non-exact)', ([ poor, rich, governor, juror1, jur
   const NO_DATA = ''
   const ZERO_ADDRESS = '0x' + '00'.repeat(20)
   let MAX_REGULAR_APPEAL_ROUNDS
+  let APPEAL_STEP_FACTOR
   const DECIMALS = 1e18
 
   const termDuration = 10
@@ -106,6 +107,7 @@ contract('Court: final appeal (non-exact)', ([ poor, rich, governor, juror1, jur
     )
 
     MAX_REGULAR_APPEAL_ROUNDS = (await this.court.getMaxRegularAppealRounds.call()).toNumber()
+    APPEAL_STEP_FACTOR = (await this.court.getAppealStepFactor.call()).toNumber()
 
     await this.court.mock_hijackTreeSearch()
     await this.court.mock_setBlockNumber(startBlock)
@@ -200,8 +202,13 @@ contract('Court: final appeal (non-exact)', ([ poor, rich, governor, juror1, jur
       await passTerms(2) // term = 3, dispute init
       await this.court.mock_blockTravel(1)
 
+      const initialJurorNumber = 3
+
       for (let roundId = 0; roundId < MAX_REGULAR_APPEAL_ROUNDS; roundId++) {
-        const roundJurors = (2**roundId) * jurorNumber + 2**roundId - 1
+        let roundJurors = initialJurorNumber * (APPEAL_STEP_FACTOR ** roundId)
+        if (roundJurors % 2 == 0) {
+          roundJurors++
+        }
         // draft
         await draftAdjudicationRound(roundJurors)
 

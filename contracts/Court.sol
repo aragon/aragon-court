@@ -21,6 +21,7 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
     uint256 internal constant MAX_JURORS_PER_BATCH = 10; // to cap gas used on draft
     uint256 internal constant MAX_REGULAR_APPEAL_ROUNDS = 4; // before the final appeal
     uint256 internal constant FINAL_ROUND_WEIGHT_PRECISION = 1000; // to improve roundings
+    uint32 internal constant APPEAL_STEP_FACTOR = 3;
     // TODO: move all other constants up here
 
     struct Account {
@@ -527,7 +528,11 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
         if (_roundId == MAX_REGULAR_APPEAL_ROUNDS - 1) { // roundId starts at 0
             (roundId, appealJurorNumber) = _newFinalAdjudicationRound(_disputeId, appealDraftTermId);
         } else { // no need for more checks, as final appeal won't ever be in Appealable state, so it would never reach here (first check would fail)
-            appealJurorNumber = 2 * currentRound.jurorNumber + 1; // J' = 2J + 1
+            appealJurorNumber = APPEAL_STEP_FACTOR * currentRound.jurorNumber;
+            // make sure it's odd
+            if (appealJurorNumber % 2 == 0) {
+                appealJurorNumber++;
+            }
             // _newAdjudicationRound charges fees for starting the round
             roundId = _newAdjudicationRound(_disputeId, appealJurorNumber, appealDraftTermId);
         }

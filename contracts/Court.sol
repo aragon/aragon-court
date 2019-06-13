@@ -586,8 +586,10 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
             slashedTokens = _settleRegularRoundSlashing(round, voteId, config.penaltyPct, winningRuling);
             round.slashedTokens = slashedTokens;
             _payFees(config.feeToken, msg.sender, config.settleFee * round.jurorNumber, config.governanceFeeShare);
-        } else {
+        } else { // final round
+            // this was accounted for on juror's vote commit
             slashedTokens = round.slashedTokens;
+            // there's no settleFee in this round
         }
 
         round.settledPenalties = true;
@@ -595,7 +597,11 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
         // No juror was coherent in the round
         if (coherentJurors == 0) {
             // refund fees and burn ANJ
-            _payFees(config.feeToken, round.triggeredBy, config.jurorFee * round.jurorNumber, config.governanceFeeShare);
+            uint256 jurorFee = config.jurorFee * round.jurorNumber;
+            if (_roundId == MAX_REGULAR_APPEAL_ROUNDS) {
+                jurorFee = _pct4(jurorFee / FINAL_ROUND_WEIGHT_PRECISION, config.finalRoundReduction);
+            }
+            _payFees(config.feeToken, round.triggeredBy, jurorFee, config.governanceFeeShare);
             _assignTokens(jurorToken, BURN_ACCOUNT, slashedTokens);
         }
 
@@ -611,7 +617,7 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
         internal
         returns (uint256 slashedTokens)
     {
-        uint256 penalty = _pct4(jurorMinStake, _penaltyPct); // TODO: stack too deep
+        uint256 penalty = _pct4(jurorMinStake, _penaltyPct);
 
         uint256 votesLength = _round.jurors.length;
         uint64 slashingUpdateTermId = termId + 1;
@@ -619,7 +625,7 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
         // should we batch this too?? OOG?
         for (uint256 i = 0; i < votesLength; i++) {
             address juror = _round.jurors[i];
-            uint256 weightedPenalty = penalty * _round.jurorSlotStates[juror].weight; // TODO: stack too deep
+            uint256 weightedPenalty = penalty * _round.jurorSlotStates[juror].weight;
             Account storage account = accounts[juror];
             account.atStakeTokens -= weightedPenalty;
 
@@ -666,7 +672,11 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
         }
 
         CourtConfig storage config = courtConfigs[terms[round.draftTermId].courtConfigId]; // safe to use directly as it is a past term
-        _payFees(config.feeToken, _juror, config.jurorFee * jurorState.weight * round.jurorNumber / coherentJurors, config.governanceFeeShare);
+        uint256 jurorFee = config.jurorFee * jurorState.weight * round.jurorNumber / coherentJurors;
+        if (_roundId == MAX_REGULAR_APPEAL_ROUNDS) {
+            jurorFee = _pct4(jurorFee, config.finalRoundReduction);
+        }
+        _payFees(config.feeToken, _juror, jurorFee, config.governanceFeeShare);
 
         emit RewardSettled(_disputeId, _roundId, _juror);
     }
@@ -765,13 +775,15 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
 
                 uint256 weightedPenalty = _pct4(jurorMinStake, config.penaltyPct) * weight / FINAL_ROUND_WEIGHT_PRECISION;
 
-                // try to lock tokens
+                // Try to lock tokens
+                // If there's not enough we just return 0 (so prevent juror from voting).
+                // TODO: Should we use the remaining amount instead?
                 uint64 slashingUpdateTermId = termId + 1;
+                // Slash from balance if the account already deactivated
                 if (account.deactivationTermId <= slashingUpdateTermId) {
                     if (weightedPenalty > unlockedBalanceOf(_voter)) {
                         return 0;
                     }
-                    // Slash from balance if the account already deactivated
                     _removeTokens(jurorToken, _voter, weightedPenalty);
                 } else {
                     // account.sumTreeId always > 0: as the juror has activated (and gots its sumTreeId)
@@ -784,7 +796,7 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
 
                 // update round state
                 round.slashedTokens += weightedPenalty;
-                // TODO: check overflow?
+                // overflow? See `_getJurorWeight` and `_newFinalAdjudicationRound`. This will alwys be less than `jurorNumber`, which currenty is uint32 too
                 round.jurorSlotStates[_voter].weight = uint32(weight);
             }
         }
@@ -856,11 +868,12 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
         returns (uint256 roundId, uint32 jurorNumber)
     {
         // TODO: check overflow? make it bigger? (uint32 feels too small)
+        // For instance, this would be enough to hold the total total token suply of 42.9M (more than current ANT one) in the tree if min stake was 10.
         jurorNumber = uint32(FINAL_ROUND_WEIGHT_PRECISION * sumTree.totalSumPresent(termId) / jurorMinStake);
 
         CourtConfig storage config = _courtConfigForTerm(_draftTermId);
         // apply final round discount
-        uint256 feeAmount = config.heartbeatFee + _pct4(jurorNumber * config.jurorFee, config.finalRoundReduction);
+        uint256 feeAmount = config.heartbeatFee + _pct4(jurorNumber * config.jurorFee / FINAL_ROUND_WEIGHT_PRECISION, config.finalRoundReduction);
         if (feeAmount > 0) {
             require(config.feeToken.safeTransferFrom(msg.sender, this, feeAmount), ERROR_DEPOSIT_FAILED);
         }

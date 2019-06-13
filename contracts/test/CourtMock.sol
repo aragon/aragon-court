@@ -123,6 +123,10 @@ contract CourtMock is Court {
         return MAX_REGULAR_APPEAL_ROUNDS;
     }
 
+    function getAppealStepFactor() public pure returns (uint32) {
+        return APPEAL_STEP_FACTOR;
+    }
+
     function getAdjudicationState(uint256 _disputeId, uint256 _roundId, uint64 _termId) public view returns (AdjudicationState) {
         return _adjudicationStateAtTerm(_disputeId, _roundId, _termId);
     }

@@ -27,6 +27,10 @@ const assertLogs = async (receiptPromise, ...logNames) => {
   }
 }
 
+const getVoteId = (disputeId, roundId) => {
+  return new web3.BigNumber(2).pow(128).mul(disputeId).add(roundId)
+}
+
 contract('Court: Disputes', ([ poor, rich, governor, juror1, juror2, juror3, arbitrable, other ]) => {
   const NO_DATA = ''
   const ZERO_ADDRESS = '0x' + '00'.repeat(20)
@@ -151,7 +155,7 @@ contract('Court: Disputes', ([ poor, rich, governor, juror1, juror2, juror3, arb
         const receipt = await this.court.createDispute(arbitrable, rulings, jurors, term)
         await assertLogs(receipt, NEW_DISPUTE_EVENT)
         disputeId = getLog(receipt, NEW_DISPUTE_EVENT, 'disputeId')
-        voteId = getLog(receipt, NEW_DISPUTE_EVENT, 'voteId')
+        voteId = getVoteId(disputeId, firstRoundId)
       })
 
       it('fails to draft outside of the draft term', async () => {
@@ -256,7 +260,7 @@ contract('Court: Disputes', ([ poor, rich, governor, juror1, juror2, juror3, arb
             })
 
             it('has correct ruling result', async () => {
-              assert.equal((await this.voting.getVote(disputeId)).toNumber(), round1Ruling, 'winning ruling')
+              assert.equal((await this.voting.getWinningRuling(voteId)).toNumber(), round1Ruling, 'winning ruling')
             })
 
             it('fails to appeal during reveal period', async () => {

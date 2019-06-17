@@ -67,7 +67,6 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
     struct AdjudicationRound {
         address[] jurors;
         mapping (address => JurorState) jurorSlotStates;
-        uint32 voteId;
         uint32 nextJurorIndex;
         uint32 filledSeats;
         uint64 draftTermId;
@@ -91,12 +90,6 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
         AdjudicationRound[] rounds;
     }
 
-    // to map from voteId to disputeId and roundId
-    struct Vote {
-        uint128 disputeId;
-        uint128 roundId;
-    }
-
     // State constants which are set in the constructor and can't change
     ERC20 internal jurorToken;
     uint64 public termDuration; // recomended value ~1 hour as 256 blocks (available block hash) around an hour to mine
@@ -115,7 +108,6 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
     mapping (uint256 => address) public jurorsByTreeId;
     mapping (uint64 => Term) public terms;
     Dispute[] public disputes;
-    mapping (uint32 => Vote) votes; // to map from voteId to disputeId and roundId
 
     string internal constant ERROR_INVALID_ADDR = "COURT_INVALID_ADDR";
     string internal constant ERROR_DEPOSIT_FAILED = "COURT_DEPOSIT_FAILED";
@@ -163,9 +155,9 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
     event JurorDeactivated(address indexed juror, uint64 lastTermId);
     event JurorDrafted(uint256 indexed disputeId, address juror);
     event DisputeStateChanged(uint256 indexed disputeId, DisputeState indexed state);
-    event NewDispute(uint256 indexed disputeId, address indexed subject, uint64 indexed draftTermId, uint32 voteId, uint32 jurorNumber);
+    event NewDispute(uint256 indexed disputeId, address indexed subject, uint64 indexed draftTermId, uint32 jurorNumber);
     event TokenWithdrawal(address indexed token, address indexed account, uint256 amount);
-    event RulingAppealed(uint256 indexed disputeId, uint256 indexed roundId, uint64 indexed draftTermId, uint32 voteId, uint32 jurorNumber);
+    event RulingAppealed(uint256 indexed disputeId, uint256 indexed roundId, uint64 indexed draftTermId, uint32 jurorNumber);
     event RulingExecuted(uint256 indexed disputeId, uint8 indexed ruling);
     event RoundSlashingSettled(uint256 indexed disputeId, uint256 indexed roundId, uint256 slashedTokens);
     event RewardSettled(uint256 indexed disputeId, uint256 indexed roundId, address juror);
@@ -403,9 +395,9 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
         dispute.possibleRulings = _possibleRulings;
 
         // _newAdjudicationRound charges fees for starting the round
-        (, uint32 voteId) = _newAdjudicationRound(disputeId, _jurorNumber, _draftTermId);
+        _newAdjudicationRound(disputeId, _jurorNumber, _draftTermId);
 
-        emit NewDispute(disputeId, _subject, _draftTermId, voteId, _jurorNumber);
+        emit NewDispute(disputeId, _subject, _draftTermId, _jurorNumber);
 
         return disputeId;
     }
@@ -519,8 +511,8 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
         uint64 appealDraftTermId = termId + 1; // Appeals are drafted in the next term
 
         // _newAdjudicationRound charges fees for starting the round
-        (uint256 roundId, uint32 voteId) = _newAdjudicationRound(_disputeId, appealJurorNumber, appealDraftTermId);
-        emit RulingAppealed(_disputeId, roundId, appealDraftTermId, voteId, appealJurorNumber);
+        uint256 roundId = _newAdjudicationRound(_disputeId, appealJurorNumber, appealDraftTermId);
+        emit RulingAppealed(_disputeId, roundId, appealDraftTermId, appealJurorNumber);
     }
 
     /**
@@ -533,7 +525,7 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
         Dispute storage dispute = disputes[_disputeId];
         dispute.state = DisputeState.Executed;
 
-        uint8 winningRuling = _getWinningRuling(dispute);
+        uint8 winningRuling = voting.getWinningRuling(_getVoteId(_disputeId, _roundId));
 
         dispute.subject.rule(_disputeId, uint256(winningRuling));
 
@@ -559,23 +551,23 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
             revert(ERROR_INVALID_DISPUTE_STATE);
         }
 
-        uint8 winningRuling = _getWinningRuling(dispute);
+        uint256 voteId = _getVoteId(_disputeId, _roundId);
+        uint8 winningRuling = voting.getWinningRuling(voteId);
         CourtConfig storage config = courtConfigs[terms[round.draftTermId].courtConfigId]; // safe to use directly as it is the current term
         // uint256 penalty = _pct4(jurorMinStake, config.penaltyPct); // TODO: stack too deep
 
         uint256 slashedTokens = 0;
-        uint256 votesLength = round.jurors.length;
         uint64 slashingUpdateTermId = termId + 1;
 
         // should we batch this too?? OOG?
-        for (uint256 i = 0; i < votesLength; i++) {
+        for (uint256 i = 0; i < round.jurors.length; i++) {
             address juror = round.jurors[i];
             //uint256 weightedPenalty = penalty * round.jurorSlotStates[juror].weight; // TODO: stack too deep
             uint256 weightedPenalty = _pct4(jurorMinStake, config.penaltyPct) * round.jurorSlotStates[juror].weight;
             Account storage account = accounts[juror];
             account.atStakeTokens -= weightedPenalty;
 
-            uint8 jurorRuling = voting.getCastVote(round.voteId, juror);
+            uint8 jurorRuling = voting.getCastVote(voteId, juror);
             // If the juror didn't vote for the final winning ruling
             if (jurorRuling != winningRuling) {
                 slashedTokens += weightedPenalty;
@@ -594,7 +586,7 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
         round.settledPenalties = true;
 
         // No juror was coherent in the round
-        if (voting.getRulingVotes(round.voteId, winningRuling) == 0) {
+        if (voting.getRulingVotes(voteId, winningRuling) == 0) {
             // refund fees and burn ANJ
             _payFees(config.feeToken, round.triggeredBy, config.jurorFee * round.jurorNumber, config.governanceFeeShare);
             _assignTokens(jurorToken, BURN_ACCOUNT, slashedTokens);
@@ -619,8 +611,8 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
 
         jurorState.rewarded = true;
 
-        uint256 voteId = round.voteId;
-        uint8 winningRuling = _getWinningRuling(dispute);
+        uint256 voteId = _getVoteId(_disputeId, _roundId);
+        uint8 winningRuling = voting.getWinningRuling(voteId);
         uint256 coherentJurors = voting.getRulingVotes(voteId, winningRuling);
         uint8 jurorRuling = voting.getCastVote(voteId, _juror);
 
@@ -732,13 +724,19 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
     }
 
     function _canPerformVotingAction(uint256 _voteId, address _voter, AdjudicationState _state) internal view returns (uint256) {
-        require(_voteId <= MAX_UINT32, ERROR_OVERFLOW);
-        Vote storage vote = votes[uint32(_voteId)];
-        uint256 disputeId = vote.disputeId;
-        uint256 roundId = vote.roundId;
+        (uint256 disputeId, uint256 roundId) = _decodeVoteId(_voteId);
         _checkAdjudicationState(disputeId, roundId, _state);
 
         return getJurorWeight(disputeId, roundId, _voter);
+    }
+
+    function _getVoteId(uint256 _disputeId, uint256 _roundId) internal returns (uint256) {
+        return (_disputeId << 128) + _roundId;
+    }
+
+    function _decodeVoteId(uint256 _voteId) internal returns (uint256 disputeId, uint256 roundId) {
+        disputeId = _voteId >> 128;
+        roundId = _voteId & 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF;
     }
 
     function getJurorWeight(uint256 _disputeId, uint256 _roundId, address _juror) public view returns (uint256) {
@@ -751,7 +749,7 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
         uint64 _draftTermId
     )
         internal
-        returns (uint256 roundId, uint32 voteId)
+        returns (uint256 roundId)
     {
         (ERC20 feeToken, uint256 feeAmount,) = feeForJurorDraft(_draftTermId, _jurorNumber);
         if (feeAmount > 0) {
@@ -766,21 +764,13 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
         dispute.rounds.length = roundId + 1;
 
         AdjudicationRound storage round = dispute.rounds[roundId];
-        voteId = uint32(voting.createVote(dispute.possibleRulings));
-        round.voteId = voteId;
+        uint256 voteId = _getVoteId(_disputeId, roundId);
+        voting.createVote(voteId, dispute.possibleRulings);
         round.draftTermId = _draftTermId;
         round.jurorNumber = _jurorNumber;
         round.triggeredBy = msg.sender;
 
-        votes[voteId] = Vote(uint128(_disputeId), uint128(roundId));
-
         terms[_draftTermId].dependingDrafts += 1;
-    }
-
-    function _getWinningRuling(Dispute storage dispute) internal view returns (uint8) {
-        // TODO: logic for non-confirmed appeals
-
-        return voting.getVote(dispute.rounds[dispute.rounds.length - 1].voteId);
     }
 
     function _checkAdjudicationState(uint256 _disputeId, uint256 _roundId, AdjudicationState _state) internal view {

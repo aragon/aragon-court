@@ -65,7 +65,7 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
     }
 
     struct JurorState {
-        uint32 weight;
+        uint64 weight;
         bool rewarded;
     }
 
@@ -76,9 +76,9 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
         uint32 filledSeats;
         uint64 draftTermId;
         uint64 delayTerms;
-        uint32 jurorNumber;
+        uint64 jurorNumber;
         uint8 winningRuling;
-        uint32 coherentJurors;
+        uint64 coherentJurors;
         address triggeredBy;
         bool settledPenalties;
         uint256 slashedTokens;
@@ -162,9 +162,9 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
     event JurorDeactivated(address indexed juror, uint64 lastTermId);
     event JurorDrafted(uint256 indexed disputeId, address juror);
     event DisputeStateChanged(uint256 indexed disputeId, DisputeState indexed state);
-    event NewDispute(uint256 indexed disputeId, address indexed subject, uint64 indexed draftTermId, uint32 jurorNumber);
+    event NewDispute(uint256 indexed disputeId, address indexed subject, uint64 indexed draftTermId, uint64 jurorNumber);
     event TokenWithdrawal(address indexed token, address indexed account, uint256 amount);
-    event RulingAppealed(uint256 indexed disputeId, uint256 indexed roundId, uint64 indexed draftTermId, uint32 jurorNumber);
+    event RulingAppealed(uint256 indexed disputeId, uint256 indexed roundId, uint64 indexed draftTermId, uint64 jurorNumber);
     event RulingExecuted(uint256 indexed disputeId, uint8 indexed ruling);
     event RoundSlashingSettled(uint256 indexed disputeId, uint256 indexed roundId, uint256 slashedTokens);
     event RewardSettled(uint256 indexed disputeId, uint256 indexed roundId, address juror);
@@ -386,7 +386,7 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
     /**
      * @notice Create a dispute over `_subject` with `_possibleRulings` possible rulings, drafting `_jurorNumber` jurors in term `_draftTermId`
      */
-    function createDispute(IArbitrable _subject, uint8 _possibleRulings, uint32 _jurorNumber, uint64 _draftTermId)
+    function createDispute(IArbitrable _subject, uint8 _possibleRulings, uint64 _jurorNumber, uint64 _draftTermId)
         external
         ensureTerm
         returns (uint256)
@@ -440,7 +440,7 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
         }
 
         // TODO: stack too deep
-        //uint32 jurorNumber = round.jurorNumber;
+        //uint64 jurorNumber = round.jurorNumber;
         //uint256 nextJurorIndex = round.nextJurorIndex;
         if (round.jurors.length == 0) {
             round.jurors.length = round.jurorNumber;
@@ -517,7 +517,7 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
         Dispute storage dispute = disputes[_disputeId];
         AdjudicationRound storage currentRound = dispute.rounds[_roundId];
 
-        uint32 appealJurorNumber;
+        uint64 appealJurorNumber;
         uint64 appealDraftTermId = termId + 1; // Appeals are drafted in the next term
 
         uint256 roundId;
@@ -575,7 +575,7 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
         uint8 winningRuling = voting.getWinningRuling(voteId);
         round.winningRuling = winningRuling;
         uint256 coherentJurors = voting.getRulingVotes(voteId, winningRuling);
-        round.coherentJurors = uint32(coherentJurors);
+        round.coherentJurors = uint64(coherentJurors);
 
         uint256 slashedTokens;
         if (_roundId < MAX_REGULAR_APPEAL_ROUNDS) {
@@ -695,7 +695,7 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
      */
     function feeForJurorDraft(
         uint64 _draftTermId,
-        uint32 _jurorNumber
+        uint64 _jurorNumber
     )
         public
         view
@@ -792,8 +792,8 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
 
                 // update round state
                 round.slashedTokens += weightedPenalty;
-                // overflow? See `_getJurorWeight` and `_newFinalAdjudicationRound`. This will alwys be less than `jurorNumber`, which currenty is uint32 too
-                round.jurorSlotStates[_voter].weight = uint32(weight);
+                // This shouldn't overflow. See `_getJurorWeight` and `_newFinalAdjudicationRound`. This will always be less than `jurorNumber`, which currenty is uint64 too
+                round.jurorSlotStates[_voter].weight = uint64(weight);
             }
         }
     }
@@ -842,7 +842,7 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
 
     function _newAdjudicationRound(
         uint256 _disputeId,
-        uint32 _jurorNumber,
+        uint64 _jurorNumber,
         uint64 _draftTermId
     )
         internal
@@ -861,11 +861,12 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
         uint64 _draftTermId
     )
         internal
-        returns (uint256 roundId, uint32 jurorNumber)
+        returns (uint256 roundId, uint64 jurorNumber)
     {
-        // TODO: check overflow? make it bigger? (uint32 feels too small)
-        // For instance, this would be enough to hold the total total token suply of 42.9M (more than current ANT one) in the tree if min stake was 10.
-        jurorNumber = uint32(FINAL_ROUND_WEIGHT_PRECISION * sumTree.totalSumPresent(termId) / jurorMinStake);
+        // the max amount of tokens the tree can hold for this to fit in an uint64 is:
+        // 2^64 * jurorMinStake / FINAL_ROUND_WEIGHT_PRECISION
+        // (decimals get cancelled in the division). So it seems enough.
+        jurorNumber = uint64(FINAL_ROUND_WEIGHT_PRECISION * sumTree.totalSumPresent(termId) / jurorMinStake);
 
         CourtConfig storage config = _courtConfigForTerm(_draftTermId);
         // apply final round discount
@@ -874,14 +875,15 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
             require(config.feeToken.safeTransferFrom(msg.sender, this, feeAmount), ERROR_DEPOSIT_FAILED);
         }
 
-        roundId = _createRound(_disputeId, DisputeState.Adjudicating, _draftTermId, jurorNumber, jurorNumber);
+        // filledSeats is not used for final round, so we set it to zero
+        roundId = _createRound(_disputeId, DisputeState.Adjudicating, _draftTermId, jurorNumber, 0);
     }
 
     function _createRound(
         uint256 _disputeId,
         DisputeState _disputeState,
         uint64 _draftTermId,
-        uint32 _jurorNumber,
+        uint64 _jurorNumber,
         uint32 _filledSeats
     )
         internal

@@ -81,7 +81,9 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
         uint64 coherentJurors;
         address triggeredBy;
         bool settledPenalties;
-        uint256 slashedTokens;
+        // for regular rounds this contains penalties from non-winning jurors, collected after reveal period
+        // for the final round it contains all potential penalties from jurors that voted, as they are collected when jurors commit vote
+        uint256 collectedTokens;
     }
 
     enum DisputeState {
@@ -166,7 +168,7 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
     event TokenWithdrawal(address indexed token, address indexed account, uint256 amount);
     event RulingAppealed(uint256 indexed disputeId, uint256 indexed roundId, uint64 indexed draftTermId, uint64 jurorNumber);
     event RulingExecuted(uint256 indexed disputeId, uint8 indexed ruling);
-    event RoundSlashingSettled(uint256 indexed disputeId, uint256 indexed roundId, uint256 slashedTokens);
+    event RoundSlashingSettled(uint256 indexed disputeId, uint256 indexed roundId, uint256 collectedTokens);
     event RewardSettled(uint256 indexed disputeId, uint256 indexed roundId, address juror);
 
     modifier only(address _addr) {
@@ -577,14 +579,14 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
         uint256 coherentJurors = voting.getRulingVotes(voteId, winningRuling);
         round.coherentJurors = uint64(coherentJurors);
 
-        uint256 slashedTokens;
+        uint256 collectedTokens;
         if (_roundId < MAX_REGULAR_APPEAL_ROUNDS) {
-            slashedTokens = _settleRegularRoundSlashing(round, voteId, config.penaltyPct, winningRuling);
-            round.slashedTokens = slashedTokens;
+            collectedTokens = _settleRegularRoundSlashing(round, voteId, config.penaltyPct, winningRuling);
+            round.collectedTokens = collectedTokens;
             _payFees(config.feeToken, msg.sender, config.settleFee * round.jurorNumber, config.governanceFeeShare);
         } else { // final round
             // this was accounted for on juror's vote commit
-            slashedTokens = round.slashedTokens;
+            collectedTokens = round.collectedTokens;
             // there's no settleFee in this round
         }
 
@@ -598,10 +600,10 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
                 jurorFee = _pct4(jurorFee / FINAL_ROUND_WEIGHT_PRECISION, config.finalRoundReduction);
             }
             _payFees(config.feeToken, round.triggeredBy, jurorFee, config.governanceFeeShare);
-            _assignTokens(jurorToken, BURN_ACCOUNT, slashedTokens);
+            _assignTokens(jurorToken, BURN_ACCOUNT, collectedTokens);
         }
 
-        emit RoundSlashingSettled(_disputeId, _roundId, slashedTokens);
+        emit RoundSlashingSettled(_disputeId, _roundId, collectedTokens);
     }
 
     function _settleRegularRoundSlashing(
@@ -611,7 +613,7 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
         uint8 _winningRuling
     )
         internal
-        returns (uint256 slashedTokens)
+        returns (uint256 collectedTokens)
     {
         uint256 penalty = _pct4(jurorMinStake, _penaltyPct);
 
@@ -628,7 +630,7 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
             uint8 jurorRuling = voting.getCastVote(_voteId, juror);
             // If the juror didn't vote for the final winning ruling
             if (jurorRuling != _winningRuling) {
-                slashedTokens += weightedPenalty;
+                collectedTokens += weightedPenalty;
 
                 if (account.deactivationTermId <= slashingUpdateTermId) {
                     // Slash from balance if the account already deactivated
@@ -661,10 +663,10 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
 
         require(jurorRuling == round.winningRuling, ERROR_JUROR_NOT_COHERENT);
 
-        uint256 slashedTokens = round.slashedTokens;
+        uint256 collectedTokens = round.collectedTokens;
 
-        if (slashedTokens > 0) {
-            _assignTokens(jurorToken, _juror, jurorState.weight * slashedTokens / coherentJurors);
+        if (collectedTokens > 0) {
+            _assignTokens(jurorToken, _juror, jurorState.weight * collectedTokens / coherentJurors);
         }
 
         CourtConfig storage config = courtConfigs[terms[round.draftTermId].courtConfigId]; // safe to use directly as it is a past term
@@ -791,7 +793,7 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
                 }
 
                 // update round state
-                round.slashedTokens += weightedPenalty;
+                round.collectedTokens += weightedPenalty;
                 // This shouldn't overflow. See `_getJurorWeight` and `_newFinalAdjudicationRound`. This will always be less than `jurorNumber`, which currenty is uint64 too
                 round.jurorSlotStates[_voter].weight = uint64(weight);
             }

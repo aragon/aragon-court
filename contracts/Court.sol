@@ -543,14 +543,10 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
      * @notice Execute the final ruling of dispute #`_disputeId`
      */
     function executeRuling(uint256 _disputeId, uint256 _roundId) external ensureTerm {
-        // checks that dispute is in adjudication state
-        _checkAdjudicationState(_disputeId, _roundId, AdjudicationState.Ended);
-
         Dispute storage dispute = disputes[_disputeId];
         dispute.state = DisputeState.Executed;
 
-        uint8 winningRuling = voting.getWinningRuling(_getVoteId(_disputeId, _roundId));
-        dispute.winningRuling = winningRuling;
+        uint8 winningRuling = _ensureFinalRuling(_disputeId);
 
         dispute.subject.rule(_disputeId, uint256(winningRuling));
 
@@ -573,10 +569,7 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
 
         uint8 winningRuling;
         if (dispute.state != DisputeState.Executed) {
-            uint256 lastRoundId = dispute.rounds.length - 1;
-            _checkAdjudicationState(_disputeId, lastRoundId, AdjudicationState.Ended);
-            winningRuling = voting.getWinningRuling(_getVoteId(_disputeId, lastRoundId));
-            dispute.winningRuling = winningRuling;
+            winningRuling = _ensureFinalRuling(_disputeId);
         } else {
             // winningRuling was already set on `executeRuling`
             winningRuling = dispute.winningRuling;
@@ -613,6 +606,22 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
         }
 
         emit RoundSlashingSettled(_disputeId, _roundId, collectedTokens);
+    }
+
+    function _ensureFinalRuling(uint256 _disputeId) internal returns (uint8 winningRuling) {
+        Dispute storage dispute = disputes[_disputeId];
+
+        if (dispute.winningRuling > 0) {
+            return dispute.winningRuling; // winning ruling was already set
+        }
+
+        // ensure the last round adjudication period already ended
+        uint256 lastRoundId = dispute.rounds.length - 1;
+        _checkAdjudicationState(_disputeId, lastRoundId, AdjudicationState.Ended);
+
+        uint256 voteId = _getVoteId(_disputeId, lastRoundId);
+        winningRuling = voting.getWinningRuling(voteId);
+        dispute.winningRuling = winningRuling;
     }
 
     function _settleRegularRoundSlashing(

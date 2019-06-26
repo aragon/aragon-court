@@ -59,6 +59,10 @@ contract HexSumTreeWrapper {
         return tree.totalSumPresent(_checkpointTime);
     }
 
+    function totalSumPast(uint64 _checkpointTime) external view returns (uint256) {
+        return tree.totalSumPast(_checkpointTime);
+    }
+
     function sortition(uint256 value, uint64 time, bool past) external view returns (uint256 key, uint256 nodeValue) {
         return tree.sortition(value, time, past);
     }

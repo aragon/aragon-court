@@ -6,6 +6,8 @@ import "./standards/arbitration/IArbitrable.sol";
 import "./standards/erc900/ERC900.sol";
 import "./standards/voting/ICRVoting.sol";
 import "./standards/voting/ICRVotingOwner.sol";
+import "./standards/subscription/ISubscription.sol";
+import "./standards/subscription/ISubscriptionOwner.sol";
 
 import { ApproveAndCallFallBack } from "@aragon/apps-shared-minime/contracts/MiniMeToken.sol";
 import "@aragon/os/contracts/lib/token/ERC20.sol";
@@ -14,7 +16,7 @@ import "@aragon/os/contracts/lib/math/SafeMath.sol";
 
 
 // solium-disable function-order
-contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
+contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner, ISubscriptionOwner {
     using SafeERC20 for ERC20;
     using SafeMath for uint256;
 
@@ -105,14 +107,14 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
     ISumTree internal sumTree;
 
     // Global config, configurable by governor
-    address public governor; // TODO: consider using aOS' ACL
+    address internal governor; // TODO: consider using aOS' ACL
     uint256 public jurorMinStake; // TODO: consider adding it to the conf
     CourtConfig[] public courtConfigs;
 
     // Court state
     uint64 public termId;
     uint64 public configChangeTermId;
-    mapping (address => Account) public accounts;
+    mapping (address => Account) internal accounts;
     mapping (uint256 => address) public jurorsByTreeId;
     mapping (uint64 => Term) public terms;
     Dispute[] public disputes;
@@ -426,12 +428,9 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
         CourtConfig storage config = courtConfigs[terms[round.draftTermId].courtConfigId]; // safe to use directly as it is current or past term
 
         require(dispute.state == DisputeState.PreDraft, ERROR_ROUND_ALREADY_DRAFTED);
-        require(_blockNumber() > draftTerm.randomnessBN, ERROR_TERM_RANDOMNESS_UNAVAIL);
         require(round.draftTermId <= termId, ERROR_NOT_DRAFT_TERM);
-
-        if (draftTerm.randomness == bytes32(0)) {
-            draftTerm.randomness = blockhash(draftTerm.randomnessBN);
-        }
+        // Ensure that term has randomness:
+        _getTermRandomness(draftTerm);
 
         // TODO: stack too deep
         //uint64 jurorNumber = round.jurorNumber;
@@ -849,6 +848,35 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
 
     function _getJurorWeight(uint256 _disputeId, uint256 _roundId, address _juror) internal view returns (uint256) {
         return disputes[_disputeId].rounds[_roundId].jurorSlotStates[_juror].weight;
+    }
+
+    /* Subscription interface */
+    function getCurrentTermId() external ensureTerm returns (uint64) {
+        return termId;
+    }
+
+    function getTermRandomness(uint64 _termId) external returns (bytes32) {
+        Term storage term = terms[_termId];
+
+        return _getTermRandomness(term);
+    }
+
+    function _getTermRandomness(Term storage _term) internal returns (bytes32) {
+        require(_blockNumber() > _term.randomnessBN, ERROR_TERM_RANDOMNESS_UNAVAIL);
+
+        if (_term.randomness == bytes32(0)) {
+            _term.randomness = blockhash(_term.randomnessBN);
+        }
+
+        return _term.randomness;
+    }
+
+    function getAccountSumTreeId(address _juror) external returns (uint256) {
+        return accounts[_juror].sumTreeId;
+    }
+
+    function getGovernor() external returns (address) {
+        return governor;
     }
 
     function _newAdjudicationRound(

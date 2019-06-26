@@ -523,7 +523,8 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
         uint64 appealDraftTermId = termId + 1; // Appeals are drafted in the next term
 
         uint256 roundId;
-        if (_roundId == MAX_REGULAR_APPEAL_ROUNDS - 1) { // roundId starts at 0
+        if (_roundId == MAX_REGULAR_APPEAL_ROUNDS - 1) { // final round, roundId starts at 0
+            // number of jurors will be the number of times the minimum stake is hold in the tree, multiplied by a precision factor for division roundings
             (roundId, appealJurorNumber) = _newFinalAdjudicationRound(_disputeId, appealDraftTermId);
         } else { // no need for more checks, as final appeal won't ever be in Appealable state, so it would never reach here (first check would fail)
             appealJurorNumber = APPEAL_STEP_FACTOR * currentRound.jurorNumber;
@@ -597,6 +598,8 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
             // refund fees and burn ANJ
             uint256 jurorFee = config.jurorFee * round.jurorNumber;
             if (_roundId == MAX_REGULAR_APPEAL_ROUNDS) {
+                // number of jurors will in the final round is multiplied by a precision factor for division roundings, so we need to undo it here
+                // besides, we account for the final round discount in fees
                 jurorFee = _pct4(jurorFee / FINAL_ROUND_WEIGHT_PRECISION, config.finalRoundReduction);
             }
             _payFees(config.feeToken, round.triggeredBy, jurorFee, config.governanceFeeShare);
@@ -672,7 +675,9 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
         CourtConfig storage config = courtConfigs[terms[round.draftTermId].courtConfigId]; // safe to use directly as it is a past term
         uint256 jurorFee = config.jurorFee * jurorState.weight * round.jurorNumber / coherentJurors;
         if (_roundId == MAX_REGULAR_APPEAL_ROUNDS) {
-            jurorFee = _pct4(jurorFee, config.finalRoundReduction);
+            // number of jurors will in the final round is multiplied by a precision factor for division roundings, so we need to undo it here
+            // besides, we account for the final round discount in fees
+            jurorFee = _pct4(jurorFee / FINAL_ROUND_WEIGHT_PRECISION, config.finalRoundReduction);
         }
         _payFees(config.feeToken, _juror, jurorFee, config.governanceFeeShare);
 
@@ -687,13 +692,17 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
         return (_time() - terms[termId].startTime) / termDuration;
     }
 
+    /**
+     * @dev This function only works for regular rounds. For final round `filledSeats` is always zero,
+     *      so the result will always be false. There is no drafting in final round.
+     */
     function areAllJurorsDrafted(uint256 _disputeId, uint256 _roundId) public view returns (bool) {
         AdjudicationRound storage round = disputes[_disputeId].rounds[_roundId];
         return round.filledSeats == round.jurorNumber;
     }
 
     /**
-     * @dev Assumes term is up to date
+     * @dev Assumes term is up to date. This function only works for regular rounds. There is no drafting in final round.
      */
     function feeForJurorDraft(
         uint64 _draftTermId,
@@ -875,7 +884,8 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
         jurorNumber = uint64(FINAL_ROUND_WEIGHT_PRECISION * sumTree.totalSumPresent(termId) / jurorMinStake);
 
         CourtConfig storage config = _courtConfigForTerm(_draftTermId);
-        // apply final round discount
+        // number of jurors is the number of times the minimum stake is hold in the tree, multiplied by a precision factor for division roundings
+        // besides, apply final round discount
         uint256 feeAmount = config.heartbeatFee + _pct4(jurorNumber * config.jurorFee / FINAL_ROUND_WEIGHT_PRECISION, config.finalRoundReduction);
         if (feeAmount > 0) {
             require(config.feeToken.safeTransferFrom(msg.sender, this, feeAmount), ERROR_DEPOSIT_FAILED);

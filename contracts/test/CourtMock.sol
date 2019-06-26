@@ -79,7 +79,7 @@ contract CourtMock is Court {
         Dispute storage dispute = disputes[_disputeId];
         dispute.state = DisputeState.Executed;
 
-        uint8 winningRuling = dispute.rounds[_roundId].winningRuling;
+        uint8 winningRuling = dispute.winningRuling;
 
         // TODO
         //dispute.subject.rule(_disputeId, uint256(winningRuling));

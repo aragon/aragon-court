@@ -571,17 +571,18 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
         require(_roundId == 0 || dispute.rounds[_roundId - 1].settledPenalties, ERROR_PREV_ROUND_NOT_SETTLED);
         require(!round.settledPenalties, ERROR_ROUND_ALREADY_SETTLED);
 
-        uint256 voteId = _getVoteId(_disputeId, _roundId);
         uint8 winningRuling;
         if (dispute.state != DisputeState.Executed) {
-            _checkAdjudicationState(_disputeId, dispute.rounds.length - 1, AdjudicationState.Ended);
-            winningRuling = voting.getWinningRuling(voteId);
+            uint256 lastRoundId = dispute.rounds.length - 1;
+            _checkAdjudicationState(_disputeId, lastRoundId, AdjudicationState.Ended);
+            winningRuling = voting.getWinningRuling(_getVoteId(_disputeId, lastRoundId));
             dispute.winningRuling = winningRuling;
         } else {
             // winningRuling was already set on `executeRuling`
             winningRuling = dispute.winningRuling;
         }
 
+        uint256 voteId = _getVoteId(_disputeId, _roundId);
         uint256 coherentJurors = voting.getRulingVotes(voteId, winningRuling);
         round.coherentJurors = uint64(coherentJurors);
 

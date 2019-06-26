@@ -77,7 +77,6 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
         uint64 draftTermId;
         uint64 delayTerms;
         uint64 jurorNumber;
-        uint8 winningRuling;
         uint64 coherentJurors;
         address triggeredBy;
         bool settledPenalties;
@@ -95,6 +94,7 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
     struct Dispute {
         IArbitrable subject;
         uint8 possibleRulings;      // number of possible rulings the court can decide on
+        uint8 winningRuling;
         DisputeState state;
         AdjudicationRound[] rounds;
     }
@@ -550,6 +550,7 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
         dispute.state = DisputeState.Executed;
 
         uint8 winningRuling = voting.getWinningRuling(_getVoteId(_disputeId, _roundId));
+        dispute.winningRuling = winningRuling;
 
         dispute.subject.rule(_disputeId, uint256(winningRuling));
 
@@ -570,13 +571,17 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
         require(_roundId == 0 || dispute.rounds[_roundId - 1].settledPenalties, ERROR_PREV_ROUND_NOT_SETTLED);
         require(!round.settledPenalties, ERROR_ROUND_ALREADY_SETTLED);
 
+        uint256 voteId = _getVoteId(_disputeId, _roundId);
+        uint8 winningRuling;
         if (dispute.state != DisputeState.Executed) {
             _checkAdjudicationState(_disputeId, dispute.rounds.length - 1, AdjudicationState.Ended);
+            winningRuling = voting.getWinningRuling(voteId);
+            dispute.winningRuling = winningRuling;
+        } else {
+            // winningRuling was already set on `executeRuling`
+            winningRuling = dispute.winningRuling;
         }
 
-        uint256 voteId = _getVoteId(_disputeId, _roundId);
-        uint8 winningRuling = voting.getWinningRuling(voteId);
-        round.winningRuling = winningRuling;
         uint256 coherentJurors = voting.getRulingVotes(voteId, winningRuling);
         round.coherentJurors = uint64(coherentJurors);
 
@@ -664,7 +669,7 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
         uint256 coherentJurors = round.coherentJurors;
         uint8 jurorRuling = voting.getCastVote(voteId, _juror);
 
-        require(jurorRuling == round.winningRuling, ERROR_JUROR_NOT_COHERENT);
+        require(jurorRuling == dispute.winningRuling, ERROR_JUROR_NOT_COHERENT);
 
         uint256 collectedTokens = round.collectedTokens;
 

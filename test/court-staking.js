@@ -8,6 +8,7 @@ const COURT = 'Court'
 const MINIME = 'MiniMeToken'
 const CRVoting = artifacts.require('CRVoting')
 const SumTree = artifacts.require('HexSumTreeWrapper')
+const Subscriptions = artifacts.require('SubscriptionsMock')
 
 const getLog = (receipt, logName, argName) =>
   receipt.logs.find(({ event }) => event == logName).args[argName]
@@ -42,6 +43,8 @@ contract('Court: Staking', ([ pleb, rich ]) => {
 
     this.voting = await CRVoting.new()
     this.sumTree = await SumTree.new()
+    this.subscriptions = await Subscriptions.new()
+    await this.subscriptions.setUpToDate(true)
 
     this.court = await CourtMock.new(
       termDuration,
@@ -49,16 +52,15 @@ contract('Court: Staking', ([ pleb, rich ]) => {
       ZERO_ADDRESS, // no fees
       this.voting.address,
       this.sumTree.address,
-      0,
-      0,
-      0,
-      0,
+      this.subscriptions.address,
+      [ 0, 0, 0, 0 ],
       ZERO_ADDRESS,
       1,
       1,
       [ 1, 1, 1 ],
       1,
-      finalRoundReduction
+      finalRoundReduction,
+      [ 0, 0, 0, 0, 0 ]
     )
   })
 

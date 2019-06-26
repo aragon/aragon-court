@@ -6,6 +6,8 @@ import "./standards/arbitration/IArbitrable.sol";
 import "./standards/erc900/ERC900.sol";
 import "./standards/voting/ICRVoting.sol";
 import "./standards/voting/ICRVotingOwner.sol";
+import "./standards/subscription/ISubscriptions.sol";
+import "./standards/subscription/ISubscriptionsOwner.sol";
 
 import { ApproveAndCallFallBack } from "@aragon/apps-shared-minime/contracts/MiniMeToken.sol";
 import "@aragon/os/contracts/lib/token/ERC20.sol";
@@ -14,7 +16,7 @@ import "@aragon/os/contracts/lib/math/SafeMath.sol";
 
 
 // solium-disable function-order
-contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
+contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner, ISubscriptionsOwner {
     using SafeERC20 for ERC20;
     using SafeMath for uint256;
 
@@ -105,9 +107,10 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
     uint64 public termDuration; // recomended value ~1 hour as 256 blocks (available block hash) around an hour to mine
     ICRVoting internal voting;
     ISumTree internal sumTree;
+    ISubscriptions internal subscriptions;
 
     // Global config, configurable by governor
-    address public governor; // TODO: consider using aOS' ACL
+    address internal governor; // TODO: consider using aOS' ACL
     // notice that for final round the max amount the tree can hold is 2^64 * jurorMinStake / FINAL_ROUND_WEIGHT_PRECISION
     // so make sure not to set this too low (as long as it's over the unit should be fine)
     uint256 public jurorMinStake; // TODO: consider adding it to the conf
@@ -116,7 +119,7 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
     // Court state
     uint64 public termId;
     uint64 public configChangeTermId;
-    mapping (address => Account) public accounts;
+    mapping (address => Account) internal accounts;
     mapping (uint256 => address) public jurorsByTreeId;
     mapping (uint64 => Term) public terms;
     Dispute[] public disputes;
@@ -136,12 +139,15 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
     string internal constant ERROR_ROUND_ALREADY_DRAFTED = "COURT_ROUND_ALREADY_DRAFTED";
     string internal constant ERROR_NOT_DRAFT_TERM = "COURT_NOT_DRAFT_TERM";
     string internal constant ERROR_TERM_RANDOMNESS_NOT_YET = "COURT_TERM_RANDOMNESS_NOT_YET";
+    string internal constant ERROR_WRONG_TERM = "COURT_WRONG_TERM";
     string internal constant ERROR_TERM_RANDOMNESS_UNAVAIL = "COURT_TERM_RANDOMNESS_UNAVAIL";
     string internal constant ERROR_SORTITION_LENGTHS_MISMATCH = "COURT_SORTITION_LENGTHS_MISMATCH";
     string internal constant ERROR_INVALID_DISPUTE_STATE = "COURT_INVALID_DISPUTE_STATE";
     string internal constant ERROR_INVALID_ADJUDICATION_ROUND = "COURT_INVALID_ADJUDICATION_ROUND";
     string internal constant ERROR_INVALID_ADJUDICATION_STATE = "COURT_INVALID_ADJUDICATION_STATE";
     string internal constant ERROR_INVALID_JUROR = "COURT_INVALID_JUROR";
+    // TODO: string internal constant ERROR_INVALID_DISPUTE_CREATOR = "COURT_INVALID_DISPUTE_CREATOR";
+    string internal constant ERROR_SUBSCRIPTION_NOT_PAID = "COURT_SUBSCRIPTION_NOT_PAID";
     string internal constant ERROR_INVALID_RULING_OPTIONS = "COURT_INVALID_RULING_OPTIONS";
     string internal constant ERROR_CONFIG_PERIOD_ZERO_TERMS = "COURT_CONFIG_PERIOD_ZERO_TERMS";
     string internal constant ERROR_PREV_ROUND_NOT_SETTLED = "COURT_PREV_ROUND_NOT_SETTLED";
@@ -153,10 +159,11 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
     uint64 internal constant ZERO_TERM_ID = 0; // invalid term that doesn't accept disputes
     uint64 internal constant MODIFIER_ALLOWED_TERM_TRANSITIONS = 1;
     bytes4 private constant ARBITRABLE_INTERFACE_ID = 0xabababab; // TODO: interface id
-    uint16 internal constant PCT_BASE = 10000; // ‱
+    uint256 internal constant PCT_BASE = 10000; // ‱
     uint8 internal constant MIN_RULING_OPTIONS = 2;
     uint8 internal constant MAX_RULING_OPTIONS = MIN_RULING_OPTIONS;
     address internal constant BURN_ACCOUNT = 0xdead;
+    uint256 internal constant MAX_UINT16 = uint16(-1);
     uint64 internal constant MAX_UINT64 = uint64(-1);
 
     event NewTerm(uint64 termId, address indexed heartbeatSender);
@@ -195,15 +202,22 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
      * @param _feeToken The address of the token contract that is used to pay for fees.
      * @param _voting The address of the Commit Reveal Voting contract.
      * @param _sumTree The address of the contract storing de Sum Tree for sortitions.
-     * @param _jurorFee The amount of _feeToken that is paid per juror per dispute
-     * @param _heartbeatFee The amount of _feeToken per dispute to cover maintenance costs.
-     * @param _draftFee The amount of _feeToken per juror to cover the drafting cost.
-     * @param _settleFee The amount of _feeToken per juror to cover round settlement cost.
+     * @param _fees Array containing:
+     *        _jurorFee The amount of _feeToken that is paid per juror per dispute
+     *        _heartbeatFee The amount of _feeToken per dispute to cover maintenance costs.
+     *        _draftFee The amount of _feeToken per juror to cover the drafting cost.
+     *        _settleFee The amount of _feeToken per juror to cover round settlement cost.
      * @param _governor Address of the governor contract.
      * @param _firstTermStartTime Timestamp in seconds when the court will open (to give time for juror onboarding)
      * @param _jurorMinStake Minimum amount of juror tokens that can be activated
      * @param _roundStateDurations Number of terms that the different states a dispute round last
      * @param _penaltyPct ‱ of jurorMinStake that can be slashed (1/10,000)
+     * @param _subscriptionParams Array containing params for Subscriptions:
+     *        _periodDuration Length of Subscription periods
+     *        _feeAmount Amount of periodic fees
+     *        _prePaymentPeriods Max number of payments that can be done in advance
+     *        _latePaymentPenaltyPct Penalty for not paying on time
+     *        _governorSharePct Share of paid fees that goes to governor
      */
     constructor(
         uint64 _termDuration,
@@ -211,35 +225,33 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
         ERC20 _feeToken,
         ICRVoting _voting,
         ISumTree _sumTree,
-        uint256 _jurorFee,
-        uint256 _heartbeatFee,
-        uint256 _draftFee,
-        uint256 _settleFee,
+        ISubscriptions _subscriptions,
+        uint256[4] _fees, // _jurorFee, _heartbeatFee, _draftFee, _settleFee
         address _governor,
         uint64 _firstTermStartTime,
         uint256 _jurorMinStake,
         uint64[3] _roundStateDurations,
         uint16 _penaltyPct,
-        uint16 _finalRoundReduction
+        uint16 _finalRoundReduction,
+        uint256[5] _subscriptionParams // _periodDuration, _feeAmount, _prePaymentPeriods, _latePaymentPenaltyPct, _governorSharePct
     ) public {
         termDuration = _termDuration;
         jurorToken = _jurorToken;
         voting = _voting;
         sumTree = _sumTree;
+        subscriptions = _subscriptions;
         jurorMinStake = _jurorMinStake;
         governor = _governor;
 
         voting.setOwner(ICRVotingOwner(this));
         sumTree.init(address(this));
+        _initSubscriptions(_feeToken, _subscriptionParams, _sumTree);
 
         courtConfigs.length = 1; // leave index 0 empty
         _setCourtConfig(
             ZERO_TERM_ID,
             _feeToken,
-            _jurorFee,
-            _heartbeatFee,
-            _draftFee,
-            _settleFee,
+            _fees,
             _roundStateDurations,
             _penaltyPct,
             _finalRoundReduction
@@ -393,8 +405,9 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
         // TODO: Limit the max amount of terms into the future that a dispute can be drafted
         // TODO: Limit the max number of initial jurors
         // TODO: ERC165 check that _subject conforms to the Arbitrable interface
-        // TODO: Consider requiring that only the contract being arbitred can create a dispute
 
+        // TODO: require(address(_subject) == msg.sender, ERROR_INVALID_DISPUTE_CREATOR);
+        require(subscriptions.isUpToDate(address(_subject)), ERROR_SUBSCRIPTION_NOT_PAID);
         require(_possibleRulings >= MIN_RULING_OPTIONS && _possibleRulings <= MAX_RULING_OPTIONS, ERROR_INVALID_RULING_OPTIONS);
 
         uint256 disputeId = disputes.length;
@@ -430,12 +443,9 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
         CourtConfig storage config = courtConfigs[terms[round.draftTermId].courtConfigId]; // safe to use directly as it is current or past term
 
         require(dispute.state == DisputeState.PreDraft, ERROR_ROUND_ALREADY_DRAFTED);
-        require(_blockNumber() > draftTerm.randomnessBN, ERROR_TERM_RANDOMNESS_NOT_YET);
         require(round.draftTermId <= termId, ERROR_NOT_DRAFT_TERM);
-
-        if (draftTerm.randomness == bytes32(0)) {
-            draftTerm.randomness = blockhash(draftTerm.randomnessBN);
-        }
+        // Ensure that term has randomness:
+        _ensureTermRandomness(draftTerm);
         // as we already allow to move drafting to later terms, if current term has gone
         // more than 256 blocks beyond the randomness BN, it will have to wait until next term
         require(draftTerm.randomness != bytes32(0), ERROR_TERM_RANDOMNESS_UNAVAIL);
@@ -888,6 +898,32 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
         return disputes[_disputeId].rounds[_roundId].jurorSlotStates[_juror].weight;
     }
 
+    /* Subscriptions interface */
+    function getCurrentTermId() external view returns (uint64) {
+        return termId + neededTermTransitions();
+    }
+
+    function getTermRandomness(uint64 _termId) external view returns (bytes32) {
+        require(_termId <= termId, ERROR_WRONG_TERM);
+        Term storage term = terms[_termId];
+
+        return _getTermRandomness(term);
+    }
+
+    function _getTermRandomness(Term storage _term) internal view returns (bytes32 randomness) {
+        require(_blockNumber() > _term.randomnessBN, ERROR_TERM_RANDOMNESS_NOT_YET);
+
+        randomness = blockhash(_term.randomnessBN);
+    }
+
+    function getAccountSumTreeId(address _juror) external view returns (uint256) {
+        return accounts[_juror].sumTreeId;
+    }
+
+    function getGovernor() external view returns (address) {
+        return governor;
+    }
+
     function _newAdjudicationRound(
         uint256 _disputeId,
         uint64 _jurorNumber,
@@ -993,6 +1029,12 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
         }
     }
 
+    function _ensureTermRandomness(Term storage _term) internal {
+        if (_term.randomness == bytes32(0)) {
+            _term.randomness = _getTermRandomness(_term);
+        }
+    }
+
     function _treeSearch(
         bytes32 _termRandomness,
         uint256 _disputeId,
@@ -1059,10 +1101,7 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
     function _setCourtConfig(
         uint64 _fromTermId,
         ERC20 _feeToken,
-        uint256 _jurorFee,
-        uint256 _heartbeatFee,
-        uint256 _draftFee,
-        uint256 _settleFee,
+        uint256[4] _fees, // _jurorFee, _heartbeatFee, _draftFee, _settleFee
         uint64[3] _roundStateDurations,
         uint16 _penaltyPct,
         uint16 _finalRoundReduction
@@ -1084,10 +1123,10 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
 
         CourtConfig memory courtConfig = CourtConfig({
             feeToken: _feeToken,
-            jurorFee: _jurorFee,
-            heartbeatFee: _heartbeatFee,
-            draftFee: _draftFee,
-            settleFee: _settleFee,
+            jurorFee: _fees[0],
+            heartbeatFee: _fees[1],
+            draftFee: _fees[2],
+            settleFee: _fees[3],
             commitTerms: _roundStateDurations[0],
             revealTerms: _roundStateDurations[1],
             appealTerms: _roundStateDurations[2],
@@ -1102,6 +1141,22 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
         emit NewCourtConfig(_fromTermId, courtConfigId);
     }
 
+    function _initSubscriptions(ERC20 _feeToken, uint256[5] _subscriptionParams, ISumTree _sumTree) internal {
+        require(_subscriptionParams[0] <= MAX_UINT64, ERROR_OVERFLOW); // _periodDuration
+        require(_subscriptionParams[3] <= MAX_UINT16, ERROR_OVERFLOW); // _latePaymentPenaltyPct
+        require(_subscriptionParams[4] <= MAX_UINT16, ERROR_OVERFLOW); // _governorSharePct
+        subscriptions.init(
+            ISubscriptionsOwner(this),
+            _sumTree,
+            uint64(_subscriptionParams[0]), // _periodDuration
+            _feeToken,
+            _subscriptionParams[1],         // _feeAmount
+            _subscriptionParams[2],         // _prePaymentPeriods
+            uint16(_subscriptionParams[3]), // _latePaymentPenaltyPct
+            uint16(_subscriptionParams[4])  // _governorSharePct
+        );
+    }
+
     function _time() internal view returns (uint64) {
         return uint64(block.timestamp);
     }
@@ -1111,6 +1166,6 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
     }
 
     function _pct4(uint256 _number, uint16 _pct) internal pure returns (uint256) {
-        return _number * uint256(_pct) / uint256(PCT_BASE);
+        return _number * uint256(_pct) / PCT_BASE;
     }
 }

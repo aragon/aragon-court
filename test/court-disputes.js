@@ -5,6 +5,7 @@ const { soliditySha3 } = require('web3-utils')
 const TokenFactory = artifacts.require('TokenFactory')
 const CourtMock = artifacts.require('CourtMock')
 const CRVoting = artifacts.require('CRVoting')
+const Subscriptions = artifacts.require('SubscriptionsMock')
 const SumTree = artifacts.require('HexSumTreeWrapper')
 const Arbitrable = artifacts.require('ArbitrableMock')
 
@@ -63,6 +64,7 @@ contract('Court: Disputes', ([ poor, rich, governor, juror1, juror2, juror3, oth
   const ROUND_SLASHING_SETTLED_EVENT = 'RoundSlashingSettled'
 
   const ERROR_INVALID_DISPUTE_STATE = 'COURT_INVALID_DISPUTE_STATE'
+  const ERROR_SUBSCRIPTION_NOT_PAID = 'COURT_SUBSCRIPTION_NOT_PAID'
 
   const SALT = soliditySha3('passw0rd')
 
@@ -87,6 +89,8 @@ contract('Court: Disputes', ([ poor, rich, governor, juror1, juror2, juror3, oth
     this.voting = await CRVoting.new()
     this.sumTree = await SumTree.new()
     this.arbitrable = await Arbitrable.new()
+    this.subscriptions = await Subscriptions.new()
+    await this.subscriptions.setUpToDate(true)
 
     this.court = await CourtMock.new(
       termDuration,
@@ -94,16 +98,15 @@ contract('Court: Disputes', ([ poor, rich, governor, juror1, juror2, juror3, oth
       ZERO_ADDRESS, // no fees
       this.voting.address,
       this.sumTree.address,
-      0,
-      0,
-      0,
-      0,
+      this.subscriptions.address,
+      [ 0, 0, 0, 0 ],
       governor,
       firstTermStart,
       jurorMinStake,
       [ commitTerms, appealTerms, revealTerms ],
       penaltyPct,
-      finalRoundReduction
+      finalRoundReduction,
+      [ 0, 0, 0, 0, 0 ]
     )
 
     await this.court.mock_setBlockNumber(startBlock)
@@ -163,6 +166,11 @@ contract('Court: Disputes', ([ poor, rich, governor, juror1, juror2, juror3, oth
         await assertLogs(receipt, NEW_DISPUTE_EVENT)
         disputeId = getLog(receipt, NEW_DISPUTE_EVENT, 'disputeId')
         voteId = getVoteId(disputeId, firstRoundId)
+      })
+
+      it('fails creating dispute if subscriptions are not up to date', async () => {
+        await this.subscriptions.setUpToDate(false)
+        await assertRevert(this.court.createDispute(this.arbitrable.address, rulings, jurors, term), ERROR_SUBSCRIPTION_NOT_PAID)
       })
 
       it('fails to draft outside of the draft term', async () => {

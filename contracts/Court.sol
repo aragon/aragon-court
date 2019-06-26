@@ -766,41 +766,55 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
      */
     function canCommit(uint256 _voteId, address _voter) external ensureTerm only(voting) returns (uint256 weight) {
         (uint256 disputeId, uint256 roundId) = _decodeVoteId(_voteId);
+
+        // for the final round
+        if (roundId == MAX_REGULAR_APPEAL_ROUNDS) {
+            return _canCommitFinalRound(disputeId, roundId, _voter);
+        }
+
         weight = _canPerformVotingAction(disputeId, roundId, _voter, AdjudicationState.Commit);
+    }
 
-        // if it's the final round, lock tokens
+    function _canCommitFinalRound(uint256 _disputeId, uint256 _roundId, address _voter) internal returns (uint256 weight) {
+        _checkAdjudicationState(_disputeId, _roundId, AdjudicationState.Commit);
+
+        // weight is the number of times the minimum stake the juror has, multiplied by a precision factor for division roundings
+        weight = FINAL_ROUND_WEIGHT_PRECISION *
+            sumTree.getItemPast(accounts[_voter].sumTreeId, disputes[_disputeId].rounds[_roundId].draftTermId) /
+            jurorMinStake;
+
+        // as it's the final round, lock tokens
         if (weight > 0) {
-            if (roundId == MAX_REGULAR_APPEAL_ROUNDS) {
-                AdjudicationRound storage round = disputes[disputeId].rounds[roundId];
-                CourtConfig storage config = courtConfigs[terms[round.draftTermId].courtConfigId]; // safe to use directly as it is a past term
-                Account storage account = accounts[_voter];
+            AdjudicationRound storage round = disputes[_disputeId].rounds[_roundId];
+            CourtConfig storage config = courtConfigs[terms[round.draftTermId].courtConfigId]; // safe to use directly as it is a past term
+            Account storage account = accounts[_voter];
 
-                uint256 weightedPenalty = _pct4(jurorMinStake, config.penaltyPct) * weight / FINAL_ROUND_WEIGHT_PRECISION;
+            // weight is the number of times the minimum stake the juror has, multiplied by a precision factor for division roundings, so we remove that factor here
+            uint256 weightedPenalty = _pct4(jurorMinStake, config.penaltyPct) * weight / FINAL_ROUND_WEIGHT_PRECISION;
 
-                // Try to lock tokens
-                // If there's not enough we just return 0 (so prevent juror from voting).
-                // TODO: Should we use the remaining amount instead?
-                uint64 slashingUpdateTermId = termId + 1;
-                // Slash from balance if the account already deactivated
-                if (account.deactivationTermId <= slashingUpdateTermId) {
-                    if (weightedPenalty > unlockedBalanceOf(_voter)) {
-                        return 0;
-                    }
-                    _removeTokens(jurorToken, _voter, weightedPenalty);
-                } else {
-                    // account.sumTreeId always > 0: as the juror has activated (and gots its sumTreeId)
-                    uint256 treeUnlockedBalance = sumTree.getItem(account.sumTreeId).sub(account.atStakeTokens);
-                    if (weightedPenalty > treeUnlockedBalance) {
-                        return 0;
-                    }
-                    sumTree.update(account.sumTreeId, slashingUpdateTermId, weightedPenalty, false);
+            // Try to lock tokens
+            // If there's not enough we just return 0 (so prevent juror from voting).
+            // TODO: Should we use the remaining amount instead?
+            uint64 slashingUpdateTermId = termId + 1;
+            // Slash from balance if the account already deactivated
+            if (account.deactivationTermId <= slashingUpdateTermId) {
+                if (weightedPenalty > unlockedBalanceOf(_voter)) {
+                    return 0;
                 }
-
-                // update round state
-                round.collectedTokens += weightedPenalty;
-                // This shouldn't overflow. See `_getJurorWeight` and `_newFinalAdjudicationRound`. This will always be less than `jurorNumber`, which currenty is uint64 too
-                round.jurorSlotStates[_voter].weight = uint64(weight);
+                _removeTokens(jurorToken, _voter, weightedPenalty);
+            } else {
+                // account.sumTreeId always > 0: as the juror has activated (and got its sumTreeId)
+                uint256 treeUnlockedBalance = sumTree.getItem(account.sumTreeId).sub(account.atStakeTokens);
+                if (weightedPenalty > treeUnlockedBalance) {
+                    return 0;
+                }
+                sumTree.update(account.sumTreeId, slashingUpdateTermId, weightedPenalty, false);
             }
+
+            // update round state
+            round.collectedTokens += weightedPenalty;
+            // This shouldn't overflow. See `_getJurorWeight` and `_newFinalAdjudicationRound`. This will always be less than `jurorNumber`, which currenty is uint64 too
+            round.jurorSlotStates[_voter].weight = uint64(weight);
         }
     }
 
@@ -810,9 +824,6 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
      */
     function canReveal(uint256 _voteId, address _voter) external ensureTerm only(voting) returns (uint256) {
         (uint256 disputeId, uint256 roundId) = _decodeVoteId(_voteId);
-        if (roundId == MAX_REGULAR_APPEAL_ROUNDS) {
-            return disputes[disputeId].rounds[roundId].jurorSlotStates[_voter].weight;
-        }
         return _canPerformVotingAction(disputeId, roundId, _voter, AdjudicationState.Reveal);
     }
 
@@ -836,13 +847,6 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
     }
 
     function _getJurorWeight(uint256 _disputeId, uint256 _roundId, address _juror) internal view returns (uint256) {
-        // for the final round
-        if (_roundId == MAX_REGULAR_APPEAL_ROUNDS) {
-            return FINAL_ROUND_WEIGHT_PRECISION *
-                sumTree.getItemPast(accounts[_juror].sumTreeId, disputes[_disputeId].rounds[_roundId].draftTermId) /
-                jurorMinStake;
-        }
-
         return disputes[_disputeId].rounds[_roundId].jurorSlotStates[_juror].weight;
     }
 

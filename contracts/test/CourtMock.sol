@@ -66,21 +66,6 @@ contract CourtMock is Court {
         treeSearchHijacked = true;
     }
 
-    function executeRuling(uint256 _disputeId, uint256 _roundId) external ensureTerm {
-        // checks that dispute is in adjudication state
-        _checkAdjudicationState(_disputeId, _roundId, AdjudicationState.Ended);
-
-        Dispute storage dispute = disputes[_disputeId];
-        dispute.state = DisputeState.Executed;
-
-        uint8 winningRuling = dispute.winningRuling;
-
-        // TODO
-        //dispute.subject.rule(_disputeId, uint256(winningRuling));
-
-        emit RulingExecuted(_disputeId, winningRuling);
-    }
-
     function _treeSearch(
         bytes32 _termRandomness,
         uint256 _disputeId,

@@ -549,9 +549,9 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
      */
     function executeRuling(uint256 _disputeId, uint256 _roundId) external ensureTerm {
         Dispute storage dispute = disputes[_disputeId];
-        dispute.state = DisputeState.Executed;
 
         uint8 winningRuling = _ensureFinalRuling(_disputeId);
+        dispute.state = DisputeState.Executed;
 
         dispute.subject.rule(_disputeId, uint256(winningRuling));
 
@@ -572,14 +572,7 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
         require(_roundId == 0 || dispute.rounds[_roundId - 1].settledPenalties, ERROR_PREV_ROUND_NOT_SETTLED);
         require(!round.settledPenalties, ERROR_ROUND_ALREADY_SETTLED);
 
-        uint8 winningRuling;
-        if (dispute.state != DisputeState.Executed) {
-            winningRuling = _ensureFinalRuling(_disputeId);
-        } else {
-            // winningRuling was already set on `executeRuling`
-            winningRuling = dispute.winningRuling;
-        }
-
+        uint8 winningRuling = _ensureFinalRuling(_disputeId);
         uint256 voteId = _getVoteId(_disputeId, _roundId);
         uint256 coherentJurors = voting.getRulingVotes(voteId, winningRuling);
         round.coherentJurors = uint64(coherentJurors);

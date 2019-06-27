@@ -821,7 +821,16 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
         return _canPerformVotingAction(disputeId, roundId, _voter, AdjudicationState.Reveal);
     }
 
-    function _canPerformVotingAction(uint256 _disputeId, uint256 _roundId, address _voter, AdjudicationState _state) internal view returns (uint256) {
+    function _canPerformVotingAction(
+        uint256 _disputeId,
+        uint256 _roundId,
+        address _voter,
+        AdjudicationState _state
+    )
+        internal
+        view
+        returns (uint256)
+    {
         _checkAdjudicationState(_disputeId, _roundId, _state);
 
         return _getJurorWeight(_disputeId, _roundId, _voter);

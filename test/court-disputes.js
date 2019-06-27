@@ -6,6 +6,7 @@ const TokenFactory = artifacts.require('TokenFactory')
 const CourtMock = artifacts.require('CourtMock')
 const CRVoting = artifacts.require('CRVoting')
 const SumTree = artifacts.require('HexSumTreeWrapper')
+const Arbitrable = artifacts.require('ArbitrableMock')
 
 const MINIME = 'MiniMeToken'
 
@@ -31,7 +32,7 @@ const getVoteId = (disputeId, roundId) => {
   return new web3.BigNumber(2).pow(128).mul(disputeId).add(roundId)
 }
 
-contract('Court: Disputes', ([ poor, rich, governor, juror1, juror2, juror3, arbitrable, other ]) => {
+contract('Court: Disputes', ([ poor, rich, governor, juror1, juror2, juror3, other ]) => {
   const NO_DATA = ''
   const ZERO_ADDRESS = '0x' + '00'.repeat(20)
   
@@ -81,6 +82,7 @@ contract('Court: Disputes', ([ poor, rich, governor, juror1, juror2, juror3, arb
 
     this.voting = await CRVoting.new()
     this.sumTree = await SumTree.new()
+    this.arbitrable = await Arbitrable.new()
 
     this.court = await CourtMock.new(
       termDuration,
@@ -153,7 +155,7 @@ contract('Court: Disputes', ([ poor, rich, governor, juror1, juror2, juror3, arb
       let voteId
 
       beforeEach(async () => {
-        const receipt = await this.court.createDispute(arbitrable, rulings, jurors, term)
+        const receipt = await this.court.createDispute(this.arbitrable.address, rulings, jurors, term)
         await assertLogs(receipt, NEW_DISPUTE_EVENT)
         disputeId = getLog(receipt, NEW_DISPUTE_EVENT, 'disputeId')
         voteId = getVoteId(disputeId, firstRoundId)

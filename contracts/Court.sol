@@ -817,7 +817,16 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
         return _canPerformVotingAction(disputeId, roundId, _voter, AdjudicationState.Reveal);
     }
 
-    function _canPerformVotingAction(uint256 _disputeId, uint256 _roundId, address _voter, AdjudicationState _state) internal view returns (uint256) {
+    function _canPerformVotingAction(
+        uint256 _disputeId,
+        uint256 _roundId,
+        address _voter,
+        AdjudicationState _state
+    )
+        internal
+        view
+        returns (uint256)
+    {
         _checkAdjudicationState(_disputeId, _roundId, _state);
 
         return _getJurorWeight(_disputeId, _roundId, _voter);
@@ -827,11 +836,11 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
         return _getJurorWeight(_disputeId, _roundId, _juror);
     }
 
-    function _getVoteId(uint256 _disputeId, uint256 _roundId) internal returns (uint256) {
+    function _getVoteId(uint256 _disputeId, uint256 _roundId) internal pure returns (uint256) {
         return (_disputeId << 128) + _roundId;
     }
 
-    function _decodeVoteId(uint256 _voteId) internal returns (uint256 disputeId, uint256 roundId) {
+    function _decodeVoteId(uint256 _voteId) internal pure returns (uint256 disputeId, uint256 roundId) {
         disputeId = _voteId >> 128;
         roundId = _voteId & 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF;
     }

@@ -125,10 +125,6 @@ contract CourtMock is Court {
         return MAX_JURORS_PER_DRAFT_BATCH;
     }
 
-    function getMaxJurorsPerSettleBatch() public pure returns (uint256) {
-        return MAX_JURORS_PER_SETTLE_BATCH;
-    }
-
     function getMaxRegularAppealRounds() public pure returns (uint256) {
         return MAX_REGULAR_APPEAL_ROUNDS;
     }

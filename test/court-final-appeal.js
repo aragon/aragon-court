@@ -39,6 +39,7 @@ contract('Court: final appeal', ([ poor, rich, governor, juror1, juror2, juror3,
   const jurors = [juror1, juror2, juror3, juror4, juror5, juror6, juror7]
   const NO_DATA = ''
   const ZERO_ADDRESS = '0x' + '00'.repeat(20)
+  const SETTLE_BATCH_SIZE = 40
   let MAX_JURORS_PER_DRAFT_BATCH
   let MAX_REGULAR_APPEAL_ROUNDS
   let APPEAL_STEP_FACTOR
@@ -269,7 +270,7 @@ contract('Court: final appeal', ([ poor, rich, governor, juror1, juror2, juror3,
         for (let roundId = 0; roundId <= MAX_REGULAR_APPEAL_ROUNDS; roundId++) {
           let roundSlashingEvent = 0
           while (roundSlashingEvent == 0) {
-            const receiptPromise = await this.court.settleRoundSlashing(disputeId, roundId)
+            const receiptPromise = await this.court.settleRoundSlashing(disputeId, roundId, SETTLE_BATCH_SIZE)
             roundSlashingEvent = getLogCount(receiptPromise, ROUND_SLASHING_SETTLED_EVENT)
           }
         }

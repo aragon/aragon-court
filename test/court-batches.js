@@ -35,7 +35,6 @@ contract('Court: Batches', ([ rich, governor, arbitrable, juror1, juror2, juror3
   const NO_DATA = ''
   const ZERO_ADDRESS = '0x' + '00'.repeat(20)
   let MAX_JURORS_PER_DRAFT_BATCH
-  let MAX_JURORS_PER_SETTLE_BATCH
 
   const termDuration = 10
   const firstTermStart = 1
@@ -93,7 +92,6 @@ contract('Court: Batches', ([ rich, governor, arbitrable, juror1, juror2, juror3
     await this.court.mock_setBlockNumber(startBlock)
 
     MAX_JURORS_PER_DRAFT_BATCH = (await this.court.getMaxJurorsPerDraftBatch.call()).toNumber()
-    MAX_JURORS_PER_SETTLE_BATCH = (await this.court.getMaxJurorsPerSettleBatch.call()).toNumber()
 
     assert.equal(await this.court.token(), this.anj.address, 'court token')
     //assert.equal(await this.court.jurorToken(), this.anj.address, 'court juror token')
@@ -318,9 +316,10 @@ contract('Court: Batches', ([ rich, governor, arbitrable, juror1, juror2, juror3
     })
 
     it('settles in 2 batches', async () => {
-      await this.court.settleRoundSlashing(disputeId, firstRoundId)
+      const batchSize = 40
+      await this.court.settleRoundSlashing(disputeId, firstRoundId, batchSize)
       assert.isFalse(await this.court.areAllJurorsSettled.call(disputeId, firstRoundId))
-      const receipt = await this.court.settleRoundSlashing(disputeId, firstRoundId)
+      const receipt = await this.court.settleRoundSlashing(disputeId, firstRoundId, batchSize)
       assertLogs(receipt, ROUND_SLASHING_SETTLED_EVENT)
       assert.isTrue(await this.court.areAllJurorsSettled.call(disputeId, firstRoundId))
     })

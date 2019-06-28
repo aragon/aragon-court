@@ -19,7 +19,6 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
     using SafeMath for uint256;
 
     uint256 internal constant MAX_JURORS_PER_DRAFT_BATCH = 10; // to cap gas used on draft
-    uint256 internal constant MAX_JURORS_PER_SETTLE_BATCH = 40; // to cap gas used on settleRoundSlashing
     uint256 internal constant MAX_REGULAR_APPEAL_ROUNDS = 4; // before the final appeal
     uint256 internal constant FINAL_ROUND_WEIGHT_PRECISION = 1000; // to improve roundings
     uint64 internal constant APPEAL_STEP_FACTOR = 3;
@@ -568,7 +567,7 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
      * @notice Execute the final ruling of dispute #`_disputeId`
      * @dev Just executes penalties, jurors must manually claim their rewards
      */
-    function settleRoundSlashing(uint256 _disputeId, uint256 _roundId) external ensureTerm {
+    function settleRoundSlashing(uint256 _disputeId, uint256 _roundId, uint256 _jurorsToSettle) external ensureTerm {
         Dispute storage dispute = disputes[_disputeId];
         AdjudicationRound storage round = dispute.rounds[_roundId];
         CourtConfig storage config = courtConfigs[terms[round.draftTermId].courtConfigId]; // safe to use directly as it is the current term
@@ -587,9 +586,10 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
 
         uint256 collectedTokens;
         if (_roundId < MAX_REGULAR_APPEAL_ROUNDS) {
-            collectedTokens = _settleRegularRoundSlashing(round, voteId, config.penaltyPct, winningRuling);
+            uint256 jurorsSettled;
+            (collectedTokens, jurorsSettled) = _settleRegularRoundSlashing(round, voteId, config.penaltyPct, winningRuling, _jurorsToSettle);
             round.collectedTokens = collectedTokens;
-            _payFees(config.feeToken, msg.sender, config.settleFee * round.jurorNumber, config.governanceFeeShare);
+            _payFees(config.feeToken, msg.sender, config.settleFee * jurorsSettled, config.governanceFeeShare);
         } else { // final round
             // this was accounted for on juror's vote commit
             collectedTokens = round.collectedTokens;
@@ -629,24 +629,26 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
         AdjudicationRound storage _round,
         uint256 _voteId,
         uint16 _penaltyPct,
-        uint8 _winningRuling
+        uint8 _winningRuling,
+        uint256 _jurorsToSettle
     )
         internal
-        returns (uint256 collectedTokens)
+        returns (uint256 collectedTokens, uint256 jurorsSettled)
     {
-        uint256 penalty = _pct4(jurorMinStake, _penaltyPct);
+        uint256 settleBatchEnd = _round.jurors.length;
+        // TODO: stack too deep uint64 slashingUpdateTermId = termId + 1;
+        uint256 settledJurors = _round.settledJurors;
 
-        uint256 votesLength = _round.jurors.length;
-        uint64 slashingUpdateTermId = termId + 1;
-
-        if (votesLength - _round.settledJurors > MAX_JURORS_PER_SETTLE_BATCH) {
-            votesLength = _round.settledJurors + MAX_JURORS_PER_SETTLE_BATCH;
+        jurorsSettled = settleBatchEnd - settledJurors;
+        if (jurorsSettled > _jurorsToSettle) {
+            settleBatchEnd = settledJurors + _jurorsToSettle;
+            jurorsSettled = _jurorsToSettle;
         } else { // we are reaching the end of the array, so it's the last batch
             _round.settledPenalties = true;
         }
-        for (uint256 i = _round.settledJurors; i < votesLength; i++) {
+        for (uint256 i = settledJurors; i < settleBatchEnd; i++) {
             address juror = _round.jurors[i];
-            uint256 weightedPenalty = penalty * _round.jurorSlotStates[juror].weight;
+            uint256 weightedPenalty = _pct4(jurorMinStake, _penaltyPct) * _round.jurorSlotStates[juror].weight;
             Account storage account = accounts[juror];
             account.atStakeTokens -= weightedPenalty;
 
@@ -655,17 +657,17 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
             if (jurorRuling != _winningRuling) {
                 collectedTokens += weightedPenalty;
 
-                if (account.deactivationTermId <= slashingUpdateTermId) {
+                if (account.deactivationTermId <= termId + 1) {
                     // Slash from balance if the account already deactivated
                     _removeTokens(jurorToken, juror, weightedPenalty);
                 } else {
                     // account.sumTreeId always > 0: as the juror has activated (and gots its sumTreeId)
-                    sumTree.update(account.sumTreeId, slashingUpdateTermId, weightedPenalty, false);
+                    sumTree.update(account.sumTreeId, termId + 1, weightedPenalty, false);
                 }
             }
         }
 
-        _round.settledJurors = uint64(votesLength); // TODO: check overflow
+        _round.settledJurors = uint64(settleBatchEnd); // TODO: check overflow
         _round.collectedTokens = _round.collectedTokens.add(collectedTokens);
     }
 

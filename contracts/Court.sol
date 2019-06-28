@@ -22,7 +22,7 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
     uint256 internal constant MAX_JURORS_PER_SETTLE_BATCH = 40; // to cap gas used on settleRoundSlashing
     uint256 internal constant MAX_REGULAR_APPEAL_ROUNDS = 4; // before the final appeal
     uint256 internal constant FINAL_ROUND_WEIGHT_PRECISION = 1000; // to improve roundings
-    uint32 internal constant APPEAL_STEP_FACTOR = 3;
+    uint64 internal constant APPEAL_STEP_FACTOR = 3;
     // TODO: move all other constants up here
 
     struct Account {
@@ -77,10 +77,10 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
         uint64 delayTerms;
         uint64 jurorNumber;
         uint64 coherentJurors;
+        uint64 nextJurorIndex;
+        uint64 filledSeats;
+        uint64 settledJurors;
         address triggeredBy;
-        uint32 settledJurors;
-        uint24 nextJurorIndex;
-        uint32 filledSeats;
         bool settledPenalties;
         uint256 jurorFees;
         // for regular rounds this contains penalties from non-winning jurors, collected after reveal period
@@ -159,7 +159,6 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
     uint8 internal constant MIN_RULING_OPTIONS = 2;
     uint8 internal constant MAX_RULING_OPTIONS = MIN_RULING_OPTIONS;
     address internal constant BURN_ACCOUNT = 0xdead;
-    uint256 internal constant MAX_UINT32 = uint32(-1);
     uint64 internal constant MAX_UINT64 = uint64(-1);
 
     event NewTerm(uint64 termId, address indexed heartbeatSender);
@@ -662,7 +661,7 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
             }
         }
 
-        _round.settledJurors = uint32(votesLength); // TODO: check overflow
+        _round.settledJurors = uint64(votesLength); // TODO: check overflow
         _round.collectedTokens = _round.collectedTokens.add(collectedTokens);
     }
 
@@ -908,7 +907,7 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
         DisputeState _disputeState,
         uint64 _draftTermId,
         uint64 _jurorNumber,
-        uint32 _filledSeats,
+        uint64 _filledSeats,
         ERC20 _feeToken,
         uint256 _feeAmount,
         uint256 _jurorFees

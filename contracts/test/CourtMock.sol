@@ -133,7 +133,7 @@ contract CourtMock is Court {
         return MAX_REGULAR_APPEAL_ROUNDS;
     }
 
-    function getAppealStepFactor() public pure returns (uint32) {
+    function getAppealStepFactor() public pure returns (uint64) {
         return APPEAL_STEP_FACTOR;
     }
 

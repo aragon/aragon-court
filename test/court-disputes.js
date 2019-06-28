@@ -35,6 +35,7 @@ const getVoteId = (disputeId, roundId) => {
 contract('Court: Disputes', ([ poor, rich, governor, juror1, juror2, juror3, other ]) => {
   const NO_DATA = ''
   const ZERO_ADDRESS = '0x' + '00'.repeat(20)
+  const MAX_UINT256 = new web3.BigNumber(2).pow(256).sub(1)
   
   const termDuration = 10
   const firstTermStart = 1
@@ -281,7 +282,7 @@ contract('Court: Disputes', ([ poor, rich, governor, juror1, juror2, juror3, oth
               const executeReceiptPromise = await this.court.executeRuling(disputeId, firstRoundId)
               await assertLogs(executeReceiptPromise, RULING_EXECUTED_EVENT)
               // settle
-              await assertLogs(this.court.settleRoundSlashing(disputeId, firstRoundId), ROUND_SLASHING_SETTLED_EVENT)
+              await assertLogs(this.court.settleRoundSlashing(disputeId, firstRoundId, MAX_UINT256), ROUND_SLASHING_SETTLED_EVENT)
             })
 
             context('settling round', () => {
@@ -289,7 +290,7 @@ contract('Court: Disputes', ([ poor, rich, governor, juror1, juror2, juror3, oth
 
               beforeEach(async () => {
                 await passTerms(2) // term = 6
-                await assertLogs(this.court.settleRoundSlashing(disputeId, firstRoundId), ROUND_SLASHING_SETTLED_EVENT)
+                await assertLogs(this.court.settleRoundSlashing(disputeId, firstRoundId, MAX_UINT256), ROUND_SLASHING_SETTLED_EVENT)
               })
 
               it('slashed incoherent juror', async () => {

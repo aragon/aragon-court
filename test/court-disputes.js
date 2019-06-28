@@ -281,7 +281,7 @@ contract('Court: Disputes', ([ poor, rich, governor, juror1, juror2, juror3, oth
             it('can settle if executed', async () => {
               await passTerms(2) // term = 6
               // execute
-              const executeReceiptPromise = await this.court.executeRuling(disputeId, firstRoundId)
+              const executeReceiptPromise = await this.court.executeRuling(disputeId)
               await assertLogs(executeReceiptPromise, RULING_EXECUTED_EVENT)
               // settle
               await assertLogs(this.court.settleRoundSlashing(disputeId, firstRoundId, MAX_UINT256), ROUND_SLASHING_SETTLED_EVENT)

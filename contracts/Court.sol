@@ -552,7 +552,7 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
     /**
      * @notice Execute the final ruling of dispute #`_disputeId`
      */
-    function executeRuling(uint256 _disputeId, uint256 _roundId) external ensureTerm {
+    function executeRuling(uint256 _disputeId) external ensureTerm {
         Dispute storage dispute = disputes[_disputeId];
 
         uint8 winningRuling = _ensureFinalRuling(_disputeId);

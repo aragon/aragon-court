@@ -626,23 +626,28 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
         uint256 _voteId,
         uint16 _penaltyPct,
         uint8 _winningRuling,
-        uint256 _jurorsToSettle
+        uint256 _jurorsToSettle // 0 means all
     )
         internal
-        returns (uint256 collectedTokens, uint256 jurorsSettled)
+        returns (uint256 collectedTokens, uint256 batchSettledJurors)
     {
+        // The batch starts at where the previous one ended, stored in _round.settledJurors
+        // Initially we try to reach the end of the jurors array
         uint256 settleBatchEnd = _round.jurors.length;
         // TODO: stack too deep uint64 slashingUpdateTermId = termId + 1;
-        uint256 settledJurors = _round.settledJurors;
-
-        jurorsSettled = settleBatchEnd - settledJurors;
-        if (jurorsSettled > _jurorsToSettle) {
-            settleBatchEnd = settledJurors + _jurorsToSettle;
-            jurorsSettled = _jurorsToSettle;
-        } else { // we are reaching the end of the array, so it's the last batch
+        uint256 roundSettledJurors = _round.settledJurors;
+        // Here we compute the amount of jurors that are going to be selected in this call, which is returned by the function for fees calculation
+        batchSettledJurors = settleBatchEnd - roundSettledJurors;
+        // If the jurors that are going to be settled in this call are more than the requested number,
+        // we reduce that amount and the end position in the jurors array
+        // (_jurorsToSettle = 0 means settle them all)
+        if (_jurorsToSettle > 0 && batchSettledJurors > _jurorsToSettle) {
+            batchSettledJurors = _jurorsToSettle;
+            settleBatchEnd = roundSettledJurors + _jurorsToSettle;
+        } else { // otherwise, we are reaching the end of the array, so it's the last batch
             _round.settledPenalties = true;
         }
-        for (uint256 i = settledJurors; i < settleBatchEnd; i++) {
+        for (uint256 i = roundSettledJurors; i < settleBatchEnd; i++) {
             address juror = _round.jurors[i];
             uint256 weightedPenalty = _pct4(jurorMinStake, _penaltyPct) * _round.jurorSlotStates[juror].weight;
             Account storage account = accounts[juror];
@@ -718,8 +723,7 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
     }
 
     function areAllJurorsSettled(uint256 _disputeId, uint256 _roundId) public view returns (bool) {
-        AdjudicationRound storage round = disputes[_disputeId].rounds[_roundId];
-        return uint256(round.settledJurors) == round.jurors.length;
+        return disputes[_disputeId].rounds[_roundId].settledPenalties;
     }
 
     /**

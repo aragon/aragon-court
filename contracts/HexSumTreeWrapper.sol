@@ -1,9 +1,10 @@
 pragma solidity ^0.4.24;
 
 import "./lib/HexSumTree.sol";
+import "./standards/sumtree/ISumTree.sol";
 
 
-contract HexSumTreeWrapper {
+contract HexSumTreeWrapper is ISumTree {
     using HexSumTree for HexSumTree.Tree;
 
     string internal constant ERROR_OWNER_ALREADY_SET = "SUMTREE_OWNER_ALREADY_SET";

@@ -25,6 +25,7 @@ const ERROR_NOT_ALLOWED_BY_OWNER = 'SUB_NOT_ALLOWED_BY_OWNER'
 const ERROR_ZERO_FEE = 'SUB_ZERO_FEE'
 const ERROR_ZERO_PREPAYMENT_PERIODS = 'SUB_ZERO_PREPAYMENT_PERIODS'
 const ERROR_INVALID_PERIOD = 'SUB_INVALID_PERIOD'
+const ERROR_TOO_MANY_PERIODS = 'SUB_TOO_MANY_PERIODS'
 
 const DECIMALS = 1e18
 
@@ -144,6 +145,16 @@ contract('Subscription', ([ org1, org2, juror1, juror2, juror3 ]) => {
 
         assertEqualBNs(initialBalance.sub(FEE_AMOUNT), finalBalance, 'Token balance mismatch');
         assert.isTrue(await this.subscription.isUpToDate.call(org1))
+      })
+
+      it('Org fails paying fees too far in the future', async () => {
+        await assertRevert(this.subscription.payFees(org1, PREPAYMENT_PERIODS + 1, { from: org1 }), ERROR_TOO_MANY_PERIODS)
+      })
+
+      it('Org fails paying fees too far in the future with 2 calls', async () => {
+        const halfPeriods = PREPAYMENT_PERIODS / 2 + 1
+        await this.subscription.payFees(org1, halfPeriods, { from: org1 })
+        await assertRevert(this.subscription.payFees(org1, halfPeriods, { from: org1 }), ERROR_TOO_MANY_PERIODS)
       })
     })
 

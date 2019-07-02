@@ -9,7 +9,7 @@ import "@aragon/os/contracts/common/SafeERC20.sol";
 import "@aragon/os/contracts/lib/math/SafeMath.sol";
 
 
-contract Subscription is ISubscription /* TimeHelpers */ {
+contract Subscription is ISubscription {
     using SafeERC20 for ERC20;
     using SafeMath for uint256;
 
@@ -22,6 +22,7 @@ contract Subscription is ISubscription /* TimeHelpers */ {
     string internal constant ERROR_ZERO_FEE = "SUB_ZERO_FEE";
     string internal constant ERROR_ZERO_PREPAYMENT_PERIODS = "SUB_ZERO_PREPAYMENT_PERIODS";
     string internal constant ERROR_INVALID_PERIOD = "SUB_INVALID_PERIOD";
+    string internal constant ERROR_NOTHING_TO_CLAIM = "SUB_NOTHING_TO_CLAIM";
     string internal constant ERROR_PAY_ZERO_PERIODS = "SUB_PAY_ZERO_PERIODS";
     string internal constant ERROR_TOO_MANY_PERIODS = "SUB_TOO_MANY_PERIODS";
 
@@ -112,13 +113,15 @@ contract Subscription is ISubscription /* TimeHelpers */ {
             // if there are more pending payments than requested to pay, adjust them
             if (delayedPeriods > _periods) {
                 delayedPeriods = _periods;
+                // regular periods will therefore be zero, as all to be paid periods are past ones
             } else { // otherwise the rest are regular payments
                 regularPeriods = _periods - delayedPeriods;
             }
         }
 
         // don't allow to pay too many periods in advance (see comments in declaration section)
-        require(regularPeriods <= prePaymentPeriods, ERROR_TOO_MANY_PERIODS);
+        uint256 newLastPeriodId = nextPaymentPeriodId + regularPeriods - 1;
+        require(newLastPeriodId <= prePaymentPeriods, ERROR_TOO_MANY_PERIODS);
 
         // total amount to pay by sender (on behalf of org), including penalties for delayed periods
         uint256 amountToPay = _pct4_increase(delayedPeriods.mul(feeAmount), latePaymentPenaltyPct).add(regularPeriods.mul(feeAmount));
@@ -128,7 +131,7 @@ contract Subscription is ISubscription /* TimeHelpers */ {
         // amount collected for the current period to share among jurors
         uint256 collectedFees = amountToPay - governorFee;
 
-        organization.lastPaymentPeriodId = currentPeriodId + regularPeriods;
+        organization.lastPaymentPeriodId = newLastPeriodId;
         periods[currentPeriodId].collectedFees += collectedFees;
 
         // transfer tokens
@@ -141,7 +144,8 @@ contract Subscription is ISubscription /* TimeHelpers */ {
     }
 
     function claimFees(uint256 _periodId) external {
-        require(_periodId < _getCurrentPeriodId(), ERROR_INVALID_PERIOD);
+        // periodId 0 is reserved to signal non-subscribed organizations
+        require(_periodId > 0 && _periodId < _getCurrentPeriodId(), ERROR_INVALID_PERIOD);
 
         Period storage period = periods[_periodId];
         uint64 periodBalanceCheckpoint = period.balanceCheckpoint;
@@ -159,19 +163,20 @@ contract Subscription is ISubscription /* TimeHelpers */ {
                 randomness = blockhash(block.number - 1);
             }
             periodBalanceCheckpoint = periodStartTermId + uint64(uint256(randomness) % periodDuration);
+
+            // set period's variables
             period.balanceCheckpoint = periodBalanceCheckpoint;
+            period.totalTreeSum = sumTree.totalSumPast(periodBalanceCheckpoint);
         }
 
         // get balance and total at checkpoint
         uint256 sumTreeId = owner.getAccountSumTreeId(msg.sender);
         uint256 jurorBalance = sumTree.getItemPast(sumTreeId, periodBalanceCheckpoint);
-        uint256 totalTreeSum = period.totalTreeSum;
-        if (totalTreeSum == 0) {
-            totalTreeSum = sumTree.totalSumPast(periodBalanceCheckpoint);
-        }
+        require(jurorBalance > 0, ERROR_NOTHING_TO_CLAIM);
+        // it can't happen that total sum is zero if juror's balance is not
 
         // juror fee share
-        uint256 jurorShare = period.collectedFees * jurorBalance / totalTreeSum;
+        uint256 jurorShare = period.collectedFees.mul(jurorBalance) / period.totalTreeSum;
 
         require(feeToken.safeTransfer(msg.sender, jurorShare), ERROR_TOKEN_TRANSFER_FAILED);
     }
@@ -224,7 +229,9 @@ contract Subscription is ISubscription /* TimeHelpers */ {
     }
 
     function _getPeriodStartTermId(uint256 _periodId) internal view returns (uint64) {
-        return startTermId + uint64(_periodId) * periodDuration;
+        // periodId 0 is reserved to signal non-subscribed organizations
+        require(_periodId > 0, ERROR_INVALID_PERIOD);
+        return startTermId + uint64(_periodId - 1) * periodDuration;
     }
 
     function _pct4(uint256 _number, uint16 _pct) internal pure returns (uint256) {

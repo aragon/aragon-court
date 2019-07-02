@@ -10,6 +10,8 @@ const deployedContract = async (receiptPromise, name) =>
 
 const assertEqualBN = async (actualPromise, expected, message) =>
       assert.equal((await actualPromise).toNumber(), expected, message)
+const assertEqualBNs = (actual, expected, message) =>
+      assert.equal(actual.toNumber(), expected.toNumber(), message)
 
 const getLog = (receipt, logName, argName) => {
   const log = receipt.logs.find(({ event }) => event == logName)
@@ -21,19 +23,22 @@ const ZERO_ADDRESS = '0x' + '00'.repeat(20)
 const ERROR_NOT_OWNER = 'SUB_NOT_OWNER'
 const ERROR_NOT_ALLOWED_BY_OWNER = 'SUB_NOT_ALLOWED_BY_OWNER'
 const ERROR_ZERO_FEE = 'SUB_ZERO_FEE'
+const ERROR_INVALID_PERIOD = 'SUB_INVALID_PERIOD'
+
+const DECIMALS = 1e18
 
 contract('Subscription', ([ org1, org2, juror1, juror2, juror3 ]) => {
   let token
   const START_TERM_ID = 1
   const PERIOD_DURATION = 24 * 30 // 30 days, assuming terms are 1h
-  const FEE_AMOUNT = web3.toWei(10)
-  const INITIAL_BALANCE = web3.toWei(1e6)
+  const FEE_AMOUNT = new web3.BigNumber(10).mul(DECIMALS)
+  const INITIAL_BALANCE = new web3.BigNumber(1e6).mul(DECIMALS)
   const GOVERNOR_SHARE_PCT = 100 // 100‱ = 1%
   const LATE_PAYMENT_PENALTY_PCT = 1000 // 1000‱ = 10%
   const orgs = [ org1, org2 ]
   const jurors = [ juror1, juror2, juror3 ]
 
-  const pct4 = (n, p) => n * p / 1e4
+  const bnPct4Decrease = (n, p) => n.mul(1e4 - p).div(1e4)
 
   beforeEach(async () => {
     this.sumTree = await SumTree.new()
@@ -72,17 +77,17 @@ contract('Subscription', ([ org1, org2, juror1, juror2, juror3 ]) => {
 
   context('With Owner interface', () => {
     const vote = 1
-    let subscriptionOwner
 
     beforeEach(async () => {
-      subscriptionOwner = await SubscriptionOwner.new(this.subscription.address)
-      await this.subscription.init(subscriptionOwner.address, this.sumTree.address, START_TERM_ID, PERIOD_DURATION, token.address, FEE_AMOUNT, LATE_PAYMENT_PENALTY_PCT, GOVERNOR_SHARE_PCT)
-      await this.subscription.getOwner.call()
+      this.subscriptionOwner = await SubscriptionOwner.new(this.subscription.address, this.sumTree.address)
+      await this.subscriptionOwner.setCurrentTermId(START_TERM_ID)
+      await this.sumTree.init(this.subscriptionOwner.address)
+      await this.subscription.init(this.subscriptionOwner.address, this.sumTree.address, START_TERM_ID, PERIOD_DURATION, token.address, FEE_AMOUNT, LATE_PAYMENT_PENALTY_PCT, GOVERNOR_SHARE_PCT)
     })
 
     it('can set Fee amount as owner', async () => {
       const feeAmount = 2
-      await subscriptionOwner.setFeeAmount(2)
+      await this.subscriptionOwner.setFeeAmount(2)
       assertEqualBN(await this.subscription.feeAmount(), feeAmount)
     })
 
@@ -92,31 +97,71 @@ contract('Subscription', ([ org1, org2, juror1, juror2, juror3 ]) => {
 
     it('can set Fee Token as owner', async () => {
       const tokenAddress = '0x' + '00'.repeat(18) + '1234'
-      await subscriptionOwner.setFeeToken(tokenAddress)
+      await this.subscriptionOwner.setFeeToken(tokenAddress)
       assert.equal(await this.subscription.feeToken(), tokenAddress)
     })
 
     it('can set late payment penalty as owner', async () => {
       const latePaymentPenaltyPct = 2
-      await subscriptionOwner.setLatePaymentPenaltyPct(latePaymentPenaltyPct)
+      await this.subscriptionOwner.setLatePaymentPenaltyPct(latePaymentPenaltyPct)
       assertEqualBN(await this.subscription.latePaymentPenaltyPct(), latePaymentPenaltyPct)
     })
 
     it('can set governor share as owner', async () => {
       const governorSharePct = 2
-      await subscriptionOwner.setGovernorSharePct(governorSharePct)
+      await this.subscriptionOwner.setGovernorSharePct(governorSharePct)
       assertEqualBN(await this.subscription.governorSharePct(), governorSharePct)
     })
 
-    context('Juror actions', () => {
+    context('Org actions', () => {
       beforeEach(async () => {
       })
 
       it('Org pays fees', async () => {
+        assert.isFalse(await this.subscription.isUpToDate.call(org1))
+
         const initialBalance = await token.balanceOf(org1)
+
         const r = await this.subscription.payFees(org1, { from: org1 })
+
         const finalBalance = await token.balanceOf(org1)
-        assertEqualBN(initialBalance.sub(FEE_AMOUNT), finalBalance, 'Token balance mismatch');
+
+        assertEqualBNs(initialBalance.sub(FEE_AMOUNT), finalBalance, 'Token balance mismatch');
+        assert.isTrue(await this.subscription.isUpToDate.call(org1))
+      })
+    })
+
+    context('Juror actions', () => {
+      const JUROR_STAKE = new web3.BigNumber(20).mul(DECIMALS)
+
+      beforeEach(async () => {
+        // jurors stake
+        for (let juror of jurors) {
+          await this.subscriptionOwner.insertJuror(juror, 1, JUROR_STAKE)
+        }
+        // orgs pay fees
+        for (let org of orgs) {
+          await this.subscription.payFees(org, { from: org })
+        }
+        // move period forward
+        await this.subscriptionOwner.setCurrentTermId(START_TERM_ID + PERIOD_DURATION)
+      })
+
+      it('Juror fails claiming fees in the future', async () => {
+        await assertRevert(this.subscription.claimFees(3, { from: juror1 }), ERROR_INVALID_PERIOD)
+      })
+
+      it('Juror claim fees', async () => {
+        const periodId = 1
+        const initialBalance = await token.balanceOf(juror1)
+
+        const r = await this.subscription.claimFees(periodId, { from: juror1 })
+
+        const finalBalance = await token.balanceOf(juror1)
+
+        const jurorFee = bnPct4Decrease(FEE_AMOUNT.mul(orgs.length), GOVERNOR_SHARE_PCT).div(jurors.length)
+
+        assertEqualBNs(initialBalance.add(jurorFee), finalBalance, 'Token balance mismatch');
       })
     })
   })

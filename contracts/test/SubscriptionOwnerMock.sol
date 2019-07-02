@@ -27,6 +27,10 @@ contract SubscriptionOwnerMock is ISubscriptionOwner {
         subscription.setFeeToken(_feeToken);
     }
 
+    function setPrePaymentPeriods(uint256 _prePaymentPeriods) external {
+        subscription.setPrePaymentPeriods(_prePaymentPeriods);
+    }
+
     function setLatePaymentPenaltyPct(uint16 _latePaymentPenaltyPct) external {
         subscription.setLatePaymentPenaltyPct(_latePaymentPenaltyPct);
     }

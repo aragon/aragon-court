@@ -6,13 +6,12 @@ import "./standards/sumtree/ISumTree.sol";
 
 import "@aragon/os/contracts/lib/token/ERC20.sol";
 import "@aragon/os/contracts/common/SafeERC20.sol";
-//import "@aragon/os/contracts/commen/TimeHelpers.sol";
-//import "@aragon/os/contracts/lib/math/SafeMath64.sol";
+import "@aragon/os/contracts/lib/math/SafeMath.sol";
 
 
 contract Subscription is ISubscription /* TimeHelpers */ {
     using SafeERC20 for ERC20;
-    //using SafeMath64 for uint64;
+    using SafeMath for uint256;
 
     uint16 internal constant PCT_BASE = 10000; // ‱
 
@@ -21,7 +20,10 @@ contract Subscription is ISubscription /* TimeHelpers */ {
     string internal constant ERROR_TOKEN_TRANSFER_FAILED = "SUB_TOKEN_TRANSFER_FAILED";
     string internal constant ERROR_ZERO_PERIOD_DURATION = "SUB_ZERO_PERIOD_DURATION";
     string internal constant ERROR_ZERO_FEE = "SUB_ZERO_FEE";
+    string internal constant ERROR_ZERO_PREPAYMENT_PERIODS = "SUB_ZERO_PREPAYMENT_PERIODS";
     string internal constant ERROR_INVALID_PERIOD = "SUB_INVALID_PERIOD";
+    string internal constant ERROR_PAY_ZERO_PERIODS = "SUB_PAY_ZERO_PERIODS";
+    string internal constant ERROR_TOO_MANY_PERIODS = "SUB_TOO_MANY_PERIODS";
 
     struct Organization {
         uint256 lastPaymentPeriodId;
@@ -40,6 +42,12 @@ contract Subscription is ISubscription /* TimeHelpers */ {
     uint16 public latePaymentPenaltyPct; // ‱ of penalty applied for not paying during proper period
     uint16 public governorSharePct; // ‱ of fees that go to governor of the Court
     ERC20 public feeToken;
+    // How many periods can be paid in advance (includes current period, so it must be at least 1).
+    // Although paying in advance seems a good thing from the Court perspective,
+    // it has some drawbacks too, so it's good to limit it to diminish them:
+    // - Fees distribution among jurors take place when the payment is made, so jurors activating after a pre-payment wouldn't get their share of it.
+    // - Fee amount could increase, while pre-payments would be made with the old rate.
+    uint256 public prePaymentPeriods;
     uint256 public feeAmount;
     uint256 internal accumulatedGovernorFees;
     mapping (address => Organization) internal organizations;
@@ -63,6 +71,7 @@ contract Subscription is ISubscription /* TimeHelpers */ {
         uint64 _periodDuration,
         ERC20 _feeToken,
         uint256 _feeAmount,
+        uint256 _prePaymentPeriods,
         uint16 _latePaymentPenaltyPct,
         uint16 _governorSharePct
     )
@@ -77,40 +86,58 @@ contract Subscription is ISubscription /* TimeHelpers */ {
         periodDuration = _periodDuration;
         feeToken = _feeToken;
         _setFeeAmount(_feeAmount);
+        _setPrePaymentPeriods(_prePaymentPeriods);
         latePaymentPenaltyPct = _latePaymentPenaltyPct;
         governorSharePct = _governorSharePct;
     }
 
-    function payFees(address _from) external {
+    function payFees(address _from, uint256 _periods) external {
+        require(_periods > 0, ERROR_PAY_ZERO_PERIODS);
+
         Organization storage organization = organizations[_from];
         uint256 currentPeriodId = _getCurrentPeriodId();
+        uint256 nextPaymentPeriodId = organization.lastPaymentPeriodId + 1;
 
-        uint256 missingPeriods;
+        uint256 delayedPeriods = 0;
+        uint256 regularPeriods = 0;
         // periodId 0 is reserved to signal non-subscribed organizations
-        if (organization.lastPaymentPeriodId == 0) {
-            missingPeriods = 1;
+        if (nextPaymentPeriodId == 1) {
+            // not yet subscribed orgs can't have pending payments
+            regularPeriods = _periods;
         } else {
-            missingPeriods = currentPeriodId - organization.lastPaymentPeriodId;
-            // up to date
-            if (missingPeriods == 0) {
-                return;
+            // check for pending payments
+            if (currentPeriodId > nextPaymentPeriodId) {
+                delayedPeriods = currentPeriodId - nextPaymentPeriodId;
+            }
+            // if there are more pending payments than requested to pay, adjust them
+            if (delayedPeriods > _periods) {
+                delayedPeriods = _periods;
+            } else { // otherwise the rest are regular payments
+                regularPeriods = _periods - delayedPeriods;
             }
         }
 
-        uint256 amountToPay = _pct4_increase((missingPeriods - 1) * feeAmount, latePaymentPenaltyPct) + feeAmount;
+        // don't allow to pay too many periods in advance (see comments in declaration section)
+        require(regularPeriods <= prePaymentPeriods, ERROR_TOO_MANY_PERIODS);
+
+        // total amount to pay by sender (on behalf of org), including penalties for delayed periods
+        uint256 amountToPay = _pct4_increase(delayedPeriods.mul(feeAmount), latePaymentPenaltyPct).add(regularPeriods.mul(feeAmount));
+        // governor fee
         uint256 governorFee = _pct4(amountToPay, governorSharePct);
         accumulatedGovernorFees += governorFee;
+        // amount collected for the current period to share among jurors
         uint256 collectedFees = amountToPay - governorFee;
 
-        organization.lastPaymentPeriodId = currentPeriodId;
+        organization.lastPaymentPeriodId = currentPeriodId + regularPeriods;
         periods[currentPeriodId].collectedFees += collectedFees;
 
+        // transfer tokens
         require(feeToken.safeTransferFrom(msg.sender, address(this), amountToPay), ERROR_TOKEN_TRANSFER_FAILED);
     }
 
     // getCurrentTermId in ISubscriptionOwner is not view, because of ensureTerm
     function isUpToDate(address _organization) external returns (bool) {
-        return organizations[_organization].lastPaymentPeriodId == _getCurrentPeriodId();
+        return organizations[_organization].lastPaymentPeriodId >= _getCurrentPeriodId();
     }
 
     function claimFees(uint256 _periodId) external {
@@ -163,6 +190,10 @@ contract Subscription is ISubscription /* TimeHelpers */ {
         feeToken = _feeToken;
     }
 
+    function setPrePaymentPeriods(uint256 _prePaymentPeriods) external onlyOwner {
+        _setPrePaymentPeriods(_prePaymentPeriods);
+    }
+
     function setLatePaymentPenaltyPct(uint16 _latePaymentPenaltyPct) external onlyOwner {
         latePaymentPenaltyPct = _latePaymentPenaltyPct;
     }
@@ -178,6 +209,12 @@ contract Subscription is ISubscription /* TimeHelpers */ {
     function _setFeeAmount(uint256 _feeAmount) internal {
         require(_feeAmount > 0, ERROR_ZERO_FEE);
         feeAmount = _feeAmount;
+    }
+
+    function _setPrePaymentPeriods(uint256 _prePaymentPeriods) internal {
+        // zero wouldn't allow to pay for current period
+        require(_prePaymentPeriods > 0, ERROR_ZERO_PREPAYMENT_PERIODS);
+        prePaymentPeriods = _prePaymentPeriods;
     }
 
     // getCurrentTermId in ISubscriptionOwner is not view, because of ensureTerm

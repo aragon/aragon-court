@@ -18,6 +18,12 @@ const getLog = (receipt, logName, argName) => {
   return log ? log.args[argName] : null
 }
 
+const assertLogs = (receipt, ...logNames) => {
+  for (const logName of logNames) {
+    assert.isNotNull(getLog(receipt, logName), `Expected ${logName} in receipt`)
+  }
+}
+
 const ZERO_ADDRESS = '0x' + '00'.repeat(20)
 
 const ERROR_NOT_OWNER = 'SUB_NOT_OWNER'
@@ -26,6 +32,10 @@ const ERROR_ZERO_FEE = 'SUB_ZERO_FEE'
 const ERROR_ZERO_PREPAYMENT_PERIODS = 'SUB_ZERO_PREPAYMENT_PERIODS'
 const ERROR_INVALID_PERIOD = 'SUB_INVALID_PERIOD'
 const ERROR_TOO_MANY_PERIODS = 'SUB_TOO_MANY_PERIODS'
+
+const FEES_PAID_EVENT = 'FeesPaid'
+const FEES_CLAIMED_EVENT = 'FeesClaimed'
+const GOVERNOR_SHARES_TRANSFERRED_EVENT = 'GovernorSharesTransferred'
 
 const DECIMALS = 1e18
 
@@ -139,7 +149,8 @@ contract('Subscription', ([ org1, org2, juror1, juror2, juror3 ]) => {
 
         const initialBalance = await token.balanceOf(org1)
 
-        const r = await this.subscription.payFees(org1, 1, { from: org1 })
+        const receipt = await this.subscription.payFees(org1, 1, { from: org1 })
+        await assertLogs(receipt, FEES_PAID_EVENT)
 
         const finalBalance = await token.balanceOf(org1)
 
@@ -182,7 +193,8 @@ contract('Subscription', ([ org1, org2, juror1, juror2, juror3 ]) => {
         const periodId = 1
         const initialBalance = await token.balanceOf(juror1)
 
-        const r = await this.subscription.claimFees(periodId, { from: juror1 })
+        const receipt = await this.subscription.claimFees(periodId, { from: juror1 })
+        await assertLogs(receipt, FEES_CLAIMED_EVENT)
 
         const finalBalance = await token.balanceOf(juror1)
 

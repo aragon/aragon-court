@@ -54,7 +54,9 @@ contract Subscription is ISubscription {
     mapping (address => Organization) internal organizations;
     mapping (uint256 => Period) internal periods;
 
-    // TODO: events
+    event FeesPaid(address indexed organization, uint256 periods, uint256 newLastPeriodId, uint256 collectedFees, uint256 governorFee);
+    event FeesClaimed(address indexed juror, uint256 indexed periodId, uint256 jurorShare);
+    event GovernorSharesTransferred(uint256 amount);
 
     modifier onlyOwner {
         require(msg.sender == address(owner), ERROR_NOT_OWNER);
@@ -136,6 +138,8 @@ contract Subscription is ISubscription {
 
         // transfer tokens
         require(feeToken.safeTransferFrom(msg.sender, address(this), amountToPay), ERROR_TOKEN_TRANSFER_FAILED);
+
+        emit FeesPaid(_from, _periods, newLastPeriodId, collectedFees, governorFee);
     }
 
     function isUpToDate(address _organization) external view returns (bool) {
@@ -178,12 +182,16 @@ contract Subscription is ISubscription {
         uint256 jurorShare = period.collectedFees.mul(jurorBalance) / period.totalTreeSum;
 
         require(feeToken.safeTransfer(msg.sender, jurorShare), ERROR_TOKEN_TRANSFER_FAILED);
+
+        emit FeesClaimed(msg.sender, _periodId, jurorShare);
     }
 
     function transferFeesToGovernor() external {
         uint256 amount = accumulatedGovernorFees;
         accumulatedGovernorFees = 0;
         require(feeToken.safeTransfer(owner.getGovernor(), amount), ERROR_TOKEN_TRANSFER_FAILED);
+
+        emit GovernorSharesTransferred(amount);
     }
 
     function setFeeAmount(uint256 _feeAmount) external onlyOwner {

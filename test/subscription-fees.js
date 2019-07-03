@@ -77,7 +77,7 @@ contract('Subscription', ([ org1, org2, juror1, juror2, juror3 ]) => {
   })
 
   it('fails to set Fee Token if not owner', async () => {
-    await assertRevert(this.subscription.setFeeToken(token.address, { from: org1 }), ERROR_NOT_GOVERNOR)
+    await assertRevert(this.subscription.setFeeToken(token.address, 1, { from: org1 }), ERROR_NOT_GOVERNOR)
   })
 
   it('fails to set pre-payment periods if not owner', async () => {
@@ -105,7 +105,7 @@ contract('Subscription', ([ org1, org2, juror1, juror2, juror3 ]) => {
     it('can set Fee amount as owner', async () => {
       const feeAmount = 2
       await this.subscriptionOwner.setFeeAmount(2)
-      assertEqualBN(await this.subscription.feeAmount(), feeAmount)
+      assertEqualBN(await this.subscription.currentFeeAmount(), feeAmount)
     })
 
     it('fails to set Fee Amount if zero', async () => {
@@ -114,8 +114,8 @@ contract('Subscription', ([ org1, org2, juror1, juror2, juror3 ]) => {
 
     it('can set Fee Token as owner', async () => {
       const token2 = await MiniMeToken.new(ZERO_ADDRESS, ZERO_ADDRESS, 0, 'n', 0, 'n', true) // empty parameters minime
-      await this.subscriptionOwner.setFeeToken(token2.address)
-      assert.equal(await this.subscription.feeToken(), token2.address)
+      await this.subscriptionOwner.setFeeToken(token2.address, FEE_AMOUNT)
+      assert.equal(await this.subscription.currentFeeToken(), token2.address)
     })
 
     it('can set pre-payment periods as owner', async () => {

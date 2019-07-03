@@ -19,6 +19,7 @@ contract Subscription is IsContract, ISubscription {
 
     string internal constant ERROR_NOT_GOVERNOR = "SUB_NOT_GOVERNOR";
     string internal constant ERROR_OWNER_ALREADY_SET = "SUB_OWNER_ALREADY_SET";
+    string internal constant ERROR_ZERO_TRANSFER = "SUB_ZERO_TRANSFER";
     string internal constant ERROR_TOKEN_TRANSFER_FAILED = "SUB_TOKEN_TRANSFER_FAILED";
     string internal constant ERROR_ZERO_PERIOD_DURATION = "SUB_ZERO_PERIOD_DURATION";
     string internal constant ERROR_ZERO_FEE = "SUB_ZERO_FEE";
@@ -37,6 +38,8 @@ contract Subscription is IsContract, ISubscription {
 
     struct Period {
         uint64 balanceCheckpoint;
+        ERC20 feeToken; // cached to keep consistency after changes of the global variable
+        uint256 feeAmount;
         uint256 totalTreeSum;
         uint256 collectedFees;
     }
@@ -47,14 +50,14 @@ contract Subscription is IsContract, ISubscription {
     uint64 internal periodDuration; // in Court terms
     uint16 public latePaymentPenaltyPct; // ‱ of penalty applied for not paying during proper period
     uint16 public governorSharePct; // ‱ of fees that go to governor of the Court
-    ERC20 public feeToken;
+    ERC20 public currentFeeToken;
     // How many periods can be paid in advance (includes current period, so it must be at least 1).
     // Although paying in advance seems a good thing from the Court perspective,
     // it has some drawbacks too, so it's good to limit it to diminish them:
     // - Fees distribution among jurors take place when the payment is made, so jurors activating after a pre-payment wouldn't get their share of it.
     // - Fee amount could increase, while pre-payments would be made with the old rate.
     uint256 public prePaymentPeriods;
-    uint256 public feeAmount;
+    uint256 public currentFeeAmount;
     uint256 public accumulatedGovernorFees;
     mapping (address => Subscriber) internal subscribers;
     mapping (uint256 => Period) internal periods;
@@ -117,9 +120,12 @@ contract Subscription is IsContract, ISubscription {
 
         Subscriber storage subscriber = subscribers[_from];
         uint256 currentPeriodId = _getCurrentPeriodId();
+        Period storage period = periods[currentPeriodId];
+
+        (ERC20 feeToken, uint256 feeAmount) = _ensurePeriodFeeTokenAndAmount(period);
 
         // total amount to pay by sender (on behalf of org), including penalties for delayed periods
-        (uint256 amountToPay, uint256 newLastPeriodId) = _getPayFeesDetails(subscriber, _periods, currentPeriodId);
+        (uint256 amountToPay, uint256 newLastPeriodId) = _getPayFeesDetails(subscriber, _periods, currentPeriodId, feeAmount);
         // governor fee
         uint256 governorFee = _pct4(amountToPay, governorSharePct);
         accumulatedGovernorFees += governorFee;
@@ -130,7 +136,7 @@ contract Subscription is IsContract, ISubscription {
         if (!subscriber.subscribed) {
             subscriber.subscribed = true;
         }
-        periods[currentPeriodId].collectedFees += collectedFees;
+        period.collectedFees += collectedFees;
 
         // transfer tokens
         require(feeToken.safeTransferFrom(msg.sender, address(this), amountToPay), ERROR_TOKEN_TRANSFER_FAILED);
@@ -156,25 +162,19 @@ contract Subscription is IsContract, ISubscription {
 
         claimedFees[msg.sender][_periodId] = true;
 
-        require(feeToken.safeTransfer(msg.sender, jurorShare), ERROR_TOKEN_TRANSFER_FAILED);
+        require(period.feeToken.safeTransfer(msg.sender, jurorShare), ERROR_TOKEN_TRANSFER_FAILED);
 
         emit FeesClaimed(msg.sender, _periodId, jurorShare);
-    }
-
-    function transferFeesToGovernor() external {
-        uint256 amount = accumulatedGovernorFees;
-        accumulatedGovernorFees = 0;
-        require(feeToken.safeTransfer(governor, amount), ERROR_TOKEN_TRANSFER_FAILED);
-
-        emit GovernorSharesTransferred(amount);
     }
 
     function setFeeAmount(uint256 _feeAmount) external onlyGovernor {
         _setFeeAmount(_feeAmount);
     }
 
-    function setFeeToken(ERC20 _feeToken) external onlyGovernor {
+    function setFeeToken(ERC20 _feeToken, uint256 _feeAmount) external onlyGovernor {
+        // setFeeToken empties governor accumulated fees, so must be run first
         _setFeeToken(_feeToken);
+        _setFeeAmount(_feeAmount);
     }
 
     function setPrePaymentPeriods(uint256 _prePaymentPeriods) external onlyGovernor {
@@ -213,9 +213,11 @@ contract Subscription is IsContract, ISubscription {
 
     function getPayFeesDetails(address _from, uint256 _periods) external view returns (uint256 amountToPay, uint256 newLastPeriodId) {
         Subscriber storage subscriber = subscribers[_from];
+        uint256 currentPeriodId = _getCurrentPeriodId();
 
+        (, uint256 feeAmount) = _getPeriodFeeTokenAndAmount(periods[currentPeriodId]);
         // total amount to pay by sender (on behalf of org), including penalties for delayed periods
-        (amountToPay, newLastPeriodId) = _getPayFeesDetails(subscriber, _periods, _getCurrentPeriodId());
+        (amountToPay, newLastPeriodId) = _getPayFeesDetails(subscriber, _periods, currentPeriodId, feeAmount);
 
     }
 
@@ -229,14 +231,26 @@ contract Subscription is IsContract, ISubscription {
         jurorShare = _getJurorShare(_juror, period, periodBalanceCheckpoint);
     }
 
+    function transferFeesToGovernor() public {
+        uint256 amount = accumulatedGovernorFees;
+        require(amount > 0, ERROR_ZERO_TRANSFER);
+        accumulatedGovernorFees = 0;
+        require(currentFeeToken.safeTransfer(governor, amount), ERROR_TOKEN_TRANSFER_FAILED);
+
+        emit GovernorSharesTransferred(amount);
+    }
+
     function _setFeeAmount(uint256 _feeAmount) internal {
         require(_feeAmount > 0, ERROR_ZERO_FEE);
-        feeAmount = _feeAmount;
+        currentFeeAmount = _feeAmount;
     }
 
     function _setFeeToken(ERC20 _feeToken) internal {
         require(isContract(_feeToken), ERROR_NOT_CONTRACT);
-        feeToken = _feeToken;
+        if (accumulatedGovernorFees > 0) {
+            transferFeesToGovernor();
+        }
+        currentFeeToken = _feeToken;
     }
 
     function _setPrePaymentPeriods(uint256 _prePaymentPeriods) internal {
@@ -245,15 +259,23 @@ contract Subscription is IsContract, ISubscription {
         prePaymentPeriods = _prePaymentPeriods;
     }
 
-    function _ensurePeriodBalanceCheckpoint(uint256 _periodId, Period storage period) internal returns (uint64 periodBalanceCheckpoint) {
-        periodBalanceCheckpoint = period.balanceCheckpoint;
+    function _ensurePeriodFeeTokenAndAmount(Period storage _period) internal returns (ERC20 feeToken, uint256 feeAmount) {
+        (feeToken, feeAmount) = _getPeriodFeeTokenAndAmount(_period);
+        if (_period.feeToken == address(0)) {
+            _period.feeToken = feeToken;
+            _period.feeAmount = feeAmount;
+        }
+    }
+
+    function _ensurePeriodBalanceCheckpoint(uint256 _periodId, Period storage _period) internal returns (uint64 periodBalanceCheckpoint) {
+        periodBalanceCheckpoint = _period.balanceCheckpoint;
 
         // it's first time fees are claimed for this period
         if (periodBalanceCheckpoint == 0) {
             periodBalanceCheckpoint = _getPeriodBalanceCheckpoint(_periodId);
             // set period's variables
-            period.balanceCheckpoint = periodBalanceCheckpoint;
-            period.totalTreeSum = sumTree.totalSumPast(periodBalanceCheckpoint);
+            _period.balanceCheckpoint = periodBalanceCheckpoint;
+            _period.totalTreeSum = sumTree.totalSumPast(periodBalanceCheckpoint);
         }
     }
 
@@ -265,10 +287,22 @@ contract Subscription is IsContract, ISubscription {
         return START_TERM_ID + uint64(_periodId) * periodDuration;
     }
 
+    function _getPeriodFeeTokenAndAmount(Period storage _period) internal view returns (ERC20 feeToken, uint256 feeAmount) {
+        // if payFees has not been called for this period, these variables have not been set yet, so we get the global current ones
+        if (_period.feeToken == address(0)) {
+            feeToken = currentFeeToken;
+            feeAmount = currentFeeAmount;
+        } else {
+            feeToken = _period.feeToken;
+            feeAmount = _period.feeAmount;
+        }
+    }
+
     function _getPayFeesDetails(
         Subscriber storage _subscriber,
         uint256 _periods,
-        uint256 _currentPeriodId
+        uint256 _currentPeriodId,
+        uint256 _feeAmount
     )
         internal
         view
@@ -299,7 +333,7 @@ contract Subscription is IsContract, ISubscription {
         newLastPeriodId = lastPaymentPeriodId + delayedPeriods + regularPeriods;
         require(newLastPeriodId - _currentPeriodId < prePaymentPeriods, ERROR_TOO_MANY_PERIODS);
 
-        amountToPay = _pct4Increase(delayedPeriods.mul(feeAmount), latePaymentPenaltyPct).add(regularPeriods.mul(feeAmount));
+        amountToPay = _pct4Increase(delayedPeriods.mul(_feeAmount), latePaymentPenaltyPct).add(regularPeriods.mul(_feeAmount));
     }
 
     function _getPeriodBalanceCheckpoint(uint256 _periodId) internal view returns (uint64 periodBalanceCheckpoint) {

@@ -23,8 +23,8 @@ contract SubscriptionOwnerMock is ISubscriptionOwner {
         subscription.setFeeAmount(_feeAmount);
     }
 
-    function setFeeToken(ERC20 _feeToken) external {
-        subscription.setFeeToken(_feeToken);
+    function setFeeToken(ERC20 _feeToken, uint256 _feeAmount) external {
+        subscription.setFeeToken(_feeToken, _feeAmount);
     }
 
     function setPrePaymentPeriods(uint256 _prePaymentPeriods) external {

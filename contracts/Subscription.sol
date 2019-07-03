@@ -126,7 +126,7 @@ contract Subscription is ISubscription {
         require(newLastPeriodId <= prePaymentPeriods, ERROR_TOO_MANY_PERIODS);
 
         // total amount to pay by sender (on behalf of org), including penalties for delayed periods
-        uint256 amountToPay = _pct4_increase(delayedPeriods.mul(feeAmount), latePaymentPenaltyPct).add(regularPeriods.mul(feeAmount));
+        uint256 amountToPay = _pct4Increase(delayedPeriods.mul(feeAmount), latePaymentPenaltyPct).add(regularPeriods.mul(feeAmount));
         // governor fee
         uint256 governorFee = _pct4(amountToPay, governorSharePct);
         accumulatedGovernorFees += governorFee;
@@ -244,7 +244,7 @@ contract Subscription is ISubscription {
         return _number * uint256(_pct) / uint256(PCT_BASE);
     }
 
-    function _pct4_increase(uint256 _number, uint16 _pct) internal pure returns (uint256) {
+    function _pct4Increase(uint256 _number, uint16 _pct) internal pure returns (uint256) {
         return _number * uint256(PCT_BASE + _pct) / uint256(PCT_BASE);
     }
 }

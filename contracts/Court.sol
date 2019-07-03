@@ -133,6 +133,7 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner, ISubscriptionO
     string internal constant ERROR_TOKEN_TRANSFER_FAILED = "COURT_TOKEN_TRANSFER_FAILED";
     string internal constant ERROR_ROUND_ALREADY_DRAFTED = "COURT_ROUND_ALREADY_DRAFTED";
     string internal constant ERROR_NOT_DRAFT_TERM = "COURT_NOT_DRAFT_TERM";
+    string internal constant ERROR_WRONG_TERM = "COURT_WRONG_TERM";
     string internal constant ERROR_TERM_RANDOMNESS_UNAVAIL = "COURT_TERM_RANDOMNESS_UNAVAIL";
     string internal constant ERROR_SORTITION_LENGTHS_MISMATCH = "COURT_SORTITION_LENGTHS_MISMATCH";
     string internal constant ERROR_INVALID_DISPUTE_STATE = "COURT_INVALID_DISPUTE_STATE";
@@ -430,7 +431,7 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner, ISubscriptionO
         require(dispute.state == DisputeState.PreDraft, ERROR_ROUND_ALREADY_DRAFTED);
         require(round.draftTermId <= termId, ERROR_NOT_DRAFT_TERM);
         // Ensure that term has randomness:
-        _getTermRandomness(draftTerm);
+        _ensureTermRandomness(draftTerm);
 
         // TODO: stack too deep
         //uint64 jurorNumber = round.jurorNumber;
@@ -855,20 +856,17 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner, ISubscriptionO
         return termId + neededTermTransitions();
     }
 
-    function getTermRandomness(uint64 _termId) external returns (bytes32) {
+    function getTermRandomness(uint64 _termId) external view returns (bytes32) {
+        require(_termId <= termId, ERROR_WRONG_TERM);
         Term storage term = terms[_termId];
 
         return _getTermRandomness(term);
     }
 
-    function _getTermRandomness(Term storage _term) internal returns (bytes32) {
+    function _getTermRandomness(Term storage _term) internal view returns (bytes32 randomness) {
         require(_blockNumber() > _term.randomnessBN, ERROR_TERM_RANDOMNESS_UNAVAIL);
 
-        if (_term.randomness == bytes32(0)) {
-            _term.randomness = blockhash(_term.randomnessBN);
-        }
-
-        return _term.randomness;
+        randomness = blockhash(_term.randomnessBN);
     }
 
     function getAccountSumTreeId(address _juror) external view returns (uint256) {
@@ -978,6 +976,12 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner, ISubscriptionO
             return AdjudicationState.Appealable;
         } else {
             return AdjudicationState.Ended;
+        }
+    }
+
+    function _ensureTermRandomness(Term storage _term) internal {
+        if (_term.randomness == bytes32(0)) {
+            _term.randomness = _getTermRandomness(_term);
         }
     }
 

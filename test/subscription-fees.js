@@ -26,8 +26,7 @@ const assertLogs = (receipt, ...logNames) => {
 
 const ZERO_ADDRESS = '0x' + '00'.repeat(20)
 
-const ERROR_NOT_OWNER = 'SUB_NOT_OWNER'
-const ERROR_NOT_ALLOWED_BY_OWNER = 'SUB_NOT_ALLOWED_BY_OWNER'
+const ERROR_NOT_GOVERNOR = 'SUB_NOT_GOVERNOR'
 const ERROR_ZERO_FEE = 'SUB_ZERO_FEE'
 const ERROR_ZERO_PREPAYMENT_PERIODS = 'SUB_ZERO_PREPAYMENT_PERIODS'
 const ERROR_INVALID_PERIOD = 'SUB_INVALID_PERIOD'
@@ -68,28 +67,29 @@ contract('Subscription', ([ org1, org2, juror1, juror2, juror3 ]) => {
 
   it('can init and set owner', async () => {
     assert.equal(await this.subscription.getOwner.call(), ZERO_ADDRESS, 'wrong owner before init')
-    await this.subscription.init(org1, this.sumTree.address, START_TERM_ID, PERIOD_DURATION, token.address, FEE_AMOUNT.toString(), PREPAYMENT_PERIODS, LATE_PAYMENT_PENALTY_PCT, GOVERNOR_SHARE_PCT)
-    assert.equal(await this.subscription.getOwner.call(), org1, 'wrong owner after init')
+    const subscriptionOwner = await SubscriptionOwner.new(this.subscription.address, this.sumTree.address)
+    await this.subscription.init(subscriptionOwner.address, this.sumTree.address, PERIOD_DURATION, token.address, FEE_AMOUNT.toString(), PREPAYMENT_PERIODS, LATE_PAYMENT_PENALTY_PCT, GOVERNOR_SHARE_PCT)
+    assert.equal(await this.subscription.getOwner.call(), subscriptionOwner.address, 'wrong owner after init')
   })
 
   it('fails to set Fee Amount if not owner', async () => {
-    await assertRevert(this.subscription.setFeeAmount(1, { from: org1 }), ERROR_NOT_OWNER)
+    await assertRevert(this.subscription.setFeeAmount(1, { from: org1 }), ERROR_NOT_GOVERNOR)
   })
 
   it('fails to set Fee Token if not owner', async () => {
-    await assertRevert(this.subscription.setFeeToken(token.address, { from: org1 }), ERROR_NOT_OWNER)
+    await assertRevert(this.subscription.setFeeToken(token.address, { from: org1 }), ERROR_NOT_GOVERNOR)
   })
 
   it('fails to set pre-payment periods if not owner', async () => {
-    await assertRevert(this.subscription.setPrePaymentPeriods(2, { from: org1 }), ERROR_NOT_OWNER)
+    await assertRevert(this.subscription.setPrePaymentPeriods(2, { from: org1 }), ERROR_NOT_GOVERNOR)
   })
 
   it('fails to set late payment penalty if not owner', async () => {
-    await assertRevert(this.subscription.setLatePaymentPenaltyPct(2, { from: org1 }), ERROR_NOT_OWNER)
+    await assertRevert(this.subscription.setLatePaymentPenaltyPct(2, { from: org1 }), ERROR_NOT_GOVERNOR)
   })
 
   it('fails to set governor share if not owner', async () => {
-    await assertRevert(this.subscription.setGovernorSharePct(2, { from: org1 }), ERROR_NOT_OWNER)
+    await assertRevert(this.subscription.setGovernorSharePct(2, { from: org1 }), ERROR_NOT_GOVERNOR)
   })
 
   context('With Owner interface', () => {
@@ -99,7 +99,7 @@ contract('Subscription', ([ org1, org2, juror1, juror2, juror3 ]) => {
       this.subscriptionOwner = await SubscriptionOwner.new(this.subscription.address, this.sumTree.address)
       await this.subscriptionOwner.setCurrentTermId(START_TERM_ID)
       await this.sumTree.init(this.subscriptionOwner.address)
-      await this.subscription.init(this.subscriptionOwner.address, this.sumTree.address, START_TERM_ID, PERIOD_DURATION, token.address, FEE_AMOUNT.toString(), PREPAYMENT_PERIODS, LATE_PAYMENT_PENALTY_PCT, GOVERNOR_SHARE_PCT)
+      await this.subscription.init(this.subscriptionOwner.address, this.sumTree.address, PERIOD_DURATION, token.address, FEE_AMOUNT.toString(), PREPAYMENT_PERIODS, LATE_PAYMENT_PENALTY_PCT, GOVERNOR_SHARE_PCT)
     })
 
     it('can set Fee amount as owner', async () => {
@@ -113,9 +113,9 @@ contract('Subscription', ([ org1, org2, juror1, juror2, juror3 ]) => {
     })
 
     it('can set Fee Token as owner', async () => {
-      const tokenAddress = '0x' + '00'.repeat(18) + '1234'
-      await this.subscriptionOwner.setFeeToken(tokenAddress)
-      assert.equal(await this.subscription.feeToken(), tokenAddress)
+      const token2 = await MiniMeToken.new(ZERO_ADDRESS, ZERO_ADDRESS, 0, 'n', 0, 'n', true) // empty parameters minime
+      await this.subscriptionOwner.setFeeToken(token2.address)
+      assert.equal(await this.subscription.feeToken(), token2.address)
     })
 
     it('can set pre-payment periods as owner', async () => {
@@ -190,7 +190,7 @@ contract('Subscription', ([ org1, org2, juror1, juror2, juror3 ]) => {
       })
 
       it('Juror claim fees', async () => {
-        const periodId = 1
+        const periodId = 0
         const initialBalance = await token.balanceOf(juror1)
 
         const receipt = await this.subscription.claimFees(periodId, { from: juror1 })

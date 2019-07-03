@@ -51,7 +51,7 @@ contract SubscriptionOwnerMock is ISubscriptionOwner {
         return termId;
     }
 
-    function getTermRandomness(uint64) external returns (bytes32) {
+    function getTermRandomness(uint64) external view returns (bytes32) {
         return keccak256("randomness");
     }
 

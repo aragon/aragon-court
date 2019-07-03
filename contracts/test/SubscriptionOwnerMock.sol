@@ -47,7 +47,7 @@ contract SubscriptionOwnerMock is ISubscriptionOwner {
         termId = _termId;
     }
 
-    function getCurrentTermId() external returns (uint64) {
+    function getCurrentTermId() external view returns (uint64) {
         return termId;
     }
 
@@ -55,11 +55,11 @@ contract SubscriptionOwnerMock is ISubscriptionOwner {
         return keccak256("randomness");
     }
 
-    function getAccountSumTreeId(address _juror) external returns (uint256) {
+    function getAccountSumTreeId(address _juror) external view returns (uint256) {
         return sumTreeIds[_juror];
     }
 
-    function getGovernor() external returns (address) {
+    function getGovernor() external view returns (address) {
         return address(this);
     }
 }

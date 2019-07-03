@@ -851,8 +851,8 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner, ISubscriptionO
     }
 
     /* Subscription interface */
-    function getCurrentTermId() external ensureTerm returns (uint64) {
-        return termId;
+    function getCurrentTermId() external view returns (uint64) {
+        return termId + neededTermTransitions();
     }
 
     function getTermRandomness(uint64 _termId) external returns (bytes32) {
@@ -871,11 +871,11 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner, ISubscriptionO
         return _term.randomness;
     }
 
-    function getAccountSumTreeId(address _juror) external returns (uint256) {
+    function getAccountSumTreeId(address _juror) external view returns (uint256) {
         return accounts[_juror].sumTreeId;
     }
 
-    function getGovernor() external returns (address) {
+    function getGovernor() external view returns (address) {
         return governor;
     }
 

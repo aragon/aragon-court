@@ -135,7 +135,7 @@ contract('Subscription', ([ org1, org2, juror1, juror2, juror3 ]) => {
       })
 
       it('Org pays fees', async () => {
-        assert.isFalse(await this.subscription.isUpToDate.call(org1))
+        assert.isFalse(await this.subscription.isUpToDate(org1))
 
         const initialBalance = await token.balanceOf(org1)
 
@@ -144,7 +144,7 @@ contract('Subscription', ([ org1, org2, juror1, juror2, juror3 ]) => {
         const finalBalance = await token.balanceOf(org1)
 
         assertEqualBNs(initialBalance.sub(FEE_AMOUNT), finalBalance, 'Token balance mismatch');
-        assert.isTrue(await this.subscription.isUpToDate.call(org1))
+        assert.isTrue(await this.subscription.isUpToDate(org1))
       })
 
       it('Org fails paying fees too far in the future', async () => {

@@ -138,8 +138,7 @@ contract Subscription is ISubscription {
         require(feeToken.safeTransferFrom(msg.sender, address(this), amountToPay), ERROR_TOKEN_TRANSFER_FAILED);
     }
 
-    // getCurrentTermId in ISubscriptionOwner is not view, because of ensureTerm
-    function isUpToDate(address _organization) external returns (bool) {
+    function isUpToDate(address _organization) external view returns (bool) {
         return organizations[_organization].lastPaymentPeriodId >= _getCurrentPeriodId();
     }
 
@@ -222,8 +221,7 @@ contract Subscription is ISubscription {
         prePaymentPeriods = _prePaymentPeriods;
     }
 
-    // getCurrentTermId in ISubscriptionOwner is not view, because of ensureTerm
-    function _getCurrentPeriodId() internal returns (uint256) {
+    function _getCurrentPeriodId() internal view returns (uint256) {
         // periodId 0 is reserved to signal non-subscribed organizations
         return (owner.getCurrentTermId() - startTermId) / periodDuration + 1;
     }

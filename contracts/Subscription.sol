@@ -42,10 +42,10 @@ contract Subscription is IsContract, ISubscription {
         uint256 feeAmount;
         uint256 totalTreeSum;
         uint256 collectedFees;
+        mapping (address  => bool) claimedFees; // tracks claimed fees by jurors for each period
     }
 
     ISubscriptionOwner internal owner;
-    address governor;
     ISumTree internal sumTree;
     uint64 internal periodDuration; // in Court terms
     uint16 public latePaymentPenaltyPct; // ‱ of penalty applied for not paying during proper period
@@ -61,14 +61,13 @@ contract Subscription is IsContract, ISubscription {
     uint256 public accumulatedGovernorFees;
     mapping (address => Subscriber) internal subscribers;
     mapping (uint256 => Period) internal periods;
-    mapping (address => mapping (uint256 => bool)) claimedFees; // tracks claimed fees by jurors for each period
 
     event FeesPaid(address indexed subscriber, uint256 periods, uint256 newLastPeriodId, uint256 collectedFees, uint256 governorFee);
     event FeesClaimed(address indexed juror, uint256 indexed periodId, uint256 jurorShare);
-    event GovernorSharesTransferred(uint256 amount);
+    event GovernorFeesTransferred(uint256 amount);
 
     modifier onlyGovernor {
-        require(msg.sender == address(governor), ERROR_NOT_GOVERNOR);
+        require(msg.sender == owner.getGovernor(), ERROR_NOT_GOVERNOR);
         _;
     }
 
@@ -92,7 +91,6 @@ contract Subscription is IsContract, ISubscription {
         require(_periodDuration > 0, ERROR_ZERO_PERIOD_DURATION);
 
         owner = _owner;
-        governor = owner.getGovernor(); // This is to avoid making an external call in onlyGovernor modifier
         sumTree = _sumTree;
         periodDuration = _periodDuration;
         _setFeeToken(_feeToken);
@@ -151,16 +149,15 @@ contract Subscription is IsContract, ISubscription {
 
     function claimFees(uint256 _periodId) external {
         require(_periodId < _getCurrentPeriodId(), ERROR_INVALID_PERIOD);
-        require(!claimedFees[msg.sender][_periodId], ERROR_ALREADY_CLAIMED);
-
         Period storage period = periods[_periodId];
+        require(!period.claimedFees[msg.sender], ERROR_ALREADY_CLAIMED);
 
-        uint64 periodBalanceCheckpoint = _ensurePeriodBalanceCheckpoint(_periodId, period);
+        (uint64 periodBalanceCheckpoint, uint256 totalTreeSum) = _ensurePeriodBalanceCheckpoint(_periodId, period);
 
-        uint256 jurorShare = _getJurorShare(msg.sender, period, periodBalanceCheckpoint);
+        uint256 jurorShare = _getJurorShare(msg.sender, period, periodBalanceCheckpoint, totalTreeSum);
         require(jurorShare > 0, ERROR_NOTHING_TO_CLAIM);
 
-        claimedFees[msg.sender][_periodId] = true;
+        period.claimedFees[msg.sender] = true;
 
         require(period.feeToken.safeTransfer(msg.sender, jurorShare), ERROR_TOKEN_TRANSFER_FAILED);
 
@@ -189,7 +186,7 @@ contract Subscription is IsContract, ISubscription {
         governorSharePct = _governorSharePct;
     }
 
-    function ensurePeriodBalanceCheckpoint(uint256 _periodId) external returns (uint64) {
+    function ensurePeriodBalanceCheckpoint(uint256 _periodId) external returns (uint64, uint256) {
         Period storage period = periods[_periodId];
         return _ensurePeriodBalanceCheckpoint(_periodId, period);
     }
@@ -203,7 +200,7 @@ contract Subscription is IsContract, ISubscription {
         uint256 currentPeriodId = _getCurrentPeriodId();
         uint256 lastPaymentPeriodId = subscriber.lastPaymentPeriodId;
 
-        if (subscriber.subscribed && lastPaymentPeriodId >= currentPeriodId) {
+        if (!subscriber.subscribed || lastPaymentPeriodId >= currentPeriodId) {
             // not yet subscribed orgs can't have pending payments
             return 0;
         } else {
@@ -224,20 +221,27 @@ contract Subscription is IsContract, ISubscription {
     function getJurorShare(address _juror, uint256 _periodId) external view returns (uint256 jurorShare) {
         Period storage period = periods[_periodId];
         uint64 periodBalanceCheckpoint = period.balanceCheckpoint;
+        uint256 totalTreeSum;
         if (periodBalanceCheckpoint == 0) {
-            periodBalanceCheckpoint = _getPeriodBalanceCheckpoint(_periodId);
+            (periodBalanceCheckpoint, totalTreeSum) = _getPeriodBalanceDetails(_periodId);
+        } else {
+            totalTreeSum = period.totalTreeSum;
         }
 
-        jurorShare = _getJurorShare(_juror, period, periodBalanceCheckpoint);
+        jurorShare = _getJurorShare(_juror, period, periodBalanceCheckpoint, totalTreeSum);
+    }
+
+    function hasJurorClaimed(address _juror, uint256 _periodId) external view returns (bool) {
+        return periods[_periodId].claimedFees[_juror];
     }
 
     function transferFeesToGovernor() public {
         uint256 amount = accumulatedGovernorFees;
         require(amount > 0, ERROR_ZERO_TRANSFER);
         accumulatedGovernorFees = 0;
-        require(currentFeeToken.safeTransfer(governor, amount), ERROR_TOKEN_TRANSFER_FAILED);
+        require(currentFeeToken.safeTransfer(owner.getGovernor(), amount), ERROR_TOKEN_TRANSFER_FAILED);
 
-        emit GovernorSharesTransferred(amount);
+        emit GovernorFeesTransferred(amount);
     }
 
     function _setFeeAmount(uint256 _feeAmount) internal {
@@ -267,15 +271,17 @@ contract Subscription is IsContract, ISubscription {
         }
     }
 
-    function _ensurePeriodBalanceCheckpoint(uint256 _periodId, Period storage _period) internal returns (uint64 periodBalanceCheckpoint) {
+    function _ensurePeriodBalanceCheckpoint(uint256 _periodId, Period storage _period) internal returns (uint64 periodBalanceCheckpoint, uint256 totalTreeSum) {
         periodBalanceCheckpoint = _period.balanceCheckpoint;
 
         // it's first time fees are claimed for this period
         if (periodBalanceCheckpoint == 0) {
-            periodBalanceCheckpoint = _getPeriodBalanceCheckpoint(_periodId);
+            (periodBalanceCheckpoint, totalTreeSum) = _getPeriodBalanceDetails(_periodId);
             // set period's variables
             _period.balanceCheckpoint = periodBalanceCheckpoint;
-            _period.totalTreeSum = sumTree.totalSumPast(periodBalanceCheckpoint);
+            _period.totalTreeSum = totalTreeSum;
+        } else {
+            totalTreeSum = _period.totalTreeSum;
         }
     }
 
@@ -336,7 +342,7 @@ contract Subscription is IsContract, ISubscription {
         amountToPay = _pct4Increase(delayedPeriods.mul(_feeAmount), latePaymentPenaltyPct).add(regularPeriods.mul(_feeAmount));
     }
 
-    function _getPeriodBalanceCheckpoint(uint256 _periodId) internal view returns (uint64 periodBalanceCheckpoint) {
+    function _getPeriodBalanceDetails(uint256 _periodId) internal view returns (uint64 periodBalanceCheckpoint, uint256 totalTreeSum) {
         uint64 periodStartTermId = _getPeriodStartTermId(_periodId);
         uint64 nextPeriodStartTermId = _getPeriodStartTermId(_periodId + 1);
         bytes32 randomness = owner.getTermRandomness(nextPeriodStartTermId);
@@ -348,9 +354,10 @@ contract Subscription is IsContract, ISubscription {
             randomness = blockhash(block.number - 1);
         }
         periodBalanceCheckpoint = periodStartTermId + uint64(uint256(randomness) % periodDuration);
+        totalTreeSum = sumTree.totalSumPast(periodBalanceCheckpoint);
     }
 
-    function _getJurorShare(address _juror, Period storage _period, uint64 _periodBalanceCheckpoint) internal view returns (uint256) {
+    function _getJurorShare(address _juror, Period storage _period, uint64 _periodBalanceCheckpoint, uint256 _totalTreeSum) internal view returns (uint256) {
         // get balance and total at checkpoint
         uint256 sumTreeId = owner.getAccountSumTreeId(_juror);
         uint256 jurorBalance = sumTree.getItemPast(sumTreeId, _periodBalanceCheckpoint);
@@ -361,7 +368,7 @@ contract Subscription is IsContract, ISubscription {
         // it can't happen that total sum is zero if juror's balance is not
 
         // juror fee share
-        return _period.collectedFees.mul(jurorBalance) / _period.totalTreeSum;
+        return _period.collectedFees.mul(jurorBalance) / _totalTreeSum;
     }
 
     function _pct4(uint256 _number, uint16 _pct) internal pure returns (uint256) {

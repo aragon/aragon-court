@@ -34,7 +34,7 @@ const ERROR_TOO_MANY_PERIODS = 'SUB_TOO_MANY_PERIODS'
 
 const FEES_PAID_EVENT = 'FeesPaid'
 const FEES_CLAIMED_EVENT = 'FeesClaimed'
-const GOVERNOR_SHARES_TRANSFERRED_EVENT = 'GovernorSharesTransferred'
+const GOVERNOR_FEES_TRANSFERRED_EVENT = 'GovernorFeesTransferred'
 
 const DECIMALS = 1e18
 
@@ -72,26 +72,6 @@ contract('Subscription', ([ org1, org2, juror1, juror2, juror3 ]) => {
     assert.equal(await this.subscription.getOwner.call(), subscriptionOwner.address, 'wrong owner after init')
   })
 
-  it('fails to set Fee Amount if not owner', async () => {
-    await assertRevert(this.subscription.setFeeAmount(1, { from: org1 }), ERROR_NOT_GOVERNOR)
-  })
-
-  it('fails to set Fee Token if not owner', async () => {
-    await assertRevert(this.subscription.setFeeToken(token.address, 1, { from: org1 }), ERROR_NOT_GOVERNOR)
-  })
-
-  it('fails to set pre-payment periods if not owner', async () => {
-    await assertRevert(this.subscription.setPrePaymentPeriods(2, { from: org1 }), ERROR_NOT_GOVERNOR)
-  })
-
-  it('fails to set late payment penalty if not owner', async () => {
-    await assertRevert(this.subscription.setLatePaymentPenaltyPct(2, { from: org1 }), ERROR_NOT_GOVERNOR)
-  })
-
-  it('fails to set governor share if not owner', async () => {
-    await assertRevert(this.subscription.setGovernorSharePct(2, { from: org1 }), ERROR_NOT_GOVERNOR)
-  })
-
   context('With Owner interface', () => {
     const vote = 1
 
@@ -100,6 +80,26 @@ contract('Subscription', ([ org1, org2, juror1, juror2, juror3 ]) => {
       await this.subscriptionOwner.setCurrentTermId(START_TERM_ID)
       await this.sumTree.init(this.subscriptionOwner.address)
       await this.subscription.init(this.subscriptionOwner.address, this.sumTree.address, PERIOD_DURATION, token.address, FEE_AMOUNT.toString(), PREPAYMENT_PERIODS, LATE_PAYMENT_PENALTY_PCT, GOVERNOR_SHARE_PCT)
+    })
+
+    it('fails to set Fee Amount if not owner', async () => {
+      await assertRevert(this.subscription.setFeeAmount(1, { from: org1 }), ERROR_NOT_GOVERNOR)
+    })
+
+    it('fails to set Fee Token if not owner', async () => {
+      await assertRevert(this.subscription.setFeeToken(token.address, 1, { from: org1 }), ERROR_NOT_GOVERNOR)
+    })
+
+    it('fails to set pre-payment periods if not owner', async () => {
+      await assertRevert(this.subscription.setPrePaymentPeriods(2, { from: org1 }), ERROR_NOT_GOVERNOR)
+    })
+
+    it('fails to set late payment penalty if not owner', async () => {
+      await assertRevert(this.subscription.setLatePaymentPenaltyPct(2, { from: org1 }), ERROR_NOT_GOVERNOR)
+    })
+
+    it('fails to set governor share if not owner', async () => {
+      await assertRevert(this.subscription.setGovernorSharePct(2, { from: org1 }), ERROR_NOT_GOVERNOR)
     })
 
     it('can set Fee amount as owner', async () => {

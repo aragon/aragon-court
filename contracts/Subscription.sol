@@ -152,7 +152,7 @@ contract Subscription is IsContract, ISubscription {
         Period storage period = periods[_periodId];
         require(!period.claimedFees[msg.sender], ERROR_ALREADY_CLAIMED);
 
-        (uint64 periodBalanceCheckpoint, uint256 totalTreeSum) = _ensurePeriodBalanceCheckpoint(_periodId, period);
+        (uint64 periodBalanceCheckpoint, uint256 totalTreeSum) = _ensurePeriodBalanceDetails(_periodId, period);
 
         uint256 jurorShare = _getJurorShare(msg.sender, period, periodBalanceCheckpoint, totalTreeSum);
         require(jurorShare > 0, ERROR_NOTHING_TO_CLAIM);
@@ -186,9 +186,9 @@ contract Subscription is IsContract, ISubscription {
         governorSharePct = _governorSharePct;
     }
 
-    function ensurePeriodBalanceCheckpoint(uint256 _periodId) external returns (uint64, uint256) {
+    function ensurePeriodBalanceDetails(uint256 _periodId) external returns (uint64, uint256) {
         Period storage period = periods[_periodId];
-        return _ensurePeriodBalanceCheckpoint(_periodId, period);
+        return _ensurePeriodBalanceDetails(_periodId, period);
     }
 
     function getOwner() external view returns (address) {
@@ -271,7 +271,7 @@ contract Subscription is IsContract, ISubscription {
         }
     }
 
-    function _ensurePeriodBalanceCheckpoint(uint256 _periodId, Period storage _period) internal returns (uint64 periodBalanceCheckpoint, uint256 totalTreeSum) {
+    function _ensurePeriodBalanceDetails(uint256 _periodId, Period storage _period) internal returns (uint64 periodBalanceCheckpoint, uint256 totalTreeSum) {
         totalTreeSum = _period.totalTreeSum;
 
         // it's first time fees are claimed for this period

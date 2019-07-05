@@ -105,6 +105,7 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner, ISubscriptions
     uint64 public termDuration; // recomended value ~1 hour as 256 blocks (available block hash) around an hour to mine
     ICRVoting internal voting;
     ISumTree internal sumTree;
+    ISubscriptions internal subscriptions;
 
     // Global config, configurable by governor
     address internal governor; // TODO: consider using aOS' ACL
@@ -140,6 +141,8 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner, ISubscriptions
     string internal constant ERROR_INVALID_ADJUDICATION_ROUND = "COURT_INVALID_ADJUDICATION_ROUND";
     string internal constant ERROR_INVALID_ADJUDICATION_STATE = "COURT_INVALID_ADJUDICATION_STATE";
     string internal constant ERROR_INVALID_JUROR = "COURT_INVALID_JUROR";
+    // TODO: string internal constant ERROR_INVALID_DISPUTE_CREATOR = "COURT_INVALID_DISPUTE_CREATOR";
+    string internal constant ERROR_SUBSCRIPTION_NOT_PAID = "COURT_SUBSCRIPTION_NOT_PAID";
     string internal constant ERROR_INVALID_RULING_OPTIONS = "COURT_INVALID_RULING_OPTIONS";
     string internal constant ERROR_CONFIG_PERIOD_ZERO_TERMS = "COURT_CONFIG_PERIOD_ZERO_TERMS";
     string internal constant ERROR_PREV_ROUND_NOT_SETTLED = "COURT_PREV_ROUND_NOT_SETTLED";
@@ -151,7 +154,7 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner, ISubscriptions
     uint64 internal constant ZERO_TERM_ID = 0; // invalid term that doesn't accept disputes
     uint64 internal constant MODIFIER_ALLOWED_TERM_TRANSITIONS = 1;
     bytes4 private constant ARBITRABLE_INTERFACE_ID = 0xabababab; // TODO: interface id
-    uint16 internal constant PCT_BASE = 10000; // ‱
+    uint256 internal constant PCT_BASE = 10000; // ‱
     uint8 internal constant MIN_RULING_OPTIONS = 2;
     uint8 internal constant MAX_RULING_OPTIONS = MIN_RULING_OPTIONS;
     address internal constant BURN_ACCOUNT = 0xdead;
@@ -210,6 +213,7 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner, ISubscriptions
         ERC20 _feeToken,
         ICRVoting _voting,
         ISumTree _sumTree,
+        ISubscriptions _subscriptions,
         uint256 _jurorFee,
         uint256 _heartbeatFee,
         uint256 _draftFee,
@@ -225,6 +229,7 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner, ISubscriptions
         jurorToken = _jurorToken;
         voting = _voting;
         sumTree = _sumTree;
+        subscriptions = _subscriptions;
         jurorMinStake = _jurorMinStake;
         governor = _governor;
 
@@ -1103,6 +1108,6 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner, ISubscriptions
     }
 
     function _pct4(uint256 _number, uint16 _pct) internal pure returns (uint256) {
-        return _number * uint256(_pct) / uint256(PCT_BASE);
+        return _number * uint256(_pct) / PCT_BASE;
     }
 }

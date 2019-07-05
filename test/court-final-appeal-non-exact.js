@@ -5,6 +5,7 @@ const TokenFactory = artifacts.require('TokenFactory')
 const CourtMock = artifacts.require('CourtMock')
 const CRVoting = artifacts.require('CRVoting')
 const SumTree = artifacts.require('HexSumTreeWrapper')
+const Subscriptions = artifacts.require('SubscriptionsMock')
 
 const MINIME = 'MiniMeToken'
 
@@ -88,6 +89,8 @@ contract('Court: final appeal (non-exact)', ([ poor, rich, governor, juror1, jur
 
     this.voting = await CRVoting.new()
     this.sumTree = await SumTree.new()
+    this.subscriptions = await Subscriptions.new()
+    await this.subscriptions.setUpToDate(true)
 
     this.court = await CourtMock.new(
       termDuration,
@@ -95,16 +98,15 @@ contract('Court: final appeal (non-exact)', ([ poor, rich, governor, juror1, jur
       ZERO_ADDRESS, // no fees
       this.voting.address,
       this.sumTree.address,
-      0,
-      0,
-      0,
-      0,
+      this.subscriptions.address,
+      [ 0, 0, 0, 0 ],
       governor,
       firstTermStart,
       jurorMinStake,
       [ commitTerms, appealTerms, revealTerms ],
       penaltyPct,
-      finalRoundReduction
+      finalRoundReduction,
+      [ 0, 0, 0, 0, 0 ]
     )
 
     MAX_REGULAR_APPEAL_ROUNDS = (await this.court.getMaxRegularAppealRounds.call()).toNumber()

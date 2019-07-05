@@ -158,6 +158,7 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner, ISubscriptions
     uint8 internal constant MIN_RULING_OPTIONS = 2;
     uint8 internal constant MAX_RULING_OPTIONS = MIN_RULING_OPTIONS;
     address internal constant BURN_ACCOUNT = 0xdead;
+    uint256 internal constant MAX_UINT16 = uint16(-1);
     uint256 internal constant MAX_UINT32 = uint32(-1);
     uint64 internal constant MAX_UINT64 = uint64(-1);
 
@@ -197,10 +198,11 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner, ISubscriptions
      * @param _feeToken The address of the token contract that is used to pay for fees.
      * @param _voting The address of the Commit Reveal Voting contract.
      * @param _sumTree The address of the contract storing de Sum Tree for sortitions.
-     * @param _jurorFee The amount of _feeToken that is paid per juror per dispute
-     * @param _heartbeatFee The amount of _feeToken per dispute to cover maintenance costs.
-     * @param _draftFee The amount of _feeToken per juror to cover the drafting cost.
-     * @param _settleFee The amount of _feeToken per juror to cover round settlement cost.
+     * @param _fees Array containing:
+     *        _jurorFee The amount of _feeToken that is paid per juror per dispute
+     *        _heartbeatFee The amount of _feeToken per dispute to cover maintenance costs.
+     *        _draftFee The amount of _feeToken per juror to cover the drafting cost.
+     *        _settleFee The amount of _feeToken per juror to cover round settlement cost.
      * @param _governor Address of the governor contract.
      * @param _firstTermStartTime Timestamp in seconds when the court will open (to give time for juror onboarding)
      * @param _jurorMinStake Minimum amount of juror tokens that can be activated
@@ -214,16 +216,14 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner, ISubscriptions
         ICRVoting _voting,
         ISumTree _sumTree,
         ISubscriptions _subscriptions,
-        uint256 _jurorFee,
-        uint256 _heartbeatFee,
-        uint256 _draftFee,
-        uint256 _settleFee,
+        uint256[] _fees, // _jurorFee, _heartbeatFee, _draftFee, _settleFee
         address _governor,
         uint64 _firstTermStartTime,
         uint256 _jurorMinStake,
         uint64[3] _roundStateDurations,
         uint16 _penaltyPct,
-        uint16 _finalRoundReduction
+        uint16 _finalRoundReduction,
+        uint256[5] _subscriptionParams // _periodDuration, _feeAmount, _prePaymentPeriods, _latePaymentPenaltyPct, _governorSharePct
     ) public {
         termDuration = _termDuration;
         jurorToken = _jurorToken;
@@ -235,15 +235,13 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner, ISubscriptions
 
         voting.setOwner(ICRVotingOwner(this));
         sumTree.init(address(this));
+        _initSubscriptions(_feeToken, _subscriptionParams);
 
         courtConfigs.length = 1; // leave index 0 empty
         _setCourtConfig(
             ZERO_TERM_ID,
             _feeToken,
-            _jurorFee,
-            _heartbeatFee,
-            _draftFee,
-            _settleFee,
+            _fees,
             _roundStateDurations,
             _penaltyPct,
             _finalRoundReduction
@@ -397,8 +395,9 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner, ISubscriptions
         // TODO: Limit the max amount of terms into the future that a dispute can be drafted
         // TODO: Limit the max number of initial jurors
         // TODO: ERC165 check that _subject conforms to the Arbitrable interface
-        // TODO: Consider requiring that only the contract being arbitred can create a dispute
 
+        // TODO: require(address(_subject) == msg.sender, ERROR_INVALID_DISPUTE_CREATOR);
+        require(subscriptions.isUpToDate(address(_subject)), ERROR_SUBSCRIPTION_NOT_PAID);
         require(_possibleRulings >= MIN_RULING_OPTIONS && _possibleRulings <= MAX_RULING_OPTIONS, ERROR_INVALID_RULING_OPTIONS);
 
         uint256 disputeId = disputes.length;
@@ -1056,10 +1055,7 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner, ISubscriptions
     function _setCourtConfig(
         uint64 _fromTermId,
         ERC20 _feeToken,
-        uint256 _jurorFee,
-        uint256 _heartbeatFee,
-        uint256 _draftFee,
-        uint256 _settleFee,
+        uint256[] _fees, // _jurorFee, _heartbeatFee, _draftFee, _settleFee
         uint64[3] _roundStateDurations,
         uint16 _penaltyPct,
         uint16 _finalRoundReduction
@@ -1081,10 +1077,10 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner, ISubscriptions
 
         CourtConfig memory courtConfig = CourtConfig({
             feeToken: _feeToken,
-            jurorFee: _jurorFee,
-            heartbeatFee: _heartbeatFee,
-            draftFee: _draftFee,
-            settleFee: _settleFee,
+            jurorFee: _fees[0],
+            heartbeatFee: _fees[1],
+            draftFee: _fees[2],
+            settleFee: _fees[3],
             commitTerms: _roundStateDurations[0],
             revealTerms: _roundStateDurations[1],
             appealTerms: _roundStateDurations[2],
@@ -1097,6 +1093,22 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner, ISubscriptions
         configChangeTermId = _fromTermId;
 
         emit NewCourtConfig(_fromTermId, courtConfigId);
+    }
+
+    function _initSubscriptions(ERC20 _feeToken, uint256[5] _subscriptionParams) internal {
+        require(_subscriptionParams[0] < MAX_UINT64); // _periodDuration
+        require(_subscriptionParams[3] < MAX_UINT16); // _latePaymentPenaltyPct
+        require(_subscriptionParams[4] < MAX_UINT16); // _governorSharePct
+        subscriptions.init(
+            ISubscriptionsOwner(this),
+            sumTree,
+            uint64(_subscriptionParams[0]), // _periodDuration
+            _feeToken,
+            _subscriptionParams[1],         // _feeAmount
+            _subscriptionParams[2],         // _prePaymentPeriods
+            uint16(_subscriptionParams[3]), // _latePaymentPenaltyPct
+            uint16(_subscriptionParams[4])  // _governorSharePct
+        );
     }
 
     function _time() internal view returns (uint64) {

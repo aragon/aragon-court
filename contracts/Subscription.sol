@@ -220,12 +220,12 @@ contract Subscription is IsContract, ISubscription {
 
     function getJurorShare(address _juror, uint256 _periodId) external view returns (uint256 jurorShare) {
         Period storage period = periods[_periodId];
-        uint64 periodBalanceCheckpoint = period.balanceCheckpoint;
-        uint256 totalTreeSum;
-        if (periodBalanceCheckpoint == 0) {
+        uint64 periodBalanceCheckpoint;
+        uint256 totalTreeSum = period.totalTreeSum;
+        if (totalTreeSum == 0) {
             (periodBalanceCheckpoint, totalTreeSum) = _getPeriodBalanceDetails(_periodId);
         } else {
-            totalTreeSum = period.totalTreeSum;
+            periodBalanceCheckpoint = period.balanceCheckpoint;
         }
 
         jurorShare = _getJurorShare(_juror, period, periodBalanceCheckpoint, totalTreeSum);
@@ -272,16 +272,16 @@ contract Subscription is IsContract, ISubscription {
     }
 
     function _ensurePeriodBalanceCheckpoint(uint256 _periodId, Period storage _period) internal returns (uint64 periodBalanceCheckpoint, uint256 totalTreeSum) {
-        periodBalanceCheckpoint = _period.balanceCheckpoint;
+        totalTreeSum = _period.totalTreeSum;
 
         // it's first time fees are claimed for this period
-        if (periodBalanceCheckpoint == 0) {
+        if (totalTreeSum == 0) {
             (periodBalanceCheckpoint, totalTreeSum) = _getPeriodBalanceDetails(_periodId);
             // set period's variables
             _period.balanceCheckpoint = periodBalanceCheckpoint;
             _period.totalTreeSum = totalTreeSum;
         } else {
-            totalTreeSum = _period.totalTreeSum;
+            periodBalanceCheckpoint = _period.balanceCheckpoint;
         }
     }
 

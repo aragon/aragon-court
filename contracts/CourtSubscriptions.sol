@@ -130,10 +130,11 @@ contract CourtSubscriptions is IsContract, ISubscriptions {
         // amount collected for the current period to share among jurors
         uint256 collectedFees = amountToPay - governorFee;
 
-        subscriber.lastPaymentPeriodId = uint64(newLastPeriodId);
         if (!subscriber.subscribed) {
             subscriber.subscribed = true;
+            newLastPeriodId--; // If not subscribed yet, original lastPaymentPeriodId should be -1, but it will be 0 instead
         }
+        subscriber.lastPaymentPeriodId = uint64(newLastPeriodId);
         period.collectedFees += collectedFees;
 
         // transfer tokens

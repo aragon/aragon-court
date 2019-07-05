@@ -51,6 +51,7 @@ contract('CourtSubscriptions', ([ org1, org2, juror1, juror2, juror3 ]) => {
   const jurors = [ juror1, juror2, juror3 ]
 
   const bnPct4Decrease = (n, p) => n.mul(1e4 - p).div(1e4)
+  const bnPct4Increase = (n, p) => n.mul(1e4 + p).div(1e4)
 
   beforeEach(async () => {
     this.sumTree = await SumTree.new()
@@ -144,18 +145,38 @@ contract('CourtSubscriptions', ([ org1, org2, juror1, juror2, juror3 ]) => {
       beforeEach(async () => {
       })
 
-      it('Org pays fees', async () => {
-        assert.isFalse(await this.subscription.isUpToDate(org1))
+      const logPeriod = async() => {
+        const currentTermId = (await this.subscriptionOwner.getCurrentTermId()).toNumber()
+        console.log(currentTermId, START_TERM_ID, PERIOD_DURATION, (currentTermId - START_TERM_ID) / PERIOD_DURATION);
+      }
 
-        const initialBalance = await token.balanceOf(org1)
+      const subscribeAndPay = async (org, periods) => {
+        assert.isFalse(await this.subscription.isUpToDate(org))
 
-        const receipt = await this.subscription.payFees(org1, 1, { from: org1 })
+        const initialBalance = await token.balanceOf(org)
+
+        const receipt = await this.subscription.payFees(org, periods, { from: org })
         await assertLogs(receipt, FEES_PAID_EVENT)
 
-        const finalBalance = await token.balanceOf(org1)
+        const finalBalance = await token.balanceOf(org)
 
-        assertEqualBNs(initialBalance.sub(FEE_AMOUNT), finalBalance, 'Token balance mismatch');
+        assertEqualBNs(initialBalance.sub(FEE_AMOUNT.mul(periods)), finalBalance, 'Token balance mismatch')
+        assert.isTrue(await this.subscription.isUpToDate(org))
+      }
+
+      it('Org subscribes and pays fees for current period', async () => {
+        await subscribeAndPay(org1, 1)
+      })
+
+      it('Org subscribes and pays fees in advance', async () => {
+        const periods = 5
+
+        await subscribeAndPay(org1, periods)
+
+        await this.subscriptionOwner.addToCurrentTermId(PERIOD_DURATION * (periods - 1))
         assert.isTrue(await this.subscription.isUpToDate(org1))
+        await this.subscriptionOwner.addToCurrentTermId(PERIOD_DURATION)
+        assert.isFalse(await this.subscription.isUpToDate(org1))
       })
 
       it('Org fails paying fees too far in the future', async () => {
@@ -167,6 +188,37 @@ contract('CourtSubscriptions', ([ org1, org2, juror1, juror2, juror3 ]) => {
         await this.subscription.payFees(org1, halfPeriods, { from: org1 })
         await assertRevert(this.subscription.payFees(org1, halfPeriods, { from: org1 }), ERROR_TOO_MANY_PERIODS)
       })
+
+      it('Org subscribes, stops paying and pays due amounts +1 in advance', async () => {
+        const notPayingPeriods = 3
+
+        // subscribes
+        await subscribeAndPay(org1, 1)
+
+        // stops paying
+        await this.subscriptionOwner.addToCurrentTermId(PERIOD_DURATION * (notPayingPeriods + 1)) // +1 for the current, which is not yet overdue
+        assert.isFalse(await this.subscription.isUpToDate(org1))
+
+        // pays again
+        const initialBalance = await token.balanceOf(org1)
+
+        const receipt = await this.subscription.payFees(org1, notPayingPeriods + 2, { from: org1 })
+        await assertLogs(receipt, FEES_PAID_EVENT)
+
+        const finalBalance = await token.balanceOf(org1)
+
+        assertEqualBNs(
+          initialBalance.sub(
+            bnPct4Increase(FEE_AMOUNT.mul(notPayingPeriods), LATE_PAYMENT_PENALTY_PCT).add(FEE_AMOUNT.mul(2))
+          ),
+          finalBalance,
+          'Token balance mismatch'
+        )
+        assert.isTrue(await this.subscription.isUpToDate(org1))
+        await this.subscriptionOwner.addToCurrentTermId(PERIOD_DURATION * 2)
+        assert.isFalse(await this.subscription.isUpToDate(org1))
+      })
+
     })
 
     context('Juror actions', () => {
@@ -200,7 +252,7 @@ contract('CourtSubscriptions', ([ org1, org2, juror1, juror2, juror3 ]) => {
 
         const jurorFee = bnPct4Decrease(FEE_AMOUNT.mul(orgs.length), GOVERNOR_SHARE_PCT).div(jurors.length)
 
-        assertEqualBNs(initialBalance.add(jurorFee), finalBalance, 'Token balance mismatch');
+        assertEqualBNs(initialBalance.add(jurorFee), finalBalance, 'Token balance mismatch')
       })
     })
   })

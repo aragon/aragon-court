@@ -47,6 +47,10 @@ contract SubscriptionsOwnerMock is ISubscriptionsOwner {
         termId = _termId;
     }
 
+    function addToCurrentTermId(uint64 _terms) external {
+        termId += _terms;
+    }
+
     function getCurrentTermId() external view returns (uint64) {
         return termId;
     }

@@ -60,6 +60,8 @@ contract('Court: Disputes', ([ poor, rich, governor, juror1, juror2, juror3, arb
   const RULING_EXECUTED_EVENT = 'RulingExecuted'
   const ROUND_SLASHING_SETTLED_EVENT = 'RoundSlashingSettled'
 
+  const ERROR_SUBSCRIPTION_NOT_PAID = 'COURT_SUBSCRIPTION_NOT_PAID'
+
   const SALT = soliditySha3('passw0rd')
 
   const encryptVote = (ruling, salt = SALT) =>
@@ -158,6 +160,11 @@ contract('Court: Disputes', ([ poor, rich, governor, juror1, juror2, juror3, arb
         await assertLogs(receipt, NEW_DISPUTE_EVENT)
         disputeId = getLog(receipt, NEW_DISPUTE_EVENT, 'disputeId')
         voteId = getVoteId(disputeId, firstRoundId)
+      })
+
+      it('fails creating dispute if subscriptions are not up to date', async () => {
+        await this.subscriptions.setUpToDate(false)
+        await assertRevert(this.court.createDispute(arbitrable, rulings, jurors, term), ERROR_SUBSCRIPTION_NOT_PAID)
       })
 
       it('fails to draft outside of the draft term', async () => {

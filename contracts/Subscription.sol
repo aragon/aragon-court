@@ -142,11 +142,20 @@ contract Subscription is IsContract, ISubscription {
         emit FeesPaid(_from, _periods, newLastPeriodId, collectedFees, governorFee);
     }
 
+    /**
+     * @notice Check if `subscriber` has paid all fees up to current period
+     * @param _subscriber Address of subscriber to check
+     * @return True if subscriber has paid all fees up to current period
+     */
     function isUpToDate(address _subscriber) external view returns (bool) {
         Subscriber storage subscriber = subscribers[_subscriber];
         return subscriber.subscribed && subscriber.lastPaymentPeriodId >= _getCurrentPeriodId();
     }
 
+    /**
+     * @notice Claim proportional fee share for period `_periodId` owed to `msg.sender`
+     * @param _periodId Period which fees are claimed for
+     */
     function claimFees(uint256 _periodId) external {
         require(_periodId < _getCurrentPeriodId(), ERROR_INVALID_PERIOD);
         Period storage period = periods[_periodId];
@@ -164,37 +173,75 @@ contract Subscription is IsContract, ISubscription {
         emit FeesClaimed(msg.sender, _periodId, jurorShare);
     }
 
+    /**
+     * @notice Set new fee amount to `_feeAmount`
+     * @param _feeAmount New fee amount
+     */
     function setFeeAmount(uint256 _feeAmount) external onlyGovernor {
         _setFeeAmount(_feeAmount);
     }
 
+    /**
+     * @notice Set new fee token to `_feeToken` and new fee amount to `_feeAmount`
+     * @dev Accumulated fees owed to governor (if any) will be transferred
+     * @param _feeToken New fee token
+     * @param _feeAmount New fee amount
+     */
     function setFeeToken(ERC20 _feeToken, uint256 _feeAmount) external onlyGovernor {
         // setFeeToken empties governor accumulated fees, so must be run first
         _setFeeToken(_feeToken);
         _setFeeAmount(_feeAmount);
     }
 
+    /**
+     * @notice Set new allowed max pre-payment periods value to `_prePaymentPeriods`
+     * @param _prePaymentPeriods New max pre-payment periods value
+     */
     function setPrePaymentPeriods(uint256 _prePaymentPeriods) external onlyGovernor {
         _setPrePaymentPeriods(_prePaymentPeriods);
     }
 
+    /**
+     * @notice Set new late payment penalty ‱ to `_latePaymentPenaltyPct`
+     * @param _latePaymentPenaltyPct New late payment penalty ‱
+     */
     function setLatePaymentPenaltyPct(uint16 _latePaymentPenaltyPct) external onlyGovernor {
         latePaymentPenaltyPct = _latePaymentPenaltyPct;
     }
 
+    /**
+     * @notice Set new governor fee share ‱ to `_governorSharePct`
+     * @param _governorSharePct New governor fee share ‱
+     */
     function setGovernorSharePct(uint16 _governorSharePct) external onlyGovernor {
         governorSharePct = _governorSharePct;
     }
 
+    /**
+     * @notice Make sure that balance details (checkpoint and total sum) are cached for period `_periodId`
+     * @param _periodId Period id for the request
+     * @return Checkpoint for taking balances for the period
+     * @return Total balance in the tree for the period
+     */
     function ensurePeriodBalanceDetails(uint256 _periodId) external returns (uint64, uint256) {
         Period storage period = periods[_periodId];
         return _ensurePeriodBalanceDetails(_periodId, period);
     }
 
+    /**
+     * @notice Get contract owner
+     * @dev Implementing ISubscriptionOwner
+     * @return Address of owner
+     */
     function getOwner() external view returns (address) {
         return owner;
     }
 
+    /**
+     * @notice Get number of overdue payments for subscriber `_subscriberAddress`
+     * @param _subscriberAddress Subscriber to check
+     * @return Number of overdue payments for subscriber
+     */
     function getDelayedPeriods(address _subscriberAddress) external view returns (uint256) {
         Subscriber storage subscriber = subscribers[_subscriberAddress];
         uint256 currentPeriodId = _getCurrentPeriodId();
@@ -208,6 +255,13 @@ contract Subscription is IsContract, ISubscription {
         }
     }
 
+    /**
+     * @notice Get amount to pay and resulting last paid period for subscriber `_from` if paying for `_periods` periods
+     * @param _from Subscriber being checked
+     * @param _periods Periods that would be paid
+     * @return Amount to pay
+     * @return Resulting last paid period
+     */
     function getPayFeesDetails(address _from, uint256 _periods) external view returns (uint256 amountToPay, uint256 newLastPeriodId) {
         Subscriber storage subscriber = subscribers[_from];
         uint256 currentPeriodId = _getCurrentPeriodId();
@@ -218,6 +272,12 @@ contract Subscription is IsContract, ISubscription {
 
     }
 
+    /**
+     * @notice Get fee share corresponding to `_juror` for period `_periodId`
+     * @param _juror Address which fees are owed to
+     * @param _periodId Period of the request
+     * @return Amount owed
+     */
     function getJurorShare(address _juror, uint256 _periodId) external view returns (uint256 jurorShare) {
         Period storage period = periods[_periodId];
         uint64 periodBalanceCheckpoint;
@@ -231,10 +291,19 @@ contract Subscription is IsContract, ISubscription {
         jurorShare = _getJurorShare(_juror, period, periodBalanceCheckpoint, totalTreeSum);
     }
 
+    /**
+     * @notice Check if `_juror` has already claimed owed fees for period `_periodId`
+     * @param _juror Address being checked
+     * @param _periodId Period of the request
+     * @return True if fess were already claimed
+     */
     function hasJurorClaimed(address _juror, uint256 _periodId) external view returns (bool) {
         return periods[_periodId].claimedFees[_juror];
     }
 
+    /**
+     * @notice Transfer owed fees to governor
+     */
     function transferFeesToGovernor() public {
         uint256 amount = accumulatedGovernorFees;
         require(amount > 0, ERROR_ZERO_TRANSFER);

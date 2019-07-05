@@ -5,12 +5,12 @@ import "@aragon/os/contracts/common/SafeERC20.sol";
 import "@aragon/os/contracts/common/IsContract.sol";
 import "@aragon/os/contracts/lib/math/SafeMath.sol";
 
-import "./standards/subscription/ISubscription.sol";
-import "./standards/subscription/ISubscriptionOwner.sol";
+import "./standards/subscription/ISubscriptions.sol";
+import "./standards/subscription/ISubscriptionsOwner.sol";
 import "./standards/sumtree/ISumTree.sol";
 
 
-contract Subscription is IsContract, ISubscription {
+contract CourtSubscriptions is IsContract, ISubscriptions {
     using SafeERC20 for ERC20;
     using SafeMath for uint256;
 
@@ -45,7 +45,7 @@ contract Subscription is IsContract, ISubscription {
         mapping (address  => bool) claimedFees; // tracks claimed fees by jurors for each period
     }
 
-    ISubscriptionOwner internal owner;
+    ISubscriptionsOwner internal owner;
     ISumTree internal sumTree;
     uint64 internal periodDuration; // in Court terms
     uint16 public latePaymentPenaltyPct; // ‱ of penalty applied for not paying during proper period
@@ -76,7 +76,7 @@ contract Subscription is IsContract, ISubscription {
      *      because its call to this function will revert
      */
     function init(
-        ISubscriptionOwner _owner,
+        ISubscriptionsOwner _owner,
         ISumTree _sumTree,
         uint64 _periodDuration,
         ERC20 _feeToken,
@@ -230,7 +230,7 @@ contract Subscription is IsContract, ISubscription {
 
     /**
      * @notice Get contract owner
-     * @dev Implementing ISubscriptionOwner
+     * @dev Implementing ISubscriptionsOwner
      * @return Address of owner
      */
     function getOwner() external view returns (address) {

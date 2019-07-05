@@ -1,7 +1,7 @@
 const { assertRevert } = require('@aragon/os/test/helpers/assertThrow')
 
-const Subscription = artifacts.require('Subscription')
-const SubscriptionOwner = artifacts.require('SubscriptionOwnerMock')
+const CourtSubscriptions = artifacts.require('CourtSubscriptions')
+const SubscriptionsOwner = artifacts.require('SubscriptionsOwnerMock')
 const SumTree = artifacts.require('HexSumTreeWrapper')
 const MiniMeToken = artifacts.require('@aragon/apps-shared-minime/contracts/MiniMeToken')
 
@@ -38,7 +38,7 @@ const GOVERNOR_FEES_TRANSFERRED_EVENT = 'GovernorFeesTransferred'
 
 const DECIMALS = 1e18
 
-contract('Subscription', ([ org1, org2, juror1, juror2, juror3 ]) => {
+contract('CourtSubscriptions', ([ org1, org2, juror1, juror2, juror3 ]) => {
   let token
   const START_TERM_ID = 1
   const PERIOD_DURATION = 24 * 30 // 30 days, assuming terms are 1h
@@ -55,7 +55,7 @@ contract('Subscription', ([ org1, org2, juror1, juror2, juror3 ]) => {
   beforeEach(async () => {
     this.sumTree = await SumTree.new()
 
-    this.subscription = await Subscription.new()
+    this.subscription = await CourtSubscriptions.new()
     // Mints 1,000,000 tokens for orgs
     token = await MiniMeToken.new(ZERO_ADDRESS, ZERO_ADDRESS, 0, 'n', 0, 'n', true) // empty parameters minime
     for (let org of orgs) {
@@ -67,7 +67,7 @@ contract('Subscription', ([ org1, org2, juror1, juror2, juror3 ]) => {
 
   it('can init and set owner', async () => {
     assert.equal(await this.subscription.getOwner.call(), ZERO_ADDRESS, 'wrong owner before init')
-    const subscriptionOwner = await SubscriptionOwner.new(this.subscription.address, this.sumTree.address)
+    const subscriptionOwner = await SubscriptionsOwner.new(this.subscription.address, this.sumTree.address)
     await this.subscription.init(subscriptionOwner.address, this.sumTree.address, PERIOD_DURATION, token.address, FEE_AMOUNT.toString(), PREPAYMENT_PERIODS, LATE_PAYMENT_PENALTY_PCT, GOVERNOR_SHARE_PCT)
     assert.equal(await this.subscription.getOwner.call(), subscriptionOwner.address, 'wrong owner after init')
   })
@@ -76,7 +76,7 @@ contract('Subscription', ([ org1, org2, juror1, juror2, juror3 ]) => {
     const vote = 1
 
     beforeEach(async () => {
-      this.subscriptionOwner = await SubscriptionOwner.new(this.subscription.address, this.sumTree.address)
+      this.subscriptionOwner = await SubscriptionsOwner.new(this.subscription.address, this.sumTree.address)
       await this.subscriptionOwner.setCurrentTermId(START_TERM_ID)
       await this.sumTree.init(this.subscriptionOwner.address)
       await this.subscription.init(this.subscriptionOwner.address, this.sumTree.address, PERIOD_DURATION, token.address, FEE_AMOUNT.toString(), PREPAYMENT_PERIODS, LATE_PAYMENT_PENALTY_PCT, GOVERNOR_SHARE_PCT)

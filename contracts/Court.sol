@@ -6,8 +6,8 @@ import "./standards/arbitration/IArbitrable.sol";
 import "./standards/erc900/ERC900.sol";
 import "./standards/voting/ICRVoting.sol";
 import "./standards/voting/ICRVotingOwner.sol";
-import "./standards/subscription/ISubscription.sol";
-import "./standards/subscription/ISubscriptionOwner.sol";
+import "./standards/subscription/ISubscriptions.sol";
+import "./standards/subscription/ISubscriptionsOwner.sol";
 
 import { ApproveAndCallFallBack } from "@aragon/apps-shared-minime/contracts/MiniMeToken.sol";
 import "@aragon/os/contracts/lib/token/ERC20.sol";
@@ -16,7 +16,7 @@ import "@aragon/os/contracts/lib/math/SafeMath.sol";
 
 
 // solium-disable function-order
-contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner, ISubscriptionOwner {
+contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner, ISubscriptionsOwner {
     using SafeERC20 for ERC20;
     using SafeMath for uint256;
 
@@ -851,7 +851,7 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner, ISubscriptionO
         return disputes[_disputeId].rounds[_roundId].jurorSlotStates[_juror].weight;
     }
 
-    /* Subscription interface */
+    /* Subscriptions interface */
     function getCurrentTermId() external view returns (uint64) {
         return termId + neededTermTransitions();
     }

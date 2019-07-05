@@ -3,18 +3,18 @@ pragma solidity ^0.4.24;
 import "@aragon/os/contracts/lib/token/ERC20.sol";
 
 import "../standards/sumtree/ISumTree.sol";
-import "../standards/subscription/ISubscriptionOwner.sol";
-import "../standards/subscription/ISubscription.sol";
+import "../standards/subscription/ISubscriptionsOwner.sol";
+import "../standards/subscription/ISubscriptions.sol";
 
 
-contract SubscriptionOwnerMock is ISubscriptionOwner {
-    ISubscription subscription;
+contract SubscriptionsOwnerMock is ISubscriptionsOwner {
+    ISubscriptions subscription;
     ISumTree sumTree;
 
     uint64 termId;
     mapping (address => uint256) sumTreeIds;
 
-    constructor(ISubscription _subscription, ISumTree _sumTree) public {
+    constructor(ISubscriptions _subscription, ISumTree _sumTree) public {
         subscription = _subscription;
         sumTree = _sumTree;
     }

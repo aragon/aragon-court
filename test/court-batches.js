@@ -243,10 +243,6 @@ contract('Court: Batches', ([ rich, governor, arbitrable, juror1, juror2, juror3
 
 
       it('needs to wait until next term if randomness is missing', async () => {
-        let totalJurorsDrafted = 0
-        let callsHistory = []
-        const initialTermId = (await this.court.termId()).toNumber()
-        let termsPassed = 0
         // make sure we miss randomness
         await this.court.mock_blockTravel(257)
         await assertRevert(this.court.draftAdjudicationRound(disputeId), ERROR_TERM_RANDOMNESS_UNAVAIL)

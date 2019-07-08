@@ -90,6 +90,7 @@ contract('Court: Batches', ([ rich, governor, arbitrable, juror1, juror2, juror3
       jurorMinStake,
       [ commitTerms, appealTerms, revealTerms ],
       [ penaltyPct, finalRoundReduction ],
+      4,
       [ 0, 0, 0, 0, 0 ]
     )
 

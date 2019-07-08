@@ -40,7 +40,6 @@ contract('Court: final appeal (non-exact)', ([ poor, rich, governor, juror1, jur
   const NO_DATA = ''
   const ZERO_ADDRESS = '0x' + '00'.repeat(20)
   const SETTLE_BATCH_SIZE = 15
-  let MAX_REGULAR_APPEAL_ROUNDS
   let APPEAL_STEP_FACTOR
   const DECIMALS = 1e18
 
@@ -106,10 +105,10 @@ contract('Court: final appeal (non-exact)', ([ poor, rich, governor, juror1, jur
       jurorMinStake,
       [ commitTerms, appealTerms, revealTerms ],
       [ penaltyPct, finalRoundReduction ],
+      4,
       [ 0, 0, 0, 0, 0 ]
     )
 
-    MAX_REGULAR_APPEAL_ROUNDS = (await this.court.getMaxRegularAppealRounds.call()).toNumber()
     APPEAL_STEP_FACTOR = (await this.court.getAppealStepFactor.call()).toNumber()
 
     await this.jurorsRegistry.mock_hijackTreeSearch()
@@ -207,7 +206,8 @@ contract('Court: final appeal (non-exact)', ([ poor, rich, governor, juror1, jur
       await passTerms(2) // term = 3, dispute init
       await this.court.mock_blockTravel(1)
 
-      for (let roundId = 0; roundId < MAX_REGULAR_APPEAL_ROUNDS; roundId++) {
+      const maxRegularAppealRounds = (await this.court.getMaxRegularAppealRounds.call(disputeId)).toNumber()
+      for (let roundId = 0; roundId < maxRegularAppealRounds; roundId++) {
         let roundJurors = initialJurorNumber * (APPEAL_STEP_FACTOR ** roundId)
         if (roundJurors % 2 == 0) {
           roundJurors++
@@ -226,6 +226,8 @@ contract('Court: final appeal (non-exact)', ([ poor, rich, governor, juror1, jur
         await passTerms(appealTerms)
         await this.court.mock_blockTravel(1)
       }
+
+      return maxRegularAppealRounds
     }
 
     context('Rewards and slashes', () => {
@@ -233,13 +235,13 @@ contract('Court: final appeal (non-exact)', ([ poor, rich, governor, juror1, jur
       const weight = jurorGenericStake / jurorMinStake
 
       const testFinalRound = async (_winningJurors) => {
-        await moveForwardToFinalRound()
+        const maxRegularAppealRounds = await moveForwardToFinalRound()
 
         // final round
         await vote(voteId, _winningJurors)
 
         // settle
-        for (let roundId = 0; roundId <= MAX_REGULAR_APPEAL_ROUNDS; roundId++) {
+        for (let roundId = 0; roundId <= maxRegularAppealRounds; roundId++) {
           let roundSlashingEvent = 0
           while (roundSlashingEvent == 0) {
             const receipt = await this.court.settleRoundSlashing(disputeId, roundId, SETTLE_BATCH_SIZE)
@@ -251,7 +253,7 @@ contract('Court: final appeal (non-exact)', ([ poor, rich, governor, juror1, jur
         for (let i = 0; i < _winningJurors; i++) {
           const tokenBalance = (await this.anj.balanceOf(jurors[i])).toNumber()
           const courtBalance = (await this.jurorsRegistry.totalStakedFor(jurors[i])).toNumber()
-          const receipt = await this.court.settleReward(disputeId, MAX_REGULAR_APPEAL_ROUNDS, jurors[i])
+          const receipt = await this.court.settleReward(disputeId, maxRegularAppealRounds, jurors[i])
           assertLogs(receipt, REWARD_SETTLED_EVENT)
 
           // as jurors are not withdrawing here, real token balance shouldn't change

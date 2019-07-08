@@ -1096,9 +1096,9 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner, ISubscriptions
     }
 
     function _initSubscriptions(ERC20 _feeToken, uint256[5] _subscriptionParams) internal {
-        require(_subscriptionParams[0] < MAX_UINT64); // _periodDuration
-        require(_subscriptionParams[3] < MAX_UINT16); // _latePaymentPenaltyPct
-        require(_subscriptionParams[4] < MAX_UINT16); // _governorSharePct
+        require(_subscriptionParams[0] < MAX_UINT64, ERROR_OVERFLOW); // _periodDuration
+        require(_subscriptionParams[3] < MAX_UINT16, ERROR_OVERFLOW); // _latePaymentPenaltyPct
+        require(_subscriptionParams[4] < MAX_UINT16, ERROR_OVERFLOW); // _governorSharePct
         subscriptions.init(
             ISubscriptionsOwner(this),
             sumTree,

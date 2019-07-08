@@ -25,6 +25,7 @@ contract CourtSubscriptions is IsContract, ISubscriptions {
     string internal constant ERROR_ZERO_FEE = "SUB_ZERO_FEE";
     string internal constant ERROR_NOT_CONTRACT = "SUB_NOT_CONTRACT";
     string internal constant ERROR_ZERO_PREPAYMENT_PERIODS = "SUB_ZERO_PREPAYMENT_PERIODS";
+    string internal constant ERROR_OVERFLOW = "SUB_OVERFLOW";
     string internal constant ERROR_INVALID_PERIOD = "SUB_INVALID_PERIOD";
     string internal constant ERROR_ALREADY_CLAIMED = "SUB_ALREADY_CLAIMED";
     string internal constant ERROR_NOTHING_TO_CLAIM = "SUB_NOTHING_TO_CLAIM";
@@ -97,7 +98,7 @@ contract CourtSubscriptions is IsContract, ISubscriptions {
         _setFeeAmount(_feeAmount);
         _setPrePaymentPeriods(_prePaymentPeriods);
         latePaymentPenaltyPct = _latePaymentPenaltyPct;
-        governorSharePct = _governorSharePct;
+        _setGovernorSharePct(_governorSharePct);
     }
 
     /**
@@ -215,7 +216,7 @@ contract CourtSubscriptions is IsContract, ISubscriptions {
      * @param _governorSharePct New governor fee share ‱
      */
     function setGovernorSharePct(uint16 _governorSharePct) external onlyGovernor {
-        governorSharePct = _governorSharePct;
+        _setGovernorSharePct(_governorSharePct);
     }
 
     /**
@@ -331,6 +332,11 @@ contract CourtSubscriptions is IsContract, ISubscriptions {
         // zero wouldn't allow to pay for current period
         require(_prePaymentPeriods > 0, ERROR_ZERO_PREPAYMENT_PERIODS);
         prePaymentPeriods = _prePaymentPeriods;
+    }
+
+    function _setGovernorSharePct(uint16 _governorSharePct) internal {
+        require(_governorSharePct <= PCT_BASE, ERROR_OVERFLOW);
+        governorSharePct = _governorSharePct;
     }
 
     function _ensurePeriodFeeTokenAndAmount(Period storage _period) internal returns (ERC20 feeToken, uint256 feeAmount) {

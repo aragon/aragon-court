@@ -15,7 +15,7 @@ contract CourtMock is Court {
         ICRVoting _voting,
         ISumTree _sumTree,
         ISubscriptions _subscriptions,
-        uint256[] _fees, // _jurorFee, _heartbeatFee, _draftFee, _settleFee
+        uint256[4] _fees, // _jurorFee, _heartbeatFee, _draftFee, _settleFee
         address _governor,
         uint64 _firstTermStartTime,
         uint256 _jurorMinStake,

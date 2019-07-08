@@ -208,6 +208,12 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner, ISubscriptions
      * @param _jurorMinStake Minimum amount of juror tokens that can be activated
      * @param _roundStateDurations Number of terms that the different states a dispute round last
      * @param _penaltyPct ‱ of jurorMinStake that can be slashed (1/10,000)
+     * @param _subscriptionParams Array containing params for Subscriptions:
+     *        _periodDuration Length of Subscription periods
+     *        _feeAmount Amount of periodic fees
+     *        _prePaymentPeriods Max number of payments that can be done in advance
+     *        _latePaymentPenaltyPct Penalty for not paying on time
+     *        _governorSharePct Share of paid fees that goes to governor
      */
     constructor(
         uint64 _termDuration,
@@ -216,7 +222,7 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner, ISubscriptions
         ICRVoting _voting,
         ISumTree _sumTree,
         ISubscriptions _subscriptions,
-        uint256[] _fees, // _jurorFee, _heartbeatFee, _draftFee, _settleFee
+        uint256[4] _fees, // _jurorFee, _heartbeatFee, _draftFee, _settleFee
         address _governor,
         uint64 _firstTermStartTime,
         uint256 _jurorMinStake,
@@ -1065,7 +1071,7 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner, ISubscriptions
     function _setCourtConfig(
         uint64 _fromTermId,
         ERC20 _feeToken,
-        uint256[] _fees, // _jurorFee, _heartbeatFee, _draftFee, _settleFee
+        uint256[4] _fees, // _jurorFee, _heartbeatFee, _draftFee, _settleFee
         uint64[3] _roundStateDurations,
         uint16 _penaltyPct,
         uint16 _finalRoundReduction

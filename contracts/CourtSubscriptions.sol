@@ -125,11 +125,12 @@ contract CourtSubscriptions is IsContract, ISubscriptions {
 
         // total amount to pay by sender (on behalf of org), including penalties for delayed periods
         (uint256 amountToPay, uint256 newLastPeriodId) = _getPayFeesDetails(subscriber, _periods, currentPeriodId, feeAmount);
+        // as _periods and feeAmount are > 0, amountToPay will be > 0 and newLastPeriod > subscriber.lastPaymentPeriodId
         // governor fee
         uint256 governorFee = _pct4(amountToPay, governorSharePct);
         accumulatedGovernorFees += governorFee;
         // amount collected for the current period to share among jurors
-        uint256 collectedFees = amountToPay - governorFee;
+        uint256 collectedFees = amountToPay - governorFee; // as governorSharePct <= PCT_BASE, governorFee should be <= amountToPay
 
         if (!subscriber.subscribed) {
             subscriber.subscribed = true;
@@ -307,8 +308,9 @@ contract CourtSubscriptions is IsContract, ISubscriptions {
      * @notice Transfer owed fees to governor
      */
     function transferFeesToGovernor() public {
+        require(accumulatedGovernorFees > 0, ERROR_ZERO_TRANSFER);
+
         uint256 amount = accumulatedGovernorFees;
-        require(amount > 0, ERROR_ZERO_TRANSFER);
         accumulatedGovernorFees = 0;
         require(currentFeeToken.safeTransfer(owner.getGovernor(), amount), ERROR_TOKEN_TRANSFER_FAILED);
 
@@ -368,7 +370,7 @@ contract CourtSubscriptions is IsContract, ISubscriptions {
     }
 
     function _getCurrentPeriodId() internal view returns (uint256) {
-        return (owner.getCurrentTermId() - START_TERM_ID) / periodDuration;
+        return uint256(owner.getCurrentTermId()).sub(START_TERM_ID) / periodDuration;
     }
 
     function _getPeriodStartTermId(uint256 _periodId) internal view returns (uint64) {
@@ -419,8 +421,9 @@ contract CourtSubscriptions is IsContract, ISubscriptions {
 
         // don't allow to pay too many periods in advance (see comments in declaration section)
         newLastPeriodId = lastPaymentPeriodId + delayedPeriods + regularPeriods;
-        require(newLastPeriodId - _currentPeriodId < prePaymentPeriods, ERROR_TOO_MANY_PERIODS);
+        require(newLastPeriodId.sub(_currentPeriodId) < prePaymentPeriods, ERROR_TOO_MANY_PERIODS);
 
+        // delayedPeriods * _feeAmount * (1 +  latePaymentPenaltyPct/PCT_BASE) + regularPeriods * _feeAmount
         amountToPay = _pct4Increase(delayedPeriods.mul(_feeAmount), latePaymentPenaltyPct).add(regularPeriods.mul(_feeAmount));
     }
 
@@ -463,10 +466,10 @@ contract CourtSubscriptions is IsContract, ISubscriptions {
     }
 
     function _pct4(uint256 _number, uint16 _pct) internal pure returns (uint256) {
-        return _number * uint256(_pct) / PCT_BASE;
+        return _number.mul(uint256(_pct)) / PCT_BASE;
     }
 
     function _pct4Increase(uint256 _number, uint16 _pct) internal pure returns (uint256) {
-        return _number * (PCT_BASE + uint256(_pct)) / PCT_BASE;
+        return _number.mul((PCT_BASE + uint256(_pct))) / PCT_BASE;
     }
 }

@@ -62,6 +62,12 @@ contract CourtMock is Court {
         treeSearchHijacked = true;
     }
 
+    // as block numbers here are fake, we need to set this manually beacuse blockhash won't work
+    function setTermRandomness() external {
+        Term storage draftTerm = terms[termId];
+        draftTerm.randomness = keccak256(abi.encodePacked(draftTerm.randomnessBN));
+    }
+
     function _treeSearch(
         bytes32 _termRandomness,
         uint256 _disputeId,

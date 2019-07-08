@@ -832,7 +832,16 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner, ISubscriptions
         return _canPerformVotingAction(disputeId, roundId, _voter, AdjudicationState.Reveal);
     }
 
-    function _canPerformVotingAction(uint256 _disputeId, uint256 _roundId, address _voter, AdjudicationState _state) internal view returns (uint256) {
+    function _canPerformVotingAction(
+        uint256 _disputeId,
+        uint256 _roundId,
+        address _voter,
+        AdjudicationState _state
+    )
+        internal
+        view
+        returns (uint256)
+    {
         _checkAdjudicationState(_disputeId, _roundId, _state);
 
         return _getJurorWeight(_disputeId, _roundId, _voter);
@@ -912,7 +921,8 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner, ISubscriptions
         CourtConfig storage config = _courtConfigForTerm(_draftTermId);
         // number of jurors is the number of times the minimum stake is hold in the tree, multiplied by a precision factor for division roundings
         // besides, apply final round discount
-        uint256 feeAmount = config.heartbeatFee + _pct4(jurorNumber * config.jurorFee / FINAL_ROUND_WEIGHT_PRECISION, config.finalRoundReduction);
+        uint256 feeAmount = config.heartbeatFee +
+            _pct4(jurorNumber * config.jurorFee / FINAL_ROUND_WEIGHT_PRECISION, config.finalRoundReduction);
         if (feeAmount > 0) {
             require(config.feeToken.safeTransferFrom(msg.sender, this, feeAmount), ERROR_DEPOSIT_FAILED);
         }

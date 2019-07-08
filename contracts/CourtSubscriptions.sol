@@ -347,7 +347,13 @@ contract CourtSubscriptions is IsContract, ISubscriptions {
         }
     }
 
-    function _ensurePeriodBalanceDetails(uint256 _periodId, Period storage _period) internal returns (uint64 periodBalanceCheckpoint, uint256 totalTreeSum) {
+    function _ensurePeriodBalanceDetails(
+        uint256 _periodId,
+        Period storage _period
+    )
+        internal
+        returns (uint64 periodBalanceCheckpoint, uint256 totalTreeSum)
+    {
         totalTreeSum = _period.totalTreeSum;
 
         // it's first time fees are claimed for this period
@@ -433,7 +439,16 @@ contract CourtSubscriptions is IsContract, ISubscriptions {
         totalTreeSum = sumTree.totalSumPast(periodBalanceCheckpoint);
     }
 
-    function _getJurorShare(address _juror, Period storage _period, uint64 _periodBalanceCheckpoint, uint256 _totalTreeSum) internal view returns (uint256) {
+    function _getJurorShare(
+        address _juror,
+        Period storage _period,
+        uint64 _periodBalanceCheckpoint,
+        uint256 _totalTreeSum
+    )
+        internal
+        view
+        returns (uint256)
+    {
         // get balance and total at checkpoint
         uint256 sumTreeId = owner.getAccountSumTreeId(_juror);
         uint256 jurorBalance = sumTree.getItemPast(sumTreeId, _periodBalanceCheckpoint);

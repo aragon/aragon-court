@@ -58,7 +58,7 @@ contract CRVoting is ICRVoting {
     function createVote(uint256 _voteId, uint8 _possibleRulings) external onlyOwner {
         require(_possibleRulings > 0, ERROR_ZERO_RULINGS);
         Vote storage vote = votes[_voteId];
-        //require(vote.possibleRulings == 0, ERROR_VOTING_ALREADY_EXISTS);
+        require(vote.possibleRulings == 0, ERROR_VOTING_ALREADY_EXISTS);
 
         vote.possibleRulings = _possibleRulings;
     }

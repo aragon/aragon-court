@@ -33,7 +33,7 @@ contract('CRVoting', ([ account0, account1 ]) => {
   })
 
   it('fails creating vote if not owner', async () => {
-    await assertRevert(this.voting.createVote(1, { from: account1 }), 'CRV_NOT_OWNER')
+    await assertRevert(this.voting.createVote(0, 1, { from: account1 }), 'CRV_NOT_OWNER')
   })
 
   context('With Owner interface', () => {
@@ -46,14 +46,14 @@ contract('CRVoting', ([ account0, account1 ]) => {
     })
 
     it('can create vote as owner', async () => {
-      await votingOwner.createVote(this.voting.address, 2)
+      await votingOwner.createVote(this.voting.address, 0, 2)
     })
 
     context('Voting actions', () => {
       let voteId
 
       beforeEach(async () => {
-        const r = await votingOwner.createVote(this.voting.address, 2)
+        const r = await votingOwner.createVote(this.voting.address, 0, 2)
         voteId = getLog(r, 'VoteCreated', 'voteId')
         await votingOwner.setResponse(1)
       })

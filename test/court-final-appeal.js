@@ -168,6 +168,9 @@ contract('Court: final appeal', ([ poor, rich, governor, juror1, juror2, juror3,
     const draftAdjudicationRound = async (roundJurors) => {
       let roundJurorsDrafted = 0
       let draftReceipt
+
+      await this.court.setTermRandomness()
+
       while (roundJurorsDrafted < roundJurors) {
         draftReceipt = await this.court.draftAdjudicationRound(disputeId)
         const callJurorsDrafted = getLogCount(draftReceipt, JUROR_DRAFTED_EVENT)

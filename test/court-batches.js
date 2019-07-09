@@ -305,6 +305,8 @@ contract('Court: Batches', ([ rich, governor, arbitrable, juror1, juror2, juror3
       await createDispute()
 
       // draft
+      await this.court.setTermRandomness()
+
       let totalJurorsDrafted = 0
       while(totalJurorsDrafted < jurors) {
         assert.isFalse(await this.court.areAllJurorsDrafted.call(disputeId, firstRoundId))

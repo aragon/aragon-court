@@ -13,9 +13,9 @@ contract VotingOwnerMock is ICRVotingOwner {
         response = _response;
     }
 
-    function createVote(ICRVoting _voting, uint8 _ruling) external {
-        uint256 voteId = _voting.createVote(_ruling);
-        emit VoteCreated(voteId);
+    function createVote(ICRVoting _voting, uint256 _voteId, uint8 _ruling) external {
+        _voting.createVote(_voteId, _ruling);
+        emit VoteCreated(_voteId);
     }
 
     function canCommit(uint256, address) external returns (uint256) {

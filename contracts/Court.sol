@@ -857,11 +857,11 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner, ISubscriptions
         return _getJurorWeight(_disputeId, _roundId, _juror);
     }
 
-    function _getVoteId(uint256 _disputeId, uint256 _roundId) internal returns (uint256) {
+    function _getVoteId(uint256 _disputeId, uint256 _roundId) internal pure returns (uint256) {
         return (_disputeId << 128) + _roundId;
     }
 
-    function _decodeVoteId(uint256 _voteId) internal returns (uint256 disputeId, uint256 roundId) {
+    function _decodeVoteId(uint256 _voteId) internal pure returns (uint256 disputeId, uint256 roundId) {
         disputeId = _voteId >> 128;
         roundId = _voteId & 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF;
     }

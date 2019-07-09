@@ -134,7 +134,6 @@ contract CourtSubscriptions is IsContract, ISubscriptions {
 
         if (!subscriber.subscribed) {
             subscriber.subscribed = true;
-            newLastPeriodId--; // If not subscribed yet, original lastPaymentPeriodId should be -1, but it will be 0 instead
         }
         subscriber.lastPaymentPeriodId = uint64(newLastPeriodId);
         period.collectedFees += collectedFees;
@@ -272,7 +271,6 @@ contract CourtSubscriptions is IsContract, ISubscriptions {
         (, uint256 feeAmount) = _getPeriodFeeTokenAndAmount(periods[currentPeriodId]);
         // total amount to pay by sender (on behalf of org), including penalties for delayed periods
         (amountToPay, newLastPeriodId) = _getPayFeesDetails(subscriber, _periods, currentPeriodId, feeAmount);
-
     }
 
     /**
@@ -405,6 +403,7 @@ contract CourtSubscriptions is IsContract, ISubscriptions {
         if (!_subscriber.subscribed) {
             // not yet subscribed orgs can't have pending payments
             regularPeriods = _periods;
+            newLastPeriodId = _currentPeriodId + _periods - 1;
         } else {
             // check for pending payments
             if (_currentPeriodId > lastPaymentPeriodId + 1) {
@@ -417,11 +416,11 @@ contract CourtSubscriptions is IsContract, ISubscriptions {
             } else { // otherwise the rest are regular payments
                 regularPeriods = _periods - delayedPeriods;
             }
+            newLastPeriodId = lastPaymentPeriodId + _periods;
         }
 
         // don't allow to pay too many periods in advance (see comments in declaration section)
-        newLastPeriodId = lastPaymentPeriodId + delayedPeriods + regularPeriods;
-        require(newLastPeriodId.sub(_currentPeriodId) < prePaymentPeriods, ERROR_TOO_MANY_PERIODS);
+        require(newLastPeriodId <= _currentPeriodId || newLastPeriodId.sub(_currentPeriodId) < prePaymentPeriods, ERROR_TOO_MANY_PERIODS);
 
         // delayedPeriods * _feeAmount * (1 +  latePaymentPenaltyPct/PCT_BASE) + regularPeriods * _feeAmount
         amountToPay = _pct4Increase(delayedPeriods.mul(_feeAmount), latePaymentPenaltyPct).add(regularPeriods.mul(_feeAmount));

@@ -142,9 +142,6 @@ contract('CourtSubscriptions', ([ org1, org2, juror1, juror2, juror3 ]) => {
     })
 
     context('Org actions', () => {
-      beforeEach(async () => {
-      })
-
       const logPeriod = async() => {
         const currentTermId = (await this.subscriptionOwner.getCurrentTermId()).toNumber()
         console.log(currentTermId, START_TERM_ID, PERIOD_DURATION, (currentTermId - START_TERM_ID) / PERIOD_DURATION);
@@ -164,61 +161,99 @@ contract('CourtSubscriptions', ([ org1, org2, juror1, juror2, juror3 ]) => {
         assert.isTrue(await this.subscription.isUpToDate(org))
       }
 
-      it('Org subscribes and pays fees for current period', async () => {
-        await subscribeAndPay(org1, 1)
-      })
+      const initialPeriods = [ 0, 3 ]
+      for (const initialPeriod of initialPeriods) {
+        context(`Starting on period ${initialPeriod}`, () => {
+          beforeEach(async () => {
+            // move forward
+            await this.subscriptionOwner.addToCurrentTermId(PERIOD_DURATION * initialPeriod)
+          })
 
-      it('Org subscribes and pays fees in advance', async () => {
-        const periods = 5
+          it('Org subscribes and pays fees for current period', async () => {
+            await subscribeAndPay(org1, 1)
+          })
 
-        await subscribeAndPay(org1, periods)
+          it('Org subscribes and pays fees in advance', async () => {
+            const periods = 5
 
-        await this.subscriptionOwner.addToCurrentTermId(PERIOD_DURATION * (periods - 1))
-        assert.isTrue(await this.subscription.isUpToDate(org1))
-        await this.subscriptionOwner.addToCurrentTermId(PERIOD_DURATION)
-        assert.isFalse(await this.subscription.isUpToDate(org1))
-      })
+            await subscribeAndPay(org1, periods)
 
-      it('Org fails paying fees too far in the future', async () => {
-        await assertRevert(this.subscription.payFees(org1, PREPAYMENT_PERIODS + 1, { from: org1 }), ERROR_TOO_MANY_PERIODS)
-      })
+            await this.subscriptionOwner.addToCurrentTermId(PERIOD_DURATION * (periods - 1))
+            assert.isTrue(await this.subscription.isUpToDate(org1))
+            await this.subscriptionOwner.addToCurrentTermId(PERIOD_DURATION)
+            assert.isFalse(await this.subscription.isUpToDate(org1))
+          })
 
-      it('Org fails paying fees too far in the future with 2 calls', async () => {
-        const halfPeriods = PREPAYMENT_PERIODS / 2 + 1
-        await this.subscription.payFees(org1, halfPeriods, { from: org1 })
-        await assertRevert(this.subscription.payFees(org1, halfPeriods, { from: org1 }), ERROR_TOO_MANY_PERIODS)
-      })
+          it('Org fails paying fees too far in the future', async () => {
+            await assertRevert(this.subscription.payFees(org1, PREPAYMENT_PERIODS + 1, { from: org1 }), ERROR_TOO_MANY_PERIODS)
+          })
 
-      it('Org subscribes, stops paying and pays due amounts +1 in advance', async () => {
-        const notPayingPeriods = 3
+          it('Org fails paying fees too far in the future with 2 calls', async () => {
+            const halfPeriods = PREPAYMENT_PERIODS / 2 + 1
+            await this.subscription.payFees(org1, halfPeriods, { from: org1 })
+            await assertRevert(this.subscription.payFees(org1, halfPeriods, { from: org1 }), ERROR_TOO_MANY_PERIODS)
+          })
 
-        // subscribes
-        await subscribeAndPay(org1, 1)
+          it('Org subscribes, stops paying and pays due amounts but without catching up completely', async () => {
+            const notPayingPeriods = 3
+            const paidDuePeriods = notPayingPeriods - 1
 
-        // stops paying
-        await this.subscriptionOwner.addToCurrentTermId(PERIOD_DURATION * (notPayingPeriods + 1)) // +1 for the current, which is not yet overdue
-        assert.isFalse(await this.subscription.isUpToDate(org1))
+            // subscribes
+            await subscribeAndPay(org1, 1)
 
-        // pays again
-        const initialBalance = await token.balanceOf(org1)
+            // stops paying
+            await this.subscriptionOwner.addToCurrentTermId(PERIOD_DURATION * (notPayingPeriods + 1)) // +1 for the current, which is not yet overdue
+            assert.isFalse(await this.subscription.isUpToDate(org1))
 
-        const receipt = await this.subscription.payFees(org1, notPayingPeriods + 2, { from: org1 })
-        await assertLogs(receipt, FEES_PAID_EVENT)
+            // pays again
+            const initialBalance = await token.balanceOf(org1)
 
-        const finalBalance = await token.balanceOf(org1)
+            const receipt = await this.subscription.payFees(org1, paidDuePeriods, { from: org1 })
+            await assertLogs(receipt, FEES_PAID_EVENT)
 
-        assertEqualBNs(
-          initialBalance.sub(
-            bnPct4Increase(FEE_AMOUNT.mul(notPayingPeriods), LATE_PAYMENT_PENALTY_PCT).add(FEE_AMOUNT.mul(2))
-          ),
-          finalBalance,
-          'Token balance mismatch'
-        )
-        assert.isTrue(await this.subscription.isUpToDate(org1))
-        await this.subscriptionOwner.addToCurrentTermId(PERIOD_DURATION * 2)
-        assert.isFalse(await this.subscription.isUpToDate(org1))
-      })
+            const finalBalance = await token.balanceOf(org1)
 
+            assertEqualBNs(
+              initialBalance.sub(
+                bnPct4Increase(FEE_AMOUNT.mul(paidDuePeriods), LATE_PAYMENT_PENALTY_PCT)
+              ),
+              finalBalance,
+              'Token balance mismatch'
+            )
+            assert.isFalse(await this.subscription.isUpToDate(org1))
+          })
+
+          it('Org subscribes, stops paying and pays due amounts +1 in advance', async () => {
+            const notPayingPeriods = 3
+
+            // subscribes
+            await subscribeAndPay(org1, 1)
+
+            // stops paying
+            await this.subscriptionOwner.addToCurrentTermId(PERIOD_DURATION * (notPayingPeriods + 1)) // +1 for the current, which is not yet overdue
+            assert.isFalse(await this.subscription.isUpToDate(org1))
+
+            // pays again
+            const initialBalance = await token.balanceOf(org1)
+
+            const receipt = await this.subscription.payFees(org1, notPayingPeriods + 2, { from: org1 })
+            await assertLogs(receipt, FEES_PAID_EVENT)
+
+            const finalBalance = await token.balanceOf(org1)
+
+            assertEqualBNs(
+              initialBalance.sub(
+                bnPct4Increase(FEE_AMOUNT.mul(notPayingPeriods), LATE_PAYMENT_PENALTY_PCT).add(FEE_AMOUNT.mul(2))
+              ),
+              finalBalance,
+              'Token balance mismatch'
+            )
+            assert.isTrue(await this.subscription.isUpToDate(org1))
+            await this.subscriptionOwner.addToCurrentTermId(PERIOD_DURATION * 2)
+            assert.isFalse(await this.subscription.isUpToDate(org1))
+          })
+        })
+      }
     })
 
     context('Juror actions', () => {

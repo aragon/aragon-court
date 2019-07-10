@@ -241,7 +241,7 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner, ISubscriptions
 
         voting.setOwner(ICRVotingOwner(this));
         sumTree.init(address(this));
-        _initSubscriptions(_feeToken, _subscriptionParams);
+        _initSubscriptions(_feeToken, _subscriptionParams, _sumTree);
 
         courtConfigs.length = 1; // leave index 0 empty
         _setCourtConfig(
@@ -1111,13 +1111,13 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner, ISubscriptions
         emit NewCourtConfig(_fromTermId, courtConfigId);
     }
 
-    function _initSubscriptions(ERC20 _feeToken, uint256[5] _subscriptionParams) internal {
-        require(_subscriptionParams[0] < MAX_UINT64, ERROR_OVERFLOW); // _periodDuration
-        require(_subscriptionParams[3] < MAX_UINT16, ERROR_OVERFLOW); // _latePaymentPenaltyPct
-        require(_subscriptionParams[4] < MAX_UINT16, ERROR_OVERFLOW); // _governorSharePct
+    function _initSubscriptions(ERC20 _feeToken, uint256[5] _subscriptionParams, ISumTree _sumTree) internal {
+        require(_subscriptionParams[0] <= MAX_UINT64, ERROR_OVERFLOW); // _periodDuration
+        require(_subscriptionParams[3] <= MAX_UINT16, ERROR_OVERFLOW); // _latePaymentPenaltyPct
+        require(_subscriptionParams[4] <= MAX_UINT16, ERROR_OVERFLOW); // _governorSharePct
         subscriptions.init(
             ISubscriptionsOwner(this),
-            sumTree,
+            _sumTree,
             uint64(_subscriptionParams[0]), // _periodDuration
             _feeToken,
             _subscriptionParams[1],         // _feeAmount

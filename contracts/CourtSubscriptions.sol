@@ -43,7 +43,7 @@ contract CourtSubscriptions is IsContract, ISubscriptions {
         uint256 feeAmount;
         uint256 totalTreeSum;
         uint256 collectedFees;
-        mapping (address  => bool) claimedFees; // tracks claimed fees by jurors for each period
+        mapping (address => bool) claimedFees; // tracks claimed fees by jurors for each period
     }
 
     ISubscriptionsOwner internal owner;
@@ -125,18 +125,20 @@ contract CourtSubscriptions is IsContract, ISubscriptions {
 
         // total amount to pay by sender (on behalf of org), including penalties for delayed periods
         (uint256 amountToPay, uint256 newLastPeriodId) = _getPayFeesDetails(subscriber, _periods, currentPeriodId, feeAmount);
-        // as _periods and feeAmount are > 0, amountToPay will be > 0 and newLastPeriod > subscriber.lastPaymentPeriodId
+
         // governor fee
+        // as _periods and feeAmount are > 0, amountToPay will be > 0 and newLastPeriod > subscriber.lastPaymentPeriodId
         uint256 governorFee = _pct4(amountToPay, governorSharePct);
         accumulatedGovernorFees += governorFee;
+
         // amount collected for the current period to share among jurors
         uint256 collectedFees = amountToPay - governorFee; // as governorSharePct <= PCT_BASE, governorFee should be <= amountToPay
+        period.collectedFees += collectedFees;
 
         if (!subscriber.subscribed) {
             subscriber.subscribed = true;
         }
         subscriber.lastPaymentPeriodId = uint64(newLastPeriodId);
-        period.collectedFees += collectedFees;
 
         // transfer tokens
         require(feeToken.safeTransferFrom(msg.sender, address(this), amountToPay), ERROR_TOKEN_TRANSFER_FAILED);
@@ -261,14 +263,24 @@ contract CourtSubscriptions is IsContract, ISubscriptions {
      * @notice Get amount to pay and resulting last paid period for subscriber `_from` if paying for `_periods` periods
      * @param _from Subscriber being checked
      * @param _periods Periods that would be paid
+     * @return Address of the token used to pay fees
      * @return Amount to pay
      * @return Resulting last paid period
      */
-    function getPayFeesDetails(address _from, uint256 _periods) external view returns (uint256 amountToPay, uint256 newLastPeriodId) {
+    function getPayFeesDetails(
+        address _from,
+        uint256 _periods
+    )
+        external
+        view
+        returns (address tokenAddress, uint256 amountToPay, uint256 newLastPeriodId)
+    {
         Subscriber storage subscriber = subscribers[_from];
         uint256 currentPeriodId = _getCurrentPeriodId();
 
-        (, uint256 feeAmount) = _getPeriodFeeTokenAndAmount(periods[currentPeriodId]);
+        (ERC20 feeToken, uint256 feeAmount) = _getPeriodFeeTokenAndAmount(periods[currentPeriodId]);
+        tokenAddress = address(feeToken);
+
         // total amount to pay by sender (on behalf of org), including penalties for delayed periods
         (amountToPay, newLastPeriodId) = _getPayFeesDetails(subscriber, _periods, currentPeriodId, feeAmount);
     }
@@ -277,9 +289,10 @@ contract CourtSubscriptions is IsContract, ISubscriptions {
      * @notice Get fee share corresponding to `_juror` for period `_periodId`
      * @param _juror Address which fees are owed to
      * @param _periodId Period of the request
+     * @return Address of the token
      * @return Amount owed
      */
-    function getJurorShare(address _juror, uint256 _periodId) external view returns (uint256 jurorShare) {
+    function getJurorShare(address _juror, uint256 _periodId) external view returns (address tokenAddress, uint256 jurorShare) {
         Period storage period = periods[_periodId];
         uint64 periodBalanceCheckpoint;
         uint256 totalTreeSum = period.totalTreeSum;
@@ -290,6 +303,9 @@ contract CourtSubscriptions is IsContract, ISubscriptions {
         }
 
         jurorShare = _getJurorShare(_juror, period, periodBalanceCheckpoint, totalTreeSum);
+
+        (ERC20 feeToken,) = _getPeriodFeeTokenAndAmount(period);
+        tokenAddress = address(feeToken);
     }
 
     /**
@@ -340,11 +356,14 @@ contract CourtSubscriptions is IsContract, ISubscriptions {
     }
 
     function _ensurePeriodFeeTokenAndAmount(Period storage _period) internal returns (ERC20 feeToken, uint256 feeAmount) {
-        (feeToken, feeAmount) = _getPeriodFeeTokenAndAmount(_period);
-        if (_period.feeToken == address(0)) {
+        // if payFees has not been called for this period, these variables have not been set yet, so we get the global current ones
+        feeToken = _period.feeToken;
+        if (feeToken == address(0)) {
+            feeToken = currentFeeToken;
             _period.feeToken = feeToken;
-            _period.feeAmount = feeAmount;
+            _period.feeAmount = currentFeeAmount;
         }
+        feeAmount = _period.feeAmount;
     }
 
     function _ensurePeriodBalanceDetails(
@@ -377,11 +396,11 @@ contract CourtSubscriptions is IsContract, ISubscriptions {
 
     function _getPeriodFeeTokenAndAmount(Period storage _period) internal view returns (ERC20 feeToken, uint256 feeAmount) {
         // if payFees has not been called for this period, these variables have not been set yet, so we get the global current ones
-        if (_period.feeToken == address(0)) {
+        feeToken = _period.feeToken;
+        if (feeToken == address(0)) {
             feeToken = currentFeeToken;
             feeAmount = currentFeeAmount;
         } else {
-            feeToken = _period.feeToken;
             feeAmount = _period.feeAmount;
         }
     }
@@ -429,6 +448,8 @@ contract CourtSubscriptions is IsContract, ISubscriptions {
     function _getPeriodBalanceDetails(uint256 _periodId) internal view returns (uint64 periodBalanceCheckpoint, uint256 totalTreeSum) {
         uint64 periodStartTermId = _getPeriodStartTermId(_periodId);
         uint64 nextPeriodStartTermId = _getPeriodStartTermId(_periodId + 1);
+
+        // A Court term during the previous period is selected randomly and it is used as the checkpoint for distributing the fees collected during the period
         bytes32 randomness = owner.getTermRandomness(nextPeriodStartTermId);
         // if randomness was not calculated on first 256 blocks of the term, it will be zero
         // in that case we just get the previous block for it, as we'll have the hash for sure
@@ -437,6 +458,8 @@ contract CourtSubscriptions is IsContract, ISubscriptions {
         if (randomness == bytes32(0)) {
             randomness = blockhash(block.number - 1);
         }
+
+        // use randomness to choose checkpoint
         periodBalanceCheckpoint = periodStartTermId + uint64(uint256(randomness) % periodDuration);
         totalTreeSum = sumTree.totalSumPast(periodBalanceCheckpoint);
     }
@@ -451,14 +474,18 @@ contract CourtSubscriptions is IsContract, ISubscriptions {
         view
         returns (uint256)
     {
-        // get balance and total at checkpoint
+        // fetch id in the tree
         uint256 sumTreeId = owner.getAccountSumTreeId(_juror);
-        uint256 jurorBalance = sumTree.getItemPast(sumTreeId, _periodBalanceCheckpoint);
+        if (sumTreeId == 0) { // hasn't activated yet
+            return 0;
+        }
 
+        // get balance at checkpoint
+        uint256 jurorBalance = sumTree.getItemPast(sumTreeId, _periodBalanceCheckpoint);
         if (jurorBalance == 0) {
             return 0;
         }
-        // it can't happen that total sum is zero if juror's balance is not
+        // Invariant: If the jurorBalance is greater than 0, the totalSum must be greater than 0 as well
 
         // juror fee share
         return _period.collectedFees.mul(jurorBalance) / _totalTreeSum;

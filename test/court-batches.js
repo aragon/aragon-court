@@ -1,8 +1,11 @@
 const { assertRevert } = require('@aragon/os/test/helpers/assertThrow')
+// TODO: add/modify aragonOS
+const { decodeEventsOfType } = require('./helpers/decodeEvent')
 const { soliditySha3 } = require('web3-utils')
 
 const TokenFactory = artifacts.require('TokenFactory')
 const CourtMock = artifacts.require('CourtMock')
+const CourtStakingMock = artifacts.require('CourtStakingMock')
 const CRVoting = artifacts.require('CRVoting')
 const Subscriptions = artifacts.require('SubscriptionsMock')
 const SumTree = artifacts.require('HexSumTreeWrapper')
@@ -14,10 +17,8 @@ const getLog = (receipt, logName, argName) => {
   return log ? log.args[argName] : null
 }
 
-const getLogCount = (receipt, logName) => {
-  const logs = receipt.logs.filter(l => l.event == logName)
-  return logs.length
-}
+const getLogCount = (receipt, contractAbi, eventName) =>
+      decodeEventsOfType(receipt, contractAbi, eventName).length
 
 const deployedContract = async (receiptPromise, name) =>
       artifacts.require(name).at(getLog(await receiptPromise, 'Deployed', 'addr'))
@@ -38,7 +39,7 @@ contract('Court: Batches', ([ rich, governor, arbitrable, juror1, juror2, juror3
   let MAX_JURORS_PER_DRAFT_BATCH
 
   const termDuration = 10
-  const firstTermStart = 1
+  const firstTermStart = 10
   const jurorMinStake = 10
   const startBlock = 1000
   const commitTerms = 1
@@ -57,7 +58,7 @@ contract('Court: Batches', ([ rich, governor, arbitrable, juror1, juror2, juror3
   const DISPUTE_STATE_CHANGED_EVENT = 'DisputeStateChanged'
   const ROUND_SLASHING_SETTLED_EVENT = 'RoundSlashingSettled'
 
-  const ERROR_TERM_RANDOMNESS_UNAVAIL = 'COURT_TERM_RANDOMNESS_UNAVAIL'
+  const ERROR_TERM_RANDOMNESS_UNAVAIL = 'CTTERM_RANDOMNESS_UNAVAIL'
 
   const SALT = soliditySha3('passw0rd')
 
@@ -70,6 +71,7 @@ contract('Court: Batches', ([ rich, governor, arbitrable, juror1, juror2, juror3
     this.anj = await deployedContract(this.tokenFactory.newToken('ANJ', initialBalance, { from: rich }), MINIME)
     await assertEqualBN(this.anj.balanceOf(rich), initialBalance, 'rich balance')
 
+    this.staking = await CourtStakingMock.new()
     this.voting = await CRVoting.new()
     this.sumTree = await SumTree.new()
     this.subscriptions = await Subscriptions.new()
@@ -77,8 +79,8 @@ contract('Court: Batches', ([ rich, governor, arbitrable, juror1, juror2, juror3
 
     this.court = await CourtMock.new(
       termDuration,
-      this.anj.address,
-      ZERO_ADDRESS, // no fees
+      [ this.anj.address, ZERO_ADDRESS ], // no fees
+      this.staking.address,
       this.voting.address,
       this.sumTree.address,
       this.subscriptions.address,
@@ -87,8 +89,7 @@ contract('Court: Batches', ([ rich, governor, arbitrable, juror1, juror2, juror3
       firstTermStart,
       jurorMinStake,
       [ commitTerms, appealTerms, revealTerms ],
-      penaltyPct,
-      finalRoundReduction,
+      [ penaltyPct, finalRoundReduction ],
       [ 0, 0, 0, 0, 0 ]
     )
 
@@ -96,27 +97,28 @@ contract('Court: Batches', ([ rich, governor, arbitrable, juror1, juror2, juror3
 
     MAX_JURORS_PER_DRAFT_BATCH = (await this.court.getMaxJurorsPerDraftBatch.call()).toNumber()
 
-    assert.equal(await this.court.token(), this.anj.address, 'court token')
+    assert.equal(await this.staking.token(), this.anj.address, 'court token')
     //assert.equal(await this.court.jurorToken(), this.anj.address, 'court juror token')
-    await assertEqualBN(this.court.mock_treeTotalSum(), 0, 'empty sum tree')
+    await assertEqualBN(this.staking.mock_treeTotalSum(), 0, 'empty sum tree')
 
-    await this.anj.approveAndCall(this.court.address, richStake, NO_DATA, { from: rich })
+    await this.anj.approveAndCall(this.staking.address, richStake, NO_DATA, { from: rich })
 
-    await this.anj.approve(this.court.address, juror1Stake, { from: rich })
-    await this.court.stakeFor(juror1, juror1Stake, NO_DATA, { from: rich })
-    for (let juror of [juror2, juror3, juror4, juror5, juror6, juror7]) {
-      await this.anj.approve(this.court.address, jurorGenericStake, { from: rich })
-      await this.court.stakeFor(juror, jurorGenericStake, NO_DATA, { from: rich })
+    await this.anj.approve(this.staking.address, juror1Stake, { from: rich })
+    await this.staking.stakeFor(juror1, juror1Stake, NO_DATA, { from: rich })
+    for (let juror of [ juror2, juror3, juror4, juror5, juror6, juror7 ]) {
+      await this.anj.approve(this.staking.address, jurorGenericStake, { from: rich })
+      await this.staking.stakeFor(juror, jurorGenericStake, NO_DATA, { from: rich })
     }
 
-    await assertEqualBN(this.court.totalStakedFor(rich), richStake, 'rich stake')
-    await assertEqualBN(this.court.totalStakedFor(juror1), juror1Stake, 'juror1 stake')
-    for (let juror of [juror2, juror3, juror4, juror5, juror6, juror7]) {
-      await assertEqualBN(this.court.totalStakedFor(juror), jurorGenericStake, 'juror stake')
+    await assertEqualBN(this.staking.totalStakedFor(rich), richStake, 'rich stake')
+    await assertEqualBN(this.staking.totalStakedFor(juror1), juror1Stake, 'juror1 stake')
+    for (let juror of [ juror2, juror3, juror4, juror5, juror6, juror7 ]) {
+      await assertEqualBN(this.staking.totalStakedFor(juror), jurorGenericStake, 'juror stake')
     }
   })
 
   const passTerms = async terms => {
+    await this.staking.mock_timeTravel(terms * termDuration)
     await this.court.mock_timeTravel(terms * termDuration)
     await this.court.heartbeat(terms)
     await this.court.mock_blockTravel(1)
@@ -131,7 +133,7 @@ contract('Court: Batches', ([ rich, governor, arbitrable, juror1, juror2, juror3
     const firstRoundId = 0
 
     const createDispute = async () => {
-      for (const juror of [juror1, juror2, juror3, juror4, juror5, juror6, juror7]) {
+      for (const juror of [ juror1, juror2, juror3, juror4, juror5, juror6, juror7 ]) {
         await this.court.activate({ from: juror })
       }
       await passTerms(1) // term = 1
@@ -148,7 +150,7 @@ contract('Court: Batches', ([ rich, governor, arbitrable, juror1, juror2, juror3
     context('hijacked', () => {
       beforeEach(async () => {
         // tree searches always return jurors in the order that they were added to the tree
-        await this.court.mock_hijackTreeSearch()
+        await this.staking.mock_hijackTreeSearch()
         await createDispute()
       })
 
@@ -159,7 +161,7 @@ contract('Court: Batches', ([ rich, governor, arbitrable, juror1, juror2, juror3
       }
 
       const checkWeights = async (jurorsRequestedHistory) => {
-        const expectedJurors = [juror1, juror2, juror3, juror4, juror5, juror6, juror7]
+        const expectedJurors = [ juror1, juror2, juror3, juror4, juror5, juror6, juror7 ]
 
         for (const [ draftId, juror ] of expectedJurors.entries()) {
           const weight = (await this.court.getJurorWeight.call(disputeId, firstRoundId, juror)).toNumber()
@@ -169,7 +171,7 @@ contract('Court: Batches', ([ rich, governor, arbitrable, juror1, juror2, juror3
               (acc, cur) => acc + expectedWeight(draftId, expectedJurors.length, cur),
               0
             ),
-            `wrong weight for juror #${draftId}`
+            `wrong weight for juror #${draftId}, ${juror}`
           )
         }
       }
@@ -216,7 +218,7 @@ contract('Court: Batches', ([ rich, governor, arbitrable, juror1, juror2, juror3
         await this.court.setTermRandomness()
         while(totalJurorsDrafted < jurors) {
           assert.isFalse(await this.court.areAllJurorsDrafted.call(disputeId, firstRoundId))
-          const callJurorsDrafted = getLogCount(await this.court.draftAdjudicationRound(disputeId), JUROR_DRAFTED_EVENT)
+          const callJurorsDrafted = getLogCount(await this.court.draftAdjudicationRound(disputeId), this.staking.abi, JUROR_DRAFTED_EVENT)
           callsHistory.push(callJurorsDrafted)
           totalJurorsDrafted += callJurorsDrafted
           await checkWeights(callsHistory)
@@ -232,7 +234,7 @@ contract('Court: Batches', ([ rich, governor, arbitrable, juror1, juror2, juror3
         while(totalJurorsDrafted < jurors) {
           assert.isFalse(await this.court.areAllJurorsDrafted.call(disputeId, firstRoundId))
           await this.court.setTermRandomness()
-          const callJurorsDrafted = getLogCount(await this.court.draftAdjudicationRound(disputeId), JUROR_DRAFTED_EVENT)
+          const callJurorsDrafted = getLogCount(await this.court.draftAdjudicationRound(disputeId), this.staking.abi, JUROR_DRAFTED_EVENT)
           callsHistory.push(callJurorsDrafted)
           totalJurorsDrafted += callJurorsDrafted
           await checkWeights(callsHistory)
@@ -255,7 +257,7 @@ contract('Court: Batches', ([ rich, governor, arbitrable, juror1, juror2, juror3
         await this.court.mock_blockTravel(1)
         // make sure now we do have randomness
         await this.court.setTermRandomness()
-        const callJurorsDrafted = getLogCount(await this.court.draftAdjudicationRound(disputeId), JUROR_DRAFTED_EVENT)
+        const callJurorsDrafted = getLogCount(await this.court.draftAdjudicationRound(disputeId), this.staking.abi, JUROR_DRAFTED_EVENT)
         assert.isTrue(callJurorsDrafted > 0, 'no jurors were drafted in next term')
       })
     })
@@ -266,13 +268,13 @@ contract('Court: Batches', ([ rich, governor, arbitrable, juror1, juror2, juror3
       })
 
       it('selects expected juror amount', async () => {
-          await this.court.setTermRandomness()
+        await this.court.setTermRandomness()
         // assuming jurors is not multiple of MAX_JURORS_PER_DRAFT_BATCH
         for (let i = 0; i < Math.floor(jurors / MAX_JURORS_PER_DRAFT_BATCH); i++) {
-          const callJurorsDrafted = getLogCount(await this.court.draftAdjudicationRound(disputeId), JUROR_DRAFTED_EVENT)
+          const callJurorsDrafted = getLogCount(await this.court.draftAdjudicationRound(disputeId), this.staking.abi, JUROR_DRAFTED_EVENT)
           assert.equal(callJurorsDrafted, MAX_JURORS_PER_DRAFT_BATCH, `wrong number of jurors drafed on iteration #${i}`)
         }
-        const callJurorsDrafted = getLogCount(await this.court.draftAdjudicationRound(disputeId), JUROR_DRAFTED_EVENT)
+        const callJurorsDrafted = getLogCount(await this.court.draftAdjudicationRound(disputeId), this.staking.abi, JUROR_DRAFTED_EVENT)
         assert.equal(callJurorsDrafted, jurors % MAX_JURORS_PER_DRAFT_BATCH, `wrong number of jurors drafed on iteration #{i}`)
       })
     })
@@ -302,7 +304,7 @@ contract('Court: Batches', ([ rich, governor, arbitrable, juror1, juror2, juror3
 
     beforeEach(async () => {
       // tree searches always return jurors in the order that they were added to the tree
-      await this.court.mock_hijackTreeSearch()
+      await this.staking.mock_hijackTreeSearch()
 
       // create dispute
       await createDispute()
@@ -313,7 +315,7 @@ contract('Court: Batches', ([ rich, governor, arbitrable, juror1, juror2, juror3
       let totalJurorsDrafted = 0
       while(totalJurorsDrafted < jurors) {
         assert.isFalse(await this.court.areAllJurorsDrafted.call(disputeId, firstRoundId))
-        const callJurorsDrafted = getLogCount(await this.court.draftAdjudicationRound(disputeId), JUROR_DRAFTED_EVENT)
+        const callJurorsDrafted = getLogCount(await this.court.draftAdjudicationRound(disputeId), this.staking.abi, JUROR_DRAFTED_EVENT)
         totalJurorsDrafted += callJurorsDrafted
       }
       assert.isTrue(await this.court.areAllJurorsDrafted.call(disputeId, firstRoundId))

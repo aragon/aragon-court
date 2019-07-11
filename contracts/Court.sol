@@ -3,20 +3,20 @@ pragma solidity ^0.4.24; // TODO: pin solc
 // Inspired by: Kleros.sol https://github.com/kleros/kleros @ 7281e69
 import "./standards/sumtree/ISumTree.sol";
 import "./standards/arbitration/IArbitrable.sol";
-import "./standards/erc900/ERC900.sol";
+import "./standards/erc900/IStaking.sol";
+import "./standards/erc900/IStakingOwner.sol";
 import "./standards/voting/ICRVoting.sol";
 import "./standards/voting/ICRVotingOwner.sol";
 import "./standards/subscription/ISubscriptions.sol";
 import "./standards/subscription/ISubscriptionsOwner.sol";
 
-import { ApproveAndCallFallBack } from "@aragon/apps-shared-minime/contracts/MiniMeToken.sol";
 import "@aragon/os/contracts/lib/token/ERC20.sol";
 import "@aragon/os/contracts/common/SafeERC20.sol";
 import "@aragon/os/contracts/lib/math/SafeMath.sol";
 
 
 // solium-disable function-order
-contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner, ISubscriptionsOwner {
+contract Court is IStakingOwner, ICRVotingOwner, ISubscriptionsOwner {
     using SafeERC20 for ERC20;
     using SafeMath for uint256;
 
@@ -25,14 +25,6 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner, ISubscriptions
     uint256 internal constant FINAL_ROUND_WEIGHT_PRECISION = 1000; // to improve roundings
     uint64 internal constant APPEAL_STEP_FACTOR = 3;
     // TODO: move all other constants up here
-
-    struct Account {
-        mapping (address => uint256) balances; // token addr -> balance
-        // when deactivating, balance becomes available on next term:
-        uint64 deactivationTermId;
-        uint256 atStakeTokens;   // maximum amount of juror tokens that the juror could be slashed given their drafts
-        uint256 sumTreeId;       // key in the sum tree used for sortition
-    }
 
     struct CourtConfig {
         // Fee structure
@@ -103,14 +95,15 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner, ISubscriptions
     }
 
     // State constants which are set in the constructor and can't change
-    ERC20 internal jurorToken;
     uint64 public termDuration; // recomended value ~1 hour as 256 blocks (available block hash) around an hour to mine
+    IStaking internal staking;
     ICRVoting internal voting;
     ISumTree internal sumTree;
     ISubscriptions internal subscriptions;
 
     // Global config, configurable by governor
     address internal governor; // TODO: consider using aOS' ACL
+    // TODO: remove jurorMinStake from here, as it's duplicated in CourtStaking
     // notice that for final round the max amount the tree can hold is 2^64 * jurorMinStake / FINAL_ROUND_WEIGHT_PRECISION
     // so make sure not to set this too low (as long as it's over the unit should be fine)
     uint256 public jurorMinStake; // TODO: consider adding it to the conf
@@ -119,29 +112,20 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner, ISubscriptions
     // Court state
     uint64 public termId;
     uint64 public configChangeTermId;
-    mapping (address => Account) internal accounts;
-    mapping (uint256 => address) public jurorsByTreeId;
     mapping (uint64 => Term) public terms;
     Dispute[] public disputes;
 
     string internal constant ERROR_INVALID_ADDR = "CTINVALID_ADDR";
     string internal constant ERROR_DEPOSIT_FAILED = "CTDEPOSIT_FAILED";
-    string internal constant ERROR_ZERO_TRANSFER = "CTZERO_TRANSFER";
     string internal constant ERROR_TOO_MANY_TRANSITIONS = "CTTOO_MANY_TRANSITIONS";
     string internal constant ERROR_UNFINISHED_TERM = "CTUNFINISHED_TERM";
     string internal constant ERROR_PAST_TERM_FEE_CHANGE = "CTPAST_TERM_FEE_CHANGE";
-    string internal constant ERROR_INVALID_ACCOUNT_STATE = "CTINVALID_ACCOUNT_STATE";
-    string internal constant ERROR_TOKENS_BELOW_MIN_STAKE = "CTTOKENS_BELOW_MIN_STAKE";
-    string internal constant ERROR_JUROR_TOKENS_AT_STAKE = "CTJUROR_TOKENS_AT_STAKE";
-    string internal constant ERROR_BALANCE_TOO_LOW = "CTBALANCE_TOO_LOW";
     string internal constant ERROR_OVERFLOW = "CTOVERFLOW";
-    string internal constant ERROR_TOKEN_TRANSFER_FAILED = "CTTOKEN_TRANSFER_FAILED";
     string internal constant ERROR_ROUND_ALREADY_DRAFTED = "CTROUND_ALREADY_DRAFTED";
     string internal constant ERROR_NOT_DRAFT_TERM = "CTNOT_DRAFT_TERM";
     string internal constant ERROR_TERM_RANDOMNESS_NOT_YET = "CTTERM_RANDOMNESS_NOT_YET";
     string internal constant ERROR_WRONG_TERM = "CTWRONG_TERM";
     string internal constant ERROR_TERM_RANDOMNESS_UNAVAIL = "CTTERM_RANDOMNESS_UNAVAIL";
-    string internal constant ERROR_SORTITION_LENGTHS_MISMATCH = "CTSORTITION_LENGTHS_MISMATCH";
     string internal constant ERROR_INVALID_DISPUTE_STATE = "CTINVALID_DISPUTE_STATE";
     string internal constant ERROR_INVALID_ADJUDICATION_ROUND = "CTINVALID_ADJUDICATION_ROUND";
     string internal constant ERROR_INVALID_ADJUDICATION_STATE = "CTINVALID_ADJUDICATION_STATE";
@@ -162,19 +146,13 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner, ISubscriptions
     uint256 internal constant PCT_BASE = 10000; // ‱
     uint8 internal constant MIN_RULING_OPTIONS = 2;
     uint8 internal constant MAX_RULING_OPTIONS = MIN_RULING_OPTIONS;
-    address internal constant BURN_ACCOUNT = 0xdead;
     uint256 internal constant MAX_UINT16 = uint16(-1);
     uint64 internal constant MAX_UINT64 = uint64(-1);
 
     event NewTerm(uint64 termId, address indexed heartbeatSender);
     event NewCourtConfig(uint64 fromTermId, uint64 courtConfigId);
-    event TokenBalanceChange(address indexed token, address indexed owner, uint256 amount, bool positive);
-    event JurorActivated(address indexed juror, uint64 fromTermId);
-    event JurorDeactivated(address indexed juror, uint64 lastTermId);
-    event JurorDrafted(uint256 indexed disputeId, address juror);
     event DisputeStateChanged(uint256 indexed disputeId, DisputeState indexed state);
     event NewDispute(uint256 indexed disputeId, address indexed subject, uint64 indexed draftTermId, uint64 jurorNumber);
-    event TokenWithdrawal(address indexed token, address indexed account, uint256 amount);
     event RulingAppealed(uint256 indexed disputeId, uint256 indexed roundId, uint64 indexed draftTermId, uint64 jurorNumber);
     event RulingExecuted(uint256 indexed disputeId, uint8 indexed ruling);
     event RoundSlashingSettled(uint256 indexed disputeId, uint256 indexed roundId, uint256 collectedTokens);
@@ -198,8 +176,10 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner, ISubscriptions
 
     /**
      * @param _termDuration Duration in seconds per term (recommended 1 hour)
-     * @param _jurorToken The address of the juror work token contract.
-     * @param _feeToken The address of the token contract that is used to pay for fees.
+     * @param _tokens Array containing:
+     *        _jurorToken The address of the juror work token contract.
+     *        _feeToken The address of the token contract that is used to pay for fees.
+     * @param _staking The address of the Staking component of the Court
      * @param _voting The address of the Commit Reveal Voting contract.
      * @param _sumTree The address of the contract storing de Sum Tree for sortitions.
      * @param _fees Array containing:
@@ -211,7 +191,9 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner, ISubscriptions
      * @param _firstTermStartTime Timestamp in seconds when the court will open (to give time for juror onboarding)
      * @param _jurorMinStake Minimum amount of juror tokens that can be activated
      * @param _roundStateDurations Number of terms that the different states a dispute round last
-     * @param _penaltyPct ‱ of jurorMinStake that can be slashed (1/10,000)
+     * @param _pcts Array containing:
+     *        _penaltyPct ‱ of jurorMinStake that can be slashed (1/10,000)
+     *        _finalRoundReduction ‱ of fee reduction for the last appeal round (1/10,000)
      * @param _subscriptionParams Array containing params for Subscriptions:
      *        _periodDuration Length of Subscription periods
      *        _feeAmount Amount of periodic fees
@@ -221,8 +203,8 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner, ISubscriptions
      */
     constructor(
         uint64 _termDuration,
-        ERC20 _jurorToken,
-        ERC20 _feeToken,
+        ERC20[2] _tokens, // _jurorToken, _feeToken
+        IStaking _staking,
         ICRVoting _voting,
         ISumTree _sumTree,
         ISubscriptions _subscriptions,
@@ -231,30 +213,32 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner, ISubscriptions
         uint64 _firstTermStartTime,
         uint256 _jurorMinStake,
         uint64[3] _roundStateDurations,
-        uint16 _penaltyPct,
-        uint16 _finalRoundReduction,
+        uint16[2] _pcts, //_penaltyPct, _finalRoundReduction
         uint256[5] _subscriptionParams // _periodDuration, _feeAmount, _prePaymentPeriods, _latePaymentPenaltyPct, _governorSharePct
     ) public {
+        require(_firstTermStartTime >= _termDuration, ERROR_WRONG_TERM);
+
         termDuration = _termDuration;
-        jurorToken = _jurorToken;
+        staking = _staking;
         voting = _voting;
         sumTree = _sumTree;
         subscriptions = _subscriptions;
         jurorMinStake = _jurorMinStake;
         governor = _governor;
-
+        //                                          _jurorToken
+        staking.init(IStakingOwner(this), _sumTree, _tokens[0], _jurorMinStake);
         voting.setOwner(ICRVotingOwner(this));
-        sumTree.init(address(this));
-        _initSubscriptions(_feeToken, _subscriptionParams, _sumTree);
+        //                 _jurorToken
+        _initSubscriptions(_tokens[0], _subscriptionParams, _sumTree);
 
         courtConfigs.length = 1; // leave index 0 empty
         _setCourtConfig(
             ZERO_TERM_ID,
-            _feeToken,
+            _tokens[1], // _feeToken
             _fees,
             _roundStateDurations,
-            _penaltyPct,
-            _finalRoundReduction
+            _pcts[0], // _penaltyPct
+            _pcts[1]  // _finalRoundReduction
         );
         terms[ZERO_TERM_ID].startTime = _firstTermStartTime - _termDuration;
     }
@@ -287,7 +271,7 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner, ISubscriptions
         uint256 totalFee = nextTerm.dependingDrafts * courtConfig.heartbeatFee;
 
         if (totalFee > 0) {
-            _assignTokens(courtConfig.feeToken, heartbeatSender, totalFee);
+            staking.assignTokens(courtConfig.feeToken, heartbeatSender, totalFee);
         }
 
         emit NewTerm(termId, heartbeatSender);
@@ -298,99 +282,24 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner, ISubscriptions
     }
 
     /**
-     * @notice Stake `@tokenAmount(self.jurorToken(), _amount)` to the Court
-     */
-    function stake(uint256 _amount, bytes) external {
-        _stake(msg.sender, msg.sender, _amount);
-    }
-
-    /**
-     * @notice Stake `@tokenAmount(self.jurorToken(), _amount)` for `_to` to the Court
-     */
-    function stakeFor(address _to, uint256 _amount, bytes) external {
-        _stake(msg.sender, _to, _amount);
-    }
-
-    /**
-     * @notice Unstake `@tokenAmount(self.jurorToken(), _amount)` for `_to` from the Court
-     */
-    function unstake(uint256 _amount, bytes) external {
-        return withdraw(jurorToken, _amount); // withdraw() ensures the correct term
-    }
-
-    /**
-     * @notice Withdraw `@tokenAmount(_token, _amount)` from the Court
-     */
-    function withdraw(ERC20 _token, uint256 _amount) public ensureTerm {
-        require(_amount > 0, ERROR_ZERO_TRANSFER);
-
-        address addr = msg.sender;
-        Account storage account = accounts[addr];
-        uint256 balance = account.balances[_token];
-        require(balance >= _amount, ERROR_BALANCE_TOO_LOW);
-
-        if (_token == jurorToken) {
-            // Make sure deactivation has finished before withdrawing
-            require(account.deactivationTermId <= termId, ERROR_INVALID_ACCOUNT_STATE);
-            require(_amount <= unlockedBalanceOf(addr), ERROR_JUROR_TOKENS_AT_STAKE);
-
-            emit Unstaked(addr, _amount, totalStakedFor(addr), "");
-        }
-
-        _removeTokens(_token, addr, _amount);
-        require(_token.safeTransfer(addr, _amount), ERROR_TOKEN_TRANSFER_FAILED);
-
-        emit TokenWithdrawal(_token, addr, _amount);
-    }
-
-    /**
      * @notice Become an active juror on next term
      */
     function activate() external ensureTerm {
-        address jurorAddress = msg.sender;
-        Account storage account = accounts[jurorAddress];
-        uint256 balance = account.balances[jurorToken];
-
-        require(account.deactivationTermId <= termId, ERROR_INVALID_ACCOUNT_STATE);
-        require(balance >= jurorMinStake, ERROR_TOKENS_BELOW_MIN_STAKE);
-
-        uint256 sumTreeId = account.sumTreeId;
-        if (sumTreeId == 0) {
-            sumTreeId = sumTree.insert(termId, 0); // Always > 0 (as constructor inserts the first item)
-            account.sumTreeId = sumTreeId;
-            jurorsByTreeId[sumTreeId] = jurorAddress;
-        }
-
-        uint64 fromTermId = termId + 1;
-        sumTree.update(sumTreeId, fromTermId, balance, true);
-
-        account.deactivationTermId = MAX_UINT64;
-        account.balances[jurorToken] = 0; // tokens are in the tree (present or future)
-
-        emit JurorActivated(jurorAddress, fromTermId);
+        staking.activate(msg.sender, termId);
     }
-
-    // TODO: Activate more tokens as a juror
 
     /**
      * @notice Stop being an active juror on next term
      */
     function deactivate() external ensureTerm {
-        address jurorAddress = msg.sender;
-        Account storage account = accounts[jurorAddress];
+        staking.deactivate(msg.sender, termId);
+    }
 
-        require(account.deactivationTermId == MAX_UINT64, ERROR_INVALID_ACCOUNT_STATE);
-
-        // Always account.sumTreeId > 0, as juror has activated before
-        uint256 treeBalance = sumTree.getItem(account.sumTreeId);
-        account.balances[jurorToken] += treeBalance;
-
-        uint64 lastTermId = termId + 1;
-        account.deactivationTermId = lastTermId;
-
-        sumTree.set(account.sumTreeId, lastTermId, 0);
-
-        emit JurorDeactivated(jurorAddress, lastTermId);
+    /**
+     * @notice Withdraw `@tokenAmount(_token, _amount)` from the Court (Staking)
+     */
+    function withdraw(ERC20 _token, uint256 _amount) external ensureTerm {
+        staking.withdraw(msg.sender, _token, _amount, termId);
     }
 
     /**
@@ -452,7 +361,6 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner, ISubscriptions
 
         // TODO: stack too deep
         //uint64 jurorNumber = round.jurorNumber;
-        //uint256 nextJurorIndex = round.nextJurorIndex;
         if (round.jurors.length == 0) {
             round.jurors.length = round.jurorNumber;
         }
@@ -462,52 +370,35 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner, ISubscriptions
             jurorsRequested = MAX_JURORS_PER_DRAFT_BATCH;
         }
 
-        // to add "randomness" to sortition call in order to avoid getting stuck by
-        // getting the same overleveraged juror over and over
-        uint256 sortitionIteration = 0;
-
-        while (jurorsRequested > 0) {
-            (
-                uint256[] memory jurorKeys,
-                uint256[] memory stakes
-            ) = _treeSearch(
-                draftTerm.randomness,
-                _disputeId,
-                round.filledSeats,
-                jurorsRequested,
-                round.jurorNumber,
-                sortitionIteration
-            );
-            require(jurorKeys.length == stakes.length, ERROR_SORTITION_LENGTHS_MISMATCH);
-            require(jurorKeys.length == jurorsRequested, ERROR_SORTITION_LENGTHS_MISMATCH);
-
-            for (uint256 i = 0; i < jurorKeys.length; i++) {
-                address juror = jurorsByTreeId[jurorKeys[i]];
-
-                // Account storage jurorAccount = accounts[juror]; // Hitting stack too deep
-                uint256 newAtStake = accounts[juror].atStakeTokens + _pct4(jurorMinStake, config.penaltyPct); // maxPenalty
-                // Only select a juror if their stake is greater than or equal than the amount of tokens that they can lose, otherwise skip it
-                if (stakes[i] >= newAtStake) {
-                    accounts[juror].atStakeTokens = newAtStake;
-                    // check repeated juror, we assume jurors come ordered from tree search
-                    if (round.nextJurorIndex > 0 && round.jurors[round.nextJurorIndex - 1] == juror) {
-                        round.jurors.length--;
-                    } else {
-                        round.jurors[round.nextJurorIndex] = juror;
-                        round.nextJurorIndex++;
-                    }
-                    round.jurorSlotStates[juror].weight++;
-                    round.filledSeats++;
-
-                    emit JurorDrafted(_disputeId, juror);
-
-                    jurorsRequested--;
-                }
-            }
-            sortitionIteration++;
+        uint256[7] memory draftParams = [
+            uint256(draftTerm.randomness),
+            _disputeId,
+            termId,
+            round.filledSeats,
+            jurorsRequested,
+            round.jurorNumber,
+            config.penaltyPct
+        ];
+        (
+            address[] memory jurors,
+            uint64[] memory weights,
+            uint256 jurorsLength,
+            uint64 filledSeats
+        ) = staking.draft(draftParams);
+        // reduce jurors array length because of repeated jurors
+        round.jurors.length -= jurorsRequested - jurorsLength;
+        uint256 nextJurorIndex = round.nextJurorIndex;
+        for (uint256 i = 0; i < jurorsLength; i++) {
+            // TODO: stack too deep: address juror = jurors[i];
+            round.jurors[nextJurorIndex + i] = jurors[i];
+            round.jurorSlotStates[jurors[i]].weight += weights[i];
         }
+        // invariant: sum(weights) = jurorsRequested
+        round.nextJurorIndex += uint64(jurorsLength);
+        round.filledSeats = filledSeats;
 
-        _assignTokens(config.feeToken, msg.sender, config.draftFee * round.jurorNumber);
+        // TODO: reuse draft call (stack too deep!)
+        staking.assignTokens(config.feeToken, msg.sender, config.draftFee * round.jurorNumber);
 
         // drafting is over
         if (round.filledSeats == round.jurorNumber) {
@@ -591,7 +482,7 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner, ISubscriptions
             uint256 jurorsSettled;
             (collectedTokens, jurorsSettled) = _settleRegularRoundSlashing(round, voteId, config.penaltyPct, winningRuling, _jurorsToSettle);
             round.collectedTokens = collectedTokens;
-            _assignTokens(config.feeToken, msg.sender, config.settleFee * jurorsSettled);
+            staking.assignTokens(config.feeToken, msg.sender, config.settleFee * jurorsSettled);
         } else { // final round
             // this was accounted for on juror's vote commit
             collectedTokens = round.collectedTokens;
@@ -603,8 +494,8 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner, ISubscriptions
             // No juror was coherent in the round
             if (round.coherentJurors == 0) {
                 // refund fees and burn ANJ
-                _assignTokens(config.feeToken, round.triggeredBy, round.jurorFees);
-                _assignTokens(jurorToken, BURN_ACCOUNT, collectedTokens);
+                staking.assignTokens(config.feeToken, round.triggeredBy, round.jurorFees);
+                staking.burnJurorTokens(collectedTokens);
             }
 
             emit RoundSlashingSettled(_disputeId, _roundId, collectedTokens);
@@ -653,26 +544,18 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner, ISubscriptions
         } else { // otherwise, we are reaching the end of the array, so it's the last batch
             _round.settledPenalties = true;
         }
-        for (uint256 i = roundSettledJurors; i < settleBatchEnd; i++) {
-            address juror = _round.jurors[i];
-            uint256 weightedPenalty = _pct4(jurorMinStake, _penaltyPct) * _round.jurorSlotStates[juror].weight;
-            Account storage account = accounts[juror];
-            account.atStakeTokens -= weightedPenalty;
 
-            uint8 jurorRuling = voting.getCastVote(_voteId, juror);
-            // If the juror didn't vote for the final winning ruling
-            if (jurorRuling != _winningRuling) {
-                collectedTokens += weightedPenalty;
-
-                if (account.deactivationTermId <= termId + 1) {
-                    // Slash from balance if the account already deactivated
-                    _removeTokens(jurorToken, juror, weightedPenalty);
-                } else {
-                    // account.sumTreeId always > 0: as the juror has activated (and gots its sumTreeId)
-                    sumTree.update(account.sumTreeId, termId + 1, weightedPenalty, false);
-                }
-            }
+        address[] memory jurors = new address[](batchSettledJurors);
+        uint256[] memory penalties = new uint256[](batchSettledJurors);
+        bool[] memory winningRulings = new bool[](batchSettledJurors);
+        for (uint256 i = 0; i < batchSettledJurors; i++) {
+            address juror = _round.jurors[roundSettledJurors + i];
+            jurors[i] = juror;
+            penalties[i] = _pct4(jurorMinStake, _penaltyPct) * _round.jurorSlotStates[juror].weight;
+            // TODO: do this in 1 call outside the loop
+            winningRulings[i] = voting.getCastVote(_voteId, juror) == _winningRuling;
         }
+        collectedTokens = staking.slash(termId, jurors, penalties, winningRulings);
 
         _round.settledJurors = uint64(settleBatchEnd); // TODO: check overflow
         _round.collectedTokens = _round.collectedTokens.add(collectedTokens);
@@ -701,12 +584,12 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner, ISubscriptions
         uint256 collectedTokens = round.collectedTokens;
 
         if (collectedTokens > 0) {
-            _assignTokens(jurorToken, _juror, jurorState.weight * collectedTokens / coherentJurors);
+            staking.assignJurorTokens(_juror, jurorState.weight * collectedTokens / coherentJurors);
         }
 
         uint256 jurorFee = round.jurorFees * jurorState.weight / coherentJurors;
         CourtConfig storage config = courtConfigs[terms[round.draftTermId].courtConfigId]; // safe to use directly as it is a past term
-        _assignTokens(config.feeToken, _juror, jurorFee);
+        staking.assignTokens(config.feeToken, _juror, jurorFee);
 
         emit RewardSettled(_disputeId, _roundId, _juror);
     }
@@ -717,6 +600,11 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner, ISubscriptions
 
     function neededTermTransitions() public view returns (uint64) {
         return (_time() - terms[termId].startTime) / termDuration;
+    }
+
+    function getEnsuredTermId() external view returns (uint64) {
+        require(neededTermTransitions() == 0, ERROR_WRONG_TERM);
+        return termId;
     }
 
     /**
@@ -730,50 +618,6 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner, ISubscriptions
 
     function areAllJurorsSettled(uint256 _disputeId, uint256 _roundId) public view returns (bool) {
         return disputes[_disputeId].rounds[_roundId].settledPenalties;
-    }
-
-    /**
-     * @dev Callback of approveAndCall, allows staking directly with a transaction to the token contract.
-     * @param _from The address making the transfer.
-     * @param _amount Amount of tokens to transfer to Kleros (in basic units).
-     * @param _token Token address
-     */
-    function receiveApproval(address _from, uint256 _amount, address _token, bytes)
-        public
-        only(_token)
-    {
-        if (_token == address(jurorToken)) {
-            _stake(_from, _from, _amount);
-            // TODO: Activate depending on data
-        }
-    }
-
-    function totalStaked() external view returns (uint256) {
-        return jurorToken.balanceOf(this);
-    }
-
-    function token() external view returns (address) {
-        return address(jurorToken);
-    }
-
-    function supportsHistory() external pure returns (bool) {
-        return false;
-    }
-
-    function totalStakedFor(address _addr) public view returns (uint256) {
-        Account storage account = accounts[_addr];
-        uint256 sumTreeId = account.sumTreeId;
-        uint256 activeTokens = sumTreeId > 0 ? sumTree.getItem(sumTreeId) : 0;
-
-        return account.balances[jurorToken] + activeTokens;
-    }
-
-    /**
-     * @dev Assumes that it is always called ensuring the term
-     */
-    function unlockedBalanceOf(address _addr) public view returns (uint256) {
-        Account storage account = accounts[_addr];
-        return account.balances[jurorToken].sub(account.atStakeTokens);
     }
 
     // Voting interface fns
@@ -798,14 +642,13 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner, ISubscriptions
 
         // weight is the number of times the minimum stake the juror has, multiplied by a precision factor for division roundings
         weight = FINAL_ROUND_WEIGHT_PRECISION *
-            sumTree.getItemPast(accounts[_voter].sumTreeId, disputes[_disputeId].rounds[_roundId].draftTermId) /
+            staking.getAccountPastTreeStake(_voter, disputes[_disputeId].rounds[_roundId].draftTermId) /
             jurorMinStake;
 
         // In the final round, when committing a vote, tokens are collected from the juror's account
         if (weight > 0) {
             AdjudicationRound storage round = disputes[_disputeId].rounds[_roundId];
             CourtConfig storage config = courtConfigs[terms[round.draftTermId].courtConfigId]; // safe to use directly as it is a past term
-            Account storage account = accounts[_voter];
 
             // weight is the number of times the minimum stake the juror has, multiplied by a precision factor for division roundings, so we remove that factor here
             uint256 weightedPenalty = _pct4(jurorMinStake, config.penaltyPct) * weight / FINAL_ROUND_WEIGHT_PRECISION;
@@ -813,20 +656,8 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner, ISubscriptions
             // Try to lock tokens
             // If there's not enough we just return 0 (so prevent juror from voting).
             // (We could use the remaining amount instead, but we would need to re-calculate the juror's weight)
-            uint64 slashingUpdateTermId = termId + 1;
-            // Slash from balance if the account already deactivated
-            if (account.deactivationTermId <= slashingUpdateTermId) {
-                if (weightedPenalty > unlockedBalanceOf(_voter)) {
-                    return 0;
-                }
-                _removeTokens(jurorToken, _voter, weightedPenalty);
-            } else {
-                // account.sumTreeId always > 0: as the juror has activated (and got its sumTreeId)
-                uint256 treeUnlockedBalance = sumTree.getItem(account.sumTreeId).sub(account.atStakeTokens);
-                if (weightedPenalty > treeUnlockedBalance) {
-                    return 0;
-                }
-                sumTree.update(account.sumTreeId, slashingUpdateTermId, weightedPenalty, false);
+            if (!staking.collectTokens(termId, _voter, weightedPenalty)) {
+                return 0;
             }
 
             // update round state
@@ -896,7 +727,7 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner, ISubscriptions
     }
 
     function getAccountSumTreeId(address _juror) external view returns (uint256) {
-        return accounts[_juror].sumTreeId;
+        return staking.getAccountSumTreeId(_juror);
     }
 
     function getGovernor() external view returns (address) {
@@ -971,7 +802,7 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner, ISubscriptions
         terms[_draftTermId].dependingDrafts += 1;
 
         if (_feeAmount > 0) {
-            require(_feeToken.safeTransferFrom(msg.sender, this, _feeAmount), ERROR_DEPOSIT_FAILED);
+            require(_feeToken.safeTransferFrom(msg.sender, address(staking), _feeAmount), ERROR_DEPOSIT_FAILED);
         }
     }
 
@@ -1016,30 +847,6 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner, ISubscriptions
         }
     }
 
-    function _treeSearch(
-        bytes32 _termRandomness,
-        uint256 _disputeId,
-        uint256 _filledSeats,
-        uint256 _jurorsRequested,
-        uint256 _jurorNumber,
-        uint256 _sortitionIteration
-    )
-        internal
-        view
-        returns (uint256[] keys, uint256[] stakes)
-    {
-        (keys, stakes) = sumTree.multiSortition(
-            _termRandomness,
-            _disputeId,
-            termId,
-            false,
-            _filledSeats,
-            _jurorsRequested,
-            _jurorNumber,
-            _sortitionIteration
-        );
-    }
-
     function _courtConfigForTerm(uint64 _termId) internal view returns (CourtConfig storage) {
         uint64 feeTermId;
 
@@ -1053,29 +860,6 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner, ISubscriptions
 
         uint256 courtConfigId = uint256(terms[feeTermId].courtConfigId);
         return courtConfigs[courtConfigId];
-    }
-
-    function _stake(address _from, address _to, uint256 _amount) internal {
-        require(_amount > 0, ERROR_ZERO_TRANSFER);
-
-        _assignTokens(jurorToken, _to, _amount);
-        require(jurorToken.safeTransferFrom(_from, this, _amount), ERROR_DEPOSIT_FAILED);
-
-        emit Staked(_to, _amount, totalStakedFor(_to), "");
-    }
-
-    function _assignTokens(ERC20 _token, address _to, uint256 _amount) internal {
-        Account storage account = accounts[_to];
-        account.balances[_token] = account.balances[_token].add(_amount);
-
-        emit TokenBalanceChange(_token, _to, _amount, true);
-    }
-
-    function _removeTokens(ERC20 _token, address _from, uint256 _amount) internal {
-        Account storage account = accounts[_from];
-        account.balances[_token] = account.balances[_token].sub(_amount);
-
-        emit TokenBalanceChange(_token, _from, _amount, false);
     }
 
     // TODO: Expose external function to change config

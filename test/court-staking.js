@@ -6,6 +6,7 @@ const CourtMock = artifacts.require('CourtMock')
 
 const COURT = 'Court'
 const MINIME = 'MiniMeToken'
+const CourtStakingMock = artifacts.require('CourtStakingMock')
 const CRVoting = artifacts.require('CRVoting')
 const SumTree = artifacts.require('HexSumTreeWrapper')
 const Subscriptions = artifacts.require('SubscriptionsMock')
@@ -19,14 +20,21 @@ const deployedContract = async (receipt, name) =>
 const assertEqualBN = async (actualPromise, expected, message) =>
   assert.equal((await actualPromise).toNumber(), expected, message)
 
-const ERROR_INVALID_ACCOUNT_STATE = 'COURT_INVALID_ACCOUNT_STATE'
+const ERROR_INVALID_ACCOUNT_STATE = 'STK_INVALID_ACCOUNT_STATE'
 
-contract('Court: Staking', ([ pleb, rich ]) => {
+contract('Court: Staking', ([ pleb, rich, governor ]) => {
   const INITIAL_BALANCE = 1e6
   const NO_DATA = ''
   const ZERO_ADDRESS = '0x' + '00'.repeat(20)
 
   const termDuration = 10
+  const firstTermStart = 10
+  const jurorMinStake = 10
+  const startBlock = 1000
+  const commitTerms = 1
+  const revealTerms = 1
+  const appealTerms = 1
+  const penaltyPct = 100 // 100‱ = 1%
   const finalRoundReduction = 3300 // 100‱ = 1%
 
   const SALT = soliditySha3('passw0rd')
@@ -41,6 +49,7 @@ contract('Court: Staking', ([ pleb, rich ]) => {
     await assertEqualBN(this.anj.balanceOf(rich), INITIAL_BALANCE, 'rich balance')
     await assertEqualBN(this.anj.balanceOf(pleb), 0, 'pleb balance')
 
+    this.staking = await CourtStakingMock.new()
     this.voting = await CRVoting.new()
     this.sumTree = await SumTree.new()
     this.subscriptions = await Subscriptions.new()
@@ -48,34 +57,33 @@ contract('Court: Staking', ([ pleb, rich ]) => {
 
     this.court = await CourtMock.new(
       termDuration,
-      this.anj.address,
-      ZERO_ADDRESS, // no fees
+      [ this.anj.address, ZERO_ADDRESS ], // no fees
+      this.staking.address,
       this.voting.address,
       this.sumTree.address,
       this.subscriptions.address,
       [ 0, 0, 0, 0 ],
-      ZERO_ADDRESS,
-      1,
-      1,
-      [ 1, 1, 1 ],
-      1,
-      finalRoundReduction,
+      governor,
+      firstTermStart,
+      jurorMinStake,
+      [ commitTerms, appealTerms, revealTerms ],
+      [ penaltyPct, finalRoundReduction ],
       [ 0, 0, 0, 0, 0 ]
     )
   })
 
   const assertStaked = async (staker, amount, initialBalance, { recipient, initialStaked = 0 } = {}) => {
-    await assertEqualBN(this.court.totalStakedFor(recipient ? recipient : staker), initialStaked + amount, 'staked amount')
-    await assertEqualBN(this.court.totalStaked(), initialStaked + amount, 'rich stake')
+    await assertEqualBN(this.staking.totalStakedFor(recipient ? recipient : staker), initialStaked + amount, 'staked amount')
+    await assertEqualBN(this.staking.totalStaked(), initialStaked + amount, 'rich stake')
     await assertEqualBN(this.anj.balanceOf(staker), initialBalance - amount, 'rich token balance')
-    await assertEqualBN(this.anj.balanceOf(this.court.address), initialStaked + amount, 'court token balance')
+    await assertEqualBN(this.anj.balanceOf(this.staking.address), initialStaked + amount, 'court token balance')
   }
 
   it('stakes', async () => {
     const amount = 1000
 
-    await this.anj.approve(this.court.address, amount, { from: rich })
-    await this.court.stake(amount, NO_DATA, { from: rich })
+    await this.anj.approve(this.staking.address, amount, { from: rich })
+    await this.staking.stake(amount, NO_DATA, { from: rich })
 
     await assertStaked(rich, amount, INITIAL_BALANCE)
   })
@@ -83,7 +91,7 @@ contract('Court: Staking', ([ pleb, rich ]) => {
   it('stakes using \'approveAndCall\'', async () => {
     const amount = 3000
 
-    await this.anj.approveAndCall(this.court.address, amount, NO_DATA, { from: rich })
+    await this.anj.approveAndCall(this.staking.address, amount, NO_DATA, { from: rich })
 
     await assertStaked(rich, amount, INITIAL_BALANCE)
   })
@@ -91,8 +99,8 @@ contract('Court: Staking', ([ pleb, rich ]) => {
   it('stakes using \'stakeFor\'', async () => {
     const amount = 50
 
-    await this.anj.approve(this.court.address, amount, { from: rich })
-    await this.court.stakeFor(pleb, amount, NO_DATA, { from: rich })
+    await this.anj.approve(this.staking.address, amount, { from: rich })
+    await this.staking.stakeFor(pleb, amount, NO_DATA, { from: rich })
 
     await assertStaked(rich, amount, INITIAL_BALANCE, { recipient: pleb })
   })
@@ -101,14 +109,14 @@ contract('Court: Staking', ([ pleb, rich ]) => {
     const amount = 6000
 
     beforeEach(async () => {
-      await this.anj.approveAndCall(this.court.address, amount, NO_DATA, { from: rich })
+      await this.anj.approveAndCall(this.staking.address, amount, NO_DATA, { from: rich })
       await assertStaked(rich, amount, INITIAL_BALANCE)
     })
 
     it('unstakes', async () => {
       const unstaking = amount / 3
 
-      await this.court.unstake(unstaking, NO_DATA, { from: rich })
+      await this.staking.unstake(unstaking, NO_DATA, { from: rich })
 
       await assertStaked(rich, -unstaking, INITIAL_BALANCE - amount, { initialStaked: amount })
     })
@@ -123,6 +131,7 @@ contract('Court: Staking', ([ pleb, rich ]) => {
 
     context('Being activated', () => {
       const passTerms = async terms => {
+        await this.staking.mock_timeTravel(terms * termDuration)
         await this.court.mock_timeTravel(terms * termDuration)
         await this.court.heartbeat(terms)
         assert.isFalse(await this.court.canTransitionTerm(), 'all terms transitioned')
@@ -136,17 +145,16 @@ contract('Court: Staking', ([ pleb, rich ]) => {
       it('reverts if unstaking tokens at stake')
 
       it('reverts if unstaking while juror is active', async () => {
-        await this.anj.approveAndCall(this.court.address, amount, NO_DATA, { from: rich })
+        await this.anj.approveAndCall(this.staking.address, amount, NO_DATA, { from: rich })
         const unstaking = amount / 3
-        await assertRevert(this.court.unstake(unstaking, NO_DATA, { from: rich }), ERROR_INVALID_ACCOUNT_STATE)
+        await assertRevert(this.staking.unstake(unstaking, NO_DATA, { from: rich }), ERROR_INVALID_ACCOUNT_STATE)
         // deactivate
         await this.court.deactivate({ from: rich })
         // still unable to withdraw, must pass to next term
-        await assertRevert(this.court.unstake(unstaking, NO_DATA, { from: rich }), ERROR_INVALID_ACCOUNT_STATE)
+        await assertRevert(this.staking.unstake(unstaking, NO_DATA, { from: rich }), ERROR_INVALID_ACCOUNT_STATE)
         await passTerms(1)
-        await this.court.unstake(unstaking, NO_DATA, { from: rich })
+        await this.staking.unstake(unstaking, NO_DATA, { from: rich })
       })
     })
-
   })
 })

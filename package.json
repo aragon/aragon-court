@@ -17,6 +17,7 @@
     "solidity-coverage": "0.5.8",
     "solium": "^1.2.3",
     "truffle": "^4.1.14",
+    "web3-eth-abi": "1.0.0-beta.33",
     "web3-utils": "^1.0.0-beta.50"
   },
   "dependencies": {

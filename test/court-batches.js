@@ -58,7 +58,7 @@ contract('Court: Batches', ([ rich, governor, arbitrable, juror1, juror2, juror3
   const DISPUTE_STATE_CHANGED_EVENT = 'DisputeStateChanged'
   const ROUND_SLASHING_SETTLED_EVENT = 'RoundSlashingSettled'
 
-  const ERROR_TERM_RANDOMNESS_UNAVAIL = 'CTTERM_RANDOMNESS_UNAVAIL'
+  const ERROR_TERM_RANDOMNESS_UNAVAIL = 'CTRANDOM_UNAVAIL'
 
   const SALT = soliditySha3('passw0rd')
 

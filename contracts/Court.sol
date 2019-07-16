@@ -115,30 +115,30 @@ contract Court is IStakingOwner, ICRVotingOwner, ISubscriptionsOwner {
     mapping (uint64 => Term) public terms;
     Dispute[] public disputes;
 
-    string internal constant ERROR_INVALID_ADDR = "CTINVALID_ADDR";
-    string internal constant ERROR_DEPOSIT_FAILED = "CTDEPOSIT_FAILED";
+    string internal constant ERROR_INVALID_ADDR = "CTBAD_ADDR";
+    string internal constant ERROR_DEPOSIT_FAILED = "CTDEPOSIT_FAIL";
     string internal constant ERROR_TOO_MANY_TRANSITIONS = "CTTOO_MANY_TRANSITIONS";
     string internal constant ERROR_UNFINISHED_TERM = "CTUNFINISHED_TERM";
     string internal constant ERROR_PAST_TERM_FEE_CHANGE = "CTPAST_TERM_FEE_CHANGE";
     string internal constant ERROR_OVERFLOW = "CTOVERFLOW";
-    string internal constant ERROR_ROUND_ALREADY_DRAFTED = "CTROUND_ALREADY_DRAFTED";
+    string internal constant ERROR_ROUND_ALREADY_DRAFTED = "CTROUND_ALRDY_DRAFTED";
     string internal constant ERROR_NOT_DRAFT_TERM = "CTNOT_DRAFT_TERM";
-    string internal constant ERROR_TERM_RANDOMNESS_NOT_YET = "CTTERM_RANDOMNESS_NOT_YET";
-    string internal constant ERROR_WRONG_TERM = "CTWRONG_TERM";
-    string internal constant ERROR_TERM_RANDOMNESS_UNAVAIL = "CTTERM_RANDOMNESS_UNAVAIL";
-    string internal constant ERROR_INVALID_DISPUTE_STATE = "CTINVALID_DISPUTE_STATE";
-    string internal constant ERROR_INVALID_ADJUDICATION_ROUND = "CTINVALID_ADJUDICATION_ROUND";
-    string internal constant ERROR_INVALID_ADJUDICATION_STATE = "CTINVALID_ADJUDICATION_STATE";
-    string internal constant ERROR_INVALID_JUROR = "CTINVALID_JUROR";
-    // TODO: string internal constant ERROR_INVALID_DISPUTE_CREATOR = "CTINVALID_DISPUTE_CREATOR";
-    string internal constant ERROR_SUBSCRIPTION_NOT_PAID = "CTSUBSCRIPTION_NOT_PAID";
-    string internal constant ERROR_INVALID_RULING_OPTIONS = "CTINVALID_RULING_OPTIONS";
-    string internal constant ERROR_CONFIG_PERIOD_ZERO_TERMS = "CTCONFIG_PERIOD_ZERO_TERMS";
+    string internal constant ERROR_TERM_RANDOMNESS_NOT_YET = "CTRANDOM_NOT_YET";
+    string internal constant ERROR_WRONG_TERM = "CTBAD_TERM";
+    string internal constant ERROR_TERM_RANDOMNESS_UNAVAIL = "CTRANDOM_UNAVAIL";
+    string internal constant ERROR_INVALID_DISPUTE_STATE = "CTBAD_DISPUTE_STATE";
+    string internal constant ERROR_INVALID_ADJUDICATION_ROUND = "CTBAD_ADJ_ROUND";
+    string internal constant ERROR_INVALID_ADJUDICATION_STATE = "CTBAD_ADJ_STATE";
+    string internal constant ERROR_INVALID_JUROR = "CTBAD_JUROR";
+    // TODO: string internal constant ERROR_INVALID_DISPUTE_CREATOR = "CTBAD_DISPUTE_CREATOR";
+    string internal constant ERROR_SUBSCRIPTION_NOT_PAID = "CTSUBSC_UNPAID";
+    string internal constant ERROR_INVALID_RULING_OPTIONS = "CTBAD_RULING_OPTS";
+    string internal constant ERROR_CONFIG_PERIOD_ZERO_TERMS = "CTCONFIG_PERIOD_0";
     string internal constant ERROR_PREV_ROUND_NOT_SETTLED = "CTPREV_ROUND_NOT_SETTLED";
-    string internal constant ERROR_ROUND_ALREADY_SETTLED = "CTROUND_ALREADY_SETTLED";
+    string internal constant ERROR_ROUND_ALREADY_SETTLED = "CTROUND_ALRDY_SETTLED";
     string internal constant ERROR_ROUND_NOT_SETTLED = "CTROUND_NOT_SETTLED";
-    string internal constant ERROR_JUROR_ALREADY_REWARDED = "CTJUROR_ALREADY_REWARDED";
-    string internal constant ERROR_JUROR_NOT_COHERENT = "CTJUROR_NOT_COHERENT";
+    string internal constant ERROR_JUROR_ALREADY_REWARDED = "CTJUROR_ALRDY_REWARDED";
+    string internal constant ERROR_JUROR_NOT_COHERENT = "CTJUROR_INCOHERENT";
 
     uint64 internal constant ZERO_TERM_ID = 0; // invalid term that doesn't accept disputes
     uint64 internal constant MODIFIER_ALLOWED_TERM_TRANSITIONS = 1;

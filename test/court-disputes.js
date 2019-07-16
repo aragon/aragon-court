@@ -76,7 +76,11 @@ contract('Court: Disputes', ([ poor, rich, governor, juror1, juror2, juror3, oth
   const RULING_EXECUTED_EVENT = 'RulingExecuted'
   const ROUND_SLASHING_SETTLED_EVENT = 'RoundSlashingSettled'
 
-  const ERROR_SUBSCRIPTION_NOT_PAID = 'CTSUBSCRIPTION_NOT_PAID'
+  const ERROR_SUBSCRIPTION_NOT_PAID = 'CTSUBSC_UNPAID'
+  const ERROR_NOT_DRAFT_TERM = 'CTNOT_DRAFT_TERM'
+  const ERROR_ROUND_ALREADY_DRAFTED = 'CTROUND_ALRDY_DRAFTED'
+  const ERROR_INVALID_ADJUDICATION_STATE = 'CTBAD_ADJ_STATE'
+  const ERROR_INVALID_ADJUDICATION_ROUND = 'CTBAD_ADJ_ROUND'
 
   const SALT = soliditySha3('passw0rd')
 
@@ -190,7 +194,7 @@ contract('Court: Disputes', ([ poor, rich, governor, juror1, juror2, juror3, oth
         await passTerms(1) // term = 2
         await this.court.mock_blockTravel(1)
         await this.court.setTermRandomness()
-        await assertRevert(this.court.draftAdjudicationRound(disputeId), 'CTNOT_DRAFT_TERM')
+        await assertRevert(this.court.draftAdjudicationRound(disputeId), ERROR_NOT_DRAFT_TERM)
       })
 
       context('on juror draft (hijacked)', () => {
@@ -225,7 +229,7 @@ contract('Court: Disputes', ([ poor, rich, governor, juror1, juror2, juror3, oth
         })
 
         it('fails to draft a second time', async () => {
-          await assertRevert(this.court.draftAdjudicationRound(disputeId), 'CTROUND_ALREADY_DRAFTED')
+          await assertRevert(this.court.draftAdjudicationRound(disputeId), ERROR_ROUND_ALREADY_DRAFTED)
         })
 
         context('jurors commit', () => {
@@ -248,7 +252,7 @@ contract('Court: Disputes', ([ poor, rich, governor, juror1, juror2, juror3, oth
             const draftId = 0
             const [ juror, vote ] = votes[draftId]
             const receiptPromise = this.voting.revealVote(voteId, vote, SALT, { from: juror })
-            await assertRevert(receiptPromise, 'CTINVALID_ADJUDICATION_STATE')
+            await assertRevert(receiptPromise, ERROR_INVALID_ADJUDICATION_STATE)
           })
 
           it('fails to reveal if salt is incorrect', async () => {
@@ -296,12 +300,12 @@ contract('Court: Disputes', ([ poor, rich, governor, juror1, juror2, juror3, oth
             })
 
             it('fails to appeal during reveal period', async () => {
-              await assertRevert(this.court.appealRuling(disputeId, firstRoundId), 'CTINVALID_ADJUDICATION_STATE')
+              await assertRevert(this.court.appealRuling(disputeId, firstRoundId), ERROR_INVALID_ADJUDICATION_STATE)
             })
 
             it('fails to appeal incorrect round', async () => {
               await passTerms(1) // term = 5
-              await assertRevert(this.court.appealRuling(disputeId, firstRoundId + 1), 'CTINVALID_ADJUDICATION_ROUND')
+              await assertRevert(this.court.appealRuling(disputeId, firstRoundId + 1), ERROR_INVALID_ADJUDICATION_ROUND)
             })
 
             it('can settle if executed', async () => {

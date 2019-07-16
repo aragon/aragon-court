@@ -52,6 +52,7 @@ contract('Court: Lifecycle', ([ poor, rich, governor, juror1, juror2 ]) => {
 
   const NEW_TERM_EVENT = 'NewTerm'
   const NEW_COURT_CONFIG_EVENT = 'NewCourtConfig'
+  const ERROR_JUROR_TOKENS_AT_STAKE = 'STK_JUROR_TOKENS_AT_STAKE'
 
   const SALT = soliditySha3('passw0rd')
 
@@ -259,7 +260,7 @@ contract('Court: Lifecycle', ([ poor, rich, governor, juror1, juror2 ]) => {
       await passTerms(1)
       await assertEqualBN(this.staking.mock_treeTotalSum(), 0, 'juror removed from to tree')
       
-      await assertRevert(this.staking.unstake(1, NO_DATA, { from: juror1 }), 'CTJUROR_TOKENS_AT_STAKE')
+      await assertRevert(this.staking.unstake(1, NO_DATA, { from: juror1 }), ERROR_JUROR_TOKENS_AT_STAKE)
 
       await passTerms(cooldown + 1)
       await this.staking.unstake(juror1Stake, NO_DATA, { from: juror1 })

@@ -8,6 +8,7 @@ const CourtMock = artifacts.require('CourtMock')
 const CourtStakingMock = artifacts.require('CourtStakingMock')
 const CRVoting = artifacts.require('CRVoting')
 const Subscriptions = artifacts.require('SubscriptionsMock')
+const CourtFinalRound = artifacts.require('CourtFinalRound')
 const SumTree = artifacts.require('HexSumTreeWrapper')
 const Arbitrable = artifacts.require('ArbitrableMock')
 
@@ -108,20 +109,27 @@ contract('Court: Disputes', ([ poor, rich, governor, juror1, juror2, juror3, oth
     this.arbitrable = await Arbitrable.new()
     this.subscriptions = await Subscriptions.new()
     await this.subscriptions.setUpToDate(true)
+    this.finalRound = await CourtFinalRound.new()
 
     this.court = await CourtMock.new(
       termDuration,
-      [ this.anj.address, ZERO_ADDRESS ], // no fees
+      firstTermStart,
+      ZERO_ADDRESS, // no fees
+      [ 0, 0, 0, 0 ],
+      governor,
+      [ commitTerms, appealTerms, revealTerms ],
+      penaltyPct
+    )
+
+    await this.court.init(
       this.staking.address,
       this.voting.address,
       this.sumTree.address,
       this.subscriptions.address,
-      [ 0, 0, 0, 0 ],
-      governor,
-      firstTermStart,
+      this.finalRound.address,
+      this.anj.address,
       jurorMinStake,
-      [ commitTerms, appealTerms, revealTerms ],
-      [ penaltyPct, finalRoundReduction ],
+      finalRoundReduction,
       [ 0, 0, 0, 0, 0 ]
     )
 
@@ -300,12 +308,7 @@ contract('Court: Disputes', ([ poor, rich, governor, juror1, juror2, juror3, oth
             })
 
             it('fails to appeal during reveal period', async () => {
-              await assertRevert(this.court.appealRuling(disputeId, firstRoundId), ERROR_INVALID_ADJUDICATION_STATE)
-            })
-
-            it('fails to appeal incorrect round', async () => {
-              await passTerms(1) // term = 5
-              await assertRevert(this.court.appealRuling(disputeId, firstRoundId + 1), ERROR_INVALID_ADJUDICATION_ROUND)
+              await assertRevert(this.court.appealRuling(disputeId), ERROR_INVALID_ADJUDICATION_STATE)
             })
 
             it('can settle if executed', async () => {
@@ -345,7 +348,7 @@ contract('Court: Disputes', ([ poor, rich, governor, juror1, juror2, juror3, oth
             context('on appeal', () => {
               beforeEach(async () => {
                 await passTerms(1) // term = 5
-                assertLogs(await this.court.appealRuling(disputeId, firstRoundId), RULING_APPEALED_EVENT)
+                assertLogs(await this.court.appealRuling(disputeId), RULING_APPEALED_EVENT)
               })
 
               it('drafts jurors', async () => {

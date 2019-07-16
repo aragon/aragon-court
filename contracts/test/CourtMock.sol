@@ -9,33 +9,47 @@ contract CourtMock is Court {
 
     constructor(
         uint64 _termDuration,
-        ERC20[2] _tokens,
+        uint64 _firstTermStartTime,
+        ERC20 _feeToken,
+        uint256[4] _fees, // _jurorFee, _heartbeatFee, _draftFee, _settleFee
+        address _governor,
+        uint64[3] _roundStateDurations,
+        uint16 _penaltyPct
+    ) Court(
+        _termDuration,
+        _firstTermStartTime,
+        _feeToken,
+        _fees,
+        _governor,
+        _roundStateDurations,
+        _penaltyPct
+    ) public {}
+
+    function init(
         IStaking _staking,
         ICRVoting _voting,
         ISumTree _sumTree,
         ISubscriptions _subscriptions,
-        uint256[4] _fees, // _jurorFee, _heartbeatFee, _draftFee, _settleFee
-        address _governor,
-        uint64 _firstTermStartTime,
+        IFinalRound _finalRounds,
+        ERC20 _jurorToken,
         uint256 _jurorMinStake,
-        uint64[3] _roundStateDurations,
-        uint16[2] _pcts,
+        uint16 _finalRoundReduction,
         uint256[5] _subscriptionParams // _periodDuration, _feeAmount, _prePaymentPeriods, _latePaymentPenaltyPct, _governorSharePct
-    ) Court(
-        _termDuration,
-        _tokens,
-        _staking,
-        _voting,
-        _sumTree,
-        _subscriptions,
-        _fees,
-        _governor,
-        _firstTermStartTime,
-        _jurorMinStake,
-        _roundStateDurations,
-        _pcts,
-        _subscriptionParams
-    ) public {}
+    )
+        public
+    {
+        super.init(
+            _staking,
+            _voting,
+            _sumTree,
+            _subscriptions,
+            _finalRounds,
+            _jurorToken,
+            _jurorMinStake,
+            _finalRoundReduction,
+            _subscriptionParams
+        );
+    }
 
     function mock_setTime(uint64 time) external {
         mockTime = time;

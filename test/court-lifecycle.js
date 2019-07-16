@@ -8,6 +8,7 @@ const CourtStakingMock = artifacts.require('CourtStakingMock')
 const CRVoting = artifacts.require('CRVoting')
 const SumTree = artifacts.require('HexSumTreeWrapper')
 const Subscriptions = artifacts.require('SubscriptionsMock')
+const CourtFinalRound = artifacts.require('CourtFinalRound')
 
 const MINIME = 'MiniMeToken'
 const BLOCK_GAS_LIMIT = 8e6
@@ -71,20 +72,27 @@ contract('Court: Lifecycle', ([ poor, rich, governor, juror1, juror2 ]) => {
     this.sumTree = await SumTree.new()
     this.subscriptions = await Subscriptions.new()
     await this.subscriptions.setUpToDate(true)
+    this.finalRound = await CourtFinalRound.new()
 
     this.court = await CourtMock.new(
       termDuration,
-      [ this.anj.address, ZERO_ADDRESS ], // no fees
+      firstTermStart,
+      ZERO_ADDRESS, // no fees
+      [ 0, 0, 0, 0 ],
+      governor,
+      [ commitTerms, appealTerms, revealTerms ],
+      penaltyPct
+    )
+
+    await this.court.init(
       this.staking.address,
       this.voting.address,
       this.sumTree.address,
       this.subscriptions.address,
-      [ 0, 0, 0, 0 ],
-      governor,
-      firstTermStart,
+      this.finalRound.address,
+      this.anj.address,
       jurorMinStake,
-      [ commitTerms, appealTerms, revealTerms ],
-      [ penaltyPct, finalRoundReduction ],
+      finalRoundReduction,
       [ 0, 0, 0, 0, 0 ]
     )
 

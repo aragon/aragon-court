@@ -41,6 +41,7 @@ contract CourtStaking is IsContract, ERC900, ApproveAndCallFallBack, IStaking {
     }
 
     IStakingOwner owner;
+    address finalRounds;
     ERC20 jurorToken;
     ISumTree internal sumTree;
     // notice that for final round the max amount the tree can hold is 2^64 * jurorMinStake / FINAL_ROUND_WEIGHT_PRECISION
@@ -60,6 +61,11 @@ contract CourtStaking is IsContract, ERC900, ApproveAndCallFallBack, IStaking {
         _;
     }
 
+    modifier only2(address _addr1, address _addr2) {
+        require(msg.sender == _addr1 || msg.sender == _addr2, ERROR_INVALID_ADDR);
+        _;
+    }
+
     /**
      * @dev This can be frontrunned, and ownership stolen, but the Court will notice,
      *      because its call to this function will revert
@@ -67,6 +73,7 @@ contract CourtStaking is IsContract, ERC900, ApproveAndCallFallBack, IStaking {
      */
     function init(
         IStakingOwner _owner,
+        address _finalRounds,
         ISumTree _sumTree,
         ERC20 _jurorToken,
         uint256 _jurorMinStake
@@ -76,6 +83,7 @@ contract CourtStaking is IsContract, ERC900, ApproveAndCallFallBack, IStaking {
         require(address(owner) == address(0), ERROR_OWNER_ALREADY_SET);
 
         owner = _owner;
+        finalRounds = _finalRounds;
         sumTree = _sumTree;
         sumTree.init(address(this));
         _setJurorToken(_jurorToken);
@@ -274,11 +282,11 @@ contract CourtStaking is IsContract, ERC900, ApproveAndCallFallBack, IStaking {
         _withdraw(msg.sender, _token, _amount);
     }
 
-    function assignTokens(ERC20 _token, address _to, uint256 _amount) external only(owner) {
+    function assignTokens(ERC20 _token, address _to, uint256 _amount) external only2(owner, finalRounds) {
         _assignTokens(_token, _to, _amount);
     }
 
-    function assignJurorTokens(address _to, uint256 _amount) external only(owner) {
+    function assignJurorTokens(address _to, uint256 _amount) external only2(owner, finalRounds) {
         _assignTokens(jurorToken, _to, _amount);
     }
 
@@ -288,28 +296,6 @@ contract CourtStaking is IsContract, ERC900, ApproveAndCallFallBack, IStaking {
 
     function burnJurorTokens(uint256 _amount) external only(owner) {
         _assignTokens(jurorToken, BURN_ACCOUNT, _amount);
-    }
-
-    function collectTokens(uint64 _termId, address _juror, uint256 _amount) external only(owner) returns (bool) {
-        Account storage account = accounts[_juror];
-
-        uint64 slashingUpdateTermId = _termId + 1;
-        // Slash from balance if the account already deactivated
-        if (account.deactivationTermId <= slashingUpdateTermId) {
-            if (_amount > unlockedBalanceOf(_juror)) {
-                return false;
-            }
-            _removeTokens(jurorToken, _juror, _amount);
-        } else {
-            // account.sumTreeId always > 0: as the juror has activated (and got its sumTreeId)
-            uint256 treeUnlockedBalance = sumTree.getItem(account.sumTreeId).sub(account.atStakeTokens);
-            if (_amount > treeUnlockedBalance) {
-                return false;
-            }
-            sumTree.update(account.sumTreeId, slashingUpdateTermId, _amount, false);
-        }
-
-        return true;
     }
 
     /**
@@ -328,12 +314,56 @@ contract CourtStaking is IsContract, ERC900, ApproveAndCallFallBack, IStaking {
         }
     }
 
+    function canCommitFinalRound(
+        address _juror,
+        uint64 _roundTermId,
+        uint64 _currentTermId,
+        uint256 _precision,
+        uint16 _penaltyPct
+    )
+        external
+        only(finalRounds)
+        returns (uint256 weight, uint256 weightedPenalty)
+    {
+        Account storage account = accounts[_juror];
+        // account.sumTreeId always > 0: as the juror has activated (and got its sumTreeId)
+        uint256 sumTreeId = account.sumTreeId;
+
+        weight = _precision * sumTree.getItemPast(sumTreeId, _roundTermId) / jurorMinStake;
+        // as it's the final round, lock tokens
+        if (weight > 0) {
+            // weight is the number of times the minimum stake the juror has, multiplied by a precision factor for division roundings, so we remove that factor here
+            weightedPenalty = _pct4(jurorMinStake, _penaltyPct) * weight / _precision;
+
+            // Try to lock tokens
+            // If there's not enough we just return 0 (so prevent juror from voting).
+            uint64 slashingUpdateTermId = _currentTermId + 1;
+            // Slash from balance if the account already deactivated
+            if (account.deactivationTermId <= slashingUpdateTermId) {
+                if (weightedPenalty > unlockedBalanceOf(_juror)) {
+                    return (0, 0);
+                }
+                _removeTokens(jurorToken, _juror, weightedPenalty);
+            } else {
+                uint256 treeUnlockedBalance = sumTree.getItem(sumTreeId).sub(account.atStakeTokens);
+                if (weightedPenalty > treeUnlockedBalance) {
+                    return (0, 0);
+                }
+                sumTree.update(sumTreeId, slashingUpdateTermId, weightedPenalty, false);
+            }
+        }
+    }
+
     function getAccountSumTreeId(address _juror) external view returns (uint256) {
         return accounts[_juror].sumTreeId;
     }
 
-    function getAccountPastTreeStake(address _juror, uint64 _termId) external returns (uint256) {
+    function getAccountPastTreeStake(address _juror, uint64 _termId) external view returns (uint256) {
         return sumTree.getItemPast(accounts[_juror].sumTreeId, _termId);
+    }
+
+    function getFinalRoundJurorNumber(uint64 _termId, uint256 _precision) external view returns (uint256) {
+        return _precision * sumTree.totalSumPresent(_termId) / jurorMinStake;
     }
 
     function totalStaked() external view returns (uint256) {

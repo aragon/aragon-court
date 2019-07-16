@@ -9,6 +9,7 @@ const CourtStakingMock = artifacts.require('CourtStakingMock')
 const CRVoting = artifacts.require('CRVoting')
 const SumTree = artifacts.require('HexSumTreeWrapper')
 const Subscriptions = artifacts.require('SubscriptionsMock')
+const CourtFinalRound = artifacts.require('CourtFinalRound')
 
 const MINIME = 'MiniMeToken'
 
@@ -103,20 +104,27 @@ contract('Court: final appeal (non-exact)', ([ poor, rich, governor, juror1, jur
     this.sumTree = await SumTree.new()
     this.subscriptions = await Subscriptions.new()
     await this.subscriptions.setUpToDate(true)
+    this.finalRound = await CourtFinalRound.new()
 
     this.court = await CourtMock.new(
       termDuration,
-      [ this.anj.address, ZERO_ADDRESS ], // no fees
+      firstTermStart,
+      ZERO_ADDRESS, // no fees
+      [ 0, 0, 0, 0 ],
+      governor,
+      [ commitTerms, appealTerms, revealTerms ],
+      penaltyPct
+    )
+
+    await this.court.init(
       this.staking.address,
       this.voting.address,
       this.sumTree.address,
       this.subscriptions.address,
-      [ 0, 0, 0, 0 ],
-      governor,
-      firstTermStart,
+      this.finalRound.address,
+      this.anj.address,
       jurorMinStake,
-      [ commitTerms, appealTerms, revealTerms ],
-      [ penaltyPct, finalRoundReduction ],
+      finalRoundReduction,
       [ 0, 0, 0, 0, 0 ]
     )
 
@@ -231,7 +239,7 @@ contract('Court: final appeal (non-exact)', ([ poor, rich, governor, juror1, jur
         await vote(voteId, jurors.length)
 
         // appeal
-        const appealReceipt = await this.court.appealRuling(disputeId, roundId)
+        const appealReceipt = await this.court.appealRuling(disputeId)
         assertLogs(appealReceipt, RULING_APPEALED_EVENT)
         const nextRoundId = getLog(appealReceipt, RULING_APPEALED_EVENT, 'roundId')
         voteId = getVoteId(disputeId, nextRoundId)
@@ -263,7 +271,7 @@ contract('Court: final appeal (non-exact)', ([ poor, rich, governor, juror1, jur
         for (let i = 0; i < _winningJurors; i++) {
           const tokenBalance = (await this.anj.balanceOf(jurors[i])).toNumber()
           const courtBalance = (await this.staking.totalStakedFor(jurors[i])).toNumber()
-          const receipt = await this.court.settleReward(disputeId, MAX_REGULAR_APPEAL_ROUNDS, jurors[i])
+          const receipt = await this.finalRound.settleReward(disputeId, jurors[i])
           assertLogs(receipt, REWARD_SETTLED_EVENT)
 
           // as jurors are not withdrawing here, real token balance shouldn't change

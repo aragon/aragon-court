@@ -530,21 +530,22 @@ contract Court is IStakingOwner, ICRVotingOwner, ISubscriptionsOwner {
         internal
         returns (uint256 collectedTokens, uint256 batchSettledJurors)
     {
-        // The batch starts at where the previous one ended, stored in _round.settledJurors
-        // Initially we try to reach the end of the jurors array
-        uint256 settleBatchEnd = _round.jurors.length;
         // TODO: stack too deep uint64 slashingUpdateTermId = termId + 1;
+        // The batch starts at where the previous one ended, stored in _round.settledJurors
         uint256 roundSettledJurors = _round.settledJurors;
         // Here we compute the amount of jurors that are going to be selected in this call, which is returned by the function for fees calculation
-        batchSettledJurors = settleBatchEnd - roundSettledJurors;
+        // Initially we try to reach the end of the jurors array
+        batchSettledJurors = _round.jurors.length - roundSettledJurors;
         // If the jurors that are going to be settled in this call are more than the requested number,
         // we reduce that amount and the end position in the jurors array
         // (_jurorsToSettle = 0 means settle them all)
         if (_jurorsToSettle > 0 && batchSettledJurors > _jurorsToSettle) {
             batchSettledJurors = _jurorsToSettle;
-            settleBatchEnd = roundSettledJurors + _jurorsToSettle;
+            // If we don't reach the end
+            _round.settledJurors = uint64(roundSettledJurors + _jurorsToSettle); // TODO: check overflow
         } else { // otherwise, we are reaching the end of the array, so it's the last batch
             _round.settledPenalties = true;
+            // No need to set _round.settledJurors, as it's the last batch
         }
 
         address[] memory jurors = new address[](batchSettledJurors);
@@ -559,7 +560,6 @@ contract Court is IStakingOwner, ICRVotingOwner, ISubscriptionsOwner {
         }
         collectedTokens = staking.slash(termId, jurors, penalties, winningRulings);
 
-        _round.settledJurors = uint64(settleBatchEnd); // TODO: check overflow
         _round.collectedTokens = _round.collectedTokens.add(collectedTokens);
     }
 

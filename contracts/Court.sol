@@ -548,15 +548,15 @@ contract Court is IStakingOwner, ICRVotingOwner, ISubscriptionsOwner {
 
         address[] memory jurors = new address[](batchSettledJurors);
         uint256[] memory penalties = new uint256[](batchSettledJurors);
-        bool[] memory winningRulings = new bool[](batchSettledJurors);
         for (uint256 i = 0; i < batchSettledJurors; i++) {
             address juror = _round.jurors[roundSettledJurors + i];
             jurors[i] = juror;
             penalties[i] = _pct4(jurorMinStake, _penaltyPct) * _round.jurorSlotStates[juror].weight;
-            // TODO: do this in 1 call outside the loop
-            winningRulings[i] = voting.getCastVote(_voteId, juror) == _winningRuling;
         }
-        collectedTokens = staking.slash(termId, jurors, penalties, winningRulings);
+        uint8[] memory castVotes = voting.getCastVotes(_voteId, jurors);
+        // we assume:
+        //require(castVotes.length == batchSettledJurors);
+        collectedTokens = staking.slash(termId, jurors, penalties, castVotes, _winningRuling);
 
         _round.collectedTokens = _round.collectedTokens.add(collectedTokens);
     }

@@ -200,26 +200,28 @@ contract CourtStaking is IsContract, ERC900, ApproveAndCallFallBack, IStaking {
         uint64 _termId,
         address[] _jurors,
         uint256[] _penalties,
-        bool[] _winningRulings
+        uint8[] _castVotes,
+        uint8 _winningRuling
     )
         external
         only(owner)
         returns (uint256 collectedTokens)
     {
-        // we assume this: require(jurors.length == penalties.length);
+        // we assume this: require(_jurors.length == _penalties.length);
+        // we assume this: require(_jurors.length == _castVotes.length);
         for (uint256 i = 0; i < _jurors.length; i++) {
-            address juror = _jurors[i];
+            // TODO: stack too deep address juror = _jurors[i];
             uint256 weightedPenalty = _penalties[i];
-            Account storage account = accounts[juror];
+            Account storage account = accounts[_jurors[i]];
             account.atStakeTokens -= weightedPenalty;
 
             // If the juror didn't vote for the final winning ruling
-            if (!_winningRulings[i]) {
+            if (_castVotes[i] != _winningRuling) {
                 collectedTokens += weightedPenalty;
 
                 if (account.deactivationTermId <= _termId + 1) {
                     // Slash from balance if the account already deactivated
-                    _removeTokens(jurorToken, juror, weightedPenalty);
+                    _removeTokens(jurorToken, _jurors[i], weightedPenalty);
                 } else {
                     // account.sumTreeId always > 0: as the juror has activated (and gots its sumTreeId)
                     sumTree.update(account.sumTreeId, _termId + 1, weightedPenalty, false);

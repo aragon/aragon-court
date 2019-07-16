@@ -12,7 +12,7 @@ interface IStaking {
     function activate(address _juror, uint64 _termId) external;
     function deactivate(address _juror, uint64 _termId) external;
     function draft(uint256[7] _draftParams) external returns (address[] jurors, uint64[] weights, uint256 jurorsLength, uint64 filledSeats);
-    function slash(uint64 _termId, address[] _jurors, uint256[] _penalties, bool[] _winningRulings) external returns (uint256 collectedTokens);
+    function slash(uint64 _termId, address[] _jurors, uint256[] _penalties, uint8[] _castVotes, uint8 _winningRuling) external returns (uint256 collectedTokens);
     function withdraw(address _from, ERC20 _token, uint256 _amount, uint64 _termId) external;
     function assignTokens(ERC20 _token, address _to, uint256 _amount) external;
     function assignJurorTokens(address _to, uint256 _amount) external;

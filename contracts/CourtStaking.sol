@@ -28,6 +28,7 @@ contract CourtStaking is IsContract, ERC900, ApproveAndCallFallBack, IStaking {
     string internal constant ERROR_BALANCE_TOO_LOW = "STK_BALANCE_TOO_LOW";
     string internal constant ERROR_TOKENS_BELOW_MIN_STAKE = "STK_TOKENS_BELOW_MIN_STAKE";
     string internal constant ERROR_JUROR_TOKENS_AT_STAKE = "STK_JUROR_TOKENS_AT_STAKE";
+    string internal constant ERROR_WRONG_TOKEN = "STK_WRONG_TOKEN";
     string internal constant ERROR_TOKEN_TRANSFER_FAILED = "STK_TOKEN_TRANSFER_FAILED";
     string internal constant ERROR_SORTITION_LENGTHS_MISMATCH = "STK_SORTITION_LENGTHS_MISMATCH";
 
@@ -84,27 +85,29 @@ contract CourtStaking is IsContract, ERC900, ApproveAndCallFallBack, IStaking {
     /**
      * @notice Become an active juror on next term
      */
-    function activate(address _juror, uint64 _termId) external only(owner) {
-        Account storage account = accounts[_juror];
+    function activate() external {
+        uint64 termId = owner.ensureAndGetTerm();
+
+        Account storage account = accounts[msg.sender];
         uint256 balance = account.balances[jurorToken];
 
-        require(account.deactivationTermId <= _termId, ERROR_INVALID_ACCOUNT_STATE);
+        require(account.deactivationTermId <= termId, ERROR_INVALID_ACCOUNT_STATE);
         require(balance >= jurorMinStake, ERROR_TOKENS_BELOW_MIN_STAKE);
 
         uint256 sumTreeId = account.sumTreeId;
         if (sumTreeId == 0) {
-            sumTreeId = sumTree.insert(_termId, 0); // Always > 0 (as constructor inserts the first item)
+            sumTreeId = sumTree.insert(termId, 0); // Always > 0 (as constructor inserts the first item)
             account.sumTreeId = sumTreeId;
-            jurorsByTreeId[sumTreeId] = _juror;
+            jurorsByTreeId[sumTreeId] = msg.sender;
         }
 
-        uint64 fromTermId = _termId + 1;
+        uint64 fromTermId = termId + 1;
         sumTree.update(sumTreeId, fromTermId, balance, true);
 
         account.deactivationTermId = MAX_UINT64;
         account.balances[jurorToken] = 0; // tokens are in the tree (present or future)
 
-        emit JurorActivated(_juror, fromTermId);
+        emit JurorActivated(msg.sender, fromTermId);
     }
 
     // TODO: Activate more tokens as a juror
@@ -112,8 +115,10 @@ contract CourtStaking is IsContract, ERC900, ApproveAndCallFallBack, IStaking {
     /**
      * @notice Stop being an active juror on next term
      */
-    function deactivate(address _juror, uint64 _termId) external only(owner) {
-        Account storage account = accounts[_juror];
+    function deactivate() external {
+        uint64 termId = owner.ensureAndGetTerm();
+
+        Account storage account = accounts[msg.sender];
 
         require(account.deactivationTermId == MAX_UINT64, ERROR_INVALID_ACCOUNT_STATE);
 
@@ -121,12 +126,12 @@ contract CourtStaking is IsContract, ERC900, ApproveAndCallFallBack, IStaking {
         uint256 treeBalance = sumTree.getItem(account.sumTreeId);
         account.balances[jurorToken] += treeBalance;
 
-        uint64 lastTermId = _termId + 1;
+        uint64 lastTermId = termId + 1;
         account.deactivationTermId = lastTermId;
 
         sumTree.set(account.sumTreeId, lastTermId, 0);
 
-        emit JurorDeactivated(_juror, lastTermId);
+        emit JurorDeactivated(msg.sender, lastTermId);
     }
 
     /**
@@ -249,15 +254,24 @@ contract CourtStaking is IsContract, ERC900, ApproveAndCallFallBack, IStaking {
      * @dev This is done this way to conform to ERC900 interface
      */
     function unstake(uint256 _amount, bytes) external {
-        uint64 termId = owner.getEnsuredTermId();
-        return _withdraw(msg.sender, jurorToken, _amount, termId); // withdraw() ensures the correct term
+        uint64 termId = owner.ensureAndGetTerm();
+
+        // Make sure deactivation has finished before withdrawing
+        require(accounts[msg.sender].deactivationTermId <= termId, ERROR_INVALID_ACCOUNT_STATE);
+        require(_amount <= unlockedBalanceOf(msg.sender), ERROR_JUROR_TOKENS_AT_STAKE);
+
+        _withdraw(msg.sender, jurorToken, _amount);
+
+        emit Unstaked(msg.sender, _amount, totalStakedFor(msg.sender), "");
     }
 
     /**
      * @notice Withdraw `@tokenAmount(_token, _amount)` from the Court
+     * @dev Not for `jurorToken` (use unstake for that one instead)
      */
-    function withdraw(address _from, ERC20 _token, uint256 _amount, uint64 _termId) external only(owner) {
-        _withdraw(_from, _token, _amount, _termId);
+    function withdraw(ERC20 _token, uint256 _amount) external {
+        require(_token != jurorToken, ERROR_WRONG_TOKEN);
+        _withdraw(msg.sender, _token, _amount);
     }
 
     function assignTokens(ERC20 _token, address _to, uint256 _amount) external only(owner) {
@@ -376,20 +390,12 @@ contract CourtStaking is IsContract, ERC900, ApproveAndCallFallBack, IStaking {
         emit Staked(_to, _amount, totalStakedFor(_to), "");
     }
 
-    function _withdraw(address _from, ERC20 _token, uint256 _amount, uint64 _termId) internal {
+    function _withdraw(address _from, ERC20 _token, uint256 _amount) internal {
         require(_amount > 0, ERROR_ZERO_TRANSFER);
 
         Account storage account = accounts[_from];
         uint256 balance = account.balances[_token];
         require(balance >= _amount, ERROR_BALANCE_TOO_LOW);
-
-        if (_token == jurorToken) {
-            // Make sure deactivation has finished before withdrawing
-            require(account.deactivationTermId <= _termId, ERROR_INVALID_ACCOUNT_STATE);
-            require(_amount <= unlockedBalanceOf(_from), ERROR_JUROR_TOKENS_AT_STAKE);
-
-            emit Unstaked(_from, _amount, totalStakedFor(_from), "");
-        }
 
         _removeTokens(_token, _from, _amount);
         require(_token.safeTransfer(_from, _amount), ERROR_TOKEN_TRANSFER_FAILED);

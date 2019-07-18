@@ -164,13 +164,7 @@ contract Court is IStakingOwner, ICRVotingOwner, ISubscriptionsOwner {
     }
 
     modifier ensureTerm {
-        uint64 requiredTransitions = neededTermTransitions();
-        require(requiredTransitions <= MODIFIER_ALLOWED_TERM_TRANSITIONS, ERROR_TOO_MANY_TRANSITIONS);
-
-        if (requiredTransitions > 0) {
-            heartbeat(requiredTransitions);
-        }
-
+        _ensureTerm();
         _;
     }
 
@@ -279,27 +273,6 @@ contract Court is IStakingOwner, ICRVotingOwner, ISubscriptionsOwner {
         if (_termTransitions > 1 && canTransitionTerm()) {
             heartbeat(_termTransitions - 1);
         }
-    }
-
-    /**
-     * @notice Become an active juror on next term
-     */
-    function activate() external ensureTerm {
-        staking.activate(msg.sender, termId);
-    }
-
-    /**
-     * @notice Stop being an active juror on next term
-     */
-    function deactivate() external ensureTerm {
-        staking.deactivate(msg.sender, termId);
-    }
-
-    /**
-     * @notice Withdraw `@tokenAmount(_token, _amount)` from the Court (Staking)
-     */
-    function withdraw(ERC20 _token, uint256 _amount) external ensureTerm {
-        staking.withdraw(msg.sender, _token, _amount, termId);
     }
 
     /**
@@ -602,9 +575,18 @@ contract Court is IStakingOwner, ICRVotingOwner, ISubscriptionsOwner {
         return (_time() - terms[termId].startTime) / termDuration;
     }
 
-    function getEnsuredTermId() external view returns (uint64) {
-        require(neededTermTransitions() == 0, ERROR_WRONG_TERM);
+    function ensureAndGetTerm() external returns (uint64) {
+        _ensureTerm();
         return termId;
+    }
+
+    function _ensureTerm() internal {
+        uint64 requiredTransitions = neededTermTransitions();
+        require(requiredTransitions <= MODIFIER_ALLOWED_TERM_TRANSITIONS, ERROR_TOO_MANY_TRANSITIONS);
+
+        if (requiredTransitions > 0) {
+            heartbeat(requiredTransitions);
+        }
     }
 
     /**

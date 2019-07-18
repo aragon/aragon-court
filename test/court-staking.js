@@ -21,6 +21,7 @@ const assertEqualBN = async (actualPromise, expected, message) =>
   assert.equal((await actualPromise).toNumber(), expected, message)
 
 const ERROR_INVALID_ACCOUNT_STATE = 'STK_INVALID_ACCOUNT_STATE'
+const ERROR_WRONG_TOKEN = 'STK_WRONG_TOKEN'
 
 contract('Court: Staking', ([ pleb, rich, governor ]) => {
   const INITIAL_BALANCE = 1e6
@@ -121,12 +122,11 @@ contract('Court: Staking', ([ pleb, rich, governor ]) => {
       await assertStaked(rich, -unstaking, INITIAL_BALANCE - amount, { initialStaked: amount })
     })
 
-    it('unstakes using \'withdraw\'', async () => {
+    it('fails unstaking using \'withdraw\'', async () => {
       const unstaking = amount / 4
 
-      await this.court.withdraw(this.anj.address, unstaking, { from: rich })
+      await assertRevert(this.staking.withdraw(this.anj.address, unstaking, { from: rich }), ERROR_WRONG_TOKEN)
 
-      await assertStaked(rich, -unstaking, INITIAL_BALANCE - amount, { initialStaked: amount })
     })
 
     context('Being activated', () => {
@@ -138,7 +138,7 @@ contract('Court: Staking', ([ pleb, rich, governor ]) => {
       }
 
       beforeEach(async () => {
-        await this.court.activate({ from: rich })
+        await this.staking.activate({ from: rich })
         await passTerms(1)
       })
 
@@ -149,7 +149,7 @@ contract('Court: Staking', ([ pleb, rich, governor ]) => {
         const unstaking = amount / 3
         await assertRevert(this.staking.unstake(unstaking, NO_DATA, { from: rich }), ERROR_INVALID_ACCOUNT_STATE)
         // deactivate
-        await this.court.deactivate({ from: rich })
+        await this.staking.deactivate({ from: rich })
         // still unable to withdraw, must pass to next term
         await assertRevert(this.staking.unstake(unstaking, NO_DATA, { from: rich }), ERROR_INVALID_ACCOUNT_STATE)
         await passTerms(1)

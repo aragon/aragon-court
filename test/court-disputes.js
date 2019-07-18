@@ -164,7 +164,7 @@ contract('Court: Disputes', ([ poor, rich, governor, juror1, juror2, juror3, oth
 
     beforeEach(async () => {
       for (const juror of [juror1, juror2, juror3]) {
-        await this.court.activate({ from: juror })
+        await this.staking.activate({ from: juror })
       }
       await passTerms(1) // term = 1
     })

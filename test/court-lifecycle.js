@@ -145,7 +145,7 @@ contract('Court: Lifecycle', ([ poor, rich, governor, juror1, juror2 ]) => {
     it('can activate during period before heartbeat', async () => {
       await this.staking.mock_setTime(firstTermStart - 1)
       await this.court.mock_setTime(firstTermStart - 1)
-      await this.court.activate({ from: rich })
+      await this.staking.activate({ from: rich })
 
       await assertEqualBN(this.staking.mock_treeTotalSum(), richStake, 'total tree sum')
     })
@@ -153,7 +153,7 @@ contract('Court: Lifecycle', ([ poor, rich, governor, juror1, juror2 ]) => {
     it('reverts if activating balance is below dust', async () => {
       await this.staking.mock_setTime(firstTermStart - 1)
       await this.court.mock_setTime(firstTermStart - 1)
-      await assertRevert(this.court.activate({ from: poor }), 'STK_TOKENS_BELOW_MIN_STAKE')
+      await assertRevert(this.staking.activate({ from: poor }), 'STK_TOKENS_BELOW_MIN_STAKE')
     })
 
     it("doesn't perform more transitions than requested", async () => {
@@ -199,8 +199,8 @@ contract('Court: Lifecycle', ([ poor, rich, governor, juror1, juror2 ]) => {
     })
 
     it('jurors can activate', async () => {
-      await this.court.activate({ from: juror1 })
-      await this.court.activate({ from: juror2 })
+      await this.staking.activate({ from: juror1 })
+      await this.staking.activate({ from: juror2 })
 
       await passTerms(1)
 
@@ -216,14 +216,14 @@ contract('Court: Lifecycle', ([ poor, rich, governor, juror1, juror2 ]) => {
     })
 
     const activateDeactivate = async () => {
-      await this.court.activate({ from: juror1 })
-      await this.court.activate({ from: juror2 })
+      await this.staking.activate({ from: juror1 })
+      await this.staking.activate({ from: juror2 })
       await passTerms(1)
       await assertEqualBN(this.staking.mock_treeTotalSum(), juror1Stake + juror2Stake, 'both jurors in the tree')
-      await this.court.deactivate({ from: juror1 })
+      await this.staking.deactivate({ from: juror1 })
       await passTerms(1)
       await assertEqualBN(this.staking.mock_treeTotalSum(), juror2Stake, 'only juror2 in tree')
-      await this.court.deactivate({ from: juror2 })
+      await this.staking.deactivate({ from: juror2 })
       await passTerms(1)
       await assertEqualBN(this.staking.mock_treeTotalSum(), 0, 'no jurors in tree')
     }
@@ -240,21 +240,21 @@ contract('Court: Lifecycle', ([ poor, rich, governor, juror1, juror2 ]) => {
     })
 
     it('fails trying to activate twice', async () => {
-      await this.court.activate({ from: juror1 })
+      await this.staking.activate({ from: juror1 })
       await passTerms(1)
       await assertEqualBN(this.staking.mock_treeTotalSum(), juror1Stake, 'juror is in the tree')
       await passTerms(1)
-      await assertRevert(this.court.activate({ from: juror1 }), 'STK_INVALID_ACCOUNT_STATE')
+      await assertRevert(this.staking.activate({ from: juror1 }), 'STK_INVALID_ACCOUNT_STATE')
     })
 
     it('fails trying to deactivate twice', async () => {
       await activateDeactivate()
-      await assertRevert(this.court.deactivate({ from: juror1 }), 'STK_INVALID_ACCOUNT_STATE')
+      await assertRevert(this.staking.deactivate({ from: juror1 }), 'STK_INVALID_ACCOUNT_STATE')
     })
 
     // TODO: refactor to use at stake tokens
     it.skip('juror can withdraw after cooldown', async () => {
-      await this.court.activate({ from: juror1 })
+      await this.staking.activate({ from: juror1 })
       await passTerms(1)
       await assertEqualBN(this.staking.mock_treeTotalSum(), juror1Stake, 'juror added to tree')
       await passTerms(1)

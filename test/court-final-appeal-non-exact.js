@@ -162,7 +162,7 @@ contract('Court: final appeal (non-exact)', ([ poor, rich, governor, juror1, jur
 
     beforeEach(async () => {
       for (const juror of jurors) {
-        await this.court.activate({ from: juror })
+        await this.staking.activate({ from: juror })
       }
       await passTerms(1) // term = 1
 

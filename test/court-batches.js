@@ -134,7 +134,7 @@ contract('Court: Batches', ([ rich, governor, arbitrable, juror1, juror2, juror3
 
     const createDispute = async () => {
       for (const juror of [ juror1, juror2, juror3, juror4, juror5, juror6, juror7 ]) {
-        await this.court.activate({ from: juror })
+        await this.staking.activate({ from: juror })
       }
       await passTerms(1) // term = 1
 
@@ -289,7 +289,7 @@ contract('Court: Batches', ([ rich, governor, arbitrable, juror1, juror2, juror3
 
     const createDispute = async () => {
       for (const juror of [juror1, juror2, juror3, juror4, juror5, juror6, juror7]) {
-        await this.court.activate({ from: juror })
+        await this.staking.activate({ from: juror })
       }
       await passTerms(1) // term = 1
 

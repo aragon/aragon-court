@@ -40,7 +40,6 @@ contract CourtFinalRound {
 
     struct FinalRound {
         mapping (address => JurorState) jurorSlotStates;
-        uint256 disputeId;
         uint64 draftTermId;
         uint64 commitTerms;
         uint64 revealTerms;
@@ -122,17 +121,6 @@ contract CourtFinalRound {
         }
     }
 
-    function getAppealDetails(
-        uint64 _termId,
-        uint256 _jurorFee
-    )
-        external
-        view
-        returns (uint64 appealJurorNumber, uint256 jurorFees)
-    {
-        return _getAppealDetails(_termId, _jurorFee);
-    }
-
     function settleFinalRoundSlashing(uint256 _disputeId, uint64 _termId) external returns (uint256 collectedTokens) {
         FinalRound storage round = finalRounds[_disputeId];
 
@@ -207,7 +195,13 @@ contract CourtFinalRound {
         );
 
         uint256 weightedPenalty;
-        (weight, weightedPenalty) = staking.canCommitFinalRound(_voter, round.draftTermId, _termId, FINAL_ROUND_WEIGHT_PRECISION, round.penaltyPct);
+        (weight, weightedPenalty) = staking.canCommitFinalRound(
+            _voter,
+            round.draftTermId,
+            _termId,
+            FINAL_ROUND_WEIGHT_PRECISION,
+            round.penaltyPct
+        );
 
         if (weight > 0) {
             // update round state
@@ -234,6 +228,22 @@ contract CourtFinalRound {
         );
 
         return round.jurorSlotStates[_voter].weight;
+    }
+
+    function getAppealDetails(
+        uint64 _termId,
+        uint256 _jurorFee
+    )
+        external
+        view
+        returns (uint64 appealJurorNumber, uint256 jurorFees)
+    {
+        return _getAppealDetails(_termId, _jurorFee);
+    }
+
+    function isFinalRoundEnded(uint256 _disputeId, uint64 _termId) external view returns (bool) {
+        FinalRound storage round = finalRounds[_disputeId];
+        return round.jurorNumber == 0 || _adjudicationStateAtTerm(round, _termId) == AdjudicationState.Ended;
     }
 
     function _adjudicationStateAtTerm(

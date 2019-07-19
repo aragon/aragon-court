@@ -81,6 +81,7 @@ contract Court is IStakingOwner, ICRVotingOwner, ISubscriptionsOwner {
     enum DisputeState {
         PreDraft,
         Adjudicating,
+        FinalRound,
         Executed
     }
 
@@ -414,7 +415,7 @@ contract Court is IStakingOwner, ICRVotingOwner, ISubscriptionsOwner {
         if (nextRoundId == MAX_REGULAR_APPEAL_ROUNDS) { // final round, roundId starts at 0
             CourtConfig storage config = _courtConfigForTerm(appealDraftTermId);
 
-            dispute.state = DisputeState.Adjudicating;
+            dispute.state = DisputeState.FinalRound;
 
             appealJurorNumber = finalRounds.createRound(
                 _disputeId,
@@ -491,7 +492,16 @@ contract Court is IStakingOwner, ICRVotingOwner, ISubscriptionsOwner {
             round.coherentJurors = uint64(voting.getRulingVotes(voteId, winningRuling));
         }
 
-        (uint256 collectedTokens, uint256 jurorsSettled) = _settleRegularRoundSlashingBatch(round, voteId, config.penaltyPct, winningRuling, _jurorsToSettle);
+        (
+            uint256 collectedTokens,
+            uint256 jurorsSettled
+        ) = _settleRegularRoundSlashingBatch(
+            round,
+            voteId,
+            config.penaltyPct,
+            winningRuling,
+            _jurorsToSettle
+        );
         round.collectedTokens = collectedTokens;
         staking.assignTokens(config.feeToken, msg.sender, config.settleFee * jurorsSettled);
         if (round.settledPenalties) {
@@ -514,9 +524,14 @@ contract Court is IStakingOwner, ICRVotingOwner, ISubscriptionsOwner {
         }
 
         // ensure the last round adjudication period already ended
-        // TODO: final round!!
         uint256 lastRoundId = dispute.rounds.length - 1;
-        _checkAdjudicationState(_disputeId, lastRoundId, AdjudicationState.Ended);
+        if (dispute.state == DisputeState.FinalRound) {
+            require(finalRounds.isFinalRoundEnded(_disputeId, termId), ERROR_INVALID_ADJUDICATION_STATE);
+            lastRoundId = MAX_REGULAR_APPEAL_ROUNDS;
+        } else {
+            _checkAdjudicationState(_disputeId, lastRoundId, AdjudicationState.Ended);
+            lastRoundId = dispute.rounds.length - 1;
+        }
 
         uint256 voteId = _getVoteId(_disputeId, lastRoundId);
         winningRuling = voting.getWinningRuling(voteId);
@@ -663,7 +678,7 @@ contract Court is IStakingOwner, ICRVotingOwner, ISubscriptionsOwner {
 
         // for the final round
         if (roundId == MAX_REGULAR_APPEAL_ROUNDS) {
-            require(disputes[disputeId].state == DisputeState.Adjudicating, ERROR_INVALID_DISPUTE_STATE);
+            require(disputes[disputeId].state == DisputeState.FinalRound, ERROR_INVALID_DISPUTE_STATE);
 
             return finalRounds.canCommitFinalRound(disputeId, _voter, termId);
         }
@@ -679,7 +694,7 @@ contract Court is IStakingOwner, ICRVotingOwner, ISubscriptionsOwner {
         (uint256 disputeId, uint256 roundId) = _decodeVoteId(_voteId);
         // for the final round
         if (roundId == MAX_REGULAR_APPEAL_ROUNDS) {
-            require(disputes[disputeId].state == DisputeState.Adjudicating, ERROR_INVALID_DISPUTE_STATE);
+            require(disputes[disputeId].state == DisputeState.FinalRound, ERROR_INVALID_DISPUTE_STATE);
 
             return finalRounds.canRevealFinalRound(disputeId, _voter, termId);
         }

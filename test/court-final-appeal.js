@@ -72,7 +72,7 @@ contract('Court: final appeal', ([ poor, rich, governor, juror1, juror2, juror3,
   const ROUND_SLASHING_SETTLED_EVENT = 'RoundSlashingSettled'
   const REWARD_SETTLED_EVENT = 'RewardSettled'
 
-  const ERROR_INVALID_ADJUDICATION_STATE = 'CTBAD_ADJ_STATE'
+  const ERROR_INVALID_DISPUTE_STATE = 'CTBAD_DISPUTE_STATE'
   const ERROR_INVALID_ADJUDICATION_ROUND = 'CTBAD_ADJ_ROUND'
 
   const SALT = soliditySha3('passw0rd')
@@ -241,7 +241,7 @@ contract('Court: final appeal', ([ poor, rich, governor, juror1, juror2, juror3,
       await passTerms(revealTerms)
 
       // appeal
-      await assertRevert(this.court.appealRuling(disputeId), ERROR_INVALID_ADJUDICATION_STATE)
+      await assertRevert(this.court.appealRuling(disputeId), ERROR_INVALID_DISPUTE_STATE)
     })
 
     context('Rewards and slashes', () => {

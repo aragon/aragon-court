@@ -13,6 +13,8 @@ import "./standards/subscription/ISubscriptionsOwner.sol";
 import "@aragon/os/contracts/lib/token/ERC20.sol";
 import "@aragon/os/contracts/common/SafeERC20.sol";
 import "@aragon/os/contracts/lib/math/SafeMath.sol";
+import "./JurorsRegistry.sol";
+import "./CourtAccounting.sol";
 
 
 // solium-disable function-order
@@ -22,6 +24,8 @@ contract Court is IStakingOwner, ICRVotingOwner, ISubscriptionsOwner {
 
     uint256 internal constant MAX_JURORS_PER_DRAFT_BATCH = 10; // to cap gas used on draft
     uint256 internal constant MAX_REGULAR_APPEAL_ROUNDS = 4; // before the final appeal
+
+    // FACU: what are these?
     uint256 internal constant FINAL_ROUND_WEIGHT_PRECISION = 1000; // to improve roundings
     uint64 internal constant APPEAL_STEP_FACTOR = 3;
     // TODO: move all other constants up here
@@ -30,15 +34,15 @@ contract Court is IStakingOwner, ICRVotingOwner, ISubscriptionsOwner {
         // Fee structure
         ERC20 feeToken;
         uint256 jurorFee;           // per juror, total round juror fee = jurorFee * jurors drawn
-        uint256 heartbeatFee;       // per dispute, total heartbeat fee = heartbeatFee * disputes/appeals in term
         uint256 draftFee;           // per juror, total round draft fee = draftFee * jurors drawn
-        uint256 settleFee;          // per juror, total round draft fee = settleFee * jurors drawn
+        uint256 settleFee;          // per juror, total round settle fee = settleFee * jurors drawn
+        uint256 heartbeatFee;       // per dispute, total heartbeat fee = heartbeatFee * disputes/appeals in term
         // Dispute config
         uint64 commitTerms;
         uint64 revealTerms;
         uint64 appealTerms;
         uint16 penaltyPct;
-        uint16 finalRoundReduction; // ‱ of reduction applied for final appeal round (1/10,000)
+        uint16 finalRoundReduction; // % of reduction applied for final appeal round (1/10,000)
     }
 
     struct Term {
@@ -95,11 +99,11 @@ contract Court is IStakingOwner, ICRVotingOwner, ISubscriptionsOwner {
     }
 
     // State constants which are set in the constructor and can't change
-    uint64 public termDuration; // recomended value ~1 hour as 256 blocks (available block hash) around an hour to mine
-    IStaking internal staking;
+    uint64 public termDuration; // recommended value ~1 hour as 256 blocks (available block hash) around an hour to mine
     ICRVoting internal voting;
-    ISumTree internal sumTree;
     ISubscriptions internal subscriptions;
+    JurorsRegistry internal jurorsRegistry;
+    CourtAccounting internal courtAccounting;
 
     // Global config, configurable by governor
     address internal governor; // TODO: consider using aOS' ACL
@@ -165,12 +169,10 @@ contract Court is IStakingOwner, ICRVotingOwner, ISubscriptionsOwner {
 
     modifier ensureTerm {
         uint64 requiredTransitions = neededTermTransitions();
-        require(requiredTransitions <= MODIFIER_ALLOWED_TERM_TRANSITIONS, ERROR_TOO_MANY_TRANSITIONS);
-
         if (requiredTransitions > 0) {
+            require(requiredTransitions <= MODIFIER_ALLOWED_TERM_TRANSITIONS, ERROR_TOO_MANY_TRANSITIONS);
             heartbeat(requiredTransitions);
         }
-
         _;
     }
 
@@ -204,9 +206,9 @@ contract Court is IStakingOwner, ICRVotingOwner, ISubscriptionsOwner {
     constructor(
         uint64 _termDuration,
         ERC20[2] _tokens, // _jurorToken, _feeToken
-        IStaking _staking,
         ICRVoting _voting,
-        ISumTree _sumTree,
+        JurorsRegistry _jurorsRegistry,
+        CourtAccounting _courtAccounting,
         ISubscriptions _subscriptions,
         uint256[4] _fees, // _jurorFee, _heartbeatFee, _draftFee, _settleFee
         address _governor,
@@ -219,9 +221,9 @@ contract Court is IStakingOwner, ICRVotingOwner, ISubscriptionsOwner {
         require(_firstTermStartTime >= _termDuration, ERROR_WRONG_TERM);
 
         termDuration = _termDuration;
-        staking = _staking;
+        jurorsRegistry = _jurorsRegistry;
         voting = _voting;
-        sumTree = _sumTree;
+        courtAccounting = _courtAccounting;
         subscriptions = _subscriptions;
         jurorMinStake = _jurorMinStake;
         governor = _governor;
@@ -271,7 +273,7 @@ contract Court is IStakingOwner, ICRVotingOwner, ISubscriptionsOwner {
         uint256 totalFee = nextTerm.dependingDrafts * courtConfig.heartbeatFee;
 
         if (totalFee > 0) {
-            staking.assignTokens(courtConfig.feeToken, heartbeatSender, totalFee);
+            accounting.assign(courtConfig.feeToken, heartbeatSender, totalFee);
         }
 
         emit NewTerm(termId, heartbeatSender);
@@ -279,27 +281,6 @@ contract Court is IStakingOwner, ICRVotingOwner, ISubscriptionsOwner {
         if (_termTransitions > 1 && canTransitionTerm()) {
             heartbeat(_termTransitions - 1);
         }
-    }
-
-    /**
-     * @notice Become an active juror on next term
-     */
-    function activate() external ensureTerm {
-        staking.activate(msg.sender, termId);
-    }
-
-    /**
-     * @notice Stop being an active juror on next term
-     */
-    function deactivate() external ensureTerm {
-        staking.deactivate(msg.sender, termId);
-    }
-
-    /**
-     * @notice Withdraw `@tokenAmount(_token, _amount)` from the Court (Staking)
-     */
-    function withdraw(ERC20 _token, uint256 _amount) external ensureTerm {
-        staking.withdraw(msg.sender, _token, _amount, termId);
     }
 
     /**
@@ -345,7 +326,7 @@ contract Court is IStakingOwner, ICRVotingOwner, ISubscriptionsOwner {
         Dispute storage dispute = disputes[_disputeId];
         AdjudicationRound storage round = dispute.rounds[dispute.rounds.length - 1];
         // TODO: stack too deep: uint64 draftTermId = round.draftTermId;
-        // We keep the inintial term for config, but we update it for randomness seed,
+        // We keep the initial term for config, but we update it for randomness seed,
         // as otherwise it would be easier for some juror to add tokens to the tree (or remove them)
         // in order to change the result of the next draft batch
         Term storage draftTerm = terms[termId];
@@ -384,7 +365,7 @@ contract Court is IStakingOwner, ICRVotingOwner, ISubscriptionsOwner {
             uint64[] memory weights,
             uint256 jurorsLength,
             uint64 filledSeats
-        ) = staking.draft(draftParams);
+        ) = jurorsRegistry.draft(draftParams);
         // reduce jurors array length because of repeated jurors
         round.jurors.length -= jurorsRequested - jurorsLength;
         uint256 nextJurorIndex = round.nextJurorIndex;
@@ -398,7 +379,7 @@ contract Court is IStakingOwner, ICRVotingOwner, ISubscriptionsOwner {
         round.filledSeats = filledSeats;
 
         // TODO: reuse draft call (stack too deep!)
-        staking.assignTokens(config.feeToken, msg.sender, config.draftFee * round.jurorNumber);
+        accounting.assignTokens(config.feeToken, msg.sender, config.draftFee * round.jurorNumber);
 
         // drafting is over
         if (round.filledSeats == round.jurorNumber) {
@@ -482,7 +463,7 @@ contract Court is IStakingOwner, ICRVotingOwner, ISubscriptionsOwner {
             uint256 jurorsSettled;
             (collectedTokens, jurorsSettled) = _settleRegularRoundSlashing(round, voteId, config.penaltyPct, winningRuling, _jurorsToSettle);
             round.collectedTokens = collectedTokens;
-            staking.assignTokens(config.feeToken, msg.sender, config.settleFee * jurorsSettled);
+            accounting.assignTokens(config.feeToken, msg.sender, config.settleFee * jurorsSettled);
         } else { // final round
             // this was accounted for on juror's vote commit
             collectedTokens = round.collectedTokens;
@@ -494,8 +475,8 @@ contract Court is IStakingOwner, ICRVotingOwner, ISubscriptionsOwner {
             // No juror was coherent in the round
             if (round.coherentJurors == 0) {
                 // refund fees and burn ANJ
-                staking.assignTokens(config.feeToken, round.triggeredBy, round.jurorFees);
-                staking.burnJurorTokens(collectedTokens);
+                accounting.assign(config.feeToken, round.triggeredBy, round.jurorFees);
+                accounting.burn(jurorsRegistry.token(), collectedTokens);
             }
 
             emit RoundSlashingSettled(_disputeId, _roundId, collectedTokens);
@@ -556,7 +537,7 @@ contract Court is IStakingOwner, ICRVotingOwner, ISubscriptionsOwner {
         uint8[] memory castVotes = voting.getCastVotes(_voteId, jurors);
         // we assume:
         //require(castVotes.length == batchSettledJurors);
-        collectedTokens = staking.slash(termId, jurors, penalties, castVotes, _winningRuling);
+        collectedTokens = jurorsRegistry.slash(termId, jurors, penalties, castVotes, _winningRuling);
 
         _round.collectedTokens = _round.collectedTokens.add(collectedTokens);
     }
@@ -584,12 +565,12 @@ contract Court is IStakingOwner, ICRVotingOwner, ISubscriptionsOwner {
         uint256 collectedTokens = round.collectedTokens;
 
         if (collectedTokens > 0) {
-            staking.assignJurorTokens(_juror, jurorState.weight * collectedTokens / coherentJurors);
+            accounting.assign(_juror, jurorState.weight * collectedTokens / coherentJurors);
         }
 
         uint256 jurorFee = round.jurorFees * jurorState.weight / coherentJurors;
         CourtConfig storage config = courtConfigs[terms[round.draftTermId].courtConfigId]; // safe to use directly as it is a past term
-        staking.assignTokens(config.feeToken, _juror, jurorFee);
+        accounting.assign(config.feeToken, _juror, jurorFee);
 
         emit RewardSettled(_disputeId, _roundId, _juror);
     }
@@ -642,7 +623,7 @@ contract Court is IStakingOwner, ICRVotingOwner, ISubscriptionsOwner {
 
         // weight is the number of times the minimum stake the juror has, multiplied by a precision factor for division roundings
         weight = FINAL_ROUND_WEIGHT_PRECISION *
-            staking.getAccountPastTreeStake(_voter, disputes[_disputeId].rounds[_roundId].draftTermId) /
+            jurorsRegistry.getJurorBalanceAt(_voter, disputes[_disputeId].rounds[_roundId].draftTermId) /
             jurorMinStake;
 
         // In the final round, when committing a vote, tokens are collected from the juror's account
@@ -656,7 +637,7 @@ contract Court is IStakingOwner, ICRVotingOwner, ISubscriptionsOwner {
             // Try to lock tokens
             // If there's not enough we just return 0 (so prevent juror from voting).
             // (We could use the remaining amount instead, but we would need to re-calculate the juror's weight)
-            if (!staking.collectTokens(termId, _voter, weightedPenalty)) {
+            if (!jurorsRegistry.collectTokens(termId, _voter, weightedPenalty)) {
                 return 0;
             }
 
@@ -726,10 +707,6 @@ contract Court is IStakingOwner, ICRVotingOwner, ISubscriptionsOwner {
         randomness = blockhash(_term.randomnessBN);
     }
 
-    function getAccountSumTreeId(address _juror) external view returns (uint256) {
-        return staking.getAccountSumTreeId(_juror);
-    }
-
     function getGovernor() external view returns (address) {
         return governor;
     }
@@ -759,7 +736,7 @@ contract Court is IStakingOwner, ICRVotingOwner, ISubscriptionsOwner {
         // the max amount of tokens the tree can hold for this to fit in an uint64 is:
         // 2^64 * jurorMinStake / FINAL_ROUND_WEIGHT_PRECISION
         // (decimals get cancelled in the division). So it seems enough.
-        jurorNumber = uint64(FINAL_ROUND_WEIGHT_PRECISION * sumTree.totalSumPresent(termId) / jurorMinStake);
+        jurorNumber = uint64(FINAL_ROUND_WEIGHT_PRECISION * jurorsRegistry.getTotalPresentBalanceAt(termId) / jurorMinStake);
 
         CourtConfig storage config = _courtConfigForTerm(_draftTermId);
         // number of jurors is the number of times the minimum stake is hold in the tree, multiplied by a precision factor for division roundings

@@ -5,9 +5,9 @@ import "@aragon/os/contracts/common/SafeERC20.sol";
 import "@aragon/os/contracts/common/IsContract.sol";
 import "@aragon/os/contracts/lib/math/SafeMath.sol";
 
+import "./JurorsRegistry.sol";
 import "./standards/subscription/ISubscriptions.sol";
 import "./standards/subscription/ISubscriptionsOwner.sol";
-import "./standards/sumtree/ISumTree.sol";
 
 
 contract CourtSubscriptions is IsContract, ISubscriptions {
@@ -47,7 +47,7 @@ contract CourtSubscriptions is IsContract, ISubscriptions {
     }
 
     ISubscriptionsOwner internal owner;
-    ISumTree internal sumTree;
+    JurorsRegistry internal jurorsRegistry;
     uint64 internal periodDuration; // in Court terms
     uint16 public latePaymentPenaltyPct; // ‱ of penalty applied for not paying during proper period
     uint16 public governorSharePct; // ‱ of fees that go to governor of the Court
@@ -78,7 +78,7 @@ contract CourtSubscriptions is IsContract, ISubscriptions {
      */
     function init(
         ISubscriptionsOwner _owner,
-        ISumTree _sumTree,
+        JurorsRegistry _jurorsRegistry,
         uint64 _periodDuration,
         ERC20 _feeToken,
         uint256 _feeAmount,
@@ -92,7 +92,7 @@ contract CourtSubscriptions is IsContract, ISubscriptions {
         require(_periodDuration > 0, ERROR_ZERO_PERIOD_DURATION);
 
         owner = _owner;
-        sumTree = _sumTree;
+        jurorsRegistry = _jurorsRegistry;
         periodDuration = _periodDuration;
         _setFeeToken(_feeToken);
         _setFeeAmount(_feeAmount);
@@ -461,7 +461,7 @@ contract CourtSubscriptions is IsContract, ISubscriptions {
 
         // use randomness to choose checkpoint
         periodBalanceCheckpoint = periodStartTermId + uint64(uint256(randomness) % periodDuration);
-        totalTreeSum = sumTree.totalSumPast(periodBalanceCheckpoint);
+        totalTreeSum = jurorsRegistry.getTotalBalanceAt(periodBalanceCheckpoint);
     }
 
     function _getJurorShare(
@@ -475,13 +475,13 @@ contract CourtSubscriptions is IsContract, ISubscriptions {
         returns (uint256)
     {
         // fetch id in the tree
-        uint256 sumTreeId = owner.getAccountSumTreeId(_juror);
-        if (sumTreeId == 0) { // hasn't activated yet
+        uint256 jurorId = jurorsRegistry.getJurorId(_juror);
+        if (jurorId == 0) { // hasn't activated yet
             return 0;
         }
 
         // get balance at checkpoint
-        uint256 jurorBalance = sumTree.getItemPast(sumTreeId, _periodBalanceCheckpoint);
+        uint256 jurorBalance = jurorsRegistry.getJurorBalanceAt(jurorId, _periodBalanceCheckpoint);
         if (jurorBalance == 0) {
             return 0;
         }

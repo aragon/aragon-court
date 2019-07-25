@@ -5,6 +5,7 @@ import "./standards/sumtree/ISumTree.sol";
 import "./standards/arbitration/IArbitrable.sol";
 import "./standards/erc900/IStaking.sol";
 import "./standards/erc900/IStakingOwner.sol";
+import "./standards/accounting/IAccounting.sol";
 import "./standards/voting/ICRVoting.sol";
 import "./standards/voting/ICRVotingOwner.sol";
 import "./standards/subscription/ISubscriptions.sol";
@@ -97,6 +98,7 @@ contract Court is IStakingOwner, ICRVotingOwner, ISubscriptionsOwner {
     // State constants which are set in the constructor and can't change
     uint64 public termDuration; // recomended value ~1 hour as 256 blocks (available block hash) around an hour to mine
     IStaking internal staking;
+    IAccounting internal accounting;
     ICRVoting internal voting;
     ISumTree internal sumTree;
     ISubscriptions internal subscriptions;
@@ -200,6 +202,7 @@ contract Court is IStakingOwner, ICRVotingOwner, ISubscriptionsOwner {
         uint64 _termDuration,
         ERC20[2] _tokens, // _jurorToken, _feeToken
         IStaking _staking,
+        IAccounting _accounting,
         ICRVoting _voting,
         ISumTree _sumTree,
         ISubscriptions _subscriptions,
@@ -215,13 +218,16 @@ contract Court is IStakingOwner, ICRVotingOwner, ISubscriptionsOwner {
 
         termDuration = _termDuration;
         staking = _staking;
+        accounting = _accounting;
         voting = _voting;
         sumTree = _sumTree;
         subscriptions = _subscriptions;
         jurorMinStake = _jurorMinStake;
         governor = _governor;
-        //                                          _jurorToken
-        staking.init(IStakingOwner(this), _sumTree, _tokens[0], _jurorMinStake);
+
+        //           _jurorToken
+        _initStaking(_tokens[0]);
+        accounting.init(address(this));
         voting.setOwner(ICRVotingOwner(this));
         //                 _jurorToken
         _initSubscriptions(_tokens[0], _subscriptionParams, _sumTree);
@@ -266,7 +272,7 @@ contract Court is IStakingOwner, ICRVotingOwner, ISubscriptionsOwner {
         uint256 totalFee = nextTerm.dependingDrafts * courtConfig.heartbeatFee;
 
         if (totalFee > 0) {
-            staking.assignTokens(courtConfig.feeToken, heartbeatSender, totalFee);
+            accounting.deposit(courtConfig.feeToken, heartbeatSender, totalFee);
         }
 
         emit NewTerm(termId, heartbeatSender);
@@ -379,7 +385,7 @@ contract Court is IStakingOwner, ICRVotingOwner, ISubscriptionsOwner {
         round.filledSeats = filledSeats;
 
         // TODO: reuse draft call (stack too deep!)
-        staking.assignTokens(config.feeToken, msg.sender, config.draftFee * round.jurorNumber);
+        accounting.deposit(config.feeToken, msg.sender, config.draftFee * round.jurorNumber);
 
         // drafting is over
         if (round.filledSeats == round.jurorNumber) {
@@ -465,7 +471,7 @@ contract Court is IStakingOwner, ICRVotingOwner, ISubscriptionsOwner {
             uint256 jurorsSettled;
             (collectedTokens, jurorsSettled) = _settleRegularRoundSlashing(round, voteId, config.penaltyPct, winningRuling, _jurorsToSettle);
             round.collectedTokens = collectedTokens;
-            staking.assignTokens(config.feeToken, msg.sender, config.settleFee * jurorsSettled);
+            accounting.deposit(config.feeToken, msg.sender, config.settleFee * jurorsSettled);
         } else { // final round
             // this was accounted for on juror's vote commit
             collectedTokens = round.collectedTokens;
@@ -477,8 +483,8 @@ contract Court is IStakingOwner, ICRVotingOwner, ISubscriptionsOwner {
             // No juror was coherent in the round
             if (round.coherentJurors == 0) {
                 // refund fees and burn ANJ
-                staking.assignTokens(config.feeToken, round.triggeredBy, round.jurorFees);
-                staking.burnJurorTokens(collectedTokens);
+                accounting.deposit(config.feeToken, round.triggeredBy, round.jurorFees);
+                staking.burnTokens(collectedTokens);
             }
 
             emit RoundSlashingSettled(_disputeId, _roundId, collectedTokens);
@@ -567,12 +573,12 @@ contract Court is IStakingOwner, ICRVotingOwner, ISubscriptionsOwner {
         uint256 collectedTokens = round.collectedTokens;
 
         if (collectedTokens > 0) {
-            staking.assignJurorTokens(_juror, jurorState.weight * collectedTokens / coherentJurors);
+            staking.assignTokens(_juror, jurorState.weight * collectedTokens / coherentJurors);
         }
 
         uint256 jurorFee = round.jurorFees * jurorState.weight / coherentJurors;
         CourtConfig storage config = courtConfigs[terms[round.draftTermId].courtConfigId]; // safe to use directly as it is a past term
-        staking.assignTokens(config.feeToken, _juror, jurorFee);
+        accounting.deposit(config.feeToken, _juror, jurorFee);
 
         emit RewardSettled(_disputeId, _roundId, _juror);
     }
@@ -831,7 +837,8 @@ contract Court is IStakingOwner, ICRVotingOwner, ISubscriptionsOwner {
         terms[_draftTermId].dependingDrafts += 1;
 
         if (_feeAmount > 0) {
-            require(_feeToken.safeTransferFrom(msg.sender, address(staking), _feeAmount), ERROR_DEPOSIT_FAILED);
+            // TODO: can we do the transfer-from from the accounting itself? the disputer must approve the accounting contract in that case
+            require(_feeToken.safeTransferFrom(msg.sender, address(accounting), _feeAmount), ERROR_DEPOSIT_FAILED);
         }
     }
 
@@ -935,6 +942,11 @@ contract Court is IStakingOwner, ICRVotingOwner, ISubscriptionsOwner {
         configChangeTermId = _fromTermId;
 
         emit NewCourtConfig(_fromTermId, courtConfigId);
+    }
+
+    // TODO: stack too deep, move to a factory contract
+    function _initStaking(ERC20 _jurorToken) {
+        staking.init(IStakingOwner(this), sumTree, _jurorToken, jurorMinStake);
     }
 
     function _initSubscriptions(ERC20 _feeToken, uint256[5] _subscriptionParams, ISumTree _sumTree) internal {

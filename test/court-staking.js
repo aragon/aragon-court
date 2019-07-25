@@ -6,6 +6,7 @@ const CourtMock = artifacts.require('CourtMock')
 
 const COURT = 'Court'
 const MINIME = 'MiniMeToken'
+const CourtAccounting = artifacts.require('CourtAccounting')
 const CourtStakingMock = artifacts.require('CourtStakingMock')
 const CRVoting = artifacts.require('CRVoting')
 const SumTree = artifacts.require('HexSumTreeWrapper')
@@ -21,7 +22,6 @@ const assertEqualBN = async (actualPromise, expected, message) =>
   assert.equal((await actualPromise).toNumber(), expected, message)
 
 const ERROR_INVALID_ACCOUNT_STATE = 'STK_INVALID_ACCOUNT_STATE'
-const ERROR_WRONG_TOKEN = 'STK_WRONG_TOKEN'
 
 contract('Court: Staking', ([ pleb, rich, governor ]) => {
   const INITIAL_BALANCE = 1e6
@@ -51,6 +51,7 @@ contract('Court: Staking', ([ pleb, rich, governor ]) => {
     await assertEqualBN(this.anj.balanceOf(pleb), 0, 'pleb balance')
 
     this.staking = await CourtStakingMock.new()
+    this.accounting = await CourtAccounting.new()
     this.voting = await CRVoting.new()
     this.sumTree = await SumTree.new()
     this.subscriptions = await Subscriptions.new()
@@ -60,6 +61,7 @@ contract('Court: Staking', ([ pleb, rich, governor ]) => {
       termDuration,
       [ this.anj.address, ZERO_ADDRESS ], // no fees
       this.staking.address,
+      this.accounting.address,
       this.voting.address,
       this.sumTree.address,
       this.subscriptions.address,
@@ -120,13 +122,6 @@ contract('Court: Staking', ([ pleb, rich, governor ]) => {
       await this.staking.unstake(unstaking, NO_DATA, { from: rich })
 
       await assertStaked(rich, -unstaking, INITIAL_BALANCE - amount, { initialStaked: amount })
-    })
-
-    it('fails unstaking using \'withdraw\'', async () => {
-      const unstaking = amount / 4
-
-      await assertRevert(this.staking.withdraw(this.anj.address, unstaking, { from: rich }), ERROR_WRONG_TOKEN)
-
     })
 
     context('Being activated', () => {

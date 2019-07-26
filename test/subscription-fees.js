@@ -5,9 +5,6 @@ const SubscriptionsOwner = artifacts.require('SubscriptionsOwnerMock')
 const SumTree = artifacts.require('HexSumTreeWrapper')
 const MiniMeToken = artifacts.require('@aragon/apps-shared-minime/contracts/MiniMeToken')
 
-const deployedContract = async (receiptPromise, name) =>
-      artifacts.require(name).at(getLog(await receiptPromise, 'Deployed', 'addr'))
-
 const assertEqualBN = async (actualPromise, expected, message) =>
       assert.equal((await actualPromise).toNumber(), expected, message)
 const assertEqualBNs = (actual, expected, message) =>

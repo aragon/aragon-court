@@ -555,6 +555,8 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
     function executeRuling(uint256 _disputeId) external ensureTerm {
         Dispute storage dispute = disputes[_disputeId];
 
+        require(dispute.state != DisputeState.Executed, ERROR_INVALID_DISPUTE_STATE);
+
         uint8 winningRuling = _ensureFinalRuling(_disputeId);
         dispute.state = DisputeState.Executed;
 
@@ -731,6 +733,25 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
     }
 
     /**
+     * @dev Assumes term is up to date. This function only works for regular rounds. There is no drafting in final round.
+     */
+    function feeForJurorDraft(
+        uint64 _draftTermId,
+        uint64 _jurorNumber
+    )
+        public
+        view
+        returns (ERC20 feeToken, uint256 feeAmount, uint256 jurorFees, uint16 governanceFeeShare)
+    {
+        CourtConfig storage config = _courtConfigForTerm(_draftTermId);
+
+        feeToken = config.feeToken;
+        jurorFees = _jurorNumber * config.jurorFee;
+        feeAmount = config.heartbeatFee + jurorFees + _jurorNumber * (config.draftFee + config.settleFee);
+        governanceFeeShare = config.governanceFeeShare;
+    }
+
+    /**
      * @dev Callback of approveAndCall, allows staking directly with a transaction to the token contract.
      * @param _from The address making the transfer.
      * @param _amount Amount of tokens to transfer to Kleros (in basic units).
@@ -883,11 +904,9 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner {
         internal
         returns (uint256 roundId)
     {
-        CourtConfig storage config = _courtConfigForTerm(_draftTermId);
-        uint256 jurorFees = _jurorNumber * config.jurorFee;
-        uint256 feeAmount = config.heartbeatFee + jurorFees + _jurorNumber * (config.draftFee + config.settleFee);
+        (ERC20 feeToken, uint256 feeAmount, uint256 jurorFees,) = feeForJurorDraft(_draftTermId, _jurorNumber);
 
-        roundId = _createRound(_disputeId, DisputeState.PreDraft, _draftTermId, _jurorNumber, 0, config.feeToken, feeAmount, jurorFees);
+        roundId = _createRound(_disputeId, DisputeState.PreDraft, _draftTermId, _jurorNumber, 0, feeToken, feeAmount, jurorFees);
     }
 
     function _newFinalAdjudicationRound(

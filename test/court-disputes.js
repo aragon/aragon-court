@@ -61,6 +61,8 @@ contract('Court: Disputes', ([ poor, rich, governor, juror1, juror2, juror3, oth
   const RULING_EXECUTED_EVENT = 'RulingExecuted'
   const ROUND_SLASHING_SETTLED_EVENT = 'RoundSlashingSettled'
 
+  const ERROR_INVALID_DISPUTE_STATE = 'COURT_INVALID_DISPUTE_STATE'
+
   const SALT = soliditySha3('passw0rd')
 
   const encryptVote = (ruling, salt = SALT) =>
@@ -285,6 +287,15 @@ contract('Court: Disputes', ([ poor, rich, governor, juror1, juror2, juror3, oth
               await assertLogs(executeReceiptPromise, RULING_EXECUTED_EVENT)
               // settle
               await assertLogs(this.court.settleRoundSlashing(disputeId, firstRoundId, MAX_UINT256), ROUND_SLASHING_SETTLED_EVENT)
+            })
+
+            it('fails trying to execute twice', async () => {
+              await passTerms(2) // term = 6
+              // execute
+              const executeReceiptPromise = await this.court.executeRuling(disputeId)
+              await assertLogs(executeReceiptPromise, RULING_EXECUTED_EVENT)
+              // try to execute again
+              await assertRevert(this.court.executeRuling(disputeId), ERROR_INVALID_DISPUTE_STATE)
             })
 
             context('settling round', () => {

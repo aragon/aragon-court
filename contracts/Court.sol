@@ -743,14 +743,13 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner, ISubscriptions
     )
         public
         view
-        returns (ERC20 feeToken, uint256 feeAmount, uint256 jurorFees, uint16 governanceFeeShare)
+        returns (ERC20 feeToken, uint256 feeAmount, uint256 jurorFees)
     {
         CourtConfig storage config = _courtConfigForTerm(_draftTermId);
 
         feeToken = config.feeToken;
         jurorFees = _jurorNumber * config.jurorFee;
         feeAmount = config.heartbeatFee + jurorFees + _jurorNumber * (config.draftFee + config.settleFee);
-        governanceFeeShare = config.governanceFeeShare;
     }
 
     /**
@@ -932,7 +931,7 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner, ISubscriptions
         internal
         returns (uint256 roundId)
     {
-        (ERC20 feeToken, uint256 feeAmount, uint256 jurorFees,) = feeForJurorDraft(_draftTermId, _jurorNumber);
+        (ERC20 feeToken, uint256 feeAmount, uint256 jurorFees) = feeForJurorDraft(_draftTermId, _jurorNumber);
 
         roundId = _createRound(_disputeId, DisputeState.PreDraft, _draftTermId, _jurorNumber, 0, feeToken, feeAmount, jurorFees);
     }

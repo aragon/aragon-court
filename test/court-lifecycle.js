@@ -125,7 +125,7 @@ contract('Court: Lifecycle', ([ poor, rich, governor, juror1, juror2 ]) => {
   context('before first term', () => {
 
     it('it in term #0', async () => {
-      await assertEqualBN(this.court.termId(), 0, 'court term #0')
+      await assertEqualBN(this.court.getTermId(), 0, 'court term #0')
     })
 
     it('transitions to term #1 on heartbeat', async () => {
@@ -133,7 +133,7 @@ contract('Court: Lifecycle', ([ poor, rich, governor, juror1, juror2 ]) => {
       await this.court.mock_setTime(15)
       await assertLogs(this.court.heartbeat(1), NEW_TERM_EVENT)
       
-      await assertEqualBN(this.court.termId(), 1, 'court term #1')
+      await assertEqualBN(this.court.getTermId(), 1, 'court term #1')
       const [
         startTime,
         dependingDraws,
@@ -185,7 +185,7 @@ contract('Court: Lifecycle', ([ poor, rich, governor, juror1, juror2 ]) => {
       await this.staking.mock_setTime(firstTermStart + termDuration * 100)
       await this.court.mock_setTime(firstTermStart + termDuration * 100)
       await this.court.heartbeat(3)
-      await assertEqualBN(this.court.termId(), 3, 'current term')
+      await assertEqualBN(this.court.getTermId(), 3, 'current term')
     })
   })
 

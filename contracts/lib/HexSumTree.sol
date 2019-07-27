@@ -77,6 +77,97 @@ library HexSumTree {
         return _sortition(self, seed % totalSumPast(self, time), BASE_KEY, self.rootDepth, time, past);
     }
 
+    function multiSortition(
+        Tree storage self,
+        bytes32 _termRandomness,
+        uint256 _disputeId,
+        uint64 _time,
+        bool _past,
+        uint256 _filledSeats,
+        uint256 _jurorsRequested,
+        uint256 _jurorNumber,
+        uint256 _sortitionIteration
+    )
+        internal
+        view
+        returns (uint256[] keys, uint256[] nodeValues)
+    {
+        (uint256 stakeFrom, uint256 stakeTo) = _getStakeBounds(self, _time, _filledSeats, _jurorsRequested, _jurorNumber);
+        uint256[] memory values = _getOrderedValues(_termRandomness, _disputeId, _time, _filledSeats, _jurorsRequested, _jurorNumber, _sortitionIteration, stakeFrom, stakeTo);
+        return multiSortition(self, values, _time, _past);
+    }
+
+    /**
+     * @notice Performs sortition for several values at once
+     * @param values An array with the values sought in the sortition. Must be ordered ascending.
+     * @param time The checkpoint timestamp at which the sortition is performed
+     * @param past If true, it means that we are seeking a checkpoint in the past, therefore when descending the sum tree it will use binary searches for checkpoints. Otherwise, it will use linear searches from the end, as we are looking for the last or the previous one.
+     * @return An array of keys, one for each value in input param (therefore the same size), and in the same order, along with an array of the corresponding node values
+     */
+    function multiSortition(Tree storage self, uint256[] values, uint64 time, bool past) internal view returns (uint256[] keys, uint256[] nodeValues) {
+        uint256 length = values.length;
+        // those two arrays will be used to fill in the results, they are passed as parameters to avoid extra copies
+        keys = new uint256[](length);
+        nodeValues = new uint256[](length);
+        _multiSortition(self, values, PackedArguments(0, self.rootDepth, time, past, 0, BASE_KEY), keys, nodeValues);
+    }
+
+    function totalSum(Tree storage self) internal view returns (uint256) {
+        return self.nodes[self.rootDepth][BASE_KEY].getLast();
+    }
+
+    function totalSumPresent(Tree storage self, uint64 currentTime) internal view returns (uint256) {
+        return self.nodes[self.rootDepth][BASE_KEY].getLastPresent(currentTime);
+    }
+
+    function totalSumPast(Tree storage self, uint64 time) internal view returns (uint256) {
+        return self.nodes[self.rootDepth][BASE_KEY].get(time);
+    }
+
+    function get(Tree storage self, uint256 depth, uint256 key) internal view returns (uint256) {
+        return self.nodes[depth][key].getLast();
+    }
+
+    function getPresent(Tree storage self, uint256 depth, uint256 key, uint64 currentTime) internal view returns (uint256) {
+        return self.nodes[depth][key].getLastPresent(currentTime);
+    }
+
+    function getPast(Tree storage self, uint256 depth, uint256 key, uint64 time) internal view returns (uint256) {
+        return self.nodes[depth][key].get(time);
+    }
+
+    function getItem(Tree storage self, uint256 key) internal view returns (uint256) {
+        return self.nodes[INSERTION_DEPTH][key].getLast();
+    }
+
+    function getItemPresent(Tree storage self, uint256 key, uint64 currentTime) internal view returns (uint256) {
+        return self.nodes[INSERTION_DEPTH][key].getLastPresent(currentTime);
+    }
+
+    function getItemPast(Tree storage self, uint256 key, uint64 time) internal view returns (uint256) {
+        return self.nodes[INSERTION_DEPTH][key].get(time);
+    }
+
+    function sharedPrefix(uint256 depth, uint256 key) internal pure returns (uint256) {
+        uint256 shift = depth * BITS_IN_NIBBLE;
+        uint256 mask = uint256(-1) << shift;
+        uint keyAncestor = key & mask;
+
+        if (keyAncestor != BASE_KEY) {
+            return depth + 1;
+        }
+
+        return depth;
+    }
+
+    function getChildren(Tree storage) internal pure returns (uint256) {
+        return CHILDREN;
+    }
+
+    function getBitsInNibble(Tree storage) internal pure returns (uint256) {
+        return BITS_IN_NIBBLE;
+    }
+
     function _set(Tree storage self, uint256 key, uint64 time, uint256 value) private {
         uint256 oldValue = self.nodes[INSERTION_DEPTH][key].getLast();
         self.nodes[INSERTION_DEPTH][key].add(time, value);
@@ -86,6 +177,27 @@ library HexSumTree {
         } else if (value < oldValue) {
             _updateSums(self, key, time, oldValue - value, false);
         }
+    }
+
+    function _updateSums(Tree storage self, uint256 key, uint64 time, uint256 delta, bool positive) private {
+        uint256 newRootDepth = sharedPrefix(self.rootDepth, key);
+
+        if (self.rootDepth != newRootDepth) {
+            self.nodes[newRootDepth][BASE_KEY].add(time, self.nodes[self.rootDepth][BASE_KEY].getLast());
+            self.rootDepth = newRootDepth;
+        }
+
+        uint256 mask = uint256(-1);
+        uint256 ancestorKey = key;
+        for (uint256 i = 1; i <= self.rootDepth; i++) {
+            mask = mask << BITS_IN_NIBBLE;
+            ancestorKey = ancestorKey & mask;
+
+            // Invariant: this will never underflow.
+            self.nodes[i][ancestorKey].add(time, positive ? self.nodes[i][ancestorKey].getLast() + delta : self.nodes[i][ancestorKey].getLast() - delta);
+        }
+        // it's only needed to check the last one, as the sum increases going up through the tree
+        require(!positive || self.nodes[self.rootDepth][ancestorKey].getLast() >= delta, ERROR_UPDATE_OVERFLOW);
     }
 
     function _sortition(Tree storage self, uint256 value, uint256 node, uint256 depth, uint64 time, bool past) private view returns (uint256 key, uint256 nodeValue) {
@@ -137,26 +249,11 @@ library HexSumTree {
     }
 
     /**
-     * @notice Performs sortition for several values at once
-     * @param values An array with the values sought in the sortition. Must be ordered ascending.
-     * @param time The checkpoint timestamp at which the sortition is performed
-     * @param past If true, it means that we are seeking a checkpoint in the past, therefore when descending the sum tree it will use binary searches for checkpoints. Otherwise, it will use linear searches from the end, as we are looking for the last or the previous one.
-     * @return An array of keys, one for each value in input param (therefore the same size), and in the same order, along with an array of the corresponding node values
-     */
-    function multiSortition(Tree storage self, uint256[] values, uint64 time, bool past) internal view returns (uint256[] keys, uint256[] nodeValues) {
-        uint256 length = values.length;
-        // those two arrays will be used to fill in the results, they are passed as parameters to avoid extra copies
-        keys = new uint256[](length);
-        nodeValues = new uint256[](length);
-        _multiSortition(self, values, PackedArguments(0, self.rootDepth, time, past, 0, BASE_KEY), keys, nodeValues);
-    }
-
-    /**
      * @dev Recursive function to descend the Sum Tree.
-            Every time it checks a node, it traverses the input array to find the initial subset of elements that are below its accumulated value and passes that sub-array to the next iteration. Actually the array is always the same, to avoid making exta copies, it just passes the initial index to start checking, to avoid checking values that went thru a different branch.
-            The same happens with the "result" arrays for keys and node values: it's always the same on every recursion step, the same initial index for input values acts as a needle to know where in those arrays the function has to write.
-            The accumulated value is carried over to next iterations, to avoid having to subtract to all elements in array.
-            PackedArguments struct is used to avoid "stack too deep" issue.
+     *      Every time it checks a node, it traverses the input array to find the initial subset of elements that are below its accumulated value and passes that sub-array to the next iteration. Actually the array is always the same, to avoid making exta copies, it just passes the initial index to start checking, to avoid checking values that went thru a different branch.
+     *      The same happens with the "result" arrays for keys and node values: it's always the same on every recursion step, the same initial index for input values acts as a needle to know where in those arrays the function has to write.
+     *      The accumulated value is carried over to next iterations, to avoid having to subtract to all elements in array.
+     *      PackedArguments struct is used to avoid "stack too deep" issue.
      */
     function _multiSortition(Tree storage self, uint256[] values, PackedArguments memory packedArguments, uint256[] keys, uint256[] nodeValues) private view {
         uint256 shift = (packedArguments.depth - 1) * BITS_IN_NIBBLE;
@@ -214,104 +311,60 @@ library HexSumTree {
         }
     }
 
-    function _getNodeValuesLength(uint256[] values, uint256 checkingValue, uint256 valuesStart) private pure returns (uint256){
+    function _getStakeBounds(Tree storage self, uint64 _time, uint256 _filledSeats, uint256 _jurorsRequested, uint256 _jurorNumber) private view
+        returns (uint256 stakeFrom, uint256 stakeTo)
+    {
+        uint256 ratio = totalSumPresent(self, _time) / _jurorNumber;
+        // TODO: roundings?
+        stakeFrom = _filledSeats * ratio;
+        uint256 newFilledSeats = _filledSeats + _jurorsRequested;
+        // TODO: this should never happen
+        /*
+        if (newFilledSeats > _jurorNumber) {
+            newFilledSeats = _jurorNumber;
+        }
+        */
+        stakeTo = newFilledSeats * ratio;
+    }
+
+    function _getOrderedValues(
+        bytes32 _termRandomness,
+        uint256 _disputeId,
+        uint64 _time,
+        uint256 _filledSeats,
+        uint256 _jurorsRequested,
+        uint256 _jurorNumber,
+        uint256 _sortitionIteration,
+        uint256 stakeFrom,
+        uint256 stakeTo
+    )
+        private
+        pure
+        returns (uint256[] values)
+    {
+        uint256 stakeInterval = stakeTo - stakeFrom;
+        values = new uint256[](_jurorsRequested);
+        for (uint256 i = 0; i < _jurorsRequested; i++) {
+            bytes32 seed = keccak256(abi.encodePacked(_termRandomness, _disputeId, i, _sortitionIteration));
+            uint256 value = stakeFrom + uint256(seed) % stakeInterval;
+            values[i] = value;
+            // make sure it's ordered
+            uint256 j = i;
+            while (j > 0 && values[j] < values[j - 1]) {
+                // flip them
+                uint256 tmp = values[j - 1];
+                values[j - 1] = values[j];
+                values[j] = tmp;
+                j--;
+            }
+        }
+    }
+
+    function _getNodeValuesLength(uint256[] values, uint256 checkingValue, uint256 valuesStart) private pure returns (uint256) {
         uint256 j = valuesStart;
         while (j < values.length && values[j] < checkingValue) {
             j++;
         }
         return j - valuesStart;
-    }
-
-    function _updateSums(Tree storage self, uint256 key, uint64 time, uint256 delta, bool positive) private {
-        uint256 newRootDepth = sharedPrefix(self.rootDepth, key);
-
-        if (self.rootDepth != newRootDepth) {
-            self.nodes[newRootDepth][BASE_KEY].add(time, self.nodes[self.rootDepth][BASE_KEY].getLast());
-            self.rootDepth = newRootDepth;
-        }
-
-        uint256 mask = uint256(-1);
-        uint256 ancestorKey = key;
-        for (uint256 i = 1; i <= self.rootDepth; i++) {
-            mask = mask << BITS_IN_NIBBLE;
-            ancestorKey = ancestorKey & mask;
-
-            // Invariant: this will never underflow.
-            self.nodes[i][ancestorKey].add(time, positive ? self.nodes[i][ancestorKey].getLast() + delta : self.nodes[i][ancestorKey].getLast() - delta);
-        }
-        // it's only needed to check the last one, as the sum increases going up through the tree
-        require(!positive || self.nodes[self.rootDepth][ancestorKey].getLast() >= delta, ERROR_UPDATE_OVERFLOW);
-    }
-
-    function totalSum(Tree storage self) internal view returns (uint256) {
-        return self.nodes[self.rootDepth][BASE_KEY].getLast();
-    }
-
-    function totalSumPresent(Tree storage self, uint64 currentTime) internal view returns (uint256) {
-        return self.nodes[self.rootDepth][BASE_KEY].getLastPresent(currentTime);
-    }
-
-    function totalSumPast(Tree storage self, uint64 time) internal view returns (uint256) {
-        return self.nodes[self.rootDepth][BASE_KEY].get(time);
-    }
-
-    function get(Tree storage self, uint256 depth, uint256 key) internal view returns (uint256) {
-        return self.nodes[depth][key].getLast();
-    }
-
-    function getPresent(Tree storage self, uint256 depth, uint256 key, uint64 currentTime) internal view returns (uint256) {
-        return self.nodes[depth][key].getLastPresent(currentTime);
-    }
-
-    function getPast(Tree storage self, uint256 depth, uint256 key, uint64 time) internal view returns (uint256) {
-        return self.nodes[depth][key].get(time);
-    }
-
-    function getItem(Tree storage self, uint256 key) internal view returns (uint256) {
-        return self.nodes[INSERTION_DEPTH][key].getLast();
-    }
-
-    function getItemPresent(Tree storage self, uint256 key, uint64 currentTime) internal view returns (uint256) {
-        return self.nodes[INSERTION_DEPTH][key].getLastPresent(currentTime);
-    }
-
-    function getItemPast(Tree storage self, uint256 key, uint64 time) internal view returns (uint256) {
-        return self.nodes[INSERTION_DEPTH][key].get(time);
-    }
-
-    function sharedPrefix(uint256 depth, uint256 key) internal pure returns (uint256) {
-        uint256 shift = depth * BITS_IN_NIBBLE;
-        uint256 mask = uint256(-1) << shift;
-        uint keyAncestor = key & mask;
-
-        if (keyAncestor != BASE_KEY) {
-            return depth + 1;
-        }
-
-        return depth;
-    }
-    /*
-    function sharedPrefix(uint256 depth, uint256 key) internal pure returns (uint256) {
-        uint256 shift = depth * BITS_IN_NIBBLE;
-        uint256 mask = uint256(-1) << shift;
-        uint keyAncestor = key & mask;
-
-        // in our use case this while should only have 1 iteration,
-        // as new keys are always going to be "adjacent"
-        while (keyAncestor != BASE_KEY) {
-            mask = mask << BITS_IN_NIBBLE;
-            keyAncestor &= mask;
-            depth++;
-        }
-        return depth;
-    }
-    */
-
-    function getChildren(Tree storage) internal pure returns (uint256) {
-        return CHILDREN;
-    }
-
-    function getBitsInNibble(Tree storage) internal pure returns (uint256) {
-        return BITS_IN_NIBBLE;
     }
 }

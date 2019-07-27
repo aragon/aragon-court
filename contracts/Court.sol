@@ -112,7 +112,7 @@ contract Court is IStakingOwner, ICRVotingOwner, ISubscriptionsOwner {
     CourtConfig[] public courtConfigs;
 
     // Court state
-    uint64 public termId;
+    uint64 internal termId;
     uint64 public configChangeTermId;
     mapping (uint64 => Term) public terms;
     Dispute[] public disputes;
@@ -482,7 +482,7 @@ contract Court is IStakingOwner, ICRVotingOwner, ISubscriptionsOwner {
         if (round.settledPenalties) {
             // No juror was coherent in the round
             if (round.coherentJurors == 0) {
-                // refund fees and burn ANJ
+                // refund fees and slash jurors
                 accounting.assign(config.feeToken, round.triggeredBy, round.jurorFees);
                 staking.burnTokens(collectedTokens);
             }
@@ -591,8 +591,12 @@ contract Court is IStakingOwner, ICRVotingOwner, ISubscriptionsOwner {
         return (_time() - terms[termId].startTime) / termDuration;
     }
 
-    function ensureAndGetTerm() external returns (uint64) {
+    function ensureAndGetTermId() external returns (uint64) {
         _ensureTerm();
+        return termId;
+    }
+
+    function getTermId() external view returns (uint64) {
         return termId;
     }
 

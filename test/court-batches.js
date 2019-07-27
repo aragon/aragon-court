@@ -232,7 +232,7 @@ contract('Court: Batches', ([ rich, governor, arbitrable, juror1, juror2, juror3
       it('continues draft at a later term (missing batches)', async () => {
         let totalJurorsDrafted = 0
         let callsHistory = []
-        const initialTermId = (await this.court.termId()).toNumber()
+        const initialTermId = (await this.court.getTermId()).toNumber()
         let termsPassed = 0
         while(totalJurorsDrafted < jurors) {
           assert.isFalse(await this.court.areAllJurorsDrafted.call(disputeId, firstRoundId))

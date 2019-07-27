@@ -2,5 +2,6 @@ pragma solidity ^0.4.24;
 
 
 interface IStakingOwner {
-    function ensureAndGetTerm() external returns (uint64);
+    function getTermId() external view returns (uint64);
+    function ensureAndGetTermId() external returns (uint64);
 }

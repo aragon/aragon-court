@@ -84,7 +84,7 @@ contract CourtStaking is IsContract, ERC900, ApproveAndCallFallBack, IStaking {
      * @notice Become an active juror on next term
      */
     function activate() external {
-        uint64 termId = owner.ensureAndGetTerm();
+        uint64 termId = owner.ensureAndGetTermId();
 
         Account storage account = accounts[msg.sender];
         uint256 balance = account.balance;
@@ -114,7 +114,7 @@ contract CourtStaking is IsContract, ERC900, ApproveAndCallFallBack, IStaking {
      * @notice Stop being an active juror on next term
      */
     function deactivate() external {
-        uint64 termId = owner.ensureAndGetTerm();
+        uint64 termId = owner.ensureAndGetTermId();
 
         Account storage account = accounts[msg.sender];
 
@@ -254,7 +254,7 @@ contract CourtStaking is IsContract, ERC900, ApproveAndCallFallBack, IStaking {
      * @dev This is done this way to conform to ERC900 interface
      */
     function unstake(uint256 _amount, bytes) external {
-        uint64 termId = owner.ensureAndGetTerm();
+        uint64 termId = owner.ensureAndGetTermId();
 
         // Make sure deactivation has finished before withdrawing
         require(accounts[msg.sender].deactivationTermId <= termId, ERROR_INVALID_ACCOUNT_STATE);

@@ -22,13 +22,13 @@ const BancorFormula = artifacts.require('@ablack/fundraising-bancor-formula/Banc
 const Controller = artifacts.require('SimpleMarketMakerController')
 const BancorMarketMaker = artifacts.require('@ablack/fundraising-market-maker-bancor/BancorMarketMaker')
 
-const assertEqualBN = async (actualPromise, expected, message) =>
-      assert.equal((await actualPromise).toNumber(), expected, message)
+const assertEqualBN = async (actual, expected, message) =>
+      assert.isTrue(actual.eq(expected), message)
 
 const ANY_ADDR = '0x' + 'ff'.repeat(20)
 const ZERO_ADDRESS = '0x' + '00'.repeat(20)
-const DECIMALS = 1e18
-const NO_DATA = ''
+const DECIMALS = new web3.utils.BN('1' + '0'.repeat(18))
+const NO_DATA = '0x'
 const ERROR_THRESHOLD = 1e-9
 
 contract('Bonding curve', ([ governor, juror1, juror2 ]) => {
@@ -37,12 +37,13 @@ contract('Bonding curve', ([ governor, juror1, juror2 ]) => {
   const TOKEN_MANAGER_ID = hash('token-manager.aragonpm.eth')
   const BANCOR_MARKET_MAKER_ID = hash('bancor-market-maker.aragonpm.eth')
 
-  const INITIAL_BALANCE = new web3.BigNumber(1e6).mul(DECIMALS)
+  const INITIAL_BALANCE = new web3.utils.BN(1e6).mul(DECIMALS)
   const jurors = [ juror1, juror2 ]
 
-  const BLOCKS_IN_BATCH = 10
-  const VIRTUAL_SUPPLY = new web3.BigNumber(1e3).mul(DECIMALS)
-  const VIRTUAL_BALANCE = new web3.BigNumber(1e2).mul(DECIMALS)
+
+  const BLOCKS_IN_BATCH = new web3.utils.BN(10)
+  const VIRTUAL_SUPPLY = new web3.utils.BN(1e3).mul(DECIMALS)
+  const VIRTUAL_BALANCE = new web3.utils.BN(1e2).mul(DECIMALS)
   const RESERVE_RATIO = 100000
 
   const termDuration = 10
@@ -62,7 +63,7 @@ contract('Bonding curve', ([ governor, juror1, juror2 ]) => {
   const setupRecoveryVault = async (dao) => {
     const recoveryVaultAppId = VAULT_ID
     const vaultReceipt = await dao.newAppInstance(recoveryVaultAppId, vaultBase.address, '0x', false, { from: governor })
-    const recoveryVault = Vault.at(getNewProxyAddress(vaultReceipt))
+    const recoveryVault = await Vault.at(getNewProxyAddress(vaultReceipt))
     await recoveryVault.initialize()
     await dao.setApp(await dao.APP_ADDR_NAMESPACE(), recoveryVaultAppId, recoveryVault.address)
     await dao.setRecoveryVaultAppId(recoveryVaultAppId, { from: governor })
@@ -71,9 +72,9 @@ contract('Bonding curve', ([ governor, juror1, juror2 ]) => {
   }
 
   const progressToNextBatch = async () => {
-    let currentBlock = await blockNumber()
+    let currentBlock = new web3.utils.BN(await blockNumber())
     let currentBatch = await this.bancorMarketMaker.getCurrentBatchId()
-    let blocksTilNextBatch = currentBatch.plus(BLOCKS_IN_BATCH).sub(currentBlock)
+    let blocksTilNextBatch = currentBatch.add(BLOCKS_IN_BATCH).sub(currentBlock)
     await increaseBlocks(blocksTilNextBatch)
   }
   const  increaseBlocks = (blocks) => {
@@ -94,7 +95,7 @@ contract('Bonding curve', ([ governor, juror1, juror2 ]) => {
 
   const  increaseBlock = () => {
     return new Promise((resolve, reject) => {
-      web3.currentProvider.sendAsync(
+      web3.currentProvider.send(
         {
           jsonrpc: '2.0',
           method: 'evm_mine',
@@ -126,8 +127,12 @@ contract('Bonding curve', ([ governor, juror1, juror2 ]) => {
     return balance
   }
 
+  const toNumber = x => parseInt(x.toString(), 10)
   const realPurchase = (supply, connectorBalance, reverseReserveRatio, buyAmount) => {
-    return supply * ((1 + buyAmount / connectorBalance)**(1/reverseReserveRatio) - 1)
+    const s = toNumber(supply)
+    const p = toNumber(buyAmount)
+    const b = toNumber(connectorBalance)
+    return s * ((1 + p / b)**(1/reverseReserveRatio) - 1)
   }
 
   before(async () => {
@@ -163,8 +168,8 @@ contract('Bonding curve', ([ governor, juror1, juror2 ]) => {
 
     // deloy DAO for BancorMarketMaker
     const r = await daoFact.newDAO(governor)
-    const dao = Kernel.at(getEventArgument(r, 'DeployDAO', 'dao'))
-    const acl = ACL.at(await dao.acl())
+    const dao = await Kernel.at(getEventArgument(r, 'DeployDAO', 'dao'))
+    const acl = await ACL.at(await dao.acl())
 
     await acl.createPermission(governor, dao.address, APP_MANAGER_ROLE, governor, { from: governor })
 
@@ -175,12 +180,12 @@ contract('Bonding curve', ([ governor, juror1, juror2 ]) => {
     const controller = await Controller.at(getNewProxyAddress(controllerReceipt))
     // token manager
     const tokenManagerReceipt = await dao.newAppInstance(TOKEN_MANAGER_ID, tokenManagerBase.address, '0x', false, { from: governor })
-    const tokenManager = TokenManager.at(getNewProxyAddress(tokenManagerReceipt))
+    const tokenManager = await TokenManager.at(getNewProxyAddress(tokenManagerReceipt))
     await this.anj.changeController(tokenManager.address)
     await tokenManager.initialize(this.anj.address, true, 0)
     // market maker
     const bancorMarketMakerReceipt = await dao.newAppInstance(BANCOR_MARKET_MAKER_ID, bancorMarketMakerBase.address, '0x', false, { from: governor })
-    this.bancorMarketMaker = BancorMarketMaker.at(getNewProxyAddress(bancorMarketMakerReceipt))
+    this.bancorMarketMaker = await BancorMarketMaker.at(getNewProxyAddress(bancorMarketMakerReceipt))
 
     await this.bancorMarketMaker.initialize(
       controller.address,
@@ -236,20 +241,20 @@ contract('Bonding curve', ([ governor, juror1, juror2 ]) => {
     for (let juror of jurors) {
       await this.ant.generateTokens(juror, INITIAL_BALANCE)
       await this.ant.approve(this.bancorMarketMaker.address, INITIAL_BALANCE, { from: juror })
-      await assertEqualBN(this.ant.balanceOf(juror), INITIAL_BALANCE, `juror ${juror} balance`)
+      assertEqualBN(await this.ant.balanceOf(juror), INITIAL_BALANCE, `juror ${juror} balance`)
     }
   })
 
   it('juror can buy into bonding curve', async () => {
-    const amount = new web3.BigNumber(20).mul(DECIMALS)
+    const amount = new web3.utils.BN(20).mul(DECIMALS)
     const initialBalance = await this.anj.balanceOf(juror1)
     const finalBalance = await createAndClaimBuyOrder(juror1, this.ant.address, amount, juror1)
     const expectedBalance = realPurchase(VIRTUAL_SUPPLY, VIRTUAL_BALANCE, 1e6 / RESERVE_RATIO, amount)
-    assert.isTrue(Math.abs(finalBalance.toNumber() - expectedBalance) / expectedBalance < ERROR_THRESHOLD, 'Final balances don\'t match')
+    assert.isTrue(Math.abs(toNumber(finalBalance) - expectedBalance) / expectedBalance < ERROR_THRESHOLD, 'Final balances don\'t match')
   })
 
   it('can stake and activate after buying', async()=> {
-    const amount = new web3.BigNumber(20).mul(DECIMALS)
+    const amount = new web3.utils.BN(20).mul(DECIMALS)
     const finalBalance = await createAndClaimBuyOrder(juror1, this.ant.address, amount, juror1)
     await this.anj.approve(this.staking.address, finalBalance, { from: juror1 })
     await this.staking.stake(finalBalance, NO_DATA, { from: juror1 })

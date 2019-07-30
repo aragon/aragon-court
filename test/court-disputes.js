@@ -160,8 +160,7 @@ contract('Court: Disputes', ([ poor, rich, governor, juror1, juror2, juror3, oth
       const DISPUTE_STATES = {
         PRE_DRAFT: 0,
         ADJUDICATING: 1,
-        EXECUTED: 2,
-        DISMISSED: 3
+        EXECUTED: 2
       }
 
       beforeEach(async () => {
@@ -172,11 +171,12 @@ contract('Court: Disputes', ([ poor, rich, governor, juror1, juror2, juror3, oth
       })
 
       it('gets the correct dispute details', async () => {
-        const [actualSubject, actualRulings, actualState] = await this.court.getDispute(disputeId)
+        const [actualSubject, actualRulings, actualState, winningRuling] = await this.court.getDispute(disputeId)
 
         assert.strictEqual(actualSubject, this.arbitrable.address, 'incorrect dispute subject')
         await assertEqualBN(actualRulings, rulings, 'incorrect dispute rulings')
         await assertEqualBN(actualState, DISPUTE_STATES.PRE_DRAFT, 'incorrect dispute state')
+        await assert.equal(winningRuling, 0, 'incorrect winning ruling')
       })
 
       it('fails to draft outside of the draft term', async () => {
@@ -322,12 +322,10 @@ contract('Court: Disputes', ([ poor, rich, governor, juror1, juror2, juror3, oth
               })
 
               it('gets the correct dispute round details', async () => {
-                const expectedRuling = 1
                 const expectedPenalties = true
                 const expectedSlashing = 4
 
                 const [
-                  actualRuling,
                   actualTerm,
                   actualJurors,
                   actualAccount,
@@ -335,7 +333,6 @@ contract('Court: Disputes', ([ poor, rich, governor, juror1, juror2, juror3, oth
                   actualSlashing
                 ] = await this.court.getAdjudicationRound(disputeId, firstRoundId)
 
-                await assertEqualBN(actualRuling, expectedRuling, 'incorrect round ruling')
                 await assertEqualBN(actualTerm, term, 'incorrect round term')
                 await assertEqualBN(actualJurors, jurors, 'incorrect round jurors')
                 assert.strictEqual(actualAccount, poor, 'incorrect round account')

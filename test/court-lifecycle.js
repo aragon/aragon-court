@@ -31,6 +31,7 @@ const assertLogs = async (receiptPromise, ...logNames) => {
 contract('Court: Lifecycle', ([ poor, rich, governor, juror1, juror2 ]) => {
   const NO_DATA = ''
   const ZERO_ADDRESS = '0x' + '00'.repeat(20)
+  const MAX_UINT64 = 2**64 - 1
   
   const termDuration = 10
   const firstTermStart = 5
@@ -115,12 +116,6 @@ contract('Court: Lifecycle', ([ poor, rich, governor, juror1, juror2 ]) => {
 
   context('before first term', () => {
 
-    const ACCOUNT_STATE = {
-      NOT_JUROR: 0,
-      JUROR: 1,
-      PAST_JUROR: 2,
-    }
-
     it('it in term #0', async () => {
       await assertEqualBN(this.court.termId(), 0, 'court term #0')
     })
@@ -151,22 +146,17 @@ contract('Court: Lifecycle', ([ poor, rich, governor, juror1, juror2 ]) => {
     })
 
     it('gets the correct account details after activation', async () => {
-      const expectedFromTerm = 1
-      const expectedToTerm = 10
+      const expectedToTerm = MAX_UINT64
       const expectedAtStake = 0
       const expectedSumTreeId = 1
-      await this.court.activate(expectedFromTerm, expectedToTerm, {from: rich })
+      await this.court.activate({ from: rich })
 
       const [
-        actualState,
-        actualFromTerm,
         actualToTerm,
         actualAtStake,
         actualSumTreeId
       ] = await this.court.getAccount(rich)
 
-      await assertEqualBN(actualState, ACCOUNT_STATE.JUROR, 'incorrect account state')
-      await assertEqualBN(actualFromTerm, expectedFromTerm, 'incorrect account from term')
       await assertEqualBN(actualToTerm, expectedToTerm, 'incorrect account to term')
       await assertEqualBN(actualAtStake, expectedAtStake, 'incorrect account at stake')
       await assertEqualBN(actualSumTreeId, expectedSumTreeId, 'incorrect account sum tree id')

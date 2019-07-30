@@ -4,6 +4,7 @@
   "description": "",
   "scripts": {
     "test": "TRUFFLE_TEST=true npm run ganache-cli:test",
+    "analysis:tree": "TRUFFLE_TEST=true SUMTREE_GAS_ANALYSIS=true npm run ganache-cli:test",
     "coverage": "SOLIDITY_COVERAGE=true npm run ganache-cli:test",
     "ganache-cli:test": "./node_modules/@aragon/test-helpers/ganache-cli.sh",
     "lint": "solium --dir ./contracts"

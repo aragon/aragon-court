@@ -157,11 +157,26 @@ contract('Court: Disputes', ([ poor, rich, governor, juror1, juror2, juror3, oth
       const firstRoundId = 0
       let voteId
 
+      const DISPUTE_STATES = {
+        PRE_DRAFT: 0,
+        ADJUDICATING: 1,
+        EXECUTED: 2,
+        DISMISSED: 3
+      }
+
       beforeEach(async () => {
         const receipt = await this.court.createDispute(this.arbitrable.address, rulings, jurors, term)
         await assertLogs(receipt, NEW_DISPUTE_EVENT)
         disputeId = getLog(receipt, NEW_DISPUTE_EVENT, 'disputeId')
         voteId = getVoteId(disputeId, firstRoundId)
+      })
+
+      it('gets the correct dispute details', async () => {
+        const [actualSubject, actualRulings, actualState] = await this.court.getDispute(disputeId)
+
+        assert.strictEqual(actualSubject, this.arbitrable.address, 'incorrect dispute subject')
+        await assertEqualBN(actualRulings, rulings, 'incorrect dispute rulings')
+        await assertEqualBN(actualState, DISPUTE_STATES.PRE_DRAFT, 'incorrect dispute state')
       })
 
       it('fails to draft outside of the draft term', async () => {
@@ -304,6 +319,28 @@ contract('Court: Disputes', ([ poor, rich, governor, juror1, juror2, juror3, oth
               beforeEach(async () => {
                 await passTerms(2) // term = 6
                 await assertLogs(this.court.settleRoundSlashing(disputeId, firstRoundId, MAX_UINT256), ROUND_SLASHING_SETTLED_EVENT)
+              })
+
+              it('gets the correct dispute round details', async () => {
+                const expectedRuling = 1
+                const expectedPenalties = true
+                const expectedSlashing = 4
+
+                const [
+                  actualRuling,
+                  actualTerm,
+                  actualJurors,
+                  actualAccount,
+                  actualPenalties,
+                  actualSlashing
+                ] = await this.court.getAdjudicationRound(disputeId, firstRoundId)
+
+                await assertEqualBN(actualRuling, expectedRuling, 'incorrect round ruling')
+                await assertEqualBN(actualTerm, term, 'incorrect round term')
+                await assertEqualBN(actualJurors, jurors, 'incorrect round jurors')
+                assert.strictEqual(actualAccount, poor, 'incorrect round account')
+                assert.strictEqual(actualPenalties, expectedPenalties, 'incorrect round penalties')
+                await assertEqualBN(actualSlashing, expectedSlashing, 'incorrect round slashing')
               })
 
               it('slashed incoherent juror', async () => {

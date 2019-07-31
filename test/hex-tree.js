@@ -107,7 +107,7 @@ contract('Hex Sum Tree', (accounts) => {
     })
 
     it(`tests sortition on all nodes using ${sortitionFunction}`, async () => {
-      const NODES = 512//16 ** 3
+      const NODES = 513 // at least over 16^2 to hit 3 levels, 16^3 gives time outs on CI
       // insert
       for (let i = 0; i < NODES; i++) {
         await tree.insertNoLog(10)
@@ -115,7 +115,6 @@ contract('Hex Sum Tree', (accounts) => {
 
       // sortition
       for (let i = 0; i < NODES; i++) {
-        //console.log(10 * i, (await tree[sortitionFunction].call(10 * i, 0)).toNumber(), i)
         assertBN(await tree[sortitionFunction].call(10 * i, 0), i)
       }
     })

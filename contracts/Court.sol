@@ -640,15 +640,6 @@ contract Court is IStakingOwner, ICRVotingOwner, ISubscriptionsOwner {
         return (round.draftTermId, round.jurorNumber, round.triggeredBy, round.settledPenalties, round.collectedTokens);
     }
 
-    function getAccount(address _accountAddress)
-        external
-        view
-        returns (uint64 deactivationTermId, uint256 atStakeTokens, uint256 sumTreeId)
-    {
-        Account storage account = accounts[_accountAddress];
-        return (account.deactivationTermId, account.atStakeTokens, account.sumTreeId);
-    }
-
     // Voting interface fns
 
     /**

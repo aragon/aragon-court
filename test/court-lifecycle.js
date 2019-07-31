@@ -156,13 +156,16 @@ contract('Court: Lifecycle', ([ poor, rich, governor, juror1, juror2 ]) => {
       const expectedToTerm = MAX_UINT64
       const expectedAtStake = 0
       const expectedSumTreeId = 1
-      await this.court.activate({ from: rich })
+
+      await this.staking.mock_setTime(firstTermStart - 1)
+      await this.court.mock_setTime(firstTermStart - 1)
+      await this.staking.activate({ from: rich })
 
       const [
         actualToTerm,
         actualAtStake,
         actualSumTreeId
-      ] = await this.court.getAccount(rich)
+      ] = await this.staking.getAccount(rich)
 
       await assertEqualBN(actualToTerm, expectedToTerm, 'incorrect account to term')
       await assertEqualBN(actualAtStake, expectedAtStake, 'incorrect account at stake')

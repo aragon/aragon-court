@@ -19,6 +19,10 @@ contract CourtStakingMock is CourtStaking {
         treeSearchHijacked = true;
     }
 
+    function updateTreeBalance(address _juror, uint64 _termId, uint256 _delta, bool _positive) external {
+        sumTree.update(accounts[_juror].sumTreeId, _termId, _delta, _positive);
+    }
+
     function _treeSearch(uint256[7] _params)
         internal
         view

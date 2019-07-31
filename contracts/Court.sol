@@ -139,6 +139,7 @@ contract Court is IStakingOwner, ICRVotingOwner, ISubscriptionsOwner {
     string internal constant ERROR_ROUND_NOT_SETTLED = "CTROUND_NOT_SETTLED";
     string internal constant ERROR_JUROR_ALREADY_REWARDED = "CTJUROR_ALRDY_REWARDED";
     string internal constant ERROR_JUROR_NOT_COHERENT = "CTJUROR_INCOHERENT";
+    string internal constant ERROR_WRONG_PENALTY_PCT = "CTBAD_PENALTY";
 
     uint64 internal constant ZERO_TERM_ID = 0; // invalid term that doesn't accept disputes
     uint64 internal constant MODIFIER_ALLOWED_TERM_TRANSITIONS = 1;
@@ -661,9 +662,11 @@ contract Court is IStakingOwner, ICRVotingOwner, ISubscriptionsOwner {
         _checkAdjudicationState(_disputeId, _roundId, AdjudicationState.Commit);
 
         // weight is the number of times the minimum stake the juror has, multiplied by a precision factor for division roundings
-        weight = FINAL_ROUND_WEIGHT_PRECISION *
-            staking.getAccountPastTreeStake(_voter, disputes[_disputeId].rounds[_roundId].draftTermId) /
-            jurorMinStake;
+        uint256 stake = staking.getAccountPastTreeStake(_voter, disputes[_disputeId].rounds[_roundId].draftTermId);
+        if (stake < jurorMinStake) {
+            return 0;
+        }
+        weight = FINAL_ROUND_WEIGHT_PRECISION * stake / jurorMinStake;
 
         // In the final round, when committing a vote, tokens are collected from the juror's account
         if (weight > 0) {
@@ -671,7 +674,8 @@ contract Court is IStakingOwner, ICRVotingOwner, ISubscriptionsOwner {
             CourtConfig storage config = courtConfigs[terms[round.draftTermId].courtConfigId]; // safe to use directly as it is a past term
 
             // weight is the number of times the minimum stake the juror has, multiplied by a precision factor for division roundings, so we remove that factor here
-            uint256 weightedPenalty = _pct4(jurorMinStake, config.penaltyPct) * weight / FINAL_ROUND_WEIGHT_PRECISION;
+            // this is equivalent to: _pct4(jurorMinStake, config.penaltyPct) * weight / FINAL_ROUND_WEIGHT_PRECISION
+            uint256 weightedPenalty = _pct4(stake, config.penaltyPct);
 
             // Try to lock tokens
             // If there's not enough we just return 0 (so prevent juror from voting).
@@ -895,6 +899,8 @@ contract Court is IStakingOwner, ICRVotingOwner, ISubscriptionsOwner {
         // Where X is the amount of terms in the future a dispute can be scheduled to be drafted at
 
         require(configChangeTermId > termId || termId == ZERO_TERM_ID, ERROR_PAST_TERM_FEE_CHANGE);
+        // We make sure that when applying penalty pct to juror min stake it doesn't result in zero
+        require(uint256(_penaltyPct) * jurorMinStake >= PCT_BASE, ERROR_WRONG_PENALTY_PCT);
 
         for (uint i = 0; i < _roundStateDurations.length; i++) {
             require(_roundStateDurations[i] > 0, ERROR_CONFIG_PERIOD_ZERO_TERMS);

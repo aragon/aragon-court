@@ -38,7 +38,7 @@ const getVoteId = (disputeId, roundId) => {
 }
 
 contract('Court: final appeal', ([ poor, rich, governor, juror1, juror2, juror3, juror4, juror5, juror6, juror7 ]) => {
-  const jurors = [juror1, juror2, juror3, juror4, juror5, juror6, juror7]
+  const jurors = [ juror1, juror2, juror3, juror4, juror5, juror6, juror7 ]
   const NO_DATA = ''
   const ZERO_ADDRESS = '0x' + '00'.repeat(20)
   const SETTLE_BATCH_SIZE = 40
@@ -73,6 +73,7 @@ contract('Court: final appeal', ([ poor, rich, governor, juror1, juror2, juror3,
 
   const ERROR_INVALID_ADJUDICATION_STATE = 'CTBAD_ADJ_STATE'
   const ERROR_INVALID_ADJUDICATION_ROUND = 'CTBAD_ADJ_ROUND'
+  const ERROR_NOT_ALLOWED_BY_OWNER = 'CRV_NOT_ALLOWED_BY_OWNER'
 
   const SALT = soliditySha3('passw0rd')
 
@@ -158,7 +159,7 @@ contract('Court: final appeal', ([ poor, rich, governor, juror1, juror2, juror3,
 
     beforeEach(async () => {
       for (const juror of jurors) {
-        await this.staking.activate({ from: juror })
+        await this.staking.activate({ from: juror })
       }
       await passTerms(1) // term = 1
 
@@ -218,6 +219,20 @@ contract('Court: final appeal', ([ poor, rich, governor, juror1, juror2, juror3,
         const receiptPromise = this.voting.commitVote(voteId, encryptVote(vote), { from: juror })
         await assertLogs(receiptPromise, VOTE_COMMITTED_EVENT)
       }
+    })
+
+    it('reaches final appeal, a juror with less than min stake can not vote', async () => {
+      // poor account will act as a new juror with not enough balance
+      await this.anj.approve(this.staking.address, jurorMinStake, { from: rich })
+      await this.staking.stakeFor(poor, jurorMinStake, NO_DATA, { from: rich })
+      await this.staking.activate({ from: poor })
+      const termId = await this.court.termId()
+      await this.staking.updateTreeBalance(poor, termId + 1, 1, false)
+
+      await moveForwardToFinalRound()
+      const vote = 1
+
+      await assertRevert(this.voting.commitVote(voteId, encryptVote(vote), { from: poor }), ERROR_NOT_ALLOWED_BY_OWNER)
     })
 
     it('fails appealing after final appeal', async () => {

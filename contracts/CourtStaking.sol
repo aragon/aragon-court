@@ -312,22 +312,6 @@ contract CourtStaking is IsContract, ERC900, ApproveAndCallFallBack, IStaking {
         return true;
     }
 
-    /**
-     * @dev Callback of approveAndCall, allows staking directly with a transaction to the token contract.
-     * @param _from The address making the transfer.
-     * @param _amount Amount of tokens to transfer to Kleros (in basic units).
-     * @param _token Token address
-     */
-    function receiveApproval(address _from, uint256 _amount, address _token, bytes)
-        public
-        only(_token)
-    {
-        if (_token == address(jurorToken)) {
-            _stake(_from, _from, _amount);
-            // TODO: Activate depending on data
-        }
-    }
-
     function getAccountSumTreeId(address _juror) external view returns (uint256) {
         return accounts[_juror].sumTreeId;
     }
@@ -371,6 +355,22 @@ contract CourtStaking is IsContract, ERC900, ApproveAndCallFallBack, IStaking {
     function unlockedBalanceOf(address _addr) public view returns (uint256) {
         Account storage account = accounts[_addr];
         return account.balances[jurorToken].sub(account.atStakeTokens);
+    }
+
+    /**
+     * @dev Callback of approveAndCall, allows staking directly with a transaction to the token contract.
+     * @param _from The address making the transfer.
+     * @param _amount Amount of tokens to transfer to Kleros (in basic units).
+     * @param _token Token address
+     */
+    function receiveApproval(address _from, uint256 _amount, address _token, bytes)
+        public
+        only(_token)
+    {
+        if (_token == address(jurorToken)) {
+            _stake(_from, _from, _amount);
+            // TODO: Activate depending on data
+        }
     }
 
     function _treeSearch(uint256[7] _treeSearchParams)

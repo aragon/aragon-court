@@ -48,7 +48,7 @@ const getVoteId = (disputeId, roundId) => {
   return new web3.BigNumber(2).pow(128).mul(disputeId).add(roundId)
 }
 
-contract('Court: Disputes', ([ poor, rich, governor, juror1, juror2, juror3, other ]) => {
+contract('Court: Disputes', ([ rich, governor, juror1, juror2, juror3, other, appealMaker, appealTaker ]) => {
   const NO_DATA = ''
   const ZERO_ADDRESS = '0x' + '00'.repeat(20)
   const MAX_UINT256 = new web3.BigNumber(2).pow(256).sub(1)
@@ -60,6 +60,7 @@ contract('Court: Disputes', ([ poor, rich, governor, juror1, juror2, juror3, oth
   const commitTerms = 1
   const revealTerms = 1
   const appealTerms = 1
+  const appealConfirmTerms = 1
   const penaltyPct = 100 // 100‱ = 1%
   const finalRoundReduction = 3300 // 100‱ = 1%
   
@@ -75,6 +76,7 @@ contract('Court: Disputes', ([ poor, rich, governor, juror1, juror2, juror3, oth
   const VOTE_COMMITTED_EVENT = 'VoteCommitted'
   const VOTE_REVEALED_EVENT = 'VoteRevealed'
   const RULING_APPEALED_EVENT = 'RulingAppealed'
+  const RULING_APPEAL_CONFIRMED_EVENT = 'RulingAppealConfirmed'
   const RULING_EXECUTED_EVENT = 'RulingExecuted'
   const ROUND_SLASHING_SETTLED_EVENT = 'RoundSlashingSettled'
 
@@ -103,7 +105,6 @@ contract('Court: Disputes', ([ poor, rich, governor, juror1, juror2, juror3, oth
     // Mints 1,000,000 tokens for sender
     this.anj = await deployedContract(this.tokenFactory.newToken('ANJ', initialBalance, { from: rich }), MINIME)
     await assertEqualBN(this.anj.balanceOf(rich), initialBalance, 'rich balance')
-    await assertEqualBN(this.anj.balanceOf(poor), 0, 'poor balance')
 
     this.staking = await CourtStakingMock.new()
     this.voting = await CRVoting.new()
@@ -123,7 +124,7 @@ contract('Court: Disputes', ([ poor, rich, governor, juror1, juror2, juror3, oth
       governor,
       firstTermStart,
       jurorMinStake,
-      [ commitTerms, appealTerms, revealTerms ],
+      [ commitTerms, revealTerms, appealTerms, appealConfirmTerms ],
       [ penaltyPct, finalRoundReduction ],
       [ 0, 0, 0, 0, 0 ]
     )
@@ -188,7 +189,7 @@ contract('Court: Disputes', ([ poor, rich, governor, juror1, juror2, juror3, oth
       }
 
       beforeEach(async () => {
-        const receipt = await this.court.createDispute(this.arbitrable.address, rulings, jurors, term)
+        const receipt = await this.court.createDispute(this.arbitrable.address, rulings, jurors, term, { from: rich })
         assertLogs(receipt, NEW_DISPUTE_EVENT)
         disputeId = getLog(receipt, NEW_DISPUTE_EVENT, 'disputeId')
         voteId = getVoteId(disputeId, firstRoundId)
@@ -366,7 +367,7 @@ contract('Court: Disputes', ([ poor, rich, governor, juror1, juror2, juror3, oth
 
                 await assertEqualBN(actualTerm, term, 'incorrect round term')
                 await assertEqualBN(actualJurors, jurors, 'incorrect round jurors')
-                assert.strictEqual(actualAccount, poor, 'incorrect round account')
+                assert.strictEqual(actualAccount, rich, 'incorrect round account')
                 assert.strictEqual(actualPenalties, expectedPenalties, 'incorrect round penalties')
                 await assertEqualBN(actualSlashing, expectedSlashing, 'incorrect round slashing')
               })
@@ -388,19 +389,33 @@ contract('Court: Disputes', ([ poor, rich, governor, juror1, juror2, juror3, oth
               })
             })
 
-            context('on appeal', () => {
+            context.only('on appeal', () => {
               beforeEach(async () => {
                 await passTerms(1) // term = 5
-                assertLogs(await this.court.appealRuling(disputeId, firstRoundId), RULING_APPEALED_EVENT)
+                assertLogs(await this.court.appealRuling(disputeId, firstRoundId, { from: appealMaker }), RULING_APPEALED_EVENT)
               })
 
-              it('drafts jurors', async () => {
+              it('fails to draft without appeal confirmation', async () => {
                 await passTerms(1) // term = 6
                 await this.court.mock_blockTravel(1)
                 await this.court.setTermRandomness()
-                const receipt = await this.court.draftAdjudicationRound(disputeId)
-                assertDeepLogs(receipt, this.staking.abi, JUROR_DRAFTED_EVENT)
-                assertLogs(receipt, DISPUTE_STATE_CHANGED_EVENT)
+                await assertRevert(this.court.draftAdjudicationRound(disputeId), ERROR_ROUND_ALREADY_DRAFTED)
+              })
+
+              context('on appeal confirmation', () => {
+                beforeEach(async () => {
+                  await passTerms(appealTerms)
+                  assertLogs(await this.court.appealConfirm(disputeId, firstRoundId, { from: appealTaker }), RULING_APPEAL_CONFIRMED_EVENT)
+                })
+
+                it('drafts jurors', async () => {
+                  await passTerms(appealConfirmTerms)
+                  await this.court.mock_blockTravel(1)
+                  await this.court.setTermRandomness()
+                  const receipt = await this.court.draftAdjudicationRound(disputeId)
+                  assertDeepLogs(receipt, this.staking.abi, JUROR_DRAFTED_EVENT)
+                  assertLogs(receipt, DISPUTE_STATE_CHANGED_EVENT)
+                })
               })
             })
           })

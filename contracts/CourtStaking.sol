@@ -182,6 +182,8 @@ contract CourtStaking is IsContract, ERC900, ApproveAndCallFallBack, IStaking {
                 if (stakes[i] >= newAtStake) {
                     accounts[juror].atStakeTokens = newAtStake;
                     // check repeated juror, we assume jurors come ordered from tree search
+                    // Notice: as tree search can be called more than once (if some juror doesn't have enough balance),
+                    // the final result of this function may not be ordered and contain repeated entries!
                     if (jurorsLength > 0 && jurors[jurorsLength - 1] == juror) {
                         weights[jurorsLength - 1]++;
                     } else {
@@ -218,7 +220,7 @@ contract CourtStaking is IsContract, ERC900, ApproveAndCallFallBack, IStaking {
             // TODO: stack too deep address juror = _jurors[i];
             uint256 weightedPenalty = _penalties[i];
             Account storage account = accounts[_jurors[i]];
-            account.atStakeTokens -= weightedPenalty;
+            account.atStakeTokens = account.atStakeTokens.sub(weightedPenalty);
 
             // If the juror didn't vote for the final winning ruling
             if (_castVotes[i] != _winningRuling) {
@@ -413,6 +415,10 @@ contract CourtStaking is IsContract, ERC900, ApproveAndCallFallBack, IStaking {
     }
 
     function _assignTokens(ERC20 _token, address _to, uint256 _amount) internal {
+        if (_amount == 0) {
+            return;
+        }
+
         Account storage account = accounts[_to];
         account.balances[_token] = account.balances[_token].add(_amount);
 
@@ -420,6 +426,10 @@ contract CourtStaking is IsContract, ERC900, ApproveAndCallFallBack, IStaking {
     }
 
     function _removeTokens(ERC20 _token, address _from, uint256 _amount) internal {
+        if (_amount == 0) {
+            return;
+        }
+
         Account storage account = accounts[_from];
         account.balances[_token] = account.balances[_token].sub(_amount);
 

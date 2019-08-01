@@ -323,7 +323,7 @@ contract('Court: Batches', ([ rich, governor, arbitrable, juror1, juror2, juror3
     })
 
     it('settles in 2 batches', async () => {
-      const batchSize = 40
+      const batchSize = 4
       await this.court.settleRoundSlashing(disputeId, firstRoundId, batchSize)
       assert.isFalse(await this.court.areAllJurorsSettled.call(disputeId, firstRoundId))
       const receipt = await this.court.settleRoundSlashing(disputeId, firstRoundId, batchSize)

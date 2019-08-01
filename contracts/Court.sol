@@ -796,6 +796,33 @@ contract Court is ERC900, ApproveAndCallFallBack, ICRVotingOwner, ISubscriptions
         return account.balances[jurorToken].sub(account.atStakeTokens);
     }
 
+    function getDispute(uint256 _disputeId)
+        external
+        view
+        returns (address subject, uint8 possibleRulings, DisputeState state, uint8 winningRuling)
+    {
+        Dispute storage dispute = disputes[_disputeId];
+        return (dispute.subject, dispute.possibleRulings, dispute.state, dispute.winningRuling);
+    }
+
+    function getAdjudicationRound(uint256 _disputeId, uint256 _roundId)
+        external
+        view
+        returns (uint64 draftTerm, uint64 jurorNumber, address triggeredBy, bool settledPenalties, uint256 slashedTokens)
+    {
+        AdjudicationRound storage round = disputes[_disputeId].rounds[_roundId];
+        return (round.draftTermId, round.jurorNumber, round.triggeredBy, round.settledPenalties, round.collectedTokens);
+    }
+
+    function getAccount(address _accountAddress)
+        external
+        view
+        returns (uint64 deactivationTermId, uint256 atStakeTokens, uint256 sumTreeId)
+    {
+        Account storage account = accounts[_accountAddress];
+        return (account.deactivationTermId, account.atStakeTokens, account.sumTreeId);
+    }
+
     // Voting interface fns
 
     /**

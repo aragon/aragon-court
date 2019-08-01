@@ -14,36 +14,30 @@ contract CourtMock is Court {
         ERC20 _feeToken,
         ICRVoting _voting,
         ISumTree _sumTree,
-        uint256 _jurorFee,
-        uint256 _heartbeatFee,
-        uint256 _draftFee,
-        uint256 _settleFee,
-        uint16 _governanceShare,
+        ISubscriptions _subscriptions,
+        uint256[4] _fees, // _jurorFee, _heartbeatFee, _draftFee, _settleFee
         address _governor,
         uint64 _firstTermStartTime,
         uint256 _jurorMinStake,
         uint64[3] _roundStateDurations,
-        uint16 _penaltyPct
-        // TODO: stack too deep:
-        //uint16 _finalRoundReduction
+        uint16 _penaltyPct,
+        uint16 _finalRoundReduction,
+        uint256[5] _subscriptionParams // _periodDuration, _feeAmount, _prePaymentPeriods, _latePaymentPenaltyPct, _governorSharePct
     ) Court(
         _termDuration,
         _jurorToken,
         _feeToken,
         _voting,
         _sumTree,
-        _jurorFee,
-        _heartbeatFee,
-        _draftFee,
-        _settleFee,
-        _governanceShare,
+        _subscriptions,
+        _fees,
         _governor,
         _firstTermStartTime,
         _jurorMinStake,
         _roundStateDurations,
-        _penaltyPct
-        // TODO: stack too deep:
-        //_finalRoundReduction
+        _penaltyPct,
+        _finalRoundReduction,
+        _subscriptionParams
     ) public {}
 
     function mock_setTime(uint64 time) external {

@@ -22,6 +22,6 @@
   },
   "dependencies": {
     "@aragon/apps-shared-minime": "^1.0.1",
-    "@aragon/os": "^4.1.0-rc.1"
+    "@aragon/os": "^4.2.0"
   }
 }

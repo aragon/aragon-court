@@ -1,9 +1,10 @@
 pragma solidity ^0.4.24;
 
 import "./lib/HexSumTree.sol";
+import "./standards/sumtree/ISumTree.sol";
 
 
-contract HexSumTreeWrapper {
+contract HexSumTreeWrapper is ISumTree {
     using HexSumTree for HexSumTree.Tree;
 
     string internal constant ERROR_OWNER_ALREADY_SET = "SUMTREE_OWNER_ALREADY_SET";
@@ -57,6 +58,10 @@ contract HexSumTreeWrapper {
 
     function totalSumPresent(uint64 _checkpointTime) external view returns (uint256) {
         return tree.totalSumPresent(_checkpointTime);
+    }
+
+    function totalSumPast(uint64 _checkpointTime) external view returns (uint256) {
+        return tree.totalSumPast(_checkpointTime);
     }
 
     function sortition(uint256 value, uint64 time, bool past) external view returns (uint256 key, uint256 nodeValue) {

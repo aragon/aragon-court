@@ -145,6 +145,18 @@ contract CRVoting is ICRVoting {
         return vote.castVotes[_voter].ruling;
     }
 
+    function getCastVotes(uint256 _voteId, address[] _voters) external view returns (uint8[]) {
+        Vote storage vote = votes[_voteId];
+        require(vote.possibleRulings > 0, ERROR_OUT_OF_BOUNDS);
+
+        uint8[] memory castVotes = new uint8[](_voters.length);
+        for (uint256 i = 0; i < _voters.length; i++) {
+            castVotes[i] = vote.castVotes[_voters[i]].ruling;
+        }
+
+        return castVotes;
+    }
+
     function getRulingVotes(uint256 _voteId, uint8 _ruling) external view returns (uint256) {
         Vote storage vote = votes[_voteId];
         require(vote.possibleRulings > 0, ERROR_OUT_OF_BOUNDS);

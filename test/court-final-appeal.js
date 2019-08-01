@@ -1,8 +1,11 @@
 const { assertRevert } = require('@aragon/os/test/helpers/assertThrow')
+// TODO: add/modify aragonOS
+const { decodeEventsOfType } = require('./helpers/decodeEvent')
 const { soliditySha3 } = require('web3-utils')
 
 const TokenFactory = artifacts.require('TokenFactory')
 const CourtMock = artifacts.require('CourtMock')
+const CourtStakingMock = artifacts.require('CourtStakingMock')
 const CRVoting = artifacts.require('CRVoting')
 const SumTree = artifacts.require('HexSumTreeWrapper')
 const Subscriptions = artifacts.require('SubscriptionsMock')
@@ -14,10 +17,8 @@ const getLog = (receipt, logName, argName) => {
   return log ? log.args[argName] : null
 }
 
-const getLogCount = (receipt, logName) => {
-  const logs = receipt.logs.filter(l => l.event == logName)
-  return logs.length
-}
+const getLogCount = (receipt, contractAbi, eventName) =>
+      decodeEventsOfType(receipt, contractAbi, eventName).length
 
 const deployedContract = async (receiptPromise, name) =>
       artifacts.require(name).at(getLog(await receiptPromise, 'Deployed', 'addr'))
@@ -46,7 +47,7 @@ contract('Court: final appeal', ([ poor, rich, governor, juror1, juror2, juror3,
   let APPEAL_STEP_FACTOR
 
   const termDuration = 10
-  const firstTermStart = 1
+  const firstTermStart = 10
   const jurorMinStake = 200
   const startBlock = 1000
   const commitTerms = 1
@@ -70,9 +71,8 @@ contract('Court: final appeal', ([ poor, rich, governor, juror1, juror2, juror3,
   const ROUND_SLASHING_SETTLED_EVENT = 'RoundSlashingSettled'
   const REWARD_SETTLED_EVENT = 'RewardSettled'
 
-  const ERROR_INVALID_ADJUDICATION_STATE = 'COURT_INVALID_ADJUDICATION_STATE'
-  const ERROR_INVALID_ADJUDICATION_ROUND = 'COURT_INVALID_ADJUDICATION_ROUND'
-  const ERROR_FINAL_ROUNDS_PENDING = 'COURT_FINAL_ROUNDS_PENDING'
+  const ERROR_INVALID_ADJUDICATION_STATE = 'CTBAD_ADJ_STATE'
+  const ERROR_INVALID_ADJUDICATION_ROUND = 'CTBAD_ADJ_ROUND'
 
   const SALT = soliditySha3('passw0rd')
 
@@ -94,6 +94,7 @@ contract('Court: final appeal', ([ poor, rich, governor, juror1, juror2, juror3,
     await assertEqualBN(this.anj.balanceOf(rich), initialBalance, 'rich balance')
     await assertEqualBN(this.anj.balanceOf(poor), 0, 'poor balance')
 
+    this.staking = await CourtStakingMock.new()
     this.voting = await CRVoting.new()
     this.sumTree = await SumTree.new()
     this.subscriptions = await Subscriptions.new()
@@ -101,8 +102,8 @@ contract('Court: final appeal', ([ poor, rich, governor, juror1, juror2, juror3,
 
     this.court = await CourtMock.new(
       termDuration,
-      this.anj.address,
-      ZERO_ADDRESS, // no fees
+      [ this.anj.address, ZERO_ADDRESS ], // no fees
+      this.staking.address,
       this.voting.address,
       this.sumTree.address,
       this.subscriptions.address,
@@ -111,8 +112,7 @@ contract('Court: final appeal', ([ poor, rich, governor, juror1, juror2, juror3,
       firstTermStart,
       jurorMinStake,
       [ commitTerms, appealTerms, revealTerms ],
-      penaltyPct,
-      finalRoundReduction,
+      [ penaltyPct, finalRoundReduction ],
       [ 0, 0, 0, 0, 0 ]
     )
 
@@ -122,24 +122,25 @@ contract('Court: final appeal', ([ poor, rich, governor, juror1, juror2, juror3,
 
     await this.court.mock_setBlockNumber(startBlock)
 
-    assert.equal(await this.court.token(), this.anj.address, 'court token')
-    //assert.equal(await this.court.jurorToken(), this.anj.address, 'court juror token')
-    await assertEqualBN(this.court.mock_treeTotalSum(), 0, 'empty sum tree')
+    assert.equal(await this.staking.token(), this.anj.address, 'court token')
+    //assert.equal(await this.staking.jurorToken(), this.anj.address, 'court juror token')
+    await assertEqualBN(this.staking.mock_treeTotalSum(), 0, 'empty sum tree')
 
-    await this.anj.approveAndCall(this.court.address, richStake, NO_DATA, { from: rich })
+    await this.anj.approveAndCall(this.staking.address, richStake, NO_DATA, { from: rich })
 
     for (let juror of jurors) {
-      await this.anj.approve(this.court.address, jurorGenericStake, { from: rich })
-      await this.court.stakeFor(juror, jurorGenericStake, NO_DATA, { from: rich })
+      await this.anj.approve(this.staking.address, jurorGenericStake, { from: rich })
+      await this.staking.stakeFor(juror, jurorGenericStake, NO_DATA, { from: rich })
     }
 
-    await assertEqualBN(this.court.totalStakedFor(rich), richStake, 'rich stake')
+    await assertEqualBN(this.staking.totalStakedFor(rich), richStake, 'rich stake')
     for (let juror of jurors) {
-      await assertEqualBN(this.court.totalStakedFor(juror), jurorGenericStake, 'juror stake')
+      await assertEqualBN(this.staking.totalStakedFor(juror), jurorGenericStake, 'juror stake')
     }
   })
 
   const passTerms = async terms => {
+    await this.staking.mock_timeTravel(terms * termDuration)
     await this.court.mock_timeTravel(terms * termDuration)
     await this.court.heartbeat(terms)
     await this.court.mock_blockTravel(1)
@@ -157,7 +158,7 @@ contract('Court: final appeal', ([ poor, rich, governor, juror1, juror2, juror3,
 
     beforeEach(async () => {
       for (const juror of jurors) {
-        await this.court.activate({ from: juror })
+        await this.staking.activate({ from: juror })
       }
       await passTerms(1) // term = 1
 
@@ -176,7 +177,7 @@ contract('Court: final appeal', ([ poor, rich, governor, juror1, juror2, juror3,
 
       while (roundJurorsDrafted < roundJurors) {
         draftReceipt = await this.court.draftAdjudicationRound(disputeId)
-        const callJurorsDrafted = getLogCount(draftReceipt, JUROR_DRAFTED_EVENT)
+        const callJurorsDrafted = getLogCount(draftReceipt, this.staking.abi, JUROR_DRAFTED_EVENT)
         roundJurorsDrafted += callJurorsDrafted
       }
       await assertLogs(draftReceipt, DISPUTE_STATE_CHANGED_EVENT)
@@ -277,7 +278,7 @@ contract('Court: final appeal', ([ poor, rich, governor, juror1, juror2, juror3,
           let roundSlashingEvent = 0
           while (roundSlashingEvent == 0) {
             const receiptPromise = await this.court.settleRoundSlashing(disputeId, roundId, SETTLE_BATCH_SIZE)
-            roundSlashingEvent = getLogCount(receiptPromise, ROUND_SLASHING_SETTLED_EVENT)
+            roundSlashingEvent = getLogCount(receiptPromise, this.court.abi, ROUND_SLASHING_SETTLED_EVENT)
           }
         }
       })
@@ -285,7 +286,7 @@ contract('Court: final appeal', ([ poor, rich, governor, juror1, juror2, juror3,
       it('winning jurors get reward', async () => {
         for (let i = 0; i < winningJurors; i++) {
           const tokenBalance = (await this.anj.balanceOf(jurors[i])).toNumber()
-          const courtBalance = (await this.court.totalStakedFor(jurors[i])).toNumber()
+          const courtBalance = (await this.staking.totalStakedFor(jurors[i])).toNumber()
           const receiptPromise = this.court.settleReward(disputeId, MAX_REGULAR_APPEAL_ROUNDS, jurors[i], { from: jurors[i] })
           await assertLogs(receiptPromise, REWARD_SETTLED_EVENT)
 
@@ -293,14 +294,14 @@ contract('Court: final appeal', ([ poor, rich, governor, juror1, juror2, juror3,
           assert.equal(tokenBalance, (await this.anj.balanceOf(jurors[i])).toNumber(), `token balance doesn't match for juror ${i}`)
 
           const reward = Math.floor(penalty * jurors.length * weight / winningJurors)
-          assert.equal(courtBalance + reward, (await this.court.totalStakedFor(jurors[i])).toNumber(), `balance in court doesn't match for juror ${i}`)
+          assert.equal(courtBalance + reward, (await this.staking.totalStakedFor(jurors[i])).toNumber(), `balance in court doesn't match for juror ${i}`)
         }
       })
 
       it('losers jurors have penalty', async () => {
         for (let i = winningJurors; i < initialJurorNumber; i++) {
           const tokenBalance = (await this.anj.balanceOf(jurors[i])).toNumber()
-          const courtBalance = (await this.court.totalStakedFor(jurors[i])).toNumber()
+          const courtBalance = (await this.staking.totalStakedFor(jurors[i])).toNumber()
           const receiptPromise = this.court.settleFinalRounds(jurors[i], 2)
           await assertLogs(receiptPromise, REWARD_SETTLED_EVENT)
 
@@ -308,7 +309,7 @@ contract('Court: final appeal', ([ poor, rich, governor, juror1, juror2, juror3,
           assert.equal(tokenBalance, (await this.anj.balanceOf(jurors[i])).toNumber(), `token balance doesn't match for juror ${i}`)
 
           const weightedPenalty = Math.floor(penalty * (jurors.length - winningJurors) * weight / winningJurors)
-          assert.equal(courtBalance + weightedPenalty, (await this.court.totalStakedFor(jurors[i])).toNumber(), `balance in court doesn't match for juror ${i}`)
+          assert.equal(courtBalance + weightedPenalty, (await this.staking.totalStakedFor(jurors[i])).toNumber(), `balance in court doesn't match for juror ${i}`)
         }
       })
     })

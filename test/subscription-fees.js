@@ -13,12 +13,14 @@ const assertEqualBN = async (actualPromise, expected, message) =>
 const assertEqualBNs = (actual, expected, message) =>
       assert.equal(actual.toNumber(), expected.toNumber(), message)
 
-const getLog = (receipt, logName, argName) => {
+const getLog = async (receiptPromise, logName, argName) => {
+  const receipt = await receiptPromise
   const log = receipt.logs.find(({ event }) => event == logName)
   return log ? log.args[argName] : null
 }
 
-const assertLogs = (receipt, ...logNames) => {
+const assertLogs = async (receiptPromise, ...logNames) => {
+  const receipt = await receiptPromise
   for (const logName of logNames) {
     assert.isNotNull(getLog(receipt, logName), `Expected ${logName} in receipt`)
   }

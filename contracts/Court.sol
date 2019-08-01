@@ -359,14 +359,21 @@ contract Court is IStakingOwner, ICRVotingOwner, ISubscriptionsOwner {
             uint256 jurorsLength,
             uint64 filledSeats
         ) = staking.draft(draftParams);
-        // reduce jurors array length because of repeated jurors
-        round.jurors.length -= jurorsRequested - jurorsLength;
         uint256 nextJurorIndex = round.nextJurorIndex;
+        uint256 jurorsRepeated = 0;
         for (uint256 i = 0; i < jurorsLength; i++) {
             // TODO: stack too deep: address juror = jurors[i];
-            round.jurors[nextJurorIndex + i] = jurors[i];
+            if (round.jurorSlotStates[jurors[i]].weight  == 0) { // new juror
+                round.jurors[nextJurorIndex + i - jurorsRepeated] = jurors[i];
+            } else { // repeated juror
+                jurorsRepeated++;
+            }
             round.jurorSlotStates[jurors[i]].weight += weights[i];
         }
+        jurorsLength -= jurorsRepeated;
+        // reduce jurors array length because of repeated jurors
+        // Althoguh draft function does some grouping, jurors can still be unordered and repeated
+        round.jurors.length -= jurorsRequested - jurorsLength;
         // invariant: sum(weights) = jurorsRequested
         round.nextJurorIndex += uint64(jurorsLength);
         round.filledSeats = filledSeats;

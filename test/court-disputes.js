@@ -30,13 +30,15 @@ const deployedContract = async (receiptPromise, name) =>
 const assertEqualBN = async (actualPromise, expected, message) =>
   assert.equal((await actualPromise).toNumber(), expected, message)
 
-const assertLogs = async (receipt, ...logNames) => {
+const assertLogs = async (receiptPromise, ...logNames) => {
+  const receipt = await receiptPromise
   for (const logName of logNames) {
     assert.isNotNull(getLog(receipt, logName), `Expected ${logName} in receipt`)
   }
 }
 
-const assertDeepLogs = async (receipt, contractAbi, ...logNames) => {
+const assertDeepLogs = async (receiptPromise, contractAbi, ...logNames) => {
+  const receipt = await receiptPromise
   for (const logName of logNames) {
     assert.isNotNull(getDeepLog(receipt, contractAbi, logName), `Expected ${logName} in receipt`)
   }

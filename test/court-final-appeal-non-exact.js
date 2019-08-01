@@ -26,7 +26,8 @@ const deployedContract = async (receiptPromise, name) =>
 const assertEqualBN = async (actualPromise, expected, message) =>
       assert.equal((await actualPromise).toNumber(), expected, message)
 
-const assertLogs = async (receipt, ...logNames) => {
+const assertLogs = async (receiptPromise, ...logNames) => {
+  const receipt = await receiptPromise
   for (const logName of logNames) {
     assert.isNotNull(getLog(receipt, logName), `Expected ${logName} in receipt`)
   }

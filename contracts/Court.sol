@@ -26,7 +26,6 @@ contract Court is IStakingOwner, ICRVotingOwner, ISubscriptionsOwner {
     uint64 internal constant APPEAL_STEP_FACTOR = 3;
     uint8 public constant APPEAL_COLLATERAL_FACTOR = 3; // multiple of juror fees required to appeal a preliminary ruling
     uint8 public constant APPEAL_CONFIRMATION_COLLATERAL_FACTOR = 2; // multiple of juror fees required to confirm appeal
-    uint8 public constant POSSIBLE_APPEALS_SUM = 5; // to easily switch between opposite appeal rulings
     // TODO: move all other constants up here
 
     struct CourtConfig {
@@ -86,6 +85,13 @@ contract Court is IStakingOwner, ICRVotingOwner, ISubscriptionsOwner {
         // for regular rounds this contains penalties from non-winning jurors, collected after reveal period
         // for the final round it contains all potential penalties from jurors that voted, as they are collected when jurors commit vote
         uint256 collectedTokens;
+    }
+
+    // TODO: unifiy this with CRVoting!
+    enum Ruling {
+        Missing,
+        Refused
+        // ruling options are dispute specific
     }
 
     struct Appealer {
@@ -148,6 +154,7 @@ contract Court is IStakingOwner, ICRVotingOwner, ISubscriptionsOwner {
     string internal constant ERROR_ROUND_NOT_APPEALED = "CTROUND_NOT_APPEALED";
     string internal constant ERROR_ROUND_APPEAL_ALREADY_SETTLED = "CTAPPEAL_ALRDY_SETTLED";
     string internal constant ERROR_ROUND_APPEAL_ALREADY_CONFIRMED = "CTAPPEAL_ALRDY_CONFIRMED";
+    string internal constant ERROR_INVALID_RULING = "CTBAD_RULING";
     string internal constant ERROR_INVALID_JUROR = "CTBAD_JUROR";
     // TODO: string internal constant ERROR_INVALID_DISPUTE_CREATOR = "CTBAD_DISPUTE_CREATOR";
     string internal constant ERROR_SUBSCRIPTION_NOT_PAID = "CTSUBSC_UNPAID";
@@ -385,7 +392,7 @@ contract Court is IStakingOwner, ICRVotingOwner, ISubscriptionsOwner {
         uint256 jurorsRepeated = 0;
         for (uint256 i = 0; i < jurorsLength; i++) {
             // TODO: stack too deep: address juror = jurors[i];
-            if (round.jurorSlotStates[jurors[i]].weight  == 0) { // new juror
+            if (round.jurorSlotStates[jurors[i]].weight == 0) { // new juror
                 round.jurors[nextJurorIndex + i - jurorsRepeated] = jurors[i];
             } else { // repeated juror
                 jurorsRepeated++;
@@ -425,7 +432,7 @@ contract Court is IStakingOwner, ICRVotingOwner, ISubscriptionsOwner {
     /**
      * @notice Appeal round #`_roundId` ruling in dispute #`_disputeId`
      */
-    function appealRuling(uint256 _disputeId, uint256 _roundId) external ensureTerm {
+    function appealRuling(uint256 _disputeId, uint256 _roundId, uint8 forRuling) external ensureTerm {
         _checkAdjudicationState(_disputeId, _roundId, AdjudicationState.Appeal);
 
         Dispute storage dispute = disputes[_disputeId];
@@ -434,12 +441,17 @@ contract Court is IStakingOwner, ICRVotingOwner, ISubscriptionsOwner {
         require(!_isRoundAppealed(currentRound), ERROR_ROUND_ALREADY_APPEALED); // This ruling hasn't been appealed yet
 
         uint8 currentRuling = _getRoundWinningRuling(_disputeId, _roundId);
-        uint8 forRuling = POSSIBLE_APPEALS_SUM - currentRuling; // Appealing for a different ruling
+        // check correct ruling
+        require(
+            forRuling > uint8(Ruling.Refused) &&
+            forRuling <= uint8(Ruling.Refused) + MAX_RULING_OPTIONS &&
+            forRuling != currentRuling,
+            ERROR_INVALID_RULING
+        );
 
-        (,, ERC20 feeToken, uint256 feeAmount,) = _getNextAppealDetails(currentRound, _roundId);
+        (, , ERC20 feeToken, uint256 feeAmount, , uint256 appealDeposit,) = _getNextAppealDetails(currentRound, _roundId);
 
         // pay round collateral
-        uint256 appealDeposit = feeAmount * APPEAL_COLLATERAL_FACTOR;
         _payGeneric(feeToken, appealDeposit);
 
         // add Appealer
@@ -454,7 +466,7 @@ contract Court is IStakingOwner, ICRVotingOwner, ISubscriptionsOwner {
     /**
      * @notice Confirm appeal for #`_roundId` ruling in dispute #`_disputeId`
      */
-    function appealConfirm(uint256 _disputeId, uint256 _roundId) external ensureTerm {
+    function appealConfirm(uint256 _disputeId, uint256 _roundId, uint8 forRuling) external ensureTerm {
         _checkAdjudicationState(_disputeId, _roundId, AdjudicationState.AppealConfirm);
 
         Dispute storage dispute = disputes[_disputeId];
@@ -462,14 +474,22 @@ contract Court is IStakingOwner, ICRVotingOwner, ISubscriptionsOwner {
 
         require(_isRoundAppealed(currentRound), ERROR_ROUND_NOT_APPEALED); // The ruling was appealed
         require(!_isRoundAppealConfirmed(currentRound), ERROR_ROUND_APPEAL_ALREADY_CONFIRMED); // but not confirmed
-        uint8 forRuling = POSSIBLE_APPEALS_SUM - currentRound.appealMaker.forRuling; // Appealing for a different ruling
+        // check correct ruling
+        require(
+            forRuling > uint8(Ruling.Refused) &&
+            forRuling <= uint8(Ruling.Refused) + MAX_RULING_OPTIONS &&
+            forRuling != currentRound.appealMaker.forRuling,
+            ERROR_INVALID_RULING
+        );
 
         (
             uint64 appealDraftTermId,
             uint64 appealJurorNumber,
             ERC20 feeToken,
             uint256 feeAmount,
-            uint256 jurorFees
+            uint256 jurorFees,
+            ,
+            uint256 appealConfirmDeposit
         ) = _getNextAppealDetails(currentRound, _roundId);
 
         // create round
@@ -485,14 +505,13 @@ contract Court is IStakingOwner, ICRVotingOwner, ISubscriptionsOwner {
         // pay round fees
         _payGeneric(feeToken, feeAmount);
         // pay round collateral
-        uint256 appealDeposit = feeAmount * APPEAL_CONFIRMATION_COLLATERAL_FACTOR;
-        _payGeneric(feeToken, appealDeposit);
+        _payGeneric(feeToken, appealConfirmDeposit);
 
         // add Appealer
         currentRound.appealTaker.appealer = msg.sender;
         currentRound.appealTaker.forRuling = forRuling;
         currentRound.appealTaker.depositToken = feeToken;
-        currentRound.appealTaker.depositAmount = appealDeposit;
+        currentRound.appealTaker.depositAmount = appealConfirmDeposit;
 
         emit RulingAppealConfirmed(_disputeId, newRoundId, appealDraftTermId, appealJurorNumber);
     }
@@ -728,7 +747,15 @@ contract Court is IStakingOwner, ICRVotingOwner, ISubscriptionsOwner {
     function getNextAppealDetails(uint256 _disputeId, uint256 _roundId)
         public
         view
-        returns (uint64 appealDraftTermId, uint64 appealJurorNumber, ERC20 feeToken, uint256 feeAmount, uint256 jurorFees)
+        returns (
+            uint64 appealDraftTermId,
+            uint64 appealJurorNumber,
+            ERC20 feeToken,
+            uint256 feeAmount,
+            uint256 jurorFees,
+            uint256 appealDeposit,
+            uint256 appealConfirmDeposit
+        )
     {
         AdjudicationRound storage currentRound = disputes[_disputeId].rounds[_roundId];
 
@@ -893,7 +920,15 @@ contract Court is IStakingOwner, ICRVotingOwner, ISubscriptionsOwner {
     )
         internal
         view
-        returns (uint64 appealDraftTermId, uint64 appealJurorNumber, ERC20 feeToken, uint256 feeAmount, uint256 jurorFees)
+        returns (
+            uint64 appealDraftTermId,
+            uint64 appealJurorNumber,
+            ERC20 feeToken,
+            uint256 feeAmount,
+            uint256 jurorFees,
+            uint256 appealDeposit,
+            uint256 appealConfirmDeposit
+        )
     {
         require(_roundId < MAX_REGULAR_APPEAL_ROUNDS, ERROR_INVALID_ADJUDICATION_ROUND);
 
@@ -907,6 +942,10 @@ contract Court is IStakingOwner, ICRVotingOwner, ISubscriptionsOwner {
             appealJurorNumber = _getRegularAdjudicationRoundJurorNumber(_currentRound.jurorNumber);
             (feeToken, feeAmount, jurorFees) = _getFeesForRegularRound(appealDraftTermId, appealJurorNumber);
         }
+
+        // collateral
+        appealDeposit = feeAmount * APPEAL_COLLATERAL_FACTOR;
+        appealConfirmDeposit = feeAmount * APPEAL_CONFIRMATION_COLLATERAL_FACTOR;
     }
 
     function _getRegularAdjudicationRoundJurorNumber(uint64 _currentRoundJurorNumber) internal pure returns (uint64 appealJurorNumber) {

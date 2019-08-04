@@ -71,6 +71,7 @@ contract Court is IStakingOwner, ICRVotingOwner, ISubscriptionsOwner {
         mapping (address => JurorState) jurorSlotStates;
         Appealer appealMaker;
         Appealer appealTaker;
+        ERC20 depositToken;
         uint64 draftTermId;
         uint64 delayTerms;
         uint64 jurorNumber;
@@ -97,7 +98,6 @@ contract Court is IStakingOwner, ICRVotingOwner, ISubscriptionsOwner {
     struct Appealer {
         address appealer;
         uint8 forRuling;
-        ERC20 depositToken;
         uint256 depositAmount;
     }
 
@@ -449,7 +449,7 @@ contract Court is IStakingOwner, ICRVotingOwner, ISubscriptionsOwner {
             ERROR_INVALID_RULING
         );
 
-        (, , ERC20 feeToken, uint256 feeAmount, , uint256 appealDeposit,) = _getNextAppealDetails(currentRound, _roundId);
+        (, , ERC20 feeToken, , , uint256 appealDeposit,) = _getNextAppealDetails(currentRound, _roundId);
 
         // pay round collateral
         _payGeneric(feeToken, appealDeposit);
@@ -457,7 +457,7 @@ contract Court is IStakingOwner, ICRVotingOwner, ISubscriptionsOwner {
         // add Appealer
         currentRound.appealMaker.appealer = msg.sender;
         currentRound.appealMaker.forRuling = forRuling;
-        currentRound.appealMaker.depositToken = feeToken;
+        currentRound.depositToken = feeToken;
         currentRound.appealMaker.depositAmount = appealDeposit;
 
         emit RulingAppealed(_disputeId, _roundId, forRuling);
@@ -502,15 +502,14 @@ contract Court is IStakingOwner, ICRVotingOwner, ISubscriptionsOwner {
             newRoundId = _createRound(_disputeId, DisputeState.PreDraft, appealDraftTermId, appealJurorNumber, jurorFees);
         }
 
-        // pay round fees
-        _payGeneric(feeToken, feeAmount);
+        // pay round fees (jurorFees are included in appeal collateral)
+        _payGeneric(feeToken, feeAmount - jurorFees);
         // pay round collateral
         _payGeneric(feeToken, appealConfirmDeposit);
 
         // add Appealer
         currentRound.appealTaker.appealer = msg.sender;
         currentRound.appealTaker.forRuling = forRuling;
-        currentRound.appealTaker.depositToken = feeToken;
         currentRound.appealTaker.depositAmount = appealConfirmDeposit;
 
         emit RulingAppealConfirmed(_disputeId, newRoundId, appealDraftTermId, appealJurorNumber);
@@ -528,26 +527,25 @@ contract Court is IStakingOwner, ICRVotingOwner, ISubscriptionsOwner {
         require(_isRoundAppealed(round), ERROR_ROUND_NOT_APPEALED);
         require(!round.settledAppeals, ERROR_ROUND_APPEAL_ALREADY_SETTLED);
 
+        ERC20 depositToken = round.depositToken;
         if (!_isRoundAppealConfirmed(round)) {
             // return entire deposit to appealer
-            staking.assignTokens(appealMaker.depositToken, appealMaker.appealer, appealMaker.depositAmount);
+            staking.assignTokens(depositToken, appealMaker.appealer, appealMaker.depositAmount);
         } else {
             Appealer storage appealTaker = round.appealTaker;
 
             // as round penalties were settled, we are sure we already have final ruling
             uint8 winningRuling = dispute.winningRuling;
-            uint256 totalDepositMultiplier = APPEAL_COLLATERAL_FACTOR + APPEAL_CONFIRMATION_COLLATERAL_FACTOR;
             uint256 totalDeposit = appealMaker.depositAmount + appealTaker.depositAmount;
-            // deposits are a multiple of juror fees, given that the round was initiated
-            uint256 jurorFees = totalDeposit / totalDepositMultiplier;
+            uint256 jurorFees = round.jurorFees;
 
             if (appealMaker.forRuling == winningRuling) {
-                staking.assignTokens(appealMaker.depositToken, appealMaker.appealer, totalDeposit - jurorFees);
+                staking.assignTokens(depositToken, appealMaker.appealer, totalDeposit - jurorFees);
             } else if (appealTaker.forRuling == winningRuling) {
-                staking.assignTokens(appealMaker.depositToken, appealTaker.appealer, totalDeposit - jurorFees);
+                staking.assignTokens(depositToken, appealTaker.appealer, totalDeposit - jurorFees);
             } else {
-                staking.assignTokens(appealMaker.depositToken, appealMaker.appealer, appealMaker.depositAmount - jurorFees / 2);
-                staking.assignTokens(appealMaker.depositToken, appealTaker.appealer, appealTaker.depositAmount - jurorFees / 2);
+                staking.assignTokens(depositToken, appealMaker.appealer, appealMaker.depositAmount - jurorFees / 2);
+                staking.assignTokens(depositToken, appealTaker.appealer, appealTaker.depositAmount - jurorFees / 2);
             }
         }
 
@@ -944,8 +942,8 @@ contract Court is IStakingOwner, ICRVotingOwner, ISubscriptionsOwner {
         }
 
         // collateral
-        appealDeposit = feeAmount * APPEAL_COLLATERAL_FACTOR;
-        appealConfirmDeposit = feeAmount * APPEAL_CONFIRMATION_COLLATERAL_FACTOR;
+        appealDeposit = jurorFees * APPEAL_COLLATERAL_FACTOR;
+        appealConfirmDeposit = jurorFees * APPEAL_CONFIRMATION_COLLATERAL_FACTOR;
     }
 
     function _getRegularAdjudicationRoundJurorNumber(uint64 _currentRoundJurorNumber) internal pure returns (uint64 appealJurorNumber) {

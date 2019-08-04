@@ -331,6 +331,10 @@ contract CourtStaking is IsContract, ERC900, ApproveAndCallFallBack, IStaking {
         return (account.deactivationTermId, account.atStakeTokens, account.sumTreeId);
     }
 
+    function tokenBalanceOf(address _token, address _addr) external view returns (uint256) {
+        return accounts[_addr].balances[_token];
+    }
+
     function totalStaked() external view returns (uint256) {
         return jurorToken.balanceOf(this);
     }

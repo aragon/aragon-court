@@ -537,20 +537,24 @@ contract Court is IStakingOwner, ICRVotingOwner, ISubscriptionsOwner {
             // as round penalties were settled, we are sure we already have final ruling
             uint8 winningRuling = dispute.winningRuling;
             uint256 totalDeposit = appealMaker.depositAmount + appealTaker.depositAmount;
-            uint256 jurorFees = round.jurorFees;
+            uint256 jurorFees = dispute.rounds[_roundId + 1].jurorFees;
 
             if (appealMaker.forRuling == winningRuling) {
                 staking.assignTokens(depositToken, appealMaker.appealer, totalDeposit - jurorFees);
+                emit LogSA(appealMaker.forRuling, appealTaker.forRuling, winningRuling, totalDeposit, jurorFees);
             } else if (appealTaker.forRuling == winningRuling) {
                 staking.assignTokens(depositToken, appealTaker.appealer, totalDeposit - jurorFees);
+                emit LogSA(appealMaker.forRuling, appealTaker.forRuling, winningRuling, totalDeposit, jurorFees);
             } else {
                 staking.assignTokens(depositToken, appealMaker.appealer, appealMaker.depositAmount - jurorFees / 2);
                 staking.assignTokens(depositToken, appealTaker.appealer, appealTaker.depositAmount - jurorFees / 2);
+                emit LogSA(appealMaker.forRuling, appealTaker.forRuling, winningRuling, totalDeposit, jurorFees);
             }
         }
 
         round.settledAppeals = true;
     }
+    event LogSA(uint8 mr, uint8 tr, uint8 wr, uint td, uint jf);
 
     /**
      * @notice Execute the final ruling of dispute #`_disputeId`

@@ -28,7 +28,7 @@ contract('CourtAccounting', ([_, owner, holder, someone]) => {
     })
   })
 
-  describe('deposit', () => {
+  describe('assign', () => {
     beforeEach('initialize the accounting', async () => {
       await accounting.init(owner)
     })
@@ -50,7 +50,7 @@ contract('CourtAccounting', ([_, owner, holder, someone]) => {
             //       since they are testing with zero fees
 
             it.skip('reverts', async () => {
-              await assertRevert(accounting.deposit(DAI.address, account, amount, { from }), 'ACCOUNTING_DEPOSIT_AMOUNT_ZERO')
+              await assertRevert(accounting.assign(DAI.address, account, amount, { from }), 'ACCOUNTING_DEPOSIT_AMOUNT_ZERO')
             })
           })
 
@@ -58,24 +58,24 @@ contract('CourtAccounting', ([_, owner, holder, someone]) => {
             const amount = bigExp(10, 18)
 
             it('adds the new balance to the previous token balance', async () => {
-              await accounting.deposit(DAI.address, account, amount, { from })
+              await accounting.assign(DAI.address, account, amount, { from })
 
               assert.equal((await accounting.balanceOf(DAI.address, account)).toString(), amount.toString(), 'account balance do not match')
             })
 
             it('emits an event', async () => {
-              const receipt = await accounting.deposit(DAI.address, account, amount, { from })
+              const receipt = await accounting.assign(DAI.address, account, amount, { from })
 
-              assertAmountOfEvents(receipt, 'Deposit')
-              assertEvent(receipt, 'Deposit', { from: owner, to: account, token: DAI.address, amount })
+              assertAmountOfEvents(receipt, 'Assign')
+              assertEvent(receipt, 'Assign', { from: owner, to: account, token: DAI.address, amount })
             })
           })
         })
 
         context('when the account had previous balance', () => {
           beforeEach('deposit some tokens', async () => {
-            await accounting.deposit(ANT.address, account, bigExp(100, 18), { from: owner })
-            await accounting.deposit(DAI.address, account, bigExp(200, 18), { from: owner })
+            await accounting.assign(ANT.address, account, bigExp(100, 18), { from: owner })
+            await accounting.assign(DAI.address, account, bigExp(200, 18), { from: owner })
           })
 
           context('when the given amount is zero', () => {
@@ -85,7 +85,7 @@ contract('CourtAccounting', ([_, owner, holder, someone]) => {
             //       since they are testing with zero fees
 
             it.skip('reverts', async () => {
-              await assertRevert(accounting.deposit(DAI.address, account, amount, { from }), 'ACCOUNTING_DEPOSIT_AMOUNT_ZERO')
+              await assertRevert(accounting.assign(DAI.address, account, amount, { from }), 'ACCOUNTING_DEPOSIT_AMOUNT_ZERO')
             })
           })
 
@@ -96,23 +96,23 @@ contract('CourtAccounting', ([_, owner, holder, someone]) => {
               it('adds the new balance to the previous token balance', async () => {
                 const previousBalance = await accounting.balanceOf(DAI.address, account)
 
-                await accounting.deposit(DAI.address, account, amount, { from })
+                await accounting.assign(DAI.address, account, amount, { from })
 
                 const currentBalance = await accounting.balanceOf(DAI.address, account)
                 assert.equal(currentBalance.toString(), previousBalance.plus(amount).toString(), 'account balance do not match')
               })
 
               it('emits an event', async () => {
-                const receipt = await accounting.deposit(DAI.address, account, amount, { from })
+                const receipt = await accounting.assign(DAI.address, account, amount, { from })
 
-                assertAmountOfEvents(receipt, 'Deposit')
-                assertEvent(receipt, 'Deposit', { from: owner, to: account, token: DAI.address, amount })
+                assertAmountOfEvents(receipt, 'Assign')
+                assertEvent(receipt, 'Assign', { from: owner, to: account, token: DAI.address, amount })
               })
 
               it('does not affect other token balances', async () => {
                 const previousANTBalance = await accounting.balanceOf(ANT.address, account)
 
-                await accounting.deposit(DAI.address, account, amount, { from })
+                await accounting.assign(DAI.address, account, amount, { from })
 
                 const currentANTBalance = await accounting.balanceOf(ANT.address, account)
                 assert.equal(currentANTBalance.toString(), previousANTBalance.toString(), 'account balance do not match')
@@ -123,7 +123,7 @@ contract('CourtAccounting', ([_, owner, holder, someone]) => {
               const amount = MAX_UINT256
 
               it('reverts', async () => {
-                await assertRevert(accounting.deposit(DAI.address, account, amount, { from }), 'MATH_ADD_OVERFLOW')
+                await assertRevert(accounting.assign(DAI.address, account, amount, { from }), 'MATH_ADD_OVERFLOW')
               })
             })
           })
@@ -134,7 +134,7 @@ contract('CourtAccounting', ([_, owner, holder, someone]) => {
         const from = someone
 
         it('reverts', async () => {
-          await assertRevert(accounting.deposit(DAI.address, account, bigExp(10, 18), { from }), 'ACCOUNTING_SENDER_NOT_OWNER')
+          await assertRevert(accounting.assign(DAI.address, account, bigExp(10, 18), { from }), 'ACCOUNTING_SENDER_NOT_OWNER')
         })
       })
     }
@@ -162,8 +162,8 @@ contract('CourtAccounting', ([_, owner, holder, someone]) => {
       const from = holder
 
       beforeEach('deposit some tokens', async () => {
-        await accounting.deposit(ANT.address, holder, bigExp(100, 18), { from: owner })
-        await accounting.deposit(DAI.address, holder, bigExp(200, 18), { from: owner })
+        await accounting.assign(ANT.address, holder, bigExp(100, 18), { from: owner })
+        await accounting.assign(DAI.address, holder, bigExp(200, 18), { from: owner })
       })
 
       context('when the given recipient is not the zero address', () => {

@@ -21,7 +21,7 @@ contract CourtAccounting is IAccounting {
     address public owner;
     mapping (address => mapping (address => uint256)) internal balances;
 
-    event Deposit(address indexed token, address indexed from, address indexed to, uint256 amount);
+    event Assign(address indexed token, address indexed from, address indexed to, uint256 amount);
     event Withdraw(address indexed token, address indexed from, address indexed to, uint256 amount);
 
     modifier onlyOwner {
@@ -34,12 +34,12 @@ contract CourtAccounting is IAccounting {
         owner = _owner;
     }
 
-    function deposit(ERC20 _token, address _to, uint256 _amount) external onlyOwner {
+    function assign(ERC20 _token, address _to, uint256 _amount) external onlyOwner {
         // TODO: uncomment, we are testing with 0 fees for now
         // require(_amount > 0, ERROR_DEPOSIT_AMOUNT_ZERO);
 
         balances[_token][_to] = balances[_token][_to].add(_amount);
-        emit Deposit(address(_token), msg.sender, _to, _amount);
+        emit Assign(address(_token), msg.sender, _to, _amount);
     }
 
     function withdraw(ERC20 _token, address _to, uint256 _amount) external {

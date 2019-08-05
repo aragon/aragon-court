@@ -272,7 +272,7 @@ contract Court is IStakingOwner, ICRVotingOwner, ISubscriptionsOwner {
         uint256 totalFee = nextTerm.dependingDrafts * courtConfig.heartbeatFee;
 
         if (totalFee > 0) {
-            accounting.deposit(courtConfig.feeToken, heartbeatSender, totalFee);
+            accounting.assign(courtConfig.feeToken, heartbeatSender, totalFee);
         }
 
         emit NewTerm(termId, heartbeatSender);
@@ -385,7 +385,7 @@ contract Court is IStakingOwner, ICRVotingOwner, ISubscriptionsOwner {
         round.filledSeats = filledSeats;
 
         // TODO: reuse draft call (stack too deep!)
-        accounting.deposit(config.feeToken, msg.sender, config.draftFee * round.jurorNumber);
+        accounting.assign(config.feeToken, msg.sender, config.draftFee * round.jurorNumber);
 
         // drafting is over
         if (round.filledSeats == round.jurorNumber) {
@@ -471,7 +471,7 @@ contract Court is IStakingOwner, ICRVotingOwner, ISubscriptionsOwner {
             uint256 jurorsSettled;
             (collectedTokens, jurorsSettled) = _settleRegularRoundSlashing(round, voteId, config.penaltyPct, winningRuling, _jurorsToSettle);
             round.collectedTokens = collectedTokens;
-            accounting.deposit(config.feeToken, msg.sender, config.settleFee * jurorsSettled);
+            accounting.assign(config.feeToken, msg.sender, config.settleFee * jurorsSettled);
         } else { // final round
             // this was accounted for on juror's vote commit
             collectedTokens = round.collectedTokens;
@@ -483,7 +483,7 @@ contract Court is IStakingOwner, ICRVotingOwner, ISubscriptionsOwner {
             // No juror was coherent in the round
             if (round.coherentJurors == 0) {
                 // refund fees and burn ANJ
-                accounting.deposit(config.feeToken, round.triggeredBy, round.jurorFees);
+                accounting.assign(config.feeToken, round.triggeredBy, round.jurorFees);
                 staking.burnTokens(collectedTokens);
             }
 
@@ -578,7 +578,7 @@ contract Court is IStakingOwner, ICRVotingOwner, ISubscriptionsOwner {
 
         uint256 jurorFee = round.jurorFees * jurorState.weight / coherentJurors;
         CourtConfig storage config = courtConfigs[terms[round.draftTermId].courtConfigId]; // safe to use directly as it is a past term
-        accounting.deposit(config.feeToken, _juror, jurorFee);
+        accounting.assign(config.feeToken, _juror, jurorFee);
 
         emit RewardSettled(_disputeId, _roundId, _juror);
     }

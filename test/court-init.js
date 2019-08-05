@@ -2,6 +2,7 @@ const { assertRevert } = require('@aragon/os/test/helpers/assertThrow')
 
 const TokenFactory = artifacts.require('TokenFactory')
 const CourtMock = artifacts.require('CourtMock')
+const CourtAccounting = artifacts.require('CourtAccounting')
 const CourtStakingMock = artifacts.require('CourtStakingMock')
 const CRVoting = artifacts.require('CRVoting')
 const SumTree = artifacts.require('HexSumTreeWrapper')
@@ -36,6 +37,7 @@ contract('Court: init', ([ governor ]) => {
     this.anj = await deployedContract(this.tokenFactory.newToken('ANJ', initialBalance), MINIME)
 
     this.staking = await CourtStakingMock.new()
+    this.accounting = await CourtAccounting.new()
     this.voting = await CRVoting.new()
     this.sumTree = await SumTree.new()
     this.subscriptions = await Subscriptions.new()
@@ -59,6 +61,7 @@ contract('Court: init', ([ governor ]) => {
         termDuration,
         [ this.anj.address, ZERO_ADDRESS ], // no fees
         this.staking.address,
+        this.accounting.address,
         this.voting.address,
         this.sumTree.address,
         this.subscriptions.address,

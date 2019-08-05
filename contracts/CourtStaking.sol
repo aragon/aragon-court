@@ -28,20 +28,19 @@ contract CourtStaking is IsContract, ERC900, ApproveAndCallFallBack, IStaking {
     string internal constant ERROR_BALANCE_TOO_LOW = "STK_BALANCE_TOO_LOW";
     string internal constant ERROR_TOKENS_BELOW_MIN_STAKE = "STK_TOKENS_BELOW_MIN_STAKE";
     string internal constant ERROR_JUROR_TOKENS_AT_STAKE = "STK_JUROR_TOKENS_AT_STAKE";
-    string internal constant ERROR_WRONG_TOKEN = "STK_WRONG_TOKEN";
     string internal constant ERROR_TOKEN_TRANSFER_FAILED = "STK_TOKEN_TRANSFER_FAILED";
     string internal constant ERROR_SORTITION_LENGTHS_MISMATCH = "STK_SORTITION_LENGTHS_MISMATCH";
 
     struct Account {
-        mapping (address => uint256) balances; // token addr -> balance
+        uint256 balance; // juror token balance
         // when deactivating, balance becomes available on next term:
         uint64 deactivationTermId;
         uint256 atStakeTokens;   // maximum amount of juror tokens that the juror could be slashed given their drafts
         uint256 sumTreeId;       // key in the sum tree used for sortition
     }
 
-    IStakingOwner owner;
-    ERC20 jurorToken;
+    IStakingOwner public owner;
+    ERC20 public jurorToken;
     ISumTree internal sumTree;
     // notice that for final round the max amount the tree can hold is 2^64 * jurorMinStake / FINAL_ROUND_WEIGHT_PRECISION
     // so make sure not to set this too low (as long as it's over the unit should be fine)
@@ -49,8 +48,7 @@ contract CourtStaking is IsContract, ERC900, ApproveAndCallFallBack, IStaking {
     mapping (address => Account) internal accounts;
     mapping (uint256 => address) public jurorsByTreeId;
 
-    event TokenBalanceChange(address indexed token, address indexed owner, uint256 amount, bool positive);
-    event TokenWithdrawal(address indexed token, address indexed account, uint256 amount);
+    event TokenBalanceChange(address indexed owner, uint256 amount, bool positive);
     event JurorActivated(address indexed juror, uint64 fromTermId);
     event JurorDeactivated(address indexed juror, uint64 lastTermId);
     event JurorDrafted(uint256 indexed disputeId, address juror);
@@ -89,7 +87,7 @@ contract CourtStaking is IsContract, ERC900, ApproveAndCallFallBack, IStaking {
         uint64 termId = owner.ensureAndGetTerm();
 
         Account storage account = accounts[msg.sender];
-        uint256 balance = account.balances[jurorToken];
+        uint256 balance = account.balance;
 
         require(account.deactivationTermId <= termId, ERROR_INVALID_ACCOUNT_STATE);
         require(balance >= jurorMinStake, ERROR_TOKENS_BELOW_MIN_STAKE);
@@ -105,7 +103,7 @@ contract CourtStaking is IsContract, ERC900, ApproveAndCallFallBack, IStaking {
         sumTree.update(sumTreeId, fromTermId, balance, true);
 
         account.deactivationTermId = MAX_UINT64;
-        account.balances[jurorToken] = 0; // tokens are in the tree (present or future)
+        account.balance = 0; // tokens are in the tree (present or future)
 
         emit JurorActivated(msg.sender, fromTermId);
     }
@@ -124,7 +122,7 @@ contract CourtStaking is IsContract, ERC900, ApproveAndCallFallBack, IStaking {
 
         // Always account.sumTreeId > 0, as juror has activated before
         uint256 treeBalance = sumTree.getItem(account.sumTreeId);
-        account.balances[jurorToken] += treeBalance;
+        account.balance += treeBalance;
 
         uint64 lastTermId = termId + 1;
         account.deactivationTermId = lastTermId;
@@ -228,7 +226,7 @@ contract CourtStaking is IsContract, ERC900, ApproveAndCallFallBack, IStaking {
 
                 if (account.deactivationTermId <= _termId + 1) {
                     // Slash from balance if the account already deactivated
-                    _removeTokens(jurorToken, _jurors[i], weightedPenalty);
+                    _removeTokens(_jurors[i], weightedPenalty);
                 } else {
                     // account.sumTreeId always > 0: as the juror has activated (and gots its sumTreeId)
                     sumTree.update(account.sumTreeId, _termId + 1, weightedPenalty, false);
@@ -262,34 +260,15 @@ contract CourtStaking is IsContract, ERC900, ApproveAndCallFallBack, IStaking {
         require(accounts[msg.sender].deactivationTermId <= termId, ERROR_INVALID_ACCOUNT_STATE);
         require(_amount <= unlockedBalanceOf(msg.sender), ERROR_JUROR_TOKENS_AT_STAKE);
 
-        _withdraw(msg.sender, jurorToken, _amount);
-
-        emit Unstaked(msg.sender, _amount, totalStakedFor(msg.sender), "");
+        _unstake(msg.sender, _amount);
     }
 
-    /**
-     * @notice Withdraw `@tokenAmount(_token, _amount)` from the Court
-     * @dev Not for `jurorToken` (use unstake for that one instead)
-     */
-    function withdraw(ERC20 _token, uint256 _amount) external {
-        require(_token != jurorToken, ERROR_WRONG_TOKEN);
-        _withdraw(msg.sender, _token, _amount);
+    function assignTokens(address _to, uint256 _amount) external only(owner) {
+        _assignTokens(_to, _amount);
     }
 
-    function assignTokens(ERC20 _token, address _to, uint256 _amount) external only(owner) {
-        _assignTokens(_token, _to, _amount);
-    }
-
-    function assignJurorTokens(address _to, uint256 _amount) external only(owner) {
-        _assignTokens(jurorToken, _to, _amount);
-    }
-
-    function removeTokens(ERC20 _token, address _from, uint256 _amount) external only(owner) {
-        _removeTokens(_token, _from, _amount);
-    }
-
-    function burnJurorTokens(uint256 _amount) external only(owner) {
-        _assignTokens(jurorToken, BURN_ACCOUNT, _amount);
+    function burnTokens(uint256 _amount) external only(owner) {
+        _assignTokens(BURN_ACCOUNT, _amount);
     }
 
     function collectTokens(uint64 _termId, address _juror, uint256 _amount) external only(owner) returns (bool) {
@@ -301,7 +280,7 @@ contract CourtStaking is IsContract, ERC900, ApproveAndCallFallBack, IStaking {
             if (_amount > unlockedBalanceOf(_juror)) {
                 return false;
             }
-            _removeTokens(jurorToken, _juror, _amount);
+            _removeTokens(_juror, _amount);
         } else {
             // account.sumTreeId always > 0: as the juror has activated (and got its sumTreeId)
             uint256 treeUnlockedBalance = sumTree.getItem(account.sumTreeId).sub(account.atStakeTokens);
@@ -348,7 +327,7 @@ contract CourtStaking is IsContract, ERC900, ApproveAndCallFallBack, IStaking {
         uint256 sumTreeId = account.sumTreeId;
         uint256 activeTokens = sumTreeId > 0 ? sumTree.getItem(sumTreeId) : 0;
 
-        return account.balances[jurorToken] + activeTokens;
+        return account.balance + activeTokens;
     }
 
     /**
@@ -356,7 +335,7 @@ contract CourtStaking is IsContract, ERC900, ApproveAndCallFallBack, IStaking {
      */
     function unlockedBalanceOf(address _addr) public view returns (uint256) {
         Account storage account = accounts[_addr];
-        return account.balances[jurorToken].sub(account.atStakeTokens);
+        return account.balance.sub(account.atStakeTokens);
     }
 
     /**
@@ -395,45 +374,45 @@ contract CourtStaking is IsContract, ERC900, ApproveAndCallFallBack, IStaking {
     function _stake(address _from, address _to, uint256 _amount) internal {
         require(_amount > 0, ERROR_ZERO_TRANSFER);
 
-        _assignTokens(jurorToken, _to, _amount);
+        _assignTokens(_to, _amount);
         require(jurorToken.safeTransferFrom(_from, this, _amount), ERROR_DEPOSIT_FAILED);
 
         emit Staked(_to, _amount, totalStakedFor(_to), "");
     }
 
-    function _withdraw(address _from, ERC20 _token, uint256 _amount) internal {
+    function _unstake(address _from, uint256 _amount) internal {
         require(_amount > 0, ERROR_ZERO_TRANSFER);
 
         Account storage account = accounts[_from];
-        uint256 balance = account.balances[_token];
+        uint256 balance = account.balance;
         require(balance >= _amount, ERROR_BALANCE_TOO_LOW);
 
-        _removeTokens(_token, _from, _amount);
-        require(_token.safeTransfer(_from, _amount), ERROR_TOKEN_TRANSFER_FAILED);
+        _removeTokens(_from, _amount);
+        require(jurorToken.safeTransfer(_from, _amount), ERROR_TOKEN_TRANSFER_FAILED);
 
-        emit TokenWithdrawal(_token, _from, _amount);
+        emit Unstaked(_from, _amount, totalStakedFor(_from), "");
     }
 
-    function _assignTokens(ERC20 _token, address _to, uint256 _amount) internal {
+    function _assignTokens(address _to, uint256 _amount) internal {
         if (_amount == 0) {
             return;
         }
 
         Account storage account = accounts[_to];
-        account.balances[_token] = account.balances[_token].add(_amount);
+        account.balance = account.balance.add(_amount);
 
-        emit TokenBalanceChange(_token, _to, _amount, true);
+        emit TokenBalanceChange(_to, _amount, true);
     }
 
-    function _removeTokens(ERC20 _token, address _from, uint256 _amount) internal {
+    function _removeTokens(address _from, uint256 _amount) internal {
         if (_amount == 0) {
             return;
         }
 
         Account storage account = accounts[_from];
-        account.balances[_token] = account.balances[_token].sub(_amount);
+        account.balance = account.balance.sub(_amount);
 
-        emit TokenBalanceChange(_token, _from, _amount, false);
+        emit TokenBalanceChange(_from, _amount, false);
     }
 
     function _setJurorToken(ERC20 _jurorToken) internal {

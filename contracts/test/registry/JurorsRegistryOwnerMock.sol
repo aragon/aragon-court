@@ -35,8 +35,8 @@ contract JurorsRegistryOwnerMock is IJurorsRegistryOwner {
         registry.burnTokens(_amount);
     }
 
-    function slash(address[] _jurors, uint256[] _penalties, uint8[] _castVotes, uint8 _winningRuling) public {
-        uint256 collectedTokens = registry.slash(termId, _jurors, _penalties, _castVotes, _winningRuling);
+    function slashOrUnlock(address[] _jurors, uint256[] _penalties, uint8[] _castVotes, uint8 _winningRuling) public {
+        uint256 collectedTokens = registry.slashOrUnlock(termId, _jurors, _penalties, _castVotes, _winningRuling);
         emit Slashed(collectedTokens);
     }
 

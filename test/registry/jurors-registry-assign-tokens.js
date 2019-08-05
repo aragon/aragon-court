@@ -21,6 +21,58 @@ contract('JurorsRegistry assign tokens', ([_, juror, someone]) => {
     ANJ = await MiniMeToken.new(ZERO_ADDRESS, ZERO_ADDRESS, 0, 'n', 18, 'ANJ', true)
   })
 
+  const itHandlesZeroTokenAssignmentsProperly = (assignmentCall, recipient) => {
+    it('does not affect any of the balances', async () => {
+      const previousUnlockedActiveBalance = await registry.unlockedActiveBalanceOf(recipient)
+      const [previousActiveBalance, previousAvailableBalance, previousLockedBalance, previousDeactivationBalance] = await registry.balanceOf(recipient)
+
+      await assignmentCall()
+
+      const currentUnlockedActiveBalance = await registry.unlockedActiveBalanceOf(recipient)
+      assert.equal(previousUnlockedActiveBalance.toString(), currentUnlockedActiveBalance.toString(), 'unlocked balances do not match')
+
+      const [currentActiveBalance, currentAvailableBalance, currentLockedBalance, currentDeactivationBalance] = await registry.balanceOf(recipient)
+      assert.equal(previousLockedBalance.toString(), currentLockedBalance.toString(), 'locked balances do not match')
+      assert.equal(previousActiveBalance.toString(), currentActiveBalance.toString(), 'active balances do not match')
+      assert.equal(previousAvailableBalance.toString(), currentAvailableBalance.toString(), 'available balances do not match')
+      assert.equal(previousDeactivationBalance.toString(), currentDeactivationBalance.toString(), 'deactivation balances do not match')
+    })
+
+    it('does not affect the staked balance', async () => {
+      const previousTotalStake = await registry.totalStaked()
+      const previousJurorStake = await registry.totalStakedFor(recipient)
+
+      await assignmentCall()
+
+      const currentTotalStake = await registry.totalStaked()
+      assert.equal(previousTotalStake.toString(), currentTotalStake.toString(), 'total stake amounts do not match')
+
+      const currentJurorStake = await registry.totalStakedFor(recipient)
+      assert.equal(previousJurorStake.toString(), currentJurorStake.toString(), 'recipient stake amounts do not match')
+    })
+
+    it('does not affect the token balances', async () => {
+      const previousJurorBalance = await ANJ.balanceOf(recipient)
+      const previousRegistryBalance = await ANJ.balanceOf(registry.address)
+
+      await assignmentCall()
+
+      const currentSenderBalance = await ANJ.balanceOf(recipient)
+      assert.equal(previousJurorBalance.toString(), currentSenderBalance.toString(), 'recipient balances do not match')
+
+      const currentRegistryBalance = await ANJ.balanceOf(registry.address)
+      assert.equal(previousRegistryBalance.toString(), currentRegistryBalance.toString(), 'registry balances do not match')
+    })
+
+    it('does not emit an available balance changed event', async () => {
+      const { tx } = await assignmentCall()
+      const receipt = await web3.eth.getTransactionReceipt(tx)
+      const logs = decodeEventsOfType({ receipt }, JurorsRegistry.abi, 'JurorAvailableBalanceChanged')
+
+      assertAmountOfEvents({ logs }, 'JurorAvailableBalanceChanged', 0)
+    })
+  }
+
   const itHandlesTokenAssignmentsProperly = (assignmentCall, recipient, amount) => {
     it('adds the given amount to the available balance', async () => {
       const [previousActiveBalance, previousAvailableBalance, previousLockedBalance, previousDeactivationBalance] = await registry.balanceOf(recipient)
@@ -90,9 +142,7 @@ contract('JurorsRegistry assign tokens', ([_, juror, someone]) => {
         context('when the given amount is zero', () => {
           const amount = 0
 
-          it('reverts', async () => {
-            await assertRevert(registryOwner.assignTokens(juror, amount), 'JR_INVALID_ZERO_AMOUNT')
-          })
+          itHandlesZeroTokenAssignmentsProperly(() => registryOwner.assignTokens(juror, amount), juror)
         })
 
         context('when the given amount is greater than zero', () => {
@@ -152,9 +202,7 @@ contract('JurorsRegistry assign tokens', ([_, juror, someone]) => {
         context('when the given amount is zero', () => {
           const amount = 0
 
-          it('reverts', async () => {
-            await assertRevert(registryOwner.burnTokens(amount), 'JR_INVALID_ZERO_AMOUNT')
-          })
+          itHandlesZeroTokenAssignmentsProperly(() => registryOwner.burnTokens(amount), BURN_ADDRESS)
         })
 
         context('when the given amount is greater than zero', () => {

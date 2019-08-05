@@ -538,7 +538,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner {
         uint8[] memory castVotes = voting.getCastVotes(_voteId, jurors);
         // we assume:
         //require(castVotes.length == batchSettledJurors);
-        collectedTokens = jurorsRegistry.slash(termId, jurors, penalties, castVotes, _winningRuling);
+        collectedTokens = jurorsRegistry.slashOrUnlock(termId, jurors, penalties, castVotes, _winningRuling);
 
         _round.collectedTokens = _round.collectedTokens.add(collectedTokens);
     }

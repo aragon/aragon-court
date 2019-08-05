@@ -102,16 +102,26 @@ contract('JurorsRegistry slashing', ([_, juror, anyone]) => {
             assert.equal(previousRegistryBalance.toString(), currentRegistryBalance.toString(), 'registry balances do not match')
           })
 
-          it('emits a juror tokens collected event', async () => {
-            const termId = await registryOwner.getLastEnsuredTermId()
+          if (amount === 0) {
+            it('does not emit a juror tokens collected event', async () => {
+              const { tx } = await registryOwner.collect(juror, amount)
+              const receipt = await web3.eth.getTransactionReceipt(tx)
+              const logs = decodeEventsOfType({ receipt }, JurorsRegistry.abi, 'JurorTokensCollected')
 
-            const { tx } = await registryOwner.collect(juror, amount)
-            const receipt = await web3.eth.getTransactionReceipt(tx)
-            const logs = decodeEventsOfType({ receipt }, JurorsRegistry.abi, 'JurorTokensCollected')
+              assertAmountOfEvents({ logs }, 'JurorTokensCollected', 0)
+            })
+          } else {
+            it('emits a juror tokens collected event', async () => {
+              const termId = await registryOwner.getLastEnsuredTermId()
 
-            assertAmountOfEvents({ logs }, 'JurorTokensCollected')
-            assertEvent({ logs }, 'JurorTokensCollected', { juror: web3.toChecksumAddress(juror), termId: termId.plus(1), amount })
-          })
+              const { tx } = await registryOwner.collect(juror, amount)
+              const receipt = await web3.eth.getTransactionReceipt(tx)
+              const logs = decodeEventsOfType({ receipt }, JurorsRegistry.abi, 'JurorTokensCollected')
+
+              assertAmountOfEvents({ logs }, 'JurorTokensCollected')
+              assertEvent({ logs }, 'JurorTokensCollected', { juror: web3.toChecksumAddress(juror), termId: termId.plus(1), amount })
+            })
+          }
 
           it('does not process deactivation requests', async () => {
             const receipt = await registryOwner.collect(juror, amount)

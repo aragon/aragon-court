@@ -279,36 +279,37 @@ contract JurorsRegistry is Initializable, IsContract, IJurorsRegistry, ERC900, A
     }
 
     /**
-    * @dev Slash a set of jurors based on their votes compared to the winning ruling
+    * @dev Slash a set of jurors based on their votes compared to the winning ruling. It will unlocked the corresponding
+    *      locked balances of those jurors that do not have to be slashed based on their submitted votes.
     * @param _termId Current term id
     * @param _jurors List of juror addresses to be slashed
-    * @param _penalties List of amount of tokens to be slashed for each corresponding juror
+    * @param _lockedAmounts List of amounts locked for each corresponding juror that will be either slashed or returned
     * @param _castVotes List of outcomes voted for each corresponding juror
     * @param _winningRuling Winning ruling to compare the vote of each juror to be slashed
     * @return Total amount of slashed tokens
     */
-    function slash(uint64 _termId, address[] _jurors, uint256[] _penalties, uint8[] _castVotes, uint8 _winningRuling)
+    function slashOrUnlock(uint64 _termId, address[] _jurors, uint256[] _lockedAmounts, uint8[] _castVotes, uint8 _winningRuling)
         external
         onlyOwner
         returns (uint256)
     {
         // TODO: should we add validations for this?
-        // we assume this: require(_jurors.length == _penalties.length);
         // we assume this: require(_jurors.length == _castVotes.length);
+        // we assume this: require(_jurors.length == _lockedAmounts.length);
 
         uint64 nextTermId = _termId + 1;
         uint256 collectedTokens;
 
         for (uint256 i = 0; i < _jurors.length; i++) {
-            uint256 penalty = _penalties[i];
+            uint256 lockedAmount = _lockedAmounts[i];
             Juror storage juror = jurorsByAddress[_jurors[i]];
-            juror.lockedBalance = juror.lockedBalance.sub(penalty);
+            juror.lockedBalance = juror.lockedBalance.sub(lockedAmount);
 
             // Slash jurors that didn't vote for the winning ruling. Note that there's no need to check if there
             // was a deactivation request since we're working with already locked balances
             if (_castVotes[i] != _winningRuling) {
-                collectedTokens = collectedTokens.add(penalty);
-                tree.update(juror.id, nextTermId, penalty, false);
+                collectedTokens = collectedTokens.add(lockedAmount);
+                tree.update(juror.id, nextTermId, lockedAmount, false);
             }
         }
 

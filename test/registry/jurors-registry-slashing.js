@@ -68,12 +68,12 @@ contract('JurorsRegistry slashing', ([_, juror, anyone]) => {
           })
 
           it('decreases the unlocked balance of the juror', async () => {
-            const previousUnlockedBalance = await registry.unlockedBalanceOf(juror)
+            const previousUnlockedActiveBalance = await registry.unlockedActiveBalanceOf(juror)
 
             await registryOwner.collect(juror, amount)
 
-            const currentUnlockedBalance = await registry.unlockedBalanceOf(juror)
-            assert.equal(previousUnlockedBalance.minus(amount).plus(deactivationReduced).toString(), currentUnlockedBalance.toString(), 'unlocked balances do not match')
+            const currentUnlockedActiveBalance = await registry.unlockedActiveBalanceOf(juror)
+            assert.equal(previousUnlockedActiveBalance.minus(amount).plus(deactivationReduced).toString(), currentUnlockedActiveBalance.toString(), 'unlocked balances do not match')
           })
 
           it('decreases the staked balance of the juror', async () => {

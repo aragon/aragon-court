@@ -36,12 +36,12 @@ contract('JurorsRegistry assign tokens', ([_, juror, someone]) => {
     })
 
     it('does not affect the unlocked balance of the recipient', async () => {
-      const previousUnlockedBalance = await registry.unlockedBalanceOf(recipient)
+      const previousUnlockedActiveBalance = await registry.unlockedActiveBalanceOf(recipient)
 
       await assignmentCall()
 
-      const currentUnlockedBalance = await registry.unlockedBalanceOf(recipient)
-      assert.equal(previousUnlockedBalance.toString(), currentUnlockedBalance.toString(), 'unlocked balances do not match')
+      const currentUnlockedActiveBalance = await registry.unlockedActiveBalanceOf(recipient)
+      assert.equal(previousUnlockedActiveBalance.toString(), currentUnlockedActiveBalance.toString(), 'unlocked balances do not match')
     })
 
     it('increments the staked balance for the recipient', async () => {

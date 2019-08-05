@@ -86,12 +86,12 @@ contract('JurorsRegistry activation', ([_, juror]) => {
           })
 
           it('increments the unlocked balance of the juror', async () => {
-            const previousUnlockedBalance = await registry.unlockedBalanceOf(juror)
+            const previousUnlockedActiveBalance = await registry.unlockedActiveBalanceOf(juror)
 
             await registry.activate(requestedAmount, { from })
 
-            const currentUnlockedBalance = await registry.unlockedBalanceOf(juror)
-            assert.equal(previousUnlockedBalance.plus(expectedAmount).toString(), currentUnlockedBalance.toString(), 'unlocked balances do not match')
+            const currentUnlockedActiveBalance = await registry.unlockedActiveBalanceOf(juror)
+            assert.equal(previousUnlockedActiveBalance.plus(expectedAmount).toString(), currentUnlockedActiveBalance.toString(), 'unlocked balances do not match')
           })
 
           it('does not affect the staked balances', async () => {
@@ -458,12 +458,12 @@ contract('JurorsRegistry activation', ([_, juror]) => {
             })
 
             it('decreases the unlocked balance of the juror', async () => {
-              const previousUnlockedBalance = await registry.unlockedBalanceOf(juror)
+              const previousUnlockedActiveBalance = await registry.unlockedActiveBalanceOf(juror)
 
               await registry.deactivate(requestedAmount, { from })
 
-              const currentUnlockedBalance = await registry.unlockedBalanceOf(juror)
-              assert.equal(previousUnlockedBalance.minus(expectedAmount).toString(), currentUnlockedBalance.toString(), 'unlocked balances do not match')
+              const currentUnlockedActiveBalance = await registry.unlockedActiveBalanceOf(juror)
+              assert.equal(previousUnlockedActiveBalance.minus(expectedAmount).toString(), currentUnlockedActiveBalance.toString(), 'unlocked balances do not match')
             })
 
             it('does not affect the staked balance of the juror', async () => {

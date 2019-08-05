@@ -145,13 +145,13 @@ contract JurorsRegistry is Initializable, IsContract, IJurorsRegistry, ERC900, A
     function deactivate(uint256 _amount) external isInitialized {
         uint64 termId = owner.ensureAndGetTermId();
 
-        uint256 unlockedBalance = unlockedBalanceOf(msg.sender);
-        uint256 amountToDeactivate = _amount == uint256(0) ? unlockedBalance : _amount;
+        uint256 unlockedActiveBalance = unlockedActiveBalanceOf(msg.sender);
+        uint256 amountToDeactivate = _amount == uint256(0) ? unlockedActiveBalance : _amount;
         require(amountToDeactivate > 0, ERROR_INVALID_ZERO_AMOUNT);
-        require(amountToDeactivate <= unlockedBalance, ERROR_INVALID_DEACTIVATION_AMOUNT);
+        require(amountToDeactivate <= unlockedActiveBalance, ERROR_INVALID_DEACTIVATION_AMOUNT);
 
         // No need to use SafeMath here, we already checked values above
-        uint256 futureActiveBalance = unlockedBalance - amountToDeactivate;
+        uint256 futureActiveBalance = unlockedActiveBalance - amountToDeactivate;
         require(futureActiveBalance == uint256(0) || futureActiveBalance >= minActiveBalance, ERROR_INVALID_DEACTIVATION_AMOUNT);
 
         _createDeactivationRequest(msg.sender, termId, amountToDeactivate);
@@ -332,21 +332,21 @@ contract JurorsRegistry is Initializable, IsContract, IJurorsRegistry, ERC900, A
         }
 
         Juror storage juror = jurorsByAddress[_juror];
-        uint256 unlockedBalance = _unlockedBalanceOf(juror);
+        uint256 unlockedActiveBalance = _unlockedActiveBalanceOf(juror);
         uint256 nextTermDeactivationRequestAmount = _deactivationRequestedAmountForTerm(juror, nextTermId);
 
         // Check if the juror has enough unlocked tokens to collect the requested amount
         // Note that we're also considering the deactivation request if there is any
-        uint256 totalUnlockedBalance = unlockedBalance.add(nextTermDeactivationRequestAmount);
-        if (_amount > totalUnlockedBalance) {
+        uint256 totalUnlockedActiveBalance = unlockedActiveBalance.add(nextTermDeactivationRequestAmount);
+        if (_amount > totalUnlockedActiveBalance) {
             return false;
         }
 
         // Check if the amount of active tokens is enough to collect the requested amount,
         // otherwise reduce the requested deactivation amount of the next term
-        if (_amount > unlockedBalance) {
+        if (_amount > unlockedActiveBalance) {
             // Note there's no need to use SafeMath here, amounts were already checked above
-            uint256 amountToReduce = _amount - unlockedBalance;
+            uint256 amountToReduce = _amount - unlockedActiveBalance;
             _reduceDeactivationRequest(_juror, amountToReduce, _termId);
             tree.set(juror.id, nextTermId, uint256(0));
         } else {
@@ -472,9 +472,9 @@ contract JurorsRegistry is Initializable, IsContract, IJurorsRegistry, ERC900, A
     * @param _juror Address of the juror querying the unlocked balance of
     * @return Amount of active tokens of a juror that are not locked due to ongoing disputes
     */
-    function unlockedBalanceOf(address _juror) public view returns (uint256) {
+    function unlockedActiveBalanceOf(address _juror) public view returns (uint256) {
         Juror storage juror = jurorsByAddress[_juror];
-        return _unlockedBalanceOf(juror);
+        return _unlockedActiveBalanceOf(juror);
     }
 
     /**
@@ -655,7 +655,7 @@ contract JurorsRegistry is Initializable, IsContract, IJurorsRegistry, ERC900, A
     * @param _juror Juror querying the unlocked active balance of
     * @return Amount of active tokens of a juror that are not locked due to ongoing disputes
     */
-    function _unlockedBalanceOf(Juror storage _juror) internal view returns (uint256) {
+    function _unlockedActiveBalanceOf(Juror storage _juror) internal view returns (uint256) {
         return _existsJuror(_juror) ? tree.getItem(_juror.id).sub(_juror.lockedBalance) : uint256(0);
     }
 

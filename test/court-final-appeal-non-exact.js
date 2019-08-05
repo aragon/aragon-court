@@ -158,6 +158,8 @@ contract('Court: final appeal (non-exact)', ([ poor, rich, governor, juror1, jur
     const initialJurorNumber = 3
     const term = 3
     const rulings = 2
+    const winningVote = 2
+    const losingVote = 3
 
     let disputeId = 0
     const firstRoundId = 0
@@ -191,10 +193,6 @@ contract('Court: final appeal (non-exact)', ([ poor, rich, governor, juror1, jur
     }
 
     const vote = async (_voteId, _winningJurors) => {
-      // vote
-      const winningVote = 2
-      const losingVote = 3
-
       // commit
       for (let i = 0; i < _winningJurors; i++) {
         const receipt = await this.voting.commitVote(_voteId, encryptVote(winningVote), { from: jurors[i] })
@@ -234,10 +232,10 @@ contract('Court: final appeal (non-exact)', ([ poor, rich, governor, juror1, jur
         await vote(voteId, jurors.length)
 
         // appeal
-        const appealReceipt = await this.court.appealRuling(disputeId, roundId)
+        const appealReceipt = await this.court.appealRuling(disputeId, roundId, losingVote)
         assertLogs(appealReceipt, RULING_APPEALED_EVENT)
         await passTerms(appealTerms)
-        const appealConfirmReceipt = await this.court.appealConfirm(disputeId, roundId)
+        const appealConfirmReceipt = await this.court.appealConfirm(disputeId, roundId, winningVote)
         assertLogs(appealConfirmReceipt, RULING_APPEAL_CONFIRMED_EVENT)
         const nextRoundId = getLog(appealConfirmReceipt, RULING_APPEAL_CONFIRMED_EVENT, 'roundId')
         voteId = getVoteId(disputeId, nextRoundId)

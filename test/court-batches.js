@@ -320,7 +320,7 @@ contract('Court: Batches', ([ rich, governor, arbitrable, juror1, juror2, juror3
         totalJurorsDrafted += callJurorsDrafted
       }
       assert.isTrue(await this.court.areAllJurorsDrafted.call(disputeId, firstRoundId))
-      await passTerms(3)
+      await passTerms(commitTerms + revealTerms + appealTerms + appealConfirmTerms)
     })
 
     it('settles in 2 batches', async () => {

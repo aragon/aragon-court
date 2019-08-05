@@ -269,7 +269,9 @@ contract('Court: Disputes', ([ rich, governor, juror1, juror2, juror3, other, ap
         })
 
         context('jurors commit', () => {
-          const votes = [[juror1, 2], [juror2, 1], [juror3, 1]]
+          const winningRuling = 1
+          const losingRuling = 2 // 3 too
+          const votes = [[juror1, losingRuling], [juror2, winningRuling], [juror3, winningRuling]]
           const round1Ruling = 1
           const round1WinningVotes = 2
 
@@ -336,16 +338,16 @@ contract('Court: Disputes', ([ rich, governor, juror1, juror2, juror3, other, ap
             })
 
             it('fails to appeal during reveal period', async () => {
-              await assertRevert(this.court.appealRuling(disputeId, firstRoundId), ERROR_INVALID_ADJUDICATION_STATE)
+              await assertRevert(this.court.appealRuling(disputeId, firstRoundId, losingRuling), ERROR_INVALID_ADJUDICATION_STATE)
             })
 
             it('fails to appeal incorrect round', async () => {
               await passTerms(1) // term = 5
-              await assertRevert(this.court.appealRuling(disputeId, firstRoundId + 1), ERROR_INVALID_ADJUDICATION_ROUND)
+              await assertRevert(this.court.appealRuling(disputeId, firstRoundId + 1, losingRuling), ERROR_INVALID_ADJUDICATION_ROUND)
             })
 
             it('can settle if executed', async () => {
-              await passTerms(2) // term = 6
+              await passTerms(revealTerms + appealTerms + appealConfirmTerms)
               // execute
               const executeReceipt = await this.court.executeRuling(disputeId)
               assertLogs(executeReceipt, RULING_EXECUTED_EVENT)
@@ -354,7 +356,7 @@ contract('Court: Disputes', ([ rich, governor, juror1, juror2, juror3, other, ap
             })
 
             it('fails trying to execute twice', async () => {
-              await passTerms(2) // term = 6
+              await passTerms(revealTerms + appealTerms + appealConfirmTerms)
               // execute
               const executeReceiptPromise = await this.court.executeRuling(disputeId)
               await assertLogs(executeReceiptPromise, RULING_EXECUTED_EVENT)
@@ -366,7 +368,7 @@ contract('Court: Disputes', ([ rich, governor, juror1, juror2, juror3, other, ap
               const slashed = pct4(jurorMinStake, penaltyPct)
 
               beforeEach(async () => {
-                await passTerms(2) // term = 6
+                await passTerms(revealTerms + appealTerms + appealConfirmTerms)
                 assertLogs(await this.court.settleRoundSlashing(disputeId, firstRoundId, MAX_UINT256), ROUND_SLASHING_SETTLED_EVENT)
               })
 
@@ -406,7 +408,7 @@ contract('Court: Disputes', ([ rich, governor, juror1, juror2, juror3, other, ap
               })
             })
 
-            context.only('on appeal', () => {
+            context('on appeal', () => {
               const appealMakerRuling = 2
               const appealTakerRuling = 3
               let makerInitialBalance
@@ -423,7 +425,7 @@ contract('Court: Disputes', ([ rich, governor, juror1, juror2, juror3, other, ap
 
               it('maker spends correct amount of collateral', async () => {
                 const makerFinalBalance = await this.feeToken.balanceOf(appealMaker)
-                assert.equal(makerFinalBalance.toNumber(), makerInitialBalance.toNumber() - appealDeposit.toNumber(), "maker final balance doesn't match")
+                assert.equal(makerFinalBalance.toNumber(), makerInitialBalance.minus(appealDeposit).toNumber(), "maker final balance doesn't match")
               })
 
               it('fails to draft without appeal confirmation', async () => {

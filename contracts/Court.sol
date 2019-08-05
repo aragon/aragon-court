@@ -520,7 +520,17 @@ contract Court is IStakingOwner, ICRVotingOwner, ISubscriptionsOwner {
         require(_isRoundAppealed(round), ERROR_ROUND_NOT_APPEALED);
         require(!round.settledAppeals, ERROR_ROUND_APPEAL_ALREADY_SETTLED);
 
-        (, , ERC20 depositToken, uint256 feeAmount, , uint256 appealDeposit, uint256 appealConfirmDeposit) = _getNextAppealDetails(round, _roundId);
+        (
+            ,
+            ,
+            ERC20 depositToken,
+            uint256 feeAmount,
+            ,
+            uint256 appealDeposit,
+            uint256 appealConfirmDeposit
+        ) = _getNextAppealDetails(round, _roundId);
+
+        // TODO: could these be real transfers instead of assignTokens?
         if (!_isRoundAppealConfirmed(round)) {
             // return entire deposit to appealer
             staking.assignTokens(depositToken, appealMaker.appealer, appealDeposit);

@@ -154,6 +154,8 @@ contract('Court: final appeal', ([ poor, rich, governor, juror1, juror2, juror3,
     const initialJurorNumber = 3
     const term = 3
     const rulings = 2
+    const appealRuling = 2
+    const appealConfirmRuling = 3
 
     let disputeId = 0
     const firstRoundId = 0
@@ -205,10 +207,10 @@ contract('Court: final appeal', ([ poor, rich, governor, juror1, juror2, juror3,
         await passTerms(revealTerms)
 
         // appeal
-        const appealReceipt = await this.court.appealRuling(disputeId, roundId)
+        const appealReceipt = await this.court.appealRuling(disputeId, roundId, appealRuling)
         assertLogs(appealReceipt, RULING_APPEALED_EVENT)
         await passTerms(appealTerms)
-        const appealConfirmReceipt = await this.court.appealConfirm(disputeId, roundId)
+        const appealConfirmReceipt = await this.court.appealConfirm(disputeId, roundId, appealConfirmRuling)
         assertLogs(appealConfirmReceipt, RULING_APPEAL_CONFIRMED_EVENT)
         const nextRoundId = getLog(appealConfirmReceipt, RULING_APPEAL_CONFIRMED_EVENT, 'roundId')
         voteId = getVoteId(disputeId, nextRoundId)
@@ -253,7 +255,7 @@ contract('Court: final appeal', ([ poor, rich, governor, juror1, juror2, juror3,
       await passTerms(revealTerms)
 
       // appeal
-      await assertRevert(this.court.appealRuling(disputeId, MAX_REGULAR_APPEAL_ROUNDS), ERROR_INVALID_ADJUDICATION_STATE)
+      await assertRevert(this.court.appealRuling(disputeId, MAX_REGULAR_APPEAL_ROUNDS, appealRuling), ERROR_INVALID_ADJUDICATION_STATE)
     })
 
     context('Rewards and slashes', () => {

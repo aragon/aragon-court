@@ -1,17 +1,17 @@
 pragma solidity ^0.4.24;
 
-import "../../standards/erc900/IStakingOwner.sol";
-import "../../JurorsRegistry.sol";
+import "../../standards/erc900/IJurorsRegistry.sol";
+import "../../standards/erc900/IJurorsRegistryOwner.sol";
 
 
-contract JurorsRegistryOwnerMock is IStakingOwner {
+contract JurorsRegistryOwnerMock is IJurorsRegistryOwner {
     uint64 internal termId;
-    JurorsRegistry internal registry;
+    IJurorsRegistry internal registry;
 
     event Slashed(uint256 collectedTokens);
     event Collected(bool collected);
 
-    constructor(JurorsRegistry _registry) public {
+    constructor(IJurorsRegistry _registry) public {
         registry = _registry;
     }
 
@@ -19,7 +19,7 @@ contract JurorsRegistryOwnerMock is IStakingOwner {
         return termId;
     }
 
-    function getTermId() external view returns (uint64) {
+    function getLastEnsuredTermId() external view returns (uint64) {
         return termId;
     }
 

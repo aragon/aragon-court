@@ -10,7 +10,7 @@ const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
 contract('JurorsRegistry initialization', ([_, something]) => {
   let registry, registryOwner, ANJ
 
-  const MIN_ACTIVE_TOKENS = bigExp(100, 18)
+  const MIN_ACTIVE_AMOUNT = bigExp(100, 18)
 
   beforeEach('create base contracts', async () => {
     registry = await JurorsRegistry.new()
@@ -25,7 +25,7 @@ contract('JurorsRegistry initialization', ([_, something]) => {
           const token = ZERO_ADDRESS
 
           it('reverts', async () => {
-            await assertRevert(registry.init(registryOwner.address, token, MIN_ACTIVE_TOKENS), 'REGISTRY_NOT_CONTRACT')
+            await assertRevert(registry.init(registryOwner.address, token, MIN_ACTIVE_AMOUNT), 'JR_NOT_CONTRACT')
           })
         })
 
@@ -33,43 +33,46 @@ contract('JurorsRegistry initialization', ([_, something]) => {
           const token = something
 
           it('reverts', async () => {
-            await assertRevert(registry.init(registryOwner.address, token, MIN_ACTIVE_TOKENS), 'REGISTRY_NOT_CONTRACT')
+            await assertRevert(registry.init(registryOwner.address, token, MIN_ACTIVE_AMOUNT), 'JR_NOT_CONTRACT')
           })
         })
 
-        context('when the given token address is the zero address', () => {
+        // TODO: skipping these tests since we are currently initializing all the court dependencies from the
+        //       court constructor. Will uncomment once we move that logic to a factory contract
+
+        context.skip('when the given owner is the zero address', () => {
           const owner = ZERO_ADDRESS
 
           it('reverts', async () => {
-            await assertRevert(registry.init(owner, ANJ.address, MIN_ACTIVE_TOKENS), 'REGISTRY_NOT_CONTRACT')
+            await assertRevert(registry.init(owner, ANJ.address, MIN_ACTIVE_AMOUNT), 'JR_NOT_CONTRACT')
           })
         })
 
-        context('when the given token address is not a contract address', () => {
+        context.skip('when the given owner is not a contract address', () => {
           const owner = something
 
           it('reverts', async () => {
-            await assertRevert(registry.init(owner, ANJ.address, MIN_ACTIVE_TOKENS), 'REGISTRY_NOT_CONTRACT')
+            await assertRevert(registry.init(owner, ANJ.address, MIN_ACTIVE_AMOUNT), 'JR_NOT_CONTRACT')
           })
         })
       })
 
       context('when the initialization succeeds', () => {
         context('when the minimum active amount is zero', () => {
-          const minActiveAmounts = 0
+          const minActiveBalance = 0
 
           it('is initialized', async () => {
-            await registry.init(registryOwner.address, ANJ.address, minActiveAmounts)
+            await registry.init(registryOwner.address, ANJ.address, minActiveBalance)
 
             assert.isTrue(await registry.hasInitialized(), 'registry is not initialized')
           })
         })
 
         context('when the minimum active amount is greater than zero', () => {
-          const minActiveAmounts = MIN_ACTIVE_TOKENS
+          const minActiveBalance = MIN_ACTIVE_AMOUNT
 
           it('is initialized', async () => {
-            await registry.init(registryOwner.address, ANJ.address, minActiveAmounts)
+            await registry.init(registryOwner.address, ANJ.address, minActiveBalance)
 
             assert.isTrue(await registry.hasInitialized(), 'registry is not initialized')
           })
@@ -79,11 +82,11 @@ contract('JurorsRegistry initialization', ([_, something]) => {
 
     context('when it was already initialized', () => {
       beforeEach('initialize registry', async () => {
-        await registry.init(registryOwner.address, ANJ.address, MIN_ACTIVE_TOKENS)
+        await registry.init(registryOwner.address, ANJ.address, MIN_ACTIVE_AMOUNT)
       })
 
       it('reverts', async () => {
-        await assertRevert(registry.init(registryOwner.address, ANJ.address, MIN_ACTIVE_TOKENS), 'INIT_ALREADY_INITIALIZED')
+        await assertRevert(registry.init(registryOwner.address, ANJ.address, MIN_ACTIVE_AMOUNT), 'INIT_ALREADY_INITIALIZED')
       })
     })
   })
@@ -91,7 +94,7 @@ contract('JurorsRegistry initialization', ([_, something]) => {
   describe('owner', () => {
     context('when the registry is initialized', () => {
       beforeEach('initialize registry', async () => {
-        await registry.init(registryOwner.address, ANJ.address, MIN_ACTIVE_TOKENS)
+        await registry.init(registryOwner.address, ANJ.address, MIN_ACTIVE_AMOUNT)
       })
 
       it('returns the token address', async () => {
@@ -109,7 +112,7 @@ contract('JurorsRegistry initialization', ([_, something]) => {
   describe('token', () => {
     context('when the registry is initialized', () => {
       beforeEach('initialize registry', async () => {
-        await registry.init(registryOwner.address, ANJ.address, MIN_ACTIVE_TOKENS)
+        await registry.init(registryOwner.address, ANJ.address, MIN_ACTIVE_AMOUNT)
       })
 
       it('returns the owner address', async () => {
@@ -124,20 +127,20 @@ contract('JurorsRegistry initialization', ([_, something]) => {
     })
   })
 
-  describe('minActiveTokens', () => {
+  describe('minActiveBalance', () => {
     context('when the registry is initialized', () => {
       beforeEach('initialize registry', async () => {
-        await registry.init(registryOwner.address, ANJ.address, MIN_ACTIVE_TOKENS)
+        await registry.init(registryOwner.address, ANJ.address, MIN_ACTIVE_AMOUNT)
       })
 
       it('returns the min active token amount', async () => {
-        assert.equal((await registry.minActiveTokens()).toString(), MIN_ACTIVE_TOKENS, 'min active token amount does not match')
+        assert.equal((await registry.minJurorsActiveBalance()).toString(), MIN_ACTIVE_AMOUNT, 'min active token amount does not match')
       })
     })
 
     context('when the registry is not initialized', () => {
       it('returns zero', async () => {
-        assert.equal((await registry.minActiveTokens()).toString(), 0, 'min active token amount does not match')
+        assert.equal((await registry.minJurorsActiveBalance()).toString(), 0, 'min active token amount does not match')
       })
     })
   })
@@ -145,7 +148,7 @@ contract('JurorsRegistry initialization', ([_, something]) => {
   describe('supportsHistory', () => {
     context('when the registry is initialized', () => {
       beforeEach('initialize registry', async () => {
-        await registry.init(registryOwner.address, ANJ.address, MIN_ACTIVE_TOKENS)
+        await registry.init(registryOwner.address, ANJ.address, MIN_ACTIVE_AMOUNT)
       })
 
       it('returns false', async () => {

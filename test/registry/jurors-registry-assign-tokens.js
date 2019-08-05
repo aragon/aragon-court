@@ -13,7 +13,7 @@ const BURN_ADDRESS = '0x000000000000000000000000000000000000dead'
 contract('JurorsRegistry assign tokens', ([_, juror, someone]) => {
   let registry, registryOwner, ANJ
 
-  const MIN_ACTIVE_TOKENS = bigExp(100, 18)
+  const MIN_ACTIVE_AMOUNT = bigExp(100, 18)
 
   beforeEach('create base contracts', async () => {
     registry = await JurorsRegistry.new()
@@ -83,7 +83,7 @@ contract('JurorsRegistry assign tokens', ([_, juror, someone]) => {
   describe('assignTokens', () => {
     context('when the registry is initialized', () => {
       beforeEach('initialize registry', async () => {
-        await registry.init(registryOwner.address, ANJ.address, MIN_ACTIVE_TOKENS)
+        await registry.init(registryOwner.address, ANJ.address, MIN_ACTIVE_AMOUNT)
       })
 
       context('when the sender is the owner', () => {
@@ -91,7 +91,7 @@ contract('JurorsRegistry assign tokens', ([_, juror, someone]) => {
           const amount = 0
 
           it('reverts', async () => {
-            await assertRevert(registryOwner.assignTokens(juror, amount), 'REGISTRY_INVALID_ZERO_AMOUNT')
+            await assertRevert(registryOwner.assignTokens(juror, amount), 'JR_INVALID_ZERO_AMOUNT')
           })
         })
 
@@ -130,14 +130,14 @@ contract('JurorsRegistry assign tokens', ([_, juror, someone]) => {
         const from = someone
 
         it('reverts', async () => {
-          await assertRevert(registry.assignTokens(juror, bigExp(100, 18), { from }), 'REGISTRY_SENDER_NOT_OWNER')
+          await assertRevert(registry.assignTokens(juror, bigExp(100, 18), { from }), 'JR_SENDER_NOT_OWNER')
         })
       })
     })
 
     context('when the registry is not initialized', () => {
       it('reverts', async () => {
-        await assertRevert(registryOwner.assignTokens(juror, bigExp(100, 18)), 'REGISTRY_SENDER_NOT_OWNER')
+        await assertRevert(registryOwner.assignTokens(juror, bigExp(100, 18)), 'JR_SENDER_NOT_OWNER')
       })
     })
   })
@@ -145,7 +145,7 @@ contract('JurorsRegistry assign tokens', ([_, juror, someone]) => {
   describe('burnTokens', () => {
     context('when the registry is initialized', () => {
       beforeEach('initialize registry', async () => {
-        await registry.init(registryOwner.address, ANJ.address, MIN_ACTIVE_TOKENS)
+        await registry.init(registryOwner.address, ANJ.address, MIN_ACTIVE_AMOUNT)
       })
 
       context('when the sender is the owner', () => {
@@ -153,7 +153,7 @@ contract('JurorsRegistry assign tokens', ([_, juror, someone]) => {
           const amount = 0
 
           it('reverts', async () => {
-            await assertRevert(registryOwner.burnTokens(amount), 'REGISTRY_INVALID_ZERO_AMOUNT')
+            await assertRevert(registryOwner.burnTokens(amount), 'JR_INVALID_ZERO_AMOUNT')
           })
         })
 
@@ -190,14 +190,14 @@ contract('JurorsRegistry assign tokens', ([_, juror, someone]) => {
         const from = someone
 
         it('reverts', async () => {
-          await assertRevert(registry.burnTokens(bigExp(100, 18), { from }), 'REGISTRY_SENDER_NOT_OWNER')
+          await assertRevert(registry.burnTokens(bigExp(100, 18), { from }), 'JR_SENDER_NOT_OWNER')
         })
       })
     })
 
     context('when the registry is not initialized', () => {
       it('reverts', async () => {
-        await assertRevert(registryOwner.burnTokens(bigExp(100, 18)), 'REGISTRY_SENDER_NOT_OWNER')
+        await assertRevert(registryOwner.burnTokens(bigExp(100, 18)), 'JR_SENDER_NOT_OWNER')
       })
     })
   })

@@ -10,24 +10,27 @@ import { ApproveAndCallFallBack } from "@aragon/apps-shared-minime/contracts/Min
 import "./lib/BytesHelpers.sol";
 import "./lib/HexSumTree.sol";
 import "./standards/erc900/ERC900.sol";
-import "./standards/erc900/IStakingOwner.sol";
+import "./standards/erc900/IJurorsRegistry.sol";
+import "./standards/erc900/IJurorsRegistryOwner.sol";
 
 
-contract JurorsRegistry is Initializable, IsContract, ERC900, ApproveAndCallFallBack {
+contract JurorsRegistry is Initializable, IsContract, IJurorsRegistry, ERC900, ApproveAndCallFallBack {
     using SafeERC20 for ERC20;
     using SafeMath for uint256;
     using BytesHelpers for bytes;
     using HexSumTree for HexSumTree.Tree;
 
-    string internal constant ERROR_NOT_CONTRACT = "REGISTRY_NOT_CONTRACT";
-    string internal constant ERROR_SENDER_NOT_OWNER = "REGISTRY_SENDER_NOT_OWNER";
-    string internal constant ERROR_INVALID_ZERO_AMOUNT = "REGISTRY_INVALID_ZERO_AMOUNT";
-    string internal constant ERROR_INVALID_ACTIVATION_AMOUNT = "REGISTRY_INVALID_ACTIVATION_AMOUNT";
-    string internal constant ERROR_INVALID_DEACTIVATION_AMOUNT = "REGISTRY_INVALID_DEACTIVATION_AMOUNT";
-    string internal constant ERROR_NOT_ENOUGH_BALANCE = "REGISTRY_NOT_ENOUGH_BALANCE";
-    string internal constant ERROR_TOKEN_TRANSFER_FAILED = "REGISTRY_TOKEN_TRANSFER_FAILED";
-    string internal constant ERROR_TOKENS_BELOW_MIN_STAKE = "REGISTRY_TOKENS_BELOW_MIN_STAKE";
-    string internal constant ERROR_SORTITION_LENGTHS_MISMATCH = "REGISTRY_SORTITION_LENGTHS_MISMATCH";
+    string internal constant ERROR_NOT_CONTRACT = "JR_NOT_CONTRACT";
+    string internal constant ERROR_SENDER_NOT_OWNER = "JR_SENDER_NOT_OWNER";
+    string internal constant ERROR_INVALID_ZERO_AMOUNT = "JR_INVALID_ZERO_AMOUNT";
+    string internal constant ERROR_INVALID_ACTIVATION_AMOUNT = "JR_INVALID_ACTIVATION_AMOUNT";
+    string internal constant ERROR_INVALID_DEACTIVATION_AMOUNT = "JR_INVALID_DEACTIVATION_AMOUNT";
+    string internal constant ERROR_ACTIVE_BALANCE_BELOW_MIN = "JR_ACTIVE_BALANCE_BELOW_MIN";
+    string internal constant ERROR_NOT_ENOUGH_AVAILABLE_BALANCE = "JR_NOT_ENOUGH_AVAILABLE_BALANCE";
+    string internal constant ERROR_CANNOT_REDUCE_DEACTIVATION_REQUEST = "JR_CANT_REDUCE_DEACTIVATION_REQ";
+    string internal constant ERROR_TOKEN_TRANSFER_FAILED = "JR_TOKEN_TRANSFER_FAILED";
+    string internal constant ERROR_TOKEN_APPROVE_NOT_ALLOWED = "JR_TOKEN_APPROVE_NOT_ALLOWED";
+    string internal constant ERROR_SORTITION_LENGTHS_MISMATCH = "JR_SORTITION_LENGTHS_MISMATCH";
 
     uint64 internal constant MAX_UINT64 = uint64(-1);
     uint256 internal constant PCT_BASE = 10000; // %
@@ -66,10 +69,12 @@ contract JurorsRegistry is Initializable, IsContract, ERC900, ApproveAndCallFall
     }
 
     // Jurors registry owner address
-    IStakingOwner public owner;
+    IJurorsRegistryOwner public owner;
 
-    // Minimum amount of tokens jurors can activate to participate in the Court
-    uint256 public minActiveTokens;
+    // Minimum amount of tokens jurors have to activate to participate in the Court. Note that for final round the
+    // max of active tokens the tree can hold is: 2^64 * minActiveBalance / FINAL_ROUND_WEIGHT_PRECISION.
+    // Make sure not to set this value too low (as long as it's over the unit should be fine)
+    uint256 internal minActiveBalance;
 
     // Juror ERC20 token
     ERC20 internal jurorsToken;
@@ -81,7 +86,7 @@ contract JurorsRegistry is Initializable, IsContract, ERC900, ApproveAndCallFall
     mapping (uint256 => address) internal jurorsAddressById;
 
     // Tree to store jurors active balance by term for the drafting process
-    HexSumTree.Tree private tree;
+    HexSumTree.Tree internal tree;
 
     event JurorDrafted(uint256 indexed disputeId, address juror);
     event JurorActivated(address indexed juror, uint64 fromTermId, uint256 amount);
@@ -97,19 +102,20 @@ contract JurorsRegistry is Initializable, IsContract, ERC900, ApproveAndCallFall
     }
 
     /**
-    * @notice Initialize jurors registry with a minimum active amount of `@tokenAmount(_token, _minActiveTokens)`.
+    * @notice Initialize jurors registry with a minimum active amount of `@tokenAmount(_token, _minActiveBalance)`.
     * @param _owner Address to be set as the owner of the jurors registry
     * @param _jurorToken Address of the ERC20 token to be used as juror token for the registry
-    * @param _minActiveTokens Minimum amount of juror tokens that can be activated
+    * @param _minActiveBalance Minimum amount of juror tokens that can be activated
     */
-    function init(IStakingOwner _owner, ERC20 _jurorToken, uint256 _minActiveTokens) external {
-        require(isContract(_owner), ERROR_NOT_CONTRACT);
+    function init(IJurorsRegistryOwner _owner, ERC20 _jurorToken, uint256 _minActiveBalance) external {
+        // TODO: cannot check the given owner is a contract cause the Court set this up in the constructor, move to a factory
+        // require(isContract(_owner), ERROR_NOT_CONTRACT);
         require(isContract(_jurorToken), ERROR_NOT_CONTRACT);
 
         initialized();
         owner = _owner;
         jurorsToken = _jurorToken;
-        minActiveTokens = _minActiveTokens;
+        minActiveBalance = _minActiveBalance;
 
         tree.init();
         assert(tree.insert(0, 0) == 0); // first tree item is an empty juror
@@ -139,13 +145,16 @@ contract JurorsRegistry is Initializable, IsContract, ERC900, ApproveAndCallFall
     function deactivate(uint256 _amount) external isInitialized {
         uint64 termId = owner.ensureAndGetTermId();
 
-        require(_amount > 0, ERROR_INVALID_ZERO_AMOUNT);
         uint256 unlockedBalance = unlockedBalanceOf(msg.sender);
-        require(_amount <= unlockedBalance, ERROR_INVALID_DEACTIVATION_AMOUNT);
-        uint256 futureActiveBalance = unlockedBalance.sub(_amount);
-        require(futureActiveBalance == uint256(0) || futureActiveBalance >= minActiveTokens, ERROR_INVALID_DEACTIVATION_AMOUNT);
+        uint256 amountToDeactivate = _amount == uint256(0) ? unlockedBalance : _amount;
+        require(amountToDeactivate > 0, ERROR_INVALID_ZERO_AMOUNT);
+        require(amountToDeactivate <= unlockedBalance, ERROR_INVALID_DEACTIVATION_AMOUNT);
 
-        _createDeactivationRequest(msg.sender, termId, _amount);
+        // No need to use SafeMath here, we already checked values above
+        uint256 futureActiveBalance = unlockedBalance - amountToDeactivate;
+        require(futureActiveBalance == uint256(0) || futureActiveBalance >= minActiveBalance, ERROR_INVALID_DEACTIVATION_AMOUNT);
+
+        _createDeactivationRequest(msg.sender, termId, amountToDeactivate);
     }
 
     /**
@@ -248,7 +257,9 @@ contract JurorsRegistry is Initializable, IsContract, ERC900, ApproveAndCallFall
                 if(stakes[i] >= newLockedBalance) {
                     _juror.lockedBalance = newLockedBalance;
 
-                    // Check repeated juror, we assume jurors come ordered from tree search
+                    // Check repeated juror, we assume jurors come ordered from tree search. Note that since the tree
+                    // search can be called more than once, if some juror doesn't have enough balance, the final
+                    // result of this function may not be ordered and contain repeated entries.
                     if (jurorsLength > 0 && jurors[jurorsLength - 1] == juror) {
                         weights[jurorsLength - 1]++;
                     } else {
@@ -371,11 +382,48 @@ contract JurorsRegistry is Initializable, IsContract, ERC900, ApproveAndCallFall
     }
 
     /**
+    * @dev Tell the total amount of active juror tokens at the given term id
+    * @param _termId Term id querying the total active balance for
+    * @return Total amount of active juror tokens at the given term id
+    */
+    function totalActiveBalanceAt(uint64 _termId) external view returns (uint256) {
+        return tree.totalSumPast(_termId);
+    }
+
+    /**
+    * @dev Tell the last registered total amount of active juror tokens from the given term id
+    * @param _termId Starting term id to query the latest total active balance for
+    * @return Last registered total amount of active juror tokens from the given term id
+    */
+    function getLastTotalActiveBalanceFrom(uint64 _termId) external view returns (uint256) {
+        return tree.totalSumPresent(_termId);
+    }
+
+    /**
+    * @dev Tell the active balance of a juror for a given term id
+    * @param _juror Address of the juror querying the active balance of
+    * @param _termId Term id querying the active balance for
+    * @return Amount of active tokens for juror in the requested past term id
+    */
+    function activeBalanceOfAt(address _juror, uint64 _termId) external view returns (uint256) {
+        Juror storage juror = jurorsByAddress[_juror];
+        return _existsJuror(juror) ? tree.getItemPast(juror.id, _termId) : uint256(0);
+    }
+
+    /**
+    * @dev Tell the minimum amount of tokens jurors have to activate to participate in the Court
+    * @return Minimum amount of tokens jurors hav to activate to participate in the Court
+    */
+    function minJurorsActiveBalance() external view returns (uint256) {
+        return minActiveBalance;
+    }
+
+    /**
     * @dev Tell the identification number associated to a juror address
     * @param _juror Address of the juror querying the identification number of
     * @return Identification number associated to a juror address, zero in case it wasn't registered yet
     */
-    function jurorId(address _juror) external view returns (uint256) {
+    function getJurorId(address _juror) external view returns (uint256) {
         return jurorsByAddress[_juror].id;
     }
 
@@ -387,9 +435,8 @@ contract JurorsRegistry is Initializable, IsContract, ERC900, ApproveAndCallFall
     * @param _data Optional data that can be used to request the activation of the transferred tokens
     */
     function receiveApproval(address _from, uint256 _amount, address _token, bytes _data) public {
-        if (msg.sender == _token && _token == address(jurorsToken)) {
-            _stake(_from, _from, _amount, _data);
-        }
+        require(msg.sender == _token && _token == address(jurorsToken), ERROR_TOKEN_APPROVE_NOT_ALLOWED);
+        _stake(_from, _from, _amount, _data);
     }
 
     /**
@@ -431,17 +478,6 @@ contract JurorsRegistry is Initializable, IsContract, ERC900, ApproveAndCallFall
     }
 
     /**
-    * @dev Tell the active balance of a juror for a given past term id
-    * @param _juror Address of the juror querying the active balance of
-    * @param _termId Past term id querying the active balance for
-    * @return Amount of active tokens for juror in the requested past term id
-    */
-    function pastActiveBalanceOf(address _juror, uint64 _termId) public view returns (uint256) {
-        // TODO: should we check that the juror exists?
-        return tree.getItemPast(jurorsByAddress[_juror].id, _termId);
-    }
-
-    /**
     * @dev Internal function to activate a given amount of tokens for a juror.
     *      This function assumes that the given term is the current term and has already been ensured.
     * @param _juror Address of the juror to activate tokens
@@ -456,10 +492,10 @@ contract JurorsRegistry is Initializable, IsContract, ERC900, ApproveAndCallFall
             // Even though we are adding amounts, let's check the new active balance is greater than or equal to the
             // minimum active amount. Note that the juror might have been slashed.
             uint256 activeBalance = tree.getItem(juror.id);
-            require(activeBalance.add(_amount) >= minActiveTokens, ERROR_TOKENS_BELOW_MIN_STAKE);
+            require(activeBalance.add(_amount) >= minActiveBalance, ERROR_ACTIVE_BALANCE_BELOW_MIN);
             tree.update(juror.id, nextTermId, _amount, true);
         } else {
-            require(_amount >= minActiveTokens, ERROR_TOKENS_BELOW_MIN_STAKE);
+            require(_amount >= minActiveBalance, ERROR_ACTIVE_BALANCE_BELOW_MIN);
             juror.id = tree.insert(nextTermId, _amount);
             jurorsAddressById[juror.id] = _juror;
         }
@@ -526,7 +562,11 @@ contract JurorsRegistry is Initializable, IsContract, ERC900, ApproveAndCallFall
     function _reduceDeactivationRequest(address _juror, uint256 _amount, uint64 _termId) internal {
         Juror storage juror = jurorsByAddress[_juror];
         DeactivationRequest storage request = juror.deactivationRequest;
-        uint256 newRequestAmount = request.amount.sub(_amount);
+        uint256 currentRequestAmount = request.amount;
+        require(currentRequestAmount >= _amount, ERROR_CANNOT_REDUCE_DEACTIVATION_REQUEST);
+
+        // No need to use SafeMath here, we already checked values above
+        uint256 newRequestAmount = currentRequestAmount - _amount;
         request.amount = newRequestAmount;
         emit JurorDeactivationUpdated(_juror, request.availableTermId, newRequestAmount, _termId);
     }
@@ -584,7 +624,7 @@ contract JurorsRegistry is Initializable, IsContract, ERC900, ApproveAndCallFall
         // the current term this time since deactivation requests always work with future terms, which means that if
         // the current term is outdated, it will never match the deactivation term id. We avoid ensuring the term here
         // to avoid forcing jurors to do that in order to withdraw their available balance.
-        _processDeactivationRequest(_juror, owner.getTermId());
+        _processDeactivationRequest(_juror, owner.getLastEnsuredTermId());
 
         _updateAvailableBalanceOf(_juror, _amount, false);
         require(jurorsToken.safeTransfer(_juror, _amount), ERROR_TOKEN_TRANSFER_FAILED);
@@ -603,7 +643,7 @@ contract JurorsRegistry is Initializable, IsContract, ERC900, ApproveAndCallFall
         if (_positive) {
             juror.availableBalance = juror.availableBalance.add(_amount);
         } else {
-            require(_amount <= juror.availableBalance, ERROR_NOT_ENOUGH_BALANCE);
+            require(_amount <= juror.availableBalance, ERROR_NOT_ENOUGH_AVAILABLE_BALANCE);
             juror.availableBalance = juror.availableBalance.sub(_amount);
         }
 
@@ -645,7 +685,7 @@ contract JurorsRegistry is Initializable, IsContract, ERC900, ApproveAndCallFall
     * @return The fraction of minimum active tokens that must be locked for a draft
     */
     function _draftLockAmount(uint16 _pct) internal view returns (uint256) {
-        return minActiveTokens * uint256(_pct) / PCT_BASE;
+        return minActiveBalance * uint256(_pct) / PCT_BASE;
     }
 
     /**

@@ -12,7 +12,7 @@ const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
 contract('JurorsRegistry slashing', ([_, juror, anyone]) => {
   let registry, registryOwner, ANJ
 
-  const MIN_ACTIVE_TOKENS = bigExp(100, 18)
+  const MIN_ACTIVE_AMOUNT = bigExp(100, 18)
 
   beforeEach('create base contracts', async () => {
     registry = await JurorsRegistry.new()
@@ -27,7 +27,7 @@ contract('JurorsRegistry slashing', ([_, juror, anyone]) => {
   describe('collectTokens', () => {
     context('when the registry is initialized', () => {
       beforeEach('initialize registry', async () => {
-        await registry.init(registryOwner.address, ANJ.address, MIN_ACTIVE_TOKENS)
+        await registry.init(registryOwner.address, ANJ.address, MIN_ACTIVE_AMOUNT)
       })
 
       context('when the sender is the owner', () => {
@@ -57,13 +57,23 @@ contract('JurorsRegistry slashing', ([_, juror, anyone]) => {
             assert.equal(previousAvailableBalance.toString(), currentAvailableBalance.toString(), 'available balances do not match')
           })
 
+          it('does not affect the active balance of the current term', async () => {
+            const termId = await registryOwner.getLastEnsuredTermId()
+            const currentTermPreviousBalance = await registry.activeBalanceOfAt(juror, termId)
+
+            await registryOwner.collect(juror, amount)
+
+            const currentTermCurrentBalance = await registry.activeBalanceOfAt(juror, termId)
+            assert.equal(currentTermPreviousBalance.toString(), currentTermCurrentBalance.toString(), 'current term active balances do not match')
+          })
+
           it('decreases the unlocked balance of the juror', async () => {
             const previousUnlockedBalance = await registry.unlockedBalanceOf(juror)
 
             await registryOwner.collect(juror, amount)
 
             const currentUnlockedBalance = await registry.unlockedBalanceOf(juror)
-            assert.equal(previousUnlockedBalance.minus(amount).toString(), currentUnlockedBalance.toString(), 'unlocked balances do not match')
+            assert.equal(previousUnlockedBalance.minus(amount).plus(deactivationReduced).toString(), currentUnlockedBalance.toString(), 'unlocked balances do not match')
           })
 
           it('decreases the staked balance of the juror', async () => {
@@ -93,7 +103,7 @@ contract('JurorsRegistry slashing', ([_, juror, anyone]) => {
           })
 
           it('emits a juror tokens collected event', async () => {
-            const termId = await registryOwner.getTermId()
+            const termId = await registryOwner.getLastEnsuredTermId()
 
             const { tx } = await registryOwner.collect(juror, amount)
             const receipt = await web3.eth.getTransactionReceipt(tx)
@@ -111,7 +121,7 @@ contract('JurorsRegistry slashing', ([_, juror, anyone]) => {
 
           if (deactivationReduced !== 0) {
             it('emits a deactivation request updated event', async () => {
-              const termId = await registryOwner.getTermId()
+              const termId = await registryOwner.getLastEnsuredTermId()
               const [, , , previousDeactivationBalance] = await registry.balanceOf(juror)
 
               const { tx } = await registryOwner.collect(juror, amount)
@@ -133,7 +143,7 @@ contract('JurorsRegistry slashing', ([_, juror, anyone]) => {
           context('when the given amount is zero', () => {
             const amount = 0
 
-            itReturnsFalse(amount)
+            itHandlesTokensCollectionFor(amount)
           })
 
           context('when the given amount is greater than zero', () => {
@@ -144,7 +154,7 @@ contract('JurorsRegistry slashing', ([_, juror, anyone]) => {
         })
 
         context('when the juror has already staked some tokens', () => {
-          const stakedBalance = MIN_ACTIVE_TOKENS.times(5)
+          const stakedBalance = MIN_ACTIVE_AMOUNT.times(5)
 
           beforeEach('stake some tokens', async () => {
             await ANJ.generateTokens(juror, stakedBalance)
@@ -172,7 +182,7 @@ contract('JurorsRegistry slashing', ([_, juror, anyone]) => {
           })
 
           context('when the juror has already activated some tokens', () => {
-            const activeBalance = MIN_ACTIVE_TOKENS.times(4)
+            const activeBalance = MIN_ACTIVE_AMOUNT.times(4)
 
             beforeEach('activate some tokens', async () => {
               await registry.activate(activeBalance, { from: juror })
@@ -199,7 +209,7 @@ contract('JurorsRegistry slashing', ([_, juror, anyone]) => {
             })
 
             context('when the juror already has a previous deactivation request', () => {
-              const deactivationAmount = MIN_ACTIVE_TOKENS
+              const deactivationAmount = MIN_ACTIVE_AMOUNT
               const currentActiveBalance = activeBalance.minus(deactivationAmount)
 
               beforeEach('deactivate tokens', async () => {
@@ -302,14 +312,14 @@ contract('JurorsRegistry slashing', ([_, juror, anyone]) => {
         const from = anyone
 
         it('reverts', async () => {
-          await assertRevert(registry.collectTokens(juror, bigExp(100, 18), 0, { from }), 'REGISTRY_SENDER_NOT_OWNER')
+          await assertRevert(registry.collectTokens(juror, bigExp(100, 18), 0, { from }), 'JR_SENDER_NOT_OWNER')
         })
       })
     })
 
     context('when the registry is not initialized', () => {
       it('reverts', async () => {
-        await assertRevert(registryOwner.collect(juror, bigExp(100, 18)), 'REGISTRY_SENDER_NOT_OWNER')
+        await assertRevert(registryOwner.collect(juror, bigExp(100, 18)), 'JR_SENDER_NOT_OWNER')
       })
     })
   })

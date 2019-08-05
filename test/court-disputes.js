@@ -6,10 +6,9 @@ const { soliditySha3 } = require('web3-utils')
 const TokenFactory = artifacts.require('TokenFactory')
 const CourtMock = artifacts.require('CourtMock')
 const CourtAccounting = artifacts.require('CourtAccounting')
-const CourtStakingMock = artifacts.require('CourtStakingMock')
+const JurorsRegistry = artifacts.require('JurorsRegistryMock')
 const CRVoting = artifacts.require('CRVoting')
 const Subscriptions = artifacts.require('SubscriptionsMock')
-const SumTree = artifacts.require('HexSumTreeWrapper')
 const Arbitrable = artifacts.require('ArbitrableMock')
 
 const MINIME = 'MiniMeToken'
@@ -106,10 +105,9 @@ contract('Court: Disputes', ([ poor, rich, governor, juror1, juror2, juror3, oth
     await assertEqualBN(this.anj.balanceOf(rich), initialBalance, 'rich balance')
     await assertEqualBN(this.anj.balanceOf(poor), 0, 'poor balance')
 
-    this.staking = await CourtStakingMock.new()
+    this.jurorsRegistry = await JurorsRegistry.new()
     this.accounting = await CourtAccounting.new()
     this.voting = await CRVoting.new()
-    this.sumTree = await SumTree.new()
     this.arbitrable = await Arbitrable.new()
     this.subscriptions = await Subscriptions.new()
     await this.subscriptions.setUpToDate(true)
@@ -117,10 +115,9 @@ contract('Court: Disputes', ([ poor, rich, governor, juror1, juror2, juror3, oth
     this.court = await CourtMock.new(
       termDuration,
       [ this.anj.address, ZERO_ADDRESS ], // no fees
-      this.staking.address,
+      this.jurorsRegistry.address,
       this.accounting.address,
       this.voting.address,
-      this.sumTree.address,
       this.subscriptions.address,
       [ 0, 0, 0, 0 ],
       governor,
@@ -133,25 +130,24 @@ contract('Court: Disputes', ([ poor, rich, governor, juror1, juror2, juror3, oth
 
     await this.court.mock_setBlockNumber(startBlock)
     // tree searches always return jurors in the order that they were added to the tree
-    await this.staking.mock_hijackTreeSearch()
+    await this.jurorsRegistry.mock_hijackTreeSearch()
 
-    assert.equal(await this.staking.token(), this.anj.address, 'court token')
-    //assert.equal(await this.staking.jurorToken(), this.anj.address, 'court juror token')
-    await assertEqualBN(this.staking.mock_treeTotalSum(), 0, 'empty sum tree')
+    assert.equal(await this.jurorsRegistry.token(), this.anj.address, 'court token')
+    await assertEqualBN(this.jurorsRegistry.mock_treeTotalSum(), 0, 'empty sum tree')
     
-    await this.anj.approveAndCall(this.staking.address, richStake, NO_DATA, { from: rich })
+    await this.anj.approveAndCall(this.jurorsRegistry.address, richStake, NO_DATA, { from: rich })
 
-    await this.anj.approve(this.staking.address, juror1Stake, { from: rich })
-    await this.staking.stakeFor(juror1, juror1Stake, NO_DATA, { from: rich })
-    await this.anj.approve(this.staking.address, juror2Stake, { from: rich })
-    await this.staking.stakeFor(juror2, juror2Stake, NO_DATA, { from: rich })
-    await this.anj.approve(this.staking.address, juror3Stake, { from: rich })
-    await this.staking.stakeFor(juror3, juror3Stake, NO_DATA, { from: rich })
+    await this.anj.approve(this.jurorsRegistry.address, juror1Stake, { from: rich })
+    await this.jurorsRegistry.stakeFor(juror1, juror1Stake, NO_DATA, { from: rich })
+    await this.anj.approve(this.jurorsRegistry.address, juror2Stake, { from: rich })
+    await this.jurorsRegistry.stakeFor(juror2, juror2Stake, NO_DATA, { from: rich })
+    await this.anj.approve(this.jurorsRegistry.address, juror3Stake, { from: rich })
+    await this.jurorsRegistry.stakeFor(juror3, juror3Stake, NO_DATA, { from: rich })
 
-    await assertEqualBN(this.staking.totalStakedFor(rich), richStake, 'rich stake')
-    await assertEqualBN(this.staking.totalStakedFor(juror1), juror1Stake, 'juror1 stake')
-    await assertEqualBN(this.staking.totalStakedFor(juror2), juror2Stake, 'juror2 stake')
-    await assertEqualBN(this.staking.totalStakedFor(juror3), juror3Stake, 'juror3 stake')
+    await assertEqualBN(this.jurorsRegistry.totalStakedFor(rich), richStake, 'rich stake')
+    await assertEqualBN(this.jurorsRegistry.totalStakedFor(juror1), juror1Stake, 'juror1 stake')
+    await assertEqualBN(this.jurorsRegistry.totalStakedFor(juror2), juror2Stake, 'juror2 stake')
+    await assertEqualBN(this.jurorsRegistry.totalStakedFor(juror3), juror3Stake, 'juror3 stake')
   })
 
   it('can encrypt votes', async () => {
@@ -161,7 +157,7 @@ contract('Court: Disputes', ([ poor, rich, governor, juror1, juror2, juror3, oth
 
   context('activating jurors', () => {
     const passTerms = async terms => {
-      await this.staking.mock_timeTravel(terms * termDuration)
+      await this.jurorsRegistry.mock_timeTravel(terms * termDuration)
       await this.court.mock_timeTravel(terms * termDuration)
       await this.court.heartbeat(terms)
       await this.court.mock_blockTravel(1)
@@ -170,7 +166,7 @@ contract('Court: Disputes', ([ poor, rich, governor, juror1, juror2, juror3, oth
 
     beforeEach(async () => {
       for (const juror of [juror1, juror2, juror3]) {
-        await this.staking.activate({ from: juror })
+        await this.jurorsRegistry.activate(0, { from: juror })
       }
       await passTerms(1) // term = 1
     })
@@ -231,7 +227,7 @@ contract('Court: Disputes', ([ poor, rich, governor, juror1, juror2, juror3, oth
           await this.court.mock_blockTravel(1)
           await this.court.setTermRandomness()
           const receipt = await this.court.draftAdjudicationRound(disputeId)
-          assertDeepLogs(receipt, this.staking.abi, JUROR_DRAFTED_EVENT)
+          assertDeepLogs(receipt, this.jurorsRegistry.abi, JUROR_DRAFTED_EVENT)
           assertLogs(receipt, DISPUTE_STATE_CHANGED_EVENT)
         })
 
@@ -375,19 +371,19 @@ contract('Court: Disputes', ([ poor, rich, governor, juror1, juror2, juror3, oth
               })
 
               it('slashed incoherent juror', async () => {
-                await assertEqualBN(this.staking.totalStakedFor(juror1), juror1Stake - slashed, 'juror1 slashed')
+                await assertEqualBN(this.jurorsRegistry.totalStakedFor(juror1), juror1Stake - slashed, 'juror1 slashed')
               })
 
               it('coherent jurors can claim reward', async () => {
                 const reward = slashed / 2
 
-                await assertEqualBN(this.staking.totalStakedFor(juror2), juror2Stake, 'juror2 pre-reward')
+                await assertEqualBN(this.jurorsRegistry.totalStakedFor(juror2), juror2Stake, 'juror2 pre-reward')
                 assertLogs(await this.court.settleReward(disputeId, firstRoundId, juror2))
-                await assertEqualBN(this.staking.totalStakedFor(juror2), juror2Stake + reward, 'juror2 post-reward')
+                await assertEqualBN(this.jurorsRegistry.totalStakedFor(juror2), juror2Stake + reward, 'juror2 post-reward')
 
-                await assertEqualBN(this.staking.totalStakedFor(juror3), juror3Stake, 'juror3 pre-reward')
+                await assertEqualBN(this.jurorsRegistry.totalStakedFor(juror3), juror3Stake, 'juror3 pre-reward')
                 assertLogs(await this.court.settleReward(disputeId, firstRoundId, juror3))
-                await assertEqualBN(this.staking.totalStakedFor(juror3), juror3Stake + reward, 'juror3 post-reward')
+                await assertEqualBN(this.jurorsRegistry.totalStakedFor(juror3), juror3Stake + reward, 'juror3 post-reward')
               })
             })
 
@@ -402,7 +398,7 @@ contract('Court: Disputes', ([ poor, rich, governor, juror1, juror2, juror3, oth
                 await this.court.mock_blockTravel(1)
                 await this.court.setTermRandomness()
                 const receipt = await this.court.draftAdjudicationRound(disputeId)
-                assertDeepLogs(receipt, this.staking.abi, JUROR_DRAFTED_EVENT)
+                assertDeepLogs(receipt, this.jurorsRegistry.abi, JUROR_DRAFTED_EVENT)
                 assertLogs(receipt, DISPUTE_STATE_CHANGED_EVENT)
               })
             })

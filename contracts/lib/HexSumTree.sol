@@ -1,6 +1,7 @@
 pragma solidity ^0.4.24;
 
-import "./Checkpointing.sol"; // TODO: import from Staking (or somewhere else)
+// TODO: import from Staking (or somewhere else)
+import "./Checkpointing.sol";
 
 
 library HexSumTree {
@@ -330,10 +331,10 @@ library HexSumTree {
     function _getOrderedValues(
         bytes32 _termRandomness,
         uint256 _disputeId,
-        uint64 _time,
-        uint256 _filledSeats,
+        uint64 /* _time */,
+        uint256 /* _filledSeats */,
         uint256 _jurorsRequested,
-        uint256 _jurorNumber,
+        uint256 /* _jurorNumber */,
         uint256 _sortitionIteration,
         uint256 stakeFrom,
         uint256 stakeTo

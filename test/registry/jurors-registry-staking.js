@@ -13,7 +13,7 @@ const ACTIVATE_DATA = web3.sha3('activate(uint256)').slice(0, 10)
 contract('JurorsRegistry staking', ([_, juror, anotherJuror]) => {
   let registry, registryOwner, ANJ
 
-  const MIN_ACTIVE_TOKENS = bigExp(100, 18)
+  const MIN_ACTIVE_AMOUNT = bigExp(100, 18)
 
   beforeEach('create base contracts', async () => {
     registry = await JurorsRegistry.new()
@@ -26,7 +26,7 @@ contract('JurorsRegistry staking', ([_, juror, anotherJuror]) => {
 
     context('when the registry is initialized', () => {
       beforeEach('initialize registry', async () => {
-        await registry.init(registryOwner.address, ANJ.address, MIN_ACTIVE_TOKENS)
+        await registry.init(registryOwner.address, ANJ.address, MIN_ACTIVE_AMOUNT)
       })
 
       context('when the juror does not request to activate the tokens', () => {
@@ -50,6 +50,16 @@ contract('JurorsRegistry staking', ([_, juror, anotherJuror]) => {
               assert.equal(previousActiveBalance.toString(), currentActiveBalance.toString(), 'active balances do not match')
               assert.equal(previousLockedBalance.toString(), currentLockedBalance.toString(), 'locked balances do not match')
               assert.equal(previousDeactivationBalance.toString(), currentDeactivationBalance.toString(), 'deactivation balances do not match')
+            })
+
+            it('does not affect the active balance of the current term', async () => {
+              const termId = await registryOwner.getLastEnsuredTermId()
+              const currentTermPreviousBalance = await registry.activeBalanceOfAt(from, termId)
+
+              await registry.stake(amount, data, { from })
+
+              const currentTermCurrentBalance = await registry.activeBalanceOfAt(from, termId)
+              assert.equal(currentTermPreviousBalance.toString(), currentTermCurrentBalance.toString(), 'current term active balances do not match')
             })
 
             it('does not affect the unlocked balance of the juror', async () => {
@@ -111,7 +121,7 @@ contract('JurorsRegistry staking', ([_, juror, anotherJuror]) => {
 
           context('when the juror does not have enough token balance', () => {
             it('reverts', async () => {
-              await assertRevert(registry.stake(amount, data, { from }), 'REGISTRY_TOKEN_TRANSFER_FAILED')
+              await assertRevert(registry.stake(amount, data, { from }), 'JR_TOKEN_TRANSFER_FAILED')
             })
           })
         }
@@ -121,18 +131,18 @@ contract('JurorsRegistry staking', ([_, juror, anotherJuror]) => {
             const amount = 0
 
             it('reverts', async () => {
-              await assertRevert(registry.stake(amount, data, { from }), 'REGISTRY_INVALID_ZERO_AMOUNT')
+              await assertRevert(registry.stake(amount, data, { from }), 'JR_INVALID_ZERO_AMOUNT')
             })
           })
 
           context('when the given amount is lower than the minimum active value', () => {
-            const amount = MIN_ACTIVE_TOKENS.sub(1)
+            const amount = MIN_ACTIVE_AMOUNT.sub(1)
 
             itHandlesStakesProperlyFor(amount, data)
           })
 
           context('when the given amount is greater than the minimum active value', () => {
-            const amount = MIN_ACTIVE_TOKENS.times(2)
+            const amount = MIN_ACTIVE_AMOUNT.times(2)
 
             itHandlesStakesProperlyFor(amount, data)
           })
@@ -169,6 +179,16 @@ contract('JurorsRegistry staking', ([_, juror, anotherJuror]) => {
             assert.equal(previousLockedBalance.toString(), currentLockedBalance.toString(), 'locked balances do not match')
             assert.equal(previousAvailableBalance.toString(), currentAvailableBalance.toString(), 'available balances do not match')
             assert.equal(previousDeactivationBalance.toString(), currentDeactivationBalance.toString(), 'deactivation balances do not match')
+          })
+
+          it('does not affect the active balance of the current term', async () => {
+            const termId = await registryOwner.getLastEnsuredTermId()
+            const currentTermPreviousBalance = await registry.activeBalanceOfAt(from, termId)
+
+            await registry.stake(amount, data, { from })
+
+            const currentTermCurrentBalance = await registry.activeBalanceOfAt(from, termId)
+            assert.equal(currentTermPreviousBalance.toString(), currentTermCurrentBalance.toString(), 'current term active balances do not match')
           })
 
           it('updates the unlocked balance of the juror', async () => {
@@ -241,12 +261,12 @@ contract('JurorsRegistry staking', ([_, juror, anotherJuror]) => {
             const amount = 0
 
             it('reverts', async () => {
-              await assertRevert(registry.stake(amount, data, { from }), 'REGISTRY_INVALID_ZERO_AMOUNT')
+              await assertRevert(registry.stake(amount, data, { from }), 'JR_INVALID_ZERO_AMOUNT')
             })
           })
 
           context('when the given amount is lower than the minimum active value', () => {
-            const amount = MIN_ACTIVE_TOKENS.sub(1)
+            const amount = MIN_ACTIVE_AMOUNT.sub(1)
 
             context('when the juror has enough token balance', () => {
               beforeEach('mint and approve tokens', async () => {
@@ -255,19 +275,19 @@ contract('JurorsRegistry staking', ([_, juror, anotherJuror]) => {
               })
 
               it('reverts', async () => {
-                await assertRevert(registry.stake(amount, data, { from }), 'REGISTRY_TOKENS_BELOW_MIN_STAKE')
+                await assertRevert(registry.stake(amount, data, { from }), 'JR_ACTIVE_BALANCE_BELOW_MIN')
               })
             })
 
             context('when the juror does not have enough token balance', () => {
               it('reverts', async () => {
-                await assertRevert(registry.stake(amount, data, { from }), 'REGISTRY_TOKENS_BELOW_MIN_STAKE')
+                await assertRevert(registry.stake(amount, data, { from }), 'JR_ACTIVE_BALANCE_BELOW_MIN')
               })
             })
           })
 
           context('when the given amount is greater than the minimum active value', () => {
-            const amount = MIN_ACTIVE_TOKENS.times(2)
+            const amount = MIN_ACTIVE_AMOUNT.times(2)
 
             context('when the juror has enough token balance', () => {
               beforeEach('mint and approve tokens', async () => {
@@ -280,7 +300,7 @@ contract('JurorsRegistry staking', ([_, juror, anotherJuror]) => {
 
             context('when the juror does not have enough token balance', () => {
               it('reverts', async () => {
-                await assertRevert(registry.stake(amount, data, { from }), 'REGISTRY_TOKEN_TRANSFER_FAILED')
+                await assertRevert(registry.stake(amount, data, { from }), 'JR_TOKEN_TRANSFER_FAILED')
               })
             })
           })
@@ -315,7 +335,7 @@ contract('JurorsRegistry staking', ([_, juror, anotherJuror]) => {
 
     context('when the registry is initialized', () => {
       beforeEach('initialize registry', async () => {
-        await registry.init(registryOwner.address, ANJ.address, MIN_ACTIVE_TOKENS)
+        await registry.init(registryOwner.address, ANJ.address, MIN_ACTIVE_AMOUNT)
       })
 
       const itHandlesStakesWithoutActivationProperlyFor = (recipient, amount, data) => {
@@ -336,6 +356,16 @@ contract('JurorsRegistry staking', ([_, juror, anotherJuror]) => {
             assert.equal(previousActiveBalance.toString(), currentActiveBalance.toString(), 'recipient active balances do not match')
             assert.equal(previousLockedBalance.toString(), currentLockedBalance.toString(), 'recipient locked balances do not match')
             assert.equal(previousDeactivationBalance.toString(), currentDeactivationBalance.toString(), 'recipient deactivation balances do not match')
+          })
+
+          it('does not affect the active balance of the current term', async () => {
+            const termId = await registryOwner.getLastEnsuredTermId()
+            const currentTermPreviousBalance = await registry.activeBalanceOfAt(recipient, termId)
+
+            await registry.stakeFor(recipient, amount, data, { from })
+
+            const currentTermCurrentBalance = await registry.activeBalanceOfAt(recipient, termId)
+            assert.equal(currentTermPreviousBalance.toString(), currentTermCurrentBalance.toString(), 'current term active balances do not match')
           })
 
           if (recipient !== from) {
@@ -429,7 +459,7 @@ contract('JurorsRegistry staking', ([_, juror, anotherJuror]) => {
 
         context('when the juror does not have enough token balance', () => {
           it('reverts', async () => {
-            await assertRevert(registry.stakeFor(recipient, amount, data, { from }), 'REGISTRY_TOKEN_TRANSFER_FAILED')
+            await assertRevert(registry.stakeFor(recipient, amount, data, { from }), 'JR_TOKEN_TRANSFER_FAILED')
           })
         })
       }
@@ -439,18 +469,18 @@ contract('JurorsRegistry staking', ([_, juror, anotherJuror]) => {
           const amount = 0
 
           it('reverts', async () => {
-            await assertRevert(registry.stakeFor(recipient, amount, data, { from }), 'REGISTRY_INVALID_ZERO_AMOUNT')
+            await assertRevert(registry.stakeFor(recipient, amount, data, { from }), 'JR_INVALID_ZERO_AMOUNT')
           })
         })
 
         context('when the given amount is lower than the minimum active value', () => {
-          const amount = MIN_ACTIVE_TOKENS.sub(1)
+          const amount = MIN_ACTIVE_AMOUNT.sub(1)
 
           itHandlesStakesWithoutActivationProperlyFor(recipient, amount, data)
         })
 
         context('when the given amount is greater than the minimum active value', () => {
-          const amount = MIN_ACTIVE_TOKENS.times(2)
+          const amount = MIN_ACTIVE_AMOUNT.times(2)
 
           itHandlesStakesWithoutActivationProperlyFor(recipient, amount, data)
         })
@@ -510,6 +540,16 @@ contract('JurorsRegistry staking', ([_, juror, anotherJuror]) => {
             assert.equal(previousLockedBalance.toString(), currentLockedBalance.toString(), 'recipient locked balances do not match')
             assert.equal(previousAvailableBalance.toString(), currentAvailableBalance.toString(), 'recipient available balances do not match')
             assert.equal(previousDeactivationBalance.toString(), currentDeactivationBalance.toString(), 'recipient deactivation balances do not match')
+          })
+
+          it('does not affect the active balance of the current term', async () => {
+            const termId = await registryOwner.getLastEnsuredTermId()
+            const currentTermPreviousBalance = await registry.activeBalanceOfAt(recipient, termId)
+
+            await registry.stakeFor(recipient, amount, data, { from })
+
+            const currentTermCurrentBalance = await registry.activeBalanceOfAt(recipient, termId)
+            assert.equal(currentTermPreviousBalance.toString(), currentTermCurrentBalance.toString(), 'current term active balances do not match')
           })
 
           if (recipient !== from) {
@@ -614,12 +654,12 @@ contract('JurorsRegistry staking', ([_, juror, anotherJuror]) => {
             const amount = 0
 
             it('reverts', async () => {
-              await assertRevert(registry.stakeFor(recipient, amount, data, { from }), 'REGISTRY_INVALID_ZERO_AMOUNT')
+              await assertRevert(registry.stakeFor(recipient, amount, data, { from }), 'JR_INVALID_ZERO_AMOUNT')
             })
           })
 
           context('when the given amount is lower than the minimum active value', () => {
-            const amount = MIN_ACTIVE_TOKENS.sub(1)
+            const amount = MIN_ACTIVE_AMOUNT.sub(1)
 
             context('when the juror has enough token balance', () => {
               beforeEach('mint and approve tokens', async () => {
@@ -628,19 +668,19 @@ contract('JurorsRegistry staking', ([_, juror, anotherJuror]) => {
               })
 
               it('reverts', async () => {
-                await assertRevert(registry.stakeFor(recipient, amount, data, { from }), 'REGISTRY_TOKENS_BELOW_MIN_STAKE')
+                await assertRevert(registry.stakeFor(recipient, amount, data, { from }), 'JR_ACTIVE_BALANCE_BELOW_MIN')
               })
             })
 
             context('when the juror does not have enough token balance', () => {
               it('reverts', async () => {
-                await assertRevert(registry.stakeFor(recipient, amount, data, { from }), 'REGISTRY_TOKENS_BELOW_MIN_STAKE')
+                await assertRevert(registry.stakeFor(recipient, amount, data, { from }), 'JR_ACTIVE_BALANCE_BELOW_MIN')
               })
             })
           })
 
           context('when the given amount is greater than the minimum active value', () => {
-            const amount = MIN_ACTIVE_TOKENS.times(2)
+            const amount = MIN_ACTIVE_AMOUNT.times(2)
 
             context('when the juror has enough token balance', () => {
               beforeEach('mint and approve tokens', async () => {
@@ -653,7 +693,7 @@ contract('JurorsRegistry staking', ([_, juror, anotherJuror]) => {
 
             context('when the juror does not have enough token balance', () => {
               it('reverts', async () => {
-                await assertRevert(registry.stakeFor(recipient, amount, data, { from }), 'REGISTRY_TOKEN_TRANSFER_FAILED')
+                await assertRevert(registry.stakeFor(recipient, amount, data, { from }), 'JR_TOKEN_TRANSFER_FAILED')
               })
             })
           })
@@ -708,137 +748,138 @@ contract('JurorsRegistry staking', ([_, juror, anotherJuror]) => {
 
     context('when the registry is initialized', () => {
       beforeEach('initialize registry', async () => {
-        await registry.init(registryOwner.address, ANJ.address, MIN_ACTIVE_TOKENS)
+        await registry.init(registryOwner.address, ANJ.address, MIN_ACTIVE_AMOUNT)
       })
 
-      context('when the juror does not request to activate the tokens', () => {
-        const data = '0xabcdef0123456789'
+      context('when the calling contract is ANJ', () => {
+        context('when the juror does not request to activate the tokens', () => {
+          const data = '0xabcdef0123456789'
 
-        const itHandlesStakesProperlyFor = (amount, data) => {
-          context('when the juror has enough token balance', () => {
-            beforeEach('mint', async () => {
-              await ANJ.generateTokens(from, amount)
+          const itHandlesStakesProperlyFor = (amount, data) => {
+            context('when the juror has enough token balance', () => {
+              beforeEach('mint', async () => {
+                await ANJ.generateTokens(from, amount)
+              })
+
+              it('adds the staked amount to the available balance of the juror', async () => {
+                const [previousActiveBalance, previousAvailableBalance, previousLockedBalance, previousDeactivationBalance] = await registry.balanceOf(juror)
+
+                await ANJ.approveAndCall(registry.address, amount, data, { from })
+
+                const [currentActiveBalance, currentAvailableBalance, currentLockedBalance, currentDeactivationBalance] = await registry.balanceOf(juror)
+                assert.equal(previousAvailableBalance.plus(amount).toString(), currentAvailableBalance.toString(), 'available balances do not match')
+
+                assert.equal(previousActiveBalance.toString(), currentActiveBalance.toString(), 'active balances do not match')
+                assert.equal(previousLockedBalance.toString(), currentLockedBalance.toString(), 'locked balances do not match')
+                assert.equal(previousDeactivationBalance.toString(), currentDeactivationBalance.toString(), 'deactivation balances do not match')
+              })
+
+              it('does not affect the unlocked balance of the juror', async () => {
+                const previousUnlockedBalance = await registry.unlockedBalanceOf(juror)
+
+                await ANJ.approveAndCall(registry.address, amount, data, { from })
+
+                const currentUnlockedBalance = await registry.unlockedBalanceOf(juror)
+                assert.equal(previousUnlockedBalance.toString(), currentUnlockedBalance.toString(), 'unlocked balances do not match')
+              })
+
+              it('updates the total staked for the juror', async () => {
+                const previousTotalStake = await registry.totalStakedFor(juror)
+
+                await ANJ.approveAndCall(registry.address, amount, data, { from })
+
+                const currentTotalStake = await registry.totalStakedFor(juror)
+                assert.equal(previousTotalStake.plus(amount).toString(), currentTotalStake.toString(), 'total stake amounts do not match')
+              })
+
+              it('updates the total staked', async () => {
+                const previousTotalStake = await registry.totalStaked()
+
+                await ANJ.approveAndCall(registry.address, amount, data, { from })
+
+                const currentTotalStake = await registry.totalStaked()
+                assert.equal(previousTotalStake.plus(amount).toString(), currentTotalStake.toString(), 'total stake amounts do not match')
+              })
+
+              it('transfers the tokens to the registry', async () => {
+                const previousSenderBalance = await ANJ.balanceOf(from)
+                const previousRegistryBalance = await ANJ.balanceOf(registry.address)
+
+                await ANJ.approveAndCall(registry.address, amount, data, { from })
+
+                const currentSenderBalance = await ANJ.balanceOf(from)
+                assert.equal(previousSenderBalance.minus(amount).toString(), currentSenderBalance.toString(), 'sender balances do not match')
+
+                const currentRegistryBalance = await ANJ.balanceOf(registry.address)
+                assert.equal(previousRegistryBalance.plus(amount).toString(), currentRegistryBalance.toString(), 'registry balances do not match')
+              })
+
+              it('emits an available balance changed event', async () => {
+                const { tx } = await ANJ.approveAndCall(registry.address, amount, data, { from })
+                const receipt = await web3.eth.getTransactionReceipt(tx)
+                const logs = decodeEventsOfType({ receipt }, JurorsRegistry.abi, 'JurorAvailableBalanceChanged')
+
+                assertAmountOfEvents({ logs }, 'JurorAvailableBalanceChanged')
+                assertEvent({ logs }, 'JurorAvailableBalanceChanged', { juror: web3.toChecksumAddress(juror), amount, positive: true })
+              })
+
+              it('emits a stake event', async () => {
+                const previousTotalStake = await registry.totalStakedFor(juror)
+
+                const { tx } = await ANJ.approveAndCall(registry.address, amount, data, { from })
+                const receipt = await web3.eth.getTransactionReceipt(tx)
+                const logs = decodeEventsOfType({ receipt }, JurorsRegistry.abi, 'Staked')
+
+                assertAmountOfEvents({ logs }, 'Staked')
+                assertEvent({ logs }, 'Staked', { user: web3.toChecksumAddress(juror), amount, total: previousTotalStake.plus(amount), data })
+              })
             })
 
-            it('adds the staked amount to the available balance of the juror', async () => {
-              const [previousActiveBalance, previousAvailableBalance, previousLockedBalance, previousDeactivationBalance] = await registry.balanceOf(juror)
+            context('when the juror does not have enough token balance', () => {
+              it('reverts', async () => {
+                await assertRevert(registry.stake(amount, data, { from }), 'JR_TOKEN_TRANSFER_FAILED')
+              })
+            })
+          }
 
-              await ANJ.approveAndCall(registry.address, amount, data, { from })
+          const itHandlesStakesProperlyForDifferentAmounts = (data) => {
+            context('when the given amount is zero', () => {
+              const amount = 0
 
-              const [currentActiveBalance, currentAvailableBalance, currentLockedBalance, currentDeactivationBalance] = await registry.balanceOf(juror)
-              assert.equal(previousAvailableBalance.plus(amount).toString(), currentAvailableBalance.toString(), 'available balances do not match')
-
-              assert.equal(previousActiveBalance.toString(), currentActiveBalance.toString(), 'active balances do not match')
-              assert.equal(previousLockedBalance.toString(), currentLockedBalance.toString(), 'locked balances do not match')
-              assert.equal(previousDeactivationBalance.toString(), currentDeactivationBalance.toString(), 'deactivation balances do not match')
+              it('reverts', async () => {
+                await assertRevert(registry.stake(amount, data, { from }), 'JR_INVALID_ZERO_AMOUNT')
+              })
             })
 
-            it('does not affect the unlocked balance of the juror', async () => {
-              const previousUnlockedBalance = await registry.unlockedBalanceOf(juror)
+            context('when the given amount is lower than the minimum active value', () => {
+              const amount = MIN_ACTIVE_AMOUNT.sub(1)
 
-              await ANJ.approveAndCall(registry.address, amount, data, { from })
-
-              const currentUnlockedBalance = await registry.unlockedBalanceOf(juror)
-              assert.equal(previousUnlockedBalance.toString(), currentUnlockedBalance.toString(), 'unlocked balances do not match')
+              itHandlesStakesProperlyFor(amount, data)
             })
 
-            it('updates the total staked for the juror', async () => {
-              const previousTotalStake = await registry.totalStakedFor(juror)
+            context('when the given amount is greater than the minimum active value', () => {
+              const amount = MIN_ACTIVE_AMOUNT.times(2)
 
-              await ANJ.approveAndCall(registry.address, amount, data, { from })
-
-              const currentTotalStake = await registry.totalStakedFor(juror)
-              assert.equal(previousTotalStake.plus(amount).toString(), currentTotalStake.toString(), 'total stake amounts do not match')
+              itHandlesStakesProperlyFor(amount, data)
             })
+          }
 
-            it('updates the total staked', async () => {
-              const previousTotalStake = await registry.totalStaked()
-
-              await ANJ.approveAndCall(registry.address, amount, data, { from })
-
-              const currentTotalStake = await registry.totalStaked()
-              assert.equal(previousTotalStake.plus(amount).toString(), currentTotalStake.toString(), 'total stake amounts do not match')
-            })
-
-            it('transfers the tokens to the registry', async () => {
-              const previousSenderBalance = await ANJ.balanceOf(from)
-              const previousRegistryBalance = await ANJ.balanceOf(registry.address)
-
-              await ANJ.approveAndCall(registry.address, amount, data, { from })
-
-              const currentSenderBalance = await ANJ.balanceOf(from)
-              assert.equal(previousSenderBalance.minus(amount).toString(), currentSenderBalance.toString(), 'sender balances do not match')
-
-              const currentRegistryBalance = await ANJ.balanceOf(registry.address)
-              assert.equal(previousRegistryBalance.plus(amount).toString(), currentRegistryBalance.toString(), 'registry balances do not match')
-            })
-
-            it('emits an available balance changed event', async () => {
-              const { tx } = await ANJ.approveAndCall(registry.address, amount, data, { from })
-              const receipt = await web3.eth.getTransactionReceipt(tx)
-              const logs = decodeEventsOfType({ receipt }, JurorsRegistry.abi, 'JurorAvailableBalanceChanged')
-
-              assertAmountOfEvents({ logs }, 'JurorAvailableBalanceChanged')
-              assertEvent({ logs }, 'JurorAvailableBalanceChanged', { juror: web3.toChecksumAddress(juror), amount, positive: true })
-            })
-
-            it('emits a stake event', async () => {
-              const previousTotalStake = await registry.totalStakedFor(juror)
-
-              const { tx } = await ANJ.approveAndCall(registry.address, amount, data, { from })
-              const receipt = await web3.eth.getTransactionReceipt(tx)
-              const logs = decodeEventsOfType({ receipt }, JurorsRegistry.abi, 'Staked')
-
-              assertAmountOfEvents({ logs }, 'Staked')
-              assertEvent({ logs }, 'Staked', { user: web3.toChecksumAddress(juror), amount, total: previousTotalStake.plus(amount), data })
-            })
+          context('when the juror has not staked before', () => {
+            itHandlesStakesProperlyForDifferentAmounts(data)
           })
 
-          context('when the juror does not have enough token balance', () => {
-            it('reverts', async () => {
-              await assertRevert(registry.stake(amount, data, { from }), 'REGISTRY_TOKEN_TRANSFER_FAILED')
+          context('when the juror has already staked some tokens before', () => {
+            beforeEach('stake some tokens', async () => {
+              const initialAmount = bigExp(50, 18)
+              await ANJ.generateTokens(from, initialAmount)
+              await ANJ.approveAndCall(registry.address, initialAmount, '0x', { from })
             })
+
+            itHandlesStakesProperlyForDifferentAmounts(data)
           })
-        }
-
-        const itHandlesStakesProperlyForDifferentAmounts = (data) => {
-          context('when the given amount is zero', () => {
-            const amount = 0
-
-            it('reverts', async () => {
-              await assertRevert(registry.stake(amount, data, { from }), 'REGISTRY_INVALID_ZERO_AMOUNT')
-            })
-          })
-
-          context('when the given amount is lower than the minimum active value', () => {
-            const amount = MIN_ACTIVE_TOKENS.sub(1)
-
-            itHandlesStakesProperlyFor(amount, data)
-          })
-
-          context('when the given amount is greater than the minimum active value', () => {
-            const amount = MIN_ACTIVE_TOKENS.times(2)
-
-            itHandlesStakesProperlyFor(amount, data)
-          })
-        }
-
-        context('when the juror has not staked before', () => {
-          itHandlesStakesProperlyForDifferentAmounts(data)
         })
 
-        context('when the juror has already staked some tokens before', () => {
-          beforeEach('stake some tokens', async () => {
-            const initialAmount = bigExp(50, 18)
-            await ANJ.generateTokens(from, initialAmount)
-            await ANJ.approveAndCall(registry.address, initialAmount, '0x', { from })
-          })
-
-          itHandlesStakesProperlyForDifferentAmounts(data)
-        })
-      })
-
-      context('when the juror requests to activate the tokens', () => {
+        context('when the juror requests to activate the tokens', () => {
         const data = ACTIVATE_DATA
 
         const itHandlesStakesProperlyFor = (amount, data) => {
@@ -853,6 +894,16 @@ contract('JurorsRegistry staking', ([_, juror, anotherJuror]) => {
             assert.equal(previousLockedBalance.toString(), currentLockedBalance.toString(), 'locked balances do not match')
             assert.equal(previousAvailableBalance.toString(), currentAvailableBalance.toString(), 'available balances do not match')
             assert.equal(previousDeactivationBalance.toString(), currentDeactivationBalance.toString(), 'deactivation balances do not match')
+          })
+
+          it('does not affect the active balance of the current term', async () => {
+            const termId = await registryOwner.getLastEnsuredTermId()
+            const currentTermPreviousBalance = await registry.activeBalanceOfAt(from, termId)
+
+            await ANJ.approveAndCall(registry.address, amount, data, { from })
+
+            const currentTermCurrentBalance = await registry.activeBalanceOfAt(from, termId)
+            assert.equal(currentTermPreviousBalance.toString(), currentTermCurrentBalance.toString(), 'current term active balances do not match')
           })
 
           it('updates the unlocked balance of the juror', async () => {
@@ -931,12 +982,12 @@ contract('JurorsRegistry staking', ([_, juror, anotherJuror]) => {
             const amount = 0
 
             it('reverts', async () => {
-              await assertRevert(registry.stake(amount, data, { from }), 'REGISTRY_INVALID_ZERO_AMOUNT')
+              await assertRevert(registry.stake(amount, data, { from }), 'JR_INVALID_ZERO_AMOUNT')
             })
           })
 
           context('when the given amount is lower than the minimum active value', () => {
-            const amount = MIN_ACTIVE_TOKENS.sub(1)
+            const amount = MIN_ACTIVE_AMOUNT.sub(1)
 
             context('when the juror has enough token balance', () => {
               beforeEach('mint tokens', async () => {
@@ -944,19 +995,19 @@ contract('JurorsRegistry staking', ([_, juror, anotherJuror]) => {
               })
 
               it('reverts', async () => {
-                await assertRevert(registry.stake(amount, data, { from }), 'REGISTRY_TOKENS_BELOW_MIN_STAKE')
+                await assertRevert(registry.stake(amount, data, { from }), 'JR_ACTIVE_BALANCE_BELOW_MIN')
               })
             })
 
             context('when the juror does not have enough token balance', () => {
               it('reverts', async () => {
-                await assertRevert(registry.stake(amount, data, { from }), 'REGISTRY_TOKENS_BELOW_MIN_STAKE')
+                await assertRevert(registry.stake(amount, data, { from }), 'JR_ACTIVE_BALANCE_BELOW_MIN')
               })
             })
           })
 
           context('when the given amount is greater than the minimum active value', () => {
-            const amount = MIN_ACTIVE_TOKENS.times(2)
+            const amount = MIN_ACTIVE_AMOUNT.times(2)
 
             context('when the juror has enough token balance', () => {
               beforeEach('mint tokens', async () => {
@@ -968,7 +1019,7 @@ contract('JurorsRegistry staking', ([_, juror, anotherJuror]) => {
 
             context('when the juror does not have enough token balance', () => {
               it('reverts', async () => {
-                await assertRevert(registry.stake(amount, data, { from }), 'REGISTRY_TOKEN_TRANSFER_FAILED')
+                await assertRevert(registry.stake(amount, data, { from }), 'JR_TOKEN_TRANSFER_FAILED')
               })
             })
           })
@@ -988,6 +1039,17 @@ contract('JurorsRegistry staking', ([_, juror, anotherJuror]) => {
           itHandlesStakesProperlyForDifferentAmounts(data)
         })
       })
+      })
+
+      context('when the calling contract is another token', () => {
+        it('reverts', async () => {
+          const anotherToken = await MiniMeToken.new(ZERO_ADDRESS, ZERO_ADDRESS, 0, 'Another Token', 18, 'ATK', true)
+          const jurorBalance = bigExp(100, 18)
+          await anotherToken.generateTokens(juror, jurorBalance)
+
+          await assertRevert(anotherToken.approveAndCall(registry.address, jurorBalance, ACTIVATE_DATA, { from: juror }), 'JR_TOKEN_APPROVE_NOT_ALLOWED')
+        })
+      })
     })
 
     context('when the registry is not initialized', () => {
@@ -1003,7 +1065,7 @@ contract('JurorsRegistry staking', ([_, juror, anotherJuror]) => {
 
     context('when the registry is initialized', () => {
       beforeEach('initialize registry', async () => {
-        await registry.init(registryOwner.address, ANJ.address, MIN_ACTIVE_TOKENS)
+        await registry.init(registryOwner.address, ANJ.address, MIN_ACTIVE_AMOUNT)
       })
 
       const itRevertsForDifferentAmounts = () => {
@@ -1011,23 +1073,23 @@ contract('JurorsRegistry staking', ([_, juror, anotherJuror]) => {
           const amount = 0
 
           it('reverts', async () => {
-            await assertRevert(registry.unstake(amount, data, { from }), 'REGISTRY_INVALID_ZERO_AMOUNT')
+            await assertRevert(registry.unstake(amount, data, { from }), 'JR_INVALID_ZERO_AMOUNT')
           })
         })
 
         context('when the given amount is lower than the minimum active value', () => {
-          const amount = MIN_ACTIVE_TOKENS.sub(1)
+          const amount = MIN_ACTIVE_AMOUNT.sub(1)
 
           it('reverts', async () => {
-            await assertRevert(registry.unstake(amount, data, { from }), 'REGISTRY_NOT_ENOUGH_BALANCE')
+            await assertRevert(registry.unstake(amount, data, { from }), 'JR_NOT_ENOUGH_AVAILABLE_BALANCE')
           })
         })
 
         context('when the given amount is greater than the minimum active value', () => {
-          const amount = MIN_ACTIVE_TOKENS.times(2)
+          const amount = MIN_ACTIVE_AMOUNT.times(2)
 
           it('reverts', async () => {
-            await assertRevert(registry.unstake(amount, data, { from }), 'REGISTRY_NOT_ENOUGH_BALANCE')
+            await assertRevert(registry.unstake(amount, data, { from }), 'JR_NOT_ENOUGH_AVAILABLE_BALANCE')
           })
         })
       }
@@ -1037,7 +1099,7 @@ contract('JurorsRegistry staking', ([_, juror, anotherJuror]) => {
       })
 
       context('when the juror has already staked some tokens before', () => {
-        const stakedBalance = MIN_ACTIVE_TOKENS
+        const stakedBalance = MIN_ACTIVE_AMOUNT
 
         beforeEach('stake some tokens', async () => {
           await ANJ.generateTokens(from, stakedBalance)
@@ -1125,7 +1187,7 @@ contract('JurorsRegistry staking', ([_, juror, anotherJuror]) => {
             })
 
             it('emits a deactivation processed event', async () => {
-              const termId = await registryOwner.getTermId()
+              const termId = await registryOwner.getLastEnsuredTermId()
 
               const receipt = await registry.unstake(amount, data, { from })
 
@@ -1140,7 +1202,7 @@ contract('JurorsRegistry staking', ([_, juror, anotherJuror]) => {
             const amount = 0
 
             it('reverts', async () => {
-              await assertRevert(registry.unstake(amount, data, { from }), 'REGISTRY_INVALID_ZERO_AMOUNT')
+              await assertRevert(registry.unstake(amount, data, { from }), 'JR_INVALID_ZERO_AMOUNT')
             })
           })
 
@@ -1154,7 +1216,7 @@ contract('JurorsRegistry staking', ([_, juror, anotherJuror]) => {
             const amount = stakedBalance.plus(1)
 
             it('reverts', async () => {
-              await assertRevert(registry.unstake(amount, data, { from }), 'REGISTRY_NOT_ENOUGH_BALANCE')
+              await assertRevert(registry.unstake(amount, data, { from }), 'JR_NOT_ENOUGH_AVAILABLE_BALANCE')
             })
           })
         })
@@ -1190,7 +1252,7 @@ contract('JurorsRegistry staking', ([_, juror, anotherJuror]) => {
                 const amount = 0
 
                 it('reverts', async () => {
-                  await assertRevert(registry.unstake(amount, data, { from }), 'REGISTRY_INVALID_ZERO_AMOUNT')
+                  await assertRevert(registry.unstake(amount, data, { from }), 'JR_INVALID_ZERO_AMOUNT')
                 })
               })
 
@@ -1204,7 +1266,7 @@ contract('JurorsRegistry staking', ([_, juror, anotherJuror]) => {
                 const amount = stakedBalance.plus(1)
 
                 it('reverts', async () => {
-                  await assertRevert(registry.unstake(amount, data, { from }), 'REGISTRY_NOT_ENOUGH_BALANCE')
+                  await assertRevert(registry.unstake(amount, data, { from }), 'JR_NOT_ENOUGH_AVAILABLE_BALANCE')
                 })
               })
             })

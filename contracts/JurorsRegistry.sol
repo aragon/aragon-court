@@ -122,7 +122,7 @@ contract JurorsRegistry is Initializable, IsContract, IJurorsRegistry, ERC900, A
     }
 
     /**
-    * @notice Activate `@tokenAmount(self.token(), _amount)` for the next term
+    * @notice Activate `_amount == 0 ? 'all available tokens' : @tokenAmount(self.token(), _amount)` for the next term
     * @param _amount Amount of juror tokens to be activated for the next term
     */
     function activate(uint256 _amount) external isInitialized {
@@ -139,7 +139,7 @@ contract JurorsRegistry is Initializable, IsContract, IJurorsRegistry, ERC900, A
     }
 
     /**
-    * @notice Deactivate `@tokenAmount(self.token(), _amount)` for the next term
+    * @notice Deactivate `_amount == 0 ? 'all unlocked tokens' : @tokenAmount(self.token(), _amount)` for the next term
     * @param _amount Amount of juror tokens to be deactivated for the next term
     */
     function deactivate(uint256 _amount) external isInitialized {
@@ -323,14 +323,11 @@ contract JurorsRegistry is Initializable, IsContract, IJurorsRegistry, ERC900, A
     * @return True if the juror has enough unlocked tokens to be collected for the requested term, false otherwise
     */
     function collectTokens(address _juror, uint256 _amount, uint64 _termId) external onlyOwner returns (bool) {
-        uint64 nextTermId = _termId + 1;
-
-        // TODO: does it make sense to validate this scenario?
         if (_amount == uint256(0)) {
-            emit JurorTokensCollected(_juror, _amount, nextTermId);
             return true;
         }
 
+        uint64 nextTermId = _termId + 1;
         Juror storage juror = jurorsByAddress[_juror];
         uint256 unlockedActiveBalance = _unlockedActiveBalanceOf(juror);
         uint256 nextTermDeactivationRequestAmount = _deactivationRequestedAmountForTerm(juror, nextTermId);
@@ -391,9 +388,12 @@ contract JurorsRegistry is Initializable, IsContract, IJurorsRegistry, ERC900, A
     }
 
     /**
-    * @dev Tell the last registered total amount of active juror tokens from the given term id
-    * @param _termId Starting term id to query the latest total active balance for
-    * @return Last registered total amount of active juror tokens from the given term id
+    * @dev Tell the total amount of active juror tokens at the given term id. This function will return the same as
+    *      `totalActiveBalanceAt`, the only difference remains on gas costs. This function will perform a backwards
+    *      linear search from the last checkpoint instead of a binary search. Using `totalSumPresent` is more optimal
+    *      when we know that the given `_termId` is fairly recent.
+    * @param _termId Term id querying the total active balance for
+    * @return Total amount of active juror tokens at the given term id
     */
     function getLastTotalActiveBalanceFrom(uint64 _termId) external view returns (uint256) {
         return tree.totalSumPresent(_termId);
@@ -602,6 +602,7 @@ contract JurorsRegistry is Initializable, IsContract, IJurorsRegistry, ERC900, A
     * @param _data Optional data that can be used to request the activation of the deposited tokens
     */
     function _deposit(address _from, address _juror, uint256 _amount, bytes memory _data) internal {
+        require(_amount > 0, ERROR_INVALID_ZERO_AMOUNT);
         _updateAvailableBalanceOf(_juror, _amount, true);
 
         // Activate tokens if it was requested and the address depositing tokens is the juror. Note that there's
@@ -620,6 +621,8 @@ contract JurorsRegistry is Initializable, IsContract, IJurorsRegistry, ERC900, A
     * @param _amount Amount of available tokens to be withdrawn
     */
     function _withdraw(address _juror, uint256 _amount) internal {
+        require(_amount > 0, ERROR_INVALID_ZERO_AMOUNT);
+
         // Try to process a deactivation request for the current term if there is one. Note that we don't need to ensure
         // the current term this time since deactivation requests always work with future terms, which means that if
         // the current term is outdated, it will never match the deactivation term id. We avoid ensuring the term here
@@ -637,16 +640,21 @@ contract JurorsRegistry is Initializable, IsContract, IJurorsRegistry, ERC900, A
     * @param _positive True if the given amount should be added, or false to remove it from the available balance
     */
     function _updateAvailableBalanceOf(address _juror, uint256 _amount, bool _positive) internal {
-        require(_amount > 0, ERROR_INVALID_ZERO_AMOUNT);
-        Juror storage juror = jurorsByAddress[_juror];
+        // We are not using a require here to avoid reverting in case any of the accounting maths reaches this point
+        // with a zeroed amount value. Instead, we are doing this validation in the external entry points such as
+        // stake, unstake, activate, deactivate, among others.
+        if (_amount == uint256(0)) {
+            return;
+        }
 
+        Juror storage juror = jurorsByAddress[_juror];
         if (_positive) {
             juror.availableBalance = juror.availableBalance.add(_amount);
         } else {
             require(_amount <= juror.availableBalance, ERROR_NOT_ENOUGH_AVAILABLE_BALANCE);
-            juror.availableBalance = juror.availableBalance.sub(_amount);
+            // No need to use SafeMath here, we already checked values right above
+            juror.availableBalance -= _amount;
         }
-
         emit JurorAvailableBalanceChanged(_juror, _amount, _positive);
     }
 

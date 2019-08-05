@@ -410,17 +410,14 @@ contract('Court: Disputes', ([ rich, governor, juror1, juror2, juror3, other, ap
               const appealMakerRuling = 2
               const appealTakerRuling = 3
               let makerInitialBalance
-              let feeAmount, jurorFees, appealDeposit, appealConfirmDeposit, appealTakerTotalCost
+              let feeAmount, appealDeposit, appealConfirmDeposit, appealTakerTotalCost
 
               beforeEach(async () => {
                 await passTerms(1) // term = 5
                 makerInitialBalance = await this.feeToken.balanceOf(appealMaker)
-                //[ ,,, feeAmount, jurorFees, appealDeposit, appealConfirmDeposit ] = await this.court.getNextAppealDetails(disputeId, firstRoundId)
+                //[ ,,, feeAmount, , appealDeposit, appealConfirmDeposit ] = await this.court.getNextAppealDetails(disputeId, firstRoundId)
                 const [ ,,, ...details ] = await this.court.getNextAppealDetails(disputeId, firstRoundId);
-                [ feeAmount, jurorFees, appealDeposit, appealConfirmDeposit ] = details
-                // feeAmount includes jurorFees
-                appealTakerTotalCost = appealConfirmDeposit.plus(feeAmount).minus(jurorFees)
-                console.log(feeAmount.toNumber(), jurorFees.toNumber(), appealDeposit.toNumber(), appealConfirmDeposit.toNumber());
+                [ feeAmount, , appealDeposit, appealConfirmDeposit ] = details
                 assertLogs(await this.court.appealRuling(disputeId, firstRoundId, appealMakerRuling, { from: appealMaker }), RULING_APPEALED_EVENT)
               })
 
@@ -479,12 +476,10 @@ contract('Court: Disputes', ([ rich, governor, juror1, juror2, juror3, other, ap
 
                   // withdraw
                   const appealMakerBalance = (await this.staking.tokenBalanceOf(this.feeToken.address, appealMaker)).toNumber()
-                  console.log(appealMakerBalance);
                   if (appealMakerBalance > 0) {
                     await this.staking.withdraw(this.feeToken.address, appealMakerBalance, { from: appealMaker })
                   }
                   const appealTakerBalance = (await this.staking.tokenBalanceOf(this.feeToken.address, appealTaker)).toNumber()
-                  console.log(appealTakerBalance);
                   if (appealTakerBalance > 0) {
                     await this.staking.withdraw(this.feeToken.address, appealTakerBalance, { from: appealTaker })
                   }
@@ -493,17 +488,14 @@ contract('Court: Disputes', ([ rich, governor, juror1, juror2, juror3, other, ap
                 beforeEach(async () => {
                   takerInitialBalance = await this.feeToken.balanceOf(appealTaker)
                   await passTerms(appealTerms)
-                  console.log('taker', (await this.feeToken.balanceOf(appealTaker)).toNumber());
                   const receipt = await this.court.appealConfirm(disputeId, firstRoundId, appealTakerRuling, { from: appealTaker })
-                  console.log('taker', (await this.feeToken.balanceOf(appealTaker)).toNumber());
                   assertLogs(receipt, RULING_APPEAL_CONFIRMED_EVENT)
                   roundId = getLog(receipt, RULING_APPEAL_CONFIRMED_EVENT, 'roundId')
-                  console.log('roundId', roundId.toNumber());
                 })
 
                 it('taker spends correct amount of collateral', async () => {
                   const takerFinalBalance = await this.feeToken.balanceOf(appealTaker)
-                  assert.equal(takerFinalBalance.toNumber(), takerInitialBalance.minus(appealTakerTotalCost).toNumber(), "taker final balance doesn't match")
+                  assert.equal(takerFinalBalance.toNumber(), takerInitialBalance.minus(appealConfirmDeposit).toNumber(), "taker final balance doesn't match")
                 })
 
                 it('drafts jurors', async () => {
@@ -516,12 +508,12 @@ contract('Court: Disputes', ([ rich, governor, juror1, juror2, juror3, other, ap
                   await voteAndSettle(appealMakerRuling)
 
                   const makerFinalBalance = await this.feeToken.balanceOf(appealMaker)
-                  assert.equal(makerFinalBalance.toNumber(), makerInitialBalance.plus(appealConfirmDeposit).minus(jurorFees).toNumber(), "maker final balance doesn't match")
+                  assert.equal(makerFinalBalance.toNumber(), makerInitialBalance.plus(appealConfirmDeposit).minus(feeAmount).toNumber(), "maker final balance doesn't match")
                   const takerFinalBalance = await this.feeToken.balanceOf(appealTaker)
-                  assert.equal(takerFinalBalance.toNumber(), takerInitialBalance.minus(appealTakerTotalCost).toNumber(), "taker final balance doesn't match")
+                  assert.equal(takerFinalBalance.toNumber(), takerInitialBalance.minus(appealConfirmDeposit).toNumber(), "taker final balance doesn't match")
                 })
 
-                it.only('taker wins', async () => {
+                it('taker wins', async () => {
                   await draftJurors()
 
                   await voteAndSettle(appealTakerRuling)
@@ -529,18 +521,18 @@ contract('Court: Disputes', ([ rich, governor, juror1, juror2, juror3, other, ap
                   const makerFinalBalance = await this.feeToken.balanceOf(appealMaker)
                   assert.equal(makerFinalBalance.toNumber(), makerInitialBalance.minus(appealDeposit).toNumber(), "maker final balance doesn't match")
                   const takerFinalBalance = await this.feeToken.balanceOf(appealTaker)
-                  assert.equal(takerFinalBalance.toNumber(), takerInitialBalance.minus(feeAmount).plus(appealDeposit).minus(jurorFees).toNumber(), "taker final balance doesn't match")
+                  assert.equal(takerFinalBalance.toNumber(), takerInitialBalance.plus(appealDeposit).minus(feeAmount).toNumber(), "taker final balance doesn't match")
                 })
 
-                it.only('refused ruling', async () => {
+                it('refused ruling', async () => {
                   await draftJurors()
 
                   await voteAndSettle(REFUSED_RULING)
 
                   const makerFinalBalance = await this.feeToken.balanceOf(appealMaker)
-                  assert.equal(makerFinalBalance.toNumber(), makerInitialBalance.toNumber() - jurorFees.toNumber() / 2, "maker final balance doesn't match")
+                  assert.equal(makerFinalBalance.toNumber(), makerInitialBalance.toNumber() - feeAmount.toNumber() / 2, "maker final balance doesn't match")
                   const takerFinalBalance = await this.feeToken.balanceOf(appealTaker)
-                  assert.equal(takerFinalBalance.toNumber(), takerInitialBalance.minus(feeAmount).toNumber() - jurorFees.toNumber() / 2, "taker final balance doesn't match")
+                  assert.equal(takerFinalBalance.toNumber(), takerInitialBalance.toNumber() - feeAmount.toNumber() / 2, "taker final balance doesn't match")
                 })
               })
             })

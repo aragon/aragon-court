@@ -9,7 +9,7 @@ library HexSumTree {
 
     struct Tree {
         uint256 nextKey;
-        uint256 rootDepth;
+        Checkpointing.History rootDepth;
         mapping (uint256 => mapping (uint256 => Checkpointing.History)) nodes; // depth -> key -> value
     }
 
@@ -39,7 +39,8 @@ library HexSumTree {
     string private constant ERROR_INEXISTENT_ITEM = "SUM_TREE_INEXISTENT_ITEM";
 
     function init(Tree storage self) internal {
-        self.rootDepth = INSERTION_DEPTH + 1;
+        uint64 initialTime = 0;
+        self.rootDepth.add(initialTime, INSERTION_DEPTH + 1);
         self.nextKey = BASE_KEY;
     }
 
@@ -71,11 +72,11 @@ library HexSumTree {
     function sortition(Tree storage self, uint256 value, uint64 time, bool past) internal view returns (uint256 key, uint256 nodeValue) {
         require(totalSumPast(self, time) > value, ERROR_SORTITION_OUT_OF_BOUNDS);
 
-        return _sortition(self, value, BASE_KEY, self.rootDepth, time, past);
+        return _sortition(self, value, BASE_KEY, getRootDepthAt(self, time, past), time, past);
     }
 
     function randomSortition(Tree storage self, uint256 seed, uint64 time, bool past) internal view returns (uint256 key, uint256 nodeValue) {
-        return _sortition(self, seed % totalSumPast(self, time), BASE_KEY, self.rootDepth, time, past);
+        return _sortition(self, seed % totalSumPast(self, time), BASE_KEY, getRootDepthAt(self, time, past), time, past);
     }
 
     function multiSortition(
@@ -110,19 +111,22 @@ library HexSumTree {
         // those two arrays will be used to fill in the results, they are passed as parameters to avoid extra copies
         keys = new uint256[](length);
         nodeValues = new uint256[](length);
-        _multiSortition(self, values, PackedArguments(0, self.rootDepth, time, past, 0, BASE_KEY), keys, nodeValues);
+        _multiSortition(self, values, PackedArguments(0, getRootDepthAt(self, time, past), time, past, 0, BASE_KEY), keys, nodeValues);
     }
 
     function totalSum(Tree storage self) internal view returns (uint256) {
-        return self.nodes[self.rootDepth][BASE_KEY].getLast();
+        uint256 rootDepth = getRootDepth(self); // current root depth
+        return self.nodes[rootDepth][BASE_KEY].getLast();
     }
 
     function totalSumPresent(Tree storage self, uint64 currentTime) internal view returns (uint256) {
-        return self.nodes[self.rootDepth][BASE_KEY].getLastPresent(currentTime);
+        uint256 rootDepth = getRootDepthAt(self, currentTime, false); // root depth at time, performing a backwards search
+        return self.nodes[rootDepth][BASE_KEY].getLastPresent(currentTime);
     }
 
     function totalSumPast(Tree storage self, uint64 time) internal view returns (uint256) {
-        return self.nodes[self.rootDepth][BASE_KEY].get(time);
+        uint256 rootDepth = getRootDepthAt(self, time, false); // root depth at time, performing a binary search
+        return self.nodes[rootDepth][BASE_KEY].get(time);
     }
 
     function get(Tree storage self, uint256 depth, uint256 key) internal view returns (uint256) {
@@ -147,6 +151,14 @@ library HexSumTree {
 
     function getItemPast(Tree storage self, uint256 key, uint64 time) internal view returns (uint256) {
         return self.nodes[INSERTION_DEPTH][key].get(time);
+    }
+
+    function getRootDepth(Tree storage self) internal view returns (uint256) {
+        return self.rootDepth.getLast();
+    }
+
+    function getRootDepthAt(Tree storage self, uint64 time, bool past) internal view returns (uint256) {
+        return past ? self.rootDepth.get(time) : self.rootDepth.getLastPresent(time);
     }
 
     function sharedPrefix(uint256 depth, uint256 key) internal pure returns (uint256) {
@@ -181,16 +193,18 @@ library HexSumTree {
     }
 
     function _updateSums(Tree storage self, uint256 key, uint64 time, uint256 delta, bool positive) private {
-        uint256 newRootDepth = sharedPrefix(self.rootDepth, key);
+        uint256 currentRootDepth = getRootDepth(self);
+        uint256 newRootDepth = sharedPrefix(currentRootDepth, key);
 
-        if (self.rootDepth != newRootDepth) {
-            self.nodes[newRootDepth][BASE_KEY].add(time, self.nodes[self.rootDepth][BASE_KEY].getLast());
-            self.rootDepth = newRootDepth;
+        if (currentRootDepth != newRootDepth) {
+            self.nodes[newRootDepth][BASE_KEY].add(time, self.nodes[currentRootDepth][BASE_KEY].getLast());
+            self.rootDepth.add(time, newRootDepth);
+            currentRootDepth = newRootDepth;
         }
 
         uint256 mask = uint256(-1);
         uint256 ancestorKey = key;
-        for (uint256 i = 1; i <= self.rootDepth; i++) {
+        for (uint256 i = 1; i <= currentRootDepth; i++) {
             mask = mask << BITS_IN_NIBBLE;
             ancestorKey = ancestorKey & mask;
 
@@ -198,7 +212,7 @@ library HexSumTree {
             self.nodes[i][ancestorKey].add(time, positive ? self.nodes[i][ancestorKey].getLast() + delta : self.nodes[i][ancestorKey].getLast() - delta);
         }
         // it's only needed to check the last one, as the sum increases going up through the tree
-        require(!positive || self.nodes[self.rootDepth][ancestorKey].getLast() >= delta, ERROR_UPDATE_OVERFLOW);
+        require(!positive || self.nodes[currentRootDepth][ancestorKey].getLast() >= delta, ERROR_UPDATE_OVERFLOW);
     }
 
     function _sortition(Tree storage self, uint256 value, uint256 node, uint256 depth, uint64 time, bool past) private view returns (uint256 key, uint256 nodeValue) {

@@ -5,6 +5,7 @@ import "../lib/HexSumTree.sol";
 
 contract HexSumTreeMock {
     using HexSumTree for HexSumTree.Tree;
+    using Checkpointing for Checkpointing.History;
 
     HexSumTree.Tree tree;
 
@@ -36,6 +37,10 @@ contract HexSumTreeMock {
         for (uint256 i = 0; i < number; i++) {
             tree.insert(getCheckpointTime(), v);
         }
+    }
+
+    function insertAt(uint64 time, uint256 value) external {
+        tree.insert(time, value);
     }
 
     function set(uint256 key, uint256 value) external profileGas {
@@ -70,7 +75,7 @@ contract HexSumTreeMock {
             rootDepth++;
             tmpKey = tmpKey >> tree.getBitsInNibble();
         }
-        tree.rootDepth = rootDepth;
+        tree.rootDepth.add(uint64(getCheckpointTime()), rootDepth);
     }
 
     function sortition(uint256 value, uint64 checkpointTime) external profileGas returns (uint256) {
@@ -163,7 +168,7 @@ contract HexSumTreeMock {
     }
 
     function getState() external view returns (uint256, uint256) {
-        return (tree.rootDepth, tree.nextKey);
+        return (tree.getRootDepth(), tree.nextKey);
     }
 
     function advanceTime(uint64 blocks) public {

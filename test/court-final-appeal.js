@@ -42,9 +42,9 @@ contract('Court: final appeal', ([ poor, rich, governor, juror1, juror2, juror3,
   const NO_DATA = ''
   const ZERO_ADDRESS = '0x' + '00'.repeat(20)
   const SETTLE_BATCH_SIZE = 40
+  const APPEAL_STEP_FACTOR = 3
   const MAX_REGULAR_APPEAL_ROUNDS = 4
   let MAX_JURORS_PER_DRAFT_BATCH
-  let APPEAL_STEP_FACTOR
 
   const termDuration = 10
   const firstTermStart = 10
@@ -115,12 +115,12 @@ contract('Court: final appeal', ([ poor, rich, governor, juror1, juror2, juror3,
       jurorMinStake,
       [ commitTerms, appealTerms, revealTerms ],
       [ penaltyPct, finalRoundReduction ],
+      APPEAL_STEP_FACTOR,
       MAX_REGULAR_APPEAL_ROUNDS,
       [ 0, 0, 0, 0, 0 ]
     )
 
     MAX_JURORS_PER_DRAFT_BATCH = (await this.court.getMaxJurorsPerDraftBatch.call()).toNumber()
-    APPEAL_STEP_FACTOR = (await this.court.getAppealStepFactor.call()).toNumber()
 
     await this.court.mock_setBlockNumber(startBlock)
 

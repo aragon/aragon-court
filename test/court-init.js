@@ -2,9 +2,9 @@ const { assertRevert } = require('@aragon/os/test/helpers/assertThrow')
 
 const TokenFactory = artifacts.require('TokenFactory')
 const CourtMock = artifacts.require('CourtMock')
-const CourtStakingMock = artifacts.require('CourtStakingMock')
+const JurorsRegistry = artifacts.require('JurorsRegistry')
 const CRVoting = artifacts.require('CRVoting')
-const SumTree = artifacts.require('HexSumTreeWrapper')
+const CourtAccounting = artifacts.require('CourtAccounting')
 const Subscriptions = artifacts.require('SubscriptionsMock')
 
 const MINIME = 'MiniMeToken'
@@ -35,9 +35,9 @@ contract('Court: init', ([ governor ]) => {
     // Mints 1,000,000 tokens for sender
     this.anj = await deployedContract(this.tokenFactory.newToken('ANJ', initialBalance), MINIME)
 
-    this.staking = await CourtStakingMock.new()
+    this.jurorsRegistry = await JurorsRegistry.new()
     this.voting = await CRVoting.new()
-    this.sumTree = await SumTree.new()
+    this.accounting = await CourtAccounting.new()
     this.subscriptions = await Subscriptions.new()
     await this.subscriptions.setUpToDate(true)
   })
@@ -58,9 +58,9 @@ contract('Court: init', ([ governor ]) => {
       CourtMock.new(
         termDuration,
         [ this.anj.address, ZERO_ADDRESS ], // no fees
-        this.staking.address,
+        this.jurorsRegistry.address,
+        this.accounting.address,
         this.voting.address,
-        this.sumTree.address,
         this.subscriptions.address,
         [ 0, 0, 0, 0 ],
         governor,
@@ -68,6 +68,7 @@ contract('Court: init', ([ governor ]) => {
         jurorMinStake,
         [ commitTerms, appealTerms, revealTerms ],
         [ penaltyPct, finalRoundReduction ],
+        4,
         [ 0, 0, 0, 0, 0 ]
       ),
       ERROR_WRONG_PENALTY_PCT

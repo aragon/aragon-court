@@ -12,6 +12,4 @@ let config = {
   },
 }
 
-config.networks.rpc.gas = 10e6
-
 module.exports = config

@@ -1,12 +1,12 @@
 const { assertRevert } = require('@aragon/os/test/helpers/assertThrow')
 
-const HexSumTreePublic = artifacts.require('HexSumTreePublic')
+const HexSumTree = artifacts.require('HexSumTreeMock')
 
-contract('Hex Sum Tree', (accounts) => {
+contract('Hex Sum Tree', () => {
   let tree
 
   beforeEach(async () => {
-    tree = await HexSumTreePublic.new()
+    tree = await HexSumTree.new()
     await tree.init()
   })
 
@@ -65,18 +65,18 @@ contract('Hex Sum Tree', (accounts) => {
       await tree.insert(5)
       await tree.insert(5)
 
-      for (let i = 0; i < 5; i++) {
+      for(let i = 0; i < 5; i++) {
         //await logSortition(i, sortitionFunction)
         assertBN(await tree[sortitionFunction].call(i, 0), 0, `Draw first, value ${i}`)
       }
-      for (let i = 5; i < 10; i++) {
+      for(let i = 5; i < 10; i++) {
         //await logSortition(i, sortitionFunction)
         assertBN(await tree[sortitionFunction].call(i, 0), 1, `Draw second, value ${i}`)
       }
     })
 
     it(`sortition using ${sortitionFunction}`, async () => {
-      for (let i = 0; i < 20; i++) {
+      for(let i = 0; i < 20; i++) {
         await tree.insert(10)
         const [depth, key] = await tree.getState()
 
@@ -90,7 +90,7 @@ contract('Hex Sum Tree', (accounts) => {
     })
 
     it(`inserts into another node using ${sortitionFunction}`, async () => {
-      for (let i = 0; i < 270; i++) {
+      for(let i = 0; i < 270; i++) {
         await tree.insert(10)
         const [depth, key] = await tree.getState()
 
@@ -109,7 +109,7 @@ contract('Hex Sum Tree', (accounts) => {
     it(`tests sortition on all nodes using ${sortitionFunction}`, async () => {
       const NODES = 513 // at least over 16^2 to hit 3 levels, 16^3 gives time outs on CI
       // insert
-      for (let i = 0; i < NODES; i++) {
+      for(let i = 0; i < NODES; i++) {
         await tree.insertNoLog(10)
       }
 
@@ -119,4 +119,47 @@ contract('Hex Sum Tree', (accounts) => {
       }
     })
   }
+
+  context('Multisortition', () => {
+    const TOTAL_JURORS = 20
+    beforeEach(async () => {
+      const VALUE = 10
+
+      for (let i = 0; i < TOTAL_JURORS; i++) {
+        await tree.insert(VALUE)
+      }
+    })
+
+    it('Repeating sortition gives different values on different iterations', async () => {
+      const ATTEMPTS = 4
+      const termRandomness = 'randomness'
+      const disputeId = 0
+      const time = 1
+      const past = false
+      const filledSeats = 1
+      const jurorsRequested = 3
+
+      let prevKeys
+      let allTheSame = true
+      for (let i = 0; i < ATTEMPTS; i++) {
+        const [ keys, values ] = await tree.multiSortitionFor(termRandomness, disputeId, time, past, filledSeats, jurorsRequested, TOTAL_JURORS, i)
+        //console.log(keys.map(v => v.toNumber()));
+        if (i > 0) {
+          for (let j = 0; j < keys.length; j++) {
+            if (keys[j].toNumber() != prevKeys[j].toNumber()) {
+              allTheSame = false
+              break
+            }
+          }
+        }
+        if (!allTheSame) {
+          break
+        }
+
+        prevKeys = keys
+      }
+
+      assert.isFalse(allTheSame)
+    })
+  })
 })

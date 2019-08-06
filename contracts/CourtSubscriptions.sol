@@ -5,9 +5,9 @@ import "@aragon/os/contracts/common/SafeERC20.sol";
 import "@aragon/os/contracts/common/IsContract.sol";
 import "@aragon/os/contracts/lib/math/SafeMath.sol";
 
+import "./standards/erc900/IJurorsRegistry.sol";
 import "./standards/subscription/ISubscriptions.sol";
 import "./standards/subscription/ISubscriptionsOwner.sol";
-import "./standards/sumtree/ISumTree.sol";
 
 
 contract CourtSubscriptions is IsContract, ISubscriptions {
@@ -41,13 +41,13 @@ contract CourtSubscriptions is IsContract, ISubscriptions {
         uint64 balanceCheckpoint;
         ERC20 feeToken; // cached to keep consistency after changes of the global variable
         uint256 feeAmount;
-        uint256 totalTreeSum;
+        uint256 totalActiveBalance;
         uint256 collectedFees;
         mapping (address => bool) claimedFees; // tracks claimed fees by jurors for each period
     }
 
     ISubscriptionsOwner internal owner;
-    ISumTree internal sumTree;
+    IJurorsRegistry internal jurorsRegistry;
     uint64 internal periodDuration; // in Court terms
     uint16 public latePaymentPenaltyPct; // ‱ of penalty applied for not paying during proper period
     uint16 public governorSharePct; // ‱ of fees that go to governor of the Court
@@ -78,7 +78,7 @@ contract CourtSubscriptions is IsContract, ISubscriptions {
      */
     function init(
         ISubscriptionsOwner _owner,
-        ISumTree _sumTree,
+        IJurorsRegistry _jurorsRegistry,
         uint64 _periodDuration,
         ERC20 _feeToken,
         uint256 _feeAmount,
@@ -92,7 +92,7 @@ contract CourtSubscriptions is IsContract, ISubscriptions {
         require(_periodDuration > 0, ERROR_ZERO_PERIOD_DURATION);
 
         owner = _owner;
-        sumTree = _sumTree;
+        jurorsRegistry = _jurorsRegistry;
         periodDuration = _periodDuration;
         _setFeeToken(_feeToken);
         _setFeeAmount(_feeAmount);
@@ -165,9 +165,9 @@ contract CourtSubscriptions is IsContract, ISubscriptions {
         Period storage period = periods[_periodId];
         require(!period.claimedFees[msg.sender], ERROR_ALREADY_CLAIMED);
 
-        (uint64 periodBalanceCheckpoint, uint256 totalTreeSum) = _ensurePeriodBalanceDetails(_periodId, period);
+        (uint64 periodBalanceCheckpoint, uint256 totalActiveBalance) = _ensurePeriodBalanceDetails(_periodId, period);
 
-        uint256 jurorShare = _getJurorShare(msg.sender, period, periodBalanceCheckpoint, totalTreeSum);
+        uint256 jurorShare = _getJurorShare(msg.sender, period, periodBalanceCheckpoint, totalActiveBalance);
         require(jurorShare > 0, ERROR_NOTHING_TO_CLAIM);
 
         period.claimedFees[msg.sender] = true;
@@ -225,7 +225,7 @@ contract CourtSubscriptions is IsContract, ISubscriptions {
      * @notice Make sure that balance details (checkpoint and total sum) are cached for period `_periodId`
      * @param _periodId Period id for the request
      * @return Checkpoint for taking balances for the period
-     * @return Total balance in the tree for the period
+     * @return Total active balance in the jurors registry for the period
      */
     function ensurePeriodBalanceDetails(uint256 _periodId) external returns (uint64, uint256) {
         Period storage period = periods[_periodId];
@@ -295,14 +295,14 @@ contract CourtSubscriptions is IsContract, ISubscriptions {
     function getJurorShare(address _juror, uint256 _periodId) external view returns (address tokenAddress, uint256 jurorShare) {
         Period storage period = periods[_periodId];
         uint64 periodBalanceCheckpoint;
-        uint256 totalTreeSum = period.totalTreeSum;
-        if (totalTreeSum == 0) {
-            (periodBalanceCheckpoint, totalTreeSum) = _getPeriodBalanceDetails(_periodId);
+        uint256 totalActiveBalance = period.totalActiveBalance;
+        if (totalActiveBalance == 0) {
+            (periodBalanceCheckpoint, totalActiveBalance) = _getPeriodBalanceDetails(_periodId);
         } else {
             periodBalanceCheckpoint = period.balanceCheckpoint;
         }
 
-        jurorShare = _getJurorShare(_juror, period, periodBalanceCheckpoint, totalTreeSum);
+        jurorShare = _getJurorShare(_juror, period, periodBalanceCheckpoint, totalActiveBalance);
 
         (ERC20 feeToken,) = _getPeriodFeeTokenAndAmount(period);
         tokenAddress = address(feeToken);
@@ -371,16 +371,16 @@ contract CourtSubscriptions is IsContract, ISubscriptions {
         Period storage _period
     )
         internal
-        returns (uint64 periodBalanceCheckpoint, uint256 totalTreeSum)
+        returns (uint64 periodBalanceCheckpoint, uint256 totalActiveBalance)
     {
-        totalTreeSum = _period.totalTreeSum;
+        totalActiveBalance = _period.totalActiveBalance;
 
         // it's first time fees are claimed for this period
-        if (totalTreeSum == 0) {
-            (periodBalanceCheckpoint, totalTreeSum) = _getPeriodBalanceDetails(_periodId);
+        if (totalActiveBalance == 0) {
+            (periodBalanceCheckpoint, totalActiveBalance) = _getPeriodBalanceDetails(_periodId);
             // set period's variables
             _period.balanceCheckpoint = periodBalanceCheckpoint;
-            _period.totalTreeSum = totalTreeSum;
+            _period.totalActiveBalance = totalActiveBalance;
         } else {
             periodBalanceCheckpoint = _period.balanceCheckpoint;
         }
@@ -445,7 +445,7 @@ contract CourtSubscriptions is IsContract, ISubscriptions {
         amountToPay = _pct4Increase(delayedPeriods.mul(_feeAmount), latePaymentPenaltyPct).add(regularPeriods.mul(_feeAmount));
     }
 
-    function _getPeriodBalanceDetails(uint256 _periodId) internal view returns (uint64 periodBalanceCheckpoint, uint256 totalTreeSum) {
+    function _getPeriodBalanceDetails(uint256 _periodId) internal view returns (uint64 periodBalanceCheckpoint, uint256 totalActiveBalance) {
         uint64 periodStartTermId = _getPeriodStartTermId(_periodId);
         uint64 nextPeriodStartTermId = _getPeriodStartTermId(_periodId + 1);
 
@@ -461,34 +461,28 @@ contract CourtSubscriptions is IsContract, ISubscriptions {
 
         // use randomness to choose checkpoint
         periodBalanceCheckpoint = periodStartTermId + uint64(uint256(randomness) % periodDuration);
-        totalTreeSum = sumTree.totalSumPast(periodBalanceCheckpoint);
+        totalActiveBalance = jurorsRegistry.totalActiveBalanceAt(periodBalanceCheckpoint);
     }
 
     function _getJurorShare(
         address _juror,
         Period storage _period,
         uint64 _periodBalanceCheckpoint,
-        uint256 _totalTreeSum
+        uint256 _totalActiveBalance
     )
         internal
         view
         returns (uint256)
     {
-        // fetch id in the tree
-        uint256 sumTreeId = owner.getAccountSumTreeId(_juror);
-        if (sumTreeId == 0) { // hasn't activated yet
-            return 0;
-        }
-
         // get balance at checkpoint
-        uint256 jurorBalance = sumTree.getItemPast(sumTreeId, _periodBalanceCheckpoint);
-        if (jurorBalance == 0) {
+        uint256 jurorActiveBalance = jurorsRegistry.activeBalanceOfAt(_juror, _periodBalanceCheckpoint);
+        if (jurorActiveBalance == 0) {
             return 0;
         }
-        // Invariant: If the jurorBalance is greater than 0, the totalSum must be greater than 0 as well
+        // Invariant: If the jurorActiveBalance is greater than 0, the totalSum must be greater than 0 as well
 
         // juror fee share
-        return _period.collectedFees.mul(jurorBalance) / _totalTreeSum;
+        return _period.collectedFees.mul(jurorActiveBalance) / _totalActiveBalance;
     }
 
     function _pct4(uint256 _number, uint16 _pct) internal pure returns (uint256) {

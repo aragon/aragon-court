@@ -2,21 +2,18 @@ pragma solidity ^0.4.24;
 
 import "@aragon/os/contracts/lib/token/ERC20.sol";
 
-import "../standards/sumtree/ISumTree.sol";
 import "../standards/subscription/ISubscriptionsOwner.sol";
 import "../standards/subscription/ISubscriptions.sol";
+import "../standards/erc900/IJurorsRegistryOwner.sol";
 
 
-contract SubscriptionsOwnerMock is ISubscriptionsOwner {
-    ISubscriptions subscription;
-    ISumTree sumTree;
+contract SubscriptionsOwnerMock is ISubscriptionsOwner, IJurorsRegistryOwner {
+    ISubscriptions internal subscription;
 
     uint64 termId;
-    mapping (address => uint256) sumTreeIds;
 
-    constructor(ISubscriptions _subscription, ISumTree _sumTree) public {
+    constructor(ISubscriptions _subscription) public {
         subscription = _subscription;
-        sumTree = _sumTree;
     }
 
     function setFeeAmount(uint256 _feeAmount) external {
@@ -39,10 +36,6 @@ contract SubscriptionsOwnerMock is ISubscriptionsOwner {
         subscription.setGovernorSharePct(_governorSharePct);
     }
 
-    function insertJuror(address _juror, uint64 _termId, uint256 _stake) external {
-        sumTreeIds[_juror] = sumTree.insert(_termId, _stake);
-    }
-
     function setCurrentTermId(uint64 _termId) external {
         termId = _termId;
     }
@@ -55,12 +48,16 @@ contract SubscriptionsOwnerMock is ISubscriptionsOwner {
         return termId;
     }
 
-    function getTermRandomness(uint64) external view returns (bytes32) {
-        return keccak256("randomness");
+    function getLastEnsuredTermId() external view returns (uint64) {
+        return termId;
     }
 
-    function getAccountSumTreeId(address _juror) external view returns (uint256) {
-        return sumTreeIds[_juror];
+    function ensureAndGetTermId() external returns (uint64) {
+        return termId;
+    }
+
+    function getTermRandomness(uint64) external view returns (bytes32) {
+        return keccak256("randomness");
     }
 
     function getGovernor() external view returns (address) {

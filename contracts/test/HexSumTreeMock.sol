@@ -3,7 +3,7 @@ pragma solidity ^0.4.24;
 import "../lib/HexSumTree.sol";
 
 
-contract HexSumTreePublic {
+contract HexSumTreeMock {
     using HexSumTree for HexSumTree.Tree;
 
     HexSumTree.Tree tree;
@@ -101,7 +101,7 @@ contract HexSumTreePublic {
         }
     }
 
-    function _getOrderedValues(uint256 number, uint64 checkpointTime) private returns (uint256[] values) {
+    function _getOrderedValues(uint256 number, uint64 checkpointTime) private view returns (uint256[] values) {
         values = new uint256[](number);
         uint256 sum = tree.totalSumPast(checkpointTime);
 
@@ -138,7 +138,7 @@ contract HexSumTreePublic {
         return keys;
     }
 
-    function multiSortition(uint256[] values, uint64 checkpointTime) external returns (uint256[], uint256[]) {
+    function multiSortition(uint256[] values, uint64 checkpointTime) external view returns (uint256[], uint256[]) {
         return tree.multiSortition(values, checkpointTime, true);
     }
 
@@ -185,5 +185,22 @@ contract HexSumTreePublic {
 
     function getBitsInNibble() public view returns (uint256) {
         return tree.getBitsInNibble();
+    }
+
+    function multiSortitionFor(
+        bytes32 _termRandomness,
+        uint256 _disputeId,
+        uint64 _time,
+        bool _past,
+        uint256 _filledSeats,
+        uint256 _jurorsRequested,
+        uint256 _jurorNumber,
+        uint256 _sortitionIteration
+    )
+        external
+        view
+        returns (uint256[] keys, uint256[] nodeValues)
+    {
+        return tree.multiSortition(_termRandomness, _disputeId, _time, _past, _filledSeats, _jurorsRequested, _jurorNumber, _sortitionIteration);
     }
 }

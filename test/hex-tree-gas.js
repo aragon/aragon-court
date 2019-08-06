@@ -1,6 +1,6 @@
 const { assertRevert } = require('@aragon/os/test/helpers/assertThrow')
 
-const HexSumTreePublic = artifacts.require('HexSumTreePublic')
+const HexSumTree = artifacts.require('HexSumTreeMock')
 
 const CHILDREN = 16
 
@@ -14,7 +14,7 @@ testRunner('Hex Sum Tree (Gas analysis)', (accounts) => {
   let tree
 
   beforeEach(async () => {
-    tree = await HexSumTreePublic.new()
+    tree = await HexSumTree.new()
     await tree.init()
   })
 

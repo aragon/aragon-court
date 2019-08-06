@@ -1,4 +1,4 @@
-const HexSumTreePublic = artifacts.require('HexSumTreePublic')
+const HexSumTree = artifacts.require('HexSumTreeMock')
 
 const getGas = (r) => {
   return { total: r.receipt.gasUsed, function: r.logs.filter(l => l.event == 'GasConsumed')[0].args['gas'].toNumber() }
@@ -9,7 +9,7 @@ contract.skip('Hex Sum Tree Checkpointing (Gas analysis)', (accounts) => {
   let tree
 
   beforeEach(async () => {
-    tree = await HexSumTreePublic.new()
+    tree = await HexSumTree.new()
     await tree.init()
     CHILDREN = (await tree.getChildren.call()).toNumber()
   })

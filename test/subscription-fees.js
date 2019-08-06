@@ -2,7 +2,7 @@ const { assertRevert } = require('@aragon/os/test/helpers/assertThrow')
 
 const CourtSubscriptions = artifacts.require('CourtSubscriptions')
 const SubscriptionsOwner = artifacts.require('SubscriptionsOwnerMock')
-const SumTree = artifacts.require('HexSumTreeWrapper')
+const JurorsRegistry = artifacts.require('JurorsRegistry')
 const MiniMeToken = artifacts.require('@aragon/apps-shared-minime/contracts/MiniMeToken')
 
 const deployedContract = async (receiptPromise, name) =>
@@ -27,6 +27,8 @@ const assertLogs = async (receiptPromise, ...logNames) => {
 }
 
 const ZERO_ADDRESS = '0x' + '00'.repeat(20)
+const ACTIVATE_DATA = web3.sha3('activate(uint256)').slice(0, 10)
+const MIN_ACTIVE_TOKEN = 1e18
 
 const ERROR_NOT_GOVERNOR = 'SUB_NOT_GOVERNOR'
 const ERROR_ZERO_FEE = 'SUB_ZERO_FEE'
@@ -56,8 +58,8 @@ contract('CourtSubscriptions', ([ org1, org2, juror1, juror2, juror3 ]) => {
   const bnPct4Increase = (n, p) => n.mul(1e4 + p).div(1e4)
 
   beforeEach(async () => {
-    this.sumTree = await SumTree.new()
-
+    this.jurorsRegistry = await JurorsRegistry.new()
+    this.anj = await MiniMeToken.new(ZERO_ADDRESS, ZERO_ADDRESS, 0, 'n', 18, 'ANJ', true)
     this.subscription = await CourtSubscriptions.new()
     // Mints 1,000,000 tokens for orgs
     token = await MiniMeToken.new(ZERO_ADDRESS, ZERO_ADDRESS, 0, 'n', 0, 'n', true) // empty parameters minime
@@ -70,19 +72,17 @@ contract('CourtSubscriptions', ([ org1, org2, juror1, juror2, juror3 ]) => {
 
   it('can init and set owner', async () => {
     assert.equal(await this.subscription.getOwner.call(), ZERO_ADDRESS, 'wrong owner before init')
-    const subscriptionOwner = await SubscriptionsOwner.new(this.subscription.address, this.sumTree.address)
-    await this.subscription.init(subscriptionOwner.address, this.sumTree.address, PERIOD_DURATION, token.address, FEE_AMOUNT.toString(), PREPAYMENT_PERIODS, LATE_PAYMENT_PENALTY_PCT, GOVERNOR_SHARE_PCT)
+    const subscriptionOwner = await SubscriptionsOwner.new(this.subscription.address)
+    await this.subscription.init(subscriptionOwner.address, this.jurorsRegistry.address, PERIOD_DURATION, token.address, FEE_AMOUNT.toString(), PREPAYMENT_PERIODS, LATE_PAYMENT_PENALTY_PCT, GOVERNOR_SHARE_PCT)
     assert.equal(await this.subscription.getOwner.call(), subscriptionOwner.address, 'wrong owner after init')
   })
 
   context('With Owner interface', () => {
-    const vote = 1
-
     beforeEach(async () => {
-      this.subscriptionOwner = await SubscriptionsOwner.new(this.subscription.address, this.sumTree.address)
+      this.subscriptionOwner = await SubscriptionsOwner.new(this.subscription.address)
       await this.subscriptionOwner.setCurrentTermId(START_TERM_ID)
-      await this.sumTree.init(this.subscriptionOwner.address)
-      await this.subscription.init(this.subscriptionOwner.address, this.sumTree.address, PERIOD_DURATION, token.address, FEE_AMOUNT.toString(), PREPAYMENT_PERIODS, LATE_PAYMENT_PENALTY_PCT, GOVERNOR_SHARE_PCT)
+      await this.jurorsRegistry.init(this.subscriptionOwner.address, this.anj.address, MIN_ACTIVE_TOKEN)
+      await this.subscription.init(this.subscriptionOwner.address, this.jurorsRegistry.address, PERIOD_DURATION, token.address, FEE_AMOUNT.toString(), PREPAYMENT_PERIODS, LATE_PAYMENT_PENALTY_PCT, GOVERNOR_SHARE_PCT)
     })
 
     it('fails to set Fee Amount if not owner', async () => {
@@ -264,7 +264,8 @@ contract('CourtSubscriptions', ([ org1, org2, juror1, juror2, juror3 ]) => {
       beforeEach(async () => {
         // jurors stake
         for (let juror of jurors) {
-          await this.subscriptionOwner.insertJuror(juror, 1, JUROR_STAKE)
+          await this.anj.generateTokens(juror, JUROR_STAKE)
+          await this.anj.approveAndCall(this.jurorsRegistry.address, JUROR_STAKE, ACTIVATE_DATA, { from: juror })
         }
         // orgs pay fees
         for (let org of orgs) {

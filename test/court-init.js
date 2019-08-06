@@ -68,6 +68,7 @@ contract('Court: init', ([ governor ]) => {
         jurorMinStake,
         [ commitTerms, appealTerms, revealTerms ],
         [ penaltyPct, finalRoundReduction ],
+        3,
         4,
         [ 0, 0, 0, 0, 0 ]
       ),

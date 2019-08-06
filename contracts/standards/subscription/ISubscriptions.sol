@@ -2,14 +2,14 @@ pragma solidity ^0.4.24; // TODO: pin solc
 
 import "@aragon/os/contracts/lib/token/ERC20.sol";
 
-import "../sumtree/ISumTree.sol";
 import "./ISubscriptionsOwner.sol";
+import "../erc900/IJurorsRegistry.sol";
 
 
 interface ISubscriptions {
     function init(
         ISubscriptionsOwner _owner,
-        ISumTree _sumTree,
+        IJurorsRegistry _jurorsRegistry,
         uint64 _periodDuration,
         ERC20 _feeToken,
         uint256 _feeAmount,

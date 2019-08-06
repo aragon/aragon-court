@@ -10,10 +10,9 @@ contract CourtMock is Court {
     constructor(
         uint64 _termDuration,
         ERC20[2] _tokens,
-        IStaking _staking,
+        IJurorsRegistry _jurorsRegistry,
         IAccounting _accounting,
         ICRVoting _voting,
-        ISumTree _sumTree,
         ISubscriptions _subscriptions,
         uint256[4] _fees, // _jurorFee, _heartbeatFee, _draftFee, _settleFee
         address _governor,
@@ -22,22 +21,24 @@ contract CourtMock is Court {
         uint64[3] _roundStateDurations,
         uint16[2] _pcts,
         uint256[5] _subscriptionParams // _periodDuration, _feeAmount, _prePaymentPeriods, _latePaymentPenaltyPct, _governorSharePct
-    ) Court(
-        _termDuration,
-        _tokens,
-        _staking,
-        _accounting,
-        _voting,
-        _sumTree,
-        _subscriptions,
-        _fees,
-        _governor,
-        _firstTermStartTime,
-        _jurorMinStake,
-        _roundStateDurations,
-        _pcts,
-        _subscriptionParams
-    ) public {}
+    )
+        Court(
+            _termDuration,
+            _tokens,
+            _jurorsRegistry,
+            _accounting,
+            _voting,
+            _subscriptions,
+            _fees,
+            _governor,
+            _firstTermStartTime,
+            _jurorMinStake,
+            _roundStateDurations,
+            _pcts,
+            _subscriptionParams
+        )
+        public
+    {}
 
     function mock_setTime(uint64 time) external {
         mockTime = time;
@@ -59,6 +60,10 @@ contract CourtMock is Court {
     function setTermRandomness() external {
         Term storage draftTerm = terms[termId];
         draftTerm.randomness = keccak256(abi.encodePacked(draftTerm.randomnessBN));
+    }
+
+    function collect(address _juror, uint256 _amount) external {
+        jurorsRegistry.collectTokens(_juror, _amount, termId);
     }
 
     function getMaxJurorsPerDraftBatch() public pure returns (uint256) {

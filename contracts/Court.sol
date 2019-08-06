@@ -788,7 +788,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner {
         // the max amount of tokens the registry can hold for this to fit in an uint64 is:
         // 2^64 * minJurorsActiveBalance / FINAL_ROUND_WEIGHT_PRECISION
         // (decimals get cancelled in the division). So it seems enough.
-        jurorNumber = uint64(FINAL_ROUND_WEIGHT_PRECISION * jurorsRegistry.getLastTotalActiveBalanceFrom(termId) / jurorsRegistry.minJurorsActiveBalance());
+        jurorNumber = uint64(FINAL_ROUND_WEIGHT_PRECISION * jurorsRegistry.totalActiveBalanceAt(termId) / jurorsRegistry.minJurorsActiveBalance());
 
         CourtConfig storage config = _courtConfigForTerm(_draftTermId);
         // number of jurors is the number of times the minimum stake is hold in the registry, multiplied by a precision factor for division roundings

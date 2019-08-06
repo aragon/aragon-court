@@ -385,19 +385,11 @@ contract JurorsRegistry is Initializable, IsContract, IJurorsRegistry, ERC900, A
     * @return Total amount of active juror tokens at the given term id
     */
     function totalActiveBalanceAt(uint64 _termId) external view returns (uint256) {
-        return tree.totalSumPast(_termId);
-    }
-
-    /**
-    * @dev Tell the total amount of active juror tokens at the given term id. This function will return the same as
-    *      `totalActiveBalanceAt`, the only difference remains on gas costs. This function will perform a backwards
-    *      linear search from the last checkpoint instead of a binary search. Using `totalSumPresent` is more optimal
-    *      when we know that the given `_termId` is fairly recent.
-    * @param _termId Term id querying the total active balance for
-    * @return Total amount of active juror tokens at the given term id
-    */
-    function getLastTotalActiveBalanceFrom(uint64 _termId) external view returns (uint256) {
-        return tree.totalSumPresent(_termId);
+        // This function will return always the same values, the only difference remains on gas costs. The
+        // function `totalSumPresent` will perform a backwards linear search from the last checkpoint, while
+        // `totalSumPast` will do the same with a binary search. Using `totalSumPresent` is more optimal
+        // when we know that the given `_termId` is fairly recent.
+        return (_termId >= owner.getLastEnsuredTermId()) ? tree.totalSumPresent(_termId) : tree.totalSumPast(_termId);
     }
 
     /**

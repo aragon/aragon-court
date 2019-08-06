@@ -87,6 +87,7 @@ contract('Court: Lifecycle', ([ poor, rich, governor, juror1, juror2 ]) => {
       jurorMinStake,
       [ commitTerms, revealTerms, appealTerms, appealConfirmTerms ],
       [ penaltyPct, finalRoundReduction ],
+      3,
       4,
       [ 0, 0, 0, 0, 0 ]
     )

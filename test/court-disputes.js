@@ -139,6 +139,7 @@ contract('Court: Disputes', ([ rich, governor, juror1, juror2, juror3, other, ap
       jurorMinStake,
       [ commitTerms, revealTerms, appealTerms, appealConfirmTerms ],
       [ penaltyPct, finalRoundReduction ],
+      3,
       4,
       [ 0, 0, 0, 0, 0 ]
     )

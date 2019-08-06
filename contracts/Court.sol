@@ -20,11 +20,12 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner {
     using SafeERC20 for ERC20;
     using SafeMath for uint256;
 
-    uint256 internal constant MAX_JURORS_PER_DRAFT_BATCH = 10; // to cap gas used on draft
-    uint256 internal constant FINAL_ROUND_WEIGHT_PRECISION = 1000; // to improve roundings
-    uint64 internal constant APPEAL_STEP_FACTOR = 3;
     uint8 public constant APPEAL_COLLATERAL_FACTOR = 3; // multiple of juror fees required to appeal a preliminary ruling
     uint8 public constant APPEAL_CONFIRMATION_COLLATERAL_FACTOR = 2; // multiple of juror fees required to confirm appeal
+
+    uint256 internal constant MAX_JURORS_PER_DRAFT_BATCH = 10;      // to cap gas used on draft
+    uint256 internal constant MAX_REGULAR_APPEAL_ROUNDS_LIMIT = 10; // to cap the max number of regular appeal rounds
+    uint256 internal constant FINAL_ROUND_WEIGHT_PRECISION = 1000;  // to improve roundings
     // TODO: move all other constants up here
 
     struct CourtConfig {
@@ -41,6 +42,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner {
         uint64 appealConfirmTerms;
         uint16 penaltyPct;
         uint16 finalRoundReduction; // ‱ of reduction applied for final appeal round (1/10,000)
+        uint64 appealStepFactor;
         uint32 maxRegularAppealRounds; // before the final appeal
     }
 
@@ -160,7 +162,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner {
     string internal constant ERROR_JUROR_ALREADY_REWARDED = "CTJUROR_ALRDY_REWARDED";
     string internal constant ERROR_JUROR_NOT_COHERENT = "CTJUROR_INCOHERENT";
     string internal constant ERROR_WRONG_PENALTY_PCT = "CTBAD_PENALTY";
-    string internal constant ERROR_ZERO_MAX_ROUNDS = "COURT_ZERO_MAX_ROUNDS";
+    string internal constant ERROR_INVALID_MAX_APPEAL_ROUNDS = "CTINVALID_MAX_APPEAL_ROUNDS";
 
     uint64 internal constant ZERO_TERM_ID = 0; // invalid term that doesn't accept disputes
     uint64 internal constant MODIFIER_ALLOWED_TERM_TRANSITIONS = 1;
@@ -230,6 +232,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner {
         uint256 _minJurorsActiveBalance,
         uint64[4] _roundStateDurations,
         uint16[2] _pcts, //_penaltyPct, _finalRoundReduction
+        uint64 _appealStepFactor,
         uint32 _maxRegularAppealRounds,
         uint256[5] _subscriptionParams // _periodDuration, _feeAmount, _prePaymentPeriods, _latePaymentPenaltyPct, _governorSharePct
     ) public {
@@ -257,6 +260,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner {
             _roundStateDurations,
             _pcts[0], // _penaltyPct
             _pcts[1],  // _finalRoundReduction
+            _appealStepFactor,
             _maxRegularAppealRounds
         );
         terms[ZERO_TERM_ID].startTime = _firstTermStartTime - _termDuration;
@@ -481,14 +485,14 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner {
         (uint64 appealDraftTermId, uint64 appealJurorNumber, ERC20 feeToken,, uint256 jurorFees,, uint256 appealConfirmDeposit) = _getNextAppealDetails(currentRound, _roundId);
 
         uint256 newRoundId;
-        if (_roundId == config.maxRegularAppealRounds - 1) { // final round, roundId starts at 0
+        if (_roundId >= config.maxRegularAppealRounds - 1) { // final round, roundId starts at 0
             // number of jurors will be the number of times the minimum stake is hold in the registry, multiplied by a precision factor for division roundings
             newRoundId = _createRound(_disputeId, DisputeState.Adjudicating, appealDraftTermId, appealJurorNumber, jurorFees);
         } else {
             // no need for more checks, as final appeal won't ever be in Appealable state,
             // so it would never reach here (first check would fail), but we add this as a sanity check
             assert(_roundId < config.maxRegularAppealRounds);
-            appealJurorNumber = APPEAL_STEP_FACTOR * currentRound.jurorNumber;
+            appealJurorNumber = config.appealStepFactor * currentRound.jurorNumber;
             // make sure it's odd
             if (appealJurorNumber % 2 == 0) {
                 appealJurorNumber++;
@@ -791,7 +795,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner {
         CourtConfig storage config = courtConfigs[terms[round.draftTermId].courtConfigId];
 
         // for the final round
-        if (roundId == config.maxRegularAppealRounds) {
+        if (roundId >= config.maxRegularAppealRounds) {
             return _canCommitFinalRound(disputeId, roundId, _voter);
         }
 
@@ -938,7 +942,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner {
             appealJurorNumber = _getFinalAdjudicationRoundJurorNumber();
             (feeToken, feeAmount, jurorFees) = _getFeesForFinalRound(appealDraftTermId, appealJurorNumber);
         } else {
-            appealJurorNumber = _getRegularAdjudicationRoundJurorNumber(_currentRound.jurorNumber);
+            appealJurorNumber = _getRegularAdjudicationRoundJurorNumber(config.appealStepFactor, _currentRound.jurorNumber);
             (feeToken, feeAmount, jurorFees) = _getFeesForRegularRound(appealDraftTermId, appealJurorNumber);
         }
 
@@ -947,8 +951,8 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner {
         appealConfirmDeposit = feeAmount * APPEAL_CONFIRMATION_COLLATERAL_FACTOR;
     }
 
-    function _getRegularAdjudicationRoundJurorNumber(uint64 _currentRoundJurorNumber) internal pure returns (uint64 appealJurorNumber) {
-        appealJurorNumber = APPEAL_STEP_FACTOR * _currentRoundJurorNumber;
+    function _getRegularAdjudicationRoundJurorNumber(uint64 _appealStepFactor, uint64 _currentRoundJurorNumber) internal pure returns (uint64 appealJurorNumber) {
+        appealJurorNumber = _appealStepFactor * _currentRoundJurorNumber;
         // make sure it's odd
         if (appealJurorNumber % 2 == 0) {
             appealJurorNumber++;
@@ -1096,6 +1100,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner {
         uint64[4] _roundStateDurations,
         uint16 _penaltyPct,
         uint16 _finalRoundReduction,
+        uint64 _appealStepFactor,
         uint32 _maxRegularAppealRounds
     )
         internal
@@ -1107,7 +1112,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner {
         // We make sure that when applying penalty pct to juror min stake it doesn't result in zero
         uint256 minJurorsActiveBalance = jurorsRegistry.minJurorsActiveBalance();
         require(uint256(_penaltyPct) * minJurorsActiveBalance >= PCT_BASE, ERROR_WRONG_PENALTY_PCT);
-        require(_maxRegularAppealRounds > uint32(0), ERROR_ZERO_MAX_ROUNDS);
+        require(_maxRegularAppealRounds > uint32(0) && _maxRegularAppealRounds <= MAX_REGULAR_APPEAL_ROUNDS_LIMIT, ERROR_INVALID_MAX_APPEAL_ROUNDS);
 
         // TODO: add reasonable limits for durations
 
@@ -1131,6 +1136,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner {
             appealConfirmTerms: _roundStateDurations[3],
             penaltyPct: _penaltyPct,
             finalRoundReduction: _finalRoundReduction,
+            appealStepFactor: _appealStepFactor,
             maxRegularAppealRounds: _maxRegularAppealRounds
         });
 

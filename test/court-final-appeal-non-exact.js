@@ -40,7 +40,6 @@ contract('Court: final appeal (non-exact)', ([ poor, rich, governor, juror1, jur
   const NO_DATA = ''
   const ZERO_ADDRESS = '0x' + '00'.repeat(20)
   const SETTLE_BATCH_SIZE = 15
-  let APPEAL_STEP_FACTOR
   const DECIMALS = 1e18
 
   const termDuration = 10
@@ -53,6 +52,7 @@ contract('Court: final appeal (non-exact)', ([ poor, rich, governor, juror1, jur
   const appealConfirmTerms = 1
   const penaltyPct = 100 // 100‱ = 1%
   const finalRoundReduction = 3300 // 100‱ = 1%
+  const APPEAL_STEP_FACTOR = 3
   const MAX_REGULAR_APPEAL_ROUNDS = 4
 
   const initialBalance = new web3.BigNumber(1e6).mul(DECIMALS)
@@ -108,11 +108,10 @@ contract('Court: final appeal (non-exact)', ([ poor, rich, governor, juror1, jur
       jurorMinStake,
       [ commitTerms, revealTerms, appealTerms, appealConfirmTerms ],
       [ penaltyPct, finalRoundReduction ],
+      APPEAL_STEP_FACTOR,
       MAX_REGULAR_APPEAL_ROUNDS,
       [ 0, 0, 0, 0, 0 ]
     )
-
-    APPEAL_STEP_FACTOR = (await this.court.getAppealStepFactor.call()).toNumber()
 
     await this.jurorsRegistry.mock_hijackTreeSearch()
     await this.court.mock_setBlockNumber(startBlock)

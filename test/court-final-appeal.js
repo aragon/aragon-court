@@ -148,7 +148,8 @@ contract('Court: final appeal', ([ poor, rich, governor, juror1, juror2, juror3,
     assert.isFalse(await this.court.canTransitionTerm(), 'all terms transitioned')
   }
 
-  context('Max number of regular appeals', () => {
+  // TODO: Fix when making the court settings configurable
+  context.skip('Max number of regular appeals', () => {
     it('Can change number of regular appeals', async () => {
       const newMaxAppeals = MAX_REGULAR_APPEAL_ROUNDS + 1
       // set new max
@@ -212,8 +213,7 @@ contract('Court: final appeal', ([ poor, rich, governor, juror1, juror2, juror3,
       await passTerms(2) // term = 3, dispute init
       await this.court.mock_blockTravel(1)
 
-      const maxRegularAppealRounds = (await this.court.getMaxRegularAppealRounds.call(disputeId)).toNumber()
-      for (let roundId = 0; roundId < maxRegularAppealRounds; roundId++) {
+      for (let roundId = 0; roundId < MAX_REGULAR_APPEAL_ROUNDS; roundId++) {
         let roundJurors = initialJurorNumber * (APPEAL_STEP_FACTOR ** roundId)
         if (roundJurors % 2 == 0) {
           roundJurors++
@@ -235,8 +235,6 @@ contract('Court: final appeal', ([ poor, rich, governor, juror1, juror2, juror3,
         await passTerms(appealTerms)
         await this.court.mock_blockTravel(1)
       }
-
-      return maxRegularAppealRounds
     }
 
     it('reaches final appeal, all jurors can vote', async () => {
@@ -263,7 +261,7 @@ contract('Court: final appeal', ([ poor, rich, governor, juror1, juror2, juror3,
     })
 
     it('fails appealing after final appeal', async () => {
-      const maxRegularAppealRounds = await moveForwardToFinalRound()
+      await moveForwardToFinalRound()
 
       // commit
       await passTerms(commitTerms)
@@ -272,7 +270,7 @@ contract('Court: final appeal', ([ poor, rich, governor, juror1, juror2, juror3,
       await passTerms(revealTerms)
 
       // appeal
-      await assertRevert(this.court.appealRuling(disputeId, maxRegularAppealRounds), ERROR_INVALID_ADJUDICATION_STATE)
+      await assertRevert(this.court.appealRuling(disputeId, MAX_REGULAR_APPEAL_ROUNDS), ERROR_INVALID_ADJUDICATION_STATE)
     })
 
     context('Rewards and slashes', () => {
@@ -282,10 +280,8 @@ contract('Court: final appeal', ([ poor, rich, governor, juror1, juror2, juror3,
       // more than half of the jurors voting first option
       const winningJurors = Math.floor(jurors.length / 2) + 1
 
-      let maxRegularAppealRounds
-
       beforeEach(async () => {
-        maxRegularAppealRounds = await moveForwardToFinalRound()
+        await moveForwardToFinalRound()
         // vote
         const winningVote = 2
         const losingVote = 3
@@ -315,7 +311,7 @@ contract('Court: final appeal', ([ poor, rich, governor, juror1, juror2, juror3,
         await passTerms(revealTerms)
 
         // settle
-        for (let roundId = 0; roundId <= maxRegularAppealRounds; roundId++) {
+        for (let roundId = 0; roundId <= MAX_REGULAR_APPEAL_ROUNDS; roundId++) {
           let roundSlashingEvent = 0
           while (roundSlashingEvent == 0) {
             const receiptPromise = await this.court.settleRoundSlashing(disputeId, roundId, SETTLE_BATCH_SIZE)
@@ -328,7 +324,7 @@ contract('Court: final appeal', ([ poor, rich, governor, juror1, juror2, juror3,
         for (let i = 0; i < winningJurors; i++) {
           const tokenBalance = (await this.anj.balanceOf(jurors[i])).toNumber()
           const courtBalance = (await this.jurorsRegistry.totalStakedFor(jurors[i])).toNumber()
-          const receiptPromise = this.court.settleReward(disputeId, maxRegularAppealRounds, jurors[i], { from: jurors[i] })
+          const receiptPromise = this.court.settleReward(disputeId, MAX_REGULAR_APPEAL_ROUNDS, jurors[i], { from: jurors[i] })
           await assertLogs(receiptPromise, REWARD_SETTLED_EVENT)
 
           // as jurors are not withdrawing here, real token balance shouldn't change

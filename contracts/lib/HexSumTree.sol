@@ -72,11 +72,13 @@ library HexSumTree {
     function sortition(Tree storage self, uint256 value, uint64 time, bool past) internal view returns (uint256 key, uint256 nodeValue) {
         require(totalSumPast(self, time) > value, ERROR_SORTITION_OUT_OF_BOUNDS);
 
-        return _sortition(self, value, BASE_KEY, getRootDepthAt(self, time, past), time, past);
+        uint256 rootDepth = getRootDepthAt(self, time, past);
+        return _sortition(self, value, BASE_KEY, rootDepth, time, past);
     }
 
     function randomSortition(Tree storage self, uint256 seed, uint64 time, bool past) internal view returns (uint256 key, uint256 nodeValue) {
-        return _sortition(self, seed % totalSumPast(self, time), BASE_KEY, getRootDepthAt(self, time, past), time, past);
+        uint256 rootDepth = getRootDepthAt(self, time, past);
+        return _sortition(self, seed % totalSumPast(self, time), BASE_KEY, rootDepth, time, past);
     }
 
     function multiSortition(
@@ -111,7 +113,8 @@ library HexSumTree {
         // those two arrays will be used to fill in the results, they are passed as parameters to avoid extra copies
         keys = new uint256[](length);
         nodeValues = new uint256[](length);
-        _multiSortition(self, values, PackedArguments(0, getRootDepthAt(self, time, past), time, past, 0, BASE_KEY), keys, nodeValues);
+        uint256 rootDepth = getRootDepthAt(self, time, past);
+        _multiSortition(self, values, PackedArguments(0, rootDepth, time, past, 0, BASE_KEY), keys, nodeValues);
     }
 
     function totalSum(Tree storage self) internal view returns (uint256) {

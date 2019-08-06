@@ -92,7 +92,7 @@ contract('Hex Sum Tree', (accounts) => {
   }
 
   it('total sum stays consistent as tree grows over time', async () => {
-    const addingNodes = 18
+    const addingNodes = 18 // when adding node #17, the tree adds a new layer, updating the root depth
     const nodeValue = 10
 
     // Insert nodes at different times

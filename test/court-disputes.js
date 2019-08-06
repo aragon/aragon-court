@@ -52,7 +52,7 @@ contract('Court: Disputes', ([ poor, rich, governor, juror1, juror2, juror3, oth
   const NO_DATA = ''
   const ZERO_ADDRESS = '0x' + '00'.repeat(20)
   const MAX_UINT256 = new web3.BigNumber(2).pow(256).sub(1)
-  
+
   const termDuration = 10
   const firstTermStart = 10
   const jurorMinStake = 400
@@ -125,6 +125,7 @@ contract('Court: Disputes', ([ poor, rich, governor, juror1, juror2, juror3, oth
       jurorMinStake,
       [ commitTerms, appealTerms, revealTerms ],
       [ penaltyPct, finalRoundReduction ],
+      4,
       [ 0, 0, 0, 0, 0 ]
     )
 

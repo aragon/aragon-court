@@ -20,6 +20,7 @@ contract CourtMock is Court {
         uint256 _jurorMinStake,
         uint64[3] _roundStateDurations,
         uint16[2] _pcts,
+        uint32 _maxRegularAppealRounds,
         uint256[5] _subscriptionParams // _periodDuration, _feeAmount, _prePaymentPeriods, _latePaymentPenaltyPct, _governorSharePct
     )
         Court(
@@ -35,7 +36,7 @@ contract CourtMock is Court {
             _jurorMinStake,
             _roundStateDurations,
             _pcts,
-            _subscriptionParams
+            _maxRegularAppealRounds,_subscriptionParams
         )
         public
     {}
@@ -68,10 +69,6 @@ contract CourtMock is Court {
 
     function getMaxJurorsPerDraftBatch() public pure returns (uint256) {
         return MAX_JURORS_PER_DRAFT_BATCH;
-    }
-
-    function getMaxRegularAppealRounds() public pure returns (uint256) {
-        return MAX_REGULAR_APPEAL_ROUNDS;
     }
 
     function getAppealStepFactor() public pure returns (uint64) {

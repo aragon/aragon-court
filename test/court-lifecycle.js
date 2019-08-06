@@ -34,7 +34,7 @@ contract('Court: Lifecycle', ([ poor, rich, governor, juror1, juror2 ]) => {
   const NO_DATA = ''
   const ZERO_ADDRESS = '0x' + '00'.repeat(20)
   const MAX_UINT64 = 2**64 - 1
-  
+
   const termDuration = 10
   const firstTermStart = 15
   const jurorMinStake = 100
@@ -86,6 +86,7 @@ contract('Court: Lifecycle', ([ poor, rich, governor, juror1, juror2 ]) => {
       jurorMinStake,
       [ commitTerms, appealTerms, revealTerms ],
       [ penaltyPct, finalRoundReduction ],
+      4,
       [ 0, 0, 0, 0, 0 ]
     )
 

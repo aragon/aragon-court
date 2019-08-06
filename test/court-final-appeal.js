@@ -42,8 +42,8 @@ contract('Court: final appeal', ([ poor, rich, governor, juror1, juror2, juror3,
   const NO_DATA = ''
   const ZERO_ADDRESS = '0x' + '00'.repeat(20)
   const SETTLE_BATCH_SIZE = 40
+  const MAX_REGULAR_APPEAL_ROUNDS = 4
   let MAX_JURORS_PER_DRAFT_BATCH
-  let MAX_REGULAR_APPEAL_ROUNDS
   let APPEAL_STEP_FACTOR
 
   const termDuration = 10
@@ -71,6 +71,7 @@ contract('Court: final appeal', ([ poor, rich, governor, juror1, juror2, juror3,
   const ROUND_SLASHING_SETTLED_EVENT = 'RoundSlashingSettled'
   const REWARD_SETTLED_EVENT = 'RewardSettled'
 
+  const ERROR_ZERO_MAX_ROUNDS = 'COURT_ZERO_MAX_ROUNDS'
   const ERROR_INVALID_ADJUDICATION_STATE = 'CTBAD_ADJ_STATE'
   const ERROR_INVALID_ADJUDICATION_ROUND = 'CTBAD_ADJ_ROUND'
   const ERROR_NOT_ALLOWED_BY_OWNER = 'CRV_NOT_ALLOWED_BY_OWNER'
@@ -114,11 +115,11 @@ contract('Court: final appeal', ([ poor, rich, governor, juror1, juror2, juror3,
       jurorMinStake,
       [ commitTerms, appealTerms, revealTerms ],
       [ penaltyPct, finalRoundReduction ],
+      MAX_REGULAR_APPEAL_ROUNDS,
       [ 0, 0, 0, 0, 0 ]
     )
 
     MAX_JURORS_PER_DRAFT_BATCH = (await this.court.getMaxJurorsPerDraftBatch.call()).toNumber()
-    MAX_REGULAR_APPEAL_ROUNDS = (await this.court.getMaxRegularAppealRounds.call()).toNumber()
     APPEAL_STEP_FACTOR = (await this.court.getAppealStepFactor.call()).toNumber()
 
     await this.court.mock_setBlockNumber(startBlock)
@@ -146,6 +147,31 @@ contract('Court: final appeal', ([ poor, rich, governor, juror1, juror2, juror3,
     await this.court.mock_blockTravel(1)
     assert.isFalse(await this.court.canTransitionTerm(), 'all terms transitioned')
   }
+
+  // TODO: Fix when making the court settings configurable
+  context.skip('Max number of regular appeals', () => {
+    it('Can change number of regular appeals', async () => {
+      const newMaxAppeals = MAX_REGULAR_APPEAL_ROUNDS + 1
+      // set new max
+      await this.court.setMaxRegularAppealRounds(newMaxAppeals)
+
+      // create dispute
+      const arbitrable = poor // it doesn't matter, just an address
+      const jurorNumber = 3
+      const term = 3
+      const rulings = 2
+      const receipt = await this.court.createDispute(arbitrable, rulings, jurorNumber, term)
+      await assertLogs(receipt, NEW_DISPUTE_EVENT)
+      const disputeId = getLog(receipt, NEW_DISPUTE_EVENT, 'disputeId')
+
+      assertEqualBN(this.court.getMaxRegularAppealRounds(disputeId), newMaxAppeals, 'Max appeals number should macth')
+    })
+
+    it('Fails trying to change number of regular appeals to zero', async () => {
+      // set new max
+      await assertRevert(this.court.setMaxRegularAppealRounds(0), ERROR_ZERO_MAX_ROUNDS)
+    })
+  })
 
   context('Final appeal', () => {
     const initialJurorNumber = 3

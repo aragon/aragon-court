@@ -128,7 +128,7 @@ library HexSumTree {
     }
 
     function totalSumPast(Tree storage self, uint64 time) internal view returns (uint256) {
-        uint256 rootDepth = getRootDepthAt(self, time, false); // root depth at time, performing a binary search
+        uint256 rootDepth = getRootDepthAt(self, time, true); // root depth at time, performing a binary search
         return self.nodes[rootDepth][BASE_KEY].get(time);
     }
 

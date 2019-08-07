@@ -90,4 +90,21 @@ contract('Hex Sum Tree', (accounts) => {
       console.log(`final block number ${finalBlockNumber}, term ${finalCheckpointTime}`)
     })
   }
+
+  it('total sum stays consistent as tree grows over time', async () => {
+    const addingNodes = 18 // when adding node #17, the tree adds a new layer, updating the root depth
+    const nodeValue = 10
+
+    // Insert nodes at different times
+    for (let i = 0; i < addingNodes; i++) {
+      const time = i
+      await tree.insertAt(time, nodeValue)
+    }
+
+    // At all times in the past, the total sum should have been the correct value at that time
+    for (let i = 0; i < addingNodes; i++) {
+      const time = i
+      assertBN(await tree.totalSumPast.call(time), (time + 1) * nodeValue, `Sum at time ${time}`)
+    }
+  })
 })

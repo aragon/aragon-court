@@ -520,6 +520,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner {
             } else if (appealTaker.ruling == winningRuling) {
                 accounting.assign(depositToken, appealTaker.appealer, totalDeposit - feeAmount);
             } else {
+                // If the winning ruling is missing then divide the appeal deposit to both parties
                 accounting.assign(depositToken, appealMaker.appealer, appealDeposit - feeAmount / 2);
                 accounting.assign(depositToken, appealTaker.appealer, appealConfirmDeposit - feeAmount / 2);
             }
@@ -533,14 +534,11 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner {
      */
     function executeRuling(uint256 _disputeId) external ensureTerm {
         Dispute storage dispute = disputes[_disputeId];
-
         require(dispute.state != DisputeState.Executed, ERROR_INVALID_DISPUTE_STATE);
 
         uint8 winningRuling = _ensureFinalRuling(_disputeId);
         dispute.state = DisputeState.Executed;
-
         dispute.subject.rule(_disputeId, uint256(winningRuling));
-
         emit RulingExecuted(_disputeId, winningRuling);
     }
 
@@ -557,38 +555,43 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner {
         // even if there is a settleFee, it may not be big enough and all jurors in the round are going to be slashed
         require(_roundId == 0 || dispute.rounds[_roundId - 1].settledPenalties, ERROR_PREV_ROUND_NOT_SETTLED);
         require(!round.settledPenalties, ERROR_ROUND_ALREADY_SETTLED);
+        _ensureFinalRuling(_disputeId);
 
-        uint8 winningRuling = _ensureFinalRuling(_disputeId);
+        // Fetch the number of jurors that voted in favor of the winning ruling if we haven't started settling yet
         uint256 votingId = _getVotingId(_disputeId, _roundId);
-        // let's fetch them only the first time
         if (round.settledJurors == 0) {
-            round.coherentJurors = uint64(voting.getOutcomeTally(votingId, winningRuling));
+            // TODO: review casting, could this overflow?
+            round.coherentJurors = uint64(voting.getWinningOutcomeTally(votingId));
         }
 
-        uint256 collectedTokens;
         if (_roundId < config.maxRegularAppealRounds) {
-            uint256 jurorsSettled;
-            (collectedTokens, jurorsSettled) = _settleRegularRoundSlashing(round, votingId, config.penaltyPct, winningRuling, _jurorsToSettle);
-            round.collectedTokens = collectedTokens;
+            // For regular appeal rounds we compute the amount of locked tokens that needs to get burned in batches.
+            // The callers of this function will get rewarded in this case.
+            uint256 jurorsSettled = _settleRegularRoundSlashing(round, votingId, config.penaltyPct, _jurorsToSettle);
             accounting.assign(config.feeToken, msg.sender, config.settleFee * jurorsSettled);
-        } else { // final round
-            // this was accounted for on juror's vote commit
-            collectedTokens = round.collectedTokens;
+
+        } else {
+            // For the final appeal round, there is no need to settle in batches since, to guarantee scalability,
+            // all the tokens collected from jurors participating in the final round are burned, and those jurors who
+            // voted in favor of the winning ruling can claim their collected tokens back along with their reward.
+            // Note that the caller of this function is not being reimbursed.
             round.settledPenalties = true;
-            // there's no settleFee in this round
         }
 
+        // Burn tokens and refund fees only if we finished settling all the jurors that voted in this round
         if (round.settledPenalties) {
-            // No juror was coherent in the round
-            if (round.coherentJurors == 0) {
-                // refund fees and slash jurors
-                accounting.assign(config.feeToken, round.triggeredBy, round.jurorFees);
-                if (collectedTokens > 0) {
-                    jurorsRegistry.burnTokens(collectedTokens);
-                }
+            uint256 collectedTokens = round.collectedTokens;
+            emit RoundSlashingSettled(_disputeId, _roundId, collectedTokens);
+
+            // Avoid calling the jurors registry if there were non tokens collected to burn
+            if (collectedTokens > 0) {
+                jurorsRegistry.burnTokens(collectedTokens);
             }
 
-            emit RoundSlashingSettled(_disputeId, _roundId, collectedTokens);
+            // Refund the creator of this round if there was at least one juror voting in favor of the winning ruling
+            if (round.coherentJurors == 0) {
+                accounting.assign(config.feeToken, round.triggeredBy, round.jurorFees);
+            }
         }
     }
 
@@ -609,22 +612,17 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner {
         return winningRuling;
     }
 
-    function _settleRegularRoundSlashing(
-        AdjudicationRound storage _round,
-        uint256 _votingId,
-        uint16 _penaltyPct,
-        uint8 _winningRuling,
-        uint256 _jurorsToSettle // 0 means all
-    )
+    // @dev zero `_jurorsToSettle` means all
+    function _settleRegularRoundSlashing(AdjudicationRound storage _round, uint256 _votingId, uint16 _penaltyPct, uint256 _jurorsToSettle)
         internal
-        returns (uint256 collectedTokens, uint256 batchSettledJurors)
+        returns (uint256)
     {
         // TODO: stack too deep uint64 slashingUpdateTermId = termId + 1;
         // The batch starts at where the previous one ended, stored in _round.settledJurors
         uint256 roundSettledJurors = _round.settledJurors;
         // Here we compute the amount of jurors that are going to be selected in this call, which is returned by the function for fees calculation
         // Initially we try to reach the end of the jurors array
-        batchSettledJurors = _round.jurors.length - roundSettledJurors;
+        uint256 batchSettledJurors = _round.jurors.length - roundSettledJurors;
         // If the jurors that are going to be settled in this call are more than the requested number,
         // we reduce that amount and the end position in the jurors array
         // (_jurorsToSettle = 0 means settle them all)
@@ -645,44 +643,52 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner {
             // TODO: stack too deep
             penalties[i] = _pct4(jurorsRegistry.minJurorsActiveBalance(), _penaltyPct) * _round.jurorSlotStates[juror].weight;
         }
-        uint8[] memory jurorsRulings = voting.getVotersOutcome(_votingId, jurors);
-        // we assume `jurorsRulings` length is equal to `batchSettledJurors`
-        collectedTokens = jurorsRegistry.slashOrUnlock(termId, jurors, penalties, jurorsRulings, _winningRuling);
+        bool[] memory losingJurors = voting.getLosingVoters(_votingId, jurors);
+        // we assume `winningVoters` length is equal to `batchSettledJurors`
 
+        // TODO: we can rely on the voting tally instead of asking the juror registry how many tokens were collected
+        uint256 collectedTokens = jurorsRegistry.slashOrUnlock(termId, jurors, penalties, losingJurors);
         _round.collectedTokens = _round.collectedTokens.add(collectedTokens);
+        return batchSettledJurors;
     }
 
     /**
      * @notice Claim reward for round #`_roundId` of dispute #`_disputeId` for juror `_juror`
+     *
+     * |         |  Missing  |  Refused  | Leaked  |  Lose   |    Win   |
+     * |---------|-----------|-----------|---------|---------|----------|
+     * | Regular | Slashed   | Invariant | Slashed | Slashed | Rewarded |
+     * | Final   | Invariant | Slashed   | Slashed | Slashed | Rewarded |
+     *
      */
     function settleReward(uint256 _disputeId, uint256 _roundId, address _juror) external ensureTerm {
         Dispute storage dispute = disputes[_disputeId];
         AdjudicationRound storage round = dispute.rounds[_roundId];
         JurorState storage jurorState = round.jurorSlotStates[_juror];
 
-        require(round.settledPenalties, ERROR_ROUND_NOT_SETTLED);
-        require(jurorState.weight > 0, ERROR_INVALID_JUROR);
         require(!jurorState.rewarded, ERROR_JUROR_ALREADY_REWARDED);
-
+        require(round.settledPenalties, ERROR_ROUND_NOT_SETTLED);
+        require(jurorState.weight > uint256(0), ERROR_INVALID_JUROR);
         jurorState.rewarded = true;
 
+        // Check the given juror is considered a winner based on his vote.
         uint256 votingId = _getVotingId(_disputeId, _roundId);
+        require(voting.isWinningVoter(votingId, _juror), ERROR_JUROR_NOT_COHERENT);
+
+        // Note that it is safe to access a court config directly for a past term
+        CourtConfig storage config = courtConfigs[terms[round.draftTermId].courtConfigId];
+
+        // Distribute the collected tokens of the jurors that were slashed weighted by the winning jurors. Note that
+        // we are penalizing jurors that refused intentionally their vote for the final round.
         uint256 coherentJurors = round.coherentJurors;
-        uint8 jurorRuling = voting.getVoterOutcome(votingId, _juror);
-
-        // as round penalties were settled, we are sure we already have final ruling
-        require(jurorRuling == dispute.winningRuling, ERROR_JUROR_NOT_COHERENT);
-
         uint256 collectedTokens = round.collectedTokens;
-
         if (collectedTokens > 0) {
             jurorsRegistry.assignTokens(_juror, jurorState.weight * collectedTokens / coherentJurors);
         }
 
+        // Reward the winning juror
         uint256 jurorFee = round.jurorFees * jurorState.weight / coherentJurors;
-        CourtConfig storage config = courtConfigs[terms[round.draftTermId].courtConfigId]; // safe to use directly as it is a past term
         accounting.assign(config.feeToken, _juror, jurorFee);
-
         emit RewardSettled(_disputeId, _roundId, _juror);
     }
 
@@ -846,23 +852,8 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner {
         return weight;
     }
 
-    function _canPerformVotingAction(
-        uint256 _disputeId,
-        uint256 _roundId,
-        address _voter,
-        AdjudicationState _state
-    )
-        internal
-        view
-        returns (uint256)
-    {
-        _checkAdjudicationState(_disputeId, _roundId, _state);
-
-        return _getJurorWeight(_disputeId, _roundId, _voter);
-    }
-
     function getJurorWeight(uint256 _disputeId, uint256 _roundId, address _juror) external view returns (uint256) {
-        return _getJurorWeight(_disputeId, _roundId, _juror);
+        return _getJurorWeightForRegularRound(_disputeId, _roundId, _juror);
     }
 
     function _getVotingId(uint256 _disputeId, uint256 _roundId) internal pure returns (uint256) {

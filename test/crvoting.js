@@ -35,23 +35,23 @@ contract('CRVoting', ([ account0, account1 ]) => {
   })
 
   context('With Owner interface', () => {
-    const vote = 1
+    const vote = 3
     let votingOwner
 
     beforeEach(async () => {
-      votingOwner = await VotingOwner.new()
+      votingOwner = await VotingOwner.new(this.voting.address)
       await this.voting.init(votingOwner.address)
     })
 
     it('can create vote as owner', async () => {
-      await votingOwner.create(this.voting.address, 0, 2)
+      await votingOwner.create(0, 2)
     })
 
     context('Voting actions', () => {
       let votingId
 
       beforeEach(async () => {
-        const r = await votingOwner.create(this.voting.address, 0, 2)
+        const r = await votingOwner.create(0, 2)
         votingId = getLog(r, 'VoteCreated', 'votingId')
         await votingOwner.mockJurorWeight(account0, 1)
       })

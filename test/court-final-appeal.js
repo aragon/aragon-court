@@ -178,8 +178,8 @@ contract('Court: final appeal', ([ poor, rich, governor, juror1, juror2, juror3,
     const initialJurorNumber = 3
     const term = 3
     const rulings = 2
-    const appealRuling = 1
-    const appealConfirmRuling = 2
+    const appealRuling = 3
+    const appealConfirmRuling = 4
 
     let disputeId = 0
     const firstRoundId = 0
@@ -289,8 +289,8 @@ contract('Court: final appeal', ([ poor, rich, governor, juror1, juror2, juror3,
       beforeEach(async () => {
         await moveForwardToFinalRound()
         // vote
-        const winningVote = 1
-        const losingVote = 2
+        const winningVote = 3
+        const losingVote = 4
 
         // commit
         for (let i = 0; i < winningJurors; i++) {

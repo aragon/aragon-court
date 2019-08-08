@@ -22,18 +22,25 @@ contract CRVoting is Initializable, ICRVoting {
     string internal constant ERROR_INVALID_OUTCOMES_AMOUNT = "CRV_INVALID_OUTCOMES_AMOUNT";
     string internal constant ERROR_INVALID_COMMITMENT_SALT = "CRV_INVALID_COMMITMENT_SALT";
 
-    uint8 internal constant MIN_OUTCOMES_ALTERNATIVES = uint8(2);
+    // Outcome nr. 0 is used to denote a missing vote (default)
+    uint8 internal constant OUTCOME_MISSING = uint8(0);
+    // Outcome nr. 1 is used to denote a leaked vote
+    uint8 internal constant OUTCOME_LEAKED = uint8(1);
+    // Outcome nr. 2 is used to denote a refused vote
+    uint8 internal constant OUTCOME_REFUSED = uint8(2);
+    // Besides the options listed above, every voting must provide at least 2 outcomes
+    uint8 internal constant MIN_POSSIBLE_OUTCOMES = uint8(2);
+    // Max number of outcomes excluding the default ones
+    uint8 internal constant MAX_POSSIBLE_OUTCOMES = uint8(-1) - OUTCOME_REFUSED;
 
     struct Vote {
         bytes32 commitment;     // hash of the outcome casted by the voter
-        uint8 outcome;          // outcome revealed by the voter (or leaked)
-        bool refused;           // whether the juror refused to vote or not
-        bool leaked;            // whether the outcome casted was leaked or not
+        uint8 outcome;          // outcome submitted by the voter
     }
 
     struct Voting {
         uint8 winningOutcome;                       // outcome winner of a voting
-        uint8 possibleOutcomes;                     // number of possible outcomes that can be voted
+        uint8 maxAllowedOutcome;                    // highest outcome allowed for the voting
         mapping (address => Vote) votes;            // mapping of voters addresses to their casted votes
         mapping (uint8 => uint256) outcomesTally;   // tally for each of the possible outcomes
     }
@@ -44,9 +51,10 @@ contract CRVoting is Initializable, ICRVoting {
     // Voting records indexed by their ID
     mapping (uint256 => Voting) internal votingRecords;
 
+    event VotingCreated(uint256 indexed votingId, uint8 possibleOutcomes);
     event VoteCommitted(uint256 indexed votingId, address indexed voter, bytes32 commitment);
     event VoteRevealed(uint256 indexed votingId, address indexed voter, uint8 outcome);
-    event VoteLeaked(uint256 indexed votingId, address indexed voter, address leaker);
+    event VoteLeaked(uint256 indexed votingId, address indexed voter, uint8 outcome, address leaker);
 
     modifier onlyOwner {
         require(msg.sender == address(owner), ERROR_NOT_OWNER);
@@ -78,12 +86,14 @@ contract CRVoting is Initializable, ICRVoting {
     * @param _possibleOutcomes Number of possible outcomes for the new voting to be created
     */
     function create(uint256 _votingId, uint8 _possibleOutcomes) external onlyOwner {
-        require(_possibleOutcomes >= MIN_OUTCOMES_ALTERNATIVES, ERROR_INVALID_OUTCOMES_AMOUNT);
+        require(_possibleOutcomes >= MIN_POSSIBLE_OUTCOMES && _possibleOutcomes <= MAX_POSSIBLE_OUTCOMES, ERROR_INVALID_OUTCOMES_AMOUNT);
 
         Voting storage voting = votingRecords[_votingId];
         require(!_existsVoting(voting), ERROR_VOTING_ALREADY_EXISTS);
 
-        voting.possibleOutcomes = _possibleOutcomes;
+        // Note that there is no need to use SafeMath here, we already checked the number of outcomes above
+        voting.maxAllowedOutcome = OUTCOME_REFUSED + _possibleOutcomes;
+        emit VotingCreated(_votingId, _possibleOutcomes);
     }
 
     /**
@@ -109,12 +119,15 @@ contract CRVoting is Initializable, ICRVoting {
     * @param _salt Salt to decrypt and validate the committed vote of the voter
     */
     function leak(uint256 _votingId, address _voter, uint8 _outcome, bytes32 _salt) external votingExists(_votingId) {
-        uint256 weight = _ensureVoterWeightToCommit(_votingId, _voter);
-        _reveal(_votingId, _voter, _outcome, _salt, weight);
+        _ensureVoterWeightToCommit(_votingId, _voter);
 
-        // TODO: slash juror
-        votingRecords[_votingId].votes[_voter].leaked = true;
-        emit VoteLeaked(_votingId, _voter, msg.sender);
+        Vote storage vote = votingRecords[_votingId].votes[_voter];
+        _ensureCanReveal(vote, _outcome, _salt);
+
+        // There is no need to check if an outcome is valid if it was leaked.
+        // Additionally, leaked votes are not considered for the tally.
+        vote.outcome = OUTCOME_LEAKED;
+        emit VoteLeaked(_votingId, _voter, _outcome, msg.sender);
     }
 
     /**
@@ -125,7 +138,15 @@ contract CRVoting is Initializable, ICRVoting {
     */
     function reveal(uint256 _votingId, uint8 _outcome, bytes32 _salt) external votingExists(_votingId) {
         uint256 weight = _ensureVoterWeightToReveal(_votingId, msg.sender);
-        _reveal(_votingId, msg.sender, _outcome, _salt, weight);
+
+        Voting storage voting = votingRecords[_votingId];
+        Vote storage vote = voting.votes[msg.sender];
+        _ensureCanReveal(vote, _outcome, _salt);
+        require(_outcome == OUTCOME_REFUSED || _isValidOutcome(voting, _outcome), ERROR_INVALID_OUTCOME);
+
+        vote.outcome = _outcome;
+        _updateTally(voting, _outcome, weight);
+        emit VoteRevealed(_votingId, msg.sender, _outcome);
     }
 
     /**
@@ -147,29 +168,13 @@ contract CRVoting is Initializable, ICRVoting {
     }
 
     /**
-    * @dev Get the outcome voted by a voter for a certain voting
-    * @param _votingId ID of the voting querying the outcome of
-    * @param _voter Address of the voter querying the outcome of
-    * @return Outcome of the voter for the given voting
+    * @dev Get the tally of the winning outcome for a certain voting
+    * @param _votingId ID of the voting querying the tally of
+    * @return Tally of the winning outcome being queried for the given voting
     */
-    function getVoterOutcome(uint256 _votingId, address _voter) external votingExists(_votingId) view returns (uint8) {
+    function getWinningOutcomeTally(uint256 _votingId) external votingExists(_votingId) view returns (uint256) {
         Voting storage voting = votingRecords[_votingId];
-        return voting.votes[_voter].outcome;
-    }
-
-    /**
-    * @dev Get the list of outcomes voted by a set of voters for a certain voting
-    * @param _votingId ID of the voting querying the outcome of
-    * @param _voters List of addresses of the voters querying the outcomes of
-    * @return Outcomes of the requested voters for the given voting
-    */
-    function getVotersOutcome(uint256 _votingId, address[] _voters) external votingExists(_votingId) view returns (uint8[]) {
-        Voting storage voting = votingRecords[_votingId];
-        uint8[] memory votersOutcomes = new uint8[](_voters.length);
-        for (uint256 i = 0; i < _voters.length; i++) {
-            votersOutcomes[i] = voting.votes[_voters[i]].outcome;
-        }
-        return votersOutcomes;
+        return voting.outcomesTally[voting.winningOutcome];
     }
 
     /**
@@ -184,13 +189,65 @@ contract CRVoting is Initializable, ICRVoting {
     }
 
     /**
-    * @dev Tell whether an outcome is valid for a given voting or not
+    * @dev Tell whether an outcome is valid for a given voting or not. Missing and leaked outcomes are not considered
+    *      valid. The only outcomes considered valid are refused ones or any of the custom outcomes of the given voting.
     * @param _votingId ID of the voting to check the outcome of
     * @param _outcome Outcome to check if valid or not
     * @return True if the given outcome is valid for the requested voting, false otherwise.
     */
     function isValidOutcome(uint256 _votingId, uint8 _outcome) external votingExists(_votingId) view returns (bool) {
-        return _isValidOutcome(_votingId, _outcome);
+        Voting storage voting = votingRecords[_votingId];
+        return _isValidOutcome(voting, _outcome);
+    }
+
+    /**
+    * @dev Get the outcome voted by a voter for a certain voting
+    * @param _votingId ID of the voting querying the outcome of
+    * @param _voter Address of the voter querying the outcome of
+    * @return Outcome of the voter for the given voting
+    */
+    function getVoterOutcome(uint256 _votingId, address _voter) external votingExists(_votingId) view returns (uint8) {
+        Voting storage voting = votingRecords[_votingId];
+        return voting.votes[_voter].outcome;
+    }
+
+    /**
+    * @dev Tell whether a voter can be considered a winner in a voting or not. Voters will be considered winners
+    *      only when there is a winning outcome and the voter voted in favor of it.
+    * @param _votingId ID of the voting querying the outcome of
+    * @param _voter Address of the voter to check if can be considered a winner or not
+    * @return True if the given voter can be considered a winner in the given voting, false otherwise
+    */
+    function isWinningVoter(uint256 _votingId, address _voter) external votingExists(_votingId) view returns (bool) {
+        Voting storage voting = votingRecords[_votingId];
+        uint8 winningOutcome = voting.winningOutcome;
+        return winningOutcome != OUTCOME_MISSING && voting.votes[_voter].outcome == winningOutcome;
+    }
+
+    /**
+    * @dev Get the list of losing voters for a certain voting. Note that voters that voted in favor of the winning
+    *      outcome are not the only non-losers since some voters might have refused to vote or no voted at all.
+    * @param _votingId ID of the voting querying the outcome of
+    * @param _voters List of addresses of the voters to be checked
+    * @return List of results to tell whether a voter is considered a loser or not
+    */
+    function getLosingVoters(uint256 _votingId, address[] _voters) external votingExists(_votingId) view returns (bool[]) {
+        Voting storage voting = votingRecords[_votingId];
+        uint8 winningOutcome = voting.winningOutcome;
+        bool[] memory losingVoters = new bool[](_voters.length);
+
+        // If no one voted in the requested voting, all the voters are considered non-losers.
+        if (winningOutcome == OUTCOME_MISSING) {
+            return losingVoters;
+        }
+
+        // If there was a winning outcome, list all the voters that didn't vote for the winning outcome and didn't
+        // refuse to vote, i.e. voters that didn't vote, that voted for the losing outcome, or whose vote was leaked.
+        for (uint256 i = 0; i < _voters.length; i++) {
+            uint8 outcome = voting.votes[_voters[i]].outcome;
+            losingVoters[i] = outcome != OUTCOME_REFUSED && outcome != winningOutcome;
+        }
+        return losingVoters;
     }
 
     /**
@@ -201,29 +258,6 @@ contract CRVoting is Initializable, ICRVoting {
     */
     function encryptVote(uint8 _outcome, bytes32 _salt) public pure returns (bytes32) {
         return keccak256(abi.encodePacked(_outcome, _salt));
-    }
-
-    /**
-    * @dev Internal function to reveal the vote of a voter for a certain voting. This function assumes the given
-    *      voting exists and that the given outcome is valid.
-    * @param _votingId ID of the voting to reveal a vote for
-    * @param _voter Address of the voter willing to reveal a vote
-    * @param _outcome Outcome being revealed by the voter
-    * @param _salt Salt to decrypt and validate the committed vote of the voter
-    * @param _weight Weight of the voter to be added to voting tally in favor of the given outcome
-    */
-    function _reveal(uint256 _votingId, address _voter, uint8 _outcome, bytes32 _salt, uint256 _weight) internal {
-        require(_isValidOutcome(_votingId, _outcome), ERROR_INVALID_OUTCOME);
-
-        Voting storage voting = votingRecords[_votingId];
-        Vote storage vote = voting.votes[_voter];
-
-        require(vote.outcome == uint8(0), ERROR_VOTE_ALREADY_REVEALED);
-        require(vote.commitment == encryptVote(_outcome, _salt), ERROR_INVALID_COMMITMENT_SALT);
-
-        vote.outcome = _outcome;
-        _updateTally(voting, _outcome, _weight);
-        emit VoteRevealed(_votingId, _voter, _outcome);
     }
 
     /**
@@ -251,16 +285,26 @@ contract CRVoting is Initializable, ICRVoting {
     }
 
     /**
+    * @dev Internal function to check if a vote can be revealed for the given outcome and salt
+    * @param _vote Vote to be revealed
+    * @param _outcome Outcome of the vote to be proved
+    * @param _salt Salt to decrypt and validate the provided outcome for a vote
+    */
+    function _ensureCanReveal(Vote storage _vote, uint8 _outcome, bytes32 _salt) internal view {
+        require(_vote.outcome == OUTCOME_MISSING, ERROR_VOTE_ALREADY_REVEALED);
+        require(_vote.commitment == encryptVote(_outcome, _salt), ERROR_INVALID_COMMITMENT_SALT);
+    }
+
+    /**
     * @dev Internal function to tell whether a certain outcome is valid for a given voting or not. Note that
-    *      the outcome zero is not considered valid, it is used to denote absence. This function assumes
-    *      the given voting exists.
-    * @param _votingId ID of the voting to check the outcome of
+    *      the missing and leaked outcomes are not considered valid. The only outcomes considered valid are
+    *      refused or any of the possible outcomes of the given voting. This function assumes the given voting exists.
+    * @param _voting Pointer to the voting to check the outcome of
     * @param _outcome Outcome to check if valid or not
     * @return True if the given outcome is valid for the requested voting, false otherwise.
     */
-    function _isValidOutcome(uint256 _votingId, uint8 _outcome) internal view returns (bool) {
-        Voting storage voting = votingRecords[_votingId];
-        return _outcome > uint256(0) && _outcome <= voting.possibleOutcomes;
+    function _isValidOutcome(Voting storage _voting, uint8 _outcome) internal view returns (bool) {
+        return _outcome > OUTCOME_REFUSED && _outcome <= _voting.maxAllowedOutcome;
     }
 
     /**
@@ -269,17 +313,22 @@ contract CRVoting is Initializable, ICRVoting {
     * @return True if the given voting was already created, false otherwise
     */
     function _existsVoting(Voting storage _voting) internal view returns (bool) {
-        return _voting.possibleOutcomes != uint8(0);
+        return _voting.maxAllowedOutcome != OUTCOME_MISSING;
     }
 
     /**
     * @dev Private function to update the tally of a given voting based on a new weight in favor of an outcome.
-    *      This function assumes the voting pointer exists and that the given outcome is valid.
+    *      This function assumes the voting pointer exists.
     * @param _voting Pointer to the voting to update the tally of
     * @param _outcome Outcome of the voting to update the tally of
     * @param _weight Weight to be added to the given outcome of the voting
     */
     function _updateTally(Voting storage _voting, uint8 _outcome, uint256 _weight) private {
+        // Check if the given outcome is valid. Missing, leaked, or refused votes are ignored for the tally.
+        if (!_isValidOutcome(_voting, _outcome)) {
+            return;
+        }
+
         uint256 newOutcomeTally = _voting.outcomesTally[_outcome].add(_weight);
         _voting.outcomesTally[_outcome] = newOutcomeTally;
 

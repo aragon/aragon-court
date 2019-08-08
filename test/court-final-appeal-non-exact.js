@@ -144,8 +144,8 @@ contract('Court: final appeal (non-exact)', ([ poor, rich, governor, juror1, jur
     const initialJurorNumber = 3
     const term = 3
     const rulings = 2
-    const winningVote = 1
-    const losingVote = 2
+    const winningVote = 3
+    const losingVote = 4
 
     let disputeId = 0
     const firstRoundId = 0

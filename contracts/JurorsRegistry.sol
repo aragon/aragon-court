@@ -32,11 +32,10 @@ contract JurorsRegistry is Initializable, IsContract, IJurorsRegistry, ERC900, A
     string internal constant ERROR_TOKEN_APPROVE_NOT_ALLOWED = "JR_TOKEN_APPROVE_NOT_ALLOWED";
     string internal constant ERROR_SORTITION_LENGTHS_MISMATCH = "JR_SORTITION_LENGTHS_MISMATCH";
 
-    uint64 internal constant MAX_UINT64 = uint64(-1);
     uint256 internal constant PCT_BASE = 10000; // %
     address internal constant BURN_ACCOUNT = 0xdead;
 
-    /*
+    /**
     * @dev Jurors have three kind of balances, these are:
     *      - active: tokens activated for the Court that can be locked in case the juror is drafted
     *      - locked: amount of active tokens that are locked for a draft
@@ -57,7 +56,7 @@ contract JurorsRegistry is Initializable, IsContract, IJurorsRegistry, ERC900, A
         DeactivationRequest deactivationRequest;
     }
 
-    /*
+    /**
     * @dev Given that the jurors balances cannot be affected during a Court term, if jurors want to deactivate some
     *      of their tokens, the tree will always be updated for the following term, and they won't be able to
     *      withdraw the requested amount until the current term has finished. Thus, we need to keep track the term
@@ -284,17 +283,17 @@ contract JurorsRegistry is Initializable, IsContract, IJurorsRegistry, ERC900, A
     * @param _termId Current term id
     * @param _jurors List of juror addresses to be slashed
     * @param _lockedAmounts List of amounts locked for each corresponding juror that will be either slashed or returned
-    * @param _castVotes List of outcomes voted for each corresponding juror
+    * @param _jurorsRulings List of rulings voted by each corresponding juror
     * @param _winningRuling Winning ruling to compare the vote of each juror to be slashed
     * @return Total amount of slashed tokens
     */
-    function slashOrUnlock(uint64 _termId, address[] _jurors, uint256[] _lockedAmounts, uint8[] _castVotes, uint8 _winningRuling)
+    function slashOrUnlock(uint64 _termId, address[] _jurors, uint256[] _lockedAmounts, uint8[] _jurorsRulings, uint8 _winningRuling)
         external
         onlyOwner
         returns (uint256)
     {
         // TODO: should we add validations for this?
-        // we assume this: require(_jurors.length == _castVotes.length);
+        // we assume this: require(_jurors.length == _getVoterOutcomeVotes.length);
         // we assume this: require(_jurors.length == _lockedAmounts.length);
 
         uint64 nextTermId = _termId + 1;
@@ -307,7 +306,7 @@ contract JurorsRegistry is Initializable, IsContract, IJurorsRegistry, ERC900, A
 
             // Slash jurors that didn't vote for the winning ruling. Note that there's no need to check if there
             // was a deactivation request since we're working with already locked balances
-            if (_castVotes[i] != _winningRuling) {
+            if (_jurorsRulings[i] != _winningRuling) {
                 collectedTokens = collectedTokens.add(lockedAmount);
                 tree.update(juror.id, nextTermId, lockedAmount, false);
             }

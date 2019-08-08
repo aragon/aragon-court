@@ -131,7 +131,7 @@ contract('Court: Batches', ([ rich, governor, arbitrable, juror1, juror2, juror3
     let jurors
     const term = 3
     const rulings = 2
-    let disputeId, voteId
+    let disputeId, votingId
     const firstRoundId = 0
 
     const createDispute = async () => {
@@ -144,7 +144,7 @@ contract('Court: Batches', ([ rich, governor, arbitrable, juror1, juror2, juror3
       const receipt = await this.court.createDispute(arbitrable, rulings, jurors, term)
       await assertLogs(receipt, NEW_DISPUTE_EVENT)
       disputeId = getLog(receipt, NEW_DISPUTE_EVENT, 'disputeId')
-      voteId = getLog(receipt, NEW_DISPUTE_EVENT, 'voteId')
+      votingId = getLog(receipt, NEW_DISPUTE_EVENT, 'votingId')
       await passTerms(2) // term = 3
       await this.court.mock_blockTravel(1)
     }
@@ -286,7 +286,7 @@ contract('Court: Batches', ([ rich, governor, arbitrable, juror1, juror2, juror3
     let jurors
     const term = 3
     const rulings = 2
-    let disputeId, voteId
+    let disputeId, votingId
     const firstRoundId = 0
 
     const createDispute = async () => {
@@ -299,7 +299,7 @@ contract('Court: Batches', ([ rich, governor, arbitrable, juror1, juror2, juror3
       const receipt = await this.court.createDispute(arbitrable, rulings, jurors, term)
       await assertLogs(receipt, NEW_DISPUTE_EVENT)
       disputeId = getLog(receipt, NEW_DISPUTE_EVENT, 'disputeId')
-      voteId = getLog(receipt, NEW_DISPUTE_EVENT, 'voteId')
+      votingId = getLog(receipt, NEW_DISPUTE_EVENT, 'votingId')
       await passTerms(2) // term = 3
       await this.court.mock_blockTravel(1)
     }

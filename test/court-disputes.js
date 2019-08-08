@@ -44,7 +44,7 @@ const assertDeepLogs = async (receiptPromise, contractAbi, ...logNames) => {
   }
 }
 
-const getVoteId = (disputeId, roundId) => {
+const getVotingId = (disputeId, roundId) => {
   return new web3.BigNumber(2).pow(128).mul(disputeId).add(roundId)
 }
 
@@ -90,8 +90,6 @@ contract('Court: Disputes', ([ rich, governor, juror1, juror2, juror3, other, ap
   const ERROR_ROUND_ALREADY_DRAFTED = 'CTROUND_ALRDY_DRAFTED'
   const ERROR_INVALID_ADJUDICATION_STATE = 'CTBAD_ADJ_STATE'
   const ERROR_INVALID_ADJUDICATION_ROUND = 'CTBAD_ADJ_ROUND'
-
-  const REFUSED_RULING = 1
 
   const SALT = soliditySha3('passw0rd')
 
@@ -198,7 +196,7 @@ contract('Court: Disputes', ([ rich, governor, juror1, juror2, juror3, other, ap
 
       let disputeId = 0
       const firstRoundId = 0
-      let voteId
+      let votingId
 
       const DISPUTE_STATES = {
         PRE_DRAFT: 0,
@@ -210,7 +208,7 @@ contract('Court: Disputes', ([ rich, governor, juror1, juror2, juror3, other, ap
         const receipt = await this.court.createDispute(this.arbitrable.address, rulings, jurorsNumber, term, { from: rich })
         assertLogs(receipt, NEW_DISPUTE_EVENT)
         disputeId = getLog(receipt, NEW_DISPUTE_EVENT, 'disputeId')
-        voteId = getVoteId(disputeId, firstRoundId)
+        votingId = getVotingId(disputeId, firstRoundId)
       })
 
       it('fails creating dispute if subscriptions are not up to date', async () => {
@@ -237,7 +235,7 @@ contract('Court: Disputes', ([ rich, governor, juror1, juror2, juror3, other, ap
       context('on juror draft (hijacked)', () => {
         const commitVotes = async votes => {
           for (const [draftId, [juror, vote]] of votes.entries()) {
-            const receipt = await this.voting.commitVote(voteId, encryptVote(vote), { from: juror })
+            const receipt = await this.voting.commit(votingId, encryptVote(vote), { from: juror })
             assertLogs(receipt, VOTE_COMMITTED_EVENT)
           }
         }
@@ -255,14 +253,14 @@ contract('Court: Disputes', ([ rich, governor, juror1, juror2, juror3, other, ap
           const expectedJurors = [juror1, juror2, juror3]
 
           for (const [ draftId, juror ] of expectedJurors.entries()) {
-            const ruling = await this.voting.getCastVote(voteId, juror)
+            const ruling = await this.voting.getVoterOutcome(votingId, juror)
 
             assert.equal(ruling, 0, `juror #${draftId} vote`)
           }
         })
 
         it('fails to get cast vote out of bounds', async () => {
-          await assertRevert(this.voting.getCastVote(voteId + 1, juror1)) // out of bounds
+          await assertRevert(this.voting.getVoterOutcome(votingId + 1, juror1)) // out of bounds
         })
 
         it('fails to draft a second time', async () => {
@@ -274,11 +272,10 @@ contract('Court: Disputes', ([ rich, governor, juror1, juror2, juror3, other, ap
           const losingRuling = 2 // 3 too
           const votes = [[juror1, losingRuling], [juror2, winningRuling], [juror3, winningRuling]]
           const round1Ruling = 1
-          const round1WinningVotes = 2
 
           const revealVotes = async votes => {
             for (const [ draftId, [ juror, vote ]] of votes.entries()) {
-              const receipt = await this.voting.revealVote(voteId, vote, SALT, { from: juror })
+              const receipt = await this.voting.reveal(votingId, vote, SALT, { from: juror })
               assertLogs(receipt, VOTE_REVEALED_EVENT)
             }
           }
@@ -290,7 +287,7 @@ contract('Court: Disputes', ([ rich, governor, juror1, juror2, juror3, other, ap
           it('fails to reveal during commit period', async () => {
             const draftId = 0
             const [ juror, vote ] = votes[draftId]
-            const receiptPromise = this.voting.revealVote(voteId, vote, SALT, { from: juror })
+            const receiptPromise = this.voting.reveal(votingId, vote, SALT, { from: juror })
             await assertRevert(receiptPromise, ERROR_INVALID_ADJUDICATION_STATE)
           })
 
@@ -299,25 +296,25 @@ contract('Court: Disputes', ([ rich, governor, juror1, juror2, juror3, other, ap
             const draftId = 0
             const [ juror, vote ] = votes[draftId]
             const badSalt = soliditySha3('not the salt')
-            const receiptPromise = this.voting.revealVote(voteId, vote, badSalt, { from: juror })
-            await assertRevert(receiptPromise, 'CRV_FAILURE_COMMITMENT_CHECK')
+            const receiptPromise = this.voting.reveal(votingId, vote, badSalt, { from: juror })
+            await assertRevert(receiptPromise, 'CRV_INVALID_COMMITMENT_SALT')
           })
 
           it('fails to reveal if already revealed', async () => {
             await passTerms(1) // term = 4
             const draftId = 0
             const [ juror, vote ] = votes[draftId]
-            await this.voting.revealVote(voteId, vote, SALT, { from: juror }) // reveal once
-            const receiptPromise = this.voting.revealVote(voteId, vote, SALT, { from: juror })
-            await assertRevert(receiptPromise, 'CRV_ALREADY_VOTED') // fails to reveal twice
+            await this.voting.reveal(votingId, vote, SALT, { from: juror }) // reveal once
+            const receiptPromise = this.voting.reveal(votingId, vote, SALT, { from: juror })
+            await assertRevert(receiptPromise, 'CRV_VOTE_ALREADY_REVEALED') // fails to reveal twice
           })
 
           it("fails to reveal if sender isn't the drafted juror", async () => {
             await passTerms(1) // term = 4
             const draftId = 0
             const [, vote ] = votes[draftId]
-            const receiptPromise = this.voting.revealVote(voteId, vote, SALT, { from: other })
-            await assertRevert(receiptPromise, 'CRV_NOT_ALLOWED_BY_OWNER')
+            const receiptPromise = this.voting.reveal(votingId, vote, SALT, { from: other })
+            await assertRevert(receiptPromise, 'CRV_REVEAL_DENIED_BY_OWNER')
           })
 
           context('jurors reveal', () => {
@@ -328,14 +325,14 @@ contract('Court: Disputes', ([ rich, governor, juror1, juror2, juror3, other, ap
 
             it('stored votes', async () => {
               for (const [ draftId, [ juror, vote ]] of votes.entries()) {
-                const ruling = await this.voting.getCastVote(voteId, juror)
+                const ruling = await this.voting.getVoterOutcome(votingId, juror)
 
                 assert.equal(ruling, vote, `juror #${draftId} revealed vote ${vote}`)
               }
             })
 
             it('has correct ruling result', async () => {
-              assert.equal((await this.voting.getWinningRuling(voteId)).toNumber(), round1Ruling, 'winning ruling')
+              assert.equal((await this.voting.getWinningOutcome(votingId)).toNumber(), round1Ruling, 'winning ruling')
             })
 
             it('fails to appeal during reveal period', async () => {
@@ -410,8 +407,8 @@ contract('Court: Disputes', ([ rich, governor, juror1, juror2, juror3, other, ap
             })
 
             context('on appeal', () => {
-              const appealMakerRuling = 2
-              const appealTakerRuling = 3
+              const appealMakerRuling = losingRuling
+              const appealTakerRuling = winningRuling
               let makerInitialBalance
               let feeAmount, appealDeposit, appealConfirmDeposit, appealTakerTotalCost
 
@@ -459,17 +456,21 @@ contract('Court: Disputes', ([ rich, governor, juror1, juror2, juror3, other, ap
                 }
 
                 const voteAndSettle = async (vote) => {
-                  voteId = getVoteId(disputeId, roundId)
+                  votingId = getVotingId(disputeId, roundId)
                   // commit
-                  await Promise.all(jurors.map(
-                    juror => this.voting.commitVote(voteId, encryptVote(vote), { from: juror })
-                  ))
+                  if (vote) {
+                    await Promise.all(jurors.map(
+                      juror => this.voting.commit(votingId, encryptVote(vote), { from: juror })
+                    ))
+                  }
                   await passTerms(commitTerms)
 
                   // reveal
-                  await Promise.all(jurors.map(
-                    juror => this.voting.revealVote(voteId, vote, SALT, { from: juror })
-                  ))
+                  if (vote) {
+                    await Promise.all(jurors.map(
+                      juror => this.voting.reveal(votingId, vote, SALT, { from: juror })
+                    ))
+                  }
                   await passTerms(revealTerms)
 
                   // settle
@@ -530,7 +531,7 @@ contract('Court: Disputes', ([ rich, governor, juror1, juror2, juror3, other, ap
                 it('refused ruling', async () => {
                   await draftJurors()
 
-                  await voteAndSettle(REFUSED_RULING)
+                  await voteAndSettle()
 
                   const makerFinalBalance = await this.feeToken.balanceOf(appealMaker)
                   assert.equal(makerFinalBalance.toNumber(), makerInitialBalance.toNumber() - feeAmount.toNumber() / 2, "maker final balance doesn't match")

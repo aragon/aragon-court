@@ -1,191 +1,294 @@
 pragma solidity ^0.4.24; // TODO: pin solc
 
+import "@aragon/os/contracts/lib/math/SafeMath.sol";
+import "@aragon/os/contracts/common/Initializable.sol";
+
 import "./standards/voting/ICRVoting.sol";
 import "./standards/voting/ICRVotingOwner.sol";
 
 
-// TODO: Aragon App? CREATE_VOTE role?
-contract CRVoting is ICRVoting {
-    string internal constant ERROR_NOT_OWNER = "CRV_NOT_OWNER";
-    string internal constant ERROR_OWNER_ALREADY_SET = "CRV_OWNER_ALREADY_SET";
-    string internal constant ERROR_ZERO_RULINGS = "CRV_ZERO_RULINGS";
-    string internal constant ERROR_VOTING_ALREADY_EXISTS = "CRV_VOTING_ALREADY_EXISTS";
-    string internal constant ERROR_NOT_ALLOWED_BY_OWNER = "CRV_NOT_ALLOWED_BY_OWNER";
-    string internal constant ERROR_ALREADY_VOTED = "CRV_ALREADY_VOTED";
-    string internal constant ERROR_INVALID_VOTE = "CRV_INVALID_VOTE";
-    string internal constant ERROR_FAILURE_COMMITMENT_CHECK = "CRV_FAILURE_COMMITMENT_CHECK";
-    string internal constant ERROR_OUT_OF_BOUNDS = "CRV_OUT_OF_BOUNDS";
+contract CRVoting is Initializable, ICRVoting {
+    using SafeMath for uint256;
 
-    struct CastVote {
-        bytes32 commitment;
-        uint8 ruling;
-    }
+    string internal constant ERROR_NOT_OWNER = "CRV_NOT_OWNER";
+    string internal constant ERROR_OWNER_NOT_CONTRACT = "CRV_OWNER_NOT_CONTRACT";
+    string internal constant ERROR_COMMIT_DENIED_BY_OWNER = "CRV_COMMIT_DENIED_BY_OWNER";
+    string internal constant ERROR_REVEAL_DENIED_BY_OWNER = "CRV_REVEAL_DENIED_BY_OWNER";
+    string internal constant ERROR_VOTING_ALREADY_EXISTS = "CRV_VOTING_ALREADY_EXISTS";
+    string internal constant ERROR_VOTING_DOES_NOT_EXIST = "CRV_VOTING_DOES_NOT_EXIST";
+    string internal constant ERROR_VOTE_ALREADY_COMMITTED = "CRV_VOTE_ALREADY_COMMITTED";
+    string internal constant ERROR_VOTE_ALREADY_REVEALED = "CRV_VOTE_ALREADY_REVEALED";
+    string internal constant ERROR_INVALID_OUTCOME = "CRV_INVALID_OUTCOME";
+    string internal constant ERROR_INVALID_OUTCOMES_AMOUNT = "CRV_INVALID_OUTCOMES_AMOUNT";
+    string internal constant ERROR_INVALID_COMMITMENT_SALT = "CRV_INVALID_COMMITMENT_SALT";
+
+    uint8 internal constant MIN_OUTCOMES_ALTERNATIVES = uint8(2);
 
     struct Vote {
-        uint8 possibleRulings;      // number of possible rulings that can be voted
-        uint8 winningRuling;
-        mapping (address => CastVote) castVotes;
-        mapping (uint256 => uint256) rulingVotes;
+        bytes32 commitment;     // hash of the outcome casted by the voter
+        uint8 outcome;          // outcome revealed by the voter (or leaked)
+        bool refused;           // whether the juror refused to vote or not
+        bool leaked;            // whether the outcome casted was leaked or not
     }
 
-    enum Ruling {
-        Missing,
-        Refused
-        // ruling options are dispute specific
+    struct Voting {
+        uint8 winningOutcome;                       // outcome winner of a voting
+        uint8 possibleOutcomes;                     // number of possible outcomes that can be voted
+        mapping (address => Vote) votes;            // mapping of voters addresses to their casted votes
+        mapping (uint8 => uint256) outcomesTally;   // tally for each of the possible outcomes
     }
 
+    // CRVoting owner address
     ICRVotingOwner private owner;
-    mapping (uint256 => Vote) internal votes;
 
-    event VoteCommitted(uint256 indexed voteId, address indexed voter, bytes32 commitment);
-    event VoteRevealed(uint256 indexed voteId, address indexed voter, uint8 ruling);
-    event VoteLeaked(uint256 indexed voteId, address indexed voter, address leaker);
+    // Voting records indexed by their ID
+    mapping (uint256 => Voting) internal votingRecords;
+
+    event VoteCommitted(uint256 indexed votingId, address indexed voter, bytes32 commitment);
+    event VoteRevealed(uint256 indexed votingId, address indexed voter, uint8 outcome);
+    event VoteLeaked(uint256 indexed votingId, address indexed voter, address leaker);
 
     modifier onlyOwner {
         require(msg.sender == address(owner), ERROR_NOT_OWNER);
         _;
     }
 
+    modifier votingExists(uint256 _votingId) {
+        Voting storage voting = votingRecords[_votingId];
+        require(_existsVoting(voting), ERROR_VOTING_DOES_NOT_EXIST);
+        _;
+    }
+
     /**
-     * @dev This can be frontrunned, and ownership stolen, but the Court will notice,
-     *      because its call to this function will revert
-     */
-    function setOwner(ICRVotingOwner _owner) external {
-        require(address(owner) == address(0), ERROR_OWNER_ALREADY_SET);
+    * @notice Initialize a CRVoting instance
+    * @param _owner Address to be set as the owner of the CRVoting instance
+    */
+    function init(ICRVotingOwner _owner) external {
+        // TODO: cannot check the given owner is a contract cause the Court set this up in the constructor, move to a factory
+        // require(isContract(_owner), ERROR_OWNER_NOT_CONTRACT);
+
+        initialized();
         owner = _owner;
     }
 
-    function createVote(uint256 _voteId, uint8 _possibleRulings) external onlyOwner {
-        require(_possibleRulings > 0, ERROR_ZERO_RULINGS);
-        Vote storage vote = votes[_voteId];
-        require(vote.possibleRulings == 0, ERROR_VOTING_ALREADY_EXISTS);
+    /**
+    * @notice Create a new voting with ID #`_votingId` and `_possibleOutcomes` possible outcomes
+    * @dev This function can only be called by the CRVoting owner
+    * @param _votingId ID of the new voting to be created
+    * @param _possibleOutcomes Number of possible outcomes for the new voting to be created
+    */
+    function create(uint256 _votingId, uint8 _possibleOutcomes) external onlyOwner {
+        require(_possibleOutcomes >= MIN_OUTCOMES_ALTERNATIVES, ERROR_INVALID_OUTCOMES_AMOUNT);
 
-        vote.possibleRulings = _possibleRulings;
+        Voting storage voting = votingRecords[_votingId];
+        require(!_existsVoting(voting), ERROR_VOTING_ALREADY_EXISTS);
+
+        voting.possibleOutcomes = _possibleOutcomes;
     }
 
     /**
-     * @notice Commit juror vote for vote #`_voteId`
-     */
-    function commitVote(uint256 _voteId, bytes32 _commitment) external {
-        Vote storage vote = votes[_voteId];
-        require(vote.possibleRulings > 0, ERROR_OUT_OF_BOUNDS);
-        require(owner.canCommit(_voteId, msg.sender) > 0, ERROR_NOT_ALLOWED_BY_OWNER);
-        CastVote storage castVote = vote.castVotes[msg.sender];
-        require(castVote.commitment == bytes32(0) && castVote.ruling == uint8(Ruling.Missing), ERROR_ALREADY_VOTED);
+    * @notice Commit a vote for voting #`_votingId`
+    * @param _votingId ID of the voting to commit a vote to
+    * @param _commitment Encrypted outcome to be stored for future reveal
+    */
+    function commit(uint256 _votingId, bytes32 _commitment) external votingExists(_votingId) {
+        _ensureVoterWeightToCommit(_votingId, msg.sender);
 
-        castVote.commitment = _commitment;
+        Vote storage vote = votingRecords[_votingId].votes[msg.sender];
+        require(vote.commitment == bytes32(0), ERROR_VOTE_ALREADY_COMMITTED);
 
-        emit VoteCommitted(_voteId, msg.sender, _commitment);
+        vote.commitment = _commitment;
+        emit VoteCommitted(_votingId, msg.sender, _commitment);
     }
 
     /**
-     * @notice Leak vote for `_voter` in vote #`_voteId`
-     */
-    function leakVote(uint256 _voteId, address _voter, uint8 _leakedRuling, bytes32 _salt) external {
-        Vote storage vote = votes[_voteId];
-        require(vote.possibleRulings > 0, ERROR_OUT_OF_BOUNDS);
-        uint256 weight = owner.canCommit(_voteId, _voter);
-        require(weight > 0, ERROR_NOT_ALLOWED_BY_OWNER);
-
-        uint8 ruling = uint8(Ruling.Refused);
-        CastVote storage castVote = vote.castVotes[_voter];
-
-        _checkVote(castVote, _leakedRuling, _salt);
-
-        castVote.ruling = ruling;
+    * @notice Leak `_outcome` vote of `_voter` for voting #`_votingId`
+    * @param _votingId ID of the voting to leak a vote of
+    * @param _voter Address of the voter to leak a vote of
+    * @param _outcome Outcome leaked for the voter
+    * @param _salt Salt to decrypt and validate the committed vote of the voter
+    */
+    function leak(uint256 _votingId, address _voter, uint8 _outcome, bytes32 _salt) external votingExists(_votingId) {
+        uint256 weight = _ensureVoterWeightToCommit(_votingId, _voter);
+        _reveal(_votingId, _voter, _outcome, _salt, weight);
 
         // TODO: slash juror
-
-        _updateTally(_voteId, ruling, weight);
-
-        emit VoteLeaked(_voteId, _voter, msg.sender);
-        emit VoteRevealed(_voteId, _voter, ruling);
+        votingRecords[_votingId].votes[_voter].leaked = true;
+        emit VoteLeaked(_votingId, _voter, msg.sender);
     }
 
     /**
-     * @notice Reveal juror `_ruling` vote in dispute #`_disputeId` (round #`_roundId`)
-     */
-    function revealVote(uint256 _voteId, uint8 _ruling, bytes32 _salt) external {
-        Vote storage vote = votes[_voteId];
-        require(vote.possibleRulings > 0, ERROR_OUT_OF_BOUNDS);
-        uint256 weight = owner.canReveal(_voteId, msg.sender);
-        require(weight > 0, ERROR_NOT_ALLOWED_BY_OWNER);
-
-        CastVote storage castVote = vote.castVotes[msg.sender];
-
-        _checkVote(castVote, _ruling, _salt);
-
-        require(_ruling > uint8(Ruling.Missing) && _ruling <= vote.possibleRulings + 1, ERROR_INVALID_VOTE);
-
-        castVote.ruling = _ruling;
-        _updateTally(_voteId, _ruling, weight);
-
-        emit VoteRevealed(_voteId, msg.sender, _ruling);
+    * @notice Reveal `_outcome` vote of `_voter` for voting #`_votingId`
+    * @param _votingId ID of the voting to reveal a vote of
+    * @param _outcome Outcome revealed by the voter
+    * @param _salt Salt to decrypt and validate the committed vote of the voter
+    */
+    function reveal(uint256 _votingId, uint8 _outcome, bytes32 _salt) external votingExists(_votingId) {
+        uint256 weight = _ensureVoterWeightToReveal(_votingId, msg.sender);
+        _reveal(_votingId, msg.sender, _outcome, _salt, weight);
     }
 
+    /**
+    * @dev Get the address of the CRVoting owner
+    * @return Address of the CRVoting owner
+    */
     function getOwner() external view returns (address) {
         return address(owner);
     }
 
-    function getWinningRuling(uint256 _voteId) external view returns (uint8 winningRuling) {
-        Vote storage vote = votes[_voteId];
-        require(vote.possibleRulings > 0, ERROR_OUT_OF_BOUNDS);
-
-        winningRuling = vote.winningRuling;
-
-        if (winningRuling == uint8(Ruling.Missing)) {
-            winningRuling = uint8(Ruling.Refused);
-        }
+    /**
+    * @dev Get the winning outcome of a voting
+    * @param _votingId ID of the voting querying the winning outcome of
+    * @return Winning outcome of the given voting
+    */
+    function getWinningOutcome(uint256 _votingId) external votingExists(_votingId) view returns (uint8) {
+        Voting storage voting = votingRecords[_votingId];
+        return voting.winningOutcome;
     }
 
-    function getCastVote(uint256 _voteId, address _voter) external view returns (uint8) {
-        Vote storage vote = votes[_voteId];
-        require(vote.possibleRulings > 0, ERROR_OUT_OF_BOUNDS);
-
-        return vote.castVotes[_voter].ruling;
+    /**
+    * @dev Get the outcome voted by a voter for a certain voting
+    * @param _votingId ID of the voting querying the outcome of
+    * @param _voter Address of the voter querying the outcome of
+    * @return Outcome of the voter for the given voting
+    */
+    function getVoterOutcome(uint256 _votingId, address _voter) external votingExists(_votingId) view returns (uint8) {
+        Voting storage voting = votingRecords[_votingId];
+        return voting.votes[_voter].outcome;
     }
 
-    function getCastVotes(uint256 _voteId, address[] _voters) external view returns (uint8[]) {
-        Vote storage vote = votes[_voteId];
-        require(vote.possibleRulings > 0, ERROR_OUT_OF_BOUNDS);
-
-        uint8[] memory castVotes = new uint8[](_voters.length);
+    /**
+    * @dev Get the list of outcomes voted by a set of voters for a certain voting
+    * @param _votingId ID of the voting querying the outcome of
+    * @param _voters List of addresses of the voters querying the outcomes of
+    * @return Outcomes of the requested voters for the given voting
+    */
+    function getVotersOutcome(uint256 _votingId, address[] _voters) external votingExists(_votingId) view returns (uint8[]) {
+        Voting storage voting = votingRecords[_votingId];
+        uint8[] memory votersOutcomes = new uint8[](_voters.length);
         for (uint256 i = 0; i < _voters.length; i++) {
-            castVotes[i] = vote.castVotes[_voters[i]].ruling;
+            votersOutcomes[i] = voting.votes[_voters[i]].outcome;
         }
-
-        return castVotes;
+        return votersOutcomes;
     }
 
-    function getRulingVotes(uint256 _voteId, uint8 _ruling) external view returns (uint256) {
-        Vote storage vote = votes[_voteId];
-        require(vote.possibleRulings > 0, ERROR_OUT_OF_BOUNDS);
-
-        return vote.rulingVotes[_ruling];
+    /**
+    * @dev Get the tally of an outcome for a certain voting
+    * @param _votingId ID of the voting querying the tally of
+    * @param _outcome Outcome querying the tally of
+    * @return Tally of the outcome being queried for the given voting
+    */
+    function getOutcomeTally(uint256 _votingId, uint8 _outcome) external votingExists(_votingId) view returns (uint256) {
+        Voting storage voting = votingRecords[_votingId];
+        return voting.outcomesTally[_outcome];
     }
 
-    function encryptVote(uint8 _ruling, bytes32 _salt) public pure returns (bytes32) {
-        return keccak256(abi.encodePacked(_ruling, _salt));
+    /**
+    * @dev Tell whether an outcome is valid for a given voting or not
+    * @param _votingId ID of the voting to check the outcome of
+    * @param _outcome Outcome to check if valid or not
+    * @return True if the given outcome is valid for the requested voting, false otherwise.
+    */
+    function isValidOutcome(uint256 _votingId, uint8 _outcome) external votingExists(_votingId) view returns (bool) {
+        return _isValidOutcome(_votingId, _outcome);
     }
 
-    function _checkVote(CastVote storage _castVote, uint8 _ruling, bytes32 _salt) internal view {
-        require(_castVote.commitment == encryptVote(_ruling, _salt), ERROR_FAILURE_COMMITMENT_CHECK);
-        require(_castVote.ruling == uint8(Ruling.Missing), ERROR_ALREADY_VOTED);
+    /**
+    * @dev Encrypt a vote outcome using a given salt
+    * @param _outcome Outcome to be encrypted
+    * @param _salt Encryption salt
+    * @return Encrypted outcome
+    */
+    function encryptVote(uint8 _outcome, bytes32 _salt) public pure returns (bytes32) {
+        return keccak256(abi.encodePacked(_outcome, _salt));
     }
 
-    function _updateTally(uint256 _voteId, uint8 _ruling, uint256 _weight) internal {
-        Vote storage vote = votes[_voteId];
+    /**
+    * @dev Internal function to reveal the vote of a voter for a certain voting. This function assumes the given
+    *      voting exists and that the given outcome is valid.
+    * @param _votingId ID of the voting to reveal a vote for
+    * @param _voter Address of the voter willing to reveal a vote
+    * @param _outcome Outcome being revealed by the voter
+    * @param _salt Salt to decrypt and validate the committed vote of the voter
+    * @param _weight Weight of the voter to be added to voting tally in favor of the given outcome
+    */
+    function _reveal(uint256 _votingId, address _voter, uint8 _outcome, bytes32 _salt, uint256 _weight) internal {
+        require(_isValidOutcome(_votingId, _outcome), ERROR_INVALID_OUTCOME);
 
-        uint256 rulingVotes = vote.rulingVotes[_ruling] + _weight; // TODO: safe math?
-        vote.rulingVotes[_ruling] = rulingVotes;
+        Voting storage voting = votingRecords[_votingId];
+        Vote storage vote = voting.votes[_voter];
 
-        uint8 winningRuling = vote.winningRuling;
-        uint256 winningSupport = vote.rulingVotes[winningRuling];
+        require(vote.outcome == uint8(0), ERROR_VOTE_ALREADY_REVEALED);
+        require(vote.commitment == encryptVote(_outcome, _salt), ERROR_INVALID_COMMITMENT_SALT);
 
-        // If it passes the currently winning option
-        // Or if there is a tie, the lowest ruling option is set as the winning ruling
-        if (rulingVotes > winningSupport || (rulingVotes == winningSupport && _ruling < winningRuling)) {
-            vote.winningRuling = _ruling;
+        vote.outcome = _outcome;
+        _updateTally(voting, _outcome, _weight);
+        emit VoteRevealed(_votingId, _voter, _outcome);
+    }
+
+    /**
+    * @dev Internal function to fetch and ensure the weight of voter willing to commit a vote for a certain voting
+    * @param _votingId ID of the voting to check the voter's weight of
+    * @param _voter Address of the voter willing to commit a vote
+    * @return Weight of the voter willing to commit a vote
+    */
+    function _ensureVoterWeightToCommit(uint256 _votingId, address _voter) internal returns (uint256) {
+        uint256 weight = owner.getVoterWeightToCommit(_votingId, _voter);
+        require(weight > uint256(0), ERROR_COMMIT_DENIED_BY_OWNER);
+        return weight;
+    }
+
+    /**
+    * @dev Internal function to fetch and ensure the weight of voter willing to reveal a vote for a certain voting
+    * @param _votingId ID of the voting to check the voter's weight of
+    * @param _voter Address of the voter willing to reveal a vote
+    * @return Weight of the voter willing to reveal a vote
+    */
+    function _ensureVoterWeightToReveal(uint256 _votingId, address _voter) internal returns (uint256) {
+        uint256 weight = owner.getVoterWeightToReveal(_votingId, _voter);
+        require(weight > uint256(0), ERROR_REVEAL_DENIED_BY_OWNER);
+        return weight;
+    }
+
+    /**
+    * @dev Internal function to tell whether a certain outcome is valid for a given voting or not. Note that
+    *      the outcome zero is not considered valid, it is used to denote absence. This function assumes
+    *      the given voting exists.
+    * @param _votingId ID of the voting to check the outcome of
+    * @param _outcome Outcome to check if valid or not
+    * @return True if the given outcome is valid for the requested voting, false otherwise.
+    */
+    function _isValidOutcome(uint256 _votingId, uint8 _outcome) internal view returns (bool) {
+        Voting storage voting = votingRecords[_votingId];
+        return _outcome > uint256(0) && _outcome <= voting.possibleOutcomes;
+    }
+
+    /**
+    * @dev Internal function to check if a voting was already created
+    * @param _voting Voting to be checked
+    * @return True if the given voting was already created, false otherwise
+    */
+    function _existsVoting(Voting storage _voting) internal view returns (bool) {
+        return _voting.possibleOutcomes != uint8(0);
+    }
+
+    /**
+    * @dev Private function to update the tally of a given voting based on a new weight in favor of an outcome.
+    *      This function assumes the voting pointer exists and that the given outcome is valid.
+    * @param _voting Pointer to the voting to update the tally of
+    * @param _outcome Outcome of the voting to update the tally of
+    * @param _weight Weight to be added to the given outcome of the voting
+    */
+    function _updateTally(Voting storage _voting, uint8 _outcome, uint256 _weight) private {
+        uint256 newOutcomeTally = _voting.outcomesTally[_outcome].add(_weight);
+        _voting.outcomesTally[_outcome] = newOutcomeTally;
+
+        // Update the winning outcome only if its support was passed or if the given outcome represents a lowest
+        // option than the winning outcome in case of a tie
+        uint8 winningOutcome = _voting.winningOutcome;
+        uint256 winningOutcomeTally = _voting.outcomesTally[winningOutcome];
+        if (newOutcomeTally > winningOutcomeTally || (newOutcomeTally == winningOutcomeTally && _outcome < winningOutcome)) {
+            _voting.winningOutcome = _outcome;
         }
     }
 }

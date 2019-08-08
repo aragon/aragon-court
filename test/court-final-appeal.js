@@ -33,7 +33,7 @@ const assertLogs = async (receiptPromise, ...logNames) => {
   }
 }
 
-const getVoteId = (disputeId, roundId) => {
+const getVotingId = (disputeId, roundId) => {
   return new web3.BigNumber(2).pow(128).mul(disputeId).add(roundId)
 }
 
@@ -76,7 +76,6 @@ contract('Court: final appeal', ([ poor, rich, governor, juror1, juror2, juror3,
   const ERROR_ZERO_MAX_ROUNDS = 'COURT_ZERO_MAX_ROUNDS'
   const ERROR_INVALID_ADJUDICATION_STATE = 'CTBAD_ADJ_STATE'
   const ERROR_INVALID_ADJUDICATION_ROUND = 'CTBAD_ADJ_ROUND'
-  const ERROR_NOT_ALLOWED_BY_OWNER = 'CRV_NOT_ALLOWED_BY_OWNER'
 
   const SALT = soliditySha3('passw0rd')
 
@@ -179,12 +178,12 @@ contract('Court: final appeal', ([ poor, rich, governor, juror1, juror2, juror3,
     const initialJurorNumber = 3
     const term = 3
     const rulings = 2
-    const appealRuling = 2
-    const appealConfirmRuling = 3
+    const appealRuling = 1
+    const appealConfirmRuling = 2
 
     let disputeId = 0
     const firstRoundId = 0
-    let voteId
+    let votingId
 
     beforeEach(async () => {
       for (const juror of jurors) {
@@ -196,7 +195,7 @@ contract('Court: final appeal', ([ poor, rich, governor, juror1, juror2, juror3,
       const receipt = await this.court.createDispute(arbitrable, rulings, initialJurorNumber, term)
       await assertLogs(receipt, NEW_DISPUTE_EVENT)
       disputeId = getLog(receipt, NEW_DISPUTE_EVENT, 'disputeId')
-      voteId = getVoteId(disputeId, firstRoundId)
+      votingId = getVotingId(disputeId, firstRoundId)
     })
 
     const draftAdjudicationRound = async (roundJurors) => {
@@ -238,7 +237,7 @@ contract('Court: final appeal', ([ poor, rich, governor, juror1, juror2, juror3,
         const appealConfirmReceipt = await this.court.appealConfirm(disputeId, roundId, appealConfirmRuling)
         assertLogs(appealConfirmReceipt, RULING_APPEAL_CONFIRMED_EVENT)
         const nextRoundId = getLog(appealConfirmReceipt, RULING_APPEAL_CONFIRMED_EVENT, 'roundId')
-        voteId = getVoteId(disputeId, nextRoundId)
+        votingId = getVotingId(disputeId, nextRoundId)
         await passTerms(appealConfirmTerms)
         await this.court.mock_blockTravel(1)
       }
@@ -248,7 +247,7 @@ contract('Court: final appeal', ([ poor, rich, governor, juror1, juror2, juror3,
       await moveForwardToFinalRound()
       const vote = 1
       for (const juror of jurors) {
-        const receiptPromise = this.voting.commitVote(voteId, encryptVote(vote), { from: juror })
+        const receiptPromise = this.voting.commit(votingId, encryptVote(vote), { from: juror })
         await assertLogs(receiptPromise, VOTE_COMMITTED_EVENT)
       }
     })
@@ -264,7 +263,7 @@ contract('Court: final appeal', ([ poor, rich, governor, juror1, juror2, juror3,
       await moveForwardToFinalRound()
       const vote = 1
 
-      await assertRevert(this.voting.commitVote(voteId, encryptVote(vote), { from: poor }), ERROR_NOT_ALLOWED_BY_OWNER)
+      await assertRevert(this.voting.commit(votingId, encryptVote(vote), { from: poor }), 'CRV_COMMIT_DENIED_BY_OWNER')
     })
 
     it('fails appealing after final appeal', async () => {
@@ -290,16 +289,16 @@ contract('Court: final appeal', ([ poor, rich, governor, juror1, juror2, juror3,
       beforeEach(async () => {
         await moveForwardToFinalRound()
         // vote
-        const winningVote = 2
-        const losingVote = 3
+        const winningVote = 1
+        const losingVote = 2
 
         // commit
         for (let i = 0; i < winningJurors; i++) {
-          const receiptPromise = this.voting.commitVote(voteId, encryptVote(winningVote), { from: jurors[i] })
+          const receiptPromise = this.voting.commit(votingId, encryptVote(winningVote), { from: jurors[i] })
           await assertLogs(receiptPromise, VOTE_COMMITTED_EVENT)
         }
         for (let i = winningJurors; i < jurors.length; i++) {
-          const receiptPromise = this.voting.commitVote(voteId, encryptVote(losingVote), { from: jurors[i] })
+          const receiptPromise = this.voting.commit(votingId, encryptVote(losingVote), { from: jurors[i] })
           await assertLogs(receiptPromise, VOTE_COMMITTED_EVENT)
         }
 
@@ -307,11 +306,11 @@ contract('Court: final appeal', ([ poor, rich, governor, juror1, juror2, juror3,
 
         // reveal
         for (let i = 0; i < winningJurors; i++) {
-          const receiptPromise = this.voting.revealVote(voteId, winningVote, SALT, { from: jurors[i] })
+          const receiptPromise = this.voting.reveal(votingId, winningVote, SALT, { from: jurors[i] })
           await assertLogs(receiptPromise, VOTE_REVEALED_EVENT)
         }
         for (let i = winningJurors; i < jurors.length; i++) {
-          const receiptPromise = this.voting.revealVote(voteId, losingVote, SALT, { from: jurors[i] })
+          const receiptPromise = this.voting.reveal(votingId, losingVote, SALT, { from: jurors[i] })
           await assertLogs(receiptPromise, VOTE_REVEALED_EVENT)
         }
 

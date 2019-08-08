@@ -53,7 +53,7 @@ contract('CRVoting', ([ account0, account1 ]) => {
       beforeEach(async () => {
         const r = await votingOwner.create(0, 2)
         votingId = getLog(r, 'VoteCreated', 'votingId')
-        await votingOwner.mockJurorWeight(account0, 1)
+        await votingOwner.mockVoterWeight(account0, 1)
       })
 
       context('Commit', () => {
@@ -72,7 +72,7 @@ contract('CRVoting', ([ account0, account1 ]) => {
         })
 
         it('fails commiting vote if owner does not allow', async () => {
-          await votingOwner.mockJurorWeight(account0, 0)
+          await votingOwner.mockVoterWeight(account0, 0)
           await assertRevert(this.voting.commit(votingId, encryptVote(vote)), 'CRV_COMMIT_DENIED_BY_OWNER')
         })
       })
@@ -93,7 +93,7 @@ contract('CRVoting', ([ account0, account1 ]) => {
         })
 
         it('fails leaking vote if owner does not allow', async () => {
-          await votingOwner.mockJurorWeight(account0, 0)
+          await votingOwner.mockVoterWeight(account0, 0)
           await assertRevert(this.voting.leak(votingId, account0, vote, SALT), 'CRV_COMMIT_DENIED_BY_OWNER')
         })
       })
@@ -113,7 +113,7 @@ contract('CRVoting', ([ account0, account1 ]) => {
         })
 
         it('fails revealing vote if owner does not allow', async () => {
-          await votingOwner.mockJurorWeight(account0, 0)
+          await votingOwner.mockVoterWeight(account0, 0)
           await assertRevert(this.voting.reveal(votingId, vote, SALT), 'CRV_REVEAL_DENIED_BY_OWNER')
         })
       })

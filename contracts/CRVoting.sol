@@ -10,7 +10,7 @@ import "./standards/voting/ICRVotingOwner.sol";
 contract CRVoting is Initializable, ICRVoting {
     using SafeMath for uint256;
 
-    string internal constant ERROR_NOT_OWNER = "CRV_NOT_OWNER";
+    string internal constant ERROR_NOT_OWNER = "CRV_SENDER_NOT_OWNER";
     string internal constant ERROR_OWNER_NOT_CONTRACT = "CRV_OWNER_NOT_CONTRACT";
     string internal constant ERROR_COMMIT_DENIED_BY_OWNER = "CRV_COMMIT_DENIED_BY_OWNER";
     string internal constant ERROR_REVEAL_DENIED_BY_OWNER = "CRV_REVEAL_DENIED_BY_OWNER";
@@ -155,6 +155,16 @@ contract CRVoting is Initializable, ICRVoting {
     */
     function getOwner() external view returns (address) {
         return address(owner);
+    }
+
+    /**
+    * @dev Get the maximum allowed outcome for a given voting
+    * @param _votingId ID of the voting querying the max allowed outcome of
+    * @return Max allowed outcome for the given voting
+    */
+    function getMaxAllowedOutcome(uint256 _votingId) external votingExists(_votingId) view returns (uint8) {
+        Voting storage voting = votingRecords[_votingId];
+        return voting.maxAllowedOutcome;
     }
 
     /**

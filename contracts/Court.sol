@@ -433,7 +433,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner {
     /**
      * @notice Appeal round #`_roundId` ruling in dispute #`_disputeId`
      */
-    function appealRuling(uint256 _disputeId, uint256 _roundId, uint8 forRuling) external ensureTerm {
+    function appeal(uint256 _disputeId, uint256 _roundId, uint8 _forRuling) external ensureTerm {
         _checkAdjudicationState(_disputeId, _roundId, AdjudicationState.Appeal);
 
         Dispute storage dispute = disputes[_disputeId];
@@ -444,9 +444,9 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner {
         uint8 currentRuling = _getRoundWinningRuling(_disputeId, _roundId);
         // check correct ruling
         require(
-            forRuling > uint8(Ruling.Refused) &&
-            forRuling <= uint8(Ruling.Refused) + MAX_RULING_OPTIONS &&
-            forRuling != currentRuling,
+            _forRuling > uint8(Ruling.Refused) &&
+            _forRuling <= uint8(Ruling.Refused) + MAX_RULING_OPTIONS &&
+            _forRuling != currentRuling,
             ERROR_INVALID_RULING
         );
 
@@ -457,15 +457,15 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner {
 
         // add Appealer
         currentRound.appealMaker.appealer = msg.sender;
-        currentRound.appealMaker.forRuling = forRuling;
+        currentRound.appealMaker.forRuling = _forRuling;
 
-        emit RulingAppealed(_disputeId, _roundId, forRuling);
+        emit RulingAppealed(_disputeId, _roundId, _forRuling);
     }
 
     /**
      * @notice Confirm appeal for #`_roundId` ruling in dispute #`_disputeId`
      */
-    function appealConfirm(uint256 _disputeId, uint256 _roundId, uint8 forRuling) external ensureTerm {
+    function appealConfirm(uint256 _disputeId, uint256 _roundId, uint8 _forRuling) external ensureTerm {
         _checkAdjudicationState(_disputeId, _roundId, AdjudicationState.AppealConfirm);
 
         Dispute storage dispute = disputes[_disputeId];
@@ -476,9 +476,9 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner {
         require(!_isRoundAppealConfirmed(currentRound), ERROR_ROUND_APPEAL_ALREADY_CONFIRMED); // but not confirmed
         // check correct ruling
         require(
-            forRuling > uint8(Ruling.Refused) &&
-            forRuling <= uint8(Ruling.Refused) + MAX_RULING_OPTIONS &&
-            forRuling != currentRound.appealMaker.forRuling,
+            _forRuling > uint8(Ruling.Refused) &&
+            _forRuling <= uint8(Ruling.Refused) + MAX_RULING_OPTIONS &&
+            _forRuling != currentRound.appealMaker.forRuling,
             ERROR_INVALID_RULING
         );
 
@@ -505,7 +505,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner {
 
         // add Appealer
         currentRound.appealTaker.appealer = msg.sender;
-        currentRound.appealTaker.forRuling = forRuling;
+        currentRound.appealTaker.forRuling = _forRuling;
 
         emit RulingAppealConfirmed(_disputeId, newRoundId, appealDraftTermId, appealJurorNumber);
     }
@@ -907,12 +907,13 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner {
 
     function _getRoundWinningRuling(uint256 _disputeId, uint256 _roundId) internal view returns (uint8 winningRuling) {
         uint256 voteId = _getVoteId(_disputeId, _roundId);
-        winningRuling = voting.getWinningRuling(voteId);
 
         // If an appeal was started and not confirmed, the ruling is immediately flipped
         AdjudicationRound storage round = disputes[_disputeId].rounds[_roundId];
         if (_isRoundAppealed(round) && !_isRoundAppealConfirmed(round)) {
             winningRuling = round.appealMaker.forRuling;
+        } else {
+            winningRuling = voting.getWinningRuling(voteId);
         }
     }
 

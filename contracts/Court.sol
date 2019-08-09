@@ -461,7 +461,8 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner {
 
         Dispute storage dispute = disputes[_disputeId];
         AdjudicationRound storage currentRound = dispute.rounds[_roundId];
-        CourtConfig storage config = courtConfigs[terms[currentRound.draftTermId].courtConfigId]; // safe to use directly as it is the current term
+        // safe to use directly as it is the current term
+        CourtConfig storage config = courtConfigs[terms[currentRound.draftTermId].courtConfigId];
 
         require(_isRoundAppealed(currentRound), ERROR_ROUND_NOT_APPEALED); // The ruling was appealed
         require(!_isRoundAppealConfirmed(currentRound), ERROR_ROUND_APPEAL_ALREADY_CONFIRMED); // but not confirmed
@@ -952,7 +953,14 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner {
         appealConfirmDeposit = feeAmount * APPEAL_CONFIRMATION_COLLATERAL_FACTOR;
     }
 
-    function _getRegularAdjudicationRoundJurorNumber(uint64 _appealStepFactor, uint64 _currentRoundJurorNumber) internal pure returns (uint64 appealJurorNumber) {
+    function _getRegularAdjudicationRoundJurorNumber(
+        uint64 _appealStepFactor,
+        uint64 _currentRoundJurorNumber
+    )
+        internal
+        pure
+        returns (uint64 appealJurorNumber)
+    {
         appealJurorNumber = _appealStepFactor * _currentRoundJurorNumber;
         // make sure it's odd
         if (appealJurorNumber % 2 == 0) {
@@ -965,7 +973,11 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner {
         // the max amount of tokens the registry can hold for this to fit in an uint64 is:
         // 2^64 * minJurorsActiveBalance / FINAL_ROUND_WEIGHT_PRECISION
         // (decimals get cancelled in the division). So it seems enough.
-        appealJurorNumber = uint64(FINAL_ROUND_WEIGHT_PRECISION * jurorsRegistry.totalActiveBalanceAt(termId) / jurorsRegistry.minJurorsActiveBalance());
+        appealJurorNumber = uint64(
+            FINAL_ROUND_WEIGHT_PRECISION *
+            jurorsRegistry.totalActiveBalanceAt(termId) /
+            jurorsRegistry.minJurorsActiveBalance()
+        );
     }
 
     /**
@@ -1113,7 +1125,10 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner {
         // We make sure that when applying penalty pct to juror min stake it doesn't result in zero
         uint256 minJurorsActiveBalance = jurorsRegistry.minJurorsActiveBalance();
         require(uint256(_penaltyPct) * minJurorsActiveBalance >= PCT_BASE, ERROR_WRONG_PENALTY_PCT);
-        require(_maxRegularAppealRounds > uint32(0) && _maxRegularAppealRounds <= MAX_REGULAR_APPEAL_ROUNDS_LIMIT, ERROR_INVALID_MAX_APPEAL_ROUNDS);
+        require(
+            _maxRegularAppealRounds > uint32(0) && _maxRegularAppealRounds <= MAX_REGULAR_APPEAL_ROUNDS_LIMIT,
+            ERROR_INVALID_MAX_APPEAL_ROUNDS
+        );
 
         // TODO: add reasonable limits for durations
 

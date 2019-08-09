@@ -12,6 +12,6 @@ interface ICRVoting {
     function getOutcomeTally(uint256 votingId, uint8 outcome) external view returns (uint256);
     function isValidOutcome(uint256 votingId, uint8 outcome) external view returns (bool);
     function getVoterOutcome(uint256 votingId, address voter) external view returns (uint8);
-    function isWinningVoter(uint256 votingId, address voter) external view returns (bool);
-    function getLosingVoters(uint256 votingId, address[] voters) external view returns (bool[]);
+    function hasVotedInFavorOf(uint256 votingId, uint8 outcome, address voter) external view returns (bool);
+    function getVotersInFavorOf(uint256 votingId, uint8 outcome, address[] voters) external view returns (bool[]);
 }

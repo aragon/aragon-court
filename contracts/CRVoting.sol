@@ -222,42 +222,43 @@ contract CRVoting is Initializable, ICRVoting {
     }
 
     /**
-    * @dev Tell whether a voter can be considered a winner in a voting or not. Voters will be considered winners
-    *      only when there is a winning outcome and the voter voted in favor of it.
-    * @param _votingId ID of the voting querying the outcome of
-    * @param _voter Address of the voter to check if can be considered a winner or not
-    * @return True if the given voter can be considered a winner in the given voting, false otherwise
+    * @dev Tell whether a voter voted in favor of a certain outcome in a voting or not. If there was no winning
+    *      outcome, it means that no one voted in favor of any of the possible outcomes.
+    * @param _votingId ID of the voting to query if a voter voted in favor of a certain outcome
+    * @param _outcome Outcome to query if the given voter voted in favor of
+    * @param _voter Address of the voter to query if voted in favor of the given outcome
+    * @return True if the given voter voted in favor of the given outcome, false otherwise
     */
-    function isWinningVoter(uint256 _votingId, address _voter) external votingExists(_votingId) view returns (bool) {
+    function hasVotedInFavorOf(uint256 _votingId, uint8 _outcome, address _voter) external votingExists(_votingId) view returns (bool) {
         Voting storage voting = votingRecords[_votingId];
         uint8 winningOutcome = voting.winningOutcome;
-        return winningOutcome != OUTCOME_MISSING && voting.votes[_voter].outcome == winningOutcome;
+        return winningOutcome != OUTCOME_MISSING && voting.votes[_voter].outcome == _outcome;
     }
 
     /**
-    * @dev Get the list of losing voters for a certain voting. Note that voters that voted in favor of the winning
-    *      outcome are not the only non-losers since some voters might have refused to vote or no voted at all.
-    * @param _votingId ID of the voting querying the outcome of
-    * @param _voters List of addresses of the voters to be checked
-    * @return List of results to tell whether a voter is considered a loser or not
+    * @dev Filter a list of voters based on whether they voted in favor of a certain outcome in a voting or not. Note
+    *      that if there was no winning outcome, it means that no one voted, then all voters will be considered voting
+    *      against any of the given outcomes.
+    * @param _votingId ID of the voting to be checked
+    * @param _outcome Outcome to filter the list of voters of
+    * @param _voters List of addresses of the voters to be filtered
+    * @return List of results to tell whether a voter voted in favor of the given outcome or not
     */
-    function getLosingVoters(uint256 _votingId, address[] _voters) external votingExists(_votingId) view returns (bool[]) {
+    function getVotersInFavorOf(uint256 _votingId, uint8 _outcome, address[] _voters) external votingExists(_votingId) view returns (bool[]) {
         Voting storage voting = votingRecords[_votingId];
         uint8 winningOutcome = voting.winningOutcome;
-        bool[] memory losingVoters = new bool[](_voters.length);
+        bool[] memory votersInFavor = new bool[](_voters.length);
 
-        // If no one voted in the requested voting, all the voters are considered non-losers.
+        // If there is no winning outcome, no one will be marked as voting in favor of any given outcome.
         if (winningOutcome == OUTCOME_MISSING) {
-            return losingVoters;
+            return votersInFavor;
         }
 
-        // If there was a winning outcome, list all the voters that didn't vote for the winning outcome and didn't
-        // refuse to vote, i.e. voters that didn't vote, that voted for the losing outcome, or whose vote was leaked.
+        // If there was a winning outcome, filter those voters that voted in favor of the given outcome.
         for (uint256 i = 0; i < _voters.length; i++) {
-            uint8 outcome = voting.votes[_voters[i]].outcome;
-            losingVoters[i] = outcome != winningOutcome;
+            votersInFavor[i] = _outcome == voting.votes[_voters[i]].outcome;
         }
-        return losingVoters;
+        return votersInFavor;
     }
 
     /**

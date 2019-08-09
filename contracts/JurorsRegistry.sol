@@ -283,10 +283,10 @@ contract JurorsRegistry is Initializable, IsContract, IJurorsRegistry, ERC900, A
     * @param _termId Current term id
     * @param _jurors List of juror addresses to be slashed
     * @param _lockedAmounts List of amounts locked for each corresponding juror that will be either slashed or returned
-    * @param _slashJurors List of booleans to tell whether a juror's active balance has to be slashed or simply unlocked
+    * @param _rewardedJurors List of booleans to tell whether a juror's active balance has to be slashed or not
     * @return Total amount of slashed tokens
     */
-    function slashOrUnlock(uint64 _termId, address[] _jurors, uint256[] _lockedAmounts, bool[] _slashJurors)
+    function slashOrUnlock(uint64 _termId, address[] _jurors, uint256[] _lockedAmounts, bool[] _rewardedJurors)
         external
         onlyOwner
         returns (uint256)
@@ -305,7 +305,7 @@ contract JurorsRegistry is Initializable, IsContract, IJurorsRegistry, ERC900, A
 
             // Slash juror if requested. Note that there's no need to check if there was a deactivation
             // request since we're working with already locked balances
-            if (_slashJurors[i]) {
+            if (!_rewardedJurors[i]) {
                 collectedTokens = collectedTokens.add(lockedAmount);
                 tree.update(juror.id, nextTermId, lockedAmount, false);
             }

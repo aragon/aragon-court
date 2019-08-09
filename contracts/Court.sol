@@ -629,23 +629,18 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner {
             // TODO: stack too deep
             penalties[i] = _pct4(jurorsRegistry.minJurorsActiveBalance(), _penaltyPct) * _round.jurorSlotStates[juror].weight;
         }
-        bool[] memory jurorsAgainst = voting.getVotersAgainst(_votingId, _finalRuling, jurors);
-        // we assume `jurorsAgainst` length is equal to `batchSettledJurors`
 
-        // TODO: we can rely on the voting tally instead of asking the juror registry how many tokens were collected
-        uint256 collectedTokens = jurorsRegistry.slashOrUnlock(termId, jurors, penalties, jurorsAgainst);
+        // Check which of the batch of jurors voted in favor of the final ruling of the dispute in this round
+        // we assume `jurorsInFavor` length is equal to `batchSettledJurors`
+        bool[] memory jurorsInFavor = voting.getVotersInFavorOf(_votingId, _finalRuling, jurors);
+
+        uint256 collectedTokens = jurorsRegistry.slashOrUnlock(termId, jurors, penalties, jurorsInFavor);
         _round.collectedTokens = _round.collectedTokens.add(collectedTokens);
         return batchSettledJurors;
     }
 
     /**
      * @notice Claim reward for round #`_roundId` of dispute #`_disputeId` for juror `_juror`
-     *
-     * |         |  Missing  |  Refused  | Leaked  |  Lose   |    Win   |
-     * |---------|-----------|-----------|---------|---------|----------|
-     * | Regular | Slashed   | Invariant | Slashed | Slashed | Rewarded |
-     * | Final   | Invariant | Slashed   | Slashed | Slashed | Rewarded |
-     *
      */
     function settleReward(uint256 _disputeId, uint256 _roundId, address _juror) external ensureTerm {
         Dispute storage dispute = disputes[_disputeId];
@@ -657,9 +652,9 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner {
         require(jurorState.weight > uint256(0), ERROR_INVALID_JUROR);
         jurorState.rewarded = true;
 
-        // Check the given juror is considered a winner based on his vote.
-        uint256 lastRoundVotingId = _getLastRoundVotingId(_disputeId);
-        require(voting.isWinningVoter(lastRoundVotingId, _juror), ERROR_JUROR_NOT_COHERENT);
+        // Check if the given juror has voted in favor of the final ruling of the dispute in this round
+        uint256 votingId = _getVotingId(_disputeId, _roundId);
+        require(voting.hasVotedInFavorOf(votingId, dispute.finalRuling, _juror), ERROR_JUROR_NOT_COHERENT);
 
         // Note that it is safe to access a court config directly for a past term
         CourtConfig storage config = courtConfigs[terms[round.draftTermId].courtConfigId];
@@ -840,13 +835,6 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner {
 
     function getJurorWeight(uint256 _disputeId, uint256 _roundId, address _juror) external view returns (uint256) {
         return _getJurorWeightForRegularRound(_disputeId, _roundId, _juror);
-    }
-
-    function _getLastRoundVotingId(uint256 _disputeId) internal pure returns (uint256) {
-        Dispute storage dispute = disputes[_disputeId];
-        // Note that there will be always at least one round for each dispute
-        uint256 lastRoundId = dispute.rounds.length - 1;
-        return _getVotingId(_disputeId, lastRoundId);
     }
 
     function _getVotingId(uint256 _disputeId, uint256 _roundId) internal pure returns (uint256) {

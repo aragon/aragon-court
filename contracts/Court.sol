@@ -421,15 +421,6 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner {
         }
     }
 
-    function _endTermForAdjudicationRound(AdjudicationRound storage round) internal view returns (uint64) {
-        uint64 draftTermId = round.draftTermId;
-        uint64 configId = terms[draftTermId].courtConfigId;
-        CourtConfig storage config = courtConfigs[uint256(configId)];
-
-        // TODO: delayed??
-        return draftTermId + config.commitTerms + config.revealTerms + config.appealTerms + config.appealConfirmTerms;
-    }
-
     /**
      * @notice Appeal round #`_roundId` ruling in dispute #`_disputeId`
      */
@@ -915,6 +906,14 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner {
         } else {
             winningRuling = voting.getWinningRuling(voteId);
         }
+    }
+
+    function _endTermForAdjudicationRound(AdjudicationRound storage round) internal view returns (uint64) {
+        uint64 draftTermId = round.draftTermId;
+        uint64 configId = terms[draftTermId].courtConfigId;
+        CourtConfig storage config = courtConfigs[uint256(configId)];
+
+        return draftTermId + round.delayTerms + config.commitTerms + config.revealTerms + config.appealTerms + config.appealConfirmTerms;
     }
 
     function _getNextAppealDetails(

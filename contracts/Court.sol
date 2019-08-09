@@ -922,11 +922,11 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner {
 
         appealDraftTermId = _endTermForAdjudicationRound(_currentRound);
 
-        if (_roundId >= config.maxRegularAppealRounds - 1) { // final round, roundId starts at 0
+        if (_roundId >= config.maxRegularAppealRounds - 1) { // next round is the final round
             // number of jurors will be the number of times the minimum stake is hold in the tree, multiplied by a precision factor for division roundings
             appealJurorNumber = _getFinalAdjudicationRoundJurorNumber();
             (feeToken, feeAmount, jurorFees) = _getFeesForFinalRound(appealDraftTermId, appealJurorNumber);
-        } else {
+        } else { // next round is a regular round
             appealJurorNumber = _getRegularAdjudicationRoundJurorNumber(config.appealStepFactor, _currentRound.jurorNumber);
             (feeToken, feeAmount, jurorFees) = _getFeesForRegularRound(appealDraftTermId, appealJurorNumber);
         }

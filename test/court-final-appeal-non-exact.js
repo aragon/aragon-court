@@ -218,7 +218,7 @@ contract('Court: final appeal (non-exact)', ([ poor, rich, governor, juror1, jur
         await vote(votingId, jurors.length)
 
         // appeal
-        const appealReceipt = await this.court.appealRuling(disputeId, roundId, losingVote)
+        const appealReceipt = await this.court.appeal(disputeId, roundId, losingVote)
         assertLogs(appealReceipt, RULING_APPEALED_EVENT)
         await passTerms(appealTerms)
         const appealConfirmReceipt = await this.court.appealConfirm(disputeId, roundId, winningVote)

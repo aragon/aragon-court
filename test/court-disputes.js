@@ -337,12 +337,12 @@ contract('Court: Disputes', ([ rich, governor, juror1, juror2, juror3, other, ap
             })
 
             it('fails to appeal during reveal period', async () => {
-              await assertRevert(this.court.appealRuling(disputeId, firstRoundId, losingRuling), ERROR_INVALID_ADJUDICATION_STATE)
+              await assertRevert(this.court.appeal(disputeId, firstRoundId, losingRuling), ERROR_INVALID_ADJUDICATION_STATE)
             })
 
             it('fails to appeal incorrect round', async () => {
               await passTerms(1) // term = 5
-              await assertRevert(this.court.appealRuling(disputeId, firstRoundId + 1, losingRuling), ERROR_INVALID_ADJUDICATION_ROUND)
+              await assertRevert(this.court.appeal(disputeId, firstRoundId + 1, losingRuling), ERROR_INVALID_ADJUDICATION_ROUND)
             })
 
             it('can settle if executed', async () => {
@@ -419,7 +419,7 @@ contract('Court: Disputes', ([ rich, governor, juror1, juror2, juror3, other, ap
                 //[ ,,, feeAmount, , appealDeposit, appealConfirmDeposit ] = await this.court.getNextAppealDetails(disputeId, firstRoundId)
                 const [ ,,, ...details ] = await this.court.getNextAppealDetails(disputeId, firstRoundId);
                 [ feeAmount, , appealDeposit, appealConfirmDeposit ] = details
-                assertLogs(await this.court.appealRuling(disputeId, firstRoundId, appealMakerRuling, { from: appealMaker }), RULING_APPEALED_EVENT)
+                assertLogs(await this.court.appeal(disputeId, firstRoundId, appealMakerRuling, { from: appealMaker }), RULING_APPEALED_EVENT)
               })
 
               it('maker spends correct amount of collateral', async () => {

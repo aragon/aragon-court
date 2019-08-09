@@ -231,7 +231,7 @@ contract('Court: final appeal', ([ poor, rich, governor, juror1, juror2, juror3,
         await passTerms(revealTerms)
 
         // appeal
-        const appealReceipt = await this.court.appealRuling(disputeId, roundId, appealRuling)
+        const appealReceipt = await this.court.appeal(disputeId, roundId, appealRuling)
         assertLogs(appealReceipt, RULING_APPEALED_EVENT)
         await passTerms(appealTerms)
         const appealConfirmReceipt = await this.court.appealConfirm(disputeId, roundId, appealConfirmRuling)
@@ -276,7 +276,7 @@ contract('Court: final appeal', ([ poor, rich, governor, juror1, juror2, juror3,
       await passTerms(revealTerms)
 
       // appeal
-      await assertRevert(this.court.appealRuling(disputeId, MAX_REGULAR_APPEAL_ROUNDS, appealRuling), ERROR_INVALID_ADJUDICATION_STATE)
+      await assertRevert(this.court.appeal(disputeId, MAX_REGULAR_APPEAL_ROUNDS, appealRuling), ERROR_INVALID_ADJUDICATION_STATE)
     })
 
     context('Rewards and slashes', () => {

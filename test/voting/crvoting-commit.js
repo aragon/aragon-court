@@ -7,7 +7,7 @@ const CRVotingOwner = artifacts.require('CRVotingOwnerMock')
 
 const POSSIBLE_OUTCOMES = 2
 
-contract('CRVoting commit', ([_, voter, anotherVoter]) => {
+contract('CRVoting commit', ([_, voter]) => {
   let voting, votingOwner
 
   beforeEach('create base contracts', async () => {
@@ -40,134 +40,47 @@ contract('CRVoting commit', ([_, voter, anotherVoter]) => {
               const itHandlesCommittedVotesFor = outcome => {
                 const commitment = encryptVote(outcome)
 
-                const itHandlesCommittedVoteProperly = () => {
-                  it('does not affect the voter outcome yet', async () => {
-                    await voting.commit(votingId, commitment, { from: voter })
+                it('does not affect the voter outcome yet', async () => {
+                  await voting.commit(votingId, commitment, { from: voter })
 
-                    const voterOutcome = await voting.getVoterOutcome(votingId, voter)
-                    assert.equal(voterOutcome.toString(), OUTCOMES.MISSING, 'voter outcome should be missing')
-                  })
-
-                  it('emits an event', async () => {
-                    const receipt = await voting.commit(votingId, commitment, { from: voter })
-
-                    assertAmountOfEvents(receipt, 'VoteCommitted')
-                    assertEvent(receipt, 'VoteCommitted', { votingId, voter, commitment })
-                  })
-
-                  it('does not affect the outcomes tally', async () => {
-                    const previousTally = await voting.getOutcomeTally(votingId, outcome)
-
-                    await voting.commit(votingId, commitment, { from: voter })
-
-                    const currentTally = await voting.getOutcomeTally(votingId, outcome)
-                    assert.equal(previousTally.toString(), currentTally.toString(), 'tallies do not match')
-                  })
-
-                  it('does not affect the winning outcome', async () => {
-                    const previousWinningOutcome = await voting.getWinningOutcome(votingId)
-                    const previousWinningOutcomeTally = await voting.getWinningOutcomeTally(votingId)
-
-                    await voting.commit(votingId, commitment, { from: voter })
-
-                    const currentWinningOutcome = await voting.getWinningOutcome(votingId)
-                    assert.equal(previousWinningOutcome.toString(), currentWinningOutcome.toString(), 'winning outcomes do not match')
-
-                    const currentWinningOutcomeTally = await voting.getWinningOutcomeTally(votingId)
-                    assert.equal(previousWinningOutcomeTally.toString(), currentWinningOutcomeTally.toString(), 'winning outcome tallies do not match')
-                  })
-                }
-
-                const itDoesNotConsiderTheVoterWinnerNorLoser = () => {
-                  it('does not consider the voter a winner nor a loser', async () => {
-                    await voting.commit(votingId, commitment, { from: voter })
-
-                    assert.isFalse(await voting.isWinningVoter(votingId, voter), 'voter should not be a winner')
-                    assert.isFalse((await voting.getLosingVoters(votingId, [voter]))[0], 'voter should not be a loser')
-                  })
-                }
-
-                context('when there were no other votes yet', () => {
-                  itHandlesCommittedVoteProperly()
-                  itDoesNotConsiderTheVoterWinnerNorLoser()
+                  const voterOutcome = await voting.getVoterOutcome(votingId, voter)
+                  assert.equal(voterOutcome.toString(), OUTCOMES.MISSING, 'voter outcome should be missing')
                 })
 
-                context('when there was another vote', () => {
-                  const anotherWeight = 10
+                it('emits an event', async () => {
+                  const receipt = await voting.commit(votingId, commitment, { from: voter })
 
-                  beforeEach('allow committing another voter', async () => {
-                    await votingOwner.mockVoterWeight(anotherVoter, anotherWeight)
-                  })
+                  assertAmountOfEvents(receipt, 'VoteCommitted')
+                  assertEvent(receipt, 'VoteCommitted', { votingId, voter, commitment })
+                })
 
-                  context('when the other vote was a valid outcome', () => {
-                    const anotherOutcome = OUTCOMES.HIGH
-                    const anotherCommitment = encryptVote(anotherOutcome)
+                it('does not affect the outcomes tally', async () => {
+                  const previousTally = await voting.getOutcomeTally(votingId, outcome)
 
-                    beforeEach('commit another vote', async () => {
-                      await voting.commit(votingId, anotherCommitment, { from: anotherVoter })
-                    })
+                  await voting.commit(votingId, commitment, { from: voter })
 
-                    context('when the other vote was not revealed yet', () => {
-                      itHandlesCommittedVoteProperly()
-                      itDoesNotConsiderTheVoterWinnerNorLoser()
-                    })
+                  const currentTally = await voting.getOutcomeTally(votingId, outcome)
+                  assert.equal(previousTally.toString(), currentTally.toString(), 'tallies do not match')
+                })
 
-                    context('when the other vote was leaked', () => {
-                      beforeEach('leak another vote', async () => {
-                        await voting.leak(votingId, anotherVoter, anotherOutcome, SALT, { from: voter })
-                      })
+                it('does not affect the winning outcome', async () => {
+                  const previousWinningOutcome = await voting.getWinningOutcome(votingId)
+                  const previousWinningOutcomeTally = await voting.getWinningOutcomeTally(votingId)
 
-                      itHandlesCommittedVoteProperly()
-                      itDoesNotConsiderTheVoterWinnerNorLoser()
-                    })
+                  await voting.commit(votingId, commitment, { from: voter })
 
-                    context('when the other vote was revealed', () => {
-                      beforeEach('reveal another vote', async () => {
-                        await voting.reveal(votingId, anotherOutcome, SALT, { from: anotherVoter })
-                      })
+                  const currentWinningOutcome = await voting.getWinningOutcome(votingId)
+                  assert.equal(previousWinningOutcome.toString(), currentWinningOutcome.toString(), 'winning outcomes do not match')
 
-                      itHandlesCommittedVoteProperly()
+                  const currentWinningOutcomeTally = await voting.getWinningOutcomeTally(votingId)
+                  assert.equal(previousWinningOutcomeTally.toString(), currentWinningOutcomeTally.toString(), 'winning outcome tallies do not match')
+                })
 
-                      it('considers the voter as a loser', async () => {
-                        await voting.commit(votingId, commitment, { from: voter })
+                it('does not consider the voter a winner', async () => {
+                  await voting.commit(votingId, commitment, { from: voter })
 
-                        assert.isFalse(await voting.isWinningVoter(votingId, voter), 'voter should not be a winner')
-                        assert.isTrue((await voting.getLosingVoters(votingId, [voter]))[0], 'voter should be a loser')
-                      })
-                    })
-                  })
-
-                  context('when the other vote was an invalid outcome', () => {
-                    const anotherOutcome = OUTCOMES.REFUSED
-                    const anotherCommitment = encryptVote(anotherOutcome)
-
-                    beforeEach('commit another vote', async () => {
-                      await voting.commit(votingId, anotherCommitment, { from: anotherVoter })
-                    })
-
-                    context('when the other vote was not revealed yet', () => {
-                      itHandlesCommittedVoteProperly()
-                      itDoesNotConsiderTheVoterWinnerNorLoser()
-                    })
-
-                    context('when the other vote was leaked', () => {
-                      beforeEach('leak another vote', async () => {
-                        await voting.leak(votingId, anotherVoter, anotherOutcome, SALT, { from: voter })
-                      })
-
-                      itHandlesCommittedVoteProperly()
-                      itDoesNotConsiderTheVoterWinnerNorLoser()
-                    })
-
-                    context('when the other vote was revealed', () => {
-                      beforeEach('reveal another vote', async () => {
-                        await voting.reveal(votingId, anotherOutcome, SALT, { from: anotherVoter })
-                      })
-
-                      itHandlesCommittedVoteProperly()
-                      itDoesNotConsiderTheVoterWinnerNorLoser()
-                    })
-                  })
+                  const winningOutcome = await voting.getWinningOutcome(votingId)
+                  assert.isFalse(await voting.hasVotedInFavorOf(votingId, winningOutcome, voter), 'voter should not be a winner')
                 })
               }
 

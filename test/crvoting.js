@@ -31,7 +31,7 @@ contract('CRVoting', ([ account0, account1 ]) => {
   })
 
   it('fails creating vote if not owner', async () => {
-    await assertRevert(this.voting.create(0, 1, { from: account1 }), 'CRV_NOT_OWNER')
+    await assertRevert(this.voting.create(0, 1, { from: account1 }), 'CRV_SENDER_NOT_OWNER')
   })
 
   context('With Owner interface', () => {

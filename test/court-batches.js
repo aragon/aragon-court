@@ -45,6 +45,7 @@ contract('Court: Batches', ([ rich, governor, arbitrable, juror1, juror2, juror3
   const commitTerms = 1
   const revealTerms = 1
   const appealTerms = 1
+  const appealConfirmTerms = 1
   const penaltyPct = 1000 // 100‱ = 1%
   const finalRoundReduction = 3300 // 100‱ = 1%
 
@@ -88,7 +89,7 @@ contract('Court: Batches', ([ rich, governor, arbitrable, juror1, juror2, juror3
       governor,
       firstTermStart,
       jurorMinStake,
-      [ commitTerms, appealTerms, revealTerms ],
+      [ commitTerms, revealTerms, appealTerms, appealConfirmTerms ],
       [ penaltyPct, finalRoundReduction ],
       3,
       4,
@@ -320,7 +321,7 @@ contract('Court: Batches', ([ rich, governor, arbitrable, juror1, juror2, juror3
         totalJurorsDrafted += callJurorsDrafted
       }
       assert.isTrue(await this.court.areAllJurorsDrafted.call(disputeId, firstRoundId))
-      await passTerms(3)
+      await passTerms(commitTerms + revealTerms + appealTerms + appealConfirmTerms)
     })
 
     it('settles in 2 batches', async () => {

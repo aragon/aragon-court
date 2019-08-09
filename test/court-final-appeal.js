@@ -53,6 +53,7 @@ contract('Court: final appeal', ([ poor, rich, governor, juror1, juror2, juror3,
   const commitTerms = 1
   const revealTerms = 1
   const appealTerms = 1
+  const appealConfirmTerms = 1
   const penaltyPct = 100 // 100‱ = 1%
   const finalRoundReduction = 3300 // 100‱ = 1%
 
@@ -68,6 +69,7 @@ contract('Court: final appeal', ([ poor, rich, governor, juror1, juror2, juror3,
   const VOTE_COMMITTED_EVENT = 'VoteCommitted'
   const VOTE_REVEALED_EVENT = 'VoteRevealed'
   const RULING_APPEALED_EVENT = 'RulingAppealed'
+  const RULING_APPEAL_CONFIRMED_EVENT = 'RulingAppealConfirmed'
   const ROUND_SLASHING_SETTLED_EVENT = 'RoundSlashingSettled'
   const REWARD_SETTLED_EVENT = 'RewardSettled'
 
@@ -113,7 +115,7 @@ contract('Court: final appeal', ([ poor, rich, governor, juror1, juror2, juror3,
       governor,
       firstTermStart,
       jurorMinStake,
-      [ commitTerms, appealTerms, revealTerms ],
+      [ commitTerms, revealTerms, appealTerms, appealConfirmTerms ],
       [ penaltyPct, finalRoundReduction ],
       APPEAL_STEP_FACTOR,
       MAX_REGULAR_APPEAL_ROUNDS,
@@ -177,6 +179,8 @@ contract('Court: final appeal', ([ poor, rich, governor, juror1, juror2, juror3,
     const initialJurorNumber = 3
     const term = 3
     const rulings = 2
+    const appealRuling = 2
+    const appealConfirmRuling = 3
 
     let disputeId = 0
     const firstRoundId = 0
@@ -228,11 +232,14 @@ contract('Court: final appeal', ([ poor, rich, governor, juror1, juror2, juror3,
         await passTerms(revealTerms)
 
         // appeal
-        const appealReceipt = await this.court.appealRuling(disputeId, roundId)
+        const appealReceipt = await this.court.appeal(disputeId, roundId, appealRuling)
         assertLogs(appealReceipt, RULING_APPEALED_EVENT)
-        const nextRoundId = getLog(appealReceipt, RULING_APPEALED_EVENT, 'roundId')
-        voteId = getVoteId(disputeId, nextRoundId)
         await passTerms(appealTerms)
+        const appealConfirmReceipt = await this.court.appealConfirm(disputeId, roundId, appealConfirmRuling)
+        assertLogs(appealConfirmReceipt, RULING_APPEAL_CONFIRMED_EVENT)
+        const nextRoundId = getLog(appealConfirmReceipt, RULING_APPEAL_CONFIRMED_EVENT, 'roundId')
+        voteId = getVoteId(disputeId, nextRoundId)
+        await passTerms(appealConfirmTerms)
         await this.court.mock_blockTravel(1)
       }
     }
@@ -270,7 +277,7 @@ contract('Court: final appeal', ([ poor, rich, governor, juror1, juror2, juror3,
       await passTerms(revealTerms)
 
       // appeal
-      await assertRevert(this.court.appealRuling(disputeId, MAX_REGULAR_APPEAL_ROUNDS), ERROR_INVALID_ADJUDICATION_STATE)
+      await assertRevert(this.court.appeal(disputeId, MAX_REGULAR_APPEAL_ROUNDS, appealRuling), ERROR_INVALID_ADJUDICATION_STATE)
     })
 
     context('Rewards and slashes', () => {

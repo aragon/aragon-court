@@ -48,18 +48,23 @@ const getVoteId = (disputeId, roundId) => {
   return new web3.BigNumber(2).pow(128).mul(disputeId).add(roundId)
 }
 
-contract('Court: Disputes', ([ poor, rich, governor, juror1, juror2, juror3, other ]) => {
+contract('Court: Disputes', ([ rich, governor, juror1, juror2, juror3, other, appealMaker, appealTaker ]) => {
   const NO_DATA = ''
-  const ZERO_ADDRESS = '0x' + '00'.repeat(20)
   const MAX_UINT256 = new web3.BigNumber(2).pow(256).sub(1)
+  const jurors = [ juror1, juror2, juror3 ]
 
   const termDuration = 10
   const firstTermStart = 10
   const jurorMinStake = 400
+  const jurorFee = 10
+  const heartbeatFee = 20
+  const draftFee = 30
+  const settleFee = 40
   const startBlock = 1000
   const commitTerms = 1
   const revealTerms = 1
   const appealTerms = 1
+  const appealConfirmTerms = 1
   const penaltyPct = 100 // 100‱ = 1%
   const finalRoundReduction = 3300 // 100‱ = 1%
   
@@ -75,6 +80,7 @@ contract('Court: Disputes', ([ poor, rich, governor, juror1, juror2, juror3, oth
   const VOTE_COMMITTED_EVENT = 'VoteCommitted'
   const VOTE_REVEALED_EVENT = 'VoteRevealed'
   const RULING_APPEALED_EVENT = 'RulingAppealed'
+  const RULING_APPEAL_CONFIRMED_EVENT = 'RulingAppealConfirmed'
   const RULING_EXECUTED_EVENT = 'RulingExecuted'
   const ROUND_SLASHING_SETTLED_EVENT = 'RoundSlashingSettled'
 
@@ -84,6 +90,8 @@ contract('Court: Disputes', ([ poor, rich, governor, juror1, juror2, juror3, oth
   const ERROR_ROUND_ALREADY_DRAFTED = 'CTROUND_ALRDY_DRAFTED'
   const ERROR_INVALID_ADJUDICATION_STATE = 'CTBAD_ADJ_STATE'
   const ERROR_INVALID_ADJUDICATION_ROUND = 'CTBAD_ADJ_ROUND'
+
+  const REFUSED_RULING = 1
 
   const SALT = soliditySha3('passw0rd')
 
@@ -103,7 +111,13 @@ contract('Court: Disputes', ([ poor, rich, governor, juror1, juror2, juror3, oth
     // Mints 1,000,000 tokens for sender
     this.anj = await deployedContract(this.tokenFactory.newToken('ANJ', initialBalance, { from: rich }), MINIME)
     await assertEqualBN(this.anj.balanceOf(rich), initialBalance, 'rich balance')
-    await assertEqualBN(this.anj.balanceOf(poor), 0, 'poor balance')
+    // fee token
+    this.feeToken = await deployedContract(this.tokenFactory.newToken('CFT', initialBalance * 3, { from: rich }), MINIME)
+    await this.feeToken.transfer(appealMaker, initialBalance, { from: rich })
+    await this.feeToken.transfer(appealTaker, initialBalance, { from: rich })
+    await assertEqualBN(this.feeToken.balanceOf(rich), initialBalance, 'rich fee token balance')
+    await assertEqualBN(this.feeToken.balanceOf(appealMaker), initialBalance, 'appeal maker fee token balance')
+    await assertEqualBN(this.feeToken.balanceOf(appealTaker), initialBalance, 'appeal taker fee token balance')
 
     this.jurorsRegistry = await JurorsRegistry.new()
     this.accounting = await CourtAccounting.new()
@@ -114,16 +128,16 @@ contract('Court: Disputes', ([ poor, rich, governor, juror1, juror2, juror3, oth
 
     this.court = await CourtMock.new(
       termDuration,
-      [ this.anj.address, ZERO_ADDRESS ], // no fees
+      [ this.anj.address, this.feeToken.address ], // no fees
       this.jurorsRegistry.address,
       this.accounting.address,
       this.voting.address,
       this.subscriptions.address,
-      [ 0, 0, 0, 0 ],
+      [ jurorFee, heartbeatFee, draftFee, settleFee ],
       governor,
       firstTermStart,
       jurorMinStake,
-      [ commitTerms, appealTerms, revealTerms ],
+      [ commitTerms, revealTerms, appealTerms, appealConfirmTerms ],
       [ penaltyPct, finalRoundReduction ],
       3,
       4,
@@ -150,6 +164,10 @@ contract('Court: Disputes', ([ poor, rich, governor, juror1, juror2, juror3, oth
     await assertEqualBN(this.jurorsRegistry.totalStakedFor(juror1), juror1Stake, 'juror1 stake')
     await assertEqualBN(this.jurorsRegistry.totalStakedFor(juror2), juror2Stake, 'juror2 stake')
     await assertEqualBN(this.jurorsRegistry.totalStakedFor(juror3), juror3Stake, 'juror3 stake')
+
+    await this.feeToken.approve(this.court.address, initialBalance, { from: rich })
+    await this.feeToken.approve(this.court.address, initialBalance, { from: appealMaker })
+    await this.feeToken.approve(this.court.address, initialBalance, { from: appealTaker })
   })
 
   it('can encrypt votes', async () => {
@@ -167,14 +185,14 @@ contract('Court: Disputes', ([ poor, rich, governor, juror1, juror2, juror3, oth
     }
 
     beforeEach(async () => {
-      for (const juror of [juror1, juror2, juror3]) {
-        await this.jurorsRegistry.activate(0, { from: juror })
+      for (const juror of jurors) {
+        await this.jurorsRegistry.activate(0, { from: juror })
       }
       await passTerms(1) // term = 1
     })
 
     context('on dispute', () => {
-      const jurors = 3
+      const jurorsNumber = 3
       const term = 3
       const rulings = 2
 
@@ -189,7 +207,7 @@ contract('Court: Disputes', ([ poor, rich, governor, juror1, juror2, juror3, oth
       }
 
       beforeEach(async () => {
-        const receipt = await this.court.createDispute(this.arbitrable.address, rulings, jurors, term)
+        const receipt = await this.court.createDispute(this.arbitrable.address, rulings, jurorsNumber, term, { from: rich })
         assertLogs(receipt, NEW_DISPUTE_EVENT)
         disputeId = getLog(receipt, NEW_DISPUTE_EVENT, 'disputeId')
         voteId = getVoteId(disputeId, firstRoundId)
@@ -197,7 +215,7 @@ contract('Court: Disputes', ([ poor, rich, governor, juror1, juror2, juror3, oth
 
       it('fails creating dispute if subscriptions are not up to date', async () => {
         await this.subscriptions.setUpToDate(false)
-        await assertRevert(this.court.createDispute(this.arbitrable.address, rulings, jurors, term), ERROR_SUBSCRIPTION_NOT_PAID)
+        await assertRevert(this.court.createDispute(this.arbitrable.address, rulings, jurorsNumber, term), ERROR_SUBSCRIPTION_NOT_PAID)
       })
 
       it('gets the correct dispute details', async () => {
@@ -252,7 +270,9 @@ contract('Court: Disputes', ([ poor, rich, governor, juror1, juror2, juror3, oth
         })
 
         context('jurors commit', () => {
-          const votes = [[juror1, 2], [juror2, 1], [juror3, 1]]
+          const winningRuling = 1
+          const losingRuling = 2 // 3 too
+          const votes = [[juror1, losingRuling], [juror2, winningRuling], [juror3, winningRuling]]
           const round1Ruling = 1
           const round1WinningVotes = 2
 
@@ -319,16 +339,16 @@ contract('Court: Disputes', ([ poor, rich, governor, juror1, juror2, juror3, oth
             })
 
             it('fails to appeal during reveal period', async () => {
-              await assertRevert(this.court.appealRuling(disputeId, firstRoundId), ERROR_INVALID_ADJUDICATION_STATE)
+              await assertRevert(this.court.appeal(disputeId, firstRoundId, losingRuling), ERROR_INVALID_ADJUDICATION_STATE)
             })
 
             it('fails to appeal incorrect round', async () => {
               await passTerms(1) // term = 5
-              await assertRevert(this.court.appealRuling(disputeId, firstRoundId + 1), ERROR_INVALID_ADJUDICATION_ROUND)
+              await assertRevert(this.court.appeal(disputeId, firstRoundId + 1, losingRuling), ERROR_INVALID_ADJUDICATION_ROUND)
             })
 
             it('can settle if executed', async () => {
-              await passTerms(2) // term = 6
+              await passTerms(revealTerms + appealTerms + appealConfirmTerms)
               // execute
               const executeReceipt = await this.court.executeRuling(disputeId)
               assertLogs(executeReceipt, RULING_EXECUTED_EVENT)
@@ -337,7 +357,7 @@ contract('Court: Disputes', ([ poor, rich, governor, juror1, juror2, juror3, oth
             })
 
             it('fails trying to execute twice', async () => {
-              await passTerms(2) // term = 6
+              await passTerms(revealTerms + appealTerms + appealConfirmTerms)
               // execute
               const executeReceiptPromise = await this.court.executeRuling(disputeId)
               await assertLogs(executeReceiptPromise, RULING_EXECUTED_EVENT)
@@ -349,7 +369,7 @@ contract('Court: Disputes', ([ poor, rich, governor, juror1, juror2, juror3, oth
               const slashed = pct4(jurorMinStake, penaltyPct)
 
               beforeEach(async () => {
-                await passTerms(2) // term = 6
+                await passTerms(revealTerms + appealTerms + appealConfirmTerms)
                 assertLogs(await this.court.settleRoundSlashing(disputeId, firstRoundId, MAX_UINT256), ROUND_SLASHING_SETTLED_EVENT)
               })
 
@@ -366,8 +386,8 @@ contract('Court: Disputes', ([ poor, rich, governor, juror1, juror2, juror3, oth
                 ] = await this.court.getAdjudicationRound(disputeId, firstRoundId)
 
                 await assertEqualBN(actualTerm, term, 'incorrect round term')
-                await assertEqualBN(actualJurors, jurors, 'incorrect round jurors')
-                assert.strictEqual(actualAccount, poor, 'incorrect round account')
+                await assertEqualBN(actualJurors, jurorsNumber, 'incorrect round jurors')
+                assert.strictEqual(actualAccount, rich, 'incorrect round account')
                 assert.strictEqual(actualPenalties, expectedPenalties, 'incorrect round penalties')
                 await assertEqualBN(actualSlashing, expectedSlashing, 'incorrect round slashing')
               })
@@ -390,18 +410,133 @@ contract('Court: Disputes', ([ poor, rich, governor, juror1, juror2, juror3, oth
             })
 
             context('on appeal', () => {
+              const appealMakerRuling = 2
+              const appealTakerRuling = 3
+              let makerInitialBalance
+              let feeAmount, appealDeposit, appealConfirmDeposit, appealTakerTotalCost
+
               beforeEach(async () => {
                 await passTerms(1) // term = 5
-                assertLogs(await this.court.appealRuling(disputeId, firstRoundId), RULING_APPEALED_EVENT)
+                makerInitialBalance = await this.feeToken.balanceOf(appealMaker)
+                //[ ,,, feeAmount, , appealDeposit, appealConfirmDeposit ] = await this.court.getNextAppealDetails(disputeId, firstRoundId)
+                const [ ,,, ...details ] = await this.court.getNextAppealDetails(disputeId, firstRoundId);
+                [ feeAmount, , appealDeposit, appealConfirmDeposit ] = details
+                assertLogs(await this.court.appeal(disputeId, firstRoundId, appealMakerRuling, { from: appealMaker }), RULING_APPEALED_EVENT)
               })
 
-              it('drafts jurors', async () => {
+              it('maker spends correct amount of collateral', async () => {
+                const makerFinalBalance = await this.feeToken.balanceOf(appealMaker)
+                assert.equal(makerFinalBalance.toNumber(), makerInitialBalance.minus(appealDeposit).toNumber(), "maker final balance doesn't match")
+              })
+
+              it('fails to draft without appeal confirmation', async () => {
                 await passTerms(1) // term = 6
                 await this.court.mock_blockTravel(1)
                 await this.court.setTermRandomness()
-                const receipt = await this.court.draftAdjudicationRound(disputeId)
-                assertDeepLogs(receipt, this.jurorsRegistry.abi, JUROR_DRAFTED_EVENT)
-                assertLogs(receipt, DISPUTE_STATE_CHANGED_EVENT)
+                await assertRevert(this.court.draftAdjudicationRound(disputeId), ERROR_ROUND_ALREADY_DRAFTED)
+              })
+
+              it('maker gets collateral back without appeal confirmation', async () => {
+                await passTerms(appealTerms + appealConfirmTerms)
+                await this.court.settleRoundSlashing(disputeId, firstRoundId, 10)
+                await this.court.settleAppealDeposit(disputeId, firstRoundId)
+                await this.accounting.withdraw(this.feeToken.address, appealMaker, (await this.accounting.balanceOf(this.feeToken.address, appealMaker)), { from: appealMaker })
+                const makerFinalBalance = await this.feeToken.balanceOf(appealMaker)
+                assert.equal(makerFinalBalance.toNumber(), makerInitialBalance.toNumber(), "maker final balance doesn't match")
+              })
+
+              context('on appeal confirmation', () => {
+                let takerInitialBalance
+                let roundId
+
+                const draftJurors = async () => {
+                  await passTerms(appealConfirmTerms)
+                  await this.court.mock_blockTravel(1)
+                  await this.court.setTermRandomness()
+                  const receipt = await this.court.draftAdjudicationRound(disputeId)
+                  assertDeepLogs(receipt, this.jurorsRegistry.abi, JUROR_DRAFTED_EVENT)
+                  assertLogs(receipt, DISPUTE_STATE_CHANGED_EVENT)
+                }
+
+                const voteAndSettle = async (vote) => {
+                  voteId = getVoteId(disputeId, roundId)
+                  // commit
+                  await Promise.all(jurors.map(
+                    juror => this.voting.commitVote(voteId, encryptVote(vote), { from: juror })
+                  ))
+                  await passTerms(commitTerms)
+
+                  // reveal
+                  await Promise.all(jurors.map(
+                    juror => this.voting.revealVote(voteId, vote, SALT, { from: juror })
+                  ))
+                  await passTerms(revealTerms)
+
+                  // settle
+                  await passTerms(appealTerms + appealConfirmTerms)
+                  await this.court.settleRoundSlashing(disputeId, firstRoundId, 10)
+                  await this.court.settleAppealDeposit(disputeId, firstRoundId)
+
+                  // withdraw
+                  const appealMakerBalance = (await this.accounting.balanceOf(this.feeToken.address, appealMaker)).toNumber()
+                  if (appealMakerBalance > 0) {
+                    await this.accounting.withdraw(this.feeToken.address, appealMaker, appealMakerBalance, { from: appealMaker })
+                  }
+                  const appealTakerBalance = (await this.accounting.balanceOf(this.feeToken.address, appealTaker)).toNumber()
+                  if (appealTakerBalance > 0) {
+                    await this.accounting.withdraw(this.feeToken.address, appealTaker, appealTakerBalance, { from: appealTaker })
+                  }
+                }
+
+                beforeEach(async () => {
+                  takerInitialBalance = await this.feeToken.balanceOf(appealTaker)
+                  await passTerms(appealTerms)
+                  const receipt = await this.court.appealConfirm(disputeId, firstRoundId, appealTakerRuling, { from: appealTaker })
+                  assertLogs(receipt, RULING_APPEAL_CONFIRMED_EVENT)
+                  roundId = getLog(receipt, RULING_APPEAL_CONFIRMED_EVENT, 'roundId')
+                })
+
+                it('taker spends correct amount of collateral', async () => {
+                  const takerFinalBalance = await this.feeToken.balanceOf(appealTaker)
+                  assert.equal(takerFinalBalance.toNumber(), takerInitialBalance.minus(appealConfirmDeposit).toNumber(), "taker final balance doesn't match")
+                })
+
+                it('drafts jurors', async () => {
+                  await draftJurors()
+                })
+
+                it('maker wins', async () => {
+                  await draftJurors()
+
+                  await voteAndSettle(appealMakerRuling)
+
+                  const makerFinalBalance = await this.feeToken.balanceOf(appealMaker)
+                  assert.equal(makerFinalBalance.toNumber(), makerInitialBalance.plus(appealConfirmDeposit).minus(feeAmount).toNumber(), "maker final balance doesn't match")
+                  const takerFinalBalance = await this.feeToken.balanceOf(appealTaker)
+                  assert.equal(takerFinalBalance.toNumber(), takerInitialBalance.minus(appealConfirmDeposit).toNumber(), "taker final balance doesn't match")
+                })
+
+                it('taker wins', async () => {
+                  await draftJurors()
+
+                  await voteAndSettle(appealTakerRuling)
+
+                  const makerFinalBalance = await this.feeToken.balanceOf(appealMaker)
+                  assert.equal(makerFinalBalance.toNumber(), makerInitialBalance.minus(appealDeposit).toNumber(), "maker final balance doesn't match")
+                  const takerFinalBalance = await this.feeToken.balanceOf(appealTaker)
+                  assert.equal(takerFinalBalance.toNumber(), takerInitialBalance.plus(appealDeposit).minus(feeAmount).toNumber(), "taker final balance doesn't match")
+                })
+
+                it('refused ruling', async () => {
+                  await draftJurors()
+
+                  await voteAndSettle(REFUSED_RULING)
+
+                  const makerFinalBalance = await this.feeToken.balanceOf(appealMaker)
+                  assert.equal(makerFinalBalance.toNumber(), makerInitialBalance.toNumber() - feeAmount.toNumber() / 2, "maker final balance doesn't match")
+                  const takerFinalBalance = await this.feeToken.balanceOf(appealTaker)
+                  assert.equal(takerFinalBalance.toNumber(), takerInitialBalance.toNumber() - feeAmount.toNumber() / 2, "taker final balance doesn't match")
+                })
               })
             })
           })

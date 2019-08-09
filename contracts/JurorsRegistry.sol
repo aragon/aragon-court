@@ -254,7 +254,7 @@ contract JurorsRegistry is Initializable, IsContract, IJurorsRegistry, ERC900, A
                 // otherwise. Note that there's no need to check deactivation requests since these always apply
                 // for the next term, while drafts are always computed for the current term with the active balances
                 // which always remain constant for the current term.
-                if(stakes[i] >= newLockedBalance) {
+                if (stakes[i] >= newLockedBalance) {
                     _juror.lockedBalance = newLockedBalance;
 
                     // Check repeated juror, we assume jurors come ordered from tree search. Note that since the tree

@@ -30,7 +30,7 @@ contract CRVoting is ICRVoting {
 
     enum Ruling {
         Missing,
-        RefusedRuling
+        Refused
         // ruling options are dispute specific
     }
 
@@ -87,7 +87,7 @@ contract CRVoting is ICRVoting {
         uint256 weight = owner.canCommit(_voteId, _voter);
         require(weight > 0, ERROR_NOT_ALLOWED_BY_OWNER);
 
-        uint8 ruling = uint8(Ruling.RefusedRuling);
+        uint8 ruling = uint8(Ruling.Refused);
         CastVote storage castVote = vote.castVotes[_voter];
 
         _checkVote(castVote, _leakedRuling, _salt);
@@ -134,7 +134,7 @@ contract CRVoting is ICRVoting {
         winningRuling = vote.winningRuling;
 
         if (winningRuling == uint8(Ruling.Missing)) {
-            winningRuling = uint8(Ruling.RefusedRuling);
+            winningRuling = uint8(Ruling.Refused);
         }
     }
 

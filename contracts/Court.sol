@@ -473,21 +473,22 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner {
             ERROR_INVALID_RULING
         );
 
-        (uint64 appealDraftTermId, uint64 appealJurorNumber, ERC20 feeToken,, uint256 jurorFees,, uint256 appealConfirmDeposit) = _getNextAppealDetails(currentRound, _roundId);
+        (
+            uint64 appealDraftTermId,
+            uint64 appealJurorNumber,
+            ERC20 feeToken,
+            ,
+            uint256 jurorFees,
+            ,
+            uint256 appealConfirmDeposit
+        ) = _getNextAppealDetails(currentRound, _roundId);
 
         uint256 newRoundId;
         if (_roundId >= config.maxRegularAppealRounds - 1) { // final round, roundId starts at 0
             // number of jurors will be the number of times the minimum stake is hold in the registry, multiplied by a precision factor for division roundings
             newRoundId = _createRound(_disputeId, DisputeState.Adjudicating, appealDraftTermId, appealJurorNumber, jurorFees);
         } else {
-            // no need for more checks, as final appeal won't ever be in Appealable state,
-            // so it would never reach here (first check would fail), but we add this as a sanity check
-            assert(_roundId < config.maxRegularAppealRounds);
-            appealJurorNumber = config.appealStepFactor * currentRound.jurorNumber;
-            // make sure it's odd
-            if (appealJurorNumber % 2 == 0) {
-                appealJurorNumber++;
-            }
+            // _roundId < max regular appeal rounds is checked in _getNextAppealDetails,
             newRoundId = _createRound(_disputeId, DisputeState.PreDraft, appealDraftTermId, appealJurorNumber, jurorFees);
         }
 

@@ -142,7 +142,7 @@ contract CRVoting is Initializable, ICRVoting {
         Voting storage voting = votingRecords[_votingId];
         Vote storage vote = voting.votes[msg.sender];
         _ensureCanReveal(vote, _outcome, _salt);
-        require(_outcome == OUTCOME_REFUSED || _isValidOutcome(voting, _outcome), ERROR_INVALID_OUTCOME);
+        require(_isValidOutcome(voting, _outcome), ERROR_INVALID_OUTCOME);
 
         vote.outcome = _outcome;
         _updateTally(voting, _outcome, weight);
@@ -255,7 +255,7 @@ contract CRVoting is Initializable, ICRVoting {
         // refuse to vote, i.e. voters that didn't vote, that voted for the losing outcome, or whose vote was leaked.
         for (uint256 i = 0; i < _voters.length; i++) {
             uint8 outcome = voting.votes[_voters[i]].outcome;
-            losingVoters[i] = outcome != OUTCOME_REFUSED && outcome != winningOutcome;
+            losingVoters[i] = outcome != winningOutcome;
         }
         return losingVoters;
     }
@@ -314,7 +314,7 @@ contract CRVoting is Initializable, ICRVoting {
     * @return True if the given outcome is valid for the requested voting, false otherwise.
     */
     function _isValidOutcome(Voting storage _voting, uint8 _outcome) internal view returns (bool) {
-        return _outcome > OUTCOME_REFUSED && _outcome <= _voting.maxAllowedOutcome;
+        return _outcome >= OUTCOME_REFUSED && _outcome <= _voting.maxAllowedOutcome;
     }
 
     /**
@@ -334,7 +334,7 @@ contract CRVoting is Initializable, ICRVoting {
     * @param _weight Weight to be added to the given outcome of the voting
     */
     function _updateTally(Voting storage _voting, uint8 _outcome, uint256 _weight) private {
-        // Check if the given outcome is valid. Missing, leaked, or refused votes are ignored for the tally.
+        // Check if the given outcome is valid. Missing and leaked votes are ignored for the tally.
         if (!_isValidOutcome(_voting, _outcome)) {
             return;
         }

@@ -506,7 +506,8 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner {
             } else if (appealTaker.ruling == finalRuling) {
                 accounting.assign(depositToken, appealTaker.appealer, totalDeposit - feeAmount);
             } else {
-                // If the winning ruling is missing then divide the appeal deposit to both parties
+                // If the final ruling wasn't selected by any of the appealing parties or no jurors voted in the
+                // final round, return their deposits minus half of the fees to each party
                 accounting.assign(depositToken, appealMaker.appealer, appealDeposit - feeAmount / 2);
                 accounting.assign(depositToken, appealTaker.appealer, appealConfirmDeposit - feeAmount / 2);
             }

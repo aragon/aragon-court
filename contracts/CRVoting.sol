@@ -168,13 +168,15 @@ contract CRVoting is Initializable, ICRVoting {
     }
 
     /**
-    * @dev Get the winning outcome of a voting
+    * @dev Get the winning outcome of a voting. If the winning outcome is missing, which means no one voted in the
+    *      given voting, it will be considered refused.
     * @param _votingId ID of the voting querying the winning outcome of
-    * @return Winning outcome of the given voting
+    * @return Winning outcome of the given voting or refused in case it's missing
     */
     function getWinningOutcome(uint256 _votingId) external votingExists(_votingId) view returns (uint8) {
         Voting storage voting = votingRecords[_votingId];
-        return voting.winningOutcome;
+        uint8 winningOutcome = voting.winningOutcome;
+        return winningOutcome == OUTCOME_MISSING ? OUTCOME_REFUSED : winningOutcome;
     }
 
     /**
@@ -231,8 +233,7 @@ contract CRVoting is Initializable, ICRVoting {
     */
     function hasVotedInFavorOf(uint256 _votingId, uint8 _outcome, address _voter) external votingExists(_votingId) view returns (bool) {
         Voting storage voting = votingRecords[_votingId];
-        uint8 winningOutcome = voting.winningOutcome;
-        return winningOutcome != OUTCOME_MISSING && voting.votes[_voter].outcome == _outcome;
+        return voting.winningOutcome != OUTCOME_MISSING && _outcome != OUTCOME_MISSING && voting.votes[_voter].outcome == _outcome;
     }
 
     /**
@@ -250,7 +251,7 @@ contract CRVoting is Initializable, ICRVoting {
         bool[] memory votersInFavor = new bool[](_voters.length);
 
         // If there is no winning outcome (if no valid votes were tallied), no one will be marked as voting in favor of any given outcome.
-        if (winningOutcome == OUTCOME_MISSING) {
+        if (winningOutcome == OUTCOME_MISSING || _outcome == OUTCOME_MISSING) {
             return votersInFavor;
         }
 

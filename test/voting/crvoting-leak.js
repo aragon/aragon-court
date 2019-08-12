@@ -17,7 +17,7 @@ contract('CRVoting leak', ([_, voter, someone]) => {
 
   describe('leak', () => {
     context('when the voting is initialized', () => {
-      beforeEach('initialize registry', async () => {
+      beforeEach('initialize voting', async () => {
         await voting.init(votingOwner.address)
       })
 
@@ -33,7 +33,7 @@ contract('CRVoting leak', ([_, voter, someone]) => {
             context('when the owner tells a weight greater than zero', () => {
               const weight = 10
 
-              beforeEach('mock the owner to revert', async () => {
+              beforeEach('mock voter weight', async () => {
                 await votingOwner.mockVoterWeight(voter, weight)
               })
 
@@ -45,7 +45,7 @@ contract('CRVoting leak', ([_, voter, someone]) => {
             context('when the owner tells a zeroed weight', () => {
               const weight = 0
 
-              beforeEach('mock the owner to revert', async () => {
+              beforeEach('mock voter weight', async () => {
                 await votingOwner.mockVoterWeight(voter, weight)
               })
 
@@ -79,7 +79,7 @@ contract('CRVoting leak', ([_, voter, someone]) => {
               context('when the owner tells a weight greater than zero', () => {
                 const weight = 10
 
-                beforeEach('mock the owner to revert', async () => {
+                beforeEach('mock voter weight', async () => {
                   await votingOwner.mockVoterWeight(voter, weight)
                 })
 
@@ -166,7 +166,7 @@ contract('CRVoting leak', ([_, voter, someone]) => {
               context('when the owner tells a zeroed weight', () => {
                 const weight = 0
 
-                beforeEach('mock the owner to revert', async () => {
+                beforeEach('mock voter weight', async () => {
                   await votingOwner.mockVoterWeight(voter, weight)
                 })
 
@@ -214,11 +214,11 @@ contract('CRVoting leak', ([_, voter, someone]) => {
           await assertRevert(voting.leak(0, voter, 0, '0x', { from: someone }), 'CRV_VOTING_DOES_NOT_EXIST')
         })
       })
+    })
 
-      context('when the registry is not initialized', () => {
-        it('reverts', async () => {
-          await assertRevert(voting.leak(0, voter, 0, '0x', { from: someone }), 'CRV_VOTING_DOES_NOT_EXIST')
-        })
+    context('when the voting is not initialized', () => {
+      it('reverts', async () => {
+        await assertRevert(voting.leak(0, voter, 0, '0x', { from: someone }), 'CRV_VOTING_DOES_NOT_EXIST')
       })
     })
   })

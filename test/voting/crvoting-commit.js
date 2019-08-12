@@ -17,7 +17,7 @@ contract('CRVoting commit', ([_, voter]) => {
 
   describe('commit', () => {
     context('when the voting is initialized', () => {
-      beforeEach('initialize registry', async () => {
+      beforeEach('initialize voting', async () => {
         await voting.init(votingOwner.address)
       })
 
@@ -33,7 +33,7 @@ contract('CRVoting commit', ([_, voter]) => {
             context('when the owner tells a weight greater than zero', () => {
               const weight = 10
 
-              beforeEach('mock the owner to revert', async () => {
+              beforeEach('mock voter weight', async () => {
                 await votingOwner.mockVoterWeight(voter, weight)
               })
 
@@ -108,7 +108,7 @@ contract('CRVoting commit', ([_, voter]) => {
             context('when the owner tells a zeroed weight', () => {
               const weight = 0
 
-              beforeEach('mock the owner to revert', async () => {
+              beforeEach('mock voter weight', async () => {
                 await votingOwner.mockVoterWeight(voter, weight)
               })
 
@@ -132,7 +132,7 @@ contract('CRVoting commit', ([_, voter]) => {
         context('when the voter has already voted', () => {
           const commitment = encryptVote(0)
 
-          beforeEach('mock the owner to revert', async () => {
+          beforeEach('mock voter weight and commit', async () => {
             const weight = 10
             await votingOwner.mockVoterWeight(voter, weight)
             await voting.commit(votingId, commitment, { from: voter })
@@ -158,10 +158,11 @@ contract('CRVoting commit', ([_, voter]) => {
         })
       })
 
-      context('when the registry is not initialized', () => {
-        it('reverts', async () => {
-          await assertRevert(voting.commit(0, '0x', { from: voter }), 'CRV_VOTING_DOES_NOT_EXIST')
-        })
+    })
+
+    context('when the voting is not initialized', () => {
+      it('reverts', async () => {
+        await assertRevert(voting.commit(0, '0x', { from: voter }), 'CRV_VOTING_DOES_NOT_EXIST')
       })
     })
   })

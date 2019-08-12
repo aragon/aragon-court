@@ -76,10 +76,6 @@ contract('CRVoting', ([_, voterWeighted1, voterWeighted2, voterWeighted3, voterW
 
   const itDoesNotSetAWinningOutcome = (votes) => {
     it('does not set a winning outcome', async () => {
-      const previousLowOutcomeTally = await voting.getOutcomeTally(votingId, OUTCOMES.LOW)
-      const previousHighOutcomeTally = await voting.getOutcomeTally(votingId, OUTCOMES.HIGH)
-      const previousRefusedOutcomeTally = await voting.getOutcomeTally(votingId, OUTCOMES.REFUSED)
-
       await submitVotes(votes)
 
       const missingOutcomeTally = await voting.getOutcomeTally(votingId, OUTCOMES.MISSING)
@@ -89,16 +85,16 @@ contract('CRVoting', ([_, voterWeighted1, voterWeighted2, voterWeighted3, voterW
       assert.equal(leakedOutcomeTally.toString(), 0, 'leaked outcome should be zero')
 
       const currentLowOutcomeTally = await voting.getOutcomeTally(votingId, OUTCOMES.LOW)
-      assert.equal(previousLowOutcomeTally.toString(), currentLowOutcomeTally.toString(), 'low outcome tallies do not match')
+      assert.equal(currentLowOutcomeTally.toString(), 0, 'low outcome tallies do not match')
 
       const currentHighOutcomeTally = await voting.getOutcomeTally(votingId, OUTCOMES.HIGH)
-      assert.equal(previousHighOutcomeTally.toString(), currentHighOutcomeTally.toString(), 'high outcome tallies do not match')
+      assert.equal(currentHighOutcomeTally.toString(), 0, 'high outcome tallies do not match')
 
       const currentRefusedOutcomeTally = await voting.getOutcomeTally(votingId, OUTCOMES.REFUSED)
-      assert.equal(previousRefusedOutcomeTally.toString(), currentRefusedOutcomeTally.toString(), 'refused tallies do not match')
+      assert.equal(currentRefusedOutcomeTally.toString(), 0, 'refused tallies do not match')
 
       const winningOutcome = await voting.getWinningOutcome(votingId)
-      assert.equal(winningOutcome.toString(), OUTCOMES.MISSING, 'winning outcome should be missing')
+      assert.equal(winningOutcome.toString(), OUTCOMES.REFUSED, 'refused should be the winning outcome')
 
       const winningOutcomeTally = await voting.getWinningOutcomeTally(votingId)
       assert.equal(winningOutcomeTally.toString(), 0, 'winning outcome tally should be zero')
@@ -106,7 +102,7 @@ contract('CRVoting', ([_, voterWeighted1, voterWeighted2, voterWeighted3, voterW
   }
 
   describe('integration', () => {
-    context('when non of the voters committed a vote', () => {
+    context('when none of the voters committed a vote', () => {
       const votes = {
         [voterWeighted1]:  { weight: 1,  outcome: undefined },
         [voterWeighted2]:  { weight: 2,  outcome: undefined },
@@ -117,7 +113,7 @@ contract('CRVoting', ([_, voterWeighted1, voterWeighted2, voterWeighted3, voterW
       }
 
       itDoesNotSetAWinningOutcome(votes)
-      itConsidersVotersAsLosers(votes, [ voterWeighted1, voterWeighted2, voterWeighted3, voterWeighted10, voterWeighted12, voterWeighted13 ])
+      itConsidersVotersAsLosers(votes, Object.keys(votes))
     })
 
     context('when only one voter committed a vote but no one revealed', () => {
@@ -131,7 +127,7 @@ contract('CRVoting', ([_, voterWeighted1, voterWeighted2, voterWeighted3, voterW
       }
 
       itDoesNotSetAWinningOutcome(votes)
-      itConsidersVotersAsLosers(votes, [ voterWeighted1, voterWeighted2, voterWeighted3, voterWeighted10, voterWeighted12, voterWeighted13 ])
+      itConsidersVotersAsLosers(votes, Object.keys(votes))
     })
 
     context('when most of the voters committed a vote but no one revealed', () => {
@@ -145,7 +141,7 @@ contract('CRVoting', ([_, voterWeighted1, voterWeighted2, voterWeighted3, voterW
       }
 
       itDoesNotSetAWinningOutcome(votes)
-      itConsidersVotersAsLosers(votes, [ voterWeighted1, voterWeighted2, voterWeighted3, voterWeighted10, voterWeighted12, voterWeighted13 ])
+      itConsidersVotersAsLosers(votes, Object.keys(votes))
     })
 
     context('when only one voter committed a vote but was leaked', () => {
@@ -159,7 +155,7 @@ contract('CRVoting', ([_, voterWeighted1, voterWeighted2, voterWeighted3, voterW
       }
 
       itDoesNotSetAWinningOutcome(votes)
-      itConsidersVotersAsLosers(votes, [ voterWeighted1, voterWeighted2, voterWeighted3, voterWeighted10, voterWeighted12, voterWeighted13 ])
+      itConsidersVotersAsLosers(votes, Object.keys(votes))
     })
 
     context('when most of the voters committed a vote but were leaked', () => {
@@ -173,7 +169,7 @@ contract('CRVoting', ([_, voterWeighted1, voterWeighted2, voterWeighted3, voterW
       }
 
       itDoesNotSetAWinningOutcome(votes)
-      itConsidersVotersAsLosers(votes, [ voterWeighted1, voterWeighted2, voterWeighted3, voterWeighted10, voterWeighted12, voterWeighted13 ])
+      itConsidersVotersAsLosers(votes, Object.keys(votes))
     })
 
     context('when only one voter committed and revealed a vote', () => {
@@ -199,7 +195,7 @@ contract('CRVoting', ([_, voterWeighted1, voterWeighted2, voterWeighted3, voterW
 
     context('when many voters committed and revealed their votes', () => {
       context('when an outcome gets more support than other', () => {
-        context('when the low outcome is the more supported, then the high outcome, and finally the refused', () => {
+        context('when the low outcome is the most supported, then the high outcome, and finally the refused', () => {
           const votes = {
             [voterWeighted1]:  { weight: 1,  outcome: undefined },
             [voterWeighted2]:  { weight: 2,  outcome: OUTCOMES.LOW },
@@ -220,7 +216,7 @@ contract('CRVoting', ([_, voterWeighted1, voterWeighted2, voterWeighted3, voterW
           itConsidersVotersAsLosers(votes, expectedLosers)
         })
 
-        context('when the high outcome is the more supported and there is a tie between the low and the refused outcomes', () => {
+        context('when the high outcome is the most supported and there is a tie between the low and the refused outcomes', () => {
           const votes = {
             [voterWeighted1]:  { weight: 1,  outcome: OUTCOMES.LOW,     reveal: true },
             [voterWeighted2]:  { weight: 2,  outcome: OUTCOMES.LOW,     reveal: true },
@@ -241,7 +237,7 @@ contract('CRVoting', ([_, voterWeighted1, voterWeighted2, voterWeighted3, voterW
           itConsidersVotersAsLosers(votes, expectedLosers)
         })
 
-        context('when the high outcome is the more supported, then the refused outcome, and finally the low', () => {
+        context('when the high outcome is the most supported, then the refused outcome, and finally the low', () => {
           const votes = {
             [voterWeighted1]:  { weight: 1,  outcome: OUTCOMES.HIGH,    reveal: true },
             [voterWeighted2]:  { weight: 2,  outcome: OUTCOMES.HIGH,    reveal: true },
@@ -262,7 +258,7 @@ contract('CRVoting', ([_, voterWeighted1, voterWeighted2, voterWeighted3, voterW
           itConsidersVotersAsLosers(votes, expectedLosers)
         })
 
-        context('when the refused outcome is the more supported, then the low outcome, and finally the high', () => {
+        context('when the refused outcome is the most supported, then the low outcome, and finally the high', () => {
           const votes = {
             [voterWeighted1]:  { weight: 1,  outcome: OUTCOMES.HIGH,    reveal: true },
             [voterWeighted2]:  { weight: 2,  outcome: OUTCOMES.LOW,     reveal: true },
@@ -286,76 +282,252 @@ contract('CRVoting', ([_, voterWeighted1, voterWeighted2, voterWeighted3, voterW
 
       context('when there is tie', () => {
         context('between the low and the high outcomes', () => {
-          const votes = {
-            [voterWeighted1]:  { weight: 1,  outcome: OUTCOMES.LOW,     reveal: true },
-            [voterWeighted2]:  { weight: 2,  outcome: OUTCOMES.HIGH,    reveal: true },
-            [voterWeighted3]:  { weight: 3,  outcome: undefined },
-            [voterWeighted10]: { weight: 10, outcome: OUTCOMES.REFUSED, reveal: true },
-            [voterWeighted12]: { weight: 12, outcome: OUTCOMES.HIGH,    reveal: true },
-            [voterWeighted13]: { weight: 13, outcome: OUTCOMES.LOW,     reveal: true },
-          }
+          context('when votes are casted in weight-ascending order', () => {
+            const votes = {
+              [voterWeighted1]:  { weight: 1,  outcome: OUTCOMES.LOW,     reveal: true },
+              [voterWeighted2]:  { weight: 2,  outcome: OUTCOMES.HIGH,    reveal: true },
+              [voterWeighted3]:  { weight: 3,  outcome: undefined },
+              [voterWeighted10]: { weight: 10, outcome: OUTCOMES.REFUSED, reveal: true },
+              [voterWeighted12]: { weight: 12, outcome: OUTCOMES.HIGH,    reveal: true },
+              [voterWeighted13]: { weight: 13, outcome: OUTCOMES.LOW,     reveal: true },
+            }
 
-          const expectedTallies = { [OUTCOMES.LOW]: 14, [OUTCOMES.HIGH]: 14, [OUTCOMES.REFUSED]: 10 }
-          const expectedWinningOutcome = OUTCOMES.LOW
-          itSetsAWinningOutcome(votes, expectedTallies, expectedWinningOutcome)
+            const expectedTallies = { [OUTCOMES.LOW]: 14, [OUTCOMES.HIGH]: 14, [OUTCOMES.REFUSED]: 10 }
+            const expectedWinningOutcome = OUTCOMES.LOW
+            itSetsAWinningOutcome(votes, expectedTallies, expectedWinningOutcome)
 
-          const expectedWinners = [voterWeighted1, voterWeighted13]
-          itConsidersVotersAsWinners(votes, expectedWinners)
+            const expectedWinners = [voterWeighted1, voterWeighted13]
+            itConsidersVotersAsWinners(votes, expectedWinners)
 
-          const expectedLosers = [voterWeighted2, voterWeighted3, voterWeighted10, voterWeighted12]
-          itConsidersVotersAsLosers(votes, expectedLosers)
+            const expectedLosers = [voterWeighted2, voterWeighted3, voterWeighted10, voterWeighted12]
+            itConsidersVotersAsLosers(votes, expectedLosers)
+          })
+
+          context('when votes are casted in weight-descending order', () => {
+            const votes = {
+              [voterWeighted13]: { weight: 13, outcome: OUTCOMES.LOW,     reveal: true },
+              [voterWeighted12]: { weight: 12, outcome: OUTCOMES.HIGH,    reveal: true },
+              [voterWeighted10]: { weight: 10, outcome: OUTCOMES.REFUSED, reveal: true },
+              [voterWeighted3]:  { weight: 3,  outcome: undefined },
+              [voterWeighted2]:  { weight: 2,  outcome: OUTCOMES.HIGH,    reveal: true },
+              [voterWeighted1]:  { weight: 1,  outcome: OUTCOMES.LOW,     reveal: true },
+            }
+
+            const expectedTallies = { [OUTCOMES.LOW]: 14, [OUTCOMES.HIGH]: 14, [OUTCOMES.REFUSED]: 10 }
+            const expectedWinningOutcome = OUTCOMES.LOW
+            itSetsAWinningOutcome(votes, expectedTallies, expectedWinningOutcome)
+
+            const expectedWinners = [voterWeighted1, voterWeighted13]
+            itConsidersVotersAsWinners(votes, expectedWinners)
+
+            const expectedLosers = [voterWeighted2, voterWeighted3, voterWeighted10, voterWeighted12]
+            itConsidersVotersAsLosers(votes, expectedLosers)
+          })
+
+          context('when votes are casted unordered', () => {
+            const votes = {
+              [voterWeighted13]: { weight: 13, outcome: OUTCOMES.LOW,     reveal: true },
+              [voterWeighted2]:  { weight: 2,  outcome: OUTCOMES.HIGH,    reveal: true },
+              [voterWeighted10]: { weight: 10, outcome: OUTCOMES.REFUSED, reveal: true },
+              [voterWeighted1]:  { weight: 1,  outcome: OUTCOMES.LOW,     reveal: true },
+              [voterWeighted12]: { weight: 12, outcome: OUTCOMES.HIGH,    reveal: true },
+              [voterWeighted3]:  { weight: 3,  outcome: undefined },
+            }
+
+            const expectedTallies = { [OUTCOMES.LOW]: 14, [OUTCOMES.HIGH]: 14, [OUTCOMES.REFUSED]: 10 }
+            const expectedWinningOutcome = OUTCOMES.LOW
+            itSetsAWinningOutcome(votes, expectedTallies, expectedWinningOutcome)
+
+            const expectedWinners = [voterWeighted1, voterWeighted13]
+            itConsidersVotersAsWinners(votes, expectedWinners)
+
+            const expectedLosers = [voterWeighted2, voterWeighted3, voterWeighted10, voterWeighted12]
+            itConsidersVotersAsLosers(votes, expectedLosers)
+          })
         })
 
         context('between the refused and the low outcomes', () => {
-          const votes = {
-            [voterWeighted1]:  { weight: 1,  outcome: undefined },
-            [voterWeighted2]:  { weight: 2,  outcome: OUTCOMES.REFUSED, reveal: true },
-            [voterWeighted3]:  { weight: 3,  outcome: undefined },
-            [voterWeighted10]: { weight: 10, outcome: OUTCOMES.REFUSED, reveal: true },
-            [voterWeighted12]: { weight: 12, outcome: OUTCOMES.LOW,     reveal: true },
-            [voterWeighted13]: { weight: 13, outcome: OUTCOMES.HIGH,    leaked: true },
-          }
+          context('when votes are casted in weight-ascending order', () => {
+            const votes = {
+              [voterWeighted1]:  { weight: 1,  outcome: undefined },
+              [voterWeighted2]:  { weight: 2,  outcome: OUTCOMES.REFUSED, reveal: true },
+              [voterWeighted3]:  { weight: 3,  outcome: undefined },
+              [voterWeighted10]: { weight: 10, outcome: OUTCOMES.REFUSED, reveal: true },
+              [voterWeighted12]: { weight: 12, outcome: OUTCOMES.LOW,     reveal: true },
+              [voterWeighted13]: { weight: 13, outcome: OUTCOMES.HIGH,    leaked: true },
+            }
 
-          const expectedTallies = { [OUTCOMES.LOW]: 12, [OUTCOMES.HIGH]: 0, [OUTCOMES.REFUSED]: 12 }
-          const expectedWinningOutcome = OUTCOMES.REFUSED
-          itSetsAWinningOutcome(votes, expectedTallies, expectedWinningOutcome)
+            const expectedTallies = { [OUTCOMES.LOW]: 12, [OUTCOMES.HIGH]: 0, [OUTCOMES.REFUSED]: 12 }
+            const expectedWinningOutcome = OUTCOMES.REFUSED
+            itSetsAWinningOutcome(votes, expectedTallies, expectedWinningOutcome)
 
-          const expectedWinners = [voterWeighted2, voterWeighted10]
-          itConsidersVotersAsWinners(votes, expectedWinners)
+            const expectedWinners = [voterWeighted2, voterWeighted10]
+            itConsidersVotersAsWinners(votes, expectedWinners)
 
-          const expectedLosers = [voterWeighted1, voterWeighted3, voterWeighted12, voterWeighted13]
-          itConsidersVotersAsLosers(votes, expectedLosers)
+            const expectedLosers = [voterWeighted1, voterWeighted3, voterWeighted12, voterWeighted13]
+            itConsidersVotersAsLosers(votes, expectedLosers)
+          })
+
+          context('when votes are casted in weight-descending order', () => {
+            const votes = {
+              [voterWeighted13]: { weight: 13, outcome: OUTCOMES.HIGH,    leaked: true },
+              [voterWeighted12]: { weight: 12, outcome: OUTCOMES.LOW,     reveal: true },
+              [voterWeighted10]: { weight: 10, outcome: OUTCOMES.REFUSED, reveal: true },
+              [voterWeighted3]:  { weight: 3,  outcome: undefined },
+              [voterWeighted2]:  { weight: 2,  outcome: OUTCOMES.REFUSED, reveal: true },
+              [voterWeighted1]:  { weight: 1,  outcome: undefined },
+            }
+
+            const expectedTallies = { [OUTCOMES.LOW]: 12, [OUTCOMES.HIGH]: 0, [OUTCOMES.REFUSED]: 12 }
+            const expectedWinningOutcome = OUTCOMES.REFUSED
+            itSetsAWinningOutcome(votes, expectedTallies, expectedWinningOutcome)
+
+            const expectedWinners = [voterWeighted2, voterWeighted10]
+            itConsidersVotersAsWinners(votes, expectedWinners)
+
+            const expectedLosers = [voterWeighted1, voterWeighted3, voterWeighted12, voterWeighted13]
+            itConsidersVotersAsLosers(votes, expectedLosers)
+          })
+
+          context('when votes are casted unordered', () => {
+            const votes = {
+              [voterWeighted3]:  { weight: 3,  outcome: undefined },
+              [voterWeighted12]: { weight: 12, outcome: OUTCOMES.LOW,     reveal: true },
+              [voterWeighted13]: { weight: 13, outcome: OUTCOMES.HIGH,    leaked: true },
+              [voterWeighted2]:  { weight: 2,  outcome: OUTCOMES.REFUSED, reveal: true },
+              [voterWeighted10]: { weight: 10, outcome: OUTCOMES.REFUSED, reveal: true },
+              [voterWeighted1]:  { weight: 1,  outcome: undefined },
+            }
+
+            const expectedTallies = { [OUTCOMES.LOW]: 12, [OUTCOMES.HIGH]: 0, [OUTCOMES.REFUSED]: 12 }
+            const expectedWinningOutcome = OUTCOMES.REFUSED
+            itSetsAWinningOutcome(votes, expectedTallies, expectedWinningOutcome)
+
+            const expectedWinners = [voterWeighted2, voterWeighted10]
+            itConsidersVotersAsWinners(votes, expectedWinners)
+
+            const expectedLosers = [voterWeighted1, voterWeighted3, voterWeighted12, voterWeighted13]
+            itConsidersVotersAsLosers(votes, expectedLosers)
+          })
         })
 
         context('between the refused and the high outcomes', () => {
-          const votes = {
-            [voterWeighted1]:  { weight: 1,  outcome: undefined },
-            [voterWeighted2]:  { weight: 2,  outcome: OUTCOMES.HIGH,    reveal: true },
-            [voterWeighted3]:  { weight: 3,  outcome: undefined },
-            [voterWeighted10]: { weight: 10, outcome: OUTCOMES.HIGH,    reveal: true },
-            [voterWeighted12]: { weight: 12, outcome: OUTCOMES.REFUSED, reveal: true },
-            [voterWeighted13]: { weight: 13, outcome: OUTCOMES.HIGH,    leaked: true },
-          }
+          context('when votes are casted in weight-ascending order', () => {
+            const votes = {
+              [voterWeighted1]:  { weight: 1,  outcome: undefined },
+              [voterWeighted2]:  { weight: 2,  outcome: OUTCOMES.HIGH,    reveal: true },
+              [voterWeighted3]:  { weight: 3,  outcome: undefined },
+              [voterWeighted10]: { weight: 10, outcome: OUTCOMES.HIGH,    reveal: true },
+              [voterWeighted12]: { weight: 12, outcome: OUTCOMES.REFUSED, reveal: true },
+              [voterWeighted13]: { weight: 13, outcome: OUTCOMES.HIGH,    leaked: true },
+            }
 
-          const expectedTallies = { [OUTCOMES.LOW]: 0, [OUTCOMES.HIGH]: 12, [OUTCOMES.REFUSED]: 12 }
-          const expectedWinningOutcome = OUTCOMES.REFUSED
-          itSetsAWinningOutcome(votes, expectedTallies, expectedWinningOutcome)
+            const expectedTallies = { [OUTCOMES.LOW]: 0, [OUTCOMES.HIGH]: 12, [OUTCOMES.REFUSED]: 12 }
+            const expectedWinningOutcome = OUTCOMES.REFUSED
+            itSetsAWinningOutcome(votes, expectedTallies, expectedWinningOutcome)
 
-          const expectedWinners = [voterWeighted12]
-          itConsidersVotersAsWinners(votes, expectedWinners)
+            const expectedWinners = [voterWeighted12]
+            itConsidersVotersAsWinners(votes, expectedWinners)
 
-          const expectedLosers = [voterWeighted1, voterWeighted2, voterWeighted3, voterWeighted10, voterWeighted13]
-          itConsidersVotersAsLosers(votes, expectedLosers)
+            const expectedLosers = [voterWeighted1, voterWeighted2, voterWeighted3, voterWeighted10, voterWeighted13]
+            itConsidersVotersAsLosers(votes, expectedLosers)
+          })
+
+          context('when votes are casted in weight-descending order', () => {
+            const votes = {
+              [voterWeighted13]: { weight: 13, outcome: OUTCOMES.HIGH,    leaked: true },
+              [voterWeighted12]: { weight: 12, outcome: OUTCOMES.REFUSED, reveal: true },
+              [voterWeighted10]: { weight: 10, outcome: OUTCOMES.HIGH,    reveal: true },
+              [voterWeighted3]:  { weight: 3,  outcome: undefined },
+              [voterWeighted2]:  { weight: 2,  outcome: OUTCOMES.HIGH,    reveal: true },
+              [voterWeighted1]:  { weight: 1,  outcome: undefined },
+            }
+
+            const expectedTallies = { [OUTCOMES.LOW]: 0, [OUTCOMES.HIGH]: 12, [OUTCOMES.REFUSED]: 12 }
+            const expectedWinningOutcome = OUTCOMES.REFUSED
+            itSetsAWinningOutcome(votes, expectedTallies, expectedWinningOutcome)
+
+            const expectedWinners = [voterWeighted12]
+            itConsidersVotersAsWinners(votes, expectedWinners)
+
+            const expectedLosers = [voterWeighted1, voterWeighted2, voterWeighted3, voterWeighted10, voterWeighted13]
+            itConsidersVotersAsLosers(votes, expectedLosers)
+          })
+
+          context('when votes are casted unordered', () => {
+            const votes = {
+              [voterWeighted12]: { weight: 12, outcome: OUTCOMES.REFUSED, reveal: true },
+              [voterWeighted3]:  { weight: 3,  outcome: undefined },
+              [voterWeighted1]:  { weight: 1,  outcome: undefined },
+              [voterWeighted13]: { weight: 13, outcome: OUTCOMES.HIGH,    leaked: true },
+              [voterWeighted2]:  { weight: 2,  outcome: OUTCOMES.HIGH,    reveal: true },
+              [voterWeighted10]: { weight: 10, outcome: OUTCOMES.HIGH,    reveal: true },
+            }
+
+            const expectedTallies = { [OUTCOMES.LOW]: 0, [OUTCOMES.HIGH]: 12, [OUTCOMES.REFUSED]: 12 }
+            const expectedWinningOutcome = OUTCOMES.REFUSED
+            itSetsAWinningOutcome(votes, expectedTallies, expectedWinningOutcome)
+
+            const expectedWinners = [voterWeighted12]
+            itConsidersVotersAsWinners(votes, expectedWinners)
+
+            const expectedLosers = [voterWeighted1, voterWeighted2, voterWeighted3, voterWeighted10, voterWeighted13]
+            itConsidersVotersAsLosers(votes, expectedLosers)
+          })
         })
 
         context('between the low, high, and refused outcomes', () => {
+          context('when votes are casted in weight-ascending order', () => {
+            const votes = {
+              [voterWeighted1]:  { weight: 1,  outcome: OUTCOMES.REFUSED, reveal: true },
+              [voterWeighted2]:  { weight: 2,  outcome: undefined },
+              [voterWeighted3]:  { weight: 3,  outcome: OUTCOMES.LOW,     reveal: true },
+              [voterWeighted10]: { weight: 10, outcome: OUTCOMES.LOW,     reveal: true },
+              [voterWeighted12]: { weight: 12, outcome: OUTCOMES.REFUSED, reveal: true },
+              [voterWeighted13]: { weight: 13, outcome: OUTCOMES.HIGH,    reveal: true },
+            }
+
+            const expectedTallies = { [OUTCOMES.LOW]: 13, [OUTCOMES.HIGH]: 13, [OUTCOMES.REFUSED]: 13 }
+            const expectedWinningOutcome = OUTCOMES.REFUSED
+            itSetsAWinningOutcome(votes, expectedTallies, expectedWinningOutcome)
+
+            const expectedWinners = [voterWeighted1, voterWeighted12]
+            itConsidersVotersAsWinners(votes, expectedWinners)
+
+            const expectedLosers = [voterWeighted2, voterWeighted3, voterWeighted10, voterWeighted13]
+            itConsidersVotersAsLosers(votes, expectedLosers)
+          })
+        })
+
+        context('when votes are casted in weight-descending order', () => {
           const votes = {
-            [voterWeighted1]:  { weight: 1,  outcome: OUTCOMES.REFUSED, reveal: true },
-            [voterWeighted2]:  { weight: 2,  outcome: undefined },
-            [voterWeighted3]:  { weight: 3,  outcome: OUTCOMES.LOW,     reveal: true },
-            [voterWeighted10]: { weight: 10, outcome: OUTCOMES.LOW,     reveal: true },
-            [voterWeighted12]: { weight: 12, outcome: OUTCOMES.REFUSED, reveal: true },
             [voterWeighted13]: { weight: 13, outcome: OUTCOMES.HIGH,    reveal: true },
+            [voterWeighted12]: { weight: 12, outcome: OUTCOMES.REFUSED, reveal: true },
+            [voterWeighted10]: { weight: 10, outcome: OUTCOMES.LOW,     reveal: true },
+            [voterWeighted3]:  { weight: 3,  outcome: OUTCOMES.LOW,     reveal: true },
+            [voterWeighted2]:  { weight: 2,  outcome: undefined },
+            [voterWeighted1]:  { weight: 1,  outcome: OUTCOMES.REFUSED, reveal: true },
+          }
+
+          const expectedTallies = { [OUTCOMES.LOW]: 13, [OUTCOMES.HIGH]: 13, [OUTCOMES.REFUSED]: 13 }
+          const expectedWinningOutcome = OUTCOMES.REFUSED
+          itSetsAWinningOutcome(votes, expectedTallies, expectedWinningOutcome)
+
+          const expectedWinners = [voterWeighted1, voterWeighted12]
+          itConsidersVotersAsWinners(votes, expectedWinners)
+
+          const expectedLosers = [voterWeighted2, voterWeighted3, voterWeighted10, voterWeighted13]
+          itConsidersVotersAsLosers(votes, expectedLosers)
+        })
+
+        context('when votes are casted unordered', () => {
+          const votes = {
+            [voterWeighted10]: { weight: 10, outcome: OUTCOMES.LOW,     reveal: true },
+            [voterWeighted2]:  { weight: 2,  outcome: undefined },
+            [voterWeighted13]: { weight: 13, outcome: OUTCOMES.HIGH,    reveal: true },
+            [voterWeighted3]:  { weight: 3,  outcome: OUTCOMES.LOW,     reveal: true },
+            [voterWeighted12]: { weight: 12, outcome: OUTCOMES.REFUSED, reveal: true },
+            [voterWeighted1]:  { weight: 1,  outcome: OUTCOMES.REFUSED, reveal: true },
           }
 
           const expectedTallies = { [OUTCOMES.LOW]: 13, [OUTCOMES.HIGH]: 13, [OUTCOMES.REFUSED]: 13 }

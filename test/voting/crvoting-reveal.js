@@ -17,7 +17,7 @@ contract('CRVoting reveal', ([_, voter]) => {
 
   describe('reveal', () => {
     context('when the voting is initialized', () => {
-      beforeEach('initialize registry', async () => {
+      beforeEach('initialize voting', async () => {
         await voting.init(votingOwner.address)
       })
 
@@ -33,7 +33,7 @@ contract('CRVoting reveal', ([_, voter]) => {
             context('when the owner tells a weight greater than zero', () => {
               const weight = 10
 
-              beforeEach('mock the owner to revert', async () => {
+              beforeEach('mock voter weight', async () => {
                 await votingOwner.mockVoterWeight(voter, weight)
               })
 
@@ -45,7 +45,7 @@ contract('CRVoting reveal', ([_, voter]) => {
             context('when the owner tells a zeroed weight', () => {
               const weight = 0
 
-              beforeEach('mock the owner to revert', async () => {
+              beforeEach('mock voter weight', async () => {
                 await votingOwner.mockVoterWeight(voter, weight)
               })
 
@@ -79,7 +79,7 @@ contract('CRVoting reveal', ([_, voter]) => {
               context('when the owner tells a weight greater than zero', () => {
                 const weight = 10
 
-                beforeEach('mock the owner to revert', async () => {
+                beforeEach('mock voter weight', async () => {
                   await votingOwner.mockVoterWeight(voter, weight)
                 })
 
@@ -113,13 +113,9 @@ contract('CRVoting reveal', ([_, voter]) => {
                     })
 
                     it('computes the new winning outcome', async () => {
-                      const previousWinningOutcome = await voting.getWinningOutcome(votingId)
-
                       await voting.reveal(votingId, outcome, salt, { from: voter })
 
-                      const currentWinningOutcome = await voting.getWinningOutcome(votingId)
-                      assert.equal(currentWinningOutcome.toString(), outcome, 'winning outcomes do not match')
-                      assert.notEqual(previousWinningOutcome.toString(), currentWinningOutcome.toString(), 'winning outcomes do not match')
+                      assert.equal((await voting.getWinningOutcome(votingId)).toString(), outcome, 'winning outcomes does not match')
                     })
 
                     it('considers the voter as a winner', async () => {
@@ -163,7 +159,7 @@ contract('CRVoting reveal', ([_, voter]) => {
               context('when the owner tells a zeroed weight', () => {
                 const weight = 0
 
-                beforeEach('mock the owner to revert', async () => {
+                beforeEach('mock voter weight', async () => {
                   await votingOwner.mockVoterWeight(voter, weight)
                 })
 
@@ -196,7 +192,7 @@ contract('CRVoting reveal', ([_, voter]) => {
               context('when the owner tells a weight greater than zero', () => {
                 const weight = 10
 
-                beforeEach('mock the owner to revert', async () => {
+                beforeEach('mock voter weight', async () => {
                   await votingOwner.mockVoterWeight(voter, weight)
                 })
 
@@ -244,7 +240,7 @@ contract('CRVoting reveal', ([_, voter]) => {
               context('when the owner tells a zeroed weight', () => {
                 const weight = 0
 
-                beforeEach('mock the owner to revert', async () => {
+                beforeEach('mock voter weight', async () => {
                   await votingOwner.mockVoterWeight(voter, weight)
                 })
 
@@ -292,11 +288,11 @@ contract('CRVoting reveal', ([_, voter]) => {
           await assertRevert(voting.reveal(0, 0, '0x', { from: voter }), 'CRV_VOTING_DOES_NOT_EXIST')
         })
       })
+    })
 
-      context('when the registry is not initialized', () => {
-        it('reverts', async () => {
-          await assertRevert(voting.reveal(0, 0, '0x', { from: voter }), 'CRV_VOTING_DOES_NOT_EXIST')
-        })
+    context('when the voting is not initialized', () => {
+      it('reverts', async () => {
+        await assertRevert(voting.reveal(0, 0, '0x', { from: voter }), 'CRV_VOTING_DOES_NOT_EXIST')
       })
     })
   })

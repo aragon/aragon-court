@@ -16,7 +16,7 @@ contract('CRVoting create', ([_, someone]) => {
 
   describe('create', () => {
     context('when the voting is initialized', () => {
-      beforeEach('initialize registry', async () => {
+      beforeEach('initialize voting', async () => {
         await voting.init(votingOwner.address)
       })
 
@@ -30,7 +30,7 @@ contract('CRVoting create', ([_, someone]) => {
             it('creates the given voting', async () => {
               await votingOwner.create(votingId, possibleOutcomes)
 
-              assert.equal((await voting.getWinningOutcome(votingId)).toString(), 0, 'winning outcome does not match')
+              assert.isTrue(await voting.isValidOutcome(votingId, OUTCOMES.REFUSED), 'refused outcome should be invalid')
               assert.equal((await voting.getMaxAllowedOutcome(votingId)).toString(), possibleOutcomes + OUTCOMES.REFUSED, 'max allowed outcome does not match')
             })
 
@@ -59,10 +59,10 @@ contract('CRVoting create', ([_, someone]) => {
               assert.isFalse(await voting.isValidOutcome(votingId, OUTCOMES.LEAKED), 'leaked outcome should be invalid')
             })
 
-            it('considers the refused outcome valid', async () => {
+            it('considers refused as the winning outcome initially', async () => {
               await votingOwner.create(votingId, possibleOutcomes)
 
-              assert.isTrue(await voting.isValidOutcome(votingId, OUTCOMES.REFUSED), 'refused outcome should be invalid')
+              assert.equal((await voting.getWinningOutcome(votingId)).toString(), OUTCOMES.REFUSED, 'winning outcome does not match')
             })
           })
 
@@ -99,10 +99,11 @@ contract('CRVoting create', ([_, someone]) => {
         })
       })
 
-      context('when the registry is not initialized', () => {
-        it('reverts', async () => {
-          await assertRevert(voting.create(1, 2, { from: someone }), 'CRV_SENDER_NOT_OWNER')
-        })
+    })
+
+    context('when the voting is not initialized', () => {
+      it('reverts', async () => {
+        await assertRevert(voting.create(1, 2, { from: someone }), 'CRV_SENDER_NOT_OWNER')
       })
     })
   })

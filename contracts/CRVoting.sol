@@ -249,7 +249,7 @@ contract CRVoting is Initializable, ICRVoting {
         uint8 winningOutcome = voting.winningOutcome;
         bool[] memory votersInFavor = new bool[](_voters.length);
 
-        // If there is no winning outcome, no one will be marked as voting in favor of any given outcome.
+        // If there is no winning outcome (if no valid votes were tallied), no one will be marked as voting in favor of any given outcome.
         if (winningOutcome == OUTCOME_MISSING) {
             return votersInFavor;
         }

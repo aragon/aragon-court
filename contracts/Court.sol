@@ -64,7 +64,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner {
     }
 
     struct JurorState {
-        uint256 weight;
+        uint256 weight;  // TODO: think about optimizing size
         bool rewarded;
     }
 
@@ -567,7 +567,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner {
             uint256 collectedTokens = round.collectedTokens;
             emit RoundSlashingSettled(_disputeId, _roundId, collectedTokens);
 
-            // If there was at least one juror voting in favor of the winning ruling, we refund the creator of
+            // If there wasn't at least one juror voting in favor of the winning ruling, we refund the creator of
             // this round and burn the collected tokens of the jurors to be slashed. Note that this will happen
             // only when there were no jurors voting in favor of the winning outcome. Otherwise, these tokens are
             // re-distributed between the winning jurors in `settleReward` instead of being burned.
@@ -588,7 +588,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner {
             return dispute.finalRuling;
         }
 
-        // Ensure the last adjudication round has ended. Not there will always be at least one round.
+        // Ensure the last adjudication round has ended. Note that there will always be at least one round.
         uint256 lastRoundId = dispute.rounds.length - 1;
         _checkAdjudicationState(_disputeId, lastRoundId, AdjudicationState.Ended);
 
@@ -802,7 +802,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner {
         AdjudicationRound storage round = disputes[_disputeId].rounds[_roundId];
         JurorState storage jurorState = round.jurorSlotStates[_juror];
 
-        // If the juror weight for the las round was already computed, return that value
+        // If the juror weight for the last round was already computed, return that value
         if (jurorState.weight != uint256(0)) {
             return jurorState.weight;
         }

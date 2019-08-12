@@ -7,7 +7,7 @@ import "../../standards/voting/ICRVotingOwner.sol";
 contract CRVotingOwnerMock is ICRVotingOwner {
     ICRVoting internal voting;
     bool internal failing;
-    mapping (address => uint256) internal weights;
+    mapping (address => uint64) internal weights;
 
     constructor(ICRVoting _voting) public {
         voting = _voting;
@@ -17,7 +17,7 @@ contract CRVotingOwnerMock is ICRVotingOwner {
         failing = _failing;
     }
 
-    function mockVoterWeight(address _voter, uint256 _weight) external {
+    function mockVoterWeight(address _voter, uint64 _weight) external {
         weights[_voter] = _weight;
     }
 
@@ -25,7 +25,7 @@ contract CRVotingOwnerMock is ICRVotingOwner {
         voting.create(_votingId, _ruling);
     }
 
-    function getVoterWeightToCommit(uint256 /* _votingId */, address _voter) external returns (uint256) {
+    function getVoterWeightToCommit(uint256 /* _votingId */, address _voter) external returns (uint64) {
         if (failing) {
             revert('CRV_OWNER_MOCK_COMMIT_CHECK_REVERTED');
         }
@@ -33,7 +33,7 @@ contract CRVotingOwnerMock is ICRVotingOwner {
         return weights[_voter];
     }
 
-    function getVoterWeightToReveal(uint256 /* _votingId */, address _voter) external returns (uint256) {
+    function getVoterWeightToReveal(uint256 /* _votingId */, address _voter) external returns (uint64) {
         if (failing) {
             revert('CRV_OWNER_MOCK_REVEAL_CHECK_REVERTED');
         }

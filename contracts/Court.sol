@@ -765,10 +765,10 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner {
     * @param _voter Address of the voter querying the weight of
     * @return Weight of the requested juror for the requested dispute's round
     */
-    function getVoterWeightToCommit(uint256 _votingId, address _voter) external ensureTerm only(voting) returns (uint256) {
+    function getVoterWeightToCommit(uint256 _votingId, address _voter) external ensureTerm only(voting) returns (uint64) {
         (uint256 disputeId, uint256 roundId) = _decodeVotingId(_votingId);
         _checkAdjudicationState(disputeId, roundId, AdjudicationState.Commit);
-        return _getJurorWeight(disputeId, roundId, _voter);
+        return _computeJurorWeight(disputeId, roundId, _voter);
     }
 
     /**
@@ -777,10 +777,10 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner {
     * @param _voter Address of the voter querying the weight of
     * @return Weight of the requested juror for the requested dispute's round
     */
-    function getVoterWeightToReveal(uint256 _votingId, address _voter) external ensureTerm only(voting) returns (uint256) {
+    function getVoterWeightToReveal(uint256 _votingId, address _voter) external ensureTerm only(voting) returns (uint64) {
         (uint256 disputeId, uint256 roundId) = _decodeVotingId(_votingId);
         _checkAdjudicationState(disputeId, roundId, AdjudicationState.Reveal);
-        return _getJurorWeight(disputeId, roundId, _voter);
+        return _computeJurorWeight(disputeId, roundId, _voter);
     }
 
     /**
@@ -790,7 +790,8 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner {
     * @param _juror Address of the juror to calculate the weight of
     * @return Weight of the requested juror for the final round of the given dispute
     */
-    function _getJurorWeight(uint256 _disputeId, uint256 _roundId, address _juror) internal returns (uint256) {
+    function _getJurorWeight(uint256 _disputeId, uint256 _roundId, address _juror) internal view returns (uint64) {
+        // Note that it is safe to access a court config directly for a past term
         CourtConfig storage config = courtConfigs[terms[disputes[_disputeId].rounds[_roundId].draftTermId].courtConfigId];
 
         return (_roundId < config.maxRegularAppealRounds)
@@ -799,51 +800,91 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner {
     }
 
     /**
-    * @dev Internal function to get the juror weight for the final round. Note that for the final round the weight of
-    *      each juror is equal to the number of times the min active balance the juror has (multiplied by a precision
-    *      factor to deal with division rounding).
+    * @dev Internal function to compute the juror weight for a dispute's round
+    * @param _disputeId ID of the dispute to calculate the juror's weight of
+    * @param _roundId ID of the dispute's round to calculate the juror's weight of
+    * @param _juror Address of the juror to calculate the weight of
+    * @return Computed weight of the requested juror for the final round of the given dispute
+    */
+    function _computeJurorWeight(uint256 _disputeId, uint256 _roundId, address _juror) internal returns (uint64) {
+        // Note that it is safe to access a court config directly for a past term
+        CourtConfig storage config = courtConfigs[terms[disputes[_disputeId].rounds[_roundId].draftTermId].courtConfigId];
+
+        return (_roundId < config.maxRegularAppealRounds)
+            ? _getJurorWeightForRegularRound(_disputeId, _roundId, _juror)
+            : _computeJurorWeightForFinalRound(_disputeId, _roundId, _juror);
+    }
+
+    /**
+    * @dev Internal function to compute the juror weight for the final round. Note that for a final round the weight of
+    *      each juror is equal to the number of times the min active balance the juror has. This function will try to
+    *      collect said amount from the active balance of a juror, acting as a lock to allow them to vote.
     * @param _disputeId ID of the dispute to calculate the juror's weight of
     * @param _roundId ID of the dispute's round to calculate the juror's weight of
     * @param _juror Address of the juror to calculate the weight of
     * @return Weight of the requested juror for the final round of the given dispute
     */
-    function _getJurorWeightForFinalRound(uint256 _disputeId, uint256 _roundId, address _juror) internal returns (uint256) {
+    function _computeJurorWeightForFinalRound(uint256 _disputeId, uint256 _roundId, address _juror) internal returns (uint64) {
         AdjudicationRound storage round = disputes[_disputeId].rounds[_roundId];
         JurorState storage jurorState = round.jurorSlotStates[_juror];
 
         // If the juror weight for the last round was already computed, return that value
-        if (jurorState.weight != uint256(0)) {
+        if (jurorState.weight != uint64(0)) {
             return jurorState.weight;
         }
 
-        uint64 draftTermId = round.draftTermId;
-        uint256 activeBalance = jurorsRegistry.activeBalanceOfAt(_juror, draftTermId);
-        uint256 minJurorsActiveBalance = jurorsRegistry.minJurorsActiveBalance();
-
-        // Note that jurors may not reach the minimum active balance since some might have been slashed
-        if (activeBalance < minJurorsActiveBalance) {
-            return uint256(0);
+        // If the juror weight for the last round is zero, return zero
+        uint64 weight = _getJurorWeightForFinalRound(_disputeId, _roundId, _juror);
+        if (weight == uint64(0)) {
+            return uint64(0);
         }
+
+        // Note that it is safe to access a court config directly for a past term
+        uint64 draftTermId = round.draftTermId;
+        CourtConfig storage config = courtConfigs[terms[draftTermId].courtConfigId];
 
         // To guarantee scalability of the final round, since all jurors may vote, we try to collect the amount of
         // active tokens that needs to be locked for each juror when they try to commit their vote.
-        // Note that it is safe to access a court config directly for a past term
-        CourtConfig storage config = courtConfigs[terms[draftTermId].courtConfigId];
+        uint256 activeBalance = jurorsRegistry.activeBalanceOfAt(_juror, draftTermId);
         uint256 weightedPenalty = _pct4(activeBalance, config.penaltyPct);
         if (!jurorsRegistry.collectTokens(_juror, weightedPenalty, termId)) {
             // If it was not possible to collect the amount to be locked, return 0 to prevent juror from voting
-            return uint256(0);
+            return uint64(0);
         }
 
         // If it was possible to collect the amount of active tokens to be locked, update the final round state
-        uint64 weight = FINAL_ROUND_WEIGHT_PRECISION.mul(activeBalance / minJurorsActiveBalance).toUint64();
         jurorState.weight = weight;
         round.collectedTokens = round.collectedTokens.add(weightedPenalty);
         return weight;
     }
 
-    function getJurorWeight(uint256 _disputeId, uint256 _roundId, address _juror) external view returns (uint256) {
-        return _getJurorWeightForRegularRound(_disputeId, _roundId, _juror);
+    /**
+    * @dev Internal function to get the juror weight for the final round. Note that for the final round the weight of
+    *      each juror is equal to the number of times the min active balance the juror has, multiplied by a precision
+    *      factor to deal with division rounding.
+    * @param _disputeId ID of the dispute to calculate the juror's weight of
+    * @param _roundId ID of the dispute's round to calculate the juror's weight of
+    * @param _juror Address of the juror to calculate the weight of
+    * @return Weight of the requested juror for the final round of the given dispute
+    */
+    function _getJurorWeightForFinalRound(uint256 _disputeId, uint256 _roundId, address _juror) internal view returns (uint64) {
+        AdjudicationRound storage round = disputes[_disputeId].rounds[_roundId];
+        uint256 activeBalance = jurorsRegistry.activeBalanceOfAt(_juror, round.draftTermId);
+        uint256 minJurorsActiveBalance = jurorsRegistry.minJurorsActiveBalance();
+
+        // Note that jurors may not reach the minimum active balance since some might have been slashed. If that occurs,
+        // these jurors cannot vote in the final round.
+        if (activeBalance < minJurorsActiveBalance) {
+            return uint64(0);
+        }
+
+        // Otherwise, return the times the active balance of the juror fits in the min active balance, multiplying
+        // it by a round factor to ensure a better precision rounding.
+        return FINAL_ROUND_WEIGHT_PRECISION.mul(activeBalance / minJurorsActiveBalance).toUint64();
+    }
+
+    function getJurorWeight(uint256 _disputeId, uint256 _roundId, address _juror) external view returns (uint64) {
+        return _getJurorWeight(_disputeId, _roundId, _juror);
     }
 
     function _getVotingId(uint256 _disputeId, uint256 _roundId) internal pure returns (uint256) {
@@ -863,7 +904,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner {
     * @param _juror Address of the juror to calculate the weight of
     * @return Weight of the requested juror for the final round of the given dispute
     */
-    function _getJurorWeightForRegularRound(uint256 _disputeId, uint256 _roundId, address _juror) internal view returns (uint256) {
+    function _getJurorWeightForRegularRound(uint256 _disputeId, uint256 _roundId, address _juror) internal view returns (uint64) {
         return disputes[_disputeId].rounds[_roundId].jurorSlotStates[_juror].weight;
     }
 

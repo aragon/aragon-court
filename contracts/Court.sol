@@ -827,7 +827,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner {
         }
 
         // If it was possible to collect the amount of active tokens to be locked, update the final round state
-        uint256 weight = FINAL_ROUND_WEIGHT_PRECISION.mul(activeBalance / minJurorsActiveBalance);
+        uint256 weight = FINAL_ROUND_WEIGHT_PRECISION.mul(activeBalance) / minJurorsActiveBalance;
         jurorState.weight = weight;
         round.collectedTokens = round.collectedTokens.add(weightedPenalty);
         return weight;

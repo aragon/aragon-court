@@ -13,12 +13,14 @@ import "./standards/subscription/ISubscriptionsOwner.sol";
 import "@aragon/os/contracts/lib/token/ERC20.sol";
 import "@aragon/os/contracts/common/SafeERC20.sol";
 import "@aragon/os/contracts/lib/math/SafeMath.sol";
+import "@aragon/os/contracts/common/Uint256Helpers.sol";
 
 
 // solium-disable function-order
 contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner {
     using SafeERC20 for ERC20;
     using SafeMath for uint256;
+    using Uint256Helpers for uint256;
 
     uint8 public constant APPEAL_COLLATERAL_FACTOR = 3; // multiple of juror fees required to appeal a preliminary ruling
     uint8 public constant APPEAL_CONFIRMATION_COLLATERAL_FACTOR = 2; // multiple of juror fees required to confirm appeal
@@ -64,7 +66,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner {
     }
 
     struct JurorState {
-        uint256 weight;  // TODO: think about optimizing size
+        uint64 weight;
         bool rewarded;
     }
 
@@ -827,7 +829,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner {
         }
 
         // If it was possible to collect the amount of active tokens to be locked, update the final round state
-        uint256 weight = FINAL_ROUND_WEIGHT_PRECISION.mul(activeBalance) / minJurorsActiveBalance;
+        uint64 weight = FINAL_ROUND_WEIGHT_PRECISION.mul(activeBalance / minJurorsActiveBalance).toUint64();
         jurorState.weight = weight;
         round.collectedTokens = round.collectedTokens.add(weightedPenalty);
         return weight;

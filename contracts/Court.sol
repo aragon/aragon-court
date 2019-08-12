@@ -584,9 +584,8 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner {
     }
 
     function _ensureFinalRuling(uint256 _disputeId) internal returns (uint8) {
-        Dispute storage dispute = disputes[_disputeId];
-
         // Check if there was a final ruling already cached
+        Dispute storage dispute = disputes[_disputeId];
         if (dispute.finalRuling > 0) {
             return dispute.finalRuling;
         }
@@ -595,8 +594,15 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner {
         uint256 lastRoundId = dispute.rounds.length - 1;
         _checkAdjudicationState(_disputeId, lastRoundId, AdjudicationState.Ended);
 
-        uint256 lastRoundVotingId = _getVotingId(_disputeId, lastRoundId);
-        uint8 finalRuling = voting.getWinningOutcome(lastRoundVotingId);
+        // If the last adjudication round was appealed but no-one confirmed it, the final ruling is the outcome the
+        // appealer vouched for. Otherwise, fetch the winning outcome from the voting app of the last round.
+        AdjudicationRound storage lastRound = disputes[_disputeId].rounds[lastRoundId];
+        bool isRoundAppealedAndNotConfirmed = _isRoundAppealed(lastRound) && !_isRoundAppealConfirmed(lastRound);
+        uint8 finalRuling = isRoundAppealedAndNotConfirmed
+            ? lastRound.appealMaker.ruling
+            : voting.getWinningOutcome(_getVotingId(_disputeId, lastRoundId));
+
+        // Store the winning ruling as the final decision for the given dispute
         dispute.finalRuling = finalRuling;
         return finalRuling;
     }

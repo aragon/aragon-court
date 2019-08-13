@@ -696,10 +696,6 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
         return round.filledSeats == round.jurorNumber;
     }
 
-    function areAllJurorsSettled(uint256 _disputeId, uint256 _roundId) public view returns (bool) {
-        return disputes[_disputeId].rounds[_roundId].settledPenalties;
-    }
-
     function canTransitionTerm() public view returns (bool) {
         return neededTermTransitions() >= 1;
     }

@@ -319,10 +319,10 @@ contract('Court: Batches', ([ rich, arbitrable, juror1, juror2, juror3, juror4, 
     it('settles in 2 batches', async () => {
       const batchSize = 4
       await this.court.settleRoundSlashing(disputeId, firstRoundId, batchSize)
-      assert.isFalse(await this.court.areAllJurorsSettled.call(disputeId, firstRoundId))
+      assert.isFalse((await this.court.getAdjudicationRound.call(disputeId, firstRoundId))[3])
       const receipt = await this.court.settleRoundSlashing(disputeId, firstRoundId, batchSize)
       assertLogs(receipt, ROUND_SLASHING_SETTLED_EVENT)
-      assert.isTrue(await this.court.areAllJurorsSettled.call(disputeId, firstRoundId))
+      assert.isTrue((await this.court.getAdjudicationRound.call(disputeId, firstRoundId))[3])
     })
   })
 })

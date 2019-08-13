@@ -880,7 +880,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner {
 
         // Otherwise, return the times the active balance of the juror fits in the min active balance, multiplying
         // it by a round factor to ensure a better precision rounding.
-        return FINAL_ROUND_WEIGHT_PRECISION.mul(activeBalance / minJurorsActiveBalance).toUint64();
+        return (FINAL_ROUND_WEIGHT_PRECISION.mul(activeBalance) / minJurorsActiveBalance).toUint64();
     }
 
     function getJurorWeight(uint256 _disputeId, uint256 _roundId, address _juror) external view returns (uint64) {

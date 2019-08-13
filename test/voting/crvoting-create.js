@@ -21,72 +21,72 @@ contract('CRVoting create', ([_, someone]) => {
       })
 
       context('when the sender is the owner', () => {
-        const votingId = 1
+        const voteId = 1
 
-        context('when the given voting ID was not used before', () => {
+        context('when the given vote ID was not used before', () => {
           context('when the given possible outcomes is valid', () => {
             const possibleOutcomes = 5
 
             it('creates the given voting', async () => {
-              await votingOwner.create(votingId, possibleOutcomes)
+              await votingOwner.create(voteId, possibleOutcomes)
 
-              assert.isTrue(await voting.isValidOutcome(votingId, OUTCOMES.REFUSED), 'refused outcome should be invalid')
-              assert.equal((await voting.getMaxAllowedOutcome(votingId)).toString(), possibleOutcomes + OUTCOMES.REFUSED, 'max allowed outcome does not match')
+              assert.isTrue(await voting.isValidOutcome(voteId, OUTCOMES.REFUSED), 'refused outcome should be invalid')
+              assert.equal((await voting.getMaxAllowedOutcome(voteId)).toString(), possibleOutcomes + OUTCOMES.REFUSED, 'max allowed outcome does not match')
             })
 
             it('emits an event', async () => {
-              const { tx } = await votingOwner.create(votingId, possibleOutcomes)
+              const { tx } = await votingOwner.create(voteId, possibleOutcomes)
               const receipt = await web3.eth.getTransactionReceipt(tx)
               const logs = decodeEventsOfType({ receipt }, CRVoting.abi, 'VotingCreated')
 
               assertAmountOfEvents({ logs }, 'VotingCreated')
-              assertEvent({ logs }, 'VotingCreated', { votingId, possibleOutcomes })
+              assertEvent({ logs }, 'VotingCreated', { voteId, possibleOutcomes })
             })
 
             it('considers as valid outcomes any of the possible ones', async () => {
-              await votingOwner.create(votingId, possibleOutcomes)
+              await votingOwner.create(voteId, possibleOutcomes)
 
-              const masAllowedOutcome = (await voting.getMaxAllowedOutcome(votingId)).toNumber()
+              const masAllowedOutcome = (await voting.getMaxAllowedOutcome(voteId)).toNumber()
               for (let outcome = OUTCOMES.REFUSED + 1; outcome <= masAllowedOutcome; outcome++) {
-                assert.isTrue(await voting.isValidOutcome(votingId, outcome), 'outcome should be valid')
+                assert.isTrue(await voting.isValidOutcome(voteId, outcome), 'outcome should be valid')
               }
             })
 
             it('considers the missing and leaked outcomes invalid', async () => {
-              await votingOwner.create(votingId, possibleOutcomes)
+              await votingOwner.create(voteId, possibleOutcomes)
 
-              assert.isFalse(await voting.isValidOutcome(votingId, OUTCOMES.MISSING), 'missing outcome should be invalid')
-              assert.isFalse(await voting.isValidOutcome(votingId, OUTCOMES.LEAKED), 'leaked outcome should be invalid')
+              assert.isFalse(await voting.isValidOutcome(voteId, OUTCOMES.MISSING), 'missing outcome should be invalid')
+              assert.isFalse(await voting.isValidOutcome(voteId, OUTCOMES.LEAKED), 'leaked outcome should be invalid')
             })
 
             it('considers refused as the winning outcome initially', async () => {
-              await votingOwner.create(votingId, possibleOutcomes)
+              await votingOwner.create(voteId, possibleOutcomes)
 
-              assert.equal((await voting.getWinningOutcome(votingId)).toString(), OUTCOMES.REFUSED, 'winning outcome does not match')
+              assert.equal((await voting.getWinningOutcome(voteId)).toString(), OUTCOMES.REFUSED, 'winning outcome does not match')
             })
           })
 
           context('when the possible outcomes below the minimum', () => {
             it('reverts', async () => {
-              await assertRevert(votingOwner.create(votingId, 0), 'CRV_INVALID_OUTCOMES_AMOUNT')
-              await assertRevert(votingOwner.create(votingId, 1), 'CRV_INVALID_OUTCOMES_AMOUNT')
+              await assertRevert(votingOwner.create(voteId, 0), 'CRV_INVALID_OUTCOMES_AMOUNT')
+              await assertRevert(votingOwner.create(voteId, 1), 'CRV_INVALID_OUTCOMES_AMOUNT')
             })
           })
 
           context('when the possible outcomes above the maximum', () => {
             it('reverts', async () => {
-              await assertRevert(votingOwner.create(votingId, 510), 'CRV_INVALID_OUTCOMES_AMOUNT')
+              await assertRevert(votingOwner.create(voteId, 510), 'CRV_INVALID_OUTCOMES_AMOUNT')
             })
           })
         })
 
-        context('when the given voting ID was already used', () => {
+        context('when the given vote ID was already used', () => {
           beforeEach('create voting', async () => {
-            await votingOwner.create(votingId, 2)
+            await votingOwner.create(voteId, 2)
           })
 
           it('reverts', async () => {
-            await assertRevert(votingOwner.create(votingId, 2), 'CRV_VOTING_ALREADY_EXISTS')
+            await assertRevert(votingOwner.create(voteId, 2), 'CRV_VOTE_ALREADY_EXISTS')
           })
         })
       })

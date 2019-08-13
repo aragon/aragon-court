@@ -21,11 +21,11 @@ contract('CRVoting commit', ([_, voter]) => {
         await voting.init(votingOwner.address)
       })
 
-      context('when the given voting ID is valid', () => {
-        const votingId = 0
+      context('when the given vote ID is valid', () => {
+        const voteId = 0
 
         beforeEach('create voting', async () => {
-          await votingOwner.create(votingId, POSSIBLE_OUTCOMES)
+          await votingOwner.create(voteId, POSSIBLE_OUTCOMES)
         })
 
         context('when the voter has not voted before', () => {
@@ -41,46 +41,46 @@ contract('CRVoting commit', ([_, voter]) => {
                 const commitment = encryptVote(outcome)
 
                 it('does not affect the voter outcome yet', async () => {
-                  await voting.commit(votingId, commitment, { from: voter })
+                  await voting.commit(voteId, commitment, { from: voter })
 
-                  const voterOutcome = await voting.getVoterOutcome(votingId, voter)
+                  const voterOutcome = await voting.getVoterOutcome(voteId, voter)
                   assert.equal(voterOutcome.toString(), OUTCOMES.MISSING, 'voter outcome should be missing')
                 })
 
                 it('emits an event', async () => {
-                  const receipt = await voting.commit(votingId, commitment, { from: voter })
+                  const receipt = await voting.commit(voteId, commitment, { from: voter })
 
                   assertAmountOfEvents(receipt, 'VoteCommitted')
-                  assertEvent(receipt, 'VoteCommitted', { votingId, voter, commitment })
+                  assertEvent(receipt, 'VoteCommitted', { voteId, voter, commitment })
                 })
 
                 it('does not affect the outcomes tally', async () => {
-                  const previousTally = await voting.getOutcomeTally(votingId, outcome)
+                  const previousTally = await voting.getOutcomeTally(voteId, outcome)
 
-                  await voting.commit(votingId, commitment, { from: voter })
+                  await voting.commit(voteId, commitment, { from: voter })
 
-                  const currentTally = await voting.getOutcomeTally(votingId, outcome)
+                  const currentTally = await voting.getOutcomeTally(voteId, outcome)
                   assert.equal(previousTally.toString(), currentTally.toString(), 'tallies do not match')
                 })
 
                 it('does not affect the winning outcome', async () => {
-                  const previousWinningOutcome = await voting.getWinningOutcome(votingId)
-                  const previousWinningOutcomeTally = await voting.getWinningOutcomeTally(votingId)
+                  const previousWinningOutcome = await voting.getWinningOutcome(voteId)
+                  const previousWinningOutcomeTally = await voting.getWinningOutcomeTally(voteId)
 
-                  await voting.commit(votingId, commitment, { from: voter })
+                  await voting.commit(voteId, commitment, { from: voter })
 
-                  const currentWinningOutcome = await voting.getWinningOutcome(votingId)
+                  const currentWinningOutcome = await voting.getWinningOutcome(voteId)
                   assert.equal(previousWinningOutcome.toString(), currentWinningOutcome.toString(), 'winning outcomes do not match')
 
-                  const currentWinningOutcomeTally = await voting.getWinningOutcomeTally(votingId)
+                  const currentWinningOutcomeTally = await voting.getWinningOutcomeTally(voteId)
                   assert.equal(previousWinningOutcomeTally.toString(), currentWinningOutcomeTally.toString(), 'winning outcome tallies do not match')
                 })
 
                 it('does not consider the voter a winner', async () => {
-                  await voting.commit(votingId, commitment, { from: voter })
+                  await voting.commit(voteId, commitment, { from: voter })
 
-                  const winningOutcome = await voting.getWinningOutcome(votingId)
-                  assert.isFalse(await voting.hasVotedInFavorOf(votingId, winningOutcome, voter), 'voter should not be a winner')
+                  const winningOutcome = await voting.getWinningOutcome(voteId)
+                  assert.isFalse(await voting.hasVotedInFavorOf(voteId, winningOutcome, voter), 'voter should not be a winner')
                 })
               }
 
@@ -113,7 +113,7 @@ contract('CRVoting commit', ([_, voter]) => {
               })
 
               it('reverts', async () => {
-                await assertRevert(voting.commit(votingId, '0x', { from: voter }), 'CRV_COMMIT_DENIED_BY_OWNER')
+                await assertRevert(voting.commit(voteId, '0x', { from: voter }), 'CRV_COMMIT_DENIED_BY_OWNER')
               })
             })
           })
@@ -124,7 +124,7 @@ contract('CRVoting commit', ([_, voter]) => {
             })
 
             it('reverts', async () => {
-              await assertRevert(voting.commit(votingId, '0x', { from: voter }), 'CRV_OWNER_MOCK_COMMIT_CHECK_REVERTED')
+              await assertRevert(voting.commit(voteId, '0x', { from: voter }), 'CRV_OWNER_MOCK_COMMIT_CHECK_REVERTED')
             })
           })
         })
@@ -135,26 +135,26 @@ contract('CRVoting commit', ([_, voter]) => {
           beforeEach('mock voter weight and commit', async () => {
             const weight = 10
             await votingOwner.mockVoterWeight(voter, weight)
-            await voting.commit(votingId, commitment, { from: voter })
+            await voting.commit(voteId, commitment, { from: voter })
           })
 
           context('when the new commitment is the same as the previous one', () => {
             it('reverts', async () => {
-              await assertRevert(voting.commit(votingId, commitment, { from: voter }), 'CRV_VOTE_ALREADY_COMMITTED')
+              await assertRevert(voting.commit(voteId, commitment, { from: voter }), 'CRV_VOTE_ALREADY_COMMITTED')
             })
           })
 
           context('when the new commitment is different than the previous one', () => {
             it('reverts', async () => {
-              await assertRevert(voting.commit(votingId, encryptVote(100), { from: voter }), 'CRV_VOTE_ALREADY_COMMITTED')
+              await assertRevert(voting.commit(voteId, encryptVote(100), { from: voter }), 'CRV_VOTE_ALREADY_COMMITTED')
             })
           })
         })
       })
 
-      context('when the given voting ID is not valid', () => {
+      context('when the given vote ID is not valid', () => {
         it('reverts', async () => {
-          await assertRevert(voting.commit(0, '0x', { from: voter }), 'CRV_VOTING_DOES_NOT_EXIST')
+          await assertRevert(voting.commit(0, '0x', { from: voter }), 'CRV_VOTE_DOES_NOT_EXIST')
         })
       })
 
@@ -162,7 +162,7 @@ contract('CRVoting commit', ([_, voter]) => {
 
     context('when the voting is not initialized', () => {
       it('reverts', async () => {
-        await assertRevert(voting.commit(0, '0x', { from: voter }), 'CRV_VOTING_DOES_NOT_EXIST')
+        await assertRevert(voting.commit(0, '0x', { from: voter }), 'CRV_VOTE_DOES_NOT_EXIST')
       })
     })
   })

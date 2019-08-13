@@ -48,73 +48,73 @@ contract('CRVoting', ([ account0, account1 ]) => {
     })
 
     context('Voting actions', () => {
-      let votingId
+      let voteId
 
       beforeEach(async () => {
         const r = await votingOwner.create(0, 2)
-        votingId = getLog(r, 'VoteCreated', 'votingId')
+        voteId = getLog(r, 'VoteCreated', 'voteId')
         await votingOwner.mockVoterWeight(account0, 1)
       })
 
       context('Commit', () => {
         it('commits vote', async () => {
-          await this.voting.commit(votingId, encryptVote(vote))
+          await this.voting.commit(voteId, encryptVote(vote))
           // TODO
         })
 
         it('fails commiting non-existing vote', async () => {
-          await assertRevert(this.voting.commit(votingId + 1, encryptVote(vote)), 'CRV_VOTING_DOES_NOT_EXIST')
+          await assertRevert(this.voting.commit(voteId + 1, encryptVote(vote)), 'CRV_VOTE_DOES_NOT_EXIST')
         })
 
         it('fails commiting twice', async () => {
-          await this.voting.commit(votingId, encryptVote(vote))
-          await assertRevert(this.voting.commit(votingId, encryptVote(vote)))
+          await this.voting.commit(voteId, encryptVote(vote))
+          await assertRevert(this.voting.commit(voteId, encryptVote(vote)))
         })
 
         it('fails commiting vote if owner does not allow', async () => {
           await votingOwner.mockVoterWeight(account0, 0)
-          await assertRevert(this.voting.commit(votingId, encryptVote(vote)), 'CRV_COMMIT_DENIED_BY_OWNER')
+          await assertRevert(this.voting.commit(voteId, encryptVote(vote)), 'CRV_COMMIT_DENIED_BY_OWNER')
         })
       })
 
       context('Leak', () => {
         beforeEach(async () => {
-          await this.voting.commit(votingId, encryptVote(vote))
+          await this.voting.commit(voteId, encryptVote(vote))
         })
 
         // TODO
         it('leaks vote', async () => {
-          await this.voting.leak(votingId, account0, vote, SALT)
+          await this.voting.leak(voteId, account0, vote, SALT)
           // TODO
         })
 
         it('fails leaking non-existing vote', async () => {
-          await assertRevert(this.voting.commit(votingId + 1, encryptVote(vote)), 'CRV_VOTING_DOES_NOT_EXIST')
+          await assertRevert(this.voting.commit(voteId + 1, encryptVote(vote)), 'CRV_VOTE_DOES_NOT_EXIST')
         })
 
         it('fails leaking vote if owner does not allow', async () => {
           await votingOwner.mockVoterWeight(account0, 0)
-          await assertRevert(this.voting.leak(votingId, account0, vote, SALT), 'CRV_COMMIT_DENIED_BY_OWNER')
+          await assertRevert(this.voting.leak(voteId, account0, vote, SALT), 'CRV_COMMIT_DENIED_BY_OWNER')
         })
       })
 
       context('Reveal', () => {
         beforeEach(async () => {
-          await this.voting.commit(votingId, encryptVote(vote))
+          await this.voting.commit(voteId, encryptVote(vote))
         })
 
         it('reveals vote', async () => {
-          await this.voting.reveal(votingId, vote, SALT)
+          await this.voting.reveal(voteId, vote, SALT)
           // TODO
         })
 
         it('fails revealing non-existing vote', async () => {
-          await assertRevert(this.voting.commit(votingId + 1, encryptVote(vote)), 'CRV_VOTING_DOES_NOT_EXIST')
+          await assertRevert(this.voting.commit(voteId + 1, encryptVote(vote)), 'CRV_VOTE_DOES_NOT_EXIST')
         })
 
         it('fails revealing vote if owner does not allow', async () => {
           await votingOwner.mockVoterWeight(account0, 0)
-          await assertRevert(this.voting.reveal(votingId, vote, SALT), 'CRV_REVEAL_DENIED_BY_OWNER')
+          await assertRevert(this.voting.reveal(voteId, vote, SALT), 'CRV_REVEAL_DENIED_BY_OWNER')
         })
       })
     })

@@ -21,11 +21,11 @@ contract('CRVoting reveal', ([_, voter]) => {
         await voting.init(votingOwner.address)
       })
 
-      context('when the given voting ID is valid', () => {
-        const votingId = 0
+      context('when the given vote ID is valid', () => {
+        const voteId = 0
 
         beforeEach('create voting', async () => {
-          await votingOwner.create(votingId, POSSIBLE_OUTCOMES)
+          await votingOwner.create(voteId, POSSIBLE_OUTCOMES)
         })
 
         context('when the given voter has not voted before', () => {
@@ -38,7 +38,7 @@ contract('CRVoting reveal', ([_, voter]) => {
               })
 
               it('reverts', async () => {
-                await assertRevert(voting.reveal(votingId, OUTCOMES.LOW, SALT, { from: voter }), 'CRV_INVALID_COMMITMENT_SALT')
+                await assertRevert(voting.reveal(voteId, OUTCOMES.LOW, SALT, { from: voter }), 'CRV_INVALID_COMMITMENT_SALT')
               })
             })
 
@@ -50,7 +50,7 @@ contract('CRVoting reveal', ([_, voter]) => {
               })
 
               it('reverts', async () => {
-                await assertRevert(voting.reveal(votingId, OUTCOMES.LOW, SALT, { from: voter }), 'CRV_REVEAL_DENIED_BY_OWNER')
+                await assertRevert(voting.reveal(voteId, OUTCOMES.LOW, SALT, { from: voter }), 'CRV_REVEAL_DENIED_BY_OWNER')
               })
             })
           })
@@ -61,7 +61,7 @@ contract('CRVoting reveal', ([_, voter]) => {
             })
 
             it('reverts', async () => {
-              await assertRevert(voting.reveal(votingId, OUTCOMES.LOW, SALT, { from: voter }), 'CRV_OWNER_MOCK_REVEAL_CHECK_REVERTED')
+              await assertRevert(voting.reveal(voteId, OUTCOMES.LOW, SALT, { from: voter }), 'CRV_OWNER_MOCK_REVEAL_CHECK_REVERTED')
             })
           })
         })
@@ -72,7 +72,7 @@ contract('CRVoting reveal', ([_, voter]) => {
 
             beforeEach('commit a vote', async () => {
               await votingOwner.mockVoterWeight(voter, 10)
-              await voting.commit(votingId, commitment, { from: voter })
+              await voting.commit(voteId, commitment, { from: voter })
             })
 
             context('when the owner does not revert when checking the weight of the voter', () => {
@@ -90,39 +90,39 @@ contract('CRVoting reveal', ([_, voter]) => {
                     const salt = SALT
 
                     it('reveals the given vote', async () => {
-                      await voting.reveal(votingId, outcome, salt, { from: voter })
+                      await voting.reveal(voteId, outcome, salt, { from: voter })
 
-                      const voterOutcome = await voting.getVoterOutcome(votingId, voter)
+                      const voterOutcome = await voting.getVoterOutcome(voteId, voter)
                       assert.equal(voterOutcome.toString(), outcome, 'voter outcome does not match')
                     })
 
                     it('emits an event', async () => {
-                      const receipt = await voting.reveal(votingId, outcome, salt, { from: voter })
+                      const receipt = await voting.reveal(voteId, outcome, salt, { from: voter })
 
                       assertAmountOfEvents(receipt, 'VoteRevealed')
-                      assertEvent(receipt, 'VoteRevealed', { votingId, voter, outcome })
+                      assertEvent(receipt, 'VoteRevealed', { voteId, voter, outcome })
                     })
 
                     it('updates the outcomes tally', async () => {
-                      const previousTally = await voting.getOutcomeTally(votingId, outcome)
+                      const previousTally = await voting.getOutcomeTally(voteId, outcome)
 
-                      await voting.reveal(votingId, outcome, salt, { from: voter })
+                      await voting.reveal(voteId, outcome, salt, { from: voter })
 
-                      const currentTally = await voting.getOutcomeTally(votingId, outcome)
+                      const currentTally = await voting.getOutcomeTally(voteId, outcome)
                       assert.equal(previousTally.plus(weight).toString(), currentTally.toString(), 'tallies do not match')
                     })
 
                     it('computes the new winning outcome', async () => {
-                      await voting.reveal(votingId, outcome, salt, { from: voter })
+                      await voting.reveal(voteId, outcome, salt, { from: voter })
 
-                      assert.equal((await voting.getWinningOutcome(votingId)).toString(), outcome, 'winning outcomes does not match')
+                      assert.equal((await voting.getWinningOutcome(voteId)).toString(), outcome, 'winning outcomes does not match')
                     })
 
                     it('considers the voter as a winner', async () => {
-                      await voting.reveal(votingId, outcome, salt, { from: voter })
+                      await voting.reveal(voteId, outcome, salt, { from: voter })
 
-                      const winningOutcome = await voting.getWinningOutcome(votingId)
-                      assert.isTrue(await voting.hasVotedInFavorOf(votingId, winningOutcome, voter), 'voter should be a winner')
+                      const winningOutcome = await voting.getWinningOutcome(voteId)
+                      assert.isTrue(await voting.hasVotedInFavorOf(voteId, winningOutcome, voter), 'voter should be a winner')
                     })
                   })
 
@@ -130,7 +130,7 @@ contract('CRVoting reveal', ([_, voter]) => {
                     const salt = '0x'
 
                     it('reverts', async () => {
-                      await assertRevert(voting.reveal(votingId, outcome, salt, { from: voter }), 'CRV_INVALID_COMMITMENT_SALT')
+                      await assertRevert(voting.reveal(voteId, outcome, salt, { from: voter }), 'CRV_INVALID_COMMITMENT_SALT')
                     })
                   })
                 })
@@ -142,7 +142,7 @@ contract('CRVoting reveal', ([_, voter]) => {
                     const salt = SALT
 
                     it('reverts', async () => {
-                      await assertRevert(voting.reveal(votingId, outcome, salt, { from: voter }), 'CRV_INVALID_COMMITMENT_SALT')
+                      await assertRevert(voting.reveal(voteId, outcome, salt, { from: voter }), 'CRV_INVALID_COMMITMENT_SALT')
                     })
                   })
 
@@ -150,7 +150,7 @@ contract('CRVoting reveal', ([_, voter]) => {
                     const salt = '0x'
 
                     it('reverts', async () => {
-                      await assertRevert(voting.reveal(votingId, outcome, salt, { from: voter }), 'CRV_INVALID_COMMITMENT_SALT')
+                      await assertRevert(voting.reveal(voteId, outcome, salt, { from: voter }), 'CRV_INVALID_COMMITMENT_SALT')
                     })
                   })
                 })
@@ -164,7 +164,7 @@ contract('CRVoting reveal', ([_, voter]) => {
                 })
 
                 it('reverts', async () => {
-                  await assertRevert(voting.reveal(votingId, OUTCOMES.LOW, SALT, { from: voter }), 'CRV_REVEAL_DENIED_BY_OWNER')
+                  await assertRevert(voting.reveal(voteId, OUTCOMES.LOW, SALT, { from: voter }), 'CRV_REVEAL_DENIED_BY_OWNER')
                 })
               })
             })
@@ -175,7 +175,7 @@ contract('CRVoting reveal', ([_, voter]) => {
               })
 
               it('reverts', async () => {
-                await assertRevert(voting.reveal(votingId, committedOutcome, SALT, { from: voter }), 'CRV_OWNER_MOCK_REVEAL_CHECK_REVERTED')
+                await assertRevert(voting.reveal(voteId, committedOutcome, SALT, { from: voter }), 'CRV_OWNER_MOCK_REVEAL_CHECK_REVERTED')
               })
             })
           }
@@ -185,7 +185,7 @@ contract('CRVoting reveal', ([_, voter]) => {
 
             beforeEach('commit a vote', async () => {
               await votingOwner.mockVoterWeight(voter, 10)
-              await voting.commit(votingId, commitment, { from: voter })
+              await voting.commit(voteId, commitment, { from: voter })
             })
 
             context('when the owner does not revert when checking the weight of the voter', () => {
@@ -203,7 +203,7 @@ contract('CRVoting reveal', ([_, voter]) => {
                     const salt = SALT
 
                     it('reverts', async () => {
-                      await assertRevert(voting.reveal(votingId, outcome, salt, { from: voter }), 'CRV_INVALID_OUTCOME')
+                      await assertRevert(voting.reveal(voteId, outcome, salt, { from: voter }), 'CRV_INVALID_OUTCOME')
                     })
                   })
 
@@ -211,7 +211,7 @@ contract('CRVoting reveal', ([_, voter]) => {
                     const salt = '0x'
 
                     it('reverts', async () => {
-                      await assertRevert(voting.reveal(votingId, outcome, salt, { from: voter }), 'CRV_INVALID_COMMITMENT_SALT')
+                      await assertRevert(voting.reveal(voteId, outcome, salt, { from: voter }), 'CRV_INVALID_COMMITMENT_SALT')
                     })
                   })
                 })
@@ -223,7 +223,7 @@ contract('CRVoting reveal', ([_, voter]) => {
                     const salt = SALT
 
                     it('reverts', async () => {
-                      await assertRevert(voting.reveal(votingId, outcome, salt, { from: voter }), 'CRV_INVALID_COMMITMENT_SALT')
+                      await assertRevert(voting.reveal(voteId, outcome, salt, { from: voter }), 'CRV_INVALID_COMMITMENT_SALT')
                     })
                   })
 
@@ -231,7 +231,7 @@ contract('CRVoting reveal', ([_, voter]) => {
                     const salt = '0x'
 
                     it('reverts', async () => {
-                      await assertRevert(voting.reveal(votingId, outcome, salt, { from: voter }), 'CRV_INVALID_COMMITMENT_SALT')
+                      await assertRevert(voting.reveal(voteId, outcome, salt, { from: voter }), 'CRV_INVALID_COMMITMENT_SALT')
                     })
                   })
                 })
@@ -245,7 +245,7 @@ contract('CRVoting reveal', ([_, voter]) => {
                 })
 
                 it('reverts', async () => {
-                  await assertRevert(voting.reveal(votingId, OUTCOMES.LOW, SALT, { from: voter }), 'CRV_REVEAL_DENIED_BY_OWNER')
+                  await assertRevert(voting.reveal(voteId, OUTCOMES.LOW, SALT, { from: voter }), 'CRV_REVEAL_DENIED_BY_OWNER')
                 })
               })
             })
@@ -256,7 +256,7 @@ contract('CRVoting reveal', ([_, voter]) => {
               })
 
               it('reverts', async () => {
-                await assertRevert(voting.reveal(votingId, committedOutcome, SALT, { from: voter }), 'CRV_OWNER_MOCK_REVEAL_CHECK_REVERTED')
+                await assertRevert(voting.reveal(voteId, committedOutcome, SALT, { from: voter }), 'CRV_OWNER_MOCK_REVEAL_CHECK_REVERTED')
               })
             })
           }
@@ -283,16 +283,16 @@ contract('CRVoting reveal', ([_, voter]) => {
         })
       })
 
-      context('when the given voting ID is not valid', () => {
+      context('when the given vote ID is not valid', () => {
         it('reverts', async () => {
-          await assertRevert(voting.reveal(0, 0, '0x', { from: voter }), 'CRV_VOTING_DOES_NOT_EXIST')
+          await assertRevert(voting.reveal(0, 0, '0x', { from: voter }), 'CRV_VOTE_DOES_NOT_EXIST')
         })
       })
     })
 
     context('when the voting is not initialized', () => {
       it('reverts', async () => {
-        await assertRevert(voting.reveal(0, 0, '0x', { from: voter }), 'CRV_VOTING_DOES_NOT_EXIST')
+        await assertRevert(voting.reveal(0, 0, '0x', { from: voter }), 'CRV_VOTE_DOES_NOT_EXIST')
       })
     })
   })

@@ -21,11 +21,11 @@ contract('CRVoting leak', ([_, voter, someone]) => {
         await voting.init(votingOwner.address)
       })
 
-      context('when the given voting ID is valid', () => {
-        const votingId = 0
+      context('when the given vote ID is valid', () => {
+        const voteId = 0
 
         beforeEach('create voting', async () => {
-          await votingOwner.create(votingId, POSSIBLE_OUTCOMES)
+          await votingOwner.create(voteId, POSSIBLE_OUTCOMES)
         })
 
         context('when the given voter has not voted before', () => {
@@ -38,7 +38,7 @@ contract('CRVoting leak', ([_, voter, someone]) => {
               })
 
               it('reverts', async () => {
-                await assertRevert(voting.leak(votingId, voter, OUTCOMES.LOW, SALT, { from: someone }), 'CRV_INVALID_COMMITMENT_SALT')
+                await assertRevert(voting.leak(voteId, voter, OUTCOMES.LOW, SALT, { from: someone }), 'CRV_INVALID_COMMITMENT_SALT')
               })
             })
 
@@ -50,7 +50,7 @@ contract('CRVoting leak', ([_, voter, someone]) => {
               })
 
               it('reverts', async () => {
-                await assertRevert(voting.leak(votingId, voter, OUTCOMES.LOW, SALT, { from: someone }), 'CRV_COMMIT_DENIED_BY_OWNER')
+                await assertRevert(voting.leak(voteId, voter, OUTCOMES.LOW, SALT, { from: someone }), 'CRV_COMMIT_DENIED_BY_OWNER')
               })
             })
           })
@@ -61,7 +61,7 @@ contract('CRVoting leak', ([_, voter, someone]) => {
             })
 
             it('reverts', async () => {
-              await assertRevert(voting.leak(votingId, voter, OUTCOMES.LOW, SALT, { from: someone }), 'CRV_OWNER_MOCK_COMMIT_CHECK_REVERTED')
+              await assertRevert(voting.leak(voteId, voter, OUTCOMES.LOW, SALT, { from: someone }), 'CRV_OWNER_MOCK_COMMIT_CHECK_REVERTED')
             })
           })
         })
@@ -72,7 +72,7 @@ contract('CRVoting leak', ([_, voter, someone]) => {
 
             beforeEach('commit a vote', async () => {
               await votingOwner.mockVoterWeight(voter, 10)
-              await voting.commit(votingId, commitment, { from: voter })
+              await voting.commit(voteId, commitment, { from: voter })
             })
 
             context('when the owner does not revert when checking the weight of the voter', () => {
@@ -90,46 +90,46 @@ contract('CRVoting leak', ([_, voter, someone]) => {
                     const salt = SALT
 
                     it('leaks the given vote', async () => {
-                      await voting.leak(votingId, voter, outcome, salt, { from: someone })
+                      await voting.leak(voteId, voter, outcome, salt, { from: someone })
 
-                      const voterOutcome = await voting.getVoterOutcome(votingId, voter)
+                      const voterOutcome = await voting.getVoterOutcome(voteId, voter)
                       assert.equal(voterOutcome.toString(), OUTCOMES.LEAKED, 'voter outcome should be leaked')
                     })
 
                     it('emits an event', async () => {
-                      const receipt = await voting.leak(votingId, voter, outcome, salt, { from: someone })
+                      const receipt = await voting.leak(voteId, voter, outcome, salt, { from: someone })
 
                       assertAmountOfEvents(receipt, 'VoteLeaked')
-                      assertEvent(receipt, 'VoteLeaked', { votingId, voter, outcome, leaker: someone })
+                      assertEvent(receipt, 'VoteLeaked', { voteId, voter, outcome, leaker: someone })
                     })
 
                     it('does not affect the outcomes tally', async () => {
-                      const previousTally = await voting.getOutcomeTally(votingId, outcome)
+                      const previousTally = await voting.getOutcomeTally(voteId, outcome)
 
-                      await voting.leak(votingId, voter, outcome, salt, { from: someone })
+                      await voting.leak(voteId, voter, outcome, salt, { from: someone })
 
-                      const currentTally = await voting.getOutcomeTally(votingId, outcome)
+                      const currentTally = await voting.getOutcomeTally(voteId, outcome)
                       assert.equal(previousTally.toString(), currentTally.toString(), 'tallies do not match')
                     })
 
                     it('does not affect the winning outcome', async () => {
-                      const previousWinningOutcome = await voting.getWinningOutcome(votingId)
-                      const previousWinningOutcomeTally = await voting.getWinningOutcomeTally(votingId)
+                      const previousWinningOutcome = await voting.getWinningOutcome(voteId)
+                      const previousWinningOutcomeTally = await voting.getWinningOutcomeTally(voteId)
 
-                      await voting.leak(votingId, voter, outcome, salt, { from: someone })
+                      await voting.leak(voteId, voter, outcome, salt, { from: someone })
 
-                      const currentWinningOutcome = await voting.getWinningOutcome(votingId)
+                      const currentWinningOutcome = await voting.getWinningOutcome(voteId)
                       assert.equal(previousWinningOutcome.toString(), currentWinningOutcome.toString(), 'winning outcomes do not match')
 
-                      const currentWinningOutcomeTally = await voting.getWinningOutcomeTally(votingId)
+                      const currentWinningOutcomeTally = await voting.getWinningOutcomeTally(voteId)
                       assert.equal(previousWinningOutcomeTally.toString(), currentWinningOutcomeTally.toString(), 'winning outcome tallies do not match')
                     })
 
                     it('does not consider the voter a winner', async () => {
-                      await voting.leak(votingId, voter, outcome, salt, { from: someone })
+                      await voting.leak(voteId, voter, outcome, salt, { from: someone })
 
-                      const winningOutcome = await voting.getWinningOutcome(votingId)
-                      assert.isFalse(await voting.hasVotedInFavorOf(votingId, winningOutcome, voter), 'voter should not be a winner')
+                      const winningOutcome = await voting.getWinningOutcome(voteId)
+                      assert.isFalse(await voting.hasVotedInFavorOf(voteId, winningOutcome, voter), 'voter should not be a winner')
                     })
                   })
 
@@ -137,7 +137,7 @@ contract('CRVoting leak', ([_, voter, someone]) => {
                     const salt = '0x'
 
                     it('reverts', async () => {
-                      await assertRevert(voting.leak(votingId, voter, outcome, salt, { from: someone }), 'CRV_INVALID_COMMITMENT_SALT')
+                      await assertRevert(voting.leak(voteId, voter, outcome, salt, { from: someone }), 'CRV_INVALID_COMMITMENT_SALT')
                     })
                   })
                 })
@@ -149,7 +149,7 @@ contract('CRVoting leak', ([_, voter, someone]) => {
                     const salt = SALT
 
                     it('reverts', async () => {
-                      await assertRevert(voting.leak(votingId, voter, outcome, salt, { from: someone }), 'CRV_INVALID_COMMITMENT_SALT')
+                      await assertRevert(voting.leak(voteId, voter, outcome, salt, { from: someone }), 'CRV_INVALID_COMMITMENT_SALT')
                     })
                   })
 
@@ -157,7 +157,7 @@ contract('CRVoting leak', ([_, voter, someone]) => {
                     const salt = '0x'
 
                     it('reverts', async () => {
-                      await assertRevert(voting.leak(votingId, voter, outcome, salt, { from: someone }), 'CRV_INVALID_COMMITMENT_SALT')
+                      await assertRevert(voting.leak(voteId, voter, outcome, salt, { from: someone }), 'CRV_INVALID_COMMITMENT_SALT')
                     })
                   })
                 })
@@ -171,7 +171,7 @@ contract('CRVoting leak', ([_, voter, someone]) => {
                 })
 
                 it('reverts', async () => {
-                  await assertRevert(voting.leak(votingId, voter, OUTCOMES.LOW, SALT, { from: someone }), 'CRV_COMMIT_DENIED_BY_OWNER')
+                  await assertRevert(voting.leak(voteId, voter, OUTCOMES.LOW, SALT, { from: someone }), 'CRV_COMMIT_DENIED_BY_OWNER')
                 })
               })
             })
@@ -182,7 +182,7 @@ contract('CRVoting leak', ([_, voter, someone]) => {
               })
 
               it('reverts', async () => {
-                await assertRevert(voting.leak(votingId, voter, committedOutcome, SALT, { from: someone }), 'CRV_OWNER_MOCK_COMMIT_CHECK_REVERTED')
+                await assertRevert(voting.leak(voteId, voter, committedOutcome, SALT, { from: someone }), 'CRV_OWNER_MOCK_COMMIT_CHECK_REVERTED')
               })
             })
           }
@@ -209,16 +209,16 @@ contract('CRVoting leak', ([_, voter, someone]) => {
         })
       })
 
-      context('when the given voting ID is not valid', () => {
+      context('when the given vote ID is not valid', () => {
         it('reverts', async () => {
-          await assertRevert(voting.leak(0, voter, 0, '0x', { from: someone }), 'CRV_VOTING_DOES_NOT_EXIST')
+          await assertRevert(voting.leak(0, voter, 0, '0x', { from: someone }), 'CRV_VOTE_DOES_NOT_EXIST')
         })
       })
     })
 
     context('when the voting is not initialized', () => {
       it('reverts', async () => {
-        await assertRevert(voting.leak(0, voter, 0, '0x', { from: someone }), 'CRV_VOTING_DOES_NOT_EXIST')
+        await assertRevert(voting.leak(0, voter, 0, '0x', { from: someone }), 'CRV_VOTE_DOES_NOT_EXIST')
       })
     })
   })

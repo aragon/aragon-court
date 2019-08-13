@@ -6,32 +6,32 @@ const CRVotingOwner = artifacts.require('CRVotingOwnerMock')
 const POSSIBLE_OUTCOMES = 2
 
 contract('CRVoting', ([_, voterWeighted1, voterWeighted2, voterWeighted3, voterWeighted10, voterWeighted12, voterWeighted13, someone]) => {
-  let voting, votingOwner, votingId = 0
+  let voting, votingOwner, voteId = 0
 
   beforeEach('create voting', async () => {
     voting = await CRVoting.new()
     votingOwner = await CRVotingOwner.new(voting.address)
     await voting.init(votingOwner.address)
-    await votingOwner.create(votingId, POSSIBLE_OUTCOMES)
+    await votingOwner.create(voteId, POSSIBLE_OUTCOMES)
   })
 
   const submitVotes = async votes => {
     for (const voter in votes) {
       const { weight, outcome, reveal, leak } = votes[voter]
       await votingOwner.mockVoterWeight(voter, weight)
-      if (outcome) await voting.commit(votingId, encryptVote(outcome), { from: voter })
-      if (reveal) await voting.reveal(votingId, outcome, SALT, { from: voter })
-      if (leak) await voting.leak(votingId, voter, outcome, SALT, { from: someone })
+      if (outcome) await voting.commit(voteId, encryptVote(outcome), { from: voter })
+      if (reveal) await voting.reveal(voteId, outcome, SALT, { from: voter })
+      if (leak) await voting.leak(voteId, voter, outcome, SALT, { from: someone })
     }
   }
 
   const itConsidersVotersAsWinners = (votes, expectedWinners) => {
     it('marks voters as winners', async () => {
       await submitVotes(votes)
-      const winningOutcome = await voting.getWinningOutcome(votingId)
+      const winningOutcome = await voting.getWinningOutcome(voteId)
 
       for (const voter of expectedWinners) {
-        assert.isTrue(await voting.hasVotedInFavorOf(votingId, winningOutcome, voter), `voter with weight ${votes[voter].weight} should be considered a winner`)
+        assert.isTrue(await voting.hasVotedInFavorOf(voteId, winningOutcome, voter), `voter with weight ${votes[voter].weight} should be considered a winner`)
       }
     })
   }
@@ -39,10 +39,10 @@ contract('CRVoting', ([_, voterWeighted1, voterWeighted2, voterWeighted3, voterW
   const itConsidersVotersAsLosers = (votes, expectedLosers) => {
     it('marks voters as losers', async () => {
       await submitVotes(votes)
-      const winningOutcome = await voting.getWinningOutcome(votingId)
+      const winningOutcome = await voting.getWinningOutcome(voteId)
 
       for (const voter of expectedLosers) {
-        assert.isFalse(await voting.hasVotedInFavorOf(votingId, winningOutcome, voter), `voter with weight ${votes[voter].weight} should be considered a loser`)
+        assert.isFalse(await voting.hasVotedInFavorOf(voteId, winningOutcome, voter), `voter with weight ${votes[voter].weight} should be considered a loser`)
       }
     })
   }
@@ -51,25 +51,25 @@ contract('CRVoting', ([_, voterWeighted1, voterWeighted2, voterWeighted3, voterW
     it('computes the new winning outcome', async () => {
       await submitVotes(votes)
 
-      const missingOutcomeTally = await voting.getOutcomeTally(votingId, OUTCOMES.MISSING)
+      const missingOutcomeTally = await voting.getOutcomeTally(voteId, OUTCOMES.MISSING)
       assert.equal(missingOutcomeTally.toString(), 0, 'missing outcome should be zero')
 
-      const leakedOutcomeTally = await voting.getOutcomeTally(votingId, OUTCOMES.LEAKED)
+      const leakedOutcomeTally = await voting.getOutcomeTally(voteId, OUTCOMES.LEAKED)
       assert.equal(leakedOutcomeTally.toString(), 0, 'leaked outcome should be zero')
 
-      const lowOutcomeTally = await voting.getOutcomeTally(votingId, OUTCOMES.LOW)
+      const lowOutcomeTally = await voting.getOutcomeTally(voteId, OUTCOMES.LOW)
       assert.equal(lowOutcomeTally.toString(), expectedTallies[OUTCOMES.LOW], 'low outcome tallies do not match')
 
-      const highOutcomeTally = await voting.getOutcomeTally(votingId, OUTCOMES.HIGH)
+      const highOutcomeTally = await voting.getOutcomeTally(voteId, OUTCOMES.HIGH)
       assert.equal(highOutcomeTally.toString(), expectedTallies[OUTCOMES.HIGH], 'high outcome tallies do not match')
 
-      const refusedOutcomeTally = await voting.getOutcomeTally(votingId, OUTCOMES.REFUSED)
+      const refusedOutcomeTally = await voting.getOutcomeTally(voteId, OUTCOMES.REFUSED)
       assert.equal(refusedOutcomeTally.toString(), expectedTallies[OUTCOMES.REFUSED], 'refused tallies do not match')
 
-      const winningOutcome = await voting.getWinningOutcome(votingId)
+      const winningOutcome = await voting.getWinningOutcome(voteId)
       assert.equal(winningOutcome.toString(), expectedWinningOutcome, 'winning outcome does not match')
 
-      const winningOutcomeTally = await voting.getWinningOutcomeTally(votingId)
+      const winningOutcomeTally = await voting.getWinningOutcomeTally(voteId)
       assert.equal(winningOutcomeTally.toString(), expectedTallies[expectedWinningOutcome], 'winning outcome tally does not match')
     })
   }
@@ -78,25 +78,25 @@ contract('CRVoting', ([_, voterWeighted1, voterWeighted2, voterWeighted3, voterW
     it('does not set a winning outcome', async () => {
       await submitVotes(votes)
 
-      const missingOutcomeTally = await voting.getOutcomeTally(votingId, OUTCOMES.MISSING)
+      const missingOutcomeTally = await voting.getOutcomeTally(voteId, OUTCOMES.MISSING)
       assert.equal(missingOutcomeTally.toString(), 0, 'missing outcome should be zero')
 
-      const leakedOutcomeTally = await voting.getOutcomeTally(votingId, OUTCOMES.LEAKED)
+      const leakedOutcomeTally = await voting.getOutcomeTally(voteId, OUTCOMES.LEAKED)
       assert.equal(leakedOutcomeTally.toString(), 0, 'leaked outcome should be zero')
 
-      const currentLowOutcomeTally = await voting.getOutcomeTally(votingId, OUTCOMES.LOW)
+      const currentLowOutcomeTally = await voting.getOutcomeTally(voteId, OUTCOMES.LOW)
       assert.equal(currentLowOutcomeTally.toString(), 0, 'low outcome tallies do not match')
 
-      const currentHighOutcomeTally = await voting.getOutcomeTally(votingId, OUTCOMES.HIGH)
+      const currentHighOutcomeTally = await voting.getOutcomeTally(voteId, OUTCOMES.HIGH)
       assert.equal(currentHighOutcomeTally.toString(), 0, 'high outcome tallies do not match')
 
-      const currentRefusedOutcomeTally = await voting.getOutcomeTally(votingId, OUTCOMES.REFUSED)
+      const currentRefusedOutcomeTally = await voting.getOutcomeTally(voteId, OUTCOMES.REFUSED)
       assert.equal(currentRefusedOutcomeTally.toString(), 0, 'refused tallies do not match')
 
-      const winningOutcome = await voting.getWinningOutcome(votingId)
+      const winningOutcome = await voting.getWinningOutcome(voteId)
       assert.equal(winningOutcome.toString(), OUTCOMES.REFUSED, 'refused should be the winning outcome')
 
-      const winningOutcomeTally = await voting.getWinningOutcomeTally(votingId)
+      const winningOutcomeTally = await voting.getWinningOutcomeTally(voteId)
       assert.equal(winningOutcomeTally.toString(), 0, 'winning outcome tally should be zero')
     })
   }

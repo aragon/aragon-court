@@ -443,7 +443,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
     /**
      * @notice Confirm appeal for #`_roundId` ruling in dispute #`_disputeId`
      */
-    function appealConfirm(uint256 _disputeId, uint256 _roundId, uint8 _ruling) external ensureTerm {
+    function confirmAppeal(uint256 _disputeId, uint256 _roundId, uint8 _ruling) external ensureTerm {
         _checkAdjudicationState(_disputeId, _roundId, AdjudicationState.AppealConfirm);
 
         Dispute storage dispute = disputes[_disputeId];
@@ -455,7 +455,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
         uint256 voteId = _getVoteId(_disputeId, _roundId);
         require(round.appealMaker.ruling != _ruling && voting.isValidOutcome(voteId, _ruling), ERROR_INVALID_APPEAL_RULING);
 
-        (uint64 appealDraftTermId, uint64 appealJurorNumber, ERC20 feeToken,, uint256 jurorFees,, uint256 appealConfirmDeposit) = _getNextAppealDetails(round, _roundId);
+        (uint64 appealDraftTermId, uint64 appealJurorNumber, ERC20 feeToken,, uint256 jurorFees,, uint256 confirmAppealDeposit) = _getNextAppealDetails(round, _roundId);
 
         // Note that it is safe to access a court config directly for a past term
         CourtConfig storage config = courtConfigs[terms[round.draftTermId].courtConfigId];
@@ -474,7 +474,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
         emit RulingAppealConfirmed(_disputeId, newRoundId, appealDraftTermId, appealJurorNumber);
 
         // pay round collateral (fees are included in appeal collateral, which is a multiple of them)
-        _payGeneric(feeToken, appealConfirmDeposit);
+        _payGeneric(feeToken, confirmAppealDeposit);
     }
 
     /**
@@ -489,7 +489,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
         require(_isRoundAppealed(round), ERROR_ROUND_NOT_APPEALED);
         require(!round.settledAppeals, ERROR_ROUND_APPEAL_ALREADY_SETTLED);
 
-        (,,ERC20 depositToken,uint256 feeAmount,,uint256 appealDeposit, uint256 appealConfirmDeposit) = _getNextAppealDetails(round, _roundId);
+        (,,ERC20 depositToken,uint256 feeAmount,,uint256 appealDeposit, uint256 confirmAppealDeposit) = _getNextAppealDetails(round, _roundId);
 
         // TODO: could these be real transfers instead of assignTokens?
         if (!_isRoundAppealConfirmed(round)) {
@@ -500,7 +500,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
 
             // as round penalties were settled, we are sure we already have final ruling
             uint8 finalRuling = dispute.finalRuling;
-            uint256 totalDeposit = appealDeposit + appealConfirmDeposit;
+            uint256 totalDeposit = appealDeposit + confirmAppealDeposit;
 
             if (appealMaker.ruling == finalRuling) {
                 accounting.assign(depositToken, appealMaker.appealer, totalDeposit - feeAmount);
@@ -510,7 +510,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
                 // If the final ruling wasn't selected by any of the appealing parties or no jurors voted in the
                 // final round, return their deposits minus half of the fees to each party
                 accounting.assign(depositToken, appealMaker.appealer, appealDeposit - feeAmount / 2);
-                accounting.assign(depositToken, appealTaker.appealer, appealConfirmDeposit - feeAmount / 2);
+                accounting.assign(depositToken, appealTaker.appealer, confirmAppealDeposit - feeAmount / 2);
             }
         }
 
@@ -732,7 +732,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
             uint256 feeAmount,
             uint256 jurorFees,
             uint256 appealDeposit,
-            uint256 appealConfirmDeposit
+            uint256 confirmAppealDeposit
         )
     {
         AdjudicationRound storage currentRound = disputes[_disputeId].rounds[_roundId];
@@ -953,7 +953,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
             uint256 feeAmount,
             uint256 jurorFees,
             uint256 appealDeposit,
-            uint256 appealConfirmDeposit
+            uint256 confirmAppealDeposit
         )
     {
         CourtConfig storage config = courtConfigs[terms[_currentRound.draftTermId].courtConfigId];
@@ -972,7 +972,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
 
         // collateral
         appealDeposit = feeAmount * APPEAL_COLLATERAL_FACTOR;
-        appealConfirmDeposit = feeAmount * APPEAL_CONFIRMATION_COLLATERAL_FACTOR;
+        confirmAppealDeposit = feeAmount * APPEAL_CONFIRMATION_COLLATERAL_FACTOR;
     }
 
     function _getRegularAdjudicationRoundJurorNumber(uint64 _appealStepFactor, uint64 _currentRoundJurorNumber) internal pure

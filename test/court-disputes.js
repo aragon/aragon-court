@@ -213,7 +213,7 @@ contract('Court: Disputes', ([ rich, juror1, juror2, juror3, other, appealMaker,
         // advance two blocks to ensure we can compute term randomness
         await this.courtHelper.advanceBlocks(2)
 
-        await assertRevert(this.court.draftAdjudicationRound(disputeId), ERROR_NOT_DRAFT_TERM)
+        await assertRevert(this.court.draft(disputeId), ERROR_NOT_DRAFT_TERM)
       })
 
       context('on juror draft (hijacked)', () => {
@@ -229,7 +229,7 @@ contract('Court: Disputes', ([ rich, juror1, juror2, juror3, other, appealMaker,
           // advance two blocks to ensure we can compute term randomness
           await this.courtHelper.advanceBlocks(2)
 
-          const receipt = await this.court.draftAdjudicationRound(disputeId)
+          const receipt = await this.court.draft(disputeId)
           assertDeepLogs(receipt, this.jurorsRegistry.abi, JUROR_DRAFTED_EVENT)
           assertLogs(receipt, DISPUTE_STATE_CHANGED_EVENT)
         })
@@ -249,7 +249,7 @@ contract('Court: Disputes', ([ rich, juror1, juror2, juror3, other, appealMaker,
         })
 
         it('fails to draft a second time', async () => {
-          await assertRevert(this.court.draftAdjudicationRound(disputeId), ERROR_ROUND_ALREADY_DRAFTED)
+          await assertRevert(this.court.draft(disputeId), ERROR_ROUND_ALREADY_DRAFTED)
         })
 
         context('jurors commit', () => {
@@ -415,7 +415,7 @@ contract('Court: Disputes', ([ rich, juror1, juror2, juror3, other, appealMaker,
                 // advance two blocks to ensure we can compute term randomness
                 await this.courtHelper.advanceBlocks(2)
 
-                await assertRevert(this.court.draftAdjudicationRound(disputeId), ERROR_ROUND_ALREADY_DRAFTED)
+                await assertRevert(this.court.draft(disputeId), ERROR_ROUND_ALREADY_DRAFTED)
               })
 
               it('maker gets collateral back without appeal confirmation', async () => {
@@ -436,7 +436,7 @@ contract('Court: Disputes', ([ rich, juror1, juror2, juror3, other, appealMaker,
                   // advance two blocks to ensure we can compute term randomness
                   await this.courtHelper.advanceBlocks(2)
 
-                  const receipt = await this.court.draftAdjudicationRound(disputeId)
+                  const receipt = await this.court.draft(disputeId)
                   assertDeepLogs(receipt, this.jurorsRegistry.abi, JUROR_DRAFTED_EVENT)
                   assertLogs(receipt, DISPUTE_STATE_CHANGED_EVENT)
                 }

@@ -180,7 +180,7 @@ contract('Court: final appeal', ([ poor, rich, juror1, juror2, juror3, juror4, j
       voteId = getVoteId(disputeId, firstRoundId)
     })
 
-    const draftAdjudicationRound = async (roundJurors) => {
+    const draft = async (roundJurors) => {
       let roundJurorsDrafted = 0
       let draftReceipt
 
@@ -188,7 +188,7 @@ contract('Court: final appeal', ([ poor, rich, juror1, juror2, juror3, juror4, j
       await this.courtHelper.advanceBlocks(2)
 
       while (roundJurorsDrafted < roundJurors) {
-        draftReceipt = await this.court.draftAdjudicationRound(disputeId)
+        draftReceipt = await this.court.draft(disputeId)
         const callJurorsDrafted = getLogCount(draftReceipt, this.jurorsRegistry.abi, JUROR_DRAFTED_EVENT)
         roundJurorsDrafted += callJurorsDrafted
       }
@@ -205,7 +205,7 @@ contract('Court: final appeal', ([ poor, rich, juror1, juror2, juror3, juror4, j
           roundJurors++
         }
         // draft
-        await draftAdjudicationRound(roundJurors)
+        await draft(roundJurors)
 
         // commit
         await passTerms(commitTerms)

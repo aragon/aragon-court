@@ -207,7 +207,7 @@ contract('Court: Batches', ([ rich, arbitrable, juror1, juror2, juror3, juror4, 
 
         while(totalJurorsDrafted < jurors) {
           assert.isFalse(await this.court.areAllJurorsDrafted.call(disputeId, firstRoundId))
-          const callJurorsDrafted = getLogCount(await this.court.draftAdjudicationRound(disputeId), this.jurorsRegistry.abi, JUROR_DRAFTED_EVENT)
+          const callJurorsDrafted = getLogCount(await this.court.draft(disputeId), this.jurorsRegistry.abi, JUROR_DRAFTED_EVENT)
           callsHistory.push(callJurorsDrafted)
           totalJurorsDrafted += callJurorsDrafted
           await checkWeights(callsHistory)
@@ -225,7 +225,7 @@ contract('Court: Batches', ([ rich, arbitrable, juror1, juror2, juror3, juror4, 
           // advance two blocks to ensure we can compute term randomness
           await this.courtHelper.advanceBlocks(2)
 
-          const callJurorsDrafted = getLogCount(await this.court.draftAdjudicationRound(disputeId), this.jurorsRegistry.abi, JUROR_DRAFTED_EVENT)
+          const callJurorsDrafted = getLogCount(await this.court.draft(disputeId), this.jurorsRegistry.abi, JUROR_DRAFTED_EVENT)
           callsHistory.push(callJurorsDrafted)
           totalJurorsDrafted += callJurorsDrafted
           await checkWeights(callsHistory)
@@ -242,13 +242,13 @@ contract('Court: Batches', ([ rich, arbitrable, juror1, juror2, juror3, juror4, 
       it.skip('needs to wait until next term if randomness is missing', async () => {
         // make sure we miss randomness
         await this.courtHelper.advanceBlocks(257)
-        await assertRevert(this.court.draftAdjudicationRound(disputeId), ERROR_TERM_RANDOMNESS_UNAVAIL)
+        await assertRevert(this.court.draft(disputeId), ERROR_TERM_RANDOMNESS_UNAVAIL)
         // move forward to next term
         await passTerms(1)
         // advance two blocks to ensure we can compute term randomness
         await this.courtHelper.advanceBlocks(2)
 
-        const callJurorsDrafted = getLogCount(await this.court.draftAdjudicationRound(disputeId), this.jurorsRegistry.abi, JUROR_DRAFTED_EVENT)
+        const callJurorsDrafted = getLogCount(await this.court.draft(disputeId), this.jurorsRegistry.abi, JUROR_DRAFTED_EVENT)
         assert.isTrue(callJurorsDrafted > 0, 'no jurors were drafted in next term')
       })
     })
@@ -264,10 +264,10 @@ contract('Court: Batches', ([ rich, arbitrable, juror1, juror2, juror3, juror4, 
 
         // assuming jurors is not multiple of MAX_JURORS_PER_DRAFT_BATCH
         for (let i = 0; i < Math.floor(jurors / MAX_JURORS_PER_DRAFT_BATCH); i++) {
-          const callJurorsDrafted = getLogCount(await this.court.draftAdjudicationRound(disputeId), this.jurorsRegistry.abi, JUROR_DRAFTED_EVENT)
+          const callJurorsDrafted = getLogCount(await this.court.draft(disputeId), this.jurorsRegistry.abi, JUROR_DRAFTED_EVENT)
           assert.equal(callJurorsDrafted, MAX_JURORS_PER_DRAFT_BATCH, `wrong number of jurors drafed on iteration #${i}`)
         }
-        const callJurorsDrafted = getLogCount(await this.court.draftAdjudicationRound(disputeId), this.jurorsRegistry.abi, JUROR_DRAFTED_EVENT)
+        const callJurorsDrafted = getLogCount(await this.court.draft(disputeId), this.jurorsRegistry.abi, JUROR_DRAFTED_EVENT)
         assert.equal(callJurorsDrafted, jurors % MAX_JURORS_PER_DRAFT_BATCH, `wrong number of jurors drafed on iteration #{i}`)
       })
     })
@@ -309,7 +309,7 @@ contract('Court: Batches', ([ rich, arbitrable, juror1, juror2, juror3, juror4, 
       let totalJurorsDrafted = 0
       while(totalJurorsDrafted < jurors) {
         assert.isFalse(await this.court.areAllJurorsDrafted.call(disputeId, firstRoundId))
-        const callJurorsDrafted = getLogCount(await this.court.draftAdjudicationRound(disputeId), this.jurorsRegistry.abi, JUROR_DRAFTED_EVENT)
+        const callJurorsDrafted = getLogCount(await this.court.draft(disputeId), this.jurorsRegistry.abi, JUROR_DRAFTED_EVENT)
         totalJurorsDrafted += callJurorsDrafted
       }
       assert.isTrue(await this.court.areAllJurorsDrafted.call(disputeId, firstRoundId))

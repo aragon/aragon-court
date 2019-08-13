@@ -338,10 +338,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
      * @notice Draft jurors for the next round of dispute #`_disputeId`
      * @dev Allows for batches, so only up to MAX_JURORS_PER_DRAFT_BATCH will be drafted in each call
      */
-    function draftAdjudicationRound(uint256 _disputeId)
-        public
-        ensureTerm
-    {
+    function draft(uint256 _disputeId) external ensureTerm {
         Dispute storage dispute = disputes[_disputeId];
         AdjudicationRound storage round = dispute.rounds[dispute.rounds.length - 1];
         // TODO: stack too deep: uint64 draftTermId = round.draftTermId;

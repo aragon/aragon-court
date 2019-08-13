@@ -1,20 +1,17 @@
-pragma solidity ^0.4.15;
+pragma solidity ^0.4.24;
 
 import "./standards/arbitration/Arbitrable.sol";
 
 
 contract Agreement is Arbitrable { /* AragonApp/Trigger */
-    address[] parties;
+    address[] internal parties;
 
     // TODO: Probably needs to be moved into an 'initialize()' function at some point
-    constructor(address _court, address[] _parties)
-        public
-        Arbitrable(_court) {
-
+    constructor(address _court, address[] _parties) public Arbitrable(_court) {
         parties = _parties;
     }
 
-    function canSubmitEvidence(uint256 _disputeId, address _submitter) public view returns (bool) {
+    function canSubmitEvidence(uint256 /* _disputeId */, address /* _submitter */) public view returns (bool) {
         // TODO: should check court to see whether evidence can be submitted for this particular dispute at this point
         uint256 partiesLength = parties.length;
         for (uint256 i = 0; i < partiesLength; i++) {

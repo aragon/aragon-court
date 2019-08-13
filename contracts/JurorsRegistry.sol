@@ -32,11 +32,10 @@ contract JurorsRegistry is Initializable, IsContract, IJurorsRegistry, ERC900, A
     string internal constant ERROR_TOKEN_APPROVE_NOT_ALLOWED = "JR_TOKEN_APPROVE_NOT_ALLOWED";
     string internal constant ERROR_SORTITION_LENGTHS_MISMATCH = "JR_SORTITION_LENGTHS_MISMATCH";
 
-    uint64 internal constant MAX_UINT64 = uint64(-1);
     uint256 internal constant PCT_BASE = 10000; // %
     address internal constant BURN_ACCOUNT = 0xdead;
 
-    /*
+    /**
     * @dev Jurors have three kind of balances, these are:
     *      - active: tokens activated for the Court that can be locked in case the juror is drafted
     *      - locked: amount of active tokens that are locked for a draft
@@ -57,7 +56,7 @@ contract JurorsRegistry is Initializable, IsContract, IJurorsRegistry, ERC900, A
         DeactivationRequest deactivationRequest;
     }
 
-    /*
+    /**
     * @dev Given that the jurors balances cannot be affected during a Court term, if jurors want to deactivate some
     *      of their tokens, the tree will always be updated for the following term, and they won't be able to
     *      withdraw the requested amount until the current term has finished. Thus, we need to keep track the term
@@ -279,22 +278,21 @@ contract JurorsRegistry is Initializable, IsContract, IJurorsRegistry, ERC900, A
     }
 
     /**
-    * @dev Slash a set of jurors based on their votes compared to the winning ruling. It will unlocked the corresponding
-    *      locked balances of those jurors that do not have to be slashed based on their submitted votes.
+    * @dev Slash a set of jurors based on their votes compared to the winning ruling. This function will unlock the
+    *      corresponding locked balances of those jurors that are set to be slashed.
     * @param _termId Current term id
     * @param _jurors List of juror addresses to be slashed
     * @param _lockedAmounts List of amounts locked for each corresponding juror that will be either slashed or returned
-    * @param _castVotes List of outcomes voted for each corresponding juror
-    * @param _winningRuling Winning ruling to compare the vote of each juror to be slashed
+    * @param _rewardedJurors List of booleans to tell whether a juror's active balance has to be slashed or not
     * @return Total amount of slashed tokens
     */
-    function slashOrUnlock(uint64 _termId, address[] _jurors, uint256[] _lockedAmounts, uint8[] _castVotes, uint8 _winningRuling)
+    function slashOrUnlock(uint64 _termId, address[] _jurors, uint256[] _lockedAmounts, bool[] _rewardedJurors)
         external
         onlyOwner
         returns (uint256)
     {
         // TODO: should we add validations for this?
-        // we assume this: require(_jurors.length == _castVotes.length);
+        // we assume this: require(_jurors.length == _slashJurors.length);
         // we assume this: require(_jurors.length == _lockedAmounts.length);
 
         uint64 nextTermId = _termId + 1;
@@ -305,9 +303,9 @@ contract JurorsRegistry is Initializable, IsContract, IJurorsRegistry, ERC900, A
             Juror storage juror = jurorsByAddress[_jurors[i]];
             juror.lockedBalance = juror.lockedBalance.sub(lockedAmount);
 
-            // Slash jurors that didn't vote for the winning ruling. Note that there's no need to check if there
-            // was a deactivation request since we're working with already locked balances
-            if (_castVotes[i] != _winningRuling) {
+            // Slash juror if requested. Note that there's no need to check if there was a deactivation
+            // request since we're working with already locked balances
+            if (!_rewardedJurors[i]) {
                 collectedTokens = collectedTokens.add(lockedAmount);
                 tree.update(juror.id, nextTermId, lockedAmount, false);
             }
@@ -318,6 +316,8 @@ contract JurorsRegistry is Initializable, IsContract, IJurorsRegistry, ERC900, A
 
     /**
     * @notice Try to collect `@tokenAmount(self.token(), _amount)` from `_juror` for the term #`_termId + 1`.
+    * @dev This function tries to decrease the active balance of a juror for the next term based on the requested
+    *      amount. It can be seen as a way to early-slash a juror's active balance.
     * @param _juror Juror to collect the tokens from
     * @param _amount Amount of tokens to be collected from the given juror and for the requested term id
     * @param _termId Current term id

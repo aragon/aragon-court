@@ -97,7 +97,7 @@ contract('JurorsRegistry initialization', ([_, something]) => {
         await registry.init(registryOwner.address, ANJ.address, MIN_ACTIVE_AMOUNT)
       })
 
-      it('returns the token address', async () => {
+      it('returns the owner address', async () => {
         assert.equal(await registry.owner(), registryOwner.address, 'owner address does not match')
       })
     })

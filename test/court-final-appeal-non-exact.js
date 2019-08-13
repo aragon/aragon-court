@@ -31,7 +31,7 @@ const assertLogs = async (receiptPromise, ...logNames) => {
   }
 }
 
-const getVoteId = (disputeId, roundId) => {
+const getVotingId = (disputeId, roundId) => {
   return new web3.BigNumber(2).pow(128).mul(disputeId).add(roundId)
 }
 
@@ -144,12 +144,12 @@ contract('Court: final appeal (non-exact)', ([ poor, rich, governor, juror1, jur
     const initialJurorNumber = 3
     const term = 3
     const rulings = 2
-    const winningVote = 2
-    const losingVote = 3
+    const winningVote = 3
+    const losingVote = 4
 
     let disputeId = 0
     const firstRoundId = 0
-    let voteId
+    let votingId
 
     beforeEach(async () => {
       for (const juror of jurors) {
@@ -161,7 +161,7 @@ contract('Court: final appeal (non-exact)', ([ poor, rich, governor, juror1, jur
       const receipt = await this.court.createDispute(arbitrable, rulings, initialJurorNumber, term)
       assertLogs(receipt, NEW_DISPUTE_EVENT)
       disputeId = getLog(receipt, NEW_DISPUTE_EVENT, 'disputeId')
-      voteId = getVoteId(disputeId, firstRoundId)
+      votingId = getVotingId(disputeId, firstRoundId)
     })
 
     const draftAdjudicationRound = async (roundJurors) => {
@@ -178,25 +178,25 @@ contract('Court: final appeal (non-exact)', ([ poor, rich, governor, juror1, jur
       assertLogs(draftReceipt, DISPUTE_STATE_CHANGED_EVENT)
     }
 
-    const vote = async (_voteId, _winningJurors) => {
+    const vote = async (_votingId, _winningJurors) => {
       // commit
       for (let i = 0; i < _winningJurors; i++) {
-        const receipt = await this.voting.commitVote(_voteId, encryptVote(winningVote), { from: jurors[i] })
+        const receipt = await this.voting.commit(_votingId, encryptVote(winningVote), { from: jurors[i] })
         assertLogs(receipt, VOTE_COMMITTED_EVENT)
       }
       for (let i = _winningJurors; i < jurors.length; i++) {
-        const receipt = await this.voting.commitVote(_voteId, encryptVote(losingVote), { from: jurors[i] })
+        const receipt = await this.voting.commit(_votingId, encryptVote(losingVote), { from: jurors[i] })
         assertLogs(receipt, VOTE_COMMITTED_EVENT)
       }
       await passTerms(commitTerms)
 
       // reveal
       for (let i = 0; i < _winningJurors; i++) {
-        const receipt = await this.voting.revealVote(_voteId, winningVote, SALT, { from: jurors[i] })
+        const receipt = await this.voting.reveal(_votingId, winningVote, SALT, { from: jurors[i] })
         assertLogs(receipt, VOTE_REVEALED_EVENT)
       }
       for (let i = _winningJurors; i < jurors.length; i++) {
-        const receipt = await this.voting.revealVote(_voteId, losingVote, SALT, { from: jurors[i] })
+        const receipt = await this.voting.reveal(_votingId, losingVote, SALT, { from: jurors[i] })
         assertLogs(receipt, VOTE_REVEALED_EVENT)
       }
       await passTerms(revealTerms)
@@ -215,7 +215,7 @@ contract('Court: final appeal (non-exact)', ([ poor, rich, governor, juror1, jur
         await draftAdjudicationRound(roundJurors)
 
         // all jurors vote for the winning side
-        await vote(voteId, jurors.length)
+        await vote(votingId, jurors.length)
 
         // appeal
         const appealReceipt = await this.court.appeal(disputeId, roundId, losingVote)
@@ -224,7 +224,7 @@ contract('Court: final appeal (non-exact)', ([ poor, rich, governor, juror1, jur
         const appealConfirmReceipt = await this.court.appealConfirm(disputeId, roundId, winningVote)
         assertLogs(appealConfirmReceipt, RULING_APPEAL_CONFIRMED_EVENT)
         const nextRoundId = getLog(appealConfirmReceipt, RULING_APPEAL_CONFIRMED_EVENT, 'roundId')
-        voteId = getVoteId(disputeId, nextRoundId)
+        votingId = getVotingId(disputeId, nextRoundId)
         await passTerms(appealConfirmTerms)
         await this.court.mock_blockTravel(1)
       }
@@ -238,7 +238,7 @@ contract('Court: final appeal (non-exact)', ([ poor, rich, governor, juror1, jur
         await moveForwardToFinalRound()
 
         // final round
-        await vote(voteId, _winningJurors)
+        await vote(votingId, _winningJurors)
 
         // settle
         for (let roundId = 0; roundId <= MAX_REGULAR_APPEAL_ROUNDS; roundId++) {

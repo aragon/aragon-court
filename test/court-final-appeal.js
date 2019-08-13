@@ -33,7 +33,7 @@ const assertLogs = async (receiptPromise, ...logNames) => {
   }
 }
 
-const getVotingId = (disputeId, roundId) => {
+const getVoteId = (disputeId, roundId) => {
   return new web3.BigNumber(2).pow(128).mul(disputeId).add(roundId)
 }
 
@@ -183,7 +183,7 @@ contract('Court: final appeal', ([ poor, rich, governor, juror1, juror2, juror3,
 
     let disputeId = 0
     const firstRoundId = 0
-    let votingId
+    let voteId
 
     beforeEach(async () => {
       for (const juror of jurors) {
@@ -195,7 +195,7 @@ contract('Court: final appeal', ([ poor, rich, governor, juror1, juror2, juror3,
       const receipt = await this.court.createDispute(arbitrable, rulings, initialJurorNumber, term)
       await assertLogs(receipt, NEW_DISPUTE_EVENT)
       disputeId = getLog(receipt, NEW_DISPUTE_EVENT, 'disputeId')
-      votingId = getVotingId(disputeId, firstRoundId)
+      voteId = getVoteId(disputeId, firstRoundId)
     })
 
     const draftAdjudicationRound = async (roundJurors) => {
@@ -237,7 +237,7 @@ contract('Court: final appeal', ([ poor, rich, governor, juror1, juror2, juror3,
         const appealConfirmReceipt = await this.court.appealConfirm(disputeId, roundId, appealConfirmRuling)
         assertLogs(appealConfirmReceipt, RULING_APPEAL_CONFIRMED_EVENT)
         const nextRoundId = getLog(appealConfirmReceipt, RULING_APPEAL_CONFIRMED_EVENT, 'roundId')
-        votingId = getVotingId(disputeId, nextRoundId)
+        voteId = getVoteId(disputeId, nextRoundId)
         await passTerms(appealConfirmTerms)
         await this.court.mock_blockTravel(1)
       }
@@ -247,7 +247,7 @@ contract('Court: final appeal', ([ poor, rich, governor, juror1, juror2, juror3,
       await moveForwardToFinalRound()
       const vote = 1
       for (const juror of jurors) {
-        const receiptPromise = this.voting.commit(votingId, encryptVote(vote), { from: juror })
+        const receiptPromise = this.voting.commit(voteId, encryptVote(vote), { from: juror })
         await assertLogs(receiptPromise, VOTE_COMMITTED_EVENT)
       }
     })
@@ -263,7 +263,7 @@ contract('Court: final appeal', ([ poor, rich, governor, juror1, juror2, juror3,
       await moveForwardToFinalRound()
       const vote = 1
 
-      await assertRevert(this.voting.commit(votingId, encryptVote(vote), { from: poor }), 'CRV_COMMIT_DENIED_BY_OWNER')
+      await assertRevert(this.voting.commit(voteId, encryptVote(vote), { from: poor }), 'CRV_COMMIT_DENIED_BY_OWNER')
     })
 
     it('fails appealing after final appeal', async () => {
@@ -294,11 +294,11 @@ contract('Court: final appeal', ([ poor, rich, governor, juror1, juror2, juror3,
 
         // commit
         for (let i = 0; i < winningJurors; i++) {
-          const receiptPromise = this.voting.commit(votingId, encryptVote(winningVote), { from: jurors[i] })
+          const receiptPromise = this.voting.commit(voteId, encryptVote(winningVote), { from: jurors[i] })
           await assertLogs(receiptPromise, VOTE_COMMITTED_EVENT)
         }
         for (let i = winningJurors; i < jurors.length; i++) {
-          const receiptPromise = this.voting.commit(votingId, encryptVote(losingVote), { from: jurors[i] })
+          const receiptPromise = this.voting.commit(voteId, encryptVote(losingVote), { from: jurors[i] })
           await assertLogs(receiptPromise, VOTE_COMMITTED_EVENT)
         }
 
@@ -306,11 +306,11 @@ contract('Court: final appeal', ([ poor, rich, governor, juror1, juror2, juror3,
 
         // reveal
         for (let i = 0; i < winningJurors; i++) {
-          const receiptPromise = this.voting.reveal(votingId, winningVote, SALT, { from: jurors[i] })
+          const receiptPromise = this.voting.reveal(voteId, winningVote, SALT, { from: jurors[i] })
           await assertLogs(receiptPromise, VOTE_REVEALED_EVENT)
         }
         for (let i = winningJurors; i < jurors.length; i++) {
-          const receiptPromise = this.voting.reveal(votingId, losingVote, SALT, { from: jurors[i] })
+          const receiptPromise = this.voting.reveal(voteId, losingVote, SALT, { from: jurors[i] })
           await assertLogs(receiptPromise, VOTE_REVEALED_EVENT)
         }
 

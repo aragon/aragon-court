@@ -124,19 +124,20 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
     // Court state
     uint64 internal termId;
     uint64 public configChangeTermId;
-    mapping (uint64 => Term) public terms;
+    mapping (uint64 => Term) internal terms;
     Dispute[] public disputes;
 
     string internal constant ERROR_INVALID_ADDR = "CTBAD_ADDR";
     string internal constant ERROR_DEPOSIT_FAILED = "CTDEPOSIT_FAIL";
     string internal constant ERROR_TOO_MANY_TRANSITIONS = "CTTOO_MANY_TRANSITIONS";
-    string internal constant ERROR_UNFINISHED_TERM = "CTUNFINISHED_TERM";
+    string internal constant ERROR_INVALID_TRANSITION_TERMS = "CT_INVALID_TRANSITION_TERMS";
     string internal constant ERROR_PAST_TERM_FEE_CHANGE = "CTPAST_TERM_FEE_CHANGE";
     string internal constant ERROR_OVERFLOW = "CTOVERFLOW";
     string internal constant ERROR_ROUND_ALREADY_DRAFTED = "CTROUND_ALRDY_DRAFTED";
     string internal constant ERROR_NOT_DRAFT_TERM = "CTNOT_DRAFT_TERM";
     string internal constant ERROR_TERM_RANDOMNESS_NOT_YET = "CTRANDOM_NOT_YET";
     string internal constant ERROR_WRONG_TERM = "CTBAD_TERM";
+    string internal constant ERROR_BAD_FIRST_TERM_START_TIME = "CT_BAD_FIRST_TERM_START_TIME";
     string internal constant ERROR_TERM_RANDOMNESS_UNAVAIL = "CTRANDOM_UNAVAIL";
     string internal constant ERROR_INVALID_DISPUTE_STATE = "CTBAD_DISPUTE_STATE";
     string internal constant ERROR_INVALID_ADJUDICATION_ROUND = "CTBAD_ADJ_ROUND";
@@ -231,7 +232,9 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
         uint32 _maxRegularAppealRounds,
         uint256[5] _subscriptionParams // _periodDuration, _feeAmount, _prePaymentPeriods, _latePaymentPenaltyPct, _governorSharePct
     ) public {
-        require(_firstTermStartTime >= _termDuration, ERROR_WRONG_TERM);
+        require(_firstTermStartTime >= _termDuration, ERROR_BAD_FIRST_TERM_START_TIME);
+        // TODO: we should add this validation, cannot enable it now due to how tests are mocking timestamps
+        // require(_firstTermStartTime - _termDuration <= getTimestamp64(), ERROR_BAD_FIRST_TERM_START_TIME);
 
         termDuration = _termDuration;
         jurorsRegistry = _jurorsRegistry;
@@ -611,6 +614,21 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
         return termId;
     }
 
+    /**
+    * @dev Tell the information related to a term based on its ID. Note that if the term has not been reached, the
+    *      information returned won't be computed yet.
+    * @param _termId ID of the term being queried
+    * @return Term start time
+    * @return Number of drafts depending on the requested term
+    * @return ID of the court configuration associated to the requested term
+    * @return Block number used for randomness in the requested term
+    * @return Randomness computed for the requested term
+    */
+    function getTerm(uint64 _termId) external view returns (uint64, uint64, uint64, uint64, bytes32) {
+        Term storage term = terms[_termId];
+        return (term.startTime, term.dependingDrafts, term.courtConfigId, term.randomnessBN, term.randomness);
+    }
+
     function getLastEnsuredTermId() external view returns (uint64) {
         return termId;
     }
@@ -652,38 +670,35 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
     /**
      * @notice Send a heartbeat to the Court to transition up to `_termTransitions`
      */
-    function heartbeat(uint64 _termTransitions) public {
-        require(canTransitionTerm(), ERROR_UNFINISHED_TERM);
+    function heartbeat(uint64 _maxRequestedTransitions) public {
+        uint64 neededTransitions = neededTermTransitions();
+        uint256 transitions = uint256(_maxRequestedTransitions < neededTransitions ? _maxRequestedTransitions : neededTransitions);
+        require(transitions > uint256(0), ERROR_INVALID_TRANSITION_TERMS);
 
-        Term storage prevTerm = terms[termId];
-        termId += 1;
-        Term storage nextTerm = terms[termId];
-        address heartbeatSender = msg.sender;
+        // Transition the minimum number of terms between the amount requested and the amount actually needed
+        uint256 totalFee;
+        for (uint256 transition = 1; transition <= transitions; transition++) {
+            Term storage previousTerm = terms[termId++];
+            Term storage nextTerm = terms[termId];
 
-        // Set fee structure for term
-        if (nextTerm.courtConfigId == 0) {
-            nextTerm.courtConfigId = prevTerm.courtConfigId;
-        } else {
-            configChangeTermId = ZERO_TERM_ID; // fee structure changed in this term
+            // TODO: allow config to be changed for a future term id
+            nextTerm.courtConfigId = previousTerm.courtConfigId;
+            // Set the start time of the new term. Note that we are using a constant term duration value to guarantee
+            // equally long terms, regardless of heartbeats.
+            nextTerm.startTime = previousTerm.startTime + termDuration;
+            // In order to draft a random number of jurors in a term, we use a randomness factor for each term based on a
+            // block number that is set once the term has started. Note that this information could not be known beforehand.
+            nextTerm.randomnessBN = getBlockNumber64() + 1;
+            emit NewTerm(termId, msg.sender);
+
+            // Add amount of fees to be paid for the transitioned term
+            CourtConfig storage config = courtConfigs[nextTerm.courtConfigId];
+            totalFee = totalFee.add(config.heartbeatFee.mul(uint256(nextTerm.dependingDrafts)));
         }
 
-        // TODO: skip period if you can
-
-        // Set the start time of the term (ensures equally long terms, regardless of heartbeats)
-        nextTerm.startTime = prevTerm.startTime + termDuration;
-        nextTerm.randomnessBN = getBlockNumber64() + 1; // randomness source set to next block (content unknown when heartbeat happens)
-
-        CourtConfig storage courtConfig = courtConfigs[nextTerm.courtConfigId];
-        uint256 totalFee = nextTerm.dependingDrafts * courtConfig.heartbeatFee;
-
-        if (totalFee > 0) {
-            accounting.assign(courtConfig.feeToken, heartbeatSender, totalFee);
-        }
-
-        emit NewTerm(termId, heartbeatSender);
-
-        if (_termTransitions > 1 && canTransitionTerm()) {
-            heartbeat(_termTransitions - 1);
+        // Pay heartbeat fees to the caller of this function
+        if (totalFee > uint256(0)) {
+            accounting.assign(config.feeToken, msg.sender, totalFee);
         }
     }
 
@@ -694,10 +709,6 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
     function areAllJurorsDrafted(uint256 _disputeId, uint256 _roundId) public view returns (bool) {
         AdjudicationRound storage round = disputes[_disputeId].rounds[_roundId];
         return round.filledSeats == round.jurorNumber;
-    }
-
-    function canTransitionTerm() public view returns (bool) {
-        return neededTermTransitions() >= 1;
     }
 
     function neededTermTransitions() public view returns (uint64) {
@@ -1171,6 +1182,14 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
         return courtConfigs[courtConfigId];
     }
 
+    /**
+    * @dev Internal function to compute the randomness that will be used to draft jurors for the given term. This
+    *      function assumes the given term exists. To determine the randomness factor for a term we use the hash of a
+    *      block number that is set once the term has started to ensure it cannot be known beforehand. Note that the
+    *      hash function being used only works for the 256 most recent block numbers.
+    * @param _term Term to compute the randomness of
+    * @return Randomness computed for the given term
+    */
     function _getTermRandomness(Term storage _term) internal view returns (bytes32) {
         require(getBlockNumber64() > _term.randomnessBN, ERROR_TERM_RANDOMNESS_NOT_YET);
         return blockhash(_term.randomnessBN);

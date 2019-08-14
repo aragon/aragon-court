@@ -124,7 +124,7 @@ contract('Court: final appeal (non-exact)', ([ poor, rich, juror1, juror2, juror
     await this.courtHelper.increaseTime(terms * termDuration)
     await this.court.heartbeat(terms)
 
-    assert.isFalse(await this.court.canTransitionTerm(), 'all terms transitioned')
+    assert.isTrue((await this.court.neededTermTransitions()).eq(0), 'all terms transitioned')
   }
 
   context('Final appeal, non-exact stakes', () => {

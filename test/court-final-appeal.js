@@ -128,7 +128,7 @@ contract('Court: final appeal', ([ poor, rich, juror1, juror2, juror3, juror4, j
     await this.courtHelper.increaseTime(terms * termDuration)
     await this.court.heartbeat(terms)
 
-    assert.isFalse(await this.court.canTransitionTerm(), 'all terms transitioned')
+    assert.isTrue((await this.court.neededTermTransitions()).eq(0), 'all terms transitioned')
   }
 
   // TODO: Fix when making the court settings configurable

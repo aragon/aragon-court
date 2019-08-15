@@ -124,7 +124,7 @@ library HexSumTree {
 
     function totalSumPresent(Tree storage self, uint64 currentTime) internal view returns (uint256) {
         uint256 rootDepth = getRootDepthAt(self, currentTime, false); // root depth at time, performing a backwards search
-        return self.nodes[rootDepth][BASE_KEY].getLastPresent(currentTime);
+        return self.nodes[rootDepth][BASE_KEY].getRecent(currentTime);
     }
 
     function totalSumPast(Tree storage self, uint64 time) internal view returns (uint256) {
@@ -137,7 +137,7 @@ library HexSumTree {
     }
 
     function getPresent(Tree storage self, uint256 depth, uint256 key, uint64 currentTime) internal view returns (uint256) {
-        return self.nodes[depth][key].getLastPresent(currentTime);
+        return self.nodes[depth][key].getRecent(currentTime);
     }
 
     function getPast(Tree storage self, uint256 depth, uint256 key, uint64 time) internal view returns (uint256) {
@@ -149,7 +149,7 @@ library HexSumTree {
     }
 
     function getItemPresent(Tree storage self, uint256 key, uint64 currentTime) internal view returns (uint256) {
-        return self.nodes[INSERTION_DEPTH][key].getLastPresent(currentTime);
+        return self.nodes[INSERTION_DEPTH][key].getRecent(currentTime);
     }
 
     function getItemPast(Tree storage self, uint256 key, uint64 time) internal view returns (uint256) {
@@ -161,7 +161,7 @@ library HexSumTree {
     }
 
     function getRootDepthAt(Tree storage self, uint64 time, bool past) internal view returns (uint256) {
-        return past ? self.rootDepth.get(time) : self.rootDepth.getLastPresent(time);
+        return past ? self.rootDepth.get(time) : self.rootDepth.getRecent(time);
     }
 
     function sharedPrefix(uint256 depth, uint256 key) internal pure returns (uint256) {
@@ -221,7 +221,6 @@ library HexSumTree {
     function _sortition(Tree storage self, uint256 value, uint256 node, uint256 depth, uint64 time, bool past) private view returns (uint256 key, uint256 nodeValue) {
         uint256 checkedValue = 0; // Can optimize by having checkedValue = value - remainingValue
 
-        uint256 checkingLevel = depth - 1;
         // Invariant: node has 0's "after the depth" (so no need for masking)
         // TODO: removed because of stack too deep issue
         //uint256 shift = checkingLevel * BITS_IN_NIBBLE;
@@ -229,16 +228,17 @@ library HexSumTree {
         uint256 child;
         uint256 checkingNode;
         uint256 nodeSum;
-        for (; checkingLevel > INSERTION_DEPTH; checkingLevel--) {
+        for (uint256 checkingLevel = depth - 1; checkingLevel > INSERTION_DEPTH; checkingLevel--) {
             for (child = 0; child < CHILDREN; child++) {
                 // shift the iterator and add it to node 0x00..0i00 (for depth = 3)
                 checkingNode = parentNode + (child << (checkingLevel * BITS_IN_NIBBLE)/* shift */);
 
                 // TODO: remove one??
+                // TODO: stack too deep
                 if (past) {
                     nodeSum = self.nodes[checkingLevel][checkingNode].get(time);
                 } else {
-                    nodeSum = self.nodes[checkingLevel][checkingNode].getLastPresent(time);
+                    nodeSum = self.nodes[checkingLevel][checkingNode].getRecent(time);
                 }
                 if (checkedValue + nodeSum <= value) { // not reached yet, move to next child
                     checkedValue += nodeSum;
@@ -255,7 +255,7 @@ library HexSumTree {
             if (past) {
                 nodeSum = self.nodes[INSERTION_DEPTH][checkingNode].get(time);
             } else {
-                nodeSum = self.nodes[INSERTION_DEPTH][checkingNode].getLastPresent(time);
+                nodeSum = self.nodes[INSERTION_DEPTH][checkingNode].getRecent(time);
             }
             if (checkedValue + nodeSum <= value) { // not reached yet, move to next child
                 checkedValue += nodeSum;
@@ -268,8 +268,12 @@ library HexSumTree {
 
     /**
      * @dev Recursive function to descend the Sum Tree.
-     *      Every time it checks a node, it traverses the input array to find the initial subset of elements that are below its accumulated value and passes that sub-array to the next iteration. Actually the array is always the same, to avoid making exta copies, it just passes the initial index to start checking, to avoid checking values that went thru a different branch.
-     *      The same happens with the "result" arrays for keys and node values: it's always the same on every recursion step, the same initial index for input values acts as a needle to know where in those arrays the function has to write.
+     *      Every time it checks a node, it traverses the input array to find the initial subset of elements that are
+     *      below its accumulated value and passes that sub-array to the next iteration. Actually the array is always
+     *      the same, to avoid making exta copies, it just passes the initial index to start checking, to avoid checking
+     *      values that went thru a different branch.
+     *      The same happens with the "result" arrays for keys and node values: it's always the same on every recursion
+     *      step, the same initial index for input values acts as a needle to know where in those arrays the function has to write.
      *      The accumulated value is carried over to next iterations, to avoid having to subtract to all elements in array.
      *      PackedArguments struct is used to avoid "stack too deep" issue.
      */
@@ -283,12 +287,7 @@ library HexSumTree {
             // shift the iterator and add it to node 0x00..0i00 (for depth = 3)
             uint256 checkingNode = packedArguments.node + (i << shift); // uint256
             // TODO: find a better way or remove if we only need getLastPresent
-            uint256 nodeValue;
-            if (packedArguments.past) {
-                nodeValue = self.nodes[packedArguments.depth - 1][checkingNode].get(packedArguments.time);
-            } else {
-                nodeValue = self.nodes[packedArguments.depth - 1][checkingNode].getLastPresent(packedArguments.time);
-            }
+            uint256 nodeValue = self.nodes[packedArguments.depth - 1][checkingNode].get(packedArguments.time, !packedArguments.past);
             checkingValue = checkingValue + nodeValue;
 
             // Check how many values belong to this node. As they are ordered, it will be a contiguous subset starting from the beginning, so we only need to know the length of that subset

@@ -3,13 +3,39 @@ pragma solidity ^0.4.24;
 // TODO: import from Staking (or somewhere else)
 import "./Checkpointing.sol";
 
-
-library HexSumTree {
+/**
+* @title HexSumTree - Library to operate checkpointed 16-ary (hex) sum trees.
+* @dev A sum tree is a particular case of a tree where the value of a node is equal to the sum of the values of its
+*      children. This library provides a set of functions to operate 16-ary sum trees, i.e. trees where every non-leaf
+*      node has 16 children and its value is equivalent to the sum of the values of all of them. Additionally, a
+*      checkpointed tree means that each time a value on a node is updated, its previous value will be saved to allow
+*      accessing historic information.
+*
+*      Example of a checkpointed binary sum tree:
+*
+*                                          CURRENT                                      PREVIOUS
+*
+*             Level 2                        100  ---------------------------------------- 70
+*                                       ______|_______                               ______|_______
+*                                      /              \                             /              \
+*             Level 1                 34              66 ------------------------- 23              47
+*                                _____|_____      _____|_____                 _____|_____      _____|_____
+*                               /           \    /           \               /           \    /           \
+*             Level 0          22           12  53           13 ----------- 22            1  17           30
+*
+*/
+library HexSumTree { // TODO: rename to CheckpointedHexSumTree?
     using Checkpointing for Checkpointing.History;
 
+    /**
+    * @dev The tree is stored using the following structure:
+    *      - nodes: A mapping indexed by a pair (level, key) with a history of the values for each node.
+    *      - nextKey: The next key to be used to identify the next new value that will be inserted into the tree.
+    *      - rootDepth: A history of the depths of the tree.
+    */
     struct Tree {
         uint256 nextKey;
-        Checkpointing.History rootDepth;
+        Checkpointing.History rootDepth; // TODO: rename to height instead?
         mapping (uint256 => mapping (uint256 => Checkpointing.History)) nodes; // depth -> key -> value
     }
 
@@ -29,37 +55,66 @@ library HexSumTree {
      */
     uint256 private constant CHILDREN = 16;
     //uint256 private constant MAX_DEPTH = 64;
+
     uint256 private constant BITS_IN_NIBBLE = 4;
+
+    // TODO: rename to leaves_level
     uint256 private constant INSERTION_DEPTH = 0;
-    uint256 private constant BASE_KEY = 0; // tree starts on the very left
+
+    // tree starts on the very left
+    uint256 private constant BASE_KEY = 0;
 
     string private constant ERROR_SORTITION_OUT_OF_BOUNDS = "SUM_TREE_SORTITION_OUT_OF_BOUNDS";
     string private constant ERROR_NEW_KEY_NOT_ADJACENT = "SUM_TREE_NEW_KEY_NOT_ADJACENT";
     string private constant ERROR_UPDATE_OVERFLOW = "SUM_TREE_UPDATE_OVERFLOW";
     string private constant ERROR_INEXISTENT_ITEM = "SUM_TREE_INEXISTENT_ITEM";
 
+    /**
+    * @dev Initialize tree setting the next key and first depth checkpoint
+    */
     function init(Tree storage self) internal {
         uint64 initialTime = 0;
         self.rootDepth.add(initialTime, INSERTION_DEPTH + 1);
         self.nextKey = BASE_KEY;
     }
 
-    function insert(Tree storage self, uint64 time, uint256 value) internal returns (uint256) {
+    /**
+    * @dev Insert a new value to the tree at given point in time
+    * @param _time Unit-time value to register the given value in its history
+    * @param _value New numeric value to be added to the tree
+    * @return Unique key identifying the new value inserted
+    */
+    function insert(Tree storage self, uint64 _time, uint256 _value) internal returns (uint256) {
+        // As the values are always stored in the leaves of the tree (level 0), the key to index each of them will be
+        // always incrementing, starting from zero.
         uint256 key = self.nextKey;
         self.nextKey++;
 
-        if (value > 0) {
-            _set(self, key, time, value);
+        if (_value > 0) {
+            _set(self, key, _time, _value);
         }
 
         return key;
     }
 
+    /**
+    * @dev Set the value of a key at given point in time.
+    * @param time Unit-time value to set the given value in its history
+    * @param key Key of the leaf node to be set in the tree
+    * @param value New numeric value to be set for the given key
+    */
     function set(Tree storage self, uint256 key, uint64 time, uint256 value) internal {
-        require(key <= self.nextKey, ERROR_NEW_KEY_NOT_ADJACENT);
+        require(key <= self.nextKey, ERROR_NEW_KEY_NOT_ADJACENT); // TODO: change to strictly <
         _set(self, key, time, value);
     }
 
+    /**
+    * @dev Update the value of a key at given point in time based on a delta.
+    * @param time Unit-time value to update the given value in its history
+    * @param key Key of the leaf node to be updated in the tree
+    * @param delta Numeric delta to update the value of the given key
+    * @param positive Boolean to tell whether the given delta should be added to or subtracted from the current value
+    */
     function update(Tree storage self, uint256 key, uint64 time, uint256 delta, bool positive) internal {
         require(key < self.nextKey, ERROR_INEXISTENT_ITEM);
 
@@ -165,15 +220,17 @@ library HexSumTree {
     }
 
     function sharedPrefix(uint256 depth, uint256 key) internal pure returns (uint256) {
+        // Build a mask that will match all the possible keys for the given depth. For example:
+        // Depth  1: 0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0 (up to 16 keys)
+        // Depth  2: 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff00 (up to 32 keys)
+        // ...
+        // Depth 64: 0x0000000000000000000000000000000000000000000000000000000000000000 (up to 16^64 keys - max height is 64)
         uint256 shift = depth * BITS_IN_NIBBLE;
         uint256 mask = uint256(-1) << shift;
-        uint keyAncestor = key & mask;
 
-        if (keyAncestor != BASE_KEY) {
-            return depth + 1;
-        }
-
-        return depth;
+        // Check if the given key can be represented in the tree with the current given depth using the mask.
+        uint256 keyAncestor = key & mask;
+        return (keyAncestor != BASE_KEY) ? (depth + 1) : depth;
     }
 
     function getChildren(Tree storage) internal pure returns (uint256) {
@@ -199,22 +256,41 @@ library HexSumTree {
         uint256 currentRootDepth = getRootDepth(self);
         uint256 newRootDepth = sharedPrefix(currentRootDepth, key);
 
+        // TODO: this function could be simplified to perform this check only when inserting
         if (currentRootDepth != newRootDepth) {
             self.nodes[newRootDepth][BASE_KEY].add(time, self.nodes[currentRootDepth][BASE_KEY].getLast());
             self.rootDepth.add(time, newRootDepth);
             currentRootDepth = newRootDepth;
         }
 
+        // Update all the values of all the ancestors of the given key based on the delta updated
         uint256 mask = uint256(-1);
         uint256 ancestorKey = key;
-        for (uint256 i = 1; i <= currentRootDepth; i++) {
+        for (uint256 i = 1; i <= currentRootDepth; i++) { // TODO: rename i to level and currentRootDepth to height
+            // Build a mask to get the key of the ancestor at a certain level. For example:
+            // Note at level  0: leaves don't have children
+            // Node at level  1: 0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0 (up to 16 leaves)
+            // Node at level  2: 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff00 (up to 32 leaves)
+            // ...
+            // Node at level 63: 0x0000000000000000000000000000000000000000000000000000000000000000 (up to 16^64 leaves - max tree height is 64)
             mask = mask << BITS_IN_NIBBLE;
+
+            // For a level "i", the key of the ancestor at that level will be equivalent to the "(64 - i)-th" most
+            // significant nibbles of the key of the ancestor of the previous level "i - 1". Thus, we can compute the
+            // key of the ancestor at a certain level applying the mask to the ancestor's key of the previous level.
+            // Note that for the first iteration, the key of the ancestor of the previous level is simply the key of
+            // the leave being updated
             ancestorKey = ancestorKey & mask;
 
+            // TODO: This is not true, however since the biggest value that can be checkpointed is max uint192, the
+            //       biggest addition we can have here is max uint192 * 2, which is smaller than max uint256. In case
+            //       of subtraction, it will end being greater than max uint192 as well.
             // Invariant: this will never underflow.
             self.nodes[i][ancestorKey].add(time, positive ? self.nodes[i][ancestorKey].getLast() + delta : self.nodes[i][ancestorKey].getLast() - delta);
         }
-        // it's only needed to check the last one, as the sum increases going up through the tree
+
+        // Check if update overflowed. Note that we only need to check the root value since the sum only increases
+        // going up through the tree.
         require(!positive || self.nodes[currentRootDepth][ancestorKey].getLast() >= delta, ERROR_UPDATE_OVERFLOW);
     }
 

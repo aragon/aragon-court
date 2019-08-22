@@ -60,7 +60,7 @@ contract('Hex Sum Tree', () => {
     await assertRevert(tree.update(0, MAX_UINT256, true), 'SUM_TREE_UPDATE_OVERFLOW')
   })
 
-  for (const sortitionFunction of ['sortition', 'sortitionSingleUsingMulti']) {
+  for (const sortitionFunction of ['sortition']) {
     it(`inserts two using ${sortitionFunction}`, async () => {
       await tree.insertAt(0, 5)
       await tree.insertAt(0, 5)
@@ -135,14 +135,13 @@ contract('Hex Sum Tree', () => {
       const termRandomness = 'randomness'
       const disputeId = 0
       const time = 1
-      const past = false
       const filledSeats = 1
       const jurorsRequested = 3
 
       let prevKeys
       let allTheSame = true
       for (let i = 0; i < ATTEMPTS; i++) {
-        const [ keys, values ] = await tree.multiSortitionFor(termRandomness, disputeId, time, past, filledSeats, jurorsRequested, TOTAL_JURORS, i)
+        const [ keys, values ] = await tree.multiSortitionFor(termRandomness, disputeId, time, filledSeats, jurorsRequested, TOTAL_JURORS, i)
         //console.log(keys.map(v => v.toNumber()));
         if (i > 0) {
           for (let j = 0; j < keys.length; j++) {

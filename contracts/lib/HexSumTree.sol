@@ -43,7 +43,6 @@ library HexSumTree { // TODO: rename to CheckpointedHexSumTree?
         uint256 valuesStart;
         uint256 depth;
         uint64 time;
-        bool past;
         uint256 accumulatedValue;
         uint256 node;
     }
@@ -124,24 +123,11 @@ library HexSumTree { // TODO: rename to CheckpointedHexSumTree?
         _updateSums(self, key, time, delta, positive);
     }
 
-    function sortition(Tree storage self, uint256 value, uint64 time, bool past) internal view returns (uint256 key, uint256 nodeValue) {
-        require(totalSumPast(self, time) > value, ERROR_SORTITION_OUT_OF_BOUNDS);
-
-        uint256 rootDepth = getRootDepthAt(self, time, past);
-        return _sortition(self, value, BASE_KEY, rootDepth, time, past);
-    }
-
-    function randomSortition(Tree storage self, uint256 seed, uint64 time, bool past) internal view returns (uint256 key, uint256 nodeValue) {
-        uint256 rootDepth = getRootDepthAt(self, time, past);
-        return _sortition(self, seed % totalSumPast(self, time), BASE_KEY, rootDepth, time, past);
-    }
-
     function multiSortition(
         Tree storage self,
         bytes32 _termRandomness,
         uint256 _disputeId,
         uint64 _time,
-        bool _past,
         uint256 _filledSeats,
         uint256 _jurorsRequested,
         uint256 _jurorNumber,
@@ -153,23 +139,22 @@ library HexSumTree { // TODO: rename to CheckpointedHexSumTree?
     {
         (uint256 stakeFrom, uint256 stakeTo) = _getStakeBounds(self, _time, _filledSeats, _jurorsRequested, _jurorNumber);
         uint256[] memory values = _getOrderedValues(_termRandomness, _disputeId, _time, _filledSeats, _jurorsRequested, _jurorNumber, _sortitionIteration, stakeFrom, stakeTo);
-        return multiSortition(self, values, _time, _past);
+        return multiSortition(self, values, _time);
     }
 
     /**
      * @notice Performs sortition for several values at once
      * @param values An array with the values sought in the sortition. Must be ordered ascending.
      * @param time The checkpoint timestamp at which the sortition is performed
-     * @param past If true, it means that we are seeking a checkpoint in the past, therefore when descending the sum tree it will use binary searches for checkpoints. Otherwise, it will use linear searches from the end, as we are looking for the last or the previous one.
      * @return An array of keys, one for each value in input param (therefore the same size), and in the same order, along with an array of the corresponding node values
      */
-    function multiSortition(Tree storage self, uint256[] values, uint64 time, bool past) internal view returns (uint256[] keys, uint256[] nodeValues) {
+    function multiSortition(Tree storage self, uint256[] values, uint64 time) internal view returns (uint256[] keys, uint256[] nodeValues) {
         uint256 length = values.length;
         // those two arrays will be used to fill in the results, they are passed as parameters to avoid extra copies
         keys = new uint256[](length);
         nodeValues = new uint256[](length);
-        uint256 rootDepth = getRootDepthAt(self, time, past);
-        _multiSortition(self, values, PackedArguments(0, rootDepth, time, past, 0, BASE_KEY), keys, nodeValues);
+        uint256 rootDepth = getRootDepthAt(self, time);
+        _multiSortition(self, values, PackedArguments(0, rootDepth, time, 0, BASE_KEY), keys, nodeValues);
     }
 
     function totalSum(Tree storage self) internal view returns (uint256) {
@@ -177,22 +162,19 @@ library HexSumTree { // TODO: rename to CheckpointedHexSumTree?
         return self.nodes[rootDepth][BASE_KEY].getLast();
     }
 
+    // TODO: refactor both `totalSumPresent` and `totalSumPast` into one parameterizable function
     function totalSumPresent(Tree storage self, uint64 currentTime) internal view returns (uint256) {
-        uint256 rootDepth = getRootDepthAt(self, currentTime, false); // root depth at time, performing a backwards search
+        uint256 rootDepth = getRecentRootDepthAt(self, currentTime); // root depth at time, performing a backwards search
         return self.nodes[rootDepth][BASE_KEY].getRecent(currentTime);
     }
 
     function totalSumPast(Tree storage self, uint64 time) internal view returns (uint256) {
-        uint256 rootDepth = getRootDepthAt(self, time, true); // root depth at time, performing a binary search
+        uint256 rootDepth = getRootDepthAt(self, time); // root depth at time, performing a binary search
         return self.nodes[rootDepth][BASE_KEY].get(time);
     }
 
     function get(Tree storage self, uint256 depth, uint256 key) internal view returns (uint256) {
         return self.nodes[depth][key].getLast();
-    }
-
-    function getPresent(Tree storage self, uint256 depth, uint256 key, uint64 currentTime) internal view returns (uint256) {
-        return self.nodes[depth][key].getRecent(currentTime);
     }
 
     function getPast(Tree storage self, uint256 depth, uint256 key, uint64 time) internal view returns (uint256) {
@@ -203,10 +185,7 @@ library HexSumTree { // TODO: rename to CheckpointedHexSumTree?
         return self.nodes[INSERTION_DEPTH][key].getLast();
     }
 
-    function getItemPresent(Tree storage self, uint256 key, uint64 currentTime) internal view returns (uint256) {
-        return self.nodes[INSERTION_DEPTH][key].getRecent(currentTime);
-    }
-
+    // TODO: rename to getItemAt
     function getItemPast(Tree storage self, uint256 key, uint64 time) internal view returns (uint256) {
         return self.nodes[INSERTION_DEPTH][key].get(time);
     }
@@ -215,22 +194,12 @@ library HexSumTree { // TODO: rename to CheckpointedHexSumTree?
         return self.rootDepth.getLast();
     }
 
-    function getRootDepthAt(Tree storage self, uint64 time, bool past) internal view returns (uint256) {
-        return past ? self.rootDepth.get(time) : self.rootDepth.getRecent(time);
+    function getRootDepthAt(Tree storage self, uint64 time) internal view returns (uint256) {
+        return self.rootDepth.get(time);
     }
 
-    function sharedPrefix(uint256 depth, uint256 key) internal pure returns (uint256) {
-        // Build a mask that will match all the possible keys for the given depth. For example:
-        // Depth  1: 0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0 (up to 16 keys)
-        // Depth  2: 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff00 (up to 32 keys)
-        // ...
-        // Depth 64: 0x0000000000000000000000000000000000000000000000000000000000000000 (up to 16^64 keys - max height is 64)
-        uint256 shift = depth * BITS_IN_NIBBLE;
-        uint256 mask = uint256(-1) << shift;
-
-        // Check if the given key can be represented in the tree with the current given depth using the mask.
-        uint256 keyAncestor = key & mask;
-        return (keyAncestor != BASE_KEY) ? (depth + 1) : depth;
+    function getRecentRootDepthAt(Tree storage self, uint64 time) internal view returns (uint256) {
+        return self.rootDepth.getRecent(time);
     }
 
     function getChildren(Tree storage) internal pure returns (uint256) {
@@ -254,7 +223,7 @@ library HexSumTree { // TODO: rename to CheckpointedHexSumTree?
 
     function _updateSums(Tree storage self, uint256 key, uint64 time, uint256 delta, bool positive) private {
         uint256 currentRootDepth = getRootDepth(self);
-        uint256 newRootDepth = sharedPrefix(currentRootDepth, key);
+        uint256 newRootDepth = _sharedPrefix(currentRootDepth, key);
 
         // TODO: this function could be simplified to perform this check only when inserting
         if (currentRootDepth != newRootDepth) {
@@ -294,54 +263,6 @@ library HexSumTree { // TODO: rename to CheckpointedHexSumTree?
         require(!positive || self.nodes[currentRootDepth][ancestorKey].getLast() >= delta, ERROR_UPDATE_OVERFLOW);
     }
 
-    function _sortition(Tree storage self, uint256 value, uint256 node, uint256 depth, uint64 time, bool past) private view returns (uint256 key, uint256 nodeValue) {
-        uint256 checkedValue = 0; // Can optimize by having checkedValue = value - remainingValue
-
-        // Invariant: node has 0's "after the depth" (so no need for masking)
-        // TODO: removed because of stack too deep issue
-        //uint256 shift = checkingLevel * BITS_IN_NIBBLE;
-        uint256 parentNode = node;
-        uint256 child;
-        uint256 checkingNode;
-        uint256 nodeSum;
-        for (uint256 checkingLevel = depth - 1; checkingLevel > INSERTION_DEPTH; checkingLevel--) {
-            for (child = 0; child < CHILDREN; child++) {
-                // shift the iterator and add it to node 0x00..0i00 (for depth = 3)
-                checkingNode = parentNode + (child << (checkingLevel * BITS_IN_NIBBLE)/* shift */);
-
-                // TODO: remove one??
-                // TODO: stack too deep
-                if (past) {
-                    nodeSum = self.nodes[checkingLevel][checkingNode].get(time);
-                } else {
-                    nodeSum = self.nodes[checkingLevel][checkingNode].getRecent(time);
-                }
-                if (checkedValue + nodeSum <= value) { // not reached yet, move to next child
-                    checkedValue += nodeSum;
-                } else { // value reached, move to next level
-                    parentNode = checkingNode;
-                    break;
-                }
-            }
-            //shift = shift - BITS_IN_NIBBLE;
-        }
-        // Leaves level:
-        for (child = 0; child < CHILDREN; child++) {
-            checkingNode = parentNode + child;
-            if (past) {
-                nodeSum = self.nodes[INSERTION_DEPTH][checkingNode].get(time);
-            } else {
-                nodeSum = self.nodes[INSERTION_DEPTH][checkingNode].getRecent(time);
-            }
-            if (checkedValue + nodeSum <= value) { // not reached yet, move to next child
-                checkedValue += nodeSum;
-            } else { // value reached
-                return (checkingNode, nodeSum);
-            }
-        }
-        // Invariant: this point should never be reached
-    }
-
     /**
      * @dev Recursive function to descend the Sum Tree.
      *      Every time it checks a node, it traverses the input array to find the initial subset of elements that are
@@ -362,8 +283,7 @@ library HexSumTree { // TODO: rename to CheckpointedHexSumTree?
             }
             // shift the iterator and add it to node 0x00..0i00 (for depth = 3)
             uint256 checkingNode = packedArguments.node + (i << shift); // uint256
-            // TODO: find a better way or remove if we only need getLastPresent
-            uint256 nodeValue = self.nodes[packedArguments.depth - 1][checkingNode].get(packedArguments.time, !packedArguments.past);
+            uint256 nodeValue = self.nodes[packedArguments.depth - 1][checkingNode].getRecent(packedArguments.time);
             checkingValue = checkingValue + nodeValue;
 
             // Check how many values belong to this node. As they are ordered, it will be a contiguous subset starting from the beginning, so we only need to know the length of that subset
@@ -388,7 +308,6 @@ library HexSumTree { // TODO: rename to CheckpointedHexSumTree?
                             packedArguments.valuesStart,
                             packedArguments.depth - 1,
                             packedArguments.time,
-                            packedArguments.past,
                             packedArguments.accumulatedValue,
                             checkingNode
                         ),
@@ -459,5 +378,12 @@ library HexSumTree { // TODO: rename to CheckpointedHexSumTree?
             j++;
         }
         return j - valuesStart;
+    }
+
+    function _sharedPrefix(uint256 _depth, uint256 _key) private pure returns (uint256) {
+        uint256 shift = _depth * BITS_IN_NIBBLE;
+        uint256 mask = uint256(-1) << shift;
+        uint256 keyAncestor = _key & mask;
+        return (keyAncestor != BASE_KEY) ? (_depth + 1) : _depth;
     }
 }

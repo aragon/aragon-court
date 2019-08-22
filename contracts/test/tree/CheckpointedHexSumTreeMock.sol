@@ -42,7 +42,7 @@ contract CheckpointedHexSumTreeMock is TimeHelpersMock {
     }
 
     function heightAt(uint64 _time) public view returns (uint256) {
-        return tree.getRootDepthAt(_time, true);
+        return tree.getRootDepthAt(_time);
     }
 
     function total() public view returns (uint256) {

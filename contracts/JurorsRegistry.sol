@@ -708,7 +708,6 @@ contract JurorsRegistry is Initializable, IsContract, IJurorsRegistry, ERC900, A
             bytes32(_treeSearchParams[0]),  // _termRandomness,
             _treeSearchParams[1],           // _disputeId
             uint64(_treeSearchParams[2]),   // _termId
-            false,                          // _past
             _treeSearchParams[3],           // _filledSeats
             _treeSearchParams[4],           // _jurorsRequested
             _treeSearchParams[5],           // _jurorNumber

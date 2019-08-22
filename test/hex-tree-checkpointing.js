@@ -61,8 +61,8 @@ contract('Hex Sum Tree', (accounts) => {
     }
   }
 
-  for (const sortitionFunction of ['sortition', 'sortitionSingleUsingMulti']) {
-    it(`inserts a lot of times into the first node using ${sortitionFunction}`, async () => {
+  for (const sortitionFunction of ['sortition']) {
+    it(`inserts a lot of times into the first node`, async () => {
       const NODE = 0
       await tree.insertAt(0, 10)
 

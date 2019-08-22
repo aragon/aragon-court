@@ -10,7 +10,8 @@ const getGas = (r) => {
 
 const testRunner = process.env.SUMTREE_GAS_ANALYSIS ? contract.only : contract.skip
 
-testRunner('Hex Sum Tree (Gas analysis)', (accounts) => {
+// TODO: profiling with an unused method, change to multisortition
+contract.skip('Hex Sum Tree (Gas analysis)', (accounts) => {
   let tree
 
   beforeEach(async () => {
@@ -42,12 +43,6 @@ testRunner('Hex Sum Tree (Gas analysis)', (accounts) => {
 
   const logSortition = async (value, blockNumber) => {
     console.log(`Sortition ${value}:`, (await tree.sortition(value, blockNumber)).toNumber())
-  }
-
-  const logMultiSortitionGas = async (number, blockNumber) => {
-    const r = await tree.multipleRandomSortition(number, blockNumber)
-    const gas = getGas(r)
-    console.log(`Sortition of ${number} elements gas:`, gas.total.toLocaleString(), gas.function.toLocaleString())
   }
 
   const formatDivision = (result, colSize) => {
@@ -272,33 +267,6 @@ testRunner('Hex Sum Tree (Gas analysis)', (accounts) => {
       for (let j = 0; j < NODES; j++) {
         const value = (j + 1) * 10 + i - 1
         const r = await tree.sortition(value, setBns[i][j])
-        const gas = getGas(r)
-        sortitionGas.push(gas)
-      }
-    }
-
-    await logTreeState()
-    logGasStats('Inserts', insertGas)
-    logGasStats('Sets', setGas)
-    logGasStats('Sortitions', sortitionGas)
-  })
-
-  it('multiple random sortition on a (fake) big tree with a lot of updates', async () => {
-    const STARTING_KEY = (new web3.BigNumber(CHILDREN)).pow(5)
-    const NODES = 10
-    const UPDATES = 30
-    const SORTITION_NUMBER = 10
-    await tree.setNextKey(STARTING_KEY)
-
-    const insertGas = await insertNodes(NODES, 10)
-    const { setBns, setGas } = await multipleUpdatesOnMultipleNodes(NODES, UPDATES, STARTING_KEY, 10)
-
-    // check all past values
-    let sortitionGas = []
-    for (let i = 1; i <= UPDATES; i++) {
-      for (let j = 0; j < NODES; j++) {
-        const value = (j + 1) * 10 + i - 1
-        const r = await tree.multipleRandomSortition(SORTITION_NUMBER, setBns[i][j])
         const gas = getGas(r)
         sortitionGas.push(gas)
       }

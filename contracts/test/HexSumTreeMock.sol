@@ -77,85 +77,39 @@ contract HexSumTreeMock is TimeHelpersMock {
         tree.rootDepth.add(uint64(getCheckpointTime()), rootDepth);
     }
 
-    function sortition(uint256 value, uint64 checkpointTime) external profileGas returns (uint256) {
-        (uint256 k,) = tree.sortition(value, checkpointTime, true);
-        return k;
-    }
-
-    function sortitionSingleUsingMulti(uint256 value, uint64 checkpointTime) external profileGas returns (uint256) {
+    function sortition(uint256 value, uint64 time) external profileGas returns (uint256) {
         uint256[] memory values = new uint256[](1);
         values[0] = value;
-        (uint256[] memory keys, ) = tree.multiSortition(values, checkpointTime, true);
-
+        (uint256[] memory keys, ) = multiSortition(values, time);
         return keys[0];
     }
 
-    function multipleRandomSortition(uint256 number, uint64 checkpointTime) external profileGas {
-        for (uint256 i = 0; i < number; i++) {
-            bytes32 seed = keccak256(abi.encodePacked(checkpointTime, i));
-            tree.randomSortition(uint256(seed), checkpointTime, true);
-        }
+    function multiSortition(uint256[] values, uint64 time) public view returns (uint256[], uint256[]) {
+        return tree.multiSortition(values, time);
     }
 
-    function multipleRandomSortitionLast(uint256 number) external profileGas {
-        uint64 checkpointTime = getCheckpointTime();
-        for (uint256 i = 0; i < number; i++) {
-            bytes32 seed = keccak256(abi.encodePacked(checkpointTime, i));
-            tree.randomSortition(uint256(seed), checkpointTime, false);
-        }
+    function multiSortitionFor(
+        bytes32 _termRandomness,
+        uint256 _disputeId,
+        uint64 _time,
+        uint256 _filledSeats,
+        uint256 _jurorsRequested,
+        uint256 _jurorNumber,
+        uint256 _sortitionIteration
+    )
+        external
+        view
+        returns (uint256[] keys, uint256[] nodeValues)
+    {
+        return tree.multiSortition(_termRandomness, _disputeId, _time, _filledSeats, _jurorsRequested, _jurorNumber, _sortitionIteration);
     }
 
-    function _getOrderedValues(uint256 number, uint64 checkpointTime) private view returns (uint256[] values) {
-        values = new uint256[](number);
-        uint256 sum = tree.totalSumPast(checkpointTime);
-
-        for (uint256 i = 0; i < number; i++) {
-            bytes32 seed = keccak256(abi.encodePacked(checkpointTime, i));
-            uint256 value = uint256(seed) % sum;
-            values[i] = value;
-            // make sure it's ordered
-            uint256 j = i;
-            while (j > 0 && values[j] < values[j - 1]) {
-                // flip them
-                uint256 tmp = values[j - 1];
-                values[j - 1] = values[j];
-                values[j] = tmp;
-                j--;
-            }
-        }
+    function get(uint256 level, uint256 key) external view returns (uint256) {
+        return tree.get(level, key);
     }
 
-    //event LogValues(uint64 checkpointTime, uint256[] values);
-    //event LogKeys(uint64 checkpointTime, uint256[] keys);
-    function multipleRandomMultiSortition(uint256 number, uint64 checkpointTime) external profileGas returns (uint256[]) {
-        uint256[] memory values = _getOrderedValues(number, checkpointTime);
-        //emit LogValues(checkpointTime, values);
-        (uint256[] memory keys, ) = tree.multiSortition(values, checkpointTime, true);
-        //emit LogKeys(checkpointTime, keys);
-        return keys;
-    }
-
-    function multipleRandomMultiSortitionLast(uint256 number) external profileGas returns (uint256[]) {
-        uint64 checkpointTime = getCheckpointTime();
-        uint256[] memory values = _getOrderedValues(number, checkpointTime);
-        (uint256[] memory keys, ) = tree.multiSortition(values, checkpointTime, false);
-        return keys;
-    }
-
-    function multiSortition(uint256[] values, uint64 checkpointTime) external view returns (uint256[], uint256[]) {
-        return tree.multiSortition(values, checkpointTime, true);
-    }
-
-    function get(uint256 l, uint256 key) external view returns (uint256) {
-        return tree.get(l, key);
-    }
-
-    function getPast(uint256 l, uint256 key, uint64 checkpointTime) external view returns (uint256) {
-        return tree.getPast(l, key, checkpointTime);
-    }
-
-    function getItemPast(uint256 key, uint64 checkpointTime) external profileGas returns (uint256) {
-        return tree.getItemPast(key, checkpointTime);
+    function getItemPast(uint256 key, uint64 time) external profileGas returns (uint256) {
+        return tree.getItemPast(key, time);
     }
 
     function totalSum() external view returns (uint256) {
@@ -177,26 +131,5 @@ contract HexSumTreeMock is TimeHelpersMock {
 
     function getChildren() public view returns (uint256) {
         return tree.getChildren();
-    }
-
-    function getBitsInNibble() public view returns (uint256) {
-        return tree.getBitsInNibble();
-    }
-
-    function multiSortitionFor(
-        bytes32 _termRandomness,
-        uint256 _disputeId,
-        uint64 _time,
-        bool _past,
-        uint256 _filledSeats,
-        uint256 _jurorsRequested,
-        uint256 _jurorNumber,
-        uint256 _sortitionIteration
-    )
-        external
-        view
-        returns (uint256[] keys, uint256[] nodeValues)
-    {
-        return tree.multiSortition(_termRandomness, _disputeId, _time, _past, _filledSeats, _jurorsRequested, _jurorNumber, _sortitionIteration);
     }
 }

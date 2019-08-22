@@ -9,7 +9,6 @@ contract TimeHelpersMock is TimeHelpers {
     using SafeMath for uint256;
     using SafeMath64 for uint64;
 
-    // TODO: Current mocks need to start from timestamp 0 and blocknumber 1 due to how tests are built, fix tests to be able to start with current values
     uint256 mockedTimestamp;
     uint256 mockedBlockNumber;
 

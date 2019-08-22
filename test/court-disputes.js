@@ -1,7 +1,7 @@
 const { ONE_DAY } = require('./helpers/time')
 const { buildHelper } = require('./helpers/court')(web3, artifacts)
-const { SALT, encryptVote } = require('./helpers/crvoting')
 const { assertRevert } = require('@aragon/os/test/helpers/assertThrow')
+const { SALT, encryptVote } = require('./helpers/crvoting')
 const { decodeEventsOfType } = require('./helpers/decodeEvent')
 
 const TokenFactory = artifacts.require('TokenFactory')

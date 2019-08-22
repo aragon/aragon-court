@@ -233,8 +233,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
         uint256[5] _subscriptionParams // _periodDuration, _feeAmount, _prePaymentPeriods, _latePaymentPenaltyPct, _governorSharePct
     ) public {
         require(_firstTermStartTime >= _termDuration, ERROR_BAD_FIRST_TERM_START_TIME);
-        // TODO: we should add this validation, cannot enable it now due to how tests are mocking timestamps
-        // require(_firstTermStartTime - _termDuration <= getTimestamp64(), ERROR_BAD_FIRST_TERM_START_TIME);
+        require(_firstTermStartTime >= getTimestamp64(), ERROR_BAD_FIRST_TERM_START_TIME);
 
         termDuration = _termDuration;
         jurorsRegistry = _jurorsRegistry;
@@ -668,8 +667,9 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
     }
 
     /**
-     * @notice Send a heartbeat to the Court to transition up to `_termTransitions`
-     */
+    * @notice Send a heartbeat to the Court to transition up to `_maxRequestedTransitions` terms
+    * @param _maxRequestedTransitions Max number of term transitions allowed by the sender
+    */
     function heartbeat(uint64 _maxRequestedTransitions) public {
         uint64 neededTransitions = neededTermTransitions();
         uint256 transitions = uint256(_maxRequestedTransitions < neededTransitions ? _maxRequestedTransitions : neededTransitions);
@@ -679,21 +679,21 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
         uint256 totalFee;
         for (uint256 transition = 1; transition <= transitions; transition++) {
             Term storage previousTerm = terms[termId++];
-            Term storage nextTerm = terms[termId];
+            Term storage currentTerm = terms[termId];
 
             // TODO: allow config to be changed for a future term id
-            nextTerm.courtConfigId = previousTerm.courtConfigId;
+            currentTerm.courtConfigId = previousTerm.courtConfigId;
             // Set the start time of the new term. Note that we are using a constant term duration value to guarantee
             // equally long terms, regardless of heartbeats.
-            nextTerm.startTime = previousTerm.startTime + termDuration;
+            currentTerm.startTime = previousTerm.startTime + termDuration;
             // In order to draft a random number of jurors in a term, we use a randomness factor for each term based on a
             // block number that is set once the term has started. Note that this information could not be known beforehand.
-            nextTerm.randomnessBN = getBlockNumber64() + 1;
+            currentTerm.randomnessBN = getBlockNumber64() + 1;
             emit NewTerm(termId, msg.sender);
 
             // Add amount of fees to be paid for the transitioned term
-            CourtConfig storage config = courtConfigs[nextTerm.courtConfigId];
-            totalFee = totalFee.add(config.heartbeatFee.mul(uint256(nextTerm.dependingDrafts)));
+            CourtConfig storage config = courtConfigs[currentTerm.courtConfigId];
+            totalFee = totalFee.add(config.heartbeatFee.mul(uint256(currentTerm.dependingDrafts)));
         }
 
         // Pay heartbeat fees to the caller of this function
@@ -703,16 +703,28 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
     }
 
     /**
+    * @dev Tells the number of terms the Court should transition to be up-to-date
+    * @return Number of terms the Court should transition to be up-to-date
+    */
+    function neededTermTransitions() public view returns (uint64) {
+        // Note that the Court is always initialized at least for the current initialization time or more likely a
+        // in the future. If that the case, no term transitions are needed.
+        uint64 currentTermStartTime = terms[termId].startTime;
+        if (getTimestamp64() < currentTermStartTime) {
+            return uint64(0);
+        }
+
+        // We already know that the start time of the current term is in the past, we are safe to avoid SafeMath here
+        return (getTimestamp64() - currentTermStartTime) / termDuration;
+    }
+
+    /**
      * @dev This function only works for regular rounds. For final round `filledSeats` is always zero,
      *      so the result will always be false. There is no drafting in final round.
      */
     function areAllJurorsDrafted(uint256 _disputeId, uint256 _roundId) public view returns (bool) {
         AdjudicationRound storage round = disputes[_disputeId].rounds[_roundId];
         return round.filledSeats == round.jurorNumber;
-    }
-
-    function neededTermTransitions() public view returns (uint64) {
-        return (getTimestamp64() - terms[termId].startTime) / termDuration;
     }
 
     function getNextAppealDetails(uint256 _disputeId, uint256 _roundId) public view
@@ -749,6 +761,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
     function _createRound(uint256 _disputeId, DisputeState _disputeState, uint64 _draftTermId, uint64 _jurorNumber, uint256 _jurorFees) internal
         returns (uint256 roundId)
     {
+        // TODO: ensure we cannot create rounds for term zero
         Dispute storage dispute = disputes[_disputeId];
         dispute.state = _disputeState;
 

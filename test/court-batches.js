@@ -33,9 +33,10 @@ const assertLogs = async (receiptPromise, ...logNames) => {
   }
 }
 
+const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
+
 contract('Court: Batches', ([ rich, arbitrable, juror1, juror2, juror3, juror4, juror5, juror6, juror7 ]) => {
   const NO_DATA = ''
-  const ZERO_ADDRESS = '0x' + '00'.repeat(20)
   let MAX_JURORS_PER_DRAFT_BATCH
 
   const termDuration = ONE_DAY
@@ -243,6 +244,7 @@ contract('Court: Batches', ([ rich, arbitrable, juror1, juror2, juror3, juror4, 
         // make sure we miss randomness
         await this.courtHelper.advanceBlocks(257)
         await assertRevert(this.court.draft(disputeId), ERROR_TERM_RANDOMNESS_UNAVAIL)
+
         // move forward to next term
         await passTerms(1)
         // advance two blocks to ensure we can compute term randomness

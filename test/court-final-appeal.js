@@ -12,8 +12,6 @@ const CRVoting = artifacts.require('CRVoting')
 const Subscriptions = artifacts.require('SubscriptionsMock')
 
 const MINIME = 'MiniMeToken'
-const NO_DATA = ''
-const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
 
 const getLog = (receipt, logName, argName) => {
   const log = receipt.logs.find(({ event }) => event == logName)
@@ -39,6 +37,9 @@ const assertLogs = async (receiptPromise, ...logNames) => {
 const getVoteId = (disputeId, roundId) => {
   return new web3.BigNumber(2).pow(128).mul(disputeId).add(roundId)
 }
+
+const NO_DATA = ''
+const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
 
 contract('Court: final appeal', ([ poor, rich, juror1, juror2, juror3, juror4, juror5, juror6, juror7 ]) => {
   const jurors = [ juror1, juror2, juror3, juror4, juror5, juror6, juror7 ]

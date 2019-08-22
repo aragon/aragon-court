@@ -46,7 +46,7 @@ contract('Hex Sum Tree', (accounts) => {
         setBns.push({ time: checkpointTime, value: value })
       }
       if (i % 2 == 0) {
-        await tree.advanceTime(50) // blocks
+        await tree.mockAdvanceBlocks(50)
       }
     }
 
@@ -64,21 +64,21 @@ contract('Hex Sum Tree', (accounts) => {
   for (const sortitionFunction of ['sortition', 'sortitionSingleUsingMulti']) {
     it(`inserts a lot of times into the first node using ${sortitionFunction}`, async () => {
       const NODE = 0
-      await tree.insertNoLog(10)
+      await tree.insertAt(0, 10)
 
       await multipleSetOnNode(NODE, sortitionFunction)
 
       await logTreeState()
       await logSortition(NODE, sortitionFunction)
       const finalCheckpointTime = await tree.getCheckpointTime()
-      const finalBlockNumber = await tree.getBlockNumber64()
+      const finalBlockNumber = await tree.getBlockNumber64Ext()
       console.log(`final block number ${finalBlockNumber}, term ${finalCheckpointTime}`)
     })
 
     it(`inserts a lot of times into a middle node using ${sortitionFunction}`, async () => {
       const NODE = 250
       for (let i = 0; i < 270; i++) {
-        await tree.insertNoLog(10)
+        await tree.insertAt(0, 10)
       }
 
       await multipleSetOnNode(NODE, sortitionFunction)
@@ -86,7 +86,7 @@ contract('Hex Sum Tree', (accounts) => {
       await logTreeState()
       await logSortition(NODE * 10 + 5, sortitionFunction)
       const finalCheckpointTime = await tree.getCheckpointTime()
-      const finalBlockNumber = await tree.getBlockNumber64()
+      const finalBlockNumber = await tree.getBlockNumber64Ext()
       console.log(`final block number ${finalBlockNumber}, term ${finalCheckpointTime}`)
     })
   }

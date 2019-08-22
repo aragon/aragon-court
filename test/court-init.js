@@ -45,7 +45,6 @@ contract('Court: init', ([ governor ]) => {
   it('fails to deploy if penaltyPct is too low compared to jurorMinStake', async () => {
     const termDuration = 10
     const firstTermStart = 10
-    const startBlock = 1000
     const commitTerms = 1
     const revealTerms = 1
     const appealTerms = 1

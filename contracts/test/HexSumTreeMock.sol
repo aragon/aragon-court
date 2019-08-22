@@ -1,15 +1,14 @@
 pragma solidity ^0.4.24;
 
 import "../lib/HexSumTree.sol";
+import "./lib/TimeHelpersMock.sol";
 
 
-contract HexSumTreeMock {
+contract HexSumTreeMock is TimeHelpersMock {
     using HexSumTree for HexSumTree.Tree;
     using Checkpointing for Checkpointing.History;
 
-    HexSumTree.Tree tree;
-
-    uint64 blockNumber;
+    HexSumTree.Tree internal tree;
 
     event LogKey(bytes32 k);
     event LogRemove(bytes32 k);
@@ -171,15 +170,7 @@ contract HexSumTreeMock {
         return (tree.getRootDepth(), tree.nextKey);
     }
 
-    function advanceTime(uint64 blocks) public {
-        blockNumber += blocks;
-    }
-
-    function getBlockNumber64() public view returns (uint64) {
-        //return uint64(block.number);
-        return blockNumber;
-    }
-
+    // TODO: use a more accurate way of testing timestamps for chekpointing
     function getCheckpointTime() public view returns (uint64) {
         return getBlockNumber64() / 256;
     }

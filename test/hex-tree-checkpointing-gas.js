@@ -68,7 +68,7 @@ contract.skip('Hex Sum Tree Checkpointing (Gas analysis)', (accounts) => {
         if (setBns[i][setBns[i].length - 1] != checkpointTime) {
           setBns[i].push(checkpointTime)
         }
-        await tree.advanceTime(blocksOffset) // blocks
+        await tree.mockAdvanceBlocks(blocksOffset)
       }
     }
     return { setBns, setGas }
@@ -78,7 +78,7 @@ contract.skip('Hex Sum Tree Checkpointing (Gas analysis)', (accounts) => {
     const NODES = 10
     const UPDATES = 30
     const SORTITION_NUMBER = 10
-    const initialBlockNumber = await tree.getBlockNumber64()
+    const initialBlockNumber = await tree.getBlockNumber64Ext()
     const initialCheckpointTime = await tree.getCheckpointTime()
     console.log(`initial block number ${initialBlockNumber}, term ${initialCheckpointTime}`)
     await tree.setNextKey(STARTING_KEY)
@@ -101,7 +101,7 @@ contract.skip('Hex Sum Tree Checkpointing (Gas analysis)', (accounts) => {
     logGasStats('Sets', setGas)
     logGasStats('Sortitions', sortitionGas)
 
-    const finalBlockNumber = await tree.getBlockNumber64()
+    const finalBlockNumber = await tree.getBlockNumber64Ext()
     const finalCheckpointTime = await tree.getCheckpointTime()
     console.log(`final block number ${finalBlockNumber}, term ${finalCheckpointTime}`)
   }
@@ -118,7 +118,7 @@ contract.skip('Hex Sum Tree Checkpointing (Gas analysis)', (accounts) => {
     const NODES = 10
     const UPDATES = 30
     const SORTITION_NUMBER = 10
-    const initialBlockNumber = await tree.getBlockNumber64()
+    const initialBlockNumber = await tree.getBlockNumber64Ext()
     const initialCheckpointTime = await tree.getCheckpointTime()
     console.log(`initial block number ${initialBlockNumber}, term ${initialCheckpointTime}`)
     await tree.setNextKey(STARTING_KEY)
@@ -132,7 +132,7 @@ contract.skip('Hex Sum Tree Checkpointing (Gas analysis)', (accounts) => {
         const value = INITIAL_VALUE + i
         const r1 = await tree.set(STARTING_KEY.add(j), value)
         setGas.push(getGas(r1))
-        await tree.advanceTime(256) // blocks
+        await tree.mockAdvanceBlocks(256)
         // sortition
         const r2 = await tree.multipleRandomSortitionLast(SORTITION_NUMBER)
         sortitionGas.push(getGas(r2))
@@ -144,7 +144,7 @@ contract.skip('Hex Sum Tree Checkpointing (Gas analysis)', (accounts) => {
     logGasStats('Sets', setGas)
     logGasStats('Sortitions', sortitionGas)
 
-    const finalBlockNumber = await tree.getBlockNumber64()
+    const finalBlockNumber = await tree.getBlockNumber64Ext()
     const finalCheckpointTime = await tree.getCheckpointTime()
     console.log(`final block number ${finalBlockNumber}, term ${finalCheckpointTime}`)
   })
@@ -156,7 +156,7 @@ contract.skip('Hex Sum Tree Checkpointing (Gas analysis)', (accounts) => {
     const SORTITION_NUMBER = 10
     const blocksOffset = 243
 
-    const initialBlockNumber = await tree.getBlockNumber64()
+    const initialBlockNumber = await tree.getBlockNumber64Ext()
     const initialCheckpointTime = await tree.getCheckpointTime()
     console.log(`initial block number ${initialBlockNumber}, term ${initialCheckpointTime}`)
     await tree.setNextKey(STARTING_KEY)
@@ -185,7 +185,7 @@ contract.skip('Hex Sum Tree Checkpointing (Gas analysis)', (accounts) => {
     logGasStats('Total sum', sumPastGas)
     logGasStats('Total get', getPastGas)
 
-    const finalBlockNumber = await tree.getBlockNumber64()
+    const finalBlockNumber = await tree.getBlockNumber64Ext()
     const finalCheckpointTime = await tree.getCheckpointTime()
     console.log(`final block number ${finalBlockNumber}, term ${finalCheckpointTime}`)
 
@@ -197,7 +197,7 @@ contract.skip('Hex Sum Tree Checkpointing (Gas analysis)', (accounts) => {
     const UPDATES = 30
     const SORTITION_NUMBER = 10
     const blocksOffset = 243
-    const initialBlockNumber = await tree.getBlockNumber64()
+    const initialBlockNumber = await tree.getBlockNumber64Ext()
     const initialCheckpointTime = await tree.getCheckpointTime()
     console.log(`initial block number ${initialBlockNumber}, term ${initialCheckpointTime}`)
     await tree.setNextKey(STARTING_KEY)
@@ -221,7 +221,7 @@ contract.skip('Hex Sum Tree Checkpointing (Gas analysis)', (accounts) => {
     logGasStats('Sets', setGas)
     logGasStats('Sortitions', sortitionGas)
 
-    const finalBlockNumber = await tree.getBlockNumber64()
+    const finalBlockNumber = await tree.getBlockNumber64Ext()
     const finalCheckpointTime = await tree.getCheckpointTime()
     console.log(`final block number ${finalBlockNumber}, term ${finalCheckpointTime}`)
   })
@@ -232,7 +232,7 @@ contract.skip('Hex Sum Tree Checkpointing (Gas analysis)', (accounts) => {
     const NODES = 10
     const UPDATES = 30
     const SORTITION_NUMBER = 10
-    const initialBlockNumber = await tree.getBlockNumber64()
+    const initialBlockNumber = await tree.getBlockNumber64Ext()
     const initialCheckpointTime = await tree.getCheckpointTime()
     console.log(`initial block number ${initialBlockNumber}, term ${initialCheckpointTime}`)
     await tree.setNextKey(STARTING_KEY)
@@ -246,7 +246,7 @@ contract.skip('Hex Sum Tree Checkpointing (Gas analysis)', (accounts) => {
         const value = INITIAL_VALUE + i
         const r1 = await tree.set(STARTING_KEY.add(j), value)
         setGas.push(getGas(r1))
-        await tree.advanceTime(256) // blocks
+        await tree.mockAdvanceBlocks(256)
         // sortition
         const r2 = await tree.multipleRandomMultiSortitionLast(SORTITION_NUMBER)
         sortitionGas.push(getGas(r2))
@@ -258,7 +258,7 @@ contract.skip('Hex Sum Tree Checkpointing (Gas analysis)', (accounts) => {
     logGasStats('Sets', setGas)
     logGasStats('Sortitions', sortitionGas)
 
-    const finalBlockNumber = await tree.getBlockNumber64()
+    const finalBlockNumber = await tree.getBlockNumber64Ext()
     const finalCheckpointTime = await tree.getCheckpointTime()
     console.log(`final block number ${finalBlockNumber}, term ${finalCheckpointTime}`)
   })

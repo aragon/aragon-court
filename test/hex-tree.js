@@ -19,15 +19,15 @@ contract('Hex Sum Tree', () => {
   }
 
   it('inserts', async () => {
-    await tree.insert(10)
+    await tree.insertAt(0, 10)
 
     assertBN(await tree.get(0, 0), 10, 'get node')
     assertBN(await tree.get(1, 0), 10, 'get sum')
   })
 
   it('inserts and modifies', async () => {
-    await tree.insert(10)
-    await tree.insert(5)
+    await tree.insertAt(0, 10)
+    await tree.insertAt(0, 5)
     assertBN(await tree.get(1, 0), 15, 'get sum')
 
     await tree.set(0, 5)
@@ -37,24 +37,24 @@ contract('Hex Sum Tree', () => {
   })
 
   it('inserts three', async () => {
-    await tree.insert(10)
-    await tree.insert(10)
-    await tree.insert(10)
+    await tree.insertAt(0, 10)
+    await tree.insertAt(0, 10)
+    await tree.insertAt(0, 10)
 
     assertBN(await tree.get(0, 1), 10, 'get node')
     assertBN(await tree.get(1, 0), 30, 'get sum')
   })
 
   it('fails setting non adjacent key', async () => {
-    await tree.insert(5)
-    await tree.insert(5)
+    await tree.insertAt(0, 5)
+    await tree.insertAt(0, 5)
 
     await assertRevert(tree.set(3, 5), 'SUM_TREE_NEW_KEY_NOT_ADJACENT')
   })
 
   it('fails inserting a number that makes sum overflow', async () => {
-    await tree.insert(5)
-    await tree.insert(5)
+    await tree.insertAt(0, 5)
+    await tree.insertAt(0, 5)
 
     const MAX_UINT256 = (new web3.BigNumber(2)).pow(256).minus(1)
     await assertRevert(tree.update(0, MAX_UINT256, true), 'SUM_TREE_UPDATE_OVERFLOW')
@@ -62,8 +62,8 @@ contract('Hex Sum Tree', () => {
 
   for (const sortitionFunction of ['sortition', 'sortitionSingleUsingMulti']) {
     it(`inserts two using ${sortitionFunction}`, async () => {
-      await tree.insert(5)
-      await tree.insert(5)
+      await tree.insertAt(0, 5)
+      await tree.insertAt(0, 5)
 
       for(let i = 0; i < 5; i++) {
         //await logSortition(i, sortitionFunction)
@@ -77,7 +77,7 @@ contract('Hex Sum Tree', () => {
 
     it(`sortition using ${sortitionFunction}`, async () => {
       for(let i = 0; i < 20; i++) {
-        await tree.insert(10)
+        await tree.insertAt(0, 10)
         const [depth, key] = await tree.getState()
 
         //if (i % 10 == 0 || i > 15)
@@ -91,7 +91,7 @@ contract('Hex Sum Tree', () => {
 
     it(`inserts into another node using ${sortitionFunction}`, async () => {
       for(let i = 0; i < 270; i++) {
-        await tree.insert(10)
+        await tree.insertAt(0, 10)
         const [depth, key] = await tree.getState()
 
         //if (i % 10 == 0)
@@ -110,7 +110,7 @@ contract('Hex Sum Tree', () => {
       const NODES = 513 // at least over 16^2 to hit 3 levels, 16^3 gives time outs on CI
       // insert
       for(let i = 0; i < NODES; i++) {
-        await tree.insertNoLog(10)
+        await tree.insertAt(0, 10)
       }
 
       // sortition
@@ -126,7 +126,7 @@ contract('Hex Sum Tree', () => {
       const VALUE = 10
 
       for (let i = 0; i < TOTAL_JURORS; i++) {
-        await tree.insert(VALUE)
+        await tree.insertAt(0, VALUE)
       }
     })
 

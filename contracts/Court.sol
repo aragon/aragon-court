@@ -14,10 +14,11 @@ import "@aragon/os/contracts/lib/token/ERC20.sol";
 import "@aragon/os/contracts/common/SafeERC20.sol";
 import "@aragon/os/contracts/lib/math/SafeMath.sol";
 import "@aragon/os/contracts/common/Uint256Helpers.sol";
+import "@aragon/os/contracts/common/TimeHelpers.sol";
 
 
 // solium-disable function-order
-contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner {
+contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, TimeHelpers {
     using SafeERC20 for ERC20;
     using SafeMath for uint256;
     using Uint256Helpers for uint256;
@@ -283,7 +284,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner {
 
         // Set the start time of the term (ensures equally long terms, regardless of heartbeats)
         nextTerm.startTime = prevTerm.startTime + termDuration;
-        nextTerm.randomnessBN = _blockNumber() + 1; // randomness source set to next block (content unknown when heartbeat happens)
+        nextTerm.randomnessBN = getBlockNumber64() + 1; // randomness source set to next block (content unknown when heartbeat happens)
 
         CourtConfig storage courtConfig = courtConfigs[nextTerm.courtConfigId];
         uint256 totalFee = nextTerm.dependingDrafts * courtConfig.heartbeatFee;
@@ -687,7 +688,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner {
     }
 
     function neededTermTransitions() public view returns (uint64) {
-        return (_time() - terms[termId].startTime) / termDuration;
+        return (getTimestamp64() - terms[termId].startTime) / termDuration;
     }
 
     function ensureAndGetTermId() external returns (uint64) {
@@ -921,7 +922,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner {
     }
 
     function _getTermRandomness(Term storage _term) internal view returns (bytes32 randomness) {
-        require(_blockNumber() > _term.randomnessBN, ERROR_TERM_RANDOMNESS_NOT_YET);
+        require(getBlockNumber64() > _term.randomnessBN, ERROR_TERM_RANDOMNESS_NOT_YET);
 
         randomness = blockhash(_term.randomnessBN);
     }
@@ -1198,14 +1199,6 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner {
             uint16(_subscriptionParams[3]), // _latePaymentPenaltyPct
             uint16(_subscriptionParams[4])  // _governorSharePct
         );
-    }
-
-    function _time() internal view returns (uint64) {
-        return uint64(block.timestamp);
-    }
-
-    function _blockNumber() internal view returns (uint64) {
-        return uint64(block.number);
     }
 
     function _pct4(uint256 _number, uint16 _pct) internal pure returns (uint256) {

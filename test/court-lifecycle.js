@@ -39,7 +39,6 @@ contract('Court: Lifecycle', ([ poor, rich, governor, juror1, juror2 ]) => {
   const firstTermStart = 15
   const jurorMinStake = 100
   const cooldown = 10
-  const startBlock = 1000
   const commitTerms = 1
   const revealTerms = 1
   const appealTerms = 1
@@ -92,7 +91,9 @@ contract('Court: Lifecycle', ([ poor, rich, governor, juror1, juror2 ]) => {
       [ 0, 0, 0, 0, 0 ]
     )
 
-    await this.court.mock_setBlockNumber(startBlock)
+    // TODO: use more realistic term duration and first term start time values
+    await this.court.mockSetTimestamp(1)
+    await this.jurorsRegistry.mockSetTimestamp(1)
 
     assert.equal(await this.jurorsRegistry.token(), this.anj.address, 'court token')
     await assertEqualBN(this.jurorsRegistry.mock_treeTotalSum(), 0, 'empty sum tree')
@@ -127,8 +128,8 @@ contract('Court: Lifecycle', ([ poor, rich, governor, juror1, juror2 ]) => {
     })
 
     it('transitions to term #1 on heartbeat', async () => {
-      await this.jurorsRegistry.mock_setTime(15)
-      await this.court.mock_setTime(15)
+      await this.jurorsRegistry.mockSetTimestamp(15)
+      await this.court.mockSetTimestamp(15)
       await assertLogs(this.court.heartbeat(1), NEW_TERM_EVENT)
       
       await assertEqualBN(this.court.getLastEnsuredTermId(), 1, 'court term #1')
@@ -142,19 +143,19 @@ contract('Court: Lifecycle', ([ poor, rich, governor, juror1, juror2 ]) => {
       await assertEqualBN(startTime, firstTermStart, 'first term start')
       await assertEqualBN(dependingDraws, 0, 'depending draws')
       await assertEqualBN(courtConfigId, 1, 'court config id')
-      await assertEqualBN(randomnessBn, startBlock + 1, 'randomeness bn')
+      await assertEqualBN(randomnessBn, (await this.court.getBlockNumberExt()), 'randomeness bn')
     })
 
     it('can activate during period before heartbeat', async () => {
-      await this.jurorsRegistry.mock_setTime(firstTermStart - 1)
-      await this.court.mock_setTime(firstTermStart - 1)
+      await this.jurorsRegistry.mockSetTimestamp(firstTermStart - 1)
+      await this.court.mockSetTimestamp(firstTermStart - 1)
       await this.jurorsRegistry.activate(0, { from: juror1 }) // will activate all his funds
       await assertEqualBN(this.jurorsRegistry.mock_treeTotalSum(), juror1Stake, 'total tree sum')
     })
 
     it('gets the correct balance after activation', async () => {
-      await this.jurorsRegistry.mock_setTime(firstTermStart - 1)
-      await this.court.mock_setTime(firstTermStart - 1)
+      await this.jurorsRegistry.mockSetTimestamp(firstTermStart - 1)
+      await this.court.mockSetTimestamp(firstTermStart - 1)
       await this.jurorsRegistry.activate(0, { from: rich })
 
       const id = await this.jurorsRegistry.getJurorId(rich)
@@ -168,15 +169,15 @@ contract('Court: Lifecycle', ([ poor, rich, governor, juror1, juror2 ]) => {
     })
 
     it('reverts if activating balance is below dust', async () => {
-      await this.jurorsRegistry.mock_setTime(firstTermStart - 1)
-      await this.court.mock_setTime(firstTermStart - 1)
+      await this.jurorsRegistry.mockSetTimestamp(firstTermStart - 1)
+      await this.court.mockSetTimestamp(firstTermStart - 1)
       await assertRevert(this.jurorsRegistry.activate(0, { from: poor }), 'JR_INVALID_ZERO_AMOUNT')
       await assertRevert(this.jurorsRegistry.activate(10, { from: poor }), 'JR_INVALID_ACTIVATION_AMOUNT')
     })
 
     it("doesn't perform more transitions than requested", async () => {
-      await this.jurorsRegistry.mock_setTime(firstTermStart + termDuration * 100)
-      await this.court.mock_setTime(firstTermStart + termDuration * 100)
+      await this.jurorsRegistry.mockSetTimestamp(firstTermStart + termDuration * 100)
+      await this.court.mockSetTimestamp(firstTermStart + termDuration * 100)
       await this.court.heartbeat(3)
       await assertEqualBN(this.court.getLastEnsuredTermId(), 3, 'current term')
     })
@@ -186,15 +187,15 @@ contract('Court: Lifecycle', ([ poor, rich, governor, juror1, juror2 ]) => {
     const term = 3
 
     const passTerms = async terms => {
-      await this.jurorsRegistry.mock_timeTravel(terms * termDuration)
-      await this.court.mock_timeTravel(terms * termDuration)
+      await this.jurorsRegistry.mockIncreaseTime(terms * termDuration)
+      await this.court.mockIncreaseTime(terms * termDuration)
       await this.court.heartbeat(terms)
       assert.isFalse(await this.court.canTransitionTerm(), 'all terms transitioned')
     }
 
     beforeEach(async () => {
-      await this.jurorsRegistry.mock_setTime(firstTermStart)
-      await this.court.mock_setTime(firstTermStart)
+      await this.jurorsRegistry.mockSetTimestamp(firstTermStart)
+      await this.court.mockSetTimestamp(firstTermStart)
       await this.court.heartbeat(1)
 
       await passTerms(2)
@@ -213,7 +214,7 @@ contract('Court: Lifecycle', ([ poor, rich, governor, juror1, juror2 ]) => {
       await assertEqualBN(startTime, firstTermStart + (term - 1) * termDuration, 'term start')
       await assertEqualBN(dependingDraws, 0, 'depending draws')
       await assertEqualBN(courtConfigId, 1, 'court config id')
-      await assertEqualBN(randomnessBn, startBlock + 1, 'randomeness bn')      
+      await assertEqualBN(randomnessBn, (await this.court.getBlockNumberExt()), 'randomeness bn')
     })
 
     it('jurors can activate', async () => {

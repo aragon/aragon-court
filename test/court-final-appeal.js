@@ -49,7 +49,6 @@ contract('Court: final appeal', ([ poor, rich, governor, juror1, juror2, juror3,
   const termDuration = 10
   const firstTermStart = 10
   const jurorMinStake = 200
-  const startBlock = 1000
   const commitTerms = 1
   const revealTerms = 1
   const appealTerms = 1
@@ -123,7 +122,9 @@ contract('Court: final appeal', ([ poor, rich, governor, juror1, juror2, juror3,
 
     MAX_JURORS_PER_DRAFT_BATCH = (await this.court.getMaxJurorsPerDraftBatch.call()).toNumber()
 
-    await this.court.mock_setBlockNumber(startBlock)
+    // TODO: use more realistic term duration and first term start time values
+    await this.court.mockSetTimestamp(1)
+    await this.jurorsRegistry.mockSetTimestamp(1)
 
     assert.equal(await this.jurorsRegistry.token(), this.anj.address, 'court token')
     await assertEqualBN(this.jurorsRegistry.mock_treeTotalSum(), 0, 'empty sum tree')
@@ -142,10 +143,10 @@ contract('Court: final appeal', ([ poor, rich, governor, juror1, juror2, juror3,
   })
 
   const passTerms = async terms => {
-    await this.jurorsRegistry.mock_timeTravel(terms * termDuration)
-    await this.court.mock_timeTravel(terms * termDuration)
+    await this.jurorsRegistry.mockIncreaseTime(terms * termDuration)
+    await this.court.mockIncreaseTime(terms * termDuration)
     await this.court.heartbeat(terms)
-    await this.court.mock_blockTravel(1)
+
     assert.isFalse(await this.court.canTransitionTerm(), 'all terms transitioned')
   }
 
@@ -202,7 +203,8 @@ contract('Court: final appeal', ([ poor, rich, governor, juror1, juror2, juror3,
       let roundJurorsDrafted = 0
       let draftReceipt
 
-      await this.court.setTermRandomness()
+      // advance two blocks to ensure we can compute term randomness
+      await this.court.mockAdvanceBlocks(2)
 
       while (roundJurorsDrafted < roundJurors) {
         draftReceipt = await this.court.draftAdjudicationRound(disputeId)
@@ -214,7 +216,7 @@ contract('Court: final appeal', ([ poor, rich, governor, juror1, juror2, juror3,
 
     const moveForwardToFinalRound = async () => {
       await passTerms(2) // term = 3, dispute init
-      await this.court.mock_blockTravel(1)
+      await this.court.mockAdvanceBlocks(1)
 
       for (let roundId = 0; roundId < MAX_REGULAR_APPEAL_ROUNDS; roundId++) {
         let roundJurors = initialJurorNumber * (APPEAL_STEP_FACTOR ** roundId)
@@ -239,7 +241,7 @@ contract('Court: final appeal', ([ poor, rich, governor, juror1, juror2, juror3,
         const nextRoundId = getLog(appealConfirmReceipt, RULING_APPEAL_CONFIRMED_EVENT, 'roundId')
         voteId = getVoteId(disputeId, nextRoundId)
         await passTerms(appealConfirmTerms)
-        await this.court.mock_blockTravel(1)
+        await this.court.mockAdvanceBlocks(1)
       }
     }
 

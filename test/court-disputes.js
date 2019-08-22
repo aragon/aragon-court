@@ -60,7 +60,6 @@ contract('Court: Disputes', ([ rich, governor, juror1, juror2, juror3, other, ap
   const heartbeatFee = 20
   const draftFee = 30
   const settleFee = 40
-  const startBlock = 1000
   const commitTerms = 1
   const revealTerms = 1
   const appealTerms = 1
@@ -144,9 +143,11 @@ contract('Court: Disputes', ([ rich, governor, juror1, juror2, juror3, other, ap
       [ 0, 0, 0, 0, 0 ]
     )
 
-    await this.court.mock_setBlockNumber(startBlock)
-    // tree searches always return jurors in the order that they were added to the tree
+    // TODO: use more realistic term duration and first term start time values
+    await this.court.mockSetTimestamp(1)
+    await this.jurorsRegistry.mockSetTimestamp(1)
     await this.jurorsRegistry.mock_hijackTreeSearch()
+    // tree searches always return jurors in the order that they were added to the tree
 
     assert.equal(await this.jurorsRegistry.token(), this.anj.address, 'court token')
     await assertEqualBN(this.jurorsRegistry.mock_treeTotalSum(), 0, 'empty sum tree')
@@ -177,10 +178,9 @@ contract('Court: Disputes', ([ rich, governor, juror1, juror2, juror3, other, ap
 
   context('activating jurors', () => {
     const passTerms = async terms => {
-      await this.jurorsRegistry.mock_timeTravel(terms * termDuration)
-      await this.court.mock_timeTravel(terms * termDuration)
+      await this.jurorsRegistry.mockIncreaseTime(terms * termDuration)
+      await this.court.mockIncreaseTime(terms * termDuration)
       await this.court.heartbeat(terms)
-      await this.court.mock_blockTravel(1)
       assert.isFalse(await this.court.canTransitionTerm(), 'all terms transitioned')
     }
 
@@ -229,8 +229,9 @@ contract('Court: Disputes', ([ rich, governor, juror1, juror2, juror3, other, ap
 
       it('fails to draft outside of the draft term', async () => {
         await passTerms(1) // term = 2
-        await this.court.mock_blockTravel(1)
-        await this.court.setTermRandomness()
+        // advance two blocks to ensure we can compute term randomness
+        await this.court.mockAdvanceBlocks(2)
+
         await assertRevert(this.court.draftAdjudicationRound(disputeId), ERROR_NOT_DRAFT_TERM)
       })
 
@@ -244,8 +245,9 @@ contract('Court: Disputes', ([ rich, governor, juror1, juror2, juror3, other, ap
 
         beforeEach(async () => {
           await passTerms(2) // term = 3
-          await this.court.mock_blockTravel(1)
-          await this.court.setTermRandomness()
+          // advance two blocks to ensure we can compute term randomness
+          await this.court.mockAdvanceBlocks(2)
+
           const receipt = await this.court.draftAdjudicationRound(disputeId)
           assertDeepLogs(receipt, this.jurorsRegistry.abi, JUROR_DRAFTED_EVENT)
           assertLogs(receipt, DISPUTE_STATE_CHANGED_EVENT)
@@ -429,8 +431,9 @@ contract('Court: Disputes', ([ rich, governor, juror1, juror2, juror3, other, ap
 
               it('fails to draft without appeal confirmation', async () => {
                 await passTerms(1) // term = 6
-                await this.court.mock_blockTravel(1)
-                await this.court.setTermRandomness()
+                // advance two blocks to ensure we can compute term randomness
+                await this.court.mockAdvanceBlocks(2)
+
                 await assertRevert(this.court.draftAdjudicationRound(disputeId), ERROR_ROUND_ALREADY_DRAFTED)
               })
 
@@ -449,8 +452,9 @@ contract('Court: Disputes', ([ rich, governor, juror1, juror2, juror3, other, ap
 
                 const draftJurors = async () => {
                   await passTerms(appealConfirmTerms)
-                  await this.court.mock_blockTravel(1)
-                  await this.court.setTermRandomness()
+                  // advance two blocks to ensure we can compute term randomness
+                  await this.court.mockAdvanceBlocks(2)
+
                   const receipt = await this.court.draftAdjudicationRound(disputeId)
                   assertDeepLogs(receipt, this.jurorsRegistry.abi, JUROR_DRAFTED_EVENT)
                   assertLogs(receipt, DISPUTE_STATE_CHANGED_EVENT)

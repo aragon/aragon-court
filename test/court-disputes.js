@@ -1,10 +1,10 @@
+const { ONE_DAY } = require('./helpers/time')
+const { buildHelper } = require('./helpers/court')(web3, artifacts)
+const { SALT, encryptVote } = require('./helpers/crvoting')
 const { assertRevert } = require('@aragon/os/test/helpers/assertThrow')
 const { decodeEventsOfType } = require('./helpers/decodeEvent')
-const { promisify } = require('util')
-const { soliditySha3 } = require('web3-utils')
 
 const TokenFactory = artifacts.require('TokenFactory')
-const CourtMock = artifacts.require('CourtMock')
 const CourtAccounting = artifacts.require('CourtAccounting')
 const JurorsRegistry = artifacts.require('JurorsRegistryMock')
 const CRVoting = artifacts.require('CRVoting')
@@ -48,24 +48,18 @@ const getVoteId = (disputeId, roundId) => {
   return new web3.BigNumber(2).pow(128).mul(disputeId).add(roundId)
 }
 
-contract('Court: Disputes', ([ rich, governor, juror1, juror2, juror3, other, appealMaker, appealTaker ]) => {
+contract('Court: Disputes', ([ rich, juror1, juror2, juror3, other, appealMaker, appealTaker ]) => {
   const NO_DATA = ''
   const MAX_UINT256 = new web3.BigNumber(2).pow(256).sub(1)
   const jurors = [ juror1, juror2, juror3 ]
 
-  const termDuration = 10
-  const firstTermStart = 10
-  const jurorMinStake = 400
-  const jurorFee = 10
-  const heartbeatFee = 20
-  const draftFee = 30
-  const settleFee = 40
+  const termDuration = ONE_DAY
+  const jurorsMinActiveBalance = 400
   const commitTerms = 1
   const revealTerms = 1
   const appealTerms = 1
   const appealConfirmTerms = 1
   const penaltyPct = 100 // 100‱ = 1%
-  const finalRoundReduction = 3300 // 100‱ = 1%
   
   const initialBalance = 1e6
   const richStake = 1000
@@ -92,14 +86,6 @@ contract('Court: Disputes', ([ rich, governor, juror1, juror2, juror3, other, ap
 
   const REFUSED_RULING = 2
 
-  const SALT = soliditySha3('passw0rd')
-
-  const encryptVote = (ruling, salt = SALT) =>
-    soliditySha3(
-      { t: 'uint8', v: ruling },
-      { t: 'bytes32', v: salt }
-    )
-
   const pct4 = (n, p) => n * p / 1e4
 
   before(async () => {
@@ -125,29 +111,24 @@ contract('Court: Disputes', ([ rich, governor, juror1, juror2, juror3, other, ap
     this.subscriptions = await Subscriptions.new()
     await this.subscriptions.setUpToDate(true)
 
-    this.court = await CourtMock.new(
+    this.courtHelper = buildHelper()
+    this.court = await this.courtHelper.deploy({
+      feeToken: this.feeToken,
+      jurorToken: this.anj,
+      voting: this.voting,
+      accounting: this.accounting,
+      subscriptions: this.subscriptions,
+      jurorsRegistry: this.jurorsRegistry,
       termDuration,
-      [ this.anj.address, this.feeToken.address ], // no fees
-      this.jurorsRegistry.address,
-      this.accounting.address,
-      this.voting.address,
-      this.subscriptions.address,
-      [ jurorFee, heartbeatFee, draftFee, settleFee ],
-      governor,
-      firstTermStart,
-      jurorMinStake,
-      [ commitTerms, revealTerms, appealTerms, appealConfirmTerms ],
-      [ penaltyPct, finalRoundReduction ],
-      3,
-      4,
-      [ 0, 0, 0, 0, 0 ]
-    )
+      commitTerms,
+      revealTerms,
+      appealTerms,
+      appealConfirmTerms,
+      jurorsMinActiveBalance,
+    })
 
-    // TODO: use more realistic term duration and first term start time values
-    await this.court.mockSetTimestamp(1)
-    await this.jurorsRegistry.mockSetTimestamp(1)
-    await this.jurorsRegistry.mock_hijackTreeSearch()
     // tree searches always return jurors in the order that they were added to the tree
+    await this.jurorsRegistry.mock_hijackTreeSearch()
 
     assert.equal(await this.jurorsRegistry.token(), this.anj.address, 'court token')
     await assertEqualBN(this.jurorsRegistry.mock_treeTotalSum(), 0, 'empty sum tree')
@@ -178,9 +159,9 @@ contract('Court: Disputes', ([ rich, governor, juror1, juror2, juror3, other, ap
 
   context('activating jurors', () => {
     const passTerms = async terms => {
-      await this.jurorsRegistry.mockIncreaseTime(terms * termDuration)
-      await this.court.mockIncreaseTime(terms * termDuration)
+      await this.courtHelper.increaseTime(terms * termDuration)
       await this.court.heartbeat(terms)
+
       assert.isFalse(await this.court.canTransitionTerm(), 'all terms transitioned')
     }
 
@@ -230,7 +211,7 @@ contract('Court: Disputes', ([ rich, governor, juror1, juror2, juror3, other, ap
       it('fails to draft outside of the draft term', async () => {
         await passTerms(1) // term = 2
         // advance two blocks to ensure we can compute term randomness
-        await this.court.mockAdvanceBlocks(2)
+        await this.courtHelper.advanceBlocks(2)
 
         await assertRevert(this.court.draftAdjudicationRound(disputeId), ERROR_NOT_DRAFT_TERM)
       })
@@ -246,7 +227,7 @@ contract('Court: Disputes', ([ rich, governor, juror1, juror2, juror3, other, ap
         beforeEach(async () => {
           await passTerms(2) // term = 3
           // advance two blocks to ensure we can compute term randomness
-          await this.court.mockAdvanceBlocks(2)
+          await this.courtHelper.advanceBlocks(2)
 
           const receipt = await this.court.draftAdjudicationRound(disputeId)
           assertDeepLogs(receipt, this.jurorsRegistry.abi, JUROR_DRAFTED_EVENT)
@@ -298,7 +279,7 @@ contract('Court: Disputes', ([ rich, governor, juror1, juror2, juror3, other, ap
             await passTerms(1) // term = 4
             const draftId = 0
             const [ juror, vote ] = votes[draftId]
-            const badSalt = soliditySha3('not the salt')
+            const badSalt = 'not the salt'
             const receiptPromise = this.voting.reveal(voteId, vote, badSalt, { from: juror })
             await assertRevert(receiptPromise, 'CRV_INVALID_COMMITMENT_SALT')
           })
@@ -366,7 +347,7 @@ contract('Court: Disputes', ([ rich, governor, juror1, juror2, juror3, other, ap
             })
 
             context('settling round', () => {
-              const slashed = pct4(jurorMinStake, penaltyPct)
+              const slashed = pct4(jurorsMinActiveBalance, penaltyPct)
 
               beforeEach(async () => {
                 await passTerms(revealTerms + appealTerms + appealConfirmTerms)
@@ -413,7 +394,7 @@ contract('Court: Disputes', ([ rich, governor, juror1, juror2, juror3, other, ap
               const appealMakerRuling = losingRuling
               const appealTakerRuling = winningRuling
               let makerInitialBalance
-              let feeAmount, appealDeposit, appealConfirmDeposit, appealTakerTotalCost
+              let feeAmount, appealDeposit, appealConfirmDeposit
 
               beforeEach(async () => {
                 await passTerms(1) // term = 5
@@ -432,7 +413,7 @@ contract('Court: Disputes', ([ rich, governor, juror1, juror2, juror3, other, ap
               it('fails to draft without appeal confirmation', async () => {
                 await passTerms(1) // term = 6
                 // advance two blocks to ensure we can compute term randomness
-                await this.court.mockAdvanceBlocks(2)
+                await this.courtHelper.advanceBlocks(2)
 
                 await assertRevert(this.court.draftAdjudicationRound(disputeId), ERROR_ROUND_ALREADY_DRAFTED)
               })
@@ -453,7 +434,7 @@ contract('Court: Disputes', ([ rich, governor, juror1, juror2, juror3, other, ap
                 const draftJurors = async () => {
                   await passTerms(appealConfirmTerms)
                   // advance two blocks to ensure we can compute term randomness
-                  await this.court.mockAdvanceBlocks(2)
+                  await this.courtHelper.advanceBlocks(2)
 
                   const receipt = await this.court.draftAdjudicationRound(disputeId)
                   assertDeepLogs(receipt, this.jurorsRegistry.abi, JUROR_DRAFTED_EVENT)

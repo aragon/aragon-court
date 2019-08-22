@@ -1,6 +1,4 @@
 const { assertRevert } = require('@aragon/os/test/helpers/assertThrow')
-const { promisify } = require('util')
-const { soliditySha3 } = require('web3-utils')
 
 const TokenFactory = artifacts.require('TokenFactory')
 const CourtMock = artifacts.require('CourtMock')
@@ -33,7 +31,6 @@ const assertLogs = async (receiptPromise, ...logNames) => {
 contract('Court: Lifecycle', ([ poor, rich, governor, juror1, juror2 ]) => {
   const NO_DATA = ''
   const ZERO_ADDRESS = '0x' + '00'.repeat(20)
-  const MAX_UINT64 = 2**64 - 1
 
   const termDuration = 10
   const firstTermStart = 15
@@ -52,10 +49,7 @@ contract('Court: Lifecycle', ([ poor, rich, governor, juror1, juror2 ]) => {
   const juror2Stake = 300
 
   const NEW_TERM_EVENT = 'NewTerm'
-  const NEW_COURT_CONFIG_EVENT = 'NewCourtConfig'
   const ERROR_JUROR_TOKENS_AT_STAKE = 'STK_JUROR_TOKENS_AT_STAKE'
-
-  const SALT = soliditySha3('passw0rd')
 
   before(async () => {
     this.tokenFactory = await TokenFactory.new()
@@ -187,9 +181,9 @@ contract('Court: Lifecycle', ([ poor, rich, governor, juror1, juror2 ]) => {
     const term = 3
 
     const passTerms = async terms => {
-      await this.jurorsRegistry.mockIncreaseTime(terms * termDuration)
       await this.court.mockIncreaseTime(terms * termDuration)
       await this.court.heartbeat(terms)
+
       assert.isFalse(await this.court.canTransitionTerm(), 'all terms transitioned')
     }
 

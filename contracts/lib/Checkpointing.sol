@@ -36,7 +36,7 @@ library Checkpointing {
     *      to the latest registered value, if the value willing to add corresponds to the latest registered value, it
     *      will be updated.
     * @param self Checkpoints history to be altered
-    * @param _time Unit-time value to register the given value in history
+    * @param _time Point in time to register the given value
     * @param _value Numeric value to be registered at the given point in time
     */
     function add(History storage self, uint64 _time, uint256 _value) internal {
@@ -62,28 +62,18 @@ library Checkpointing {
     *      how recent it is beforehand. It will return zero if there is no registered value or if given time is
     *      previous to the first registered value.
     * @param self Checkpoints history to be queried
-    * @param _time Unit-time value to query the most recent registered past value of
+    * @param _time Point in time to query the most recent registered past value of
     */
     function get(History storage self, uint64 _time) internal view returns (uint256) {
         return _binarySearch(self, _time);
     }
 
     /**
-    * @dev Fetch the most recent registered past value of a history based on a given recent point in time. It will
-    *      return zero if there is no registered value or if given time is previous to the first registered value.
-    * @param self Checkpoints history to be queried
-    * @param _time Unit-time value to query the most recent registered past value of
-    */
-    function getRecent(History storage self, uint64 _time) internal view returns (uint256) {
-        return _backwardsLinearSearch(self, _time);
-    }
-
-    /**
     * @dev Fetch the most recent registered past value of a history based on a given point in time. It will return zero
     *      if there is no registered value or if given time is previous to the first registered value.
     * @param self Checkpoints history to be queried
-    * @param _time Unit-time value to query the most recent registered past value of
-    * @param _recent Boolean indicating whether the given point in time is known to be recent point in time in the history or not
+    * @param _time Point in time to query the most recent registered past value of
+    * @param _recent Boolean indicating whether the given point in time is known to be recent or not
     */
     function get(History storage self, uint64 _time, bool _recent) internal view returns (uint256) {
         return _recent ? _backwardsLinearSearch(self, _time) : _binarySearch(self, _time);
@@ -94,7 +84,7 @@ library Checkpointing {
     *      add values previous to the latest registered value, if the value willing to add corresponds to the latest
     *      registered value, it will be updated.
     * @param self Checkpoints history to be altered
-    * @param _time Unit-time value to register the given value in history
+    * @param _time Point in time to register the given value
     * @param _value Numeric value to be registered at the given point in time
     */
     function _add192(History storage self, uint64 _time, uint192 _value) private {
@@ -118,7 +108,7 @@ library Checkpointing {
     *      is previous to the first registered value. Note that this function will be more suitable when we already know
     *      that the time used to index the search is recent in the given history.
     * @param self Checkpoints history to be queried
-    * @param _time Unit-time value to query the most recent registered past value of
+    * @param _time Point in time to query the most recent registered past value of
     */
     function _backwardsLinearSearch(History storage self, uint64 _time) private view returns (uint256) {
         // If there was no value registered for the given history return simply zero
@@ -143,7 +133,7 @@ library Checkpointing {
     *      the first registered value. Note that this function will be more suitable when don't know how recent the
     *      time used to index may be.
     * @param self Checkpoints history to be queried
-    * @param _time Unit-time value to query the most recent registered past value of
+    * @param _time Point in time to query the most recent registered past value of
     */
     function _binarySearch(History storage self, uint64 _time) private view returns (uint256) {
         // If there was no value registered for the given history return simply zero

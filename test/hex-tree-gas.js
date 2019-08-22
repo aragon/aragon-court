@@ -25,10 +25,10 @@ contract.skip('Hex Sum Tree (Gas analysis)', (accounts) => {
 
   const logTreeState = async () => {
     //console.log((await tree.getState()).map(x => x.toNumber()))
-    const [ depth, nextKey ] = await tree.getState()
-    console.log(`Tree depth:    ${depth}`);
-    console.log(`Tree next key: ${nextKey.toNumber().toLocaleString()}`);
-    console.log(`Tree total sum: `, (await tree.totalSum()).toNumber().toLocaleString())
+    const [height, nextKey] = await tree.getState()
+    console.log(`Tree height:    ${height}`);
+    console.log(`Tree next key:  ${nextKey.toNumber().toLocaleString()}`);
+    console.log(`Tree total sum: `, (await tree.getTotal()).toNumber().toLocaleString())
   }
 
   const logSortitionGas = async (value, blockNumber) => {
@@ -108,9 +108,9 @@ contract.skip('Hex Sum Tree (Gas analysis)', (accounts) => {
         removeGas.push(getGas(r))
       }
 
-      //console.log(`Iteration ${i}:`, (await tree.totalSum()).toNumber())
+      //console.log(`Iteration ${i}:`, (await tree.getTotal()).toNumber())
       // draw
-      const sum = (await tree.totalSum()).toNumber()
+      const sum = (await tree.getTotal()).toNumber()
       for (const v of [0, Math.round(sum / 2), sum - 1]) {
         const r = await tree.sortition(v, 0)
         sortitionGas.push(getGas(r))
@@ -122,7 +122,7 @@ contract.skip('Hex Sum Tree (Gas analysis)', (accounts) => {
     logGasStats('Removes', removeGas)
     logGasStats('Sortitions', sortitionGas)
 
-    assertBN(await tree.totalSum(), VALUE * ITERATIONS * (INSERTS - REMOVES), 'Total sum')
+    assertBN(await tree.getTotal(), VALUE * ITERATIONS * (INSERTS - REMOVES), 'Total sum')
   })
 
   it('lots of activity, batched', async () => {
@@ -144,9 +144,9 @@ contract.skip('Hex Sum Tree (Gas analysis)', (accounts) => {
       const r2 = await tree.removeMultiple((INSERTS - REMOVES) * i, REMOVES)
       removeGas.push(getGas(r2))
 
-      //console.log(`Iteration ${i}:`, (await tree.totalSum()).toNumber())
+      //console.log(`Iteration ${i}:`, (await tree.getTotal()).toNumber())
       // draw
-      const sum = (await tree.totalSum()).toNumber()
+      const sum = (await tree.getTotal()).toNumber()
       for (const v of [0, Math.round(sum / 2), sum - 1]) {
         const r = await tree.sortition(v, 0)
         sortitionGas.push(getGas(r))
@@ -158,7 +158,7 @@ contract.skip('Hex Sum Tree (Gas analysis)', (accounts) => {
     logGasStats('Removes', removeGas, REMOVES)
     logGasStats('Sortitions', sortitionGas)
 
-    assertBN(await tree.totalSum(), VALUE * ITERATIONS * (INSERTS - REMOVES), 'Total sum')
+    assertBN(await tree.getTotal(), VALUE * ITERATIONS * (INSERTS - REMOVES), 'Total sum')
   })
 
   it('forcing (fake) big tree', async () => {

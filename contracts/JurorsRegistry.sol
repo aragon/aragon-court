@@ -380,16 +380,25 @@ contract JurorsRegistry is Initializable, IsContract, IJurorsRegistry, ERC900, A
     }
 
     /**
+    * @dev Tell the total amount of active juror tokens
+    * @return Total amount of active juror tokens
+    */
+    function totalActiveBalance() external view returns (uint256) {
+        return tree.getTotal();
+    }
+
+    /**
     * @dev Tell the total amount of active juror tokens at the given term id
     * @param _termId Term id querying the total active balance for
     * @return Total amount of active juror tokens at the given term id
     */
     function totalActiveBalanceAt(uint64 _termId) external view returns (uint256) {
         // This function will return always the same values, the only difference remains on gas costs. The
-        // function `totalSumPresent` will perform a backwards linear search from the last checkpoint, while
-        // `totalSumPast` will do the same with a binary search. Using `totalSumPresent` is more optimal
-        // when we know that the given `_termId` is fairly recent.
-        return (_termId >= owner.getLastEnsuredTermId()) ? tree.totalSumPresent(_termId) : tree.totalSumPast(_termId);
+        // function `totalSumAt` will perform a backwards linear search from the last checkpoint or a binary search
+        // depending on whether the given checkpoint is considered to be recent or not. In this case, we consider
+        // current or future terms as recent ones.
+        bool recent = _termId >= owner.getLastEnsuredTermId();
+        return tree.getTotalAt(_termId, recent);
     }
 
     /**
@@ -400,7 +409,7 @@ contract JurorsRegistry is Initializable, IsContract, IJurorsRegistry, ERC900, A
     */
     function activeBalanceOfAt(address _juror, uint64 _termId) external view returns (uint256) {
         Juror storage juror = jurorsByAddress[_juror];
-        return _existsJuror(juror) ? tree.getItemPast(juror.id, _termId) : uint256(0);
+        return _existsJuror(juror) ? tree.getItemAt(juror.id, _termId) : uint256(0);
     }
 
     /**

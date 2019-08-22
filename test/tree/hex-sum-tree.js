@@ -23,7 +23,7 @@ contract('HexSumTree', () => {
 
       const rootKey = 0
       const rootLevel = await tree.height()
-      assert.equal((await tree.getLast(rootLevel, rootKey)).toString(), 0, 'last value stored in the root does not match')
+      assert.equal((await tree.node(rootLevel, rootKey)).toString(), 0, 'last value stored in the root does not match')
     })
 
     it('does not have items inserted yet', async () => {
@@ -72,9 +72,9 @@ contract('HexSumTree', () => {
 
           const rootKey = 0
           const rootLevel = await tree.height()
-          assert.equal((await tree.getLast(rootLevel, rootKey)).toString(), value, 'last value stored in the root does not match')
-          assert.equal((await tree.getAt(rootLevel, rootKey, 0)).toString(), 0, 'past value stored in the root does not match')
-          assert.equal((await tree.getAt(rootLevel, rootKey, time)).toString(), value, 'last value stored in the root does not match')
+          assert.equal((await tree.node(rootLevel, rootKey)).toString(), value, 'last value stored in the root does not match')
+          assert.equal((await tree.nodeAt(rootLevel, rootKey, 0)).toString(), 0, 'past value stored in the root does not match')
+          assert.equal((await tree.nodeAt(rootLevel, rootKey, time)).toString(), value, 'last value stored in the root does not match')
         })
 
         it('does not allow adding another value before the insertion time', async () => {
@@ -140,7 +140,7 @@ contract('HexSumTree', () => {
             expectedTotal += value(key)
 
             const rootLevel = await tree.heightAt(time)
-            assert.equal((await tree.getAt(rootLevel, rootKey, time)).toString(), expectedTotal, 'total value stored in the root does not match')
+            assert.equal((await tree.nodeAt(rootLevel, rootKey, time)).toString(), expectedTotal, 'total value stored in the root does not match')
           }
 
           assert.equal((await tree.total()).toString(), expectedTotal, 'last total stored in the root does not match')
@@ -160,7 +160,7 @@ contract('HexSumTree', () => {
             if (key % 16 === 0) expectedMiddleTotal = 0
             expectedMiddleTotal += value(key)
 
-            assert.equal((await tree.getAt(middleLevel, middleNodeKey, time)).toString(), expectedMiddleTotal, `past value at time ${time} stored in middle node #${middleNodeKey} does not match`)
+            assert.equal((await tree.nodeAt(middleLevel, middleNodeKey, time)).toString(), expectedMiddleTotal, `past value at time ${time} stored in middle node #${middleNodeKey} does not match`)
           }
         })
       })
@@ -228,10 +228,10 @@ contract('HexSumTree', () => {
 
           const rootKey = 0
           const rootLevel = await tree.height()
-          assert.equal((await tree.getLast(rootLevel, rootKey)).toString(), setValue, 'last value stored in the root does not match')
-          assert.equal((await tree.getAt(rootLevel, rootKey, 0)).toString(), 0, 'initial value stored in the root does not match')
-          assert.equal((await tree.getAt(rootLevel, rootKey, insertionTime)).toString(), expectedInsertedValue, 'value stored in the root at insertion time does not match')
-          assert.equal((await tree.getAt(rootLevel, rootKey, setTime)).toString(), setValue, 'value stored in the root at set time does not match')
+          assert.equal((await tree.node(rootLevel, rootKey)).toString(), setValue, 'last value stored in the root does not match')
+          assert.equal((await tree.nodeAt(rootLevel, rootKey, 0)).toString(), 0, 'initial value stored in the root does not match')
+          assert.equal((await tree.nodeAt(rootLevel, rootKey, insertionTime)).toString(), expectedInsertedValue, 'value stored in the root at insertion time does not match')
+          assert.equal((await tree.nodeAt(rootLevel, rootKey, setTime)).toString(), setValue, 'value stored in the root at set time does not match')
         })
       }
 
@@ -317,8 +317,8 @@ contract('HexSumTree', () => {
           }
 
           assert.equal((await tree.total()).toString(), expectedSetTotal, 'last total stored in the root does not match')
-          assert.equal((await tree.getAt(rootLevel, rootKey, insertionTime)).toString(), expectedInsertionTotal, 'total value stored in the root at insertion time does not match')
-          assert.equal((await tree.getAt(rootLevel, rootKey, setTime)).toString(), expectedSetTotal, 'total value stored in the root at set time does not match')
+          assert.equal((await tree.nodeAt(rootLevel, rootKey, insertionTime)).toString(), expectedInsertionTotal, 'total value stored in the root at insertion time does not match')
+          assert.equal((await tree.nodeAt(rootLevel, rootKey, setTime)).toString(), expectedSetTotal, 'total value stored in the root at set time does not match')
         })
 
         it('updates the total values stored in the middle nodes', async () => {
@@ -331,8 +331,8 @@ contract('HexSumTree', () => {
             firstMidNodeExpectedInsertionTotal += insertedValue
             firstMidNodeExpectedSetTotal += (insertedValue + 1)
           }
-          assert.equal((await tree.getAt(middleLevel, firstMiddleNodeKey, insertionTime)).toString(), firstMidNodeExpectedInsertionTotal, `total value at insertion time stored in the first middle node does not match`)
-          assert.equal((await tree.getAt(middleLevel, firstMiddleNodeKey, setTime)).toString(), firstMidNodeExpectedSetTotal, `total value at set time stored in the first middle node does not match`)
+          assert.equal((await tree.nodeAt(middleLevel, firstMiddleNodeKey, insertionTime)).toString(), firstMidNodeExpectedInsertionTotal, `total value at insertion time stored in the first middle node does not match`)
+          assert.equal((await tree.nodeAt(middleLevel, firstMiddleNodeKey, setTime)).toString(), firstMidNodeExpectedSetTotal, `total value at set time stored in the first middle node does not match`)
 
           const secondMiddleNodeKey = 16
           let secondMidNodeExpectedInsertionTotal = 0, secondMidNodeExpectedSetTotal = 0
@@ -341,8 +341,8 @@ contract('HexSumTree', () => {
             secondMidNodeExpectedInsertionTotal += insertedValue
             secondMidNodeExpectedSetTotal += (insertedValue + 1)
           }
-          assert.equal((await tree.getAt(middleLevel, secondMiddleNodeKey, insertionTime)).toString(), secondMidNodeExpectedInsertionTotal, `total value at insertion time stored in the second middle node does not match`)
-          assert.equal((await tree.getAt(middleLevel, secondMiddleNodeKey, setTime)).toString(), secondMidNodeExpectedSetTotal, `total value at set time stored in the second middle node does not match`)
+          assert.equal((await tree.nodeAt(middleLevel, secondMiddleNodeKey, insertionTime)).toString(), secondMidNodeExpectedInsertionTotal, `total value at insertion time stored in the second middle node does not match`)
+          assert.equal((await tree.nodeAt(middleLevel, secondMiddleNodeKey, setTime)).toString(), secondMidNodeExpectedSetTotal, `total value at set time stored in the second middle node does not match`)
 
           const thirdMiddleNodeKey = 32
           let thirdMidNodeExpectedInsertionTotal = 0, thirdMidNodeExpectedSetTotal = 0
@@ -351,8 +351,8 @@ contract('HexSumTree', () => {
             thirdMidNodeExpectedInsertionTotal += insertedValue
             thirdMidNodeExpectedSetTotal += (insertedValue + 1)
           }
-          assert.equal((await tree.getAt(middleLevel, thirdMiddleNodeKey, insertionTime)).toString(), thirdMidNodeExpectedInsertionTotal, `total value at insertion time stored in the third middle node does not match`)
-          assert.equal((await tree.getAt(middleLevel, thirdMiddleNodeKey, setTime)).toString(), thirdMidNodeExpectedSetTotal, `total value at set time stored in the third middle node does not match`)
+          assert.equal((await tree.nodeAt(middleLevel, thirdMiddleNodeKey, insertionTime)).toString(), thirdMidNodeExpectedInsertionTotal, `total value at insertion time stored in the third middle node does not match`)
+          assert.equal((await tree.nodeAt(middleLevel, thirdMiddleNodeKey, setTime)).toString(), thirdMidNodeExpectedSetTotal, `total value at set time stored in the third middle node does not match`)
         })
       })
     })
@@ -369,8 +369,8 @@ contract('HexSumTree', () => {
       const value = 4
 
       it('reverts', async () => {
-        await assertRevert(tree.update(key, time, value, true), 'SUM_TREE_INEXISTENT_ITEM')
-        await assertRevert(tree.update(key, time, value, false), 'SUM_TREE_INEXISTENT_ITEM')
+        await assertRevert(tree.update(key, time, value, true), 'SUM_TREE_KEY_DOES_NOT_EXIST')
+        await assertRevert(tree.update(key, time, value, false), 'SUM_TREE_KEY_DOES_NOT_EXIST')
       })
     })
 
@@ -446,10 +446,10 @@ contract('HexSumTree', () => {
 
                 const rootKey = 0
                 const rootLevel = await tree.height()
-                assert.equal((await tree.getLast(rootLevel, rootKey)).toString(), expectedUpdatedValue, 'last value stored in the root does not match')
-                assert.equal((await tree.getAt(rootLevel, rootKey, 0)).toString(), 0, 'initial value stored in the root does not match')
-                assert.equal((await tree.getAt(rootLevel, rootKey, insertionTime)).toString(), insertedValue, 'value stored in the root at insertion time does not match')
-                assert.equal((await tree.getAt(rootLevel, rootKey, updateTime)).toString(), expectedUpdatedValue, 'value stored in the root at update time does not match')
+                assert.equal((await tree.node(rootLevel, rootKey)).toString(), expectedUpdatedValue, 'last value stored in the root does not match')
+                assert.equal((await tree.nodeAt(rootLevel, rootKey, 0)).toString(), 0, 'initial value stored in the root does not match')
+                assert.equal((await tree.nodeAt(rootLevel, rootKey, insertionTime)).toString(), insertedValue, 'value stored in the root at insertion time does not match')
+                assert.equal((await tree.nodeAt(rootLevel, rootKey, updateTime)).toString(), expectedUpdatedValue, 'value stored in the root at update time does not match')
               })
             }
 
@@ -495,10 +495,10 @@ contract('HexSumTree', () => {
 
                 const rootKey = 0
                 const rootLevel = await tree.height()
-                assert.equal((await tree.getLast(rootLevel, rootKey)).toString(), expectedUpdatedValue, 'last value stored in the root does not match')
-                assert.equal((await tree.getAt(rootLevel, rootKey, 0)).toString(), 0, 'initial value stored in the root does not match')
-                assert.equal((await tree.getAt(rootLevel, rootKey, insertionTime)).toString(), expectedUpdatedValue, 'value stored in the root at insertion time does not match')
-                assert.equal((await tree.getAt(rootLevel, rootKey, updateTime)).toString(), expectedUpdatedValue, 'value stored in the root at update time does not match')
+                assert.equal((await tree.node(rootLevel, rootKey)).toString(), expectedUpdatedValue, 'last value stored in the root does not match')
+                assert.equal((await tree.nodeAt(rootLevel, rootKey, 0)).toString(), 0, 'initial value stored in the root does not match')
+                assert.equal((await tree.nodeAt(rootLevel, rootKey, insertionTime)).toString(), expectedUpdatedValue, 'value stored in the root at insertion time does not match')
+                assert.equal((await tree.nodeAt(rootLevel, rootKey, updateTime)).toString(), expectedUpdatedValue, 'value stored in the root at update time does not match')
               })
             }
 
@@ -588,8 +588,8 @@ contract('HexSumTree', () => {
             }
 
             assert.equal((await tree.total()).toString(), expectedSetTotal, 'last total stored in the root does not match')
-            assert.equal((await tree.getAt(rootLevel, rootKey, insertionTime)).toString(), expectedInsertionTotal, 'total value stored in the root at insertion time does not match')
-            assert.equal((await tree.getAt(rootLevel, rootKey, updateTime)).toString(), expectedSetTotal, 'total value stored in the root at update time does not match')
+            assert.equal((await tree.nodeAt(rootLevel, rootKey, insertionTime)).toString(), expectedInsertionTotal, 'total value stored in the root at insertion time does not match')
+            assert.equal((await tree.nodeAt(rootLevel, rootKey, updateTime)).toString(), expectedSetTotal, 'total value stored in the root at update time does not match')
           })
 
           it('updates the total values stored in the middle nodes', async () => {
@@ -603,8 +603,8 @@ contract('HexSumTree', () => {
               firstMidNodeExpectedInsertionTotal += insertedValue
               firstMidNodeExpectedSetTotal += (positive ? (insertedValue + 1) : (insertedValue - 1))
             }
-            assert.equal((await tree.getAt(middleLevel, firstMiddleNodeKey, insertionTime)).toString(), firstMidNodeExpectedInsertionTotal, `total value at insertion time stored in the first middle node does not match`)
-            assert.equal((await tree.getAt(middleLevel, firstMiddleNodeKey, updateTime)).toString(), firstMidNodeExpectedSetTotal, `total value at update time stored in the first middle node does not match`)
+            assert.equal((await tree.nodeAt(middleLevel, firstMiddleNodeKey, insertionTime)).toString(), firstMidNodeExpectedInsertionTotal, `total value at insertion time stored in the first middle node does not match`)
+            assert.equal((await tree.nodeAt(middleLevel, firstMiddleNodeKey, updateTime)).toString(), firstMidNodeExpectedSetTotal, `total value at update time stored in the first middle node does not match`)
 
             const secondMiddleNodeKey = 16
             let secondMidNodeExpectedInsertionTotal = 0, secondMidNodeExpectedSetTotal = 0
@@ -614,8 +614,8 @@ contract('HexSumTree', () => {
               secondMidNodeExpectedInsertionTotal += insertedValue
               secondMidNodeExpectedSetTotal += (positive ? (insertedValue + 1) : (insertedValue - 1))
             }
-            assert.equal((await tree.getAt(middleLevel, secondMiddleNodeKey, insertionTime)).toString(), secondMidNodeExpectedInsertionTotal, `total value at insertion time stored in the second middle node does not match`)
-            assert.equal((await tree.getAt(middleLevel, secondMiddleNodeKey, updateTime)).toString(), secondMidNodeExpectedSetTotal, `total value at update time stored in the second middle node does not match`)
+            assert.equal((await tree.nodeAt(middleLevel, secondMiddleNodeKey, insertionTime)).toString(), secondMidNodeExpectedInsertionTotal, `total value at insertion time stored in the second middle node does not match`)
+            assert.equal((await tree.nodeAt(middleLevel, secondMiddleNodeKey, updateTime)).toString(), secondMidNodeExpectedSetTotal, `total value at update time stored in the second middle node does not match`)
 
             const thirdMiddleNodeKey = 32
             let thirdMidNodeExpectedInsertionTotal = 0, thirdMidNodeExpectedSetTotal = 0
@@ -625,8 +625,8 @@ contract('HexSumTree', () => {
               thirdMidNodeExpectedInsertionTotal += insertedValue
               thirdMidNodeExpectedSetTotal += (positive ? (insertedValue + 1) : (insertedValue - 1))
             }
-            assert.equal((await tree.getAt(middleLevel, thirdMiddleNodeKey, insertionTime)).toString(), thirdMidNodeExpectedInsertionTotal, `total value at insertion time stored in the third middle node does not match`)
-            assert.equal((await tree.getAt(middleLevel, thirdMiddleNodeKey, updateTime)).toString(), thirdMidNodeExpectedSetTotal, `total value at update time stored in the third middle node does not match`)
+            assert.equal((await tree.nodeAt(middleLevel, thirdMiddleNodeKey, insertionTime)).toString(), thirdMidNodeExpectedInsertionTotal, `total value at insertion time stored in the third middle node does not match`)
+            assert.equal((await tree.nodeAt(middleLevel, thirdMiddleNodeKey, updateTime)).toString(), thirdMidNodeExpectedSetTotal, `total value at update time stored in the third middle node does not match`)
           })
         })
       })

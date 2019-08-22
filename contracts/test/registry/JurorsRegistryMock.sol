@@ -5,7 +5,7 @@ import "../lib/TimeHelpersMock.sol";
 
 
 contract JurorsRegistryMock is JurorsRegistry, TimeHelpersMock {
-    bool internal treeSearchHijacked = false;
+    bool internal treeSearchHijacked;
 
     function mock_hijackTreeSearch() external {
         treeSearchHijacked = true;
@@ -16,10 +16,6 @@ contract JurorsRegistryMock is JurorsRegistry, TimeHelpersMock {
         values[0] = value;
         (uint256[] memory jurorsIds,) = tree.multiSortition(values, getTimestamp64());
         return jurorsAddressById[jurorsIds[0]];
-    }
-
-    function mock_treeTotalSum() public view returns (uint256) {
-        return tree.totalSumPresent(getTimestamp64());
     }
 
     function _treeSearch(uint256[7] _params) internal view returns (uint256[] keys, uint256[] nodeValues) {

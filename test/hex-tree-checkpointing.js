@@ -16,9 +16,9 @@ contract('Hex Sum Tree', (accounts) => {
 
   const logTreeState = async () => {
     //console.log((await tree.getState()).map(x => x.toNumber()))
-    const state = await tree.getState()
-    console.log(`Tree depth:    ${state[0]}`);
-    console.log(`Tree next key: ${state[1]}`);
+    const [height, nextKey] = await tree.getState()
+    console.log(`Tree height:   ${height}`);
+    console.log(`Tree next key: ${nextKey}`);
   }
 
   const logSortitionHex = async (value, sortitionFunction) => {
@@ -52,7 +52,7 @@ contract('Hex Sum Tree', (accounts) => {
 
     // check all past values
     for (let i = 1; i < setBns.length; i++) {
-      const v = await tree.getItemPast.call(node, setBns[i].time)
+      const v = await tree.getItemAt.call(node, setBns[i].time)
       assertBN(v, setBns[i].value, `Value for node ${node} on checkpoint time ${setBns[i].time} should match`)
       const value1 = (node + 1) * 10 + i - 1
       const s1 = await tree[sortitionFunction].call(value1, setBns[i].time)
@@ -92,7 +92,7 @@ contract('Hex Sum Tree', (accounts) => {
   }
 
   it('total sum stays consistent as tree grows over time', async () => {
-    const addingNodes = 18 // when adding node #17, the tree adds a new layer, updating the root depth
+    const addingNodes = 18 // when adding node #17, the tree adds a new layer, updating tree height
     const nodeValue = 10
 
     // Insert nodes at different times
@@ -104,7 +104,7 @@ contract('Hex Sum Tree', (accounts) => {
     // At all times in the past, the total sum should have been the correct value at that time
     for (let i = 0; i < addingNodes; i++) {
       const time = i
-      assertBN(await tree.totalSumPast.call(time), (time + 1) * nodeValue, `Sum at time ${time}`)
+      assertBN(await tree.getTotalAt.call(time), (time + 1) * nodeValue, `Sum at time ${time}`)
     }
   })
 })

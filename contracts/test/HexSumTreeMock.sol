@@ -67,14 +67,14 @@ contract HexSumTreeMock is TimeHelpersMock {
 
     function setNextKey(uint256 key) external {
         tree.nextKey = key;
-        // adjust depth
-        uint256 rootDepth = 0;
+        // adjust height
+        uint256 height = 0;
         uint256 tmpKey = key;
         while (tmpKey > 0) {
-            rootDepth++;
+            height++;
             tmpKey = tmpKey >> tree.getBitsInNibble();
         }
-        tree.rootDepth.add(uint64(getCheckpointTime()), rootDepth);
+        tree.height.add(uint64(getCheckpointTime()), height);
     }
 
     function sortition(uint256 value, uint64 time) external profileGas returns (uint256) {
@@ -104,24 +104,24 @@ contract HexSumTreeMock is TimeHelpersMock {
         return tree.multiSortition(_termRandomness, _disputeId, _time, _filledSeats, _jurorsRequested, _jurorNumber, _sortitionIteration);
     }
 
-    function get(uint256 level, uint256 key) external view returns (uint256) {
-        return tree.get(level, key);
+    function get(uint256 _level, uint256 _key) external view returns (uint256) {
+        return tree.getNode(_level, _key);
     }
 
-    function getItemPast(uint256 key, uint64 time) external profileGas returns (uint256) {
-        return tree.getItemPast(key, time);
+    function getItemAt(uint256 _key, uint64 _time) external profileGas returns (uint256) {
+        return tree.getItemAt(_key, _time);
     }
 
-    function totalSum() external view returns (uint256) {
-        return tree.totalSum();
+    function getTotal() external view returns (uint256) {
+        return tree.getTotal();
     }
 
-    function totalSumPast(uint64 checkpointTime) external profileGas returns (uint256) {
-        return tree.totalSumPast(checkpointTime);
+    function getTotalAt(uint64 _time) external profileGas returns (uint256) {
+        return tree.getTotalAt(_time, true);
     }
 
     function getState() external view returns (uint256, uint256) {
-        return (tree.getRootDepth(), tree.nextKey);
+        return (tree.getHeight(), tree.nextKey);
     }
 
     // TODO: use a more accurate way of testing timestamps for chekpointing

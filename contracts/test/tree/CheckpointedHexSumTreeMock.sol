@@ -29,35 +29,35 @@ contract CheckpointedHexSumTreeMock is TimeHelpersMock {
         return tree.nextKey;
     }
 
+    function total() public view returns (uint256) {
+        return tree.getTotal();
+    }
+
+    function totalAt(uint64 _time) public view returns (uint256) {
+        return tree.getTotalAt(_time, false);
+    }
+
+    function node(uint256 _level, uint256 _key) public view returns (uint256) {
+        return tree.getNode(_level, _key);
+    }
+
+    function nodeAt(uint256 _level, uint256 _key, uint64 _time) public view returns (uint256) {
+        return tree.getNodeAt(_level, _key, _time);
+    }
+
     function item(uint256 _key) public view returns (uint256) {
         return tree.getItem(_key);
     }
 
     function itemAt(uint256 _key, uint64 _time) public view returns (uint256) {
-        return tree.getItemPast(_key, _time);
+        return tree.getItemAt(_key, _time);
     }
 
     function height() public view returns (uint256) {
-        return tree.getRootDepth();
+        return tree.getHeight();
     }
 
     function heightAt(uint64 _time) public view returns (uint256) {
-        return tree.getRootDepthAt(_time);
-    }
-
-    function total() public view returns (uint256) {
-        return tree.totalSum();
-    }
-
-    function totalAt(uint64 _time) public view returns (uint256) {
-        return tree.totalSumPast(_time);
-    }
-
-    function getLast(uint256 _level, uint256 _key) public view returns (uint256) {
-        return tree.get(_level, _key);
-    }
-
-    function getAt(uint256 _level, uint256 _key, uint64 _time) public view returns (uint256) {
-        return tree.getPast(_level, _key, _time);
+        return tree.getHeightAt(_time);
     }
 }

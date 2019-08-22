@@ -16,10 +16,10 @@ contract.skip('Hex Sum Tree Checkpointing (Gas analysis)', (accounts) => {
 
   const logTreeState = async () => {
     //console.log((await tree.getState()).map(x => x.toNumber()))
-    const [ depth, nextKey ] = await tree.getState()
-    console.log(`Tree depth:    ${depth}`);
-    console.log(`Tree next key: ${nextKey.toNumber().toLocaleString()}`);
-    console.log(`Tree total sum: `, (await tree.totalSum()).toNumber().toLocaleString())
+    const [height, nextKey] = await tree.getState()
+    console.log(`Tree height:    ${height}`);
+    console.log(`Tree next key:  ${nextKey.toNumber().toLocaleString()}`);
+    console.log(`Tree total sum: `, (await tree.getTotal()).toNumber().toLocaleString())
   }
 
   const formatDivision = (result, colSize) => {
@@ -169,7 +169,7 @@ contract.skip('Hex Sum Tree Checkpointing (Gas analysis)', (accounts) => {
     let getPastGas = []
     for (let i = 1; i < setBns.length; i++) {
       for (let j = 0; j < setBns[i].length; j++) {
-        const r = await tree.totalSumPast(setBns[i][j])
+        const r = await tree.getTotalAt(setBns[i][j])
         const gas = getGas(r)
         sumPastGas.push(gas)
         for (let k = 0; k < NODES; k++) {

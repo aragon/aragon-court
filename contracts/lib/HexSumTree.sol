@@ -3,6 +3,7 @@ pragma solidity ^0.4.24;
 // TODO: import from Staking (or somewhere else)
 import "./Checkpointing.sol";
 
+
 /**
 * @title HexSumTree - Library to operate checkpointed 16-ary (hex) sum trees.
 * @dev A sum tree is a particular case of a tree where the value of a node is equal to the sum of the values of its
@@ -27,100 +28,113 @@ import "./Checkpointing.sol";
 library HexSumTree { // TODO: rename to CheckpointedHexSumTree?
     using Checkpointing for Checkpointing.History;
 
+    string private constant ERROR_UPDATE_OVERFLOW = "SUM_TREE_UPDATE_OVERFLOW";
+    string private constant ERROR_KEY_DOES_NOT_EXIST = "SUM_TREE_KEY_DOES_NOT_EXIST";
+
+    // Constants used to perform tree computations
+    uint256 private constant CHILDREN = 16;
+    uint256 private constant BITS_IN_NIBBLE = 4;
+
+    // Leaves are at height or level zero, root height will be increasing as new levels are inserted in the tree
+    uint256 private constant LEAVES_LEVEL = 0;
+
+    // Tree nodes are identified with a 32-bytes length key. Leaves are identified with consecutive incremental keys
+    // starting with 0x0000000000000000000000000000000000000000000000000000000000000000, while non-leaf nodes' keys
+    // are computed based on their level and their children keys.
+    uint256 private constant BASE_KEY = 0;
+
+    // Timestamp used to checkpoint the first value of the tree height during initialization
+    uint64 private constant INITIALIZATION_INITIAL_TIME = uint64(0);
+
     /**
     * @dev The tree is stored using the following structure:
     *      - nodes: A mapping indexed by a pair (level, key) with a history of the values for each node.
+    *      - height: A history of the heights of the tree.
     *      - nextKey: The next key to be used to identify the next new value that will be inserted into the tree.
-    *      - rootDepth: A history of the depths of the tree.
     */
     struct Tree {
         uint256 nextKey;
-        Checkpointing.History rootDepth; // TODO: rename to height instead?
-        mapping (uint256 => mapping (uint256 => Checkpointing.History)) nodes; // depth -> key -> value
+        Checkpointing.History height;
+        mapping (uint256 => mapping (uint256 => Checkpointing.History)) nodes; // level -> key -> value
     }
 
+    // TODO: describe
     struct PackedArguments {
         uint256 valuesStart;
-        uint256 depth;
+        uint256 height;
         uint64 time;
         uint256 accumulatedValue;
         uint256 node;
     }
 
-    /* @dev
-     * If you change any of the following 3 constants, make sure that:
-     * 2^BITS_IN_NIBBLE = CHILDREN
-     * BITS_IN_NIBBLE * MAX_DEPTH = 256
-     */
-    uint256 private constant CHILDREN = 16;
-    //uint256 private constant MAX_DEPTH = 64;
-
-    uint256 private constant BITS_IN_NIBBLE = 4;
-
-    // TODO: rename to leaves_level
-    uint256 private constant INSERTION_DEPTH = 0;
-
-    // tree starts on the very left
-    uint256 private constant BASE_KEY = 0;
-
-    string private constant ERROR_SORTITION_OUT_OF_BOUNDS = "SUM_TREE_SORTITION_OUT_OF_BOUNDS";
-    string private constant ERROR_NEW_KEY_NOT_ADJACENT = "SUM_TREE_NEW_KEY_NOT_ADJACENT";
-    string private constant ERROR_UPDATE_OVERFLOW = "SUM_TREE_UPDATE_OVERFLOW";
-    string private constant ERROR_INEXISTENT_ITEM = "SUM_TREE_INEXISTENT_ITEM";
-
     /**
-    * @dev Initialize tree setting the next key and first depth checkpoint
+    * @dev Initialize tree setting the next key and first height checkpoint
     */
     function init(Tree storage self) internal {
-        uint64 initialTime = 0;
-        self.rootDepth.add(initialTime, INSERTION_DEPTH + 1);
+        self.height.add(INITIALIZATION_INITIAL_TIME, LEAVES_LEVEL + 1);
         self.nextKey = BASE_KEY;
     }
 
     /**
-    * @dev Insert a new value to the tree at given point in time
-    * @param _time Unit-time value to register the given value in its history
+    * @dev Insert a new item to the tree at given point in time
+    * @param _time Point in time to register the given value
     * @param _value New numeric value to be added to the tree
     * @return Unique key identifying the new value inserted
     */
     function insert(Tree storage self, uint64 _time, uint256 _value) internal returns (uint256) {
         // As the values are always stored in the leaves of the tree (level 0), the key to index each of them will be
         // always incrementing, starting from zero.
-        uint256 key = self.nextKey;
-        self.nextKey++;
+        uint256 key = self.nextKey++;
 
+        // If the new value is not zero, first set the value of the new leaf node, then add a new level at the top of
+        // the tree if necessary, and finally update sums cached in all the non-leaf nodes.
         if (_value > 0) {
-            _set(self, key, _time, _value);
+            // TODO: tree height is never checked to be under 64, at least add a comment telling why
+            _add(self, LEAVES_LEVEL, key, _time, _value);
+            _addLevelIfNecessary(self, key, _time);
+            _updateSums(self, key, _time, _value, true);
         }
-
         return key;
     }
 
     /**
-    * @dev Set the value of a key at given point in time.
-    * @param time Unit-time value to set the given value in its history
-    * @param key Key of the leaf node to be set in the tree
-    * @param value New numeric value to be set for the given key
+    * @dev Set the value of a leaf node indexed by its key at given point in time
+    * @param _time Point in time to set the given value
+    * @param _key Key of the leaf node to be set in the tree
+    * @param _value New numeric value to be set for the given key
     */
-    function set(Tree storage self, uint256 key, uint64 time, uint256 value) internal {
-        require(key <= self.nextKey, ERROR_NEW_KEY_NOT_ADJACENT); // TODO: change to strictly <
-        _set(self, key, time, value);
+    function set(Tree storage self, uint256 _key, uint64 _time, uint256 _value) internal {
+        require(_key < self.nextKey, ERROR_KEY_DOES_NOT_EXIST);
+
+        // Set the new value for the requested leaf node
+        uint256 lastValue = getItem(self, _key);
+        _add(self, LEAVES_LEVEL, _key, _time, _value);
+
+        // Update sums cached in the non-leaf nodes. Note that overflows is being checked at the end of the whole update.
+        if (_value > lastValue) {
+            _updateSums(self, _key, _time, _value - lastValue, true);
+        } else if (_value < lastValue) {
+            _updateSums(self, _key, _time, lastValue - _value, false);
+        }
     }
 
     /**
-    * @dev Update the value of a key at given point in time based on a delta.
-    * @param time Unit-time value to update the given value in its history
-    * @param key Key of the leaf node to be updated in the tree
-    * @param delta Numeric delta to update the value of the given key
-    * @param positive Boolean to tell whether the given delta should be added to or subtracted from the current value
+    * @dev Update the value of a non-leaf node indexed by its key at given point in time based on a delta
+    * @param _key Key of the leaf node to be updated in the tree
+    * @param _time Point in time to update the given value
+    * @param _delta Numeric delta to update the value of the given key
+    * @param _positive Boolean to tell whether the given delta should be added to or subtracted from the current value
     */
-    function update(Tree storage self, uint256 key, uint64 time, uint256 delta, bool positive) internal {
-        require(key < self.nextKey, ERROR_INEXISTENT_ITEM);
+    function update(Tree storage self, uint256 _key, uint64 _time, uint256 _delta, bool _positive) internal {
+        require(_key < self.nextKey, ERROR_KEY_DOES_NOT_EXIST);
 
-        uint256 oldValue = self.nodes[INSERTION_DEPTH][key].getLast();
-        self.nodes[INSERTION_DEPTH][key].add(time, positive ? oldValue + delta : oldValue - delta);
+        // Update the value of the requested leaf node based on the given delta
+        uint256 lastValue = getItem(self, _key);
+        uint256 newValue = _positive ? lastValue + _delta : lastValue - _delta;
+        _add(self, LEAVES_LEVEL, _key, _time, newValue);
 
-        _updateSums(self, key, time, delta, positive);
+        // Update sums cached in the non-leaf nodes. Note that overflows is being checked at the end of the whole update.
+        _updateSums(self, _key, _time, _delta, _positive);
     }
 
     function multiSortition(
@@ -144,62 +158,106 @@ library HexSumTree { // TODO: rename to CheckpointedHexSumTree?
 
     /**
      * @notice Performs sortition for several values at once
-     * @param values An array with the values sought in the sortition. Must be ordered ascending.
-     * @param time The checkpoint timestamp at which the sortition is performed
+     * @param _values An array with the values sought in the sortition. Must be ordered ascending.
+     * @param _time The checkpoint timestamp at which the sortition is performed
      * @return An array of keys, one for each value in input param (therefore the same size), and in the same order, along with an array of the corresponding node values
      */
-    function multiSortition(Tree storage self, uint256[] values, uint64 time) internal view returns (uint256[] keys, uint256[] nodeValues) {
-        uint256 length = values.length;
+    function multiSortition(Tree storage self, uint256[] _values, uint64 _time) internal view returns (uint256[] keys, uint256[] nodeValues) {
+        uint256 length = _values.length;
         // those two arrays will be used to fill in the results, they are passed as parameters to avoid extra copies
         keys = new uint256[](length);
         nodeValues = new uint256[](length);
-        uint256 rootDepth = getRootDepthAt(self, time);
-        _multiSortition(self, values, PackedArguments(0, rootDepth, time, 0, BASE_KEY), keys, nodeValues);
+        uint256 height = getHeightAt(self, _time);
+        _multiSortition(self, _values, PackedArguments(0, height, _time, 0, BASE_KEY), keys, nodeValues);
     }
 
-    function totalSum(Tree storage self) internal view returns (uint256) {
-        uint256 rootDepth = getRootDepth(self); // current root depth
-        return self.nodes[rootDepth][BASE_KEY].getLast();
+    /**
+    * @dev Tell the sum of the all the items (leaves) stored in the tree, i.e. value of the root of the tree
+    */
+    function getTotal(Tree storage self) internal view returns (uint256) {
+        uint256 rootLevel = getHeight(self);
+        return getNode(self, rootLevel, BASE_KEY);
     }
 
-    // TODO: refactor both `totalSumPresent` and `totalSumPast` into one parameterizable function
-    function totalSumPresent(Tree storage self, uint64 currentTime) internal view returns (uint256) {
-        uint256 rootDepth = getRecentRootDepthAt(self, currentTime); // root depth at time, performing a backwards search
-        return self.nodes[rootDepth][BASE_KEY].getRecent(currentTime);
+    /**
+    * @dev Tell the sum of the all the items (leaves) stored in the tree, i.e. value of the root of the tree, at a given point in time
+    * @param _time Point in time to query the sum of all the items (leaves) stored in the tree
+    * @param _recent Boolean indicating whether the given point in time is known to be recent or not
+    */
+    function getTotalAt(Tree storage self, uint64 _time, bool _recent) internal view returns (uint256) {
+        uint256 rootLevel = getHeightAt(self, _time, _recent);
+        return getNodeAt(self, rootLevel, BASE_KEY, _time, _recent);
     }
 
-    function totalSumPast(Tree storage self, uint64 time) internal view returns (uint256) {
-        uint256 rootDepth = getRootDepthAt(self, time); // root depth at time, performing a binary search
-        return self.nodes[rootDepth][BASE_KEY].get(time);
+    /**
+    * @dev Tell the value of a certain leaf indexed by a given key
+    * @param _key Key of the leaf node querying the value of
+    */
+    function getItem(Tree storage self, uint256 _key) internal view returns (uint256) {
+        return getNode(self, LEAVES_LEVEL, _key);
     }
 
-    function get(Tree storage self, uint256 depth, uint256 key) internal view returns (uint256) {
-        return self.nodes[depth][key].getLast();
+    /**
+    * @dev Tell the value of a certain leaf indexed by a given key at a given point in time
+    * @param _key Key of the leaf node querying the value of
+    * @param _time Point in time to query the value of the requested leaf
+    */
+    function getItemAt(Tree storage self, uint256 _key, uint64 _time) internal view returns (uint256) {
+        return getNodeAt(self, LEAVES_LEVEL, _key, _time);
     }
 
-    function getPast(Tree storage self, uint256 depth, uint256 key, uint64 time) internal view returns (uint256) {
-        return self.nodes[depth][key].get(time);
+    /**
+    * @dev Tell the value of a certain node indexed by a given (level,key) pair
+    * @param _level Level of the node querying the value of
+    * @param _key Key of the node querying the value of
+    */
+    function getNode(Tree storage self, uint256 _level, uint256 _key) internal view returns (uint256) {
+        return self.nodes[_level][_key].getLast();
     }
 
-    function getItem(Tree storage self, uint256 key) internal view returns (uint256) {
-        return self.nodes[INSERTION_DEPTH][key].getLast();
+    /**
+    * @dev Tell the value of a certain node indexed by a given (level,key) pair at a given point in time
+    * @param _level Level of the node querying the value of
+    * @param _key Key of the node querying the value of
+    * @param _time Point in time to query the value of the requested node
+    */
+    function getNodeAt(Tree storage self, uint256 _level, uint256 _key, uint64 _time) internal view returns (uint256) {
+        return self.nodes[_level][_key].get(_time);
     }
 
-    // TODO: rename to getItemAt
-    function getItemPast(Tree storage self, uint256 key, uint64 time) internal view returns (uint256) {
-        return self.nodes[INSERTION_DEPTH][key].get(time);
+    /**
+    * @dev Tell the value of a certain node indexed by a given (level,key) pair at a given point in time
+    * @param _level Level of the node querying the value of
+    * @param _key Key of the node querying the value of
+    * @param _time Point in time to query the value of the requested node
+    * @param _recent Boolean indicating whether the given point in time is known to be recent or not
+    */
+    function getNodeAt(Tree storage self, uint256 _level, uint256 _key, uint64 _time, bool _recent) internal view returns (uint256) {
+        return self.nodes[_level][_key].get(_time, _recent);
     }
 
-    function getRootDepth(Tree storage self) internal view returns (uint256) {
-        return self.rootDepth.getLast();
+    /**
+    * @dev Tell the height of the tree
+    */
+    function getHeight(Tree storage self) internal view returns (uint256) {
+        return self.height.getLast();
     }
 
-    function getRootDepthAt(Tree storage self, uint64 time) internal view returns (uint256) {
-        return self.rootDepth.get(time);
+    /**
+    * @dev Tell the height of the tree at a given point in time
+    * @param _time Point in time to query the height of the tree
+    */
+    function getHeightAt(Tree storage self, uint64 _time) internal view returns (uint256) {
+        return self.height.get(_time);
     }
 
-    function getRecentRootDepthAt(Tree storage self, uint64 time) internal view returns (uint256) {
-        return self.rootDepth.getRecent(time);
+    /**
+    * @dev Tell the height of the tree at a given point in time
+    * @param _time Point in time to query the height of the tree
+    * @param _recent Boolean indicating whether the given point in time is known to be recent or not
+    */
+    function getHeightAt(Tree storage self, uint64 _time, bool _recent) internal view returns (uint256) {
+        return self.height.get(_time, _recent);
     }
 
     function getChildren(Tree storage) internal pure returns (uint256) {
@@ -210,57 +268,70 @@ library HexSumTree { // TODO: rename to CheckpointedHexSumTree?
         return BITS_IN_NIBBLE;
     }
 
-    function _set(Tree storage self, uint256 key, uint64 time, uint256 value) private {
-        uint256 oldValue = self.nodes[INSERTION_DEPTH][key].getLast();
-        self.nodes[INSERTION_DEPTH][key].add(time, value);
-
-        if (value > oldValue) {
-            _updateSums(self, key, time, value - oldValue, true);
-        } else if (value < oldValue) {
-            _updateSums(self, key, time, oldValue - value, false);
-        }
-    }
-
-    function _updateSums(Tree storage self, uint256 key, uint64 time, uint256 delta, bool positive) private {
-        uint256 currentRootDepth = getRootDepth(self);
-        uint256 newRootDepth = _sharedPrefix(currentRootDepth, key);
-
-        // TODO: this function could be simplified to perform this check only when inserting
-        if (currentRootDepth != newRootDepth) {
-            self.nodes[newRootDepth][BASE_KEY].add(time, self.nodes[currentRootDepth][BASE_KEY].getLast());
-            self.rootDepth.add(time, newRootDepth);
-            currentRootDepth = newRootDepth;
-        }
-
-        // Update all the values of all the ancestors of the given key based on the delta updated
+    /**
+    * @dev Private function to update the values of all the ancestors of the given leaf node based on the delta updated
+    * @param _key Key of the leaf node to update the ancestors of
+    * @param _time Point in time to update the ancestors' values of the given leaf node
+    * @param _delta Numeric delta to update the ancestors' values of the given leaf node
+    * @param _positive Boolean to tell whether the given delta should be added to or subtracted from ancestors' values
+    */
+    function _updateSums(Tree storage self, uint256 _key, uint64 _time, uint256 _delta, bool _positive) private {
         uint256 mask = uint256(-1);
-        uint256 ancestorKey = key;
-        for (uint256 i = 1; i <= currentRootDepth; i++) { // TODO: rename i to level and currentRootDepth to height
+        uint256 ancestorKey = _key;
+        uint256 currentHeight = getHeight(self);
+        for (uint256 level = 1; level <= currentHeight; level++) {
             // Build a mask to get the key of the ancestor at a certain level. For example:
-            // Note at level  0: leaves don't have children
-            // Node at level  1: 0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0 (up to 16 leaves)
-            // Node at level  2: 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff00 (up to 32 leaves)
+            // Level  0: leaves don't have children
+            // Level  1: 0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0 (up to 16 leaves)
+            // Level  2: 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff00 (up to 32 leaves)
             // ...
-            // Node at level 63: 0x0000000000000000000000000000000000000000000000000000000000000000 (up to 16^64 leaves - max tree height is 64)
+            // Level 63: 0x0000000000000000000000000000000000000000000000000000000000000000 (up to 16^64 leaves - max tree height is 64)
             mask = mask << BITS_IN_NIBBLE;
 
-            // For a level "i", the key of the ancestor at that level will be equivalent to the "(64 - i)-th" most
-            // significant nibbles of the key of the ancestor of the previous level "i - 1". Thus, we can compute the
-            // key of the ancestor at a certain level applying the mask to the ancestor's key of the previous level.
-            // Note that for the first iteration, the key of the ancestor of the previous level is simply the key of
-            // the leave being updated
+            // The key of the ancestor at that level "i" is equivalent to the "(64 - i)-th" most significant nibbles
+            // of the ancestor's key of the previous level "i - 1". Thus, we can compute the key of an ancestor at a
+            // certain level applying the mask to the ancestor's key of the previous level. Note that for the first
+            // iteration, the key of the ancestor of the previous level is simply the key of the leaf being updated.
             ancestorKey = ancestorKey & mask;
 
             // TODO: This is not true, however since the biggest value that can be checkpointed is max uint192, the
             //       biggest addition we can have here is max uint192 * 2, which is smaller than max uint256. In case
             //       of subtraction, it will end being greater than max uint192 as well.
             // Invariant: this will never underflow.
-            self.nodes[i][ancestorKey].add(time, positive ? self.nodes[i][ancestorKey].getLast() + delta : self.nodes[i][ancestorKey].getLast() - delta);
+            uint256 lastValue = getNode(self, level, ancestorKey);
+            uint256 newValue = _positive ? lastValue + _delta : lastValue - _delta;
+            _add(self, level, ancestorKey, _time, newValue);
         }
 
         // Check if update overflowed. Note that we only need to check the root value since the sum only increases
         // going up through the tree.
-        require(!positive || self.nodes[currentRootDepth][ancestorKey].getLast() >= delta, ERROR_UPDATE_OVERFLOW);
+        require(!_positive || getNode(self, currentHeight, ancestorKey) >= _delta, ERROR_UPDATE_OVERFLOW);
+    }
+
+    /**
+    * @dev Private function to add a new level to the tree based on a new key that will be inserted
+    * @param _newKey New key willing to be inserted in the tree
+    * @param _time Point in time when the new key will be inserted
+    */
+    function _addLevelIfNecessary(Tree storage self, uint256 _newKey, uint64 _time) private {
+        uint256 currentHeight = getHeight(self);
+        if (_shouldAddLevel(currentHeight, _newKey)) {
+            uint256 newHeight = currentHeight + 1;
+            uint256 rootValue = getNode(self, currentHeight, BASE_KEY);
+            _add(self, newHeight, BASE_KEY, _time, rootValue);
+            self.height.add(_time, newHeight);
+        }
+    }
+
+    /**
+    * @dev Private function to register a new value in the history of a node at a given point in time
+    * @param _level Level of the node to add a new value at a given point in time to
+    * @param _key Key of the node to add a new value at a given point in time to
+    * @param _time Point in time to register a value for the given node
+    * @param _value Numeric value to be registered for the given node at a given point in time
+    */
+    function _add(Tree storage self, uint256 _level, uint256 _key, uint64 _time, uint256 _value) private {
+        self.nodes[_level][_key].add(_time, _value);
     }
 
     /**
@@ -275,15 +346,16 @@ library HexSumTree { // TODO: rename to CheckpointedHexSumTree?
      *      PackedArguments struct is used to avoid "stack too deep" issue.
      */
     function _multiSortition(Tree storage self, uint256[] values, PackedArguments memory packedArguments, uint256[] keys, uint256[] nodeValues) private view {
-        uint256 shift = (packedArguments.depth - 1) * BITS_IN_NIBBLE;
+        // TODO: sortition out of bounds?
+        uint256 shift = (packedArguments.height - 1) * BITS_IN_NIBBLE;
         uint256 checkingValue = packedArguments.accumulatedValue;
         for (uint256 i = 0; i < CHILDREN; i++) {
             if (packedArguments.valuesStart >= values.length) {
                 break;
             }
-            // shift the iterator and add it to node 0x00..0i00 (for depth = 3)
-            uint256 checkingNode = packedArguments.node + (i << shift); // uint256
-            uint256 nodeValue = self.nodes[packedArguments.depth - 1][checkingNode].getRecent(packedArguments.time);
+            // shift the iterator and add it to node 0x00..0i00 (for height = 3)
+            uint256 checkingNodeKey = packedArguments.node + (i << shift); // uint256
+            uint256 nodeValue = getNodeAt(self, packedArguments.height - 1, checkingNodeKey, packedArguments.time, true); // fetch always recent values
             checkingValue = checkingValue + nodeValue;
 
             // Check how many values belong to this node. As they are ordered, it will be a contiguous subset starting from the beginning, so we only need to know the length of that subset
@@ -292,11 +364,11 @@ library HexSumTree { // TODO: rename to CheckpointedHexSumTree?
             if (newLength > 0) {
                 uint256 k;
                 // node found at the end of the tree
-                if (packedArguments.depth == 1) {
-                    // add this leave to the result, one time for each value belonging to it
+                if (packedArguments.height == 1) {
+                    // add this leaf to the result, one time for each value belonging to it
                     // use input values start index to write in the proper segment of the result arrays, which are global
                     for (k = 0; k < newLength; k++) {
-                        keys[packedArguments.valuesStart + k] = checkingNode;
+                        keys[packedArguments.valuesStart + k] = checkingNodeKey;
                         nodeValues[packedArguments.valuesStart + k] = nodeValue;
                     }
                 } else { // node found at upper levels
@@ -306,10 +378,10 @@ library HexSumTree { // TODO: rename to CheckpointedHexSumTree?
                         values,
                         PackedArguments(
                             packedArguments.valuesStart,
-                            packedArguments.depth - 1,
+                            packedArguments.height - 1,
                             packedArguments.time,
                             packedArguments.accumulatedValue,
-                            checkingNode
+                            checkingNodeKey
                         ),
                         keys,
                         nodeValues
@@ -326,7 +398,7 @@ library HexSumTree { // TODO: rename to CheckpointedHexSumTree?
     function _getStakeBounds(Tree storage self, uint64 _time, uint256 _filledSeats, uint256 _jurorsRequested, uint256 _jurorNumber) private view
         returns (uint256 stakeFrom, uint256 stakeTo)
     {
-        uint256 ratio = totalSumPresent(self, _time) / _jurorNumber;
+        uint256 ratio = getTotalAt(self, _time, true) / _jurorNumber;
         // TODO: roundings?
         stakeFrom = _filledSeats * ratio;
         uint256 newFilledSeats = _filledSeats + _jurorsRequested;
@@ -337,6 +409,25 @@ library HexSumTree { // TODO: rename to CheckpointedHexSumTree?
         }
         */
         stakeTo = newFilledSeats * ratio;
+    }
+
+    /**
+    * @dev Private function to check if a new key can be added to the tree based on the current height of the tree
+    * @param _currentHeight Current height of the tree to check if it supports adding the given key
+    * @param _newKey Key willing to be added to the tree with the given current height
+    * @return True if the current height of the tree should be increased to add the new key, false otherwise.
+    */
+    function _shouldAddLevel(uint256 _currentHeight, uint256 _newKey) private pure returns (bool) {
+        // Build a mask that will match all the possible keys for the given height. For example:
+        // Height  1: 0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0 (up to 16 keys)
+        // Height  2: 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff00 (up to 32 keys)
+        // ...
+        // Height 64: 0x0000000000000000000000000000000000000000000000000000000000000000 (up to 16^64 keys - max height is 64)
+        uint256 shift = _currentHeight * BITS_IN_NIBBLE;
+        uint256 mask = uint256(-1) << shift;
+
+        // Check if the given key can be represented in the tree with the current given height using the mask.
+        return (_newKey & mask) != uint256(0);
     }
 
     function _getOrderedValues(
@@ -378,12 +469,5 @@ library HexSumTree { // TODO: rename to CheckpointedHexSumTree?
             j++;
         }
         return j - valuesStart;
-    }
-
-    function _sharedPrefix(uint256 _depth, uint256 _key) private pure returns (uint256) {
-        uint256 shift = _depth * BITS_IN_NIBBLE;
-        uint256 mask = uint256(-1) << shift;
-        uint256 keyAncestor = _key & mask;
-        return (keyAncestor != BASE_KEY) ? (_depth + 1) : _depth;
     }
 }

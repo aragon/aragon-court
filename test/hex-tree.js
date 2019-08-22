@@ -49,7 +49,7 @@ contract('Hex Sum Tree', () => {
     await tree.insertAt(0, 5)
     await tree.insertAt(0, 5)
 
-    await assertRevert(tree.set(3, 5), 'SUM_TREE_NEW_KEY_NOT_ADJACENT')
+    await assertRevert(tree.set(3, 5), 'SUM_TREE_KEY_DOES_NOT_EXIST')
   })
 
   it('fails inserting a number that makes sum overflow', async () => {
@@ -78,10 +78,10 @@ contract('Hex Sum Tree', () => {
     it(`sortition using ${sortitionFunction}`, async () => {
       for(let i = 0; i < 20; i++) {
         await tree.insertAt(0, 10)
-        const [depth, key] = await tree.getState()
+        const [height, nextKey] = await tree.getState()
 
         //if (i % 10 == 0 || i > 15)
-        //console.log(`#${i + 1}: Sum ${await tree.totalSum()}. Depth ${depth}. Next key ${web3.toHex(key)}`)
+        //console.log(`#${i + 1}: Sum ${await tree.getTotal()}. Height ${height}. Next key ${web3.toHex(nextKey)}`)
       }
 
       assertBN(await tree[sortitionFunction].call(1, 0), 0)
@@ -92,10 +92,10 @@ contract('Hex Sum Tree', () => {
     it(`inserts into another node using ${sortitionFunction}`, async () => {
       for(let i = 0; i < 270; i++) {
         await tree.insertAt(0, 10)
-        const [depth, key] = await tree.getState()
+        const [height, nextKey] = await tree.getState()
 
         //if (i % 10 == 0)
-        //console.log(`#${i + 1}: Sum ${await tree.totalSum()}. Depth ${depth}. Next key ${web3.toHex(key)}`)
+        //console.log(`#${i + 1}: Sum ${await tree.getTotal()}. Height ${height}. Next key ${web3.toHex(nextKey)}`)
       }
 
       assertBN(await tree.get(0, 16), 10, 'get node')

@@ -88,7 +88,7 @@ contract('Court: Batches', ([ rich, arbitrable, juror1, juror2, juror3, juror4, 
     MAX_JURORS_PER_DRAFT_BATCH = (await this.court.getMaxJurorsPerDraftBatch.call()).toNumber()
 
     assert.equal(await this.jurorsRegistry.token(), this.anj.address, 'court token')
-    await assertEqualBN(this.jurorsRegistry.mock_treeTotalSum(), 0, 'empty sum tree')
+    await assertEqualBN(this.jurorsRegistry.totalActiveBalance(), 0, 'empty sum tree')
 
     await this.anj.approveAndCall(this.jurorsRegistry.address, richStake, NO_DATA, { from: rich })
 

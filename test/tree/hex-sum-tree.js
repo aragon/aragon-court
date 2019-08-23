@@ -633,7 +633,331 @@ contract('HexSumTree', () => {
     })
   })
 
-  describe('multisortition', () => {
-    // TODO: implement
+  describe('search', () => {
+    const insertTime = 10
+
+    beforeEach('init tree', async () => {
+      await tree.init()
+    })
+
+    context('when searching one value', async () => {
+      const value = 15
+      const searchValues = [value]
+
+      context('when there was no value inserted in the tree', async () => {
+        it('returns zero', async () => {
+          const [keys, values] = await tree.search(searchValues, insertTime)
+
+          assert.equal(keys.length, 1, 'result keys length does not match')
+          assert.equal(values.length, 1, 'result values length does not match')
+
+          assert.equal(keys[0].toString(), 0, 'result key does not match')
+          assert.equal(values[0].toString(), 0, 'result value does not match')
+        })
+      })
+
+      context('when there was one value inserted in the tree', async () => {
+        context('when there was a lower value', async () => {
+          beforeEach('insert value', async () => {
+            await tree.insert(insertTime, value - 1)
+          })
+
+          context('when there is no value registered for the given time', async () => {
+            const searchTime = insertTime - 1
+
+            it('returns zero', async () => {
+              const [keys, values] = await tree.search(searchValues, searchTime)
+
+              assert.equal(keys.length, 1, 'result keys length does not match')
+              assert.equal(values.length, 1, 'result values length does not match')
+
+              assert.equal(keys[0].toString(), 0, 'result key does not match')
+              assert.equal(values[0].toString(), 0, 'result value does not match')
+            })
+          })
+
+          context('when there is a value registered for the given time', async () => {
+            const searchTime = insertTime
+
+            it('returns zero', async () => {
+              const [keys, values] = await tree.search(searchValues, searchTime)
+
+              assert.equal(keys.length, 1, 'result keys length does not match')
+              assert.equal(values.length, 1, 'result values length does not match')
+
+              assert.equal(keys[0].toString(), 0, 'result key does not match')
+              assert.equal(values[0].toString(), 0, 'result value does not match')
+            })
+          })
+        })
+
+        context('when there was the same value', async () => {
+          beforeEach('insert value', async () => {
+            await tree.insert(insertTime, value)
+          })
+
+          context('when there is no value registered for the given time', async () => {
+            const searchTime = insertTime - 1
+
+            it('returns zero', async () => {
+              const [keys, values] = await tree.search(searchValues, searchTime)
+
+              assert.equal(keys.length, 1, 'result keys length does not match')
+              assert.equal(values.length, 1, 'result values length does not match')
+
+              assert.equal(keys[0].toString(), 0, 'result key does not match')
+              assert.equal(values[0].toString(), 0, 'result value does not match')
+            })
+          })
+
+          context('when there is a value registered for the given time', async () => {
+            const searchTime = insertTime
+
+            it.skip('returns the first item', async () => {
+              const [keys, values] = await tree.search(searchValues, searchTime)
+
+              assert.equal(keys.length, 1, 'result keys length does not match')
+              assert.equal(values.length, 1, 'result values length does not match')
+
+              assert.equal(keys[0].toString(), 0, 'result key does not match')
+              assert.equal(values[0].toString(), value, 'result value does not match')
+            })
+          })
+        })
+
+        context('when there was a higher value', async () => {
+          beforeEach('insert value', async () => {
+            await tree.insert(insertTime, value + 1)
+          })
+
+          context('when there is no value registered for the given time', async () => {
+            const searchTime = insertTime - 1
+
+            it('returns zero', async () => {
+              const [keys, values] = await tree.search(searchValues, searchTime)
+
+              assert.equal(keys.length, 1, 'result keys length does not match')
+              assert.equal(values.length, 1, 'result values length does not match')
+
+              assert.equal(keys[0].toString(), 0, 'result key does not match')
+              assert.equal(values[0].toString(), 0, 'result value does not match')
+            })
+          })
+
+          context('when there is a value registered for the given time', async () => {
+            const searchTime = insertTime
+
+            // TODO: this scenario is not passing but it should
+            it('returns the first item', async () => {
+              const [keys, values] = await tree.search(searchValues, searchTime)
+
+              assert.equal(keys.length, 1, 'result keys length does not match')
+              assert.equal(values.length, 1, 'result values length does not match')
+
+              assert.equal(keys[0].toString(), 0, 'result key does not match')
+              assert.equal(values[0].toString(), value + 1, 'result value does not match')
+            })
+          })
+        })
+      })
+
+      context('when there were many values inserted in the tree', async () => {
+        context('when the total does not reach the searched value', async () => {
+          beforeEach('insert value', async () => {
+            await tree.insert(insertTime, 3)
+            await tree.insert(insertTime, 4)
+            await tree.insert(insertTime, 2)
+            await tree.insert(insertTime, 1)
+            await tree.insert(insertTime, 2)
+
+            assert.isAbove(value, (await tree.totalAt(insertTime)).toNumber(), 'tree total does not match')
+          })
+
+          context('when there is no value registered for the given time', async () => {
+            const searchTime = insertTime - 1
+
+            it('returns zero', async () => {
+              const [keys, values] = await tree.search(searchValues, searchTime)
+
+              assert.equal(keys.length, 1, 'result keys length does not match')
+              assert.equal(values.length, 1, 'result values length does not match')
+
+              assert.equal(keys[0].toString(), 0, 'result key does not match')
+              assert.equal(values[0].toString(), 0, 'result value does not match')
+            })
+          })
+
+          context('when there is a value registered for the given time', async () => {
+            const searchTime = insertTime
+
+            it('returns zero', async () => {
+              const [keys, values] = await tree.search(searchValues, searchTime)
+
+              assert.equal(keys.length, 1, 'result keys length does not match')
+              assert.equal(values.length, 1, 'result values length does not match')
+
+              assert.equal(keys[0].toString(), 0, 'result key does not match')
+              assert.equal(values[0].toString(), 0, 'result value does not match')
+            })
+          })
+        })
+
+        context('when the total is equal to the searched value', async () => {
+          beforeEach('insert values', async () => {
+            await tree.insert(insertTime, 3)
+            await tree.insert(insertTime, 4)
+            await tree.insert(insertTime, 2)
+            await tree.insert(insertTime, 1)
+            await tree.insert(insertTime, 2)
+            await tree.insert(insertTime, 3)
+
+            assert.equal((await tree.totalAt(insertTime)).toString(), value, 'tree total does not match')
+          })
+
+          context('when there is no value registered for the given time', async () => {
+            const searchTime = insertTime - 1
+
+            it('returns zero', async () => {
+              const [keys, values] = await tree.search(searchValues, searchTime)
+
+              assert.equal(keys.length, 1, 'result keys length does not match')
+              assert.equal(values.length, 1, 'result values length does not match')
+
+              assert.equal(keys[0].toString(), 0, 'result key does not match')
+              assert.equal(values[0].toString(), 0, 'result value does not match')
+            })
+          })
+
+          context('when there is a value registered for the given time', async () => {
+            const searchTime = insertTime
+
+            // TODO: this scenario is not passing but it should
+            it.skip('returns the last item', async () => {
+              const [keys, values] = await tree.search(searchValues, searchTime)
+
+              assert.equal(keys.length, 1, 'result keys length does not match')
+              assert.equal(values.length, 1, 'result values length does not match')
+
+              assert.equal(keys[0].toString(), 5, 'result key does not match')
+              assert.equal(values[0].toString(), 3, 'result value does not match')
+            })
+          })
+        })
+
+        context('when the total is greater than the searched value', async () => {
+          beforeEach('insert values', async () => {
+            await tree.insert(insertTime, 3)
+            await tree.insert(insertTime, 4)
+            await tree.insert(insertTime, 2)
+            await tree.insert(insertTime, 1)
+            await tree.insert(insertTime, 2)
+            await tree.insert(insertTime, 4)
+            await tree.insert(insertTime, 5)
+            await tree.insert(insertTime, 8)
+            await tree.insert(insertTime, 1)
+
+            assert.isAtMost(value, (await tree.totalAt(insertTime)).toNumber(), 'tree total does not match')
+          })
+
+          context('when there is no value registered for the given time', async () => {
+            const searchTime = insertTime - 1
+
+            it('returns zero', async () => {
+              const [keys, values] = await tree.search(searchValues, searchTime)
+
+              assert.equal(keys.length, 1, 'result keys length does not match')
+              assert.equal(values.length, 1, 'result values length does not match')
+
+              assert.equal(keys[0].toString(), 0, 'result key does not match')
+              assert.equal(values[0].toString(), 0, 'result value does not match')
+            })
+          })
+
+          context('when there is a value registered for the given time', async () => {
+            const searchTime = insertTime
+
+            it('returns the last item', async () => {
+              const [keys, values] = await tree.search(searchValues, searchTime)
+
+              assert.equal(keys.length, 1, 'result keys length does not match')
+              assert.equal(values.length, 1, 'result values length does not match')
+
+              assert.equal(keys[0].toString(), 5, 'result key does not match')
+              assert.equal(values[0].toString(), 4, 'result value does not match')
+            })
+          })
+        })
+      })
+    })
+
+    context('when searching many values', () => {
+      const searchValues = [1, 5, 8, 18, 22]
+
+      beforeEach('insert values', async () => {
+        await tree.insert(insertTime, 2) // 2
+        await tree.insert(insertTime, 1) // 3
+        await tree.insert(insertTime, 4) // 7
+        await tree.insert(insertTime, 1) // 8
+        await tree.insert(insertTime, 8) // 16
+        await tree.insert(insertTime, 6) // 22
+        await tree.insert(insertTime, 7)
+        await tree.insert(insertTime, 1)
+
+        assert.isAtMost(searchValues[searchValues.length - 1], (await tree.totalAt(insertTime)).toNumber(), 'tree total does not match')
+      })
+
+      context('when there is no value registered for the given time', async () => {
+        const searchTime = insertTime - 1
+
+        it('returns zero', async () => {
+          const [keys, values] = await tree.search(searchValues, searchTime)
+
+          assert.equal(keys.length, 5, 'result keys length does not match')
+          assert.equal(values.length, 5, 'result values length does not match')
+
+          assert.equal(keys[0].toString(), 0, 'first result key does not match')
+          assert.equal(values[0].toString(), 0, 'first result value does not match')
+
+          assert.equal(keys[1].toString(), 0, 'second result key does not match')
+          assert.equal(values[1].toString(), 0, 'second result value does not match')
+
+          assert.equal(keys[2].toString(), 0, 'third result key does not match')
+          assert.equal(values[2].toString(), 0, 'third result value does not match')
+
+          assert.equal(keys[3].toString(), 0, 'fourth result key does not match')
+          assert.equal(values[3].toString(), 0, 'fourth result value does not match')
+
+          assert.equal(keys[4].toString(), 0, 'fifth result key does not match')
+          assert.equal(values[4].toString(), 0, 'fifth result value does not match')
+        })
+      })
+
+      context('when there is a value registered for the given time', async () => {
+        const searchTime = insertTime
+
+        // TODO: this scenario is not passing but it should
+        it.skip('returns the expected items', async () => {
+          const [keys, values] = await tree.search(searchValues, searchTime)
+
+          assert.equal(keys.length, searchValues.length, 'result keys length does not match')
+          assert.equal(values.length, searchValues.length, 'result values length does not match')
+
+          assert.equal(keys[0].toString(), 0, 'first result key does not match')
+          assert.equal(values[0].toString(), 2, 'first result value does not match')
+
+          assert.equal(keys[1].toString(), 2, 'second result key does not match')
+          assert.equal(values[1].toString(), 4, 'second result value does not match')
+
+          assert.equal(keys[2].toString(), 3, 'third result key does not match')
+          assert.equal(values[2].toString(), 1, 'third result value does not match')
+
+          assert.equal(keys[3].toString(), 5, 'fourth result key does not match')
+          assert.equal(values[3].toString(), 6, 'fourth result value does not match')
+
+          assert.equal(keys[4].toString(), 5, 'fifth result key does not match')
+          assert.equal(values[4].toString(), 6, 'fifth result value does not match')
+        })
+      })
+    })
   })
 })

@@ -11,13 +11,6 @@ contract JurorsRegistryMock is JurorsRegistry, TimeHelpersMock {
         treeSearchHijacked = true;
     }
 
-    function sortition(uint256 value) public view returns (address) {
-        uint256[] memory values = new uint256[](1);
-        values[0] = value;
-        (uint256[] memory jurorsIds,) = tree.multiSortition(values, getTimestamp64());
-        return jurorsAddressById[jurorsIds[0]];
-    }
-
     function _treeSearch(uint256[7] _params) internal view returns (uint256[] keys, uint256[] nodeValues) {
         if (!treeSearchHijacked) {
             return super._treeSearch(_params);

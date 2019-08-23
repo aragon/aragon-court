@@ -4,7 +4,7 @@ import "../lib/TimeHelpersMock.sol";
 import "../../lib/HexSumTree.sol";
 
 
-contract CheckpointedHexSumTreeMock is TimeHelpersMock {
+contract HexSumTreeMock is TimeHelpersMock {
     using HexSumTree for HexSumTree.Tree;
 
     HexSumTree.Tree internal tree;
@@ -62,6 +62,6 @@ contract CheckpointedHexSumTreeMock is TimeHelpersMock {
     }
 
     function search(uint256[] _values, uint64 _time) public view returns (uint256[] keys, uint256[] values) {
-        return tree.multiSortition(_values, _time);
+        return tree.search(_values, _time);
     }
 }

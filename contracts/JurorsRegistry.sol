@@ -9,6 +9,7 @@ import { ApproveAndCallFallBack } from "@aragon/apps-shared-minime/contracts/Min
 
 import "./lib/BytesHelpers.sol";
 import "./lib/HexSumTree.sol";
+import "./lib/JurorsTreeSortition.sol";
 import "./standards/erc900/ERC900.sol";
 import "./standards/erc900/IJurorsRegistry.sol";
 import "./standards/erc900/IJurorsRegistryOwner.sol";
@@ -19,6 +20,7 @@ contract JurorsRegistry is Initializable, IsContract, IJurorsRegistry, ERC900, A
     using SafeMath for uint256;
     using BytesHelpers for bytes;
     using HexSumTree for HexSumTree.Tree;
+    using JurorsTreeSortition for HexSumTree.Tree;
 
     string internal constant ERROR_NOT_CONTRACT = "JR_NOT_CONTRACT";
     string internal constant ERROR_SENDER_NOT_OWNER = "JR_SENDER_NOT_OWNER";
@@ -703,23 +705,23 @@ contract JurorsRegistry is Initializable, IsContract, IJurorsRegistry, ERC900, A
     * @param _treeSearchParams Array containing the search restrictions:
     *        0. bytes32 Term randomness
     *        1. uint256 Dispute id
-    *        2. uint64  Current term id
-    *        3. uint256 Number of seats already filled
-    *        4. uint256 Number of seats left to be filled
-    *        5. uint256 Number of jurors to be drafted
-    *        6. uint256 Sortition iteration number
+    *        2. uint64  Current term when the draft is being computed
+    *        3. uint256 Number of jurors already selected for the draft
+    *        4. uint256 Number of jurors to be selected in the given batch of the draft
+    *        5. uint256 Total number of jurors requested to be drafted
+    *        6. uint256 Number of sortitions already performed for the given draft
     *
     * @return ids List of juror ids obtained based on the requested search
-    * @return stakes List of active balances for each juror obtained based on the requested search
+    * @return activeBalances List of active balances for each juror obtained based on the requested search
     */
-    function _treeSearch(uint256[7] _treeSearchParams) internal view returns (uint256[] ids, uint256[] stakes) {
-        (ids, stakes) = tree.multiSortition(
+    function _treeSearch(uint256[7] _treeSearchParams) internal view returns (uint256[] ids, uint256[] activeBalances) {
+        (ids, activeBalances) = tree.multiSortition(
             bytes32(_treeSearchParams[0]),  // _termRandomness,
             _treeSearchParams[1],           // _disputeId
             uint64(_treeSearchParams[2]),   // _termId
-            _treeSearchParams[3],           // _filledSeats
-            _treeSearchParams[4],           // _jurorsRequested
-            _treeSearchParams[5],           // _jurorNumber
+            _treeSearchParams[3],           // _selectedJurors
+            _treeSearchParams[4],           // _batchRequestedJurors
+            _treeSearchParams[5],           // _roundRequestedJurors
             _treeSearchParams[6]            // _sortitionIteration
         );
     }

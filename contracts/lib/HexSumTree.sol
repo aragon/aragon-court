@@ -1,6 +1,5 @@
 pragma solidity ^0.4.24;
 
-// TODO: import from Staking (or somewhere else)
 import "./Checkpointing.sol";
 
 
@@ -25,7 +24,7 @@ import "./Checkpointing.sol";
 *             Level 0          22           12  53           13 ----------- 22            1  17           30
 *
 */
-library HexSumTree { // TODO: rename to CheckpointedHexSumTree?
+library HexSumTree {
     using Checkpointing for Checkpointing.History;
 
     string private constant ERROR_UPDATE_OVERFLOW = "SUM_TREE_UPDATE_OVERFLOW";
@@ -49,7 +48,7 @@ library HexSumTree { // TODO: rename to CheckpointedHexSumTree?
     /**
     * @dev The tree is stored using the following structure:
     *      - nodes: A mapping indexed by a pair (level, key) with a history of the values for each node.
-    *      - height: A history of the heights of the tree.
+    *      - height: A history of the heights of the tree. Minimum height is 1, a root with 16 children.
     *      - nextKey: The next key to be used to identify the next new value that will be inserted into the tree.
     */
     struct Tree {
@@ -58,13 +57,20 @@ library HexSumTree { // TODO: rename to CheckpointedHexSumTree?
         mapping (uint256 => mapping (uint256 => Checkpointing.History)) nodes; // level -> key -> value
     }
 
-    // TODO: describe
-    struct PackedArguments {
-        uint256 valuesStart;
-        uint256 height;
+    /**
+    * @dev Search params to traverse the tree caching previous results:
+    *      - time: Point in time to query the values being searched, this value shouldn't change during a search
+    *      - level: Level being analyzed for the search, it starts at the level under the root and decrements till the leaves
+    *      - parentKey: Key of the parent of the nodes being analyzed at the given level for the search
+    *      - foundValues: Number of values in the list being searched that were already found, it will go from 0 until the size of the list
+    *      - visitedTotal: Total sum of values that were already visited during the search, it will fo from 0 until the tree total
+    */
+    struct SearchParams {
         uint64 time;
-        uint256 accumulatedValue;
-        uint256 node;
+        uint256 level;
+        uint256 parentKey;
+        uint256 foundValues;
+        uint256 visitedTotal;
     }
 
     /**
@@ -89,7 +95,6 @@ library HexSumTree { // TODO: rename to CheckpointedHexSumTree?
         // If the new value is not zero, first set the value of the new leaf node, then add a new level at the top of
         // the tree if necessary, and finally update sums cached in all the non-leaf nodes.
         if (_value > 0) {
-            // TODO: tree height is never checked to be under 64, at least add a comment telling why
             _add(self, LEAVES_LEVEL, key, _time, _value);
             _addLevelIfNecessary(self, key, _time);
             _updateSums(self, key, _time, _value, true);
@@ -137,38 +142,25 @@ library HexSumTree { // TODO: rename to CheckpointedHexSumTree?
         _updateSums(self, _key, _time, _delta, _positive);
     }
 
-    function multiSortition(
-        Tree storage self,
-        bytes32 _termRandomness,
-        uint256 _disputeId,
-        uint64 _time,
-        uint256 _filledSeats,
-        uint256 _jurorsRequested,
-        uint256 _jurorNumber,
-        uint256 _sortitionIteration
-    )
-        internal
-        view
-        returns (uint256[] keys, uint256[] nodeValues)
-    {
-        (uint256 stakeFrom, uint256 stakeTo) = _getStakeBounds(self, _time, _filledSeats, _jurorsRequested, _jurorNumber);
-        uint256[] memory values = _getOrderedValues(_termRandomness, _disputeId, _time, _filledSeats, _jurorsRequested, _jurorNumber, _sortitionIteration, stakeFrom, stakeTo);
-        return multiSortition(self, values, _time);
-    }
-
     /**
-     * @notice Performs sortition for several values at once
-     * @param _values An array with the values sought in the sortition. Must be ordered ascending.
-     * @param _time The checkpoint timestamp at which the sortition is performed
-     * @return An array of keys, one for each value in input param (therefore the same size), and in the same order, along with an array of the corresponding node values
+     * @dev Search a list of values in the tree at a given point in time. It will return a list with the nearest
+     *      high value in case a value cannot be found. This function assumes the given list of given values to be
+     *      searched is in ascending order. In case of searching a value out of bounds, it will return zeroed results.
+     * @param _values Ordered list of values to be searched in the tree
+     * @param _time Point in time to query the values being searched
+     * @return keys List of keys found for each requested value in the same order
+     * @return values List of node values found for each requested value in the same order
      */
-    function multiSortition(Tree storage self, uint256[] _values, uint64 _time) internal view returns (uint256[] keys, uint256[] nodeValues) {
+    function search(Tree storage self, uint256[] _values, uint64 _time) internal view returns (uint256[] keys, uint256[] values) {
+        // Build search params for the first iteration
+        uint256 rootLevel = getHeightAt(self, _time);
+        SearchParams memory searchParams = SearchParams(_time, rootLevel, BASE_KEY, 0, 0);
+
+        // These arrays will be used to fill in the results. We are passing them as parameters to avoid extra copies
         uint256 length = _values.length;
-        // those two arrays will be used to fill in the results, they are passed as parameters to avoid extra copies
         keys = new uint256[](length);
-        nodeValues = new uint256[](length);
-        uint256 height = getHeightAt(self, _time);
-        _multiSortition(self, _values, PackedArguments(0, height, _time, 0, BASE_KEY), keys, nodeValues);
+        values = new uint256[](length);
+        _search(self, _values, searchParams, keys, values);
     }
 
     /**
@@ -260,14 +252,6 @@ library HexSumTree { // TODO: rename to CheckpointedHexSumTree?
         return self.height.get(_time, _recent);
     }
 
-    function getChildren(Tree storage) internal pure returns (uint256) {
-        return CHILDREN;
-    }
-
-    function getBitsInNibble(Tree storage) internal pure returns (uint256) {
-        return BITS_IN_NIBBLE;
-    }
-
     /**
     * @dev Private function to update the values of all the ancestors of the given leaf node based on the delta updated
     * @param _key Key of the leaf node to update the ancestors of
@@ -285,7 +269,7 @@ library HexSumTree { // TODO: rename to CheckpointedHexSumTree?
             // Level  1: 0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0 (up to 16 leaves)
             // Level  2: 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff00 (up to 32 leaves)
             // ...
-            // Level 63: 0x0000000000000000000000000000000000000000000000000000000000000000 (up to 16^64 leaves - max tree height is 64)
+            // Level 63: 0x0000000000000000000000000000000000000000000000000000000000000000 (up to 16^64 leaves - tree max height)
             mask = mask << BITS_IN_NIBBLE;
 
             // The key of the ancestor at that level "i" is equivalent to the "(64 - i)-th" most significant nibbles
@@ -294,17 +278,15 @@ library HexSumTree { // TODO: rename to CheckpointedHexSumTree?
             // iteration, the key of the ancestor of the previous level is simply the key of the leaf being updated.
             ancestorKey = ancestorKey & mask;
 
-            // TODO: This is not true, however since the biggest value that can be checkpointed is max uint192, the
-            //       biggest addition we can have here is max uint192 * 2, which is smaller than max uint256. In case
-            //       of subtraction, it will end being greater than max uint192 as well.
-            // Invariant: this will never underflow.
+            // Note that we are safe to avoid SafeMath here since overflows will be catch by the checkpointing lib since
+            // it works with uint192 values, or at the end of the update when checking the the total stored at the root.
             uint256 lastValue = getNode(self, level, ancestorKey);
             uint256 newValue = _positive ? lastValue + _delta : lastValue - _delta;
             _add(self, level, ancestorKey, _time, newValue);
         }
 
-        // Check if update overflowed. Note that we only need to check the root value since the sum only increases
-        // going up through the tree.
+        // Check if there was an overflow. Note that we only need to check the value stored in the root since the
+        // sum only increases going up through the tree.
         require(!_positive || getNode(self, currentHeight, ancestorKey) >= _delta, ERROR_UPDATE_OVERFLOW);
     }
 
@@ -316,6 +298,9 @@ library HexSumTree { // TODO: rename to CheckpointedHexSumTree?
     function _addLevelIfNecessary(Tree storage self, uint256 _newKey, uint64 _time) private {
         uint256 currentHeight = getHeight(self);
         if (_shouldAddLevel(currentHeight, _newKey)) {
+            // Max height allowed for the tree is 64 since we are using node keys of 32 bytes. However, note that we
+            // are not checking if said limit has been hit when inserting new leaves to the tree, for the purpose of
+            // this system having 2^256 items inserted is unrealistic.
             uint256 newHeight = currentHeight + 1;
             uint256 rootValue = getNode(self, currentHeight, BASE_KEY);
             _add(self, newHeight, BASE_KEY, _time, rootValue);
@@ -335,80 +320,63 @@ library HexSumTree { // TODO: rename to CheckpointedHexSumTree?
     }
 
     /**
-     * @dev Recursive function to descend the Sum Tree.
+     * @dev Recursive pre-order traversal function
      *      Every time it checks a node, it traverses the input array to find the initial subset of elements that are
      *      below its accumulated value and passes that sub-array to the next iteration. Actually the array is always
-     *      the same, to avoid making exta copies, it just passes the initial index to start checking, to avoid checking
+     *      the same, to avoid making extra copies, it just passes the initial index to start checking, to avoid checking
      *      values that went thru a different branch.
      *      The same happens with the "result" arrays for keys and node values: it's always the same on every recursion
      *      step, the same initial index for input values acts as a needle to know where in those arrays the function has to write.
      *      The accumulated value is carried over to next iterations, to avoid having to subtract to all elements in array.
-     *      PackedArguments struct is used to avoid "stack too deep" issue.
+     *      SearchParams struct is used to avoid "stack too deep" issue.
      */
-    function _multiSortition(Tree storage self, uint256[] values, PackedArguments memory packedArguments, uint256[] keys, uint256[] nodeValues) private view {
-        // TODO: sortition out of bounds?
-        uint256 shift = (packedArguments.height - 1) * BITS_IN_NIBBLE;
-        uint256 checkingValue = packedArguments.accumulatedValue;
-        for (uint256 i = 0; i < CHILDREN; i++) {
-            if (packedArguments.valuesStart >= values.length) {
+    function _search(Tree storage self, uint256[] values, SearchParams memory searchParams, uint256[] resultKeys, uint256[] resultValues) private view {
+        // TODO: pass height - 1
+        uint256 levelKeyLessSignificantNibble = (searchParams.level - 1) * BITS_IN_NIBBLE;
+        // TODO: inline
+        uint256 newVisitedTotal = searchParams.visitedTotal;
+
+        for (uint256 childNumber = 0; childNumber < CHILDREN; childNumber++) {
+            // Return if we already found enough values
+            if (searchParams.foundValues >= values.length) {
                 break;
             }
-            // shift the iterator and add it to node 0x00..0i00 (for height = 3)
-            uint256 checkingNodeKey = packedArguments.node + (i << shift); // uint256
-            uint256 nodeValue = getNodeAt(self, packedArguments.height - 1, checkingNodeKey, packedArguments.time, true); // fetch always recent values
-            checkingValue = checkingValue + nodeValue;
 
-            // Check how many values belong to this node. As they are ordered, it will be a contiguous subset starting from the beginning, so we only need to know the length of that subset
-            uint256 newLength = _getNodeValuesLength(values, checkingValue, packedArguments.valuesStart);
-            // if the values subset belonging to this node is not empty
-            if (newLength > 0) {
-                uint256 k;
-                // node found at the end of the tree
-                if (packedArguments.height == 1) {
-                    // add this leaf to the result, one time for each value belonging to it
-                    // use input values start index to write in the proper segment of the result arrays, which are global
-                    for (k = 0; k < newLength; k++) {
-                        keys[packedArguments.valuesStart + k] = checkingNodeKey;
-                        nodeValues[packedArguments.valuesStart + k] = nodeValue;
-                    }
-                } else { // node found at upper levels
-                    // recursion step: descend one level
-                    _multiSortition(
-                        self,
-                        values,
-                        PackedArguments(
-                            packedArguments.valuesStart,
-                            packedArguments.height - 1,
-                            packedArguments.time,
-                            packedArguments.accumulatedValue,
-                            checkingNodeKey
-                        ),
-                        keys,
-                        nodeValues
-                    );
+            // Build child node key shifting the child number to the position of the less significant nibble of
+            // the keys for the level being analyzed, and adding it to the key of the parent node. For example,
+            // for a tree with height 5, if we are checking the children of the second node of the level 4, whose
+            // key is 0x0000000000000000000000000000000000000000000000000000000000001000, its children keys are:
+            // Child  0: 0x0000000000000000000000000000000000000000000000000000000000001000
+            // Child  1: 0x0000000000000000000000000000000000000000000000000000000000001100
+            // Child  2: 0x0000000000000000000000000000000000000000000000000000000000001200
+            // ...
+            // Child 15: 0x0000000000000000000000000000000000000000000000000000000000001f00
+            // Note that this cannot overflow since the root key of the highest tree is 0x0 and its highest child
+            // key is 16^64, which is 2^256
+            uint256 childNodeKey = searchParams.parentKey + (childNumber << levelKeyLessSignificantNibble);
+            uint256 childNodeValue = getNodeAt(self, searchParams.level - 1, childNodeKey, searchParams.time, true);
+
+            // Check how many values belong to the subtree of this node. As they are ordered, it will be a contiguous
+            // subset starting from the beginning, so we only need to know the length of that subset.
+            newVisitedTotal = newVisitedTotal + childNodeValue;
+            uint256 subtreeIncludedValues = _getValuesIncludedInSubtree(values, searchParams.foundValues, newVisitedTotal);
+
+            // If there are some values included in the subtree of the child node, visit them
+            if (subtreeIncludedValues > 0) {
+                // If the child node being analyzed is a leaf, add it to the list of results a number of times equals
+                // to the number of values that were included in it. Otherwise, descend one level
+                if (searchParams.level == 1) {
+                    _copyFoundNode(searchParams.foundValues, subtreeIncludedValues, childNodeKey, resultKeys, childNodeValue, resultValues);
+                } else {
+                    SearchParams memory nextLevelParams = SearchParams(searchParams.time, searchParams.level - 1, childNodeKey, searchParams.foundValues, searchParams.visitedTotal);
+                    _search(self, values, nextLevelParams, resultKeys, resultValues);
                 }
-                // for the next node we don't need to check values that were already assigned
-                packedArguments.valuesStart += newLength;
+                // Update the number of values that were already found
+                searchParams.foundValues += subtreeIncludedValues;
             }
-            // carry over already checked value to the next node in this level
-            packedArguments.accumulatedValue = checkingValue;
+            // Update the visited total for the next node in this level
+            searchParams.visitedTotal = newVisitedTotal;
         }
-    }
-
-    function _getStakeBounds(Tree storage self, uint64 _time, uint256 _filledSeats, uint256 _jurorsRequested, uint256 _jurorNumber) private view
-        returns (uint256 stakeFrom, uint256 stakeTo)
-    {
-        uint256 ratio = getTotalAt(self, _time, true) / _jurorNumber;
-        // TODO: roundings?
-        stakeFrom = _filledSeats * ratio;
-        uint256 newFilledSeats = _filledSeats + _jurorsRequested;
-        // TODO: this should never happen
-        /*
-        if (newFilledSeats > _jurorNumber) {
-            newFilledSeats = _jurorNumber;
-        }
-        */
-        stakeTo = newFilledSeats * ratio;
     }
 
     /**
@@ -422,7 +390,7 @@ library HexSumTree { // TODO: rename to CheckpointedHexSumTree?
         // Height  1: 0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0 (up to 16 keys)
         // Height  2: 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff00 (up to 32 keys)
         // ...
-        // Height 64: 0x0000000000000000000000000000000000000000000000000000000000000000 (up to 16^64 keys - max height is 64)
+        // Height 64: 0x0000000000000000000000000000000000000000000000000000000000000000 (up to 16^64 keys - tree max height)
         uint256 shift = _currentHeight * BITS_IN_NIBBLE;
         uint256 mask = uint256(-1) << shift;
 
@@ -430,44 +398,35 @@ library HexSumTree { // TODO: rename to CheckpointedHexSumTree?
         return (_newKey & mask) != uint256(0);
     }
 
-    function _getOrderedValues(
-        bytes32 _termRandomness,
-        uint256 _disputeId,
-        uint64 /* _time */,
-        uint256 /* _filledSeats */,
-        uint256 _jurorsRequested,
-        uint256 /* _jurorNumber */,
-        uint256 _sortitionIteration,
-        uint256 stakeFrom,
-        uint256 stakeTo
-    )
-        private
-        pure
-        returns (uint256[] values)
-    {
-        uint256 stakeInterval = stakeTo - stakeFrom;
-        values = new uint256[](_jurorsRequested);
-        for (uint256 i = 0; i < _jurorsRequested; i++) {
-            bytes32 seed = keccak256(abi.encodePacked(_termRandomness, _disputeId, i, _sortitionIteration));
-            uint256 value = stakeFrom + uint256(seed) % stakeInterval;
-            values[i] = value;
-            // make sure it's ordered
-            uint256 j = i;
-            while (j > 0 && values[j] < values[j - 1]) {
-                // flip them
-                uint256 tmp = values[j - 1];
-                values[j - 1] = values[j];
-                values[j] = tmp;
-                j--;
-            }
+    /**
+    * @dev Private function to tell how many values of a list can be found in a subtree
+    * @param _values List of values being searched in ascending order
+    * @param _foundValues Number of values that were already found and should be ignore
+    * @param _subtreeTotal Total sum of the given subtree to check the numbers that are included in it
+    * @return Number of values in the list that are included in the given subtree
+    */
+    function _getValuesIncludedInSubtree(uint256[] memory _values, uint256 _foundValues, uint256 _subtreeTotal) private pure returns (uint256) {
+        uint256 i = _foundValues;
+        while (i < _values.length && _values[i] <= _subtreeTotal) {
+            i++;
         }
+        return i - _foundValues;
     }
 
-    function _getNodeValuesLength(uint256[] values, uint256 checkingValue, uint256 valuesStart) private pure returns (uint256) {
-        uint256 j = valuesStart;
-        while (j < values.length && values[j] < checkingValue) {
-            j++;
+    /**
+    * @dev Private function to copy a node a given number of times to a results list. This function assumes the given
+    *      results list have enough size to support the requested copy.
+    * @param _from Index of the results list to start copying the given node
+    * @param _times Number of times the given node will be copied
+    * @param _key Key of the node to be copied
+    * @param _resultKeys Lists of key results to copy the given node key to
+    * @param _value Value of the node to be copied
+    * @param _resultValues Lists of value results to copy the given node value to
+    */
+    function _copyFoundNode(uint256 _from, uint256 _times, uint256 _key, uint256[] memory _resultKeys, uint256 _value, uint256[] memory _resultValues) private pure {
+        for (uint256 i = 0; i < _times; i++) {
+            _resultKeys[_from + i] = _key;
+            _resultValues[_from + i] = _value;
         }
-        return j - valuesStart;
     }
 }

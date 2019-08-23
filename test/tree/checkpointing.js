@@ -1,7 +1,5 @@
 const { MAX_UINT256 } = require('../helpers/numbers')(web3)
-const { buildHelper } = require('../helpers/court')(web3, artifacts)
 const { assertRevert } = require('@aragon/os/test/helpers/assertThrow')
-const { TOMORROW, ONE_DAY } = require('../helpers/time')
 
 const Checkpointing = artifacts.require('CheckpointingMock')
 

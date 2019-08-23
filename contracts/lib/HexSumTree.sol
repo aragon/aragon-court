@@ -154,7 +154,7 @@ library HexSumTree {
     function search(Tree storage self, uint256[] _values, uint64 _time) internal view returns (uint256[] keys, uint256[] values) {
         // Build search params for the first iteration
         uint256 rootLevel = getHeightAt(self, _time);
-        SearchParams memory searchParams = SearchParams(_time, rootLevel, BASE_KEY, 0, 0);
+        SearchParams memory searchParams = SearchParams(_time, rootLevel - 1, BASE_KEY, 0, 0);
 
         // These arrays will be used to fill in the results. We are passing them as parameters to avoid extra copies
         uint256 length = _values.length;
@@ -322,23 +322,21 @@ library HexSumTree {
     /**
      * @dev Recursive pre-order traversal function
      *      Every time it checks a node, it traverses the input array to find the initial subset of elements that are
-     *      below its accumulated value and passes that sub-array to the next iteration. Actually the array is always
-     *      the same, to avoid making extra copies, it just passes the initial index to start checking, to avoid checking
-     *      values that went thru a different branch.
-     *      The same happens with the "result" arrays for keys and node values: it's always the same on every recursion
-     *      step, the same initial index for input values acts as a needle to know where in those arrays the function has to write.
-     *      The accumulated value is carried over to next iterations, to avoid having to subtract to all elements in array.
-     *      SearchParams struct is used to avoid "stack too deep" issue.
+     *      below its accumulated value and passes that sub-array to the next iteration. Actually, the array is always
+     *      the same, to avoid making extra copies, it just passes the number of values already found , to avoid
+     *      checking values that went through a different branch. The same happens with the result lists of keys and
+     *      values, these are the same on every recursion step. The visited total is carried over each iteration to
+     *      avoid having to subtract all elements in the array.
+     * @param _values Ordered list of values to be searched in the tree
+     * @param _params Search parameters for the current recursive step
+     * @param _resultKeys List of keys found for each requested value in the same order
+     * @param _resultValues List of node values found for each requested value in the same order
      */
-    function _search(Tree storage self, uint256[] values, SearchParams memory searchParams, uint256[] resultKeys, uint256[] resultValues) private view {
-        // TODO: pass height - 1
-        uint256 levelKeyLessSignificantNibble = (searchParams.level - 1) * BITS_IN_NIBBLE;
-        // TODO: inline
-        uint256 newVisitedTotal = searchParams.visitedTotal;
-
+    function _search(Tree storage self, uint256[] _values, SearchParams memory _params, uint256[] _resultKeys, uint256[] _resultValues) private view {
+        uint256 levelKeyLessSignificantNibble = _params.level * BITS_IN_NIBBLE;
         for (uint256 childNumber = 0; childNumber < CHILDREN; childNumber++) {
             // Return if we already found enough values
-            if (searchParams.foundValues >= values.length) {
+            if (_params.foundValues >= _values.length) {
                 break;
             }
 
@@ -353,29 +351,29 @@ library HexSumTree {
             // Child 15: 0x0000000000000000000000000000000000000000000000000000000000001f00
             // Note that this cannot overflow since the root key of the highest tree is 0x0 and its highest child
             // key is 16^64, which is 2^256
-            uint256 childNodeKey = searchParams.parentKey + (childNumber << levelKeyLessSignificantNibble);
-            uint256 childNodeValue = getNodeAt(self, searchParams.level - 1, childNodeKey, searchParams.time, true);
+            uint256 childNodeKey = _params.parentKey + (childNumber << levelKeyLessSignificantNibble);
+            uint256 childNodeValue = getNodeAt(self, _params.level, childNodeKey, _params.time, true);
 
             // Check how many values belong to the subtree of this node. As they are ordered, it will be a contiguous
             // subset starting from the beginning, so we only need to know the length of that subset.
-            newVisitedTotal = newVisitedTotal + childNodeValue;
-            uint256 subtreeIncludedValues = _getValuesIncludedInSubtree(values, searchParams.foundValues, newVisitedTotal);
+            uint256 newVisitedTotal = _params.visitedTotal + childNodeValue;
+            uint256 subtreeIncludedValues = _getValuesIncludedInSubtree(_values, _params.foundValues, newVisitedTotal);
 
             // If there are some values included in the subtree of the child node, visit them
             if (subtreeIncludedValues > 0) {
                 // If the child node being analyzed is a leaf, add it to the list of results a number of times equals
                 // to the number of values that were included in it. Otherwise, descend one level
-                if (searchParams.level == 1) {
-                    _copyFoundNode(searchParams.foundValues, subtreeIncludedValues, childNodeKey, resultKeys, childNodeValue, resultValues);
+                if (_params.level == 0) {
+                    _copyFoundNode(_params.foundValues, subtreeIncludedValues, childNodeKey, _resultKeys, childNodeValue, _resultValues);
                 } else {
-                    SearchParams memory nextLevelParams = SearchParams(searchParams.time, searchParams.level - 1, childNodeKey, searchParams.foundValues, searchParams.visitedTotal);
-                    _search(self, values, nextLevelParams, resultKeys, resultValues);
+                    SearchParams memory nextLevelParams = SearchParams(_params.time, _params.level - 1, childNodeKey, _params.foundValues, _params.visitedTotal);
+                    _search(self, _values, nextLevelParams, _resultKeys, _resultValues);
                 }
                 // Update the number of values that were already found
-                searchParams.foundValues += subtreeIncludedValues;
+                _params.foundValues += subtreeIncludedValues;
             }
             // Update the visited total for the next node in this level
-            searchParams.visitedTotal = newVisitedTotal;
+            _params.visitedTotal = newVisitedTotal;
         }
     }
 

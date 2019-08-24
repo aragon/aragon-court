@@ -8,7 +8,7 @@ contract JurorsRegistryOwnerMock is IJurorsRegistryOwner {
     uint64 internal termId;
     IJurorsRegistry internal registry;
 
-    event Slashed(uint256 collectedTokens);
+    event Slashed(uint256 collected);
     event Collected(bool collected);
     event Drafted(address[] addresses, uint64[] weights, uint256 outputLength, uint64 selectedJurors);
 
@@ -36,8 +36,8 @@ contract JurorsRegistryOwnerMock is IJurorsRegistryOwner {
         registry.burnTokens(_amount);
     }
 
-    function slashOrUnlock(address[] _jurors, uint256[] _penalties, bool[] _slashJurors) public {
-        uint256 collectedTokens = registry.slashOrUnlock(termId, _jurors, _penalties, _slashJurors);
+    function slashOrUnlock(address[] _jurors, uint256[] _lockedAmounts, bool[] _rewardedJurors) public {
+        uint256 collectedTokens = registry.slashOrUnlock(termId, _jurors, _lockedAmounts, _rewardedJurors);
         emit Slashed(collectedTokens);
     }
 

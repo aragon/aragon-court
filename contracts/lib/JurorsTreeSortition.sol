@@ -9,6 +9,8 @@ import "./HexSumTree.sol";
 library JurorsTreeSortition {
     using HexSumTree for HexSumTree.Tree;
 
+    string internal constant ERROR_SORTITION_LENGTHS_MISMATCH = "TREE_SORTITION_LENGTHS_MISMATCH";
+
     /**
     * @dev Search random items in the tree based on certain restrictions
     * @param _termRandomness Randomness to compute the seed for the draft
@@ -37,7 +39,10 @@ library JurorsTreeSortition {
     {
         (uint256 low, uint256 high) = getActiveBalancesBatchBounds(tree, _termId, _selectedJurors, _batchRequestedJurors, _roundRequestedJurors);
         uint256[] memory balances = _computeSearchRandomBalances(_randomnessHash(_termRandomness, _disputeId, _sortitionIteration), _batchRequestedJurors, low, high);
-        return tree.search(balances, _termId);
+        (jurorsIds, jurorsBalances) = tree.search(balances, _termId);
+
+        require(jurorsIds.length == jurorsBalances.length, ERROR_SORTITION_LENGTHS_MISMATCH);
+        require(jurorsIds.length == _batchRequestedJurors, ERROR_SORTITION_LENGTHS_MISMATCH);
     }
 
     /**

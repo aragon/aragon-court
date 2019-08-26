@@ -95,7 +95,7 @@ contract('HexSumTree', () => {
         beforeEach('insert 40 values', async () => {
           // First 16 set of children will be         1^0, 1^1, 1^2, ..., 1^15 at time i+1
           // Second 16 set of children will be        2^0, 2^1, 2^2, ..., 2^15 at time i+1
-          // Final 8 set of remaining values will be  3^0, 3^1, 3^2, ..., 3^8  at time i+1
+          // Final 8 set of remaining values will be  3^0, 3^1, 3^2, ..., 3^7  at time i+1
 
           for(let key = 0; key < 40; key++) {
             const time = key + 1
@@ -265,7 +265,7 @@ contract('HexSumTree', () => {
         beforeEach('insert and set 40 values', async () => {
           // First 16 set of children will be         1^0, 1^1, 1^2, ..., 1^15 at time 2
           // Second 16 set of children will be        2^0, 2^1, 2^2, ..., 2^15 at time 2
-          // Final 8 set of remaining values will be  3^0, 3^1, 3^2, ..., 3^8  at time 2
+          // Final 8 set of remaining values will be  3^0, 3^1, 3^2, ..., 3^7 at time 2
           // All values will be incremented by 1 at time 5
 
           for(let key = 0; key < 40; key++) await tree.insert(insertionTime, value(key))
@@ -529,7 +529,7 @@ contract('HexSumTree', () => {
           beforeEach('insert and update 40 values', async () => {
             // First 16 set of children will be         1^0, 1^1, 1^2, ..., 1^15 at time 2
             // Second 16 set of children will be        2^0, 2^1, 2^2, ..., 2^15 at time 2
-            // Final 8 set of remaining values will be  3^0, 3^1, 3^2, ..., 3^8  at time 2
+            // Final 8 set of remaining values will be  3^0, 3^1, 3^2, ..., 3^7  at time 2
             // All values will be incremented or decremented by 1 at time 5
 
             for(let key = 0; key < 40; key++) await tree.insert(insertionTime, value(key))

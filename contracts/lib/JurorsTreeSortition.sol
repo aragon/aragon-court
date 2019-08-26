@@ -92,9 +92,9 @@ library JurorsTreeSortition {
         pure
         returns (uint256[])
     {
-        // Calculate the interval to be used to search the balances in the tree. Since we are using a module function
+        // Calculate the interval to be used to search the balances in the tree. Since we are using a modulo function
         // to compute the random balances to be searched, we add one to the difference to make sure the last number
-        // of the range is also included. For example, to compute a range [0,10] we need to compute using module 11.
+        // of the range is also included. For example, to compute a range [0,10] we need to compute using modulo 11.
         uint256 activeBalanceInterval = _highActiveBalanceBatchBound - _lowActiveBalanceBatchBound + 1;
         uint256[] memory balances = new uint256[](_batchRequestedJurors);
 

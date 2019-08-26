@@ -142,6 +142,9 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
     string internal constant ERROR_INVALID_DISPUTE_STATE = "CTBAD_DISPUTE_STATE";
     string internal constant ERROR_INVALID_ADJUDICATION_ROUND = "CTBAD_ADJ_ROUND";
     string internal constant ERROR_INVALID_ADJUDICATION_STATE = "CTBAD_ADJ_STATE";
+    string internal constant ERROR_DISPUTE_DOES_NOT_EXIST = "CT_DISPUTE_DOES_NOT_EXIST";
+    string internal constant ERROR_CANNOT_CREATE_DISPUTE = "CT_CANNOT_CREATE_DISPUTE";
+    string internal constant ERROR_ROUND_DOES_NOT_EXIST = "CT_ROUND_DOES_NOT_EXIST";
     string internal constant ERROR_ROUND_ALREADY_APPEALED = "CTROUND_ALRDY_APPEALED";
     string internal constant ERROR_ROUND_NOT_APPEALED = "CTROUND_NOT_APPEALED";
     string internal constant ERROR_ROUND_APPEAL_ALREADY_SETTLED = "CTAPPEAL_ALRDY_SETTLED";
@@ -172,7 +175,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
     event NewTerm(uint64 termId, address indexed heartbeatSender);
     event NewCourtConfig(uint64 fromTermId, uint64 courtConfigId);
     event DisputeStateChanged(uint256 indexed disputeId, DisputeState indexed state);
-    event NewDispute(uint256 indexed disputeId, address indexed subject, uint64 indexed draftTermId, uint64 jurorNumber);
+    event NewDispute(uint256 indexed disputeId, address indexed subject, uint64 indexed draftTermId, uint64 jurorsNumber);
     event RulingAppealed(uint256 indexed disputeId, uint256 indexed roundId, uint8 ruling);
     event RulingAppealConfirmed(uint256 indexed disputeId, uint256 indexed roundId, uint64 indexed draftTermId, uint256 jurorNumber);
     event RulingExecuted(uint256 indexed disputeId, uint8 indexed ruling);
@@ -186,6 +189,17 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
 
     modifier ensureTerm {
         _ensureTerm();
+        _;
+    }
+
+    modifier disputeExists(uint256 _id) {
+        require(_id < disputes.length, ERROR_DISPUTE_DOES_NOT_EXIST);
+        _;
+    }
+
+    modifier roundExists(uint256 _disputeId, uint256 _roundId) {
+        require(_disputeId < disputes.length, ERROR_DISPUTE_DOES_NOT_EXIST);
+        require(_roundId < disputes[_disputeId].rounds.length, ERROR_ROUND_DOES_NOT_EXIST);
         _;
     }
 
@@ -264,34 +278,39 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
     }
 
     /**
-     * @notice Create a dispute over `_subject` with `_possibleRulings` possible rulings, drafting `_jurorNumber` jurors in term `_draftTermId`
+     * @notice Create a dispute over `_subject` with `_possibleRulings` possible rulings, drafting `_jurorsNumber` jurors in term `_draftTermId`
+     * @dev Create a dispute to be drafted in a future term
+     * @param _subject Arbitrable subject being disputed
+     * @param _possibleRulings Number of possible rulings allowed for the drafted jurors to vote on the dispute
+     * @param _jurorsNumber Requested number of jurors to be drafted for the dispute
+     * @param _draftTermId Term in which the jurors for the dispute will be drafted
+     * @return Dispute identification number
      */
-    function createDispute(IArbitrable _subject, uint8 _possibleRulings, uint64 _jurorNumber, uint64 _draftTermId) external ensureTerm
+    function createDispute(IArbitrable _subject, uint8 _possibleRulings, uint64 _jurorsNumber, uint64 _draftTermId) external ensureTerm
         returns (uint256)
     {
         // TODO: Limit the min amount of terms before drafting (to allow for evidence submission)
         // TODO: Limit the max amount of terms into the future that a dispute can be drafted
         // TODO: Limit the max number of initial jurors
         // TODO: ERC165 check that _subject conforms to the Arbitrable interface
-
         // TODO: require(address(_subject) == msg.sender, ERROR_INVALID_DISPUTE_CREATOR);
+        require(termId > ZERO_TERM_ID, ERROR_CANNOT_CREATE_DISPUTE);
         require(subscriptions.isUpToDate(address(_subject)), ERROR_SUBSCRIPTION_NOT_PAID);
         require(_possibleRulings >= MIN_RULING_OPTIONS && _possibleRulings <= MAX_RULING_OPTIONS, ERROR_INVALID_RULING_OPTIONS);
 
-        uint256 disputeId = disputes.length;
-        disputes.length = disputeId + 1;
-
+        // Create the dispute
+        uint256 disputeId = disputes.length++;
         Dispute storage dispute = disputes[disputeId];
         dispute.subject = _subject;
         dispute.possibleRulings = _possibleRulings;
+        emit NewDispute(disputeId, _subject, _draftTermId, _jurorsNumber);
 
-        (ERC20 feeToken, uint256 feeAmount, uint256 jurorFees) = _getFeesForRegularRound(_draftTermId, _jurorNumber);
-        // pay round fees
+        // Create first adjudication round of the dispute
+        (ERC20 feeToken, uint256 feeAmount, uint256 jurorFees) = _getFeesForRegularRound(_draftTermId, _jurorsNumber);
+        _createRound(disputeId, DisputeState.PreDraft, _draftTermId, _jurorsNumber, jurorFees);
+
+        // Pay round fees and return dispute id
         _payGeneric(feeToken, feeAmount);
-        _createRound(disputeId, DisputeState.PreDraft, _draftTermId, _jurorNumber, jurorFees);
-
-        emit NewDispute(disputeId, _subject, _draftTermId, _jurorNumber);
-
         return disputeId;
     }
 
@@ -648,14 +667,14 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
         return governor;
     }
 
-    function getDispute(uint256 _disputeId) external view
+    function getDispute(uint256 _disputeId) external disputeExists(_disputeId) view
         returns (address subject, uint8 possibleRulings, DisputeState state, uint8 finalRuling)
     {
         Dispute storage dispute = disputes[_disputeId];
         return (dispute.subject, dispute.possibleRulings, dispute.state, dispute.finalRuling);
     }
 
-    function getAdjudicationRound(uint256 _disputeId, uint256 _roundId) external view
+    function getAdjudicationRound(uint256 _disputeId, uint256 _roundId) external roundExists(_disputeId, _roundId) view
         returns (uint64 draftTerm, uint64 jurorNumber, address triggeredBy, bool settledPenalties, uint256 slashedTokens)
     {
         AdjudicationRound storage round = disputes[_disputeId].rounds[_roundId];
@@ -990,9 +1009,9 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
         );
     }
 
-    function _payGeneric(ERC20 paymentToken, uint256 amount) internal {
-        if (amount > 0) {
-            require(paymentToken.safeTransferFrom(msg.sender, address(accounting), amount), ERROR_DEPOSIT_FAILED);
+    function _payGeneric(ERC20 _paymentToken, uint256 _amount) internal {
+        if (_amount > uint256(0)) {
+            require(_paymentToken.safeTransferFrom(msg.sender, address(accounting), _amount), ERROR_DEPOSIT_FAILED);
         }
     }
 

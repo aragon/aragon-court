@@ -1,5 +1,11 @@
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
 
+const DISPUTE_STATES = {
+  PRE_DRAFT: 0,
+  ADJUDICATING: 1,
+  EXECUTED: 2
+}
+
 module.exports = (web3, artifacts) => {
   const { bn } = require('./numbers')(web3)
   const { NEXT_WEEK, ONE_WEEK } = require('./time')
@@ -86,6 +92,7 @@ module.exports = (web3, artifacts) => {
 
   return {
     DEFAULTS,
+    DISPUTE_STATES,
     buildHelper: () => new CourtHelper(web3, artifacts),
   }
 }

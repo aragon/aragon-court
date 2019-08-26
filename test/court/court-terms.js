@@ -177,7 +177,7 @@ contract('Court', ([_, sender]) => {
       itRevertsTryingToTransitionOneTerm()
     })
 
-    context('when current timestamp is right at the beginning of the first term ', () => {
+    context('when current timestamp is right at the beginning of the first term', () => {
       beforeEach('set current timestamp', async () => {
         await courtHelper.setTimestamp(firstTermStartTime)
       })

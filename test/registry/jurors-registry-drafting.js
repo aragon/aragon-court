@@ -1,13 +1,15 @@
 const { bn, bigExp } = require('../helpers/numbers')(web3)
-const { getEventAt } = require('@aragon/test-helpers/events')
 const { assertRevert } = require('@aragon/test-helpers/assertThrow')
+const { decodeEventsOfType } = require('../helpers/decodeEvent')
+const { getEventAt, getEventArgument } = require('@aragon/test-helpers/events')
+const { assertAmountOfEvents, assertEvent } = require('@aragon/test-helpers/assertEvent')(web3)
 
 const JurorsRegistry = artifacts.require('JurorsRegistry')
 const MiniMeToken = artifacts.require('MiniMeToken')
 const JurorsRegistryOwnerMock = artifacts.require('JurorsRegistryOwnerMock')
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
-const NO_DATA = '0x0000000000000000000000000000000000000000000000000000000000000000'
+const EMPTY_RANDOMNESS = '0x0000000000000000000000000000000000000000000000000000000000000000'
 
 contract('JurorsRegistry drafting', ([_, juror500, juror1000, juror1500, juror2000, juror2500, juror3000, juror3500, juror4000]) => {
   let registry, registryOwner, ANJ
@@ -34,9 +36,8 @@ contract('JurorsRegistry drafting', ([_, juror500, juror1000, juror1500, juror20
   })
 
   describe('draft', () => {
-    const draft = async ({ termRandomness = NO_DATA, disputeId = 0, selectedJurors = 0, batchRequestedJurors, roundRequestedJurors, lockPct = DRAFT_LOCK_PCT }) => {
-      const receipt = await registryOwner.draft(termRandomness, disputeId, selectedJurors, batchRequestedJurors, roundRequestedJurors, lockPct)
-      return getEventAt(receipt, 'Drafted').args
+    const draft = async ({ termRandomness = EMPTY_RANDOMNESS, disputeId = 0, selectedJurors = 0, batchRequestedJurors, roundRequestedJurors }) => {
+      return registryOwner.draft(termRandomness, disputeId, selectedJurors, batchRequestedJurors, roundRequestedJurors, DRAFT_LOCK_PCT)
     }
 
     context('when the registry is already initialized', () => {
@@ -48,39 +49,87 @@ contract('JurorsRegistry drafting', ([_, juror500, juror1000, juror1500, juror20
       })
 
       context('when the sender is the registry owner', () => {
-        const assertEmptyDraftOutput = output => {
-          const { addresses, weights, outputLength, selectedJurors } = output
-
-          assert.equal(outputLength.toString(), 0, 'output length does not match')
-          assert.equal(selectedJurors.toString(), 0, 'amount of selected jurors does not match')
-
-          assert.isEmpty(addresses, 'jurors address do not match')
-          assert.isEmpty(weights, 'jurors weights do not match')
+        const itReverts = (batchRequestedJurors, roundRequestedJurors) => {
+          // NOTE: this scenario is not being handled, the registry trusts the input from the owner and the tree
+          it('reverts', async () => {
+            await assertRevert(draft({ batchRequestedJurors, roundRequestedJurors }))
+          })
         }
 
-        const assertDraftOutput = async (output, requestedJurors, expectedAddresses, expectedWeights, previousLockedBalances = {}) => {
-          const { addresses, weights, outputLength, selectedJurors } = output
+        const itReturnsEmptyValues = (batchRequestedJurors, roundRequestedJurors) => {
+          it('returns empty values', async () => {
+            const receipt = await draft({ batchRequestedJurors, roundRequestedJurors })
+            const { addresses, weights, outputLength, selectedJurors } = getEventAt(receipt, 'Drafted').args
 
-          assert.equal(outputLength.toString(), expectedWeights.length, 'output length does not match')
-          assert.equal(outputLength.toString(), expectedAddresses.length, 'output length does not match')
+            assert.equal(outputLength.toString(), 0, 'output length does not match')
+            assert.equal(selectedJurors.toString(), 0, 'amount of selected jurors does not match')
+            assert.isEmpty(addresses, 'jurors address do not match')
+            assert.isEmpty(weights, 'jurors weights do not match')
+          })
 
-          assert.equal(selectedJurors.toString(), requestedJurors, 'amount of selected jurors does not match')
-          assert.equal(selectedJurors, expectedWeights.reduce((a, b) => a + b, 0), 'total weight does not match')
+          it('does not emit JurorDrafted events', async () => {
+            const { tx } = await draft({ batchRequestedJurors, roundRequestedJurors })
+            const receipt = await web3.eth.getTransactionReceipt(tx)
+            const logs = decodeEventsOfType({ receipt }, JurorsRegistry.abi, 'JurorDrafted')
 
-          assert.lengthOf(weights, requestedJurors, 'jurors weights do not match')
-          assert.lengthOf(addresses, requestedJurors, 'jurors address do not match')
+            assertAmountOfEvents({ logs }, 'JurorDrafted', 0)
+          })
+        }
 
-          for (let i = 0; i < requestedJurors; i++) {
-            assert.equal(weights[i], expectedWeights[i] || 0, `weight #${i} does not match`)
-            assert.equal(addresses[i], expectedAddresses[i] || ZERO_ADDRESS, `juror address #${i} does not match`)
+        const itReturnsExpectedJurors = ({ termRandomness = EMPTY_RANDOMNESS, disputeId = 0, previousSelectedJurors = 0, batchRequestedJurors, roundRequestedJurors }, expectedAddresses, expectedWeights) => {
+          it('returns the expected jurors', async () => {
+            const receipt = await draft({ termRandomness, disputeId, previousSelectedJurors, batchRequestedJurors, roundRequestedJurors })
+            const { addresses, weights, outputLength, selectedJurors } = getEventAt(receipt, 'Drafted').args
 
-            if (expectedAddresses[i]) {
-              const lockedBalance = (await registry.balanceOf(expectedAddresses[i]))[2]
-              const previousLockedBalance = previousLockedBalances[expectedAddresses[i]] || 0
-              const expectedLockedBalance = expectedWeights[i] * (MIN_ACTIVE_AMOUNT * DRAFT_LOCK_PCT / 10000)
-              assert.equal(lockedBalance.minus(previousLockedBalance).toString(), expectedLockedBalance, `locked balance for juror #${i} does not match`)
+            assert.equal(outputLength.toString(), expectedWeights.length, 'output length does not match')
+            assert.equal(outputLength.toString(), expectedAddresses.length, 'output length does not match')
+
+            assert.equal(selectedJurors.toString(), batchRequestedJurors, 'amount of selected jurors does not match')
+            assert.equal(selectedJurors, expectedWeights.reduce((a, b) => a + b, 0), 'total weight does not match')
+
+            assert.lengthOf(weights, batchRequestedJurors, 'jurors weights do not match')
+            assert.lengthOf(addresses, batchRequestedJurors, 'jurors address do not match')
+
+            for (let i = 0; i < batchRequestedJurors; i++) {
+              assert.equal(weights[i], expectedWeights[i] || 0, `weight #${i} does not match`)
+              assert.equal(addresses[i], expectedAddresses[i] || ZERO_ADDRESS, `juror address #${i} does not match`)
             }
-          }
+          })
+
+          it('emits JurorDrafted events', async () => {
+            const result = await draft({ termRandomness, disputeId, previousSelectedJurors, batchRequestedJurors, roundRequestedJurors })
+            const receipt = await web3.eth.getTransactionReceipt(result.tx)
+            const logs = decodeEventsOfType({ receipt }, JurorsRegistry.abi, 'JurorDrafted')
+
+            const { addresses, outputLength } = getEventAt(result, 'Drafted').args
+            assertAmountOfEvents({ logs }, 'JurorDrafted', batchRequestedJurors)
+
+            let nextEventIndex = 0
+            for (let i = 0; i < outputLength; i++) {
+              for (let j = 0; j < expectedWeights[i]; j++) {
+                assertEvent({ logs }, 'JurorDrafted', { disputeId, juror: web3.toChecksumAddress(addresses[i]) }, nextEventIndex)
+                nextEventIndex++
+              }
+            }
+          })
+
+          it('lock the corresponding amount of active balances for the expected jurors', async () => {
+            const previousLockedBalances = {}
+            for(let i = 0; i < jurors.length; i++) {
+              const address = jurors[i].address
+              previousLockedBalances[address] = (await registry.balanceOf(address))[2]
+            }
+
+            const receipt = await draft({ termRandomness, disputeId, previousSelectedJurors, batchRequestedJurors, roundRequestedJurors })
+            const outputLength = getEventArgument(receipt, 'Drafted', 'outputLength')
+
+            for (let i = 0; i < outputLength; i++) {
+              const currentLockedBalance = (await registry.balanceOf(expectedAddresses[i]))[2]
+              const previousLockedBalance = previousLockedBalances[expectedAddresses[i]]
+              const expectedLockedBalance = expectedWeights[i] * (MIN_ACTIVE_AMOUNT * DRAFT_LOCK_PCT / 10000)
+              assert.equal(currentLockedBalance.minus(previousLockedBalance).toString(), expectedLockedBalance, `locked balance for juror #${i} does not match`)
+            }
+          })
         }
 
         context('when there are no activated jurors', () => {
@@ -88,10 +137,7 @@ contract('JurorsRegistry drafting', ([_, juror500, juror1000, juror1500, juror20
             const batchRequestedJurors = 0
             const roundRequestedJurors = 0
 
-            it('returns empty values', async () => {
-              const output = await draft({ batchRequestedJurors, roundRequestedJurors })
-              assertEmptyDraftOutput(output)
-            })
+            itReturnsEmptyValues(batchRequestedJurors, roundRequestedJurors)
           })
 
           context('when some jurors were requested', () => {
@@ -100,19 +146,13 @@ contract('JurorsRegistry drafting', ([_, juror500, juror1000, juror1500, juror20
             context('for the first batch', () => {
               const batchRequestedJurors = 3
 
-              // NOTE: this scenario is not being handled, the registry trusts the input from the owner and the tree
-              it('reverts', async () => {
-                await assertRevert(draft({ batchRequestedJurors, roundRequestedJurors }))
-              })
+              itReverts(batchRequestedJurors, roundRequestedJurors)
             })
 
             context('for the second batch', () => {
               const batchRequestedJurors = 7
 
-              // NOTE: this scenario is not being handled, the registry trusts the input from the owner and the tree
-              it('reverts', async () => {
-                await assertRevert(draft({ batchRequestedJurors, roundRequestedJurors }))
-              })
+              itReverts(batchRequestedJurors, roundRequestedJurors)
             })
           })
         })
@@ -127,10 +167,7 @@ contract('JurorsRegistry drafting', ([_, juror500, juror1000, juror1500, juror20
               const batchRequestedJurors = 0
               const roundRequestedJurors = 0
 
-              it('returns empty values', async () => {
-                const output = await draft({ batchRequestedJurors, roundRequestedJurors })
-                assertEmptyDraftOutput(output)
-              })
+              itReturnsEmptyValues(batchRequestedJurors, roundRequestedJurors)
             })
 
             context('when some jurors were requested', () => {
@@ -140,19 +177,13 @@ contract('JurorsRegistry drafting', ([_, juror500, juror1000, juror1500, juror20
                 context('for the first batch', () => {
                   const batchRequestedJurors = 3
 
-                  // NOTE: this scenario is not being handled, the registry trusts the input from the owner and the tree
-                  it('reverts', async () => {
-                    await assertRevert(draft({ batchRequestedJurors, roundRequestedJurors }))
-                  })
+                  itReverts(batchRequestedJurors, roundRequestedJurors)
                 })
 
                 context('for the second batch', () => {
                   const batchRequestedJurors = 7
 
-                  // NOTE: this scenario is not being handled, the registry trusts the input from the owner and the tree
-                  it('reverts', async () => {
-                    await assertRevert(draft({ batchRequestedJurors, roundRequestedJurors }))
-                  })
+                  itReverts(batchRequestedJurors, roundRequestedJurors)
                 })
               })
 
@@ -168,10 +199,7 @@ contract('JurorsRegistry drafting', ([_, juror500, juror1000, juror1500, juror20
                     const expectedWeights = [3]
                     const expectedAddresses = [juror500]
 
-                    it('returns expected jurors', async () => {
-                      const output = await draft({ batchRequestedJurors, roundRequestedJurors })
-                      await assertDraftOutput(output, batchRequestedJurors, expectedAddresses, expectedWeights)
-                    })
+                    itReturnsExpectedJurors({ batchRequestedJurors, roundRequestedJurors }, expectedAddresses, expectedWeights)
                   })
 
                   context('for the second batch', () => {
@@ -180,10 +208,7 @@ contract('JurorsRegistry drafting', ([_, juror500, juror1000, juror1500, juror20
                     const expectedWeights = [7]
                     const expectedAddresses = [juror500]
 
-                    it('returns expected jurors', async () => {
-                      const output = await draft({ batchRequestedJurors, roundRequestedJurors })
-                      await assertDraftOutput(output, batchRequestedJurors, expectedAddresses, expectedWeights)
-                    })
+                    itReturnsExpectedJurors({ batchRequestedJurors, roundRequestedJurors }, expectedAddresses, expectedWeights)
                   })
                 })
 
@@ -193,9 +218,7 @@ contract('JurorsRegistry drafting', ([_, juror500, juror1000, juror1500, juror20
                     await draft({ batchRequestedJurors: 25, roundRequestedJurors: 25 })
                   })
 
-                  it('reverts', async () => {
-                    await assertRevert(draft({ batchRequestedJurors: 1, roundRequestedJurors: 1 }))
-                  })
+                  itReverts(1, 1)
                 })
               })
             })
@@ -212,10 +235,7 @@ contract('JurorsRegistry drafting', ([_, juror500, juror1000, juror1500, juror20
               const batchRequestedJurors = 0
               const roundRequestedJurors = 0
 
-              it('returns empty values', async () => {
-                const output = await draft({ batchRequestedJurors, roundRequestedJurors })
-                assertEmptyDraftOutput(output)
-              })
+              itReturnsEmptyValues(batchRequestedJurors, roundRequestedJurors)
             })
 
             context('when some jurors were requested', () => {
@@ -226,19 +246,13 @@ contract('JurorsRegistry drafting', ([_, juror500, juror1000, juror1500, juror20
                   context('for the first batch', () => {
                     const batchRequestedJurors = 1
 
-                    // NOTE: this scenario is not being handled, the registry trusts the input from the owner and the tree
-                    it('reverts', async () => {
-                      await assertRevert(draft({ batchRequestedJurors, roundRequestedJurors }))
-                    })
+                    itReverts(batchRequestedJurors, roundRequestedJurors)
                   })
 
                   context('for the second batch', () => {
                     const batchRequestedJurors = 4
 
-                    // NOTE: this scenario is not being handled, the registry trusts the input from the owner and the tree
-                    it('reverts', async () => {
-                      await assertRevert(draft({ batchRequestedJurors, roundRequestedJurors }))
-                    })
+                    itReverts(batchRequestedJurors, roundRequestedJurors)
                   })
                 })
 
@@ -253,10 +267,7 @@ contract('JurorsRegistry drafting', ([_, juror500, juror1000, juror1500, juror20
                     const expectedWeights = [1]
                     const expectedAddresses = [juror1500]
 
-                    it('returns expected jurors', async () => {
-                      const output = await draft({ batchRequestedJurors, roundRequestedJurors })
-                      await assertDraftOutput(output, batchRequestedJurors, expectedAddresses, expectedWeights)
-                    })
+                    itReturnsExpectedJurors({ batchRequestedJurors, roundRequestedJurors }, expectedAddresses, expectedWeights)
                   })
 
                   context('for the second batch', () => {
@@ -265,10 +276,7 @@ contract('JurorsRegistry drafting', ([_, juror500, juror1000, juror1500, juror20
                     const expectedWeights = [2, 1, 1]
                     const expectedAddresses = [juror1500, juror3000, juror3500]
 
-                    it('returns expected jurors', async () => {
-                      const output = await draft({ batchRequestedJurors, roundRequestedJurors })
-                      await assertDraftOutput(output, batchRequestedJurors, expectedAddresses, expectedWeights)
-                    })
+                    itReturnsExpectedJurors({ batchRequestedJurors, roundRequestedJurors }, expectedAddresses, expectedWeights)
                   })
                 })
               })
@@ -280,19 +288,13 @@ contract('JurorsRegistry drafting', ([_, juror500, juror1000, juror1500, juror20
                   context('for the first batch', () => {
                     const batchRequestedJurors = 3
 
-                    // NOTE: this scenario is not being handled, the registry trusts the input from the owner and the tree
-                    it('reverts', async () => {
-                      await assertRevert(draft({ batchRequestedJurors, roundRequestedJurors }))
-                    })
+                    itReverts(batchRequestedJurors, roundRequestedJurors)
                   })
 
                   context('for the second batch', () => {
                     const batchRequestedJurors = 7
 
-                    // NOTE: this scenario is not being handled, the registry trusts the input from the owner and the tree
-                    it('reverts', async () => {
-                      await assertRevert(draft({ batchRequestedJurors, roundRequestedJurors }))
-                    })
+                    itReverts(batchRequestedJurors, roundRequestedJurors)
                   })
                 })
 
@@ -308,10 +310,7 @@ contract('JurorsRegistry drafting', ([_, juror500, juror1000, juror1500, juror20
                       const expectedWeights = [1, 1, 1]
                       const expectedAddresses = [juror500, juror1000, juror2000]
 
-                      it('returns expected jurors', async () => {
-                        const output = await draft({ batchRequestedJurors, roundRequestedJurors })
-                        await assertDraftOutput(output, batchRequestedJurors, expectedAddresses, expectedWeights)
-                      })
+                      itReturnsExpectedJurors({ batchRequestedJurors, roundRequestedJurors }, expectedAddresses, expectedWeights)
 
                       it('changes for different dispute ids', async () => {
                         const { weights, addresses } = await draft({ disputeId: 1, batchRequestedJurors, roundRequestedJurors })
@@ -332,25 +331,14 @@ contract('JurorsRegistry drafting', ([_, juror500, juror1000, juror1500, juror20
                       const expectedWeights = [1, 2, 1, 2, 1]
                       const expectedAddresses = [juror1000, juror1500, juror2000, juror3000, juror3500]
 
-                      it('returns expected jurors', async () => {
-                        const output = await draft({ batchRequestedJurors, roundRequestedJurors })
-                        await assertDraftOutput(output, batchRequestedJurors, expectedAddresses, expectedWeights)
-                      })
+                      itReturnsExpectedJurors({ batchRequestedJurors, roundRequestedJurors }, expectedAddresses, expectedWeights)
                     })
                   })
 
                   context('when jurors have been selected for other drafts', () => {
-                    let previousLockedBalances
-
                     context('when all jurors have been enough balance to be drafted again', () => {
-                      beforeEach('draft and compute previous locked balances', async () => {
-                        previousLockedBalances = {}
-                        const { addresses, weights, outputLength } = await draft({ batchRequestedJurors: 3, roundRequestedJurors: 3 })
-
-                        for(let i = 0; i < outputLength; i++) {
-                          const lockedBalance = weights[i] * (MIN_ACTIVE_AMOUNT * DRAFT_LOCK_PCT / 10000)
-                          previousLockedBalances[addresses[i]] = (previousLockedBalances[addresses[i]] || 0) + lockedBalance
-                        }
+                      beforeEach('compute a previous draft', async () => {
+                        await draft({ batchRequestedJurors: 3, roundRequestedJurors: 3 })
                       })
 
                       context('for the first batch', () => {
@@ -359,10 +347,7 @@ contract('JurorsRegistry drafting', ([_, juror500, juror1000, juror1500, juror20
                         const expectedWeights = [1, 1, 1]
                         const expectedAddresses = [juror500, juror1000, juror2000]
 
-                        it('returns expected jurors', async () => {
-                          const output = await draft({ batchRequestedJurors, roundRequestedJurors })
-                          await assertDraftOutput(output, batchRequestedJurors, expectedAddresses, expectedWeights, previousLockedBalances)
-                        })
+                        itReturnsExpectedJurors({ batchRequestedJurors, roundRequestedJurors }, expectedAddresses, expectedWeights)
                       })
 
                       context('for the second batch', () => {
@@ -371,25 +356,15 @@ contract('JurorsRegistry drafting', ([_, juror500, juror1000, juror1500, juror20
                         const expectedWeights = [1, 2, 1, 2, 1]
                         const expectedAddresses = [juror1000, juror1500, juror2000, juror3000, juror3500]
 
-                        it('returns expected jurors', async () => {
-                          const output = await draft({ batchRequestedJurors, roundRequestedJurors })
-                          await assertDraftOutput(output, batchRequestedJurors, expectedAddresses, expectedWeights, previousLockedBalances)
-                        })
+                        itReturnsExpectedJurors({ batchRequestedJurors, roundRequestedJurors }, expectedAddresses, expectedWeights)
                       })
                     })
 
                     context('when some jurors do not have been enough balance to be drafted again', () => {
-                      beforeEach('draft and compute previous locked balances', async () => {
-                        previousLockedBalances = {}
-
-                        // draft enough times to leave the first juror without unlocked balance
+                      // draft enough times to leave the first juror without unlocked balance
+                      beforeEach('compute multiple previous drafts', async () => {
                         for(let i = 0; i < 50; i++) {
-                          const { addresses, weights, outputLength } = await draft({ batchRequestedJurors: 3, roundRequestedJurors })
-
-                          for(let j = 0; j < outputLength; j++) {
-                            const lockedBalance = weights[j] * (MIN_ACTIVE_AMOUNT * DRAFT_LOCK_PCT / 10000)
-                            previousLockedBalances[addresses[j]] = (previousLockedBalances[addresses[j]] || 0) + lockedBalance
-                          }
+                          await draft({ batchRequestedJurors: 3, roundRequestedJurors })
                         }
                       })
 
@@ -399,10 +374,7 @@ contract('JurorsRegistry drafting', ([_, juror500, juror1000, juror1500, juror20
                         const expectedWeights = [3]
                         const expectedAddresses = [juror2000]
 
-                        it('returns expected jurors', async () => {
-                          const output = await draft({ batchRequestedJurors, roundRequestedJurors })
-                          await assertDraftOutput(output, batchRequestedJurors, expectedAddresses, expectedWeights, previousLockedBalances)
-                        })
+                        itReturnsExpectedJurors({ batchRequestedJurors, roundRequestedJurors }, expectedAddresses, expectedWeights)
                       })
 
                       context('for the second batch', () => {
@@ -411,10 +383,7 @@ contract('JurorsRegistry drafting', ([_, juror500, juror1000, juror1500, juror20
                         const expectedWeights = [2, 1, 2, 2]
                         const expectedAddresses = [juror1500, juror2000, juror3000, juror3500]
 
-                        it('returns expected jurors', async () => {
-                          const output = await draft({ batchRequestedJurors, roundRequestedJurors })
-                          await assertDraftOutput(output, batchRequestedJurors, expectedAddresses, expectedWeights, previousLockedBalances)
-                        })
+                        itReturnsExpectedJurors({ batchRequestedJurors, roundRequestedJurors }, expectedAddresses, expectedWeights)
                       })
                     })
                   })

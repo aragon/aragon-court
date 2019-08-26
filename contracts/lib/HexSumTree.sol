@@ -115,7 +115,7 @@ library HexSumTree {
         uint256 lastValue = getItem(self, _key);
         _add(self, LEAVES_LEVEL, _key, _time, _value);
 
-        // Update sums cached in the non-leaf nodes. Note that overflows is being checked at the end of the whole update.
+        // Update sums cached in the non-leaf nodes. Note that overflows are being checked at the end of the whole update.
         if (_value > lastValue) {
             _updateSums(self, _key, _time, _value - lastValue, true);
         } else if (_value < lastValue) {
@@ -263,7 +263,7 @@ library HexSumTree {
         uint256 mask = uint256(-1);
         uint256 ancestorKey = _key;
         uint256 currentHeight = getHeight(self);
-        for (uint256 level = 1; level <= currentHeight; level++) {
+        for (uint256 level = LEAVES_LEVEL + 1; level <= currentHeight; level++) {
             // Build a mask to get the key of the ancestor at a certain level. For example:
             // Level  0: leaves don't have children
             // Level  1: 0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0 (up to 16 leaves)
@@ -363,7 +363,7 @@ library HexSumTree {
             if (subtreeIncludedValues > 0) {
                 // If the child node being analyzed is a leaf, add it to the list of results a number of times equals
                 // to the number of values that were included in it. Otherwise, descend one level
-                if (_params.level == 0) {
+                if (_params.level == LEAVES_LEVEL) {
                     _copyFoundNode(_params.foundValues, subtreeIncludedValues, childNodeKey, _resultKeys, childNodeValue, _resultValues);
                 } else {
                     SearchParams memory nextLevelParams = SearchParams(_params.time, _params.level - 1, childNodeKey, _params.foundValues, _params.visitedTotal);

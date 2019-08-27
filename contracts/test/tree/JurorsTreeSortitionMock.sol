@@ -7,7 +7,7 @@ import "../../lib/JurorsTreeSortition.sol";
 contract JurorsTreeSortitionMock is HexSumTreeMock {
     using JurorsTreeSortition for HexSumTree.Tree;
 
-    function multiSortition(
+    function batchedRandomSearch(
         bytes32 _termRandomness,
         uint256 _disputeId,
         uint64 _termId,
@@ -20,15 +20,15 @@ contract JurorsTreeSortitionMock is HexSumTreeMock {
         view
         returns (uint256[] jurorsIds, uint256[] jurorsBalances)
     {
-        return tree.multiSortition(_termRandomness, _disputeId, _termId, _selectedJurors, _batchRequestedJurors, _roundRequestedJurors, _sortitionIteration);
+        return tree.batchedRandomSearch(_termRandomness, _disputeId, _termId, _selectedJurors, _batchRequestedJurors, _roundRequestedJurors, _sortitionIteration);
     }
 
-    function getActiveBalancesBatchBounds(uint64 _termId, uint256 _selectedJurors, uint256 _batchRequestedJurors, uint256 _roundRequestedJurors)
+    function getSearchBatchBounds(uint64 _termId, uint256 _selectedJurors, uint256 _batchRequestedJurors, uint256 _roundRequestedJurors)
         public
         view
         returns (uint256, uint256)
     {
-        return tree.getActiveBalancesBatchBounds(_termId, _selectedJurors, _batchRequestedJurors, _roundRequestedJurors);
+        return tree.getSearchBatchBounds(_termId, _selectedJurors, _batchRequestedJurors, _roundRequestedJurors);
     }
 
     function computeSearchRandomBalances(

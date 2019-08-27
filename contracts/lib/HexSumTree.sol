@@ -34,8 +34,8 @@ library HexSumTree {
     uint256 private constant CHILDREN = 16;
     uint256 private constant BITS_IN_NIBBLE = 4;
 
-    // Leaves are at height or level zero, root height will be increasing as new levels are inserted in the tree
-    uint256 private constant LEAVES_LEVEL = 0;
+    // All items are leaves, inserted at height or level zero. The root height will be increasing as new levels are inserted in the tree.
+    uint256 private constant ITEMS_LEVEL = 0;
 
     // Tree nodes are identified with a 32-bytes length key. Leaves are identified with consecutive incremental keys
     // starting with 0x0000000000000000000000000000000000000000000000000000000000000000, while non-leaf nodes' keys
@@ -77,7 +77,7 @@ library HexSumTree {
     * @dev Initialize tree setting the next key and first height checkpoint
     */
     function init(Tree storage self) internal {
-        self.height.add(INITIALIZATION_INITIAL_TIME, LEAVES_LEVEL + 1);
+        self.height.add(INITIALIZATION_INITIAL_TIME, ITEMS_LEVEL + 1);
         self.nextKey = BASE_KEY;
     }
 
@@ -89,14 +89,14 @@ library HexSumTree {
     */
     function insert(Tree storage self, uint64 _time, uint256 _value) internal returns (uint256) {
         // As the values are always stored in the leaves of the tree (level 0), the key to index each of them will be
-        // always incrementing, starting from zero.
+        // always incrementing, starting from zero. Add a new level if necessary.
         uint256 key = self.nextKey++;
+        _addLevelIfNecessary(self, key, _time);
 
         // If the new value is not zero, first set the value of the new leaf node, then add a new level at the top of
         // the tree if necessary, and finally update sums cached in all the non-leaf nodes.
-        if (_value > 0) {
-            _add(self, LEAVES_LEVEL, key, _time, _value);
-            _addLevelIfNecessary(self, key, _time);
+        if (_value > uint256(0)) {
+            _add(self, ITEMS_LEVEL, key, _time, _value);
             _updateSums(self, key, _time, _value, true);
         }
         return key;
@@ -113,7 +113,7 @@ library HexSumTree {
 
         // Set the new value for the requested leaf node
         uint256 lastValue = getItem(self, _key);
-        _add(self, LEAVES_LEVEL, _key, _time, _value);
+        _add(self, ITEMS_LEVEL, _key, _time, _value);
 
         // Update sums cached in the non-leaf nodes. Note that overflows are being checked at the end of the whole update.
         if (_value > lastValue) {
@@ -136,7 +136,7 @@ library HexSumTree {
         // Update the value of the requested leaf node based on the given delta
         uint256 lastValue = getItem(self, _key);
         uint256 newValue = _positive ? lastValue + _delta : lastValue - _delta;
-        _add(self, LEAVES_LEVEL, _key, _time, newValue);
+        _add(self, ITEMS_LEVEL, _key, _time, newValue);
 
         // Update sums cached in the non-leaf nodes. Note that overflows is being checked at the end of the whole update.
         _updateSums(self, _key, _time, _delta, _positive);
@@ -186,7 +186,7 @@ library HexSumTree {
     * @param _key Key of the leaf node querying the value of
     */
     function getItem(Tree storage self, uint256 _key) internal view returns (uint256) {
-        return getNode(self, LEAVES_LEVEL, _key);
+        return getNode(self, ITEMS_LEVEL, _key);
     }
 
     /**
@@ -195,7 +195,7 @@ library HexSumTree {
     * @param _time Point in time to query the value of the requested leaf
     */
     function getItemAt(Tree storage self, uint256 _key, uint64 _time) internal view returns (uint256) {
-        return getNodeAt(self, LEAVES_LEVEL, _key, _time);
+        return getNodeAt(self, ITEMS_LEVEL, _key, _time);
     }
 
     /**
@@ -404,6 +404,12 @@ library HexSumTree {
     * @return Number of values in the list that are included in the given subtree
     */
     function _getValuesIncludedInSubtree(uint256[] memory _values, uint256 _foundValues, uint256 _subtreeTotal) private pure returns (uint256) {
+        // If the given subtree total is zero, we already know any value will be included in it
+        if (_subtreeTotal == uint256(0)) {
+            return uint256(0);
+        }
+
+        // Otherwise, look for all the values that can be found in the given subtree
         uint256 i = _foundValues;
         while (i < _values.length && _values[i] <= _subtreeTotal) {
             i++;

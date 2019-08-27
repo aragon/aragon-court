@@ -711,7 +711,7 @@ contract JurorsRegistry is Initializable, IsContract, IJurorsRegistry, ERC900, A
     * @return activeBalances List of active balances for each juror obtained based on the requested search
     */
     function _treeSearch(uint256[7] _treeSearchParams) internal view returns (uint256[] ids, uint256[] activeBalances) {
-        (ids, activeBalances) = tree.multiSortition(
+        (ids, activeBalances) = tree.batchedRandomSearch(
             bytes32(_treeSearchParams[0]),  // _termRandomness,
             _treeSearchParams[1],           // _disputeId
             uint64(_treeSearchParams[2]),   // _termId

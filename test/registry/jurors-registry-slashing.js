@@ -103,12 +103,12 @@ contract('JurorsRegistry slashing', ([_, juror, secondJuror, thirdJuror, anyone]
           context('when given lock amounts are valid', () => {
             const lockedAmounts = [DRAFT_LOCK_AMOUNT.mul(3), DRAFT_LOCK_AMOUNT, DRAFT_LOCK_AMOUNT.mul(6)]
 
-            it('collect tokens the slashed amounts', async () => {
+            it('collect tokens for all the slashed amounts', async () => {
               const receipt = await registryOwner.slashOrUnlock(jurors, lockedAmounts, rewardedJurors)
               assertEvent(receipt, 'Slashed', { collected: DRAFT_LOCK_AMOUNT.mul(9) })
             })
 
-            it('reimburses the lock balances of the rewarded jurors', async () => {
+            it('unlocks balances of the rewarded jurors', async () => {
               const [previousActiveBalance, previousAvailableBalance, previousLockedBalance, previousDeactivationBalance] = await registry.balanceOf(secondJuror)
 
               await registryOwner.slashOrUnlock(jurors, lockedAmounts, rewardedJurors)
@@ -140,7 +140,7 @@ contract('JurorsRegistry slashing', ([_, juror, secondJuror, thirdJuror, anyone]
             })
 
             it('does not affect the active balances of the current term', async () => {
-              let termId = await registryOwner.getLastEnsuredTermId();
+              let termId = await registryOwner.getLastEnsuredTermId()
               const firstJurorPreviousActiveBalance = await registry.activeBalanceOfAt(juror, termId)
               const secondJurorPreviousActiveBalance = await registry.activeBalanceOfAt(secondJuror, termId)
               const thirdJurorPreviousActiveBalance = await registry.activeBalanceOfAt(thirdJuror, termId)

@@ -173,7 +173,7 @@ contract('JurorsRegistry drafting', ([_, juror500, juror1000, juror1500, juror20
             context('when some jurors were requested', () => {
               const roundRequestedJurors = 10
 
-              context('when the jurors are activated for the following term', () => {
+              context('when the juror is activated for the following term', () => {
                 context('for the first batch', () => {
                   const batchRequestedJurors = 3
 
@@ -187,7 +187,7 @@ contract('JurorsRegistry drafting', ([_, juror500, juror1000, juror1500, juror20
                 })
               })
 
-              context('when the jurors are activated for the current term', () => {
+              context('when the juror is activated for the current term', () => {
                 beforeEach('increment term', async () => {
                   await registryOwner.incrementTerm()
                 })

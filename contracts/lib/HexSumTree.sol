@@ -29,6 +29,8 @@ library HexSumTree {
 
     string private constant ERROR_UPDATE_OVERFLOW = "SUM_TREE_UPDATE_OVERFLOW";
     string private constant ERROR_KEY_DOES_NOT_EXIST = "SUM_TREE_KEY_DOES_NOT_EXIST";
+    string private constant ERROR_SEARCH_OUT_OF_BOUNDS = "SUM_TREE_SEARCH_OUT_OF_BOUNDS";
+    string private constant ERROR_MISSING_SEARCH_VALUES = "SUM_TREE_MISSING_SEARCH_VALUES";
 
     // Constants used to perform tree computations
     uint256 private constant CHILDREN = 16;
@@ -152,6 +154,12 @@ library HexSumTree {
      * @return values List of node values found for each requested value in the same order
      */
     function search(Tree storage self, uint256[] _values, uint64 _time) internal view returns (uint256[] keys, uint256[] values) {
+        require(_values.length > uint256(0), ERROR_MISSING_SEARCH_VALUES);
+
+        // Throw out-of-bounds error if there are no items in the tree or the highest value being searched is greater than the total
+        uint256 total = getTotalAt(self, _time, true);
+        require(total > uint256(0) && total >= _values[_values.length - 1], ERROR_SEARCH_OUT_OF_BOUNDS);
+
         // Build search params for the first iteration
         uint256 rootLevel = getHeightAt(self, _time);
         SearchParams memory searchParams = SearchParams(_time, rootLevel - 1, BASE_KEY, 0, 0);
@@ -263,7 +271,7 @@ library HexSumTree {
         uint256 mask = uint256(-1);
         uint256 ancestorKey = _key;
         uint256 currentHeight = getHeight(self);
-        for (uint256 level = LEAVES_LEVEL + 1; level <= currentHeight; level++) {
+        for (uint256 level = ITEMS_LEVEL + 1; level <= currentHeight; level++) {
             // Build a mask to get the key of the ancestor at a certain level. For example:
             // Level  0: leaves don't have children
             // Level  1: 0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0 (up to 16 leaves)
@@ -278,7 +286,7 @@ library HexSumTree {
             // iteration, the key of the ancestor of the previous level is simply the key of the leaf being updated.
             ancestorKey = ancestorKey & mask;
 
-            // Note that we are safe to avoid SafeMath here since overflows will be catch by the checkpointing lib since
+            // Note that we are safe to avoid SafeMath here since overflows will be caught by the checkpointing lib since
             // it works with uint192 values, or at the end of the update when checking the the total stored at the root.
             uint256 lastValue = getNode(self, level, ancestorKey);
             uint256 newValue = _positive ? lastValue + _delta : lastValue - _delta;
@@ -363,7 +371,7 @@ library HexSumTree {
             if (subtreeIncludedValues > 0) {
                 // If the child node being analyzed is a leaf, add it to the list of results a number of times equals
                 // to the number of values that were included in it. Otherwise, descend one level
-                if (_params.level == LEAVES_LEVEL) {
+                if (_params.level == ITEMS_LEVEL) {
                     _copyFoundNode(_params.foundValues, subtreeIncludedValues, childNodeKey, _resultKeys, childNodeValue, _resultValues);
                 } else {
                     SearchParams memory nextLevelParams = SearchParams(_params.time, _params.level - 1, childNodeKey, _params.foundValues, _params.visitedTotal);

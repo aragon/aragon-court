@@ -4,9 +4,8 @@
   "description": "",
   "scripts": {
     "test": "TRUFFLE_TEST=true npm run ganache-cli:test",
-    "analysis:tree": "TRUFFLE_TEST=true SUMTREE_GAS_ANALYSIS=true npm run ganache-cli:test",
     "coverage": "SOLIDITY_COVERAGE=true npm run ganache-cli:test",
-    "ganache-cli:test": "./node_modules/@aragon/test-helpers/ganache-cli.sh",
+    "ganache-cli:test": "./scripts/ganache-cli.sh",
     "lint": "solium --dir ./contracts"
   },
   "author": "Aragon Association",
@@ -14,7 +13,7 @@
   "devDependencies": {
     "@aragon/apps-shared-migrations": "^1.0.0",
     "@aragon/test-helpers": "^2.0.0",
-    "ganache-cli": "^6.1.0",
+    "ganache-cli": "^6.4.5",
     "solidity-coverage": "0.5.8",
     "solium": "^1.2.3",
     "truffle": "^4.1.15",

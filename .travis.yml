@@ -6,8 +6,22 @@ notifications:
   email: false
 node_js:
   - '8'
-env:
-  - TASK=test
 before_script:
   - npm prune
-script: "npm run $TASK"
+jobs:
+  include:
+    - stage: tests
+      script: npm test test/court/*.js
+      name: "Court"
+    - stage: tests
+      script: npm test test/registry/*.js
+      name: "Registry"
+    - stage: tests
+      script: npm test test/tree/*.js
+      name: "Tree"
+    - stage: tests
+      script: npm test test/voting/*.js
+      name: "Voting"
+    - stage: tests
+      script: npm test test/*.js
+      name: "Others"

@@ -21,7 +21,7 @@ library JurorsTreeSortition {
     * @return jurorsIds List of juror ids obtained based on the requested search
     * @return jurorsBalances List of active balances for each juror obtained based on the requested search
     */
-    function multiSortition(
+    function batchedRandomSearch(
         HexSumTree.Tree storage tree,
         bytes32 _termRandomness,
         uint256 _disputeId,
@@ -35,7 +35,7 @@ library JurorsTreeSortition {
         view
         returns (uint256[] jurorsIds, uint256[] jurorsBalances)
     {
-        (uint256 low, uint256 high) = getActiveBalancesBatchBounds(tree, _termId, _selectedJurors, _batchRequestedJurors, _roundRequestedJurors);
+        (uint256 low, uint256 high) = getSearchBatchBounds(tree, _termId, _selectedJurors, _batchRequestedJurors, _roundRequestedJurors);
         uint256[] memory balances = _computeSearchRandomBalances(_randomnessHash(_termRandomness, _disputeId, _sortitionIteration), _batchRequestedJurors, low, high);
         return tree.search(balances, _termId);
     }
@@ -49,7 +49,7 @@ library JurorsTreeSortition {
     * @return low Low bound to be used for the sortition to draft the requested number of jurors for the given batch
     * @return high High bound to be used for the sortition to draft the requested number of jurors for the given batch
     */
-    function getActiveBalancesBatchBounds(
+    function getSearchBatchBounds(
         HexSumTree.Tree storage tree,
         uint64 _termId,
         uint256 _selectedJurors,
@@ -60,11 +60,11 @@ library JurorsTreeSortition {
         view
         returns (uint256 low, uint256 high)
     {
-        // Note that the low bound will be always equal to the previous high bound incremented by one, or zero for the
+        // Note that the low bound will be always equal to the previous high bound incremented by one, or one for the
         // first iteration. Thus, we can make sure we are not excluding any juror from the tree.
         uint256 totalActiveBalance = tree.getTotalAt(_termId, true);
         uint256 ratio = totalActiveBalance / _roundRequestedJurors;
-        low = _selectedJurors == uint256(0) ? uint256(0) : (_selectedJurors * ratio) + 1;
+        low = _selectedJurors == uint256(0) ? uint256(1) : (_selectedJurors * ratio) + 1;
 
         // This function assumes that `_roundRequestedJurors` is greater than or equal to `newSelectedJurors`
         uint256 newSelectedJurors = _selectedJurors + _batchRequestedJurors;
@@ -78,15 +78,15 @@ library JurorsTreeSortition {
     * @dev Get a random list of active balances to be searched in the jurors tree for a given draft batch
     * @param _randomnessHash Hash to be used as random seed
     * @param _batchRequestedJurors Number of jurors to be selected in the given batch of the draft
-    * @param _lowActiveBalanceBatchBound Low bound to be used for the sortition batch to draft the requested number of jurors
-    * @param _highActiveBalanceBatchBound High bound to be used for the sortition batch to draft the requested number of jurors
+    * @param _lowBatchBound Low bound to be used for the sortition batch to draft the requested number of jurors
+    * @param _highBatchBound High bound to be used for the sortition batch to draft the requested number of jurors
     * @return Random list of active balances to be searched in the jurors tree for the given draft batch
     */
     function _computeSearchRandomBalances(
         bytes32 _randomnessHash,
         uint256 _batchRequestedJurors,
-        uint256 _lowActiveBalanceBatchBound,
-        uint256 _highActiveBalanceBatchBound
+        uint256 _lowBatchBound,
+        uint256 _highBatchBound
     )
         internal
         pure
@@ -94,13 +94,13 @@ library JurorsTreeSortition {
     {
         // Calculate the interval to be used to search the balances in the tree. Since we are using a modulo function
         // to compute the random balances to be searched, we add one to the difference to make sure the last number
-        // of the range is also included. For example, to compute a range [0,10] we need to compute using modulo 11.
-        uint256 activeBalanceInterval = _highActiveBalanceBatchBound - _lowActiveBalanceBatchBound + 1;
+        // of the range is also included. For example, to compute a range [1,10] we need to compute using modulo 10.
+        uint256 interval = _highBatchBound - _lowBatchBound + 1;
         uint256[] memory balances = new uint256[](_batchRequestedJurors);
 
         // Compute an ordered list of random active balance to be searched in the jurors tree
         for(uint256 batchJurorNumber = 0; batchJurorNumber < _batchRequestedJurors; batchJurorNumber++) {
-            balances[batchJurorNumber] = _computeRandomBalance(_randomnessHash, batchJurorNumber, _lowActiveBalanceBatchBound, activeBalanceInterval);
+            balances[batchJurorNumber] = _computeRandomBalance(_randomnessHash, batchJurorNumber, _lowBatchBound, interval);
             for(uint256 i = batchJurorNumber; i > 0 && balances[i] < balances[i - 1]; i--) {
                 uint256 tmp = balances[i - 1];
                 balances[i - 1] = balances[i];
@@ -114,15 +114,15 @@ library JurorsTreeSortition {
     * @dev Get a random active balance to be searched in the jurors tree for a given juror number of the draft batch
     * @param _randomnessHash Hash to be used as random seed
     * @param _batchJurorNumber Number of the juror to be selected in the given batch of the draft
-    * @param _lowActiveBalanceBatchBound Low bound to be used for the sortition batch to draft the requested juror number
-    * @param _activeBalanceInterval Active balance interval to be used for the sortition batch to draft the requested juror number
+    * @param _lowBatchBound Low bound to be used for the sortition batch to draft the requested juror number
+    * @param _interval Bounds interval to be used for the sortition batch to draft the requested juror number
     * @return Random active balance to be searched in the jurors tree for the given juror number of the draft batch
     */
     function _computeRandomBalance(
         bytes32 _randomnessHash,
         uint256 _batchJurorNumber,
-        uint256 _lowActiveBalanceBatchBound,
-        uint256 _activeBalanceInterval
+        uint256 _lowBatchBound,
+        uint256 _interval
     )
         internal
         pure
@@ -133,7 +133,7 @@ library JurorsTreeSortition {
 
         // Compute a random active balance to be searched in the jurors tree using the generated seed within the
         // boundaries computed for the current batch.
-        return _lowActiveBalanceBatchBound + uint256(seed) % _activeBalanceInterval;
+        return _lowBatchBound + uint256(seed) % _interval;
     }
 
     /**

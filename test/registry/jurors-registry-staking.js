@@ -10,7 +10,7 @@ const JurorsRegistryOwnerMock = artifacts.require('JurorsRegistryOwnerMock')
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
 const ACTIVATE_DATA = web3.sha3('activate(uint256)').slice(0, 10)
 
-contract('JurorsRegistry staking', ([_, juror, anotherJuror]) => {
+contract('JurorsRegistry', ([_, juror, anotherJuror]) => {
   let registry, registryOwner, ANJ
 
   const MIN_ACTIVE_AMOUNT = bigExp(100, 18)

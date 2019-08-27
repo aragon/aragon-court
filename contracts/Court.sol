@@ -563,8 +563,6 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
         round.settledAppeals = true;
     }
 
-    // Voting interface fns
-
     /**
     * @notice Get the weight of `_voter` for vote #`_voteId` and check if votes can be committed
     * @param _voteId ID of the vote instance to request the weight of a voter for

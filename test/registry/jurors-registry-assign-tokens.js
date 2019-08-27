@@ -10,7 +10,7 @@ const JurorsRegistryOwnerMock = artifacts.require('JurorsRegistryOwnerMock')
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
 const BURN_ADDRESS = '0x000000000000000000000000000000000000dead'
 
-contract('JurorsRegistry assign tokens', ([_, juror, someone]) => {
+contract('JurorsRegistry', ([_, juror, someone]) => {
   let registry, registryOwner, ANJ
 
   const MIN_ACTIVE_AMOUNT = bigExp(100, 18)

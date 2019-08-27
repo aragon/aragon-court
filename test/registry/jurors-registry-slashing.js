@@ -10,7 +10,7 @@ const JurorsRegistryOwnerMock = artifacts.require('JurorsRegistryOwnerMock')
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
 
-contract('JurorsRegistry slashing', ([_, juror, secondJuror, thirdJuror, anyone]) => {
+contract('JurorsRegistry', ([_, juror, secondJuror, thirdJuror, anyone]) => {
   let registry, registryOwner, ANJ
 
   const ACTIVATE_DATA = web3.sha3('activate(uint256)').slice(0, 10)

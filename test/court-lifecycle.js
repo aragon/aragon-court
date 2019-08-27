@@ -80,10 +80,6 @@ contract('Court: Lifecycle', ([ poor, rich, juror1, juror2 ]) => {
   })
 
   context('before first term', () => {
-    it('it in term #0', async () => {
-      await assertEqualBN(this.court.getLastEnsuredTermId(), 0, 'court term #0')
-    })
-
     it('can activate during period before heartbeat', async () => {
       await this.courtHelper.setTimestamp(firstTermStartTime - 1)
 

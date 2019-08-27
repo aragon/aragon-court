@@ -79,19 +79,6 @@ contract('Court: Lifecycle', ([ poor, rich, juror1, juror2 ]) => {
     await assertEqualBN(this.jurorsRegistry.totalStakedFor(juror2), juror2Stake, 'juror2 stake')
   })
 
-  it('can be deployed under the block gas limit', async () => {
-    const getReceipt = tx =>
-      new Promise((res, rej) =>
-        web3.eth.getTransactionReceipt(tx, (e, rec) => {
-          if (e) rej(e)
-          res(rec)
-        }))
-
-    // TODO: This is actually measuring the deployment cost for CourtMock and not Court
-    const { gasUsed } = await getReceipt(this.court.transactionHash)
-    assert.isBelow(gasUsed, BLOCK_GAS_LIMIT, 'CourtMock should be deployable to under the gas limit')
-  })
-
   context('before first term', () => {
     it('it in term #0', async () => {
       await assertEqualBN(this.court.getLastEnsuredTermId(), 0, 'court term #0')

@@ -159,7 +159,7 @@ contract('Court: final appeal (non-exact)', ([ poor, rich, juror1, juror2, juror
       await this.courtHelper.advanceBlocks(2)
 
       while (roundJurorsDrafted < roundJurors) {
-        draftReceipt = await this.court.draft(disputeId)
+        draftReceipt = await this.court.draft(disputeId, roundJurors)
         const callJurorsDrafted = getLogCount(draftReceipt, this.jurorsRegistry.abi, JUROR_DRAFTED_EVENT)
         roundJurorsDrafted += callJurorsDrafted
       }

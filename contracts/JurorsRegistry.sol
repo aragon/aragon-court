@@ -9,6 +9,7 @@ import { ApproveAndCallFallBack } from "@aragon/apps-shared-minime/contracts/Min
 
 import "./lib/BytesHelpers.sol";
 import "./lib/HexSumTree.sol";
+import "./lib/PctHelpers.sol";
 import "./lib/JurorsTreeSortition.sol";
 import "./standards/erc900/ERC900.sol";
 import "./standards/erc900/IJurorsRegistry.sol";
@@ -18,6 +19,7 @@ import "./standards/erc900/IJurorsRegistryOwner.sol";
 contract JurorsRegistry is Initializable, IsContract, IJurorsRegistry, ERC900, ApproveAndCallFallBack {
     using SafeERC20 for ERC20;
     using SafeMath for uint256;
+    using PctHelpers for uint256;
     using BytesHelpers for bytes;
     using HexSumTree for HexSumTree.Tree;
     using JurorsTreeSortition for HexSumTree.Tree;
@@ -35,7 +37,7 @@ contract JurorsRegistry is Initializable, IsContract, IJurorsRegistry, ERC900, A
     string internal constant ERROR_TOKEN_TRANSFER_FAILED = "JR_TOKEN_TRANSFER_FAILED";
     string internal constant ERROR_TOKEN_APPROVE_NOT_ALLOWED = "JR_TOKEN_APPROVE_NOT_ALLOWED";
 
-    uint256 internal constant PCT_BASE = 10000; // ‱ = 1 / 10,000
+    // Address that will be used to burn juror tokens
     address internal constant BURN_ACCOUNT = 0xdead;
 
     /**
@@ -694,7 +696,7 @@ contract JurorsRegistry is Initializable, IsContract, IJurorsRegistry, ERC900, A
     * @return The fraction of minimum active tokens that must be locked for a draft
     */
     function _draftLockAmount(uint16 _pct) internal view returns (uint256) {
-        return minActiveBalance * uint256(_pct) / PCT_BASE;
+        return minActiveBalance.pct(_pct);
     }
 
     /**

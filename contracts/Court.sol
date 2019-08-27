@@ -1,6 +1,7 @@
 pragma solidity ^0.4.24; // TODO: pin solc
 
 // Inspired by: Kleros.sol https://github.com/kleros/kleros @ 7281e69
+import "./lib/PctHelpers.sol";
 import "./standards/arbitration/IArbitrable.sol";
 import "./standards/erc900/IJurorsRegistry.sol";
 import "./standards/erc900/IJurorsRegistryOwner.sol";
@@ -20,12 +21,12 @@ import "@aragon/os/contracts/common/TimeHelpers.sol";
 contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, TimeHelpers {
     using SafeERC20 for ERC20;
     using SafeMath for uint256;
+    using PctHelpers for uint256;
     using Uint256Helpers for uint256;
 
-    uint8 public constant APPEAL_COLLATERAL_FACTOR = 3; // multiple of juror fees required to appeal a preliminary ruling
-    uint8 public constant APPEAL_CONFIRMATION_COLLATERAL_FACTOR = 2; // multiple of juror fees required to confirm appeal
+    uint8 internal constant APPEAL_COLLATERAL_FACTOR = 3; // multiple of juror fees required to appeal a preliminary ruling
+    uint8 internal constant APPEAL_CONFIRMATION_COLLATERAL_FACTOR = 2; // multiple of juror fees required to confirm appeal
 
-    uint256 internal constant MAX_JURORS_PER_DRAFT_BATCH = 10;      // to cap gas used on draft
     uint256 internal constant MAX_REGULAR_APPEAL_ROUNDS_LIMIT = 10; // to cap the max number of regular appeal rounds
     uint256 internal constant FINAL_ROUND_WEIGHT_PRECISION = 1000;  // to improve rounding
     // TODO: move all other constants up here
@@ -71,21 +72,20 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
     }
 
     struct AdjudicationRound {
-        address[] jurors;
-        mapping (address => JurorState) jurorSlotStates;
+        address[] jurors; // TODO: draft
+        mapping (address => JurorState) jurorSlotStates; // TODO: draft
         Appealer appealMaker;
         Appealer appealTaker;
-        uint64 draftTermId;
-        uint64 delayTerms;
-        uint64 jurorNumber;
-        uint64 coherentJurors;
-        uint64 nextJurorIndex;
-        uint64 filledSeats;
-        uint64 settledJurors;
-        address triggeredBy;
-        bool settledPenalties;
+        uint64 draftTermId; // meta
+        uint64 delayTerms;  // TODO: draft
+        uint64 jurorNumber; // meta
+        uint64 coherentJurors; // TODO: result
+        uint64 filledSeats;    // TODO: draft
+        uint64 settledJurors;  // TODO: draft
+        address triggeredBy;  // meta
+        bool settledPenalties; // result
         bool settledAppeals;
-        uint256 jurorFees;
+        uint256 jurorFees; // meta
         // for regular rounds this contains penalties from non-winning jurors, collected after reveal period
         // for the final round it contains all potential penalties from jurors that voted, as they are collected when jurors commit vote
         uint256 collectedTokens;
@@ -125,7 +125,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
     uint64 internal termId;
     uint64 public configChangeTermId;
     mapping (uint64 => Term) internal terms;
-    Dispute[] public disputes;
+    Dispute[] internal disputes;
 
     string internal constant ERROR_INVALID_ADDR = "CTBAD_ADDR";
     string internal constant ERROR_DEPOSIT_FAILED = "CTDEPOSIT_FAIL";
@@ -138,7 +138,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
     string internal constant ERROR_TERM_RANDOMNESS_NOT_YET = "CTRANDOM_NOT_YET";
     string internal constant ERROR_WRONG_TERM = "CTBAD_TERM";
     string internal constant ERROR_BAD_FIRST_TERM_START_TIME = "CT_BAD_FIRST_TERM_START_TIME";
-    string internal constant ERROR_TERM_RANDOMNESS_UNAVAIL = "CTRANDOM_UNAVAIL";
+    string internal constant ERROR_TERM_RANDOMNESS_NOT_AVAILABLE = "CT_TERM_RANDOMNESS_NOT_AVAILABLE";
     string internal constant ERROR_INVALID_DISPUTE_STATE = "CTBAD_DISPUTE_STATE";
     string internal constant ERROR_INVALID_ADJUDICATION_ROUND = "CTBAD_ADJ_ROUND";
     string internal constant ERROR_INVALID_ADJUDICATION_STATE = "CTBAD_ADJ_STATE";
@@ -164,9 +164,9 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
     string internal constant ERROR_INVALID_MAX_APPEAL_ROUNDS = "CTINVALID_MAX_APPEAL_ROUNDS";
 
     uint64 internal constant ZERO_TERM_ID = 0; // invalid term that doesn't accept disputes
-    uint64 internal constant MODIFIER_ALLOWED_TERM_TRANSITIONS = 1;
+    uint64 internal constant MAX_AUTO_TERM_TRANSITIONS_ALLOWED = 1;
     //bytes4 private constant ARBITRABLE_INTERFACE_ID = 0xabababab; // TODO: interface id
-    uint256 internal constant PCT_BASE = 10000; // ‱
+
     uint8 internal constant MIN_RULING_OPTIONS = 2;
     uint8 internal constant MAX_RULING_OPTIONS = MIN_RULING_OPTIONS;
     uint256 internal constant MAX_UINT16 = uint16(-1);
@@ -187,6 +187,10 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
         _;
     }
 
+    /**
+    * @dev Modifier to ensure the current term of the Court. If the Court term is outdated by one term it will be updated. Note that this
+    *      function only allows updating the Court by one term, if more terms are required, users will have to call the heartbeat function manually.
+    */
     modifier ensureTerm {
         _ensureTerm();
         _;
@@ -316,79 +320,37 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
 
     /**
      * @notice Draft jurors for the next round of dispute #`_disputeId`
-     * @dev Allows for batches, so only up to MAX_JURORS_PER_DRAFT_BATCH will be drafted in each call
+     * @param _disputeId Identification number of the dispute to be drafted
+     * @param _maxJurorsToBeDrafted Max number of jurors to be drafted, it will be capped to the requested number of jurors of the dispute
      */
-    function draft(uint256 _disputeId) external ensureTerm {
+    function draft(uint256 _disputeId, uint64 _maxJurorsToBeDrafted) external ensureTerm {
+        // Ensure dispute has not been drafted yet
         Dispute storage dispute = disputes[_disputeId];
-        AdjudicationRound storage round = dispute.rounds[dispute.rounds.length - 1];
-        // TODO: stack too deep: uint64 draftTermId = round.draftTermId;
-        // We keep the inintial term for config, but we update it for randomness seed,
-        // as otherwise it would be easier for some juror to add tokens to the registry (or remove them)
-        // in order to change the result of the next draft batch
-        Term storage draftTerm = terms[termId];
-        CourtConfig storage config = courtConfigs[terms[round.draftTermId].courtConfigId]; // safe to use directly as it is current or past term
-
         require(dispute.state == DisputeState.PreDraft, ERROR_ROUND_ALREADY_DRAFTED);
+
+        // Ensure round can be drafted in the current term
+        AdjudicationRound storage round = dispute.rounds[dispute.rounds.length - 1];
         require(round.draftTermId <= termId, ERROR_NOT_DRAFT_TERM);
-        // Ensure that term has randomness:
+
+        // Ensure current term randomness can be ensured for the current block number
+        Term storage draftTerm = terms[termId];
         _ensureTermRandomness(draftTerm);
-        // as we already allow to move drafting to later terms, if current term has gone
-        // more than 256 blocks beyond the randomness BN, it will have to wait until next term
-        require(draftTerm.randomness != bytes32(0), ERROR_TERM_RANDOMNESS_UNAVAIL);
 
-        // TODO: stack too deep
-        //uint64 jurorNumber = round.jurorNumber;
-        if (round.jurors.length == 0) {
-            round.jurors.length = round.jurorNumber;
-        }
+        // Draft the min number of jurors between the one requested by the sender and the one requested by the disputer
+        uint64 jurorsNumber = round.jurorNumber;
+        uint256 jurorsRequested = jurorsNumber < _maxJurorsToBeDrafted ? jurorsNumber : _maxJurorsToBeDrafted;
 
-        uint256 jurorsRequested = round.jurorNumber - round.filledSeats;
-        if (jurorsRequested > MAX_JURORS_PER_DRAFT_BATCH) {
-            jurorsRequested = MAX_JURORS_PER_DRAFT_BATCH;
-        }
+        // Note that it is safe to access a court config directly for a past term
+        CourtConfig storage config = courtConfigs[terms[round.draftTermId].courtConfigId];
 
-        uint256[7] memory draftParams = [
-            uint256(draftTerm.randomness),
-            _disputeId,
-            termId,
-            round.filledSeats,
-            jurorsRequested,
-            round.jurorNumber,
-            config.penaltyPct
-        ];
-        (
-            address[] memory jurors,
-            uint64[] memory weights,
-            uint256 jurorsLength,
-            uint64 filledSeats
-        ) = jurorsRegistry.draft(draftParams);
-        uint256 nextJurorIndex = round.nextJurorIndex;
-        uint256 jurorsRepeated = 0;
-        for (uint256 i = 0; i < jurorsLength; i++) {
-            // TODO: stack too deep: address juror = jurors[i];
-            if (round.jurorSlotStates[jurors[i]].weight == 0) { // new juror
-                round.jurors[nextJurorIndex + i - jurorsRepeated] = jurors[i];
-            } else { // repeated juror
-                jurorsRepeated++;
-            }
-            round.jurorSlotStates[jurors[i]].weight += weights[i];
-        }
-        jurorsLength -= jurorsRepeated;
-        // reduce jurors array length because of repeated jurors
-        // Althoguh draft function does some grouping, jurors can still be unordered and repeated
-        round.jurors.length -= jurorsRequested - jurorsLength;
-        // invariant: sum(weights) = jurorsRequested
-        round.nextJurorIndex += uint64(jurorsLength);
-        round.filledSeats = filledSeats;
+        // Draft jurors for the given dispute and reimburse fees
+        _draft(jurorsRequested, _disputeId, round, draftTerm, config);
+        accounting.assign(config.feeToken, msg.sender, config.draftFee * jurorsRequested);
 
-        // TODO: reuse draft call (stack too deep!)
-        accounting.assign(config.feeToken, msg.sender, config.draftFee * round.jurorNumber);
-
-        // drafting is over
+        // If the drafting is over, update its state
         if (round.filledSeats == round.jurorNumber) {
-            if (round.draftTermId < termId) {
-                round.delayTerms = termId - round.draftTermId;
-            }
+            // Note that we can avoid using SafeMath here since we already ensured `termId` is greater than or equal to `round.draftTermId`
+            round.delayTerms = termId - round.draftTermId;
             dispute.state = DisputeState.Adjudicating;
             emit DisputeStateChanged(_disputeId, dispute.state);
         }
@@ -627,9 +589,29 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
         return _computeJurorWeight(disputeId, roundId, _voter);
     }
 
-    function ensureAndGetTermId() external returns (uint64) {
-        _ensureTerm();
+    /**
+    * @dev Tell and ensure the current term of the court.
+    * @return Identification number of the last ensured term
+    */
+    function ensureAndGetTermId() external ensureTerm returns (uint64) {
         return termId;
+    }
+
+    /**
+    * @dev Tell the last ensured term identification number
+    * @return Identification number of the last ensured term
+    */
+    function getLastEnsuredTermId() external view returns (uint64) {
+        return termId;
+    }
+
+    /**
+    * @dev Tell the current term identification number. Note that the current term may not be ensured yet.
+    * @return Identification number of the current term
+    */
+    function getCurrentTermId() external view returns (uint64) {
+        // We assume the term identification will never reach 2^64
+        return termId + neededTermTransitions();
     }
 
     /**
@@ -643,30 +625,38 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
     * @return Randomness computed for the requested term
     */
     function getTerm(uint64 _termId) external view returns (uint64, uint64, uint64, uint64, bytes32) {
+        // We allow querying future terms that were not computed yet
         Term storage term = terms[_termId];
         return (term.startTime, term.dependingDrafts, term.courtConfigId, term.randomnessBN, term.randomness);
     }
 
-    function getLastEnsuredTermId() external view returns (uint64) {
-        return termId;
-    }
-
-    /* Subscriptions interface */
-    function getCurrentTermId() external view returns (uint64) {
-        return termId + neededTermTransitions();
-    }
-
+    /**
+    * @dev Tell the randomness of a term even if it wasn't computed yet
+    * @param _termId ID of the term being queried
+    * @return Randomness of the requested term
+    */
     function getTermRandomness(uint64 _termId) external view returns (bytes32) {
         require(_termId <= termId, ERROR_WRONG_TERM);
         Term storage term = terms[_termId];
-
         return _getTermRandomness(term);
     }
 
+    /**
+    * @dev Tell the address of the Court governor
+    * @return Address of the Court governor
+    */
     function getGovernor() external view returns (address) {
         return governor;
     }
 
+    /**
+    * @dev Tell information of a certain dispute
+    * @param _disputeId Identification number of the dispute being queried
+    * @return subject Arbitrable subject being disputed
+    * @return possibleRulings Number of possible rulings allowed for the drafted jurors to vote on the dispute
+    * @return state Current state of the dispute being queried: pre-draft, adjudicating, or executed
+    * @return finalRuling The winning ruling in case the dispute is finished
+    */
     function getDispute(uint256 _disputeId) external disputeExists(_disputeId) view
         returns (address subject, uint8 possibleRulings, DisputeState state, uint8 finalRuling)
     {
@@ -674,15 +664,55 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
         return (dispute.subject, dispute.possibleRulings, dispute.state, dispute.finalRuling);
     }
 
-    function getAdjudicationRound(uint256 _disputeId, uint256 _roundId) external roundExists(_disputeId, _roundId) view
-        returns (uint64 draftTerm, uint64 jurorNumber, address triggeredBy, bool settledPenalties, uint256 slashedTokens)
+    /**
+    * @dev Tell information of a certain adjudication round
+    * @param _disputeId Identification number of the dispute being queried
+    * @param _roundId Identification number of the round being queried
+    * @return draftTerm Term from which the requested round can be drafted
+    * @return delayedTerms Number of terms the given round was delayed based on its requested draft term id
+    * @return jurorsNumber Number of jurors requested for the round
+    * @return selectedJurors Number of jurors already selected for the requested round
+    * @return triggeredBy Address that triggered the requested round
+    * @return settledPenalties TODO
+    * @return slashedTokens TODO
+    */
+    function getAdjudicationRound(uint256 _disputeId, uint256 _roundId) external view
+        returns (
+            uint64 draftTerm,
+            uint64 delayedTerms,
+            uint64 jurorsNumber,
+            uint64 selectedJurors,
+            address triggeredBy,
+            bool settledPenalties,
+            uint256 slashedTokens
+        )
     {
+        // TODO: could not add round exists modifier due to size limit
         AdjudicationRound storage round = disputes[_disputeId].rounds[_roundId];
-        return (round.draftTermId, round.jurorNumber, round.triggeredBy, round.settledPenalties, round.collectedTokens);
+        return (
+            round.draftTermId,
+            round.delayTerms,
+            round.jurorNumber,
+            round.filledSeats,
+            round.triggeredBy,
+            round.settledPenalties,
+            round.collectedTokens
+        );
     }
 
-    function getJurorWeight(uint256 _disputeId, uint256 _roundId, address _juror) external view returns (uint64) {
-        return _getJurorWeight(_disputeId, _roundId, _juror);
+    /**
+    * @dev Tell juror-related information of a certain adjudication round
+    * @param _disputeId Identification number of the dispute being queried
+    * @param _roundId Identification number of the round being queried
+    * @param _juror Address of the juror being queried
+    * @return weight Juror weight drafted for the requested round
+    * @return rewarded Whether or not the given juror was rewarded based on the requested round
+    */
+    function getJuror(uint256 _disputeId, uint256 _roundId, address _juror) external roundExists(_disputeId, _roundId) view
+        returns (uint64 weight, bool rewarded)
+    {
+        weight = _getJurorWeight(_disputeId, _roundId, _juror);
+        rewarded = disputes[_disputeId].rounds[_roundId].jurorSlotStates[_juror].rewarded;
     }
 
     /**
@@ -737,15 +767,6 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
         return (getTimestamp64() - currentTermStartTime) / termDuration;
     }
 
-    /**
-     * @dev This function only works for regular rounds. For final round `filledSeats` is always zero,
-     *      so the result will always be false. There is no drafting in final round.
-     */
-    function areAllJurorsDrafted(uint256 _disputeId, uint256 _roundId) public view returns (bool) {
-        AdjudicationRound storage round = disputes[_disputeId].rounds[_roundId];
-        return round.filledSeats == round.jurorNumber;
-    }
-
     function getNextAppealDetails(uint256 _disputeId, uint256 _roundId) public view
         returns (
             uint64 appealDraftTermId,
@@ -762,18 +783,30 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
         return _getNextAppealDetails(currentRound, _roundId);
     }
 
+    /**
+    * @dev Internal function to ensure the current term. If the Court term is outdated it will update it. Note that this function
+    *      only allows updating the Court by one term, if more terms are required, users will have to call the heartbeat function manually.
+    */
     function _ensureTerm() internal {
         uint64 requiredTransitions = neededTermTransitions();
-        require(requiredTransitions <= MODIFIER_ALLOWED_TERM_TRANSITIONS, ERROR_TOO_MANY_TRANSITIONS);
+        require(requiredTransitions <= MAX_AUTO_TERM_TRANSITIONS_ALLOWED, ERROR_TOO_MANY_TRANSITIONS);
 
-        if (requiredTransitions > 0) {
+        if (requiredTransitions > uint256(0)) {
             heartbeat(requiredTransitions);
         }
     }
 
+    /**
+    * @dev Internal function to ensure a certain term has its randomness set. As we allow to draft disputes requested for previous terms,
+    *      if there were mined more than 256 blocks for the current term, the blockhash of its randomness BN is no longer available, given
+    *      round will be able to be drafted in the following term.
+    * @param _term Term to be checked
+    */
     function _ensureTermRandomness(Term storage _term) internal {
         if (_term.randomness == bytes32(0)) {
-            _term.randomness = _getTermRandomness(_term);
+            bytes32 newRandomness = _getTermRandomness(_term);
+            require(newRandomness != bytes32(0), ERROR_TERM_RANDOMNESS_NOT_AVAILABLE);
+            _term.randomness = newRandomness;
         }
     }
 
@@ -859,7 +892,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
             address juror = _round.jurors[roundSettledJurors + i];
             jurors[i] = juror;
             // TODO: stack too deep
-            penalties[i] = _pct4(jurorsRegistry.minJurorsActiveBalance(), _penaltyPct) * _round.jurorSlotStates[juror].weight;
+            penalties[i] = jurorsRegistry.minJurorsActiveBalance().pct(_penaltyPct) * _round.jurorSlotStates[juror].weight;
         }
 
         // Check which of the batch of jurors voted in favor of the final ruling of the dispute in this round
@@ -918,7 +951,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
         // To guarantee scalability of the final round, since all jurors may vote, we try to collect the amount of
         // active tokens that needs to be locked for each juror when they try to commit their vote.
         uint256 activeBalance = jurorsRegistry.activeBalanceOfAt(_juror, draftTermId);
-        uint256 weightedPenalty = _pct4(activeBalance, config.penaltyPct);
+        uint256 weightedPenalty = activeBalance.pct(config.penaltyPct);
         if (!jurorsRegistry.collectTokens(_juror, weightedPenalty, termId)) {
             // If it was not possible to collect the amount to be locked, return 0 to prevent juror from voting
             return uint64(0);
@@ -949,7 +982,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
         require(configChangeTermId > termId || termId == ZERO_TERM_ID, ERROR_PAST_TERM_FEE_CHANGE);
         // We make sure that when applying penalty pct to juror min stake it doesn't result in zero
         uint256 minJurorsActiveBalance = jurorsRegistry.minJurorsActiveBalance();
-        require(uint256(_penaltyPct) * minJurorsActiveBalance >= PCT_BASE, ERROR_WRONG_PENALTY_PCT);
+        require(uint256(_penaltyPct) * minJurorsActiveBalance >= PctHelpers.base(), ERROR_WRONG_PENALTY_PCT);
         require(
             _maxRegularAppealRounds > uint32(0) && _maxRegularAppealRounds <= MAX_REGULAR_APPEAL_ROUNDS_LIMIT,
             ERROR_INVALID_MAX_APPEAL_ROUNDS
@@ -986,27 +1019,6 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
         configChangeTermId = _fromTermId;
 
         emit NewCourtConfig(_fromTermId, courtConfigId);
-    }
-
-    // TODO: stack too deep, move to a factory contract
-    function _initJurorsRegistry(IJurorsRegistry _jurorsRegistry, ERC20 _jurorToken, uint256 _minJurorsActiveBalance) internal {
-        _jurorsRegistry.init(IJurorsRegistryOwner(this), _jurorToken, _minJurorsActiveBalance);
-    }
-
-    function _initSubscriptions(ERC20 _feeToken, uint256[5] _subscriptionParams) internal {
-        require(_subscriptionParams[0] <= MAX_UINT64, ERROR_OVERFLOW); // _periodDuration
-        require(_subscriptionParams[3] <= MAX_UINT16, ERROR_OVERFLOW); // _latePaymentPenaltyPct
-        require(_subscriptionParams[4] <= MAX_UINT16, ERROR_OVERFLOW); // _governorSharePct
-        subscriptions.init(
-            ISubscriptionsOwner(this),
-            jurorsRegistry,
-            uint64(_subscriptionParams[0]), // _periodDuration
-            _feeToken,
-            _subscriptionParams[1],         // _feeAmount
-            _subscriptionParams[2],         // _prePaymentPeriods
-            uint16(_subscriptionParams[3]), // _latePaymentPenaltyPct
-            uint16(_subscriptionParams[4])  // _governorSharePct
-        );
     }
 
     function _payGeneric(ERC20 _paymentToken, uint256 _amount) internal {
@@ -1148,7 +1160,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
         feeToken = config.feeToken;
         // number of jurors is the number of times the minimum stake is hold in the registry, multiplied by a precision factor for division roundings
         // besides, apply final round discount
-        jurorFees = _pct4(_jurorNumber * config.jurorFee / FINAL_ROUND_WEIGHT_PRECISION, config.finalRoundReduction);
+        jurorFees = (_jurorNumber * config.jurorFee / FINAL_ROUND_WEIGHT_PRECISION).pct(config.finalRoundReduction);
         feeAmount = config.heartbeatFee + jurorFees;
     }
 
@@ -1236,7 +1248,59 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
         roundId = _voteId & 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF;
     }
 
-    function _pct4(uint256 _number, uint16 _pct) internal pure returns (uint256) {
-        return _number * uint256(_pct) / PCT_BASE;
+    /**
+    * @dev Private function to draft jurors for a given dispute and round. It assumes the given data is correct
+    * @param _jurorsRequested Number of jurors to be drafted for the given dispute. Note that the drafter might have requested part of the jurors number
+    * @param _disputeId Identification number of the dispute to be drafted
+    * @param _round Round of the dispute to be drafted
+    * @param _draftTerm Term in which the dispute was requested to be drafted
+    * @param _config Config of the Court at the draft term
+    */
+    function _draft(uint256 _jurorsRequested, uint256 _disputeId, AdjudicationRound storage _round, Term storage _draftTerm, CourtConfig storage _config) private {
+        // Draft jurors for the requested round
+        uint256[7] memory draftParams = [
+            uint256(_draftTerm.randomness),
+            _disputeId,
+            termId,
+            _round.filledSeats,
+            _jurorsRequested,
+            _round.jurorNumber,
+            _config.penaltyPct
+        ];
+        (address[] memory jurors, uint64[] memory weights, uint256 outputLength, uint64 selectedJurors) = jurorsRegistry.draft(draftParams);
+
+        // Update round with drafted jurors information
+        _round.filledSeats = selectedJurors;
+        for (uint256 i = 0; i < outputLength; i++) {
+            // If the juror was already registered in the list, then don't add it twice
+            address juror = jurors[i];
+            if (_round.jurorSlotStates[juror].weight == uint64(0)) {
+                _round.jurors.push(juror);
+            }
+            // We assume a juror cannot be drafted 2^64 times for a round
+            _round.jurorSlotStates[juror].weight += weights[i];
+        }
+    }
+
+    // TODO: move to a factory contract
+    function _initJurorsRegistry(IJurorsRegistry _jurorsRegistry, ERC20 _jurorToken, uint256 _minJurorsActiveBalance) private {
+        _jurorsRegistry.init(IJurorsRegistryOwner(this), _jurorToken, _minJurorsActiveBalance);
+    }
+
+    // TODO: move to a factory contract
+    function _initSubscriptions(ERC20 _feeToken, uint256[5] _subscriptionParams) private {
+        require(_subscriptionParams[0] <= MAX_UINT64, ERROR_OVERFLOW); // _periodDuration
+        require(_subscriptionParams[3] <= MAX_UINT16, ERROR_OVERFLOW); // _latePaymentPenaltyPct
+        require(_subscriptionParams[4] <= MAX_UINT16, ERROR_OVERFLOW); // _governorSharePct
+        subscriptions.init(
+            ISubscriptionsOwner(this),
+            jurorsRegistry,
+            uint64(_subscriptionParams[0]), // _periodDuration
+            _feeToken,
+            _subscriptionParams[1],         // _feeAmount
+            _subscriptionParams[2],         // _prePaymentPeriods
+            uint16(_subscriptionParams[3]), // _latePaymentPenaltyPct
+            uint16(_subscriptionParams[4])  // _governorSharePct
+        );
     }
 }

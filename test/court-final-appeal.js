@@ -44,7 +44,6 @@ const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
 contract('Court: final appeal', ([ poor, rich, juror1, juror2, juror3, juror4, juror5, juror6, juror7 ]) => {
   const jurors = [ juror1, juror2, juror3, juror4, juror5, juror6, juror7 ]
   const SETTLE_BATCH_SIZE = 40
-  let MAX_JURORS_PER_DRAFT_BATCH
 
   const termDuration = ONE_DAY
   const jurorsMinActiveBalance = 200
@@ -106,8 +105,6 @@ contract('Court: final appeal', ([ poor, rich, juror1, juror2, juror3, juror4, j
       maxRegularAppealRounds,
       jurorsMinActiveBalance,
     })
-
-    MAX_JURORS_PER_DRAFT_BATCH = (await this.court.getMaxJurorsPerDraftBatch.call()).toNumber()
 
     assert.equal(await this.jurorsRegistry.token(), this.anj.address, 'court token')
     await assertEqualBN(this.jurorsRegistry.totalActiveBalance(), 0, 'empty sum tree')
@@ -189,7 +186,7 @@ contract('Court: final appeal', ([ poor, rich, juror1, juror2, juror3, juror4, j
       await this.courtHelper.advanceBlocks(2)
 
       while (roundJurorsDrafted < roundJurors) {
-        draftReceipt = await this.court.draft(disputeId)
+        draftReceipt = await this.court.draft(disputeId, roundJurors)
         const callJurorsDrafted = getLogCount(draftReceipt, this.jurorsRegistry.abi, JUROR_DRAFTED_EVENT)
         roundJurorsDrafted += callJurorsDrafted
       }

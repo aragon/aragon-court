@@ -6,6 +6,7 @@ import "@aragon/os/contracts/common/IsContract.sol";
 import "@aragon/os/contracts/lib/math/SafeMath.sol";
 import "@aragon/os/contracts/common/TimeHelpers.sol";
 
+import "./lib/PctHelpers.sol";
 import "./standards/erc900/IJurorsRegistry.sol";
 import "./standards/subscription/ISubscriptions.sol";
 import "./standards/subscription/ISubscriptionsOwner.sol";
@@ -14,8 +15,8 @@ import "./standards/subscription/ISubscriptionsOwner.sol";
 contract CourtSubscriptions is IsContract, ISubscriptions, TimeHelpers {
     using SafeERC20 for ERC20;
     using SafeMath for uint256;
+    using PctHelpers for uint256;
 
-    uint256 internal constant PCT_BASE = 10000; // ‱
     uint64 internal constant START_TERM_ID = 1; // term 0 is for jurors onboarding
 
     string internal constant ERROR_NOT_GOVERNOR = "SUB_NOT_GOVERNOR";
@@ -129,7 +130,7 @@ contract CourtSubscriptions is IsContract, ISubscriptions, TimeHelpers {
 
         // governor fee
         // as _periods and feeAmount are > 0, amountToPay will be > 0 and newLastPeriod > subscriber.lastPaymentPeriodId
-        uint256 governorFee = _pct4(amountToPay, governorSharePct);
+        uint256 governorFee = amountToPay.pct(governorSharePct);
         accumulatedGovernorFees += governorFee;
 
         // amount collected for the current period to share among jurors
@@ -352,7 +353,7 @@ contract CourtSubscriptions is IsContract, ISubscriptions, TimeHelpers {
     }
 
     function _setGovernorSharePct(uint16 _governorSharePct) internal {
-        require(_governorSharePct <= PCT_BASE, ERROR_OVERFLOW);
+        require(_governorSharePct <= PctHelpers.base(), ERROR_OVERFLOW);
         governorSharePct = _governorSharePct;
     }
 
@@ -443,7 +444,7 @@ contract CourtSubscriptions is IsContract, ISubscriptions, TimeHelpers {
         require(newLastPeriodId <= _currentPeriodId || newLastPeriodId.sub(_currentPeriodId) < prePaymentPeriods, ERROR_TOO_MANY_PERIODS);
 
         // delayedPeriods * _feeAmount * (1 +  latePaymentPenaltyPct/PCT_BASE) + regularPeriods * _feeAmount
-        amountToPay = _pct4Increase(delayedPeriods.mul(_feeAmount), latePaymentPenaltyPct).add(regularPeriods.mul(_feeAmount));
+        amountToPay = delayedPeriods.mul(_feeAmount).pctIncrease(latePaymentPenaltyPct).add(regularPeriods.mul(_feeAmount));
     }
 
     function _getPeriodBalanceDetails(uint256 _periodId) internal view returns (uint64 periodBalanceCheckpoint, uint256 totalActiveBalance) {
@@ -484,13 +485,5 @@ contract CourtSubscriptions is IsContract, ISubscriptions, TimeHelpers {
 
         // juror fee share
         return _period.collectedFees.mul(jurorActiveBalance) / _totalActiveBalance;
-    }
-
-    function _pct4(uint256 _number, uint16 _pct) internal pure returns (uint256) {
-        return _number.mul(uint256(_pct)) / PCT_BASE;
-    }
-
-    function _pct4Increase(uint256 _number, uint16 _pct) internal pure returns (uint256) {
-        return _number.mul((PCT_BASE + uint256(_pct))) / PCT_BASE;
     }
 }

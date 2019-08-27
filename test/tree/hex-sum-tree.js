@@ -399,6 +399,7 @@ contract('HexSumTree', () => {
           })
 
           it('reverts', async () => {
+            await assertRevert(tree.update(key, time + 1, 1, true), 'CHECKPOINT_VALUE_TOO_BIG')
             await assertRevert(tree.update(key, time + 1, MAX_UINT256, true), 'SUM_TREE_UPDATE_OVERFLOW')
             await assertRevert(tree.update(key, time + 1, MAX_UINT256, false), 'CHECKPOINT_VALUE_TOO_BIG')
           })
@@ -632,7 +633,7 @@ contract('HexSumTree', () => {
     })
   })
 
-  describe('search', () => {
+  describe.only('search', () => {
     const insertTime = 10
 
     beforeEach('init tree', async () => {
@@ -644,14 +645,8 @@ contract('HexSumTree', () => {
       const searchValues = [value]
 
       context('when there was no value inserted in the tree', async () => {
-        it('returns zero', async () => {
-          const [keys, values] = await tree.search(searchValues, insertTime)
-
-          assert.equal(keys.length, 1, 'result keys length does not match')
-          assert.equal(values.length, 1, 'result values length does not match')
-
-          assert.equal(keys[0].toString(), 0, 'result key does not match')
-          assert.equal(values[0].toString(), 0, 'result value does not match')
+        it('reverts', async () => {
+          await assertRevert(tree.search(searchValues, insertTime), 'SUM_TREE_SEARCH_OUT_OF_BOUNDS')
         })
       })
 
@@ -664,28 +659,16 @@ contract('HexSumTree', () => {
           context('when there is no value registered for the given time', async () => {
             const searchTime = insertTime - 1
 
-            it('returns zero', async () => {
-              const [keys, values] = await tree.search(searchValues, searchTime)
-
-              assert.equal(keys.length, 1, 'result keys length does not match')
-              assert.equal(values.length, 1, 'result values length does not match')
-
-              assert.equal(keys[0].toString(), 0, 'result key does not match')
-              assert.equal(values[0].toString(), 0, 'result value does not match')
+            it('reverts', async () => {
+              await assertRevert(tree.search(searchValues, searchTime), 'SUM_TREE_SEARCH_OUT_OF_BOUNDS')
             })
           })
 
           context('when there is a value registered for the given time', async () => {
             const searchTime = insertTime
 
-            it('returns zero', async () => {
-              const [keys, values] = await tree.search(searchValues, searchTime)
-
-              assert.equal(keys.length, 1, 'result keys length does not match')
-              assert.equal(values.length, 1, 'result values length does not match')
-
-              assert.equal(keys[0].toString(), 0, 'result key does not match')
-              assert.equal(values[0].toString(), 0, 'result value does not match')
+            it('reverts', async () => {
+              await assertRevert(tree.search(searchValues, searchTime), 'SUM_TREE_SEARCH_OUT_OF_BOUNDS')
             })
           })
         })
@@ -698,14 +681,8 @@ contract('HexSumTree', () => {
           context('when there is no value registered for the given time', async () => {
             const searchTime = insertTime - 1
 
-            it('returns zero', async () => {
-              const [keys, values] = await tree.search(searchValues, searchTime)
-
-              assert.equal(keys.length, 1, 'result keys length does not match')
-              assert.equal(values.length, 1, 'result values length does not match')
-
-              assert.equal(keys[0].toString(), 0, 'result key does not match')
-              assert.equal(values[0].toString(), 0, 'result value does not match')
+            it('reverts', async () => {
+              await assertRevert(tree.search(searchValues, searchTime), 'SUM_TREE_SEARCH_OUT_OF_BOUNDS')
             })
           })
 
@@ -732,21 +709,14 @@ contract('HexSumTree', () => {
           context('when there is no value registered for the given time', async () => {
             const searchTime = insertTime - 1
 
-            it('returns zero', async () => {
-              const [keys, values] = await tree.search(searchValues, searchTime)
-
-              assert.equal(keys.length, 1, 'result keys length does not match')
-              assert.equal(values.length, 1, 'result values length does not match')
-
-              assert.equal(keys[0].toString(), 0, 'result key does not match')
-              assert.equal(values[0].toString(), 0, 'result value does not match')
+            it('reverts', async () => {
+              await assertRevert(tree.search(searchValues, searchTime), 'SUM_TREE_SEARCH_OUT_OF_BOUNDS')
             })
           })
 
           context('when there is a value registered for the given time', async () => {
             const searchTime = insertTime
 
-            // TODO: this scenario is not passing but it should
             it('returns the first item', async () => {
               const [keys, values] = await tree.search(searchValues, searchTime)
 
@@ -762,12 +732,12 @@ contract('HexSumTree', () => {
 
       context('when there were many values inserted in the tree', async () => {
         context('when the total does not reach the searched value', async () => {
-          beforeEach('insert value', async () => {
-            await tree.insert(insertTime, 3)
-            await tree.insert(insertTime, 4)
-            await tree.insert(insertTime, 2)
-            await tree.insert(insertTime, 1)
-            await tree.insert(insertTime, 2)
+          const insertedItems = [3, 4, 2, 1, 2]
+
+          beforeEach('insert values', async () => {
+            for (let i = 0; i < insertedItems.length; i++) {
+              await tree.insert(insertTime, insertedItems[i])
+            }
 
             assert.isAbove(value, (await tree.totalAt(insertTime)).toNumber(), 'tree total does not match')
           })
@@ -775,40 +745,27 @@ contract('HexSumTree', () => {
           context('when there is no value registered for the given time', async () => {
             const searchTime = insertTime - 1
 
-            it('returns zero', async () => {
-              const [keys, values] = await tree.search(searchValues, searchTime)
-
-              assert.equal(keys.length, 1, 'result keys length does not match')
-              assert.equal(values.length, 1, 'result values length does not match')
-
-              assert.equal(keys[0].toString(), 0, 'result key does not match')
-              assert.equal(values[0].toString(), 0, 'result value does not match')
+            it('reverts', async () => {
+              await assertRevert(tree.search(searchValues, searchTime), 'SUM_TREE_SEARCH_OUT_OF_BOUNDS')
             })
           })
 
           context('when there is a value registered for the given time', async () => {
             const searchTime = insertTime
 
-            it('returns zero', async () => {
-              const [keys, values] = await tree.search(searchValues, searchTime)
-
-              assert.equal(keys.length, 1, 'result keys length does not match')
-              assert.equal(values.length, 1, 'result values length does not match')
-
-              assert.equal(keys[0].toString(), 0, 'result key does not match')
-              assert.equal(values[0].toString(), 0, 'result value does not match')
+            it('reverts', async () => {
+              await assertRevert(tree.search(searchValues, searchTime), 'SUM_TREE_SEARCH_OUT_OF_BOUNDS')
             })
           })
         })
 
         context('when the total is equal to the searched value', async () => {
+          const insertedItems = [3, 4, 2, 1, 2, 3]
+
           beforeEach('insert values', async () => {
-            await tree.insert(insertTime, 3)
-            await tree.insert(insertTime, 4)
-            await tree.insert(insertTime, 2)
-            await tree.insert(insertTime, 1)
-            await tree.insert(insertTime, 2)
-            await tree.insert(insertTime, 3)
+            for (let i = 0; i < insertedItems.length; i++) {
+              await tree.insert(insertTime, insertedItems[i])
+            }
 
             assert.equal((await tree.totalAt(insertTime)).toString(), value, 'tree total does not match')
           })
@@ -816,14 +773,8 @@ contract('HexSumTree', () => {
           context('when there is no value registered for the given time', async () => {
             const searchTime = insertTime - 1
 
-            it('returns zero', async () => {
-              const [keys, values] = await tree.search(searchValues, searchTime)
-
-              assert.equal(keys.length, 1, 'result keys length does not match')
-              assert.equal(values.length, 1, 'result values length does not match')
-
-              assert.equal(keys[0].toString(), 0, 'result key does not match')
-              assert.equal(values[0].toString(), 0, 'result value does not match')
+            it('reverts', async () => {
+              await assertRevert(tree.search(searchValues, searchTime), 'SUM_TREE_SEARCH_OUT_OF_BOUNDS')
             })
           })
 
@@ -843,16 +794,12 @@ contract('HexSumTree', () => {
         })
 
         context('when the total is greater than the searched value', async () => {
+          const insertedItems = [3, 4, 2, 1, 2, 4, 5, 8, 1]
+
           beforeEach('insert values', async () => {
-            await tree.insert(insertTime, 3)
-            await tree.insert(insertTime, 4)
-            await tree.insert(insertTime, 2)
-            await tree.insert(insertTime, 1)
-            await tree.insert(insertTime, 2)
-            await tree.insert(insertTime, 4)
-            await tree.insert(insertTime, 5)
-            await tree.insert(insertTime, 8)
-            await tree.insert(insertTime, 1)
+            for (let i = 0; i < insertedItems.length; i++) {
+              await tree.insert(insertTime, insertedItems[i])
+            }
 
             assert.isAtMost(value, (await tree.totalAt(insertTime)).toNumber(), 'tree total does not match')
           })
@@ -860,14 +807,8 @@ contract('HexSumTree', () => {
           context('when there is no value registered for the given time', async () => {
             const searchTime = insertTime - 1
 
-            it('returns zero', async () => {
-              const [keys, values] = await tree.search(searchValues, searchTime)
-
-              assert.equal(keys.length, 1, 'result keys length does not match')
-              assert.equal(values.length, 1, 'result values length does not match')
-
-              assert.equal(keys[0].toString(), 0, 'result key does not match')
-              assert.equal(values[0].toString(), 0, 'result value does not match')
+            it('reverts', async () => {
+              await assertRevert(tree.search(searchValues, searchTime), 'SUM_TREE_SEARCH_OUT_OF_BOUNDS')
             })
           })
 
@@ -881,7 +822,7 @@ contract('HexSumTree', () => {
               assert.equal(values.length, 1, 'result values length does not match')
 
               assert.equal(keys[0].toString(), 5, 'result key does not match')
-              assert.equal(values[0].toString(), 4, 'result value does not match')
+              assert.equal(values[0].toString(), insertedItems[5], 'result value does not match')
             })
           })
         })
@@ -892,16 +833,12 @@ contract('HexSumTree', () => {
       context('without checkpointing', async () => {
         context('when all values are included in the tree', () => {
           const searchValues = [1, 5, 8, 18, 22]
+          const insertedItems = [2, 1, 4, 1, 8, 6, 7, 1]
 
           beforeEach('insert values', async () => {
-            await tree.insert(insertTime, 2) // 2
-            await tree.insert(insertTime, 1) // 3
-            await tree.insert(insertTime, 4) // 7
-            await tree.insert(insertTime, 1) // 8
-            await tree.insert(insertTime, 8) // 16
-            await tree.insert(insertTime, 6) // 22
-            await tree.insert(insertTime, 7) // 29
-            await tree.insert(insertTime, 1) // 30
+            for (let i = 0; i < insertedItems.length; i++) {
+              await tree.insert(insertTime, insertedItems[i])
+            }
 
             assert.isAtMost(searchValues[searchValues.length - 1], (await tree.totalAt(insertTime)).toNumber(), 'tree total does not match')
           })
@@ -909,26 +846,8 @@ contract('HexSumTree', () => {
           context('when there is no value registered for the given time', async () => {
             const searchTime = insertTime - 1
 
-            it('returns zero', async () => {
-              const [keys, values] = await tree.search(searchValues, searchTime)
-
-              assert.equal(keys.length, searchValues.length, 'result keys length does not match')
-              assert.equal(values.length, searchValues.length, 'result values length does not match')
-
-              assert.equal(keys[0].toString(), 0, 'first result key does not match')
-              assert.equal(values[0].toString(), 0, 'first result value does not match')
-
-              assert.equal(keys[1].toString(), 0, 'second result key does not match')
-              assert.equal(values[1].toString(), 0, 'second result value does not match')
-
-              assert.equal(keys[2].toString(), 0, 'third result key does not match')
-              assert.equal(values[2].toString(), 0, 'third result value does not match')
-
-              assert.equal(keys[3].toString(), 0, 'fourth result key does not match')
-              assert.equal(values[3].toString(), 0, 'fourth result value does not match')
-
-              assert.equal(keys[4].toString(), 0, 'fifth result key does not match')
-              assert.equal(values[4].toString(), 0, 'fifth result value does not match')
+            it('reverts', async () => {
+              await assertRevert(tree.search(searchValues, searchTime), 'SUM_TREE_SEARCH_OUT_OF_BOUNDS')
             })
           })
 
@@ -942,92 +861,46 @@ contract('HexSumTree', () => {
               assert.equal(values.length, searchValues.length, 'result values length does not match')
 
               assert.equal(keys[0].toString(), 0, 'first result key does not match')
-              assert.equal(values[0].toString(), 2, 'first result value does not match')
+              assert.equal(values[0].toString(), insertedItems[0], 'first result value does not match')
 
               assert.equal(keys[1].toString(), 2, 'second result key does not match')
-              assert.equal(values[1].toString(), 4, 'second result value does not match')
+              assert.equal(values[1].toString(), insertedItems[2], 'second result value does not match')
 
               assert.equal(keys[2].toString(), 3, 'third result key does not match')
-              assert.equal(values[2].toString(), 1, 'third result value does not match')
+              assert.equal(values[2].toString(), insertedItems[3], 'third result value does not match')
 
               assert.equal(keys[3].toString(), 5, 'fourth result key does not match')
-              assert.equal(values[3].toString(), 6, 'fourth result value does not match')
+              assert.equal(values[3].toString(), insertedItems[5], 'fourth result value does not match')
 
               assert.equal(keys[4].toString(), 5, 'fifth result key does not match')
-              assert.equal(values[4].toString(), 6, 'fifth result value does not match')
+              assert.equal(values[4].toString(), insertedItems[5], 'fifth result value does not match')
             })
           })
         })
 
         context('when some values are not included in the tree', () => {
           const searchValues = [1, 5, 8, 18, 22, 31]
+          const insertedItems = [2, 1, 4, 1, 8, 6, 7, 1]
 
           beforeEach('insert values', async () => {
-            await tree.insert(insertTime, 2) // 2
-            await tree.insert(insertTime, 1) // 3
-            await tree.insert(insertTime, 4) // 7
-            await tree.insert(insertTime, 1) // 8
-            await tree.insert(insertTime, 8) // 16
-            await tree.insert(insertTime, 6) // 22
-            await tree.insert(insertTime, 7) // 29
-            await tree.insert(insertTime, 1) // 30
+            for (let i = 0; i < insertedItems.length; i++) {
+              await tree.insert(insertTime, insertedItems[i])
+            }
           })
 
           context('when there is no value registered for the given time', async () => {
             const searchTime = insertTime - 1
 
-            it('returns zero', async () => {
-              const [keys, values] = await tree.search(searchValues, searchTime)
-
-              assert.equal(keys.length, searchValues.length, 'result keys length does not match')
-              assert.equal(values.length, searchValues.length, 'result values length does not match')
-
-              assert.equal(keys[0].toString(), 0, 'first result key does not match')
-              assert.equal(values[0].toString(), 0, 'first result value does not match')
-
-              assert.equal(keys[1].toString(), 0, 'second result key does not match')
-              assert.equal(values[1].toString(), 0, 'second result value does not match')
-
-              assert.equal(keys[2].toString(), 0, 'third result key does not match')
-              assert.equal(values[2].toString(), 0, 'third result value does not match')
-
-              assert.equal(keys[3].toString(), 0, 'fourth result key does not match')
-              assert.equal(values[3].toString(), 0, 'fourth result value does not match')
-
-              assert.equal(keys[4].toString(), 0, 'fifth result key does not match')
-              assert.equal(values[4].toString(), 0, 'fifth result value does not match')
-
-              assert.equal(keys[5].toString(), 0, 'sixth result key does not match')
-              assert.equal(values[5].toString(), 0, 'sixth result value does not match')
+            it('reverts', async () => {
+              await assertRevert(tree.search(searchValues, searchTime), 'SUM_TREE_SEARCH_OUT_OF_BOUNDS')
             })
           })
 
           context('when there is a value registered for the given time', async () => {
             const searchTime = insertTime
 
-            it('returns the expected items', async () => {
-              const [keys, values] = await tree.search(searchValues, searchTime)
-
-              assert.equal(keys.length, searchValues.length, 'result keys length does not match')
-              assert.equal(values.length, searchValues.length, 'result values length does not match')
-
-              assert.equal(keys[0].toString(), 0, 'first result key does not match')
-              assert.equal(values[0].toString(), 2, 'first result value does not match')
-
-              assert.equal(keys[1].toString(), 2, 'second result key does not match')
-              assert.equal(values[1].toString(), 4, 'second result value does not match')
-
-              assert.equal(keys[2].toString(), 3, 'third result key does not match')
-              assert.equal(values[2].toString(), 1, 'third result value does not match')
-
-              assert.equal(keys[3].toString(), 5, 'fourth result key does not match')
-              assert.equal(values[3].toString(), 6, 'fourth result value does not match')
-
-              assert.equal(keys[4].toString(), 5, 'fifth result key does not match')
-              assert.equal(values[4].toString(), 6, 'fifth result value does not match')
-
-              assert.equal(keys[5].toString(), 0, 'sixth result key does not match')
-              assert.equal(values[5].toString(), 0, 'sixth result value does not match')
+            it('reverts', async () => {
+              await assertRevert(tree.search(searchValues, searchTime), 'SUM_TREE_SEARCH_OUT_OF_BOUNDS')
             })
           })
         })

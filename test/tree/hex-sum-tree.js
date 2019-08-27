@@ -633,7 +633,7 @@ contract('HexSumTree', () => {
     })
   })
 
-  describe.only('search', () => {
+  describe('search', () => {
     const insertTime = 10
 
     beforeEach('init tree', async () => {

@@ -27,14 +27,15 @@ contract JurorsRegistry is Initializable, IsContract, IJurorsRegistry, ERC900, A
     string internal constant ERROR_INVALID_ZERO_AMOUNT = "JR_INVALID_ZERO_AMOUNT";
     string internal constant ERROR_INVALID_ACTIVATION_AMOUNT = "JR_INVALID_ACTIVATION_AMOUNT";
     string internal constant ERROR_INVALID_DEACTIVATION_AMOUNT = "JR_INVALID_DEACTIVATION_AMOUNT";
+    string internal constant ERROR_INVALID_LOCKED_AMOUNTS_LENGTH = "JR_INVALID_LOCKED_AMOUNTS_LEN";
+    string internal constant ERROR_INVALID_REWARDED_JURORS_LENGTH = "JR_INVALID_REWARDED_JURORS_LEN";
     string internal constant ERROR_ACTIVE_BALANCE_BELOW_MIN = "JR_ACTIVE_BALANCE_BELOW_MIN";
     string internal constant ERROR_NOT_ENOUGH_AVAILABLE_BALANCE = "JR_NOT_ENOUGH_AVAILABLE_BALANCE";
     string internal constant ERROR_CANNOT_REDUCE_DEACTIVATION_REQUEST = "JR_CANT_REDUCE_DEACTIVATION_REQ";
     string internal constant ERROR_TOKEN_TRANSFER_FAILED = "JR_TOKEN_TRANSFER_FAILED";
     string internal constant ERROR_TOKEN_APPROVE_NOT_ALLOWED = "JR_TOKEN_APPROVE_NOT_ALLOWED";
-    string internal constant ERROR_SORTITION_LENGTHS_MISMATCH = "JR_SORTITION_LENGTHS_MISMATCH";
 
-    uint256 internal constant PCT_BASE = 10000; // %
+    uint256 internal constant PCT_BASE = 10000; // ‱ = 1 / 10,000
     address internal constant BURN_ACCOUNT = 0xdead;
 
     /**
@@ -216,37 +217,35 @@ contract JurorsRegistry is Initializable, IsContract, IJurorsRegistry, ERC900, A
     *
     * @return jurors List of jurors selected for the draft
     * @return weights List of weights corresponding to each juror
-    * @return jurorsLength Number of jurors selected for the draft // TODO: shouldn't this be eq to jurors.length?
-    * @return filledSeats Number of seats filled for the draft
+    * @return outputLength Size of the list of the draft result
+    * @return selectedJurors Number of seats selected for the draft
     */
     function draft(uint256[7] _params) external onlyOwner
-        returns (address[] jurors, uint64[] weights, uint256 jurorsLength, uint64 filledSeats)
+        returns (address[] jurors, uint64[] weights, uint256 outputLength, uint64 selectedJurors)
     {
-        uint256 roundSeatsLeft = _params[4]; // _jurorsRequested
-        jurors = new address[](roundSeatsLeft);
-        weights = new uint64[](roundSeatsLeft);
-        filledSeats = uint64(_params[3]); // _filledSeats
+        uint256 batchRequestedJurors = _params[4];
+        jurors = new address[](batchRequestedJurors);
+        weights = new uint64[](batchRequestedJurors);
+        selectedJurors = uint64(_params[3]);
 
-        // to add "randomness" to sortition call in order to avoid getting stuck by
-        // getting the same overleveraged juror over and over
-        uint256 sortitionIteration = 0;
-
-        while (roundSeatsLeft > 0) {
+        // Jurors returned by the tree multi-sortition may not have enough unlocked active balance to be drafted. Thus,
+        // we compute several sortitions until all the requested jurors are selected. To guarantee a different set of
+        // jurors on each sortition, the iteration number will be part of the random seed to be used in the sortition.
+        // Note that this loop could end with an OOG error.
+        for (uint256 sortitionIteration = 0; batchRequestedJurors > 0; sortitionIteration++) {
             uint256[7] memory treeSearchParams = [
-                _params[0], // _randomness
-                _params[1], // _disputeId
-                _params[2], // _termId
-                filledSeats,
-                roundSeatsLeft,
-                _params[5], // _jurorNumber
+                _params[0],           // _termRandomness
+                _params[1],           // _disputeId
+                _params[2],           // _termId
+                selectedJurors,
+                batchRequestedJurors,
+                _params[5],           // _roundRequestedJurors
                 sortitionIteration
             ];
 
-            (uint256[] memory jurorIds, uint256[] memory stakes) = _treeSearch(treeSearchParams);
-            require(jurorIds.length == stakes.length, ERROR_SORTITION_LENGTHS_MISMATCH);
-            require(jurorIds.length == roundSeatsLeft, ERROR_SORTITION_LENGTHS_MISMATCH);
-
+            (uint256[] memory jurorIds, uint256[] memory activeBalances) = _treeSearch(treeSearchParams);
             for (uint256 i = 0; i < jurorIds.length; i++) {
+                // We assume the selected jurors are registered in the registry, we are not checking their addresses exist
                 address juror = jurorsAddressById[jurorIds[i]];
                 Juror storage _juror = jurorsByAddress[juror];
                 uint256 newLockedBalance = _juror.lockedBalance.add(_draftLockAmount(uint16(_params[6]))); // _penaltyPct
@@ -255,27 +254,26 @@ contract JurorsRegistry is Initializable, IsContract, IJurorsRegistry, ERC900, A
                 // otherwise. Note that there's no need to check deactivation requests since these always apply
                 // for the next term, while drafts are always computed for the current term with the active balances
                 // which always remain constant for the current term.
-                if (stakes[i] >= newLockedBalance) {
+                if (activeBalances[i] >= newLockedBalance) {
                     _juror.lockedBalance = newLockedBalance;
 
                     // Check repeated juror, we assume jurors come ordered from tree search. Note that since the tree
                     // search can be called more than once, if some juror doesn't have enough balance, the final
                     // result of this function may not be ordered and contain repeated entries.
-                    if (jurorsLength > 0 && jurors[jurorsLength - 1] == juror) {
-                        weights[jurorsLength - 1]++;
+                    if (outputLength > 0 && jurors[outputLength - 1] == juror) {
+                        weights[outputLength - 1]++;
                     } else {
-                        jurors[jurorsLength] = juror;
-                        weights[jurorsLength]++;
-                        jurorsLength++;
+                        jurors[outputLength] = juror;
+                        weights[outputLength]++;
+                        outputLength++;
                     }
-                    filledSeats++;
+                    selectedJurors++;
 
                     //                _disputeId
                     emit JurorDrafted(_params[1], juror);
-                    roundSeatsLeft--;
+                    batchRequestedJurors--;
                 }
             }
-            sortitionIteration++;
         }
     }
 
@@ -293,9 +291,8 @@ contract JurorsRegistry is Initializable, IsContract, IJurorsRegistry, ERC900, A
         onlyOwner
         returns (uint256)
     {
-        // TODO: should we add validations for this?
-        // we assume this: require(_jurors.length == _slashJurors.length);
-        // we assume this: require(_jurors.length == _lockedAmounts.length);
+        require(_jurors.length == _lockedAmounts.length, ERROR_INVALID_LOCKED_AMOUNTS_LENGTH);
+        require(_jurors.length == _rewardedJurors.length, ERROR_INVALID_REWARDED_JURORS_LENGTH);
 
         uint64 nextTermId = _termId + 1;
         uint256 collectedTokens;

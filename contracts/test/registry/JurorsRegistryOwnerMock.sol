@@ -8,8 +8,9 @@ contract JurorsRegistryOwnerMock is IJurorsRegistryOwner {
     uint64 internal termId;
     IJurorsRegistry internal registry;
 
-    event Slashed(uint256 collectedTokens);
+    event Slashed(uint256 collected);
     event Collected(bool collected);
+    event Drafted(address[] addresses, uint64[] weights, uint256 outputLength, uint64 selectedJurors);
 
     constructor(IJurorsRegistry _registry) public {
         registry = _registry;
@@ -35,13 +36,36 @@ contract JurorsRegistryOwnerMock is IJurorsRegistryOwner {
         registry.burnTokens(_amount);
     }
 
-    function slashOrUnlock(address[] _jurors, uint256[] _penalties, bool[] _slashJurors) public {
-        uint256 collectedTokens = registry.slashOrUnlock(termId, _jurors, _penalties, _slashJurors);
+    function slashOrUnlock(address[] _jurors, uint256[] _lockedAmounts, bool[] _rewardedJurors) public {
+        uint256 collectedTokens = registry.slashOrUnlock(termId, _jurors, _lockedAmounts, _rewardedJurors);
         emit Slashed(collectedTokens);
     }
 
     function collect(address _juror, uint256 _amount) public {
         bool collected = registry.collectTokens(_juror, _amount, termId);
         emit Collected(collected);
+    }
+
+    function draft(
+        bytes32 _termRandomness,
+        uint256 _disputeId,
+        uint256 _selectedJurors,
+        uint256 _batchRequestedJurors,
+        uint64 _roundRequestedJurors,
+        uint16 _lockPct
+    )
+        public
+    {
+        uint256[7] memory draftParams = [
+            uint256(_termRandomness),
+            _disputeId,
+            termId,
+            _selectedJurors,
+            _batchRequestedJurors,
+            _roundRequestedJurors,
+            _lockPct
+        ];
+        (address[] memory jurors, uint64[] memory weights, uint256 outputLength, uint64 selectedJurors) = registry.draft(draftParams);
+        emit Drafted(jurors, weights, outputLength, selectedJurors);
     }
 }

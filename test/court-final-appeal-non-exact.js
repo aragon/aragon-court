@@ -102,7 +102,7 @@ contract('Court: final appeal (non-exact)', ([ poor, rich, juror1, juror2, juror
       jurorsMinActiveBalance,
     })
 
-    await this.jurorsRegistry.mock_hijackTreeSearch()
+    await this.jurorsRegistry.mockHijackTreeSearch()
 
     assert.equal(await this.jurorsRegistry.token(), this.anj.address, 'court token')
     await assertEqualBN(this.jurorsRegistry.totalActiveBalance(), 0, 'empty sum tree')

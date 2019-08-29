@@ -9,7 +9,6 @@ const MiniMeToken = artifacts.require('MiniMeToken')
 const JurorsRegistryOwnerMock = artifacts.require('JurorsRegistryOwnerMock')
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
-const EMPTY_RANDOMNESS = '0x0000000000000000000000000000000000000000000000000000000000000000'
 
 contract('JurorsRegistry drafting', ([_, juror500, juror1000, juror1500, juror2000, juror2500, juror3000, juror3500, juror4000]) => {
   let registry, registryOwner, ANJ
@@ -29,6 +28,10 @@ contract('JurorsRegistry drafting', ([_, juror500, juror1000, juror1500, juror20
     { address: juror4000, initialActiveBalance: bigExp(4000, 18) },
   ]
 
+  /** These tests are using a fixed seed to make sure we generate the same output on each run */
+  const DISPUTE_ID = 0
+  const EMPTY_RANDOMNESS = '0x0000000000000000000000000000000000000000000000000000000000000000'
+
   beforeEach('create base contracts', async () => {
     registry = await JurorsRegistry.new()
     registryOwner = await JurorsRegistryOwnerMock.new(registry.address)
@@ -36,7 +39,7 @@ contract('JurorsRegistry drafting', ([_, juror500, juror1000, juror1500, juror20
   })
 
   describe('draft', () => {
-    const draft = async ({ termRandomness = EMPTY_RANDOMNESS, disputeId = 0, selectedJurors = 0, batchRequestedJurors, roundRequestedJurors }) => {
+    const draft = async ({ termRandomness = EMPTY_RANDOMNESS, disputeId = DISPUTE_ID, selectedJurors = 0, batchRequestedJurors, roundRequestedJurors }) => {
       return registryOwner.draft(termRandomness, disputeId, selectedJurors, batchRequestedJurors, roundRequestedJurors, DRAFT_LOCK_PCT)
     }
 
@@ -49,10 +52,10 @@ contract('JurorsRegistry drafting', ([_, juror500, juror1000, juror1500, juror20
       })
 
       context('when the sender is the registry owner', () => {
-        const itReverts = (batchRequestedJurors, roundRequestedJurors) => {
+        const itReverts = (previousSelectedJurors, batchRequestedJurors, roundRequestedJurors) => {
           // NOTE: this scenario is not being handled, the registry trusts the input from the owner and the tree
           it('reverts', async () => {
-            await assertRevert(draft({ batchRequestedJurors, roundRequestedJurors }))
+            await assertRevert(draft({ previousSelectedJurors, batchRequestedJurors, roundRequestedJurors }))
           })
         }
 
@@ -77,6 +80,12 @@ contract('JurorsRegistry drafting', ([_, juror500, juror1000, juror1500, juror20
         }
 
         const itReturnsExpectedJurors = ({ termRandomness = EMPTY_RANDOMNESS, disputeId = 0, previousSelectedJurors = 0, batchRequestedJurors, roundRequestedJurors }, expectedAddresses, expectedWeights) => {
+          if (previousSelectedJurors > 0) {
+            beforeEach('run previous batch', async () => {
+              await draft({ termRandomness, disputeId, previousSelectedJurors: 0, batchRequestedJurors: previousSelectedJurors, roundRequestedJurors })
+            })
+          }
+
           it('returns the expected jurors', async () => {
             const receipt = await draft({ termRandomness, disputeId, previousSelectedJurors, batchRequestedJurors, roundRequestedJurors })
             const { addresses, weights, outputLength, selectedJurors } = getEventAt(receipt, 'Drafted').args
@@ -145,14 +154,16 @@ contract('JurorsRegistry drafting', ([_, juror500, juror1000, juror1500, juror20
 
             context('for the first batch', () => {
               const batchRequestedJurors = 3
+              const previousSelectedJurors = 0
 
-              itReverts(batchRequestedJurors, roundRequestedJurors)
+              itReverts(previousSelectedJurors, batchRequestedJurors, roundRequestedJurors)
             })
 
             context('for the second batch', () => {
               const batchRequestedJurors = 7
+              const previousSelectedJurors = 3
 
-              itReverts(batchRequestedJurors, roundRequestedJurors)
+              itReverts(previousSelectedJurors, batchRequestedJurors, roundRequestedJurors)
             })
           })
         })
@@ -176,14 +187,16 @@ contract('JurorsRegistry drafting', ([_, juror500, juror1000, juror1500, juror20
               context('when the juror is activated for the following term', () => {
                 context('for the first batch', () => {
                   const batchRequestedJurors = 3
+                  const previousSelectedJurors = 0
 
-                  itReverts(batchRequestedJurors, roundRequestedJurors)
+                  itReverts(previousSelectedJurors, batchRequestedJurors, roundRequestedJurors)
                 })
 
                 context('for the second batch', () => {
                   const batchRequestedJurors = 7
+                  const previousSelectedJurors = 3
 
-                  itReverts(batchRequestedJurors, roundRequestedJurors)
+                  itReverts(previousSelectedJurors, batchRequestedJurors, roundRequestedJurors)
                 })
               })
 
@@ -195,20 +208,22 @@ contract('JurorsRegistry drafting', ([_, juror500, juror1000, juror1500, juror20
                 context('when juror has enough unlocked balance to be drafted', () => {
                   context('for the first batch', () => {
                     const batchRequestedJurors = 3
+                    const previousSelectedJurors = 0
 
                     const expectedWeights = [3]
                     const expectedAddresses = [juror500]
 
-                    itReturnsExpectedJurors({ batchRequestedJurors, roundRequestedJurors }, expectedAddresses, expectedWeights)
+                    itReturnsExpectedJurors({ previousSelectedJurors, batchRequestedJurors, roundRequestedJurors }, expectedAddresses, expectedWeights)
                   })
 
                   context('for the second batch', () => {
                     const batchRequestedJurors = 7
+                    const previousSelectedJurors = 3
 
                     const expectedWeights = [7]
                     const expectedAddresses = [juror500]
 
-                    itReturnsExpectedJurors({ batchRequestedJurors, roundRequestedJurors }, expectedAddresses, expectedWeights)
+                    itReturnsExpectedJurors({ previousSelectedJurors, batchRequestedJurors, roundRequestedJurors }, expectedAddresses, expectedWeights)
                   })
                 })
 
@@ -218,7 +233,7 @@ contract('JurorsRegistry drafting', ([_, juror500, juror1000, juror1500, juror20
                     await draft({ batchRequestedJurors: 25, roundRequestedJurors: 25 })
                   })
 
-                  itReverts(1, 1)
+                  itReverts(0, 1, 1)
                 })
               })
             })
@@ -245,14 +260,16 @@ contract('JurorsRegistry drafting', ([_, juror500, juror1000, juror1500, juror20
                 context('when the jurors are activated for the following term', () => {
                   context('for the first batch', () => {
                     const batchRequestedJurors = 1
+                    const previousSelectedJurors = 0
 
-                    itReverts(batchRequestedJurors, roundRequestedJurors)
+                    itReverts(previousSelectedJurors, batchRequestedJurors, roundRequestedJurors)
                   })
 
                   context('for the second batch', () => {
                     const batchRequestedJurors = 4
+                    const previousSelectedJurors = 1
 
-                    itReverts(batchRequestedJurors, roundRequestedJurors)
+                    itReverts(previousSelectedJurors, batchRequestedJurors, roundRequestedJurors)
                   })
                 })
 
@@ -263,20 +280,22 @@ contract('JurorsRegistry drafting', ([_, juror500, juror1000, juror1500, juror20
 
                   context('for the first batch', () => {
                     const batchRequestedJurors = 1
+                    const previousSelectedJurors = 0
 
                     const expectedWeights = [1]
-                    const expectedAddresses = [juror1500]
+                    const expectedAddresses = [juror500]
 
-                    itReturnsExpectedJurors({ batchRequestedJurors, roundRequestedJurors }, expectedAddresses, expectedWeights)
+                    itReturnsExpectedJurors({ previousSelectedJurors, batchRequestedJurors, roundRequestedJurors }, expectedAddresses, expectedWeights)
                   })
 
                   context('for the second batch', () => {
                     const batchRequestedJurors = 4
+                    const previousSelectedJurors = 1
 
-                    const expectedWeights = [2, 1, 1]
-                    const expectedAddresses = [juror1500, juror3000, juror3500]
+                    const expectedWeights = [1, 1, 2]
+                    const expectedAddresses = [juror2000, juror3000, juror3500]
 
-                    itReturnsExpectedJurors({ batchRequestedJurors, roundRequestedJurors }, expectedAddresses, expectedWeights)
+                    itReturnsExpectedJurors({ previousSelectedJurors, batchRequestedJurors, roundRequestedJurors }, expectedAddresses, expectedWeights)
                   })
                 })
               })
@@ -287,14 +306,16 @@ contract('JurorsRegistry drafting', ([_, juror500, juror1000, juror1500, juror20
                 context('when the jurors are activated for the following term', () => {
                   context('for the first batch', () => {
                     const batchRequestedJurors = 3
+                    const previousSelectedJurors = 0
 
-                    itReverts(batchRequestedJurors, roundRequestedJurors)
+                    itReverts(previousSelectedJurors, batchRequestedJurors, roundRequestedJurors)
                   })
 
                   context('for the second batch', () => {
                     const batchRequestedJurors = 7
+                    const previousSelectedJurors = 3
 
-                    itReverts(batchRequestedJurors, roundRequestedJurors)
+                    itReverts(previousSelectedJurors, batchRequestedJurors, roundRequestedJurors)
                   })
                 })
 
@@ -306,11 +327,12 @@ contract('JurorsRegistry drafting', ([_, juror500, juror1000, juror1500, juror20
                   context('when jurors have not been selected for other drafts', () => {
                     context('for the first batch', () => {
                       const batchRequestedJurors = 3
+                      const previousSelectedJurors = 0
 
-                      const expectedWeights = [1, 1, 1]
-                      const expectedAddresses = [juror500, juror1000, juror2000]
+                      const expectedWeights = [2, 1]
+                      const expectedAddresses = [juror1000, juror2000]
 
-                      itReturnsExpectedJurors({ batchRequestedJurors, roundRequestedJurors }, expectedAddresses, expectedWeights)
+                      itReturnsExpectedJurors({ previousSelectedJurors, batchRequestedJurors, roundRequestedJurors }, expectedAddresses, expectedWeights)
 
                       it('changes for different dispute ids', async () => {
                         const { weights, addresses } = await draft({ disputeId: 1, batchRequestedJurors, roundRequestedJurors })
@@ -327,11 +349,12 @@ contract('JurorsRegistry drafting', ([_, juror500, juror1000, juror1500, juror20
 
                     context('for the second batch', () => {
                       const batchRequestedJurors = 7
+                      const previousSelectedJurors = 3
 
-                      const expectedWeights = [1, 2, 1, 2, 1]
-                      const expectedAddresses = [juror1000, juror1500, juror2000, juror3000, juror3500]
+                      const expectedWeights = [2, 4, 1]
+                      const expectedAddresses = [juror2000, juror3000, juror3500]
 
-                      itReturnsExpectedJurors({ batchRequestedJurors, roundRequestedJurors }, expectedAddresses, expectedWeights)
+                      itReturnsExpectedJurors({ previousSelectedJurors, batchRequestedJurors, roundRequestedJurors }, expectedAddresses, expectedWeights)
                     })
                   })
 
@@ -343,47 +366,54 @@ contract('JurorsRegistry drafting', ([_, juror500, juror1000, juror1500, juror20
 
                       context('for the first batch', () => {
                         const batchRequestedJurors = 3
+                        const previousSelectedJurors = 0
 
-                        const expectedWeights = [1, 1, 1]
-                        const expectedAddresses = [juror500, juror1000, juror2000]
+                        const expectedWeights = [2, 1]
+                        const expectedAddresses = [juror1000, juror2000]
 
-                        itReturnsExpectedJurors({ batchRequestedJurors, roundRequestedJurors }, expectedAddresses, expectedWeights)
+                        itReturnsExpectedJurors({ previousSelectedJurors, batchRequestedJurors, roundRequestedJurors }, expectedAddresses, expectedWeights)
                       })
 
                       context('for the second batch', () => {
                         const batchRequestedJurors = 7
+                        const previousSelectedJurors = 3
 
-                        const expectedWeights = [1, 2, 1, 2, 1]
-                        const expectedAddresses = [juror1000, juror1500, juror2000, juror3000, juror3500]
+                        const expectedWeights = [2, 4, 1]
+                        const expectedAddresses = [juror2000, juror3000, juror3500]
 
-                        itReturnsExpectedJurors({ batchRequestedJurors, roundRequestedJurors }, expectedAddresses, expectedWeights)
+                        itReturnsExpectedJurors({ previousSelectedJurors, batchRequestedJurors, roundRequestedJurors }, expectedAddresses, expectedWeights)
                       })
                     })
 
                     context('when some jurors do not have been enough balance to be drafted again', () => {
-                      // draft enough times to leave the first juror without unlocked balance
                       beforeEach('compute multiple previous drafts', async () => {
-                        for(let i = 0; i < 50; i++) {
+                        // draft enough times to leave the first drafted juror (juror1000) without unlocked balance
+                        while ((await registry.unlockedActiveBalanceOf(juror1000)).gt(0)) {
                           await draft({ batchRequestedJurors: 3, roundRequestedJurors })
                         }
+
+                        const [activeBalance, , lockedBalance] = await registry.balanceOf(juror1000)
+                        assert.equal(activeBalance.toString(), lockedBalance.toString(), 'juror1000 locked balance does not match')
                       })
 
                       context('for the first batch', () => {
                         const batchRequestedJurors = 3
+                        const previousSelectedJurors = 0
 
                         const expectedWeights = [3]
                         const expectedAddresses = [juror2000]
 
-                        itReturnsExpectedJurors({ batchRequestedJurors, roundRequestedJurors }, expectedAddresses, expectedWeights)
+                        itReturnsExpectedJurors({ previousSelectedJurors, batchRequestedJurors, roundRequestedJurors }, expectedAddresses, expectedWeights)
                       })
 
                       context('for the second batch', () => {
                         const batchRequestedJurors = 7
+                        const previousSelectedJurors = 3
 
-                        const expectedWeights = [2, 1, 2, 2]
-                        const expectedAddresses = [juror1500, juror2000, juror3000, juror3500]
+                        const expectedWeights = [2, 4, 1]
+                        const expectedAddresses = [juror2000, juror3000, juror3500]
 
-                        itReturnsExpectedJurors({ batchRequestedJurors, roundRequestedJurors }, expectedAddresses, expectedWeights)
+                        itReturnsExpectedJurors({ previousSelectedJurors, batchRequestedJurors, roundRequestedJurors }, expectedAddresses, expectedWeights)
                       })
                     })
                   })

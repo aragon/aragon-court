@@ -27,6 +27,8 @@ contract JurorsRegistry is Initializable, IsContract, IJurorsRegistry, ERC900, A
     string internal constant ERROR_INVALID_ZERO_AMOUNT = "JR_INVALID_ZERO_AMOUNT";
     string internal constant ERROR_INVALID_ACTIVATION_AMOUNT = "JR_INVALID_ACTIVATION_AMOUNT";
     string internal constant ERROR_INVALID_DEACTIVATION_AMOUNT = "JR_INVALID_DEACTIVATION_AMOUNT";
+    string internal constant ERROR_INVALID_LOCKED_AMOUNTS_LENGTH = "JR_INVALID_LOCKED_AMOUNTS_LEN";
+    string internal constant ERROR_INVALID_REWARDED_JURORS_LENGTH = "JR_INVALID_REWARDED_JURORS_LEN";
     string internal constant ERROR_ACTIVE_BALANCE_BELOW_MIN = "JR_ACTIVE_BALANCE_BELOW_MIN";
     string internal constant ERROR_NOT_ENOUGH_AVAILABLE_BALANCE = "JR_NOT_ENOUGH_AVAILABLE_BALANCE";
     string internal constant ERROR_CANNOT_REDUCE_DEACTIVATION_REQUEST = "JR_CANT_REDUCE_DEACTIVATION_REQ";
@@ -289,9 +291,8 @@ contract JurorsRegistry is Initializable, IsContract, IJurorsRegistry, ERC900, A
         onlyOwner
         returns (uint256)
     {
-        // TODO: should we add validations for this?
-        // we assume this: require(_jurors.length == _slashJurors.length);
-        // we assume this: require(_jurors.length == _lockedAmounts.length);
+        require(_jurors.length == _lockedAmounts.length, ERROR_INVALID_LOCKED_AMOUNTS_LENGTH);
+        require(_jurors.length == _rewardedJurors.length, ERROR_INVALID_REWARDED_JURORS_LENGTH);
 
         uint64 nextTermId = _termId + 1;
         uint256 collectedTokens;

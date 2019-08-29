@@ -137,7 +137,7 @@ contract('Court: Batches', ([ rich, arbitrable, juror1, juror2, juror3, juror4, 
     context('hijacked', () => {
       beforeEach(async () => {
         // registry searches always return jurors in the order that they were added to the registry
-        await this.jurorsRegistry.mock_hijackTreeSearch()
+        await this.jurorsRegistry.mockHijackTreeSearch()
         await createDispute()
       })
 
@@ -297,7 +297,7 @@ contract('Court: Batches', ([ rich, arbitrable, juror1, juror2, juror3, juror4, 
 
     beforeEach(async () => {
       // registry searches always return jurors in the order that they were added to the registry
-      await this.jurorsRegistry.mock_hijackTreeSearch()
+      await this.jurorsRegistry.mockHijackTreeSearch()
 
       // create dispute
       await createDispute()

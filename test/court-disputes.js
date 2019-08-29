@@ -128,7 +128,7 @@ contract('Court: Disputes', ([ rich, juror1, juror2, juror3, other, appealMaker,
     })
 
     // tree searches always return jurors in the order that they were added to the tree
-    await this.jurorsRegistry.mock_hijackTreeSearch()
+    await this.jurorsRegistry.mockHijackTreeSearch()
 
     assert.equal(await this.jurorsRegistry.token(), this.anj.address, 'court token')
     await assertEqualBN(this.jurorsRegistry.totalActiveBalance(), 0, 'empty sum tree')

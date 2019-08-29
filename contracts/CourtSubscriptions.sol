@@ -4,13 +4,14 @@ import "@aragon/os/contracts/lib/token/ERC20.sol";
 import "@aragon/os/contracts/common/SafeERC20.sol";
 import "@aragon/os/contracts/common/IsContract.sol";
 import "@aragon/os/contracts/lib/math/SafeMath.sol";
+import "@aragon/os/contracts/common/TimeHelpers.sol";
 
 import "./standards/erc900/IJurorsRegistry.sol";
 import "./standards/subscription/ISubscriptions.sol";
 import "./standards/subscription/ISubscriptionsOwner.sol";
 
 
-contract CourtSubscriptions is IsContract, ISubscriptions {
+contract CourtSubscriptions is IsContract, ISubscriptions, TimeHelpers {
     using SafeERC20 for ERC20;
     using SafeMath for uint256;
 
@@ -456,7 +457,7 @@ contract CourtSubscriptions is IsContract, ISubscriptions {
         // it could be slightly beneficial for the first juror calling this function,
         // but it's still impossible to predict during the period
         if (randomness == bytes32(0)) {
-            randomness = blockhash(block.number - 1);
+            randomness = blockhash(getBlockNumber() - 1);
         }
 
         // use randomness to choose checkpoint

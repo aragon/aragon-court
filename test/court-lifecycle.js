@@ -1,6 +1,4 @@
 const { assertRevert } = require('@aragon/os/test/helpers/assertThrow')
-const { promisify } = require('util')
-const { soliditySha3 } = require('web3-utils')
 
 const TokenFactory = artifacts.require('TokenFactory')
 const CourtMock = artifacts.require('CourtMock')
@@ -33,13 +31,11 @@ const assertLogs = async (receiptPromise, ...logNames) => {
 contract('Court: Lifecycle', ([ poor, rich, governor, juror1, juror2 ]) => {
   const NO_DATA = ''
   const ZERO_ADDRESS = '0x' + '00'.repeat(20)
-  const MAX_UINT64 = 2**64 - 1
 
   const termDuration = 10
   const firstTermStart = 15
   const jurorMinStake = 100
   const cooldown = 10
-  const startBlock = 1000
   const commitTerms = 1
   const revealTerms = 1
   const appealTerms = 1
@@ -53,10 +49,7 @@ contract('Court: Lifecycle', ([ poor, rich, governor, juror1, juror2 ]) => {
   const juror2Stake = 300
 
   const NEW_TERM_EVENT = 'NewTerm'
-  const NEW_COURT_CONFIG_EVENT = 'NewCourtConfig'
   const ERROR_JUROR_TOKENS_AT_STAKE = 'STK_JUROR_TOKENS_AT_STAKE'
-
-  const SALT = soliditySha3('passw0rd')
 
   before(async () => {
     this.tokenFactory = await TokenFactory.new()
@@ -92,10 +85,12 @@ contract('Court: Lifecycle', ([ poor, rich, governor, juror1, juror2 ]) => {
       [ 0, 0, 0, 0, 0 ]
     )
 
-    await this.court.mock_setBlockNumber(startBlock)
+    // TODO: use more realistic term duration and first term start time values
+    await this.court.mockSetTimestamp(1)
+    await this.jurorsRegistry.mockSetTimestamp(1)
 
     assert.equal(await this.jurorsRegistry.token(), this.anj.address, 'court token')
-    await assertEqualBN(this.jurorsRegistry.mock_treeTotalSum(), 0, 'empty sum tree')
+    await assertEqualBN(this.jurorsRegistry.totalActiveBalance(), 0, 'empty sum tree')
     
     await this.anj.approveAndCall(this.jurorsRegistry.address, richStake, NO_DATA, { from: rich })
     await this.anj.approve(this.jurorsRegistry.address, juror1Stake, { from: rich })
@@ -127,8 +122,8 @@ contract('Court: Lifecycle', ([ poor, rich, governor, juror1, juror2 ]) => {
     })
 
     it('transitions to term #1 on heartbeat', async () => {
-      await this.jurorsRegistry.mock_setTime(15)
-      await this.court.mock_setTime(15)
+      await this.jurorsRegistry.mockSetTimestamp(15)
+      await this.court.mockSetTimestamp(15)
       await assertLogs(this.court.heartbeat(1), NEW_TERM_EVENT)
       
       await assertEqualBN(this.court.getLastEnsuredTermId(), 1, 'court term #1')
@@ -142,19 +137,19 @@ contract('Court: Lifecycle', ([ poor, rich, governor, juror1, juror2 ]) => {
       await assertEqualBN(startTime, firstTermStart, 'first term start')
       await assertEqualBN(dependingDraws, 0, 'depending draws')
       await assertEqualBN(courtConfigId, 1, 'court config id')
-      await assertEqualBN(randomnessBn, startBlock + 1, 'randomeness bn')
+      await assertEqualBN(randomnessBn, (await this.court.getBlockNumberExt()), 'randomeness bn')
     })
 
     it('can activate during period before heartbeat', async () => {
-      await this.jurorsRegistry.mock_setTime(firstTermStart - 1)
-      await this.court.mock_setTime(firstTermStart - 1)
+      await this.jurorsRegistry.mockSetTimestamp(firstTermStart - 1)
+      await this.court.mockSetTimestamp(firstTermStart - 1)
       await this.jurorsRegistry.activate(0, { from: juror1 }) // will activate all his funds
-      await assertEqualBN(this.jurorsRegistry.mock_treeTotalSum(), juror1Stake, 'total tree sum')
+      await assertEqualBN(this.jurorsRegistry.totalActiveBalance(), juror1Stake, 'total tree sum')
     })
 
     it('gets the correct balance after activation', async () => {
-      await this.jurorsRegistry.mock_setTime(firstTermStart - 1)
-      await this.court.mock_setTime(firstTermStart - 1)
+      await this.jurorsRegistry.mockSetTimestamp(firstTermStart - 1)
+      await this.court.mockSetTimestamp(firstTermStart - 1)
       await this.jurorsRegistry.activate(0, { from: rich })
 
       const id = await this.jurorsRegistry.getJurorId(rich)
@@ -168,15 +163,15 @@ contract('Court: Lifecycle', ([ poor, rich, governor, juror1, juror2 ]) => {
     })
 
     it('reverts if activating balance is below dust', async () => {
-      await this.jurorsRegistry.mock_setTime(firstTermStart - 1)
-      await this.court.mock_setTime(firstTermStart - 1)
+      await this.jurorsRegistry.mockSetTimestamp(firstTermStart - 1)
+      await this.court.mockSetTimestamp(firstTermStart - 1)
       await assertRevert(this.jurorsRegistry.activate(0, { from: poor }), 'JR_INVALID_ZERO_AMOUNT')
       await assertRevert(this.jurorsRegistry.activate(10, { from: poor }), 'JR_INVALID_ACTIVATION_AMOUNT')
     })
 
     it("doesn't perform more transitions than requested", async () => {
-      await this.jurorsRegistry.mock_setTime(firstTermStart + termDuration * 100)
-      await this.court.mock_setTime(firstTermStart + termDuration * 100)
+      await this.jurorsRegistry.mockSetTimestamp(firstTermStart + termDuration * 100)
+      await this.court.mockSetTimestamp(firstTermStart + termDuration * 100)
       await this.court.heartbeat(3)
       await assertEqualBN(this.court.getLastEnsuredTermId(), 3, 'current term')
     })
@@ -186,15 +181,15 @@ contract('Court: Lifecycle', ([ poor, rich, governor, juror1, juror2 ]) => {
     const term = 3
 
     const passTerms = async terms => {
-      await this.jurorsRegistry.mock_timeTravel(terms * termDuration)
-      await this.court.mock_timeTravel(terms * termDuration)
+      await this.court.mockIncreaseTime(terms * termDuration)
       await this.court.heartbeat(terms)
+
       assert.isFalse(await this.court.canTransitionTerm(), 'all terms transitioned')
     }
 
     beforeEach(async () => {
-      await this.jurorsRegistry.mock_setTime(firstTermStart)
-      await this.court.mock_setTime(firstTermStart)
+      await this.jurorsRegistry.mockSetTimestamp(firstTermStart)
+      await this.court.mockSetTimestamp(firstTermStart)
       await this.court.heartbeat(1)
 
       await passTerms(2)
@@ -213,7 +208,7 @@ contract('Court: Lifecycle', ([ poor, rich, governor, juror1, juror2 ]) => {
       await assertEqualBN(startTime, firstTermStart + (term - 1) * termDuration, 'term start')
       await assertEqualBN(dependingDraws, 0, 'depending draws')
       await assertEqualBN(courtConfigId, 1, 'court config id')
-      await assertEqualBN(randomnessBn, startBlock + 1, 'randomeness bn')      
+      await assertEqualBN(randomnessBn, (await this.court.getBlockNumberExt()), 'randomeness bn')
     })
 
     it('jurors can activate', async () => {
@@ -222,28 +217,20 @@ contract('Court: Lifecycle', ([ poor, rich, governor, juror1, juror2 ]) => {
 
       await passTerms(1)
 
-      assert.equal(await this.jurorsRegistry.mock_sortition(0), juror1, 'sortition start edge juror1')
-      assert.equal(await this.jurorsRegistry.mock_sortition(juror1Stake / 2), juror1, 'sortition juror1')
-      assert.equal(await this.jurorsRegistry.mock_sortition(juror1Stake - 1), juror1, 'sortition juror1 end edge')
-      assert.equal(await this.jurorsRegistry.mock_sortition(juror1Stake), juror2, 'sortition juror2 start edge')
-      assert.equal(await this.jurorsRegistry.mock_sortition(juror1Stake + juror2Stake / 2), juror2, 'sortition juror2')
-      assert.equal(await this.jurorsRegistry.mock_sortition(juror1Stake + juror2Stake - 1), juror2, 'sortition juror2 end edge')
-
-      await assertRevert(this.jurorsRegistry.mock_sortition(juror1Stake + juror2Stake), 'SUM_TREE_SORTITION_OUT_OF_BOUNDS')
-      await assertEqualBN(this.jurorsRegistry.mock_treeTotalSum(), juror1Stake + juror2Stake, 'both jurors in the tree')
+      await assertEqualBN(this.jurorsRegistry.totalActiveBalance(), juror1Stake + juror2Stake, 'both jurors in the tree')
     })
 
     const activateDeactivate = async () => {
       await this.jurorsRegistry.activate(0, { from: juror1 })
       await this.jurorsRegistry.activate(0, { from: juror2 })
       await passTerms(1)
-      await assertEqualBN(this.jurorsRegistry.mock_treeTotalSum(), juror1Stake + juror2Stake, 'both jurors in the tree')
+      await assertEqualBN(this.jurorsRegistry.totalActiveBalance(), juror1Stake + juror2Stake, 'both jurors in the tree')
       await this.jurorsRegistry.deactivate(0, { from: juror1 })
       await passTerms(1)
-      await assertEqualBN(this.jurorsRegistry.mock_treeTotalSum(), juror2Stake, 'only juror2 in tree')
+      await assertEqualBN(this.jurorsRegistry.totalActiveBalance(), juror2Stake, 'only juror2 in tree')
       await this.jurorsRegistry.deactivate(0, { from: juror2 })
       await passTerms(1)
-      await assertEqualBN(this.jurorsRegistry.mock_treeTotalSum(), 0, 'no jurors in tree')
+      await assertEqualBN(this.jurorsRegistry.totalActiveBalance(), 0, 'no jurors in tree')
     }
 
     it('jurors can deactivate', async () => {
@@ -261,9 +248,9 @@ contract('Court: Lifecycle', ([ poor, rich, governor, juror1, juror2 ]) => {
     it.skip('juror can withdraw after cooldown', async () => {
       await this.jurorsRegistry.activate(0, { from: juror1 })
       await passTerms(1)
-      await assertEqualBN(this.jurorsRegistry.mock_treeTotalSum(), juror1Stake, 'juror added to tree')
+      await assertEqualBN(this.jurorsRegistry.totalActiveBalance(), juror1Stake, 'juror added to tree')
       await passTerms(1)
-      await assertEqualBN(this.jurorsRegistry.mock_treeTotalSum(), 0, 'juror removed from to tree')
+      await assertEqualBN(this.jurorsRegistry.totalActiveBalance(), 0, 'juror removed from to tree')
       
       await assertRevert(this.jurorsRegistry.unstake(1, NO_DATA, { from: juror1 }), ERROR_JUROR_TOKENS_AT_STAKE)
 

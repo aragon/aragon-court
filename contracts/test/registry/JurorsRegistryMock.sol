@@ -1,35 +1,14 @@
 pragma solidity ^0.4.24;
 
 import "../../JurorsRegistry.sol";
+import "../lib/TimeHelpersMock.sol";
 
 
-contract JurorsRegistryMock is JurorsRegistry {
-    uint64 internal mockTime = 0;
-    bool internal treeSearchHijacked = false;
-
-    function mock_setTime(uint64 time) external {
-        mockTime = time;
-    }
-
-    function mock_timeTravel(uint64 time) external {
-        mockTime += time;
-    }
+contract JurorsRegistryMock is JurorsRegistry, TimeHelpersMock {
+    bool internal treeSearchHijacked;
 
     function mock_hijackTreeSearch() external {
         treeSearchHijacked = true;
-    }
-
-    function mock_sortition(uint256 v) public view returns (address) {
-        (uint256 k, ) = tree.sortition(v, _time(), false);
-        return jurorsAddressById[k];
-    }
-
-    function mock_treeTotalSum() public view returns (uint256) {
-        return tree.totalSumPresent(_time());
-    }
-
-    function _time() internal view returns (uint64) {
-        return mockTime;
     }
 
     function _treeSearch(uint256[7] _params) internal view returns (uint256[] keys, uint256[] nodeValues) {

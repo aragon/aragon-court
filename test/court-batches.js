@@ -1,10 +1,10 @@
+const { ONE_DAY } = require('./helpers/time')
+const { buildHelper } = require('./helpers/court')(web3, artifacts)
 const { assertRevert } = require('@aragon/os/test/helpers/assertThrow')
 // TODO: add/modify aragonOS
 const { decodeEventsOfType } = require('./helpers/decodeEvent')
-const { soliditySha3 } = require('web3-utils')
 
 const TokenFactory = artifacts.require('TokenFactory')
-const CourtMock = artifacts.require('CourtMock')
 const CourtAccounting = artifacts.require('CourtAccounting')
 const JurorsRegistry = artifacts.require('JurorsRegistryMock')
 const CRVoting = artifacts.require('CRVoting')
@@ -33,21 +33,16 @@ const assertLogs = async (receiptPromise, ...logNames) => {
   }
 }
 
-contract('Court: Batches', ([ rich, governor, arbitrable, juror1, juror2, juror3, juror4, juror5, juror6, juror7 ]) => {
+contract('Court: Batches', ([ rich, arbitrable, juror1, juror2, juror3, juror4, juror5, juror6, juror7 ]) => {
   const NO_DATA = ''
   const ZERO_ADDRESS = '0x' + '00'.repeat(20)
   let MAX_JURORS_PER_DRAFT_BATCH
 
-  const termDuration = 10
-  const firstTermStart = 10
-  const jurorMinStake = 10
-  const startBlock = 1000
+  const termDuration = ONE_DAY
   const commitTerms = 1
   const revealTerms = 1
   const appealTerms = 1
   const appealConfirmTerms = 1
-  const penaltyPct = 1000 // 100‱ = 1%
-  const finalRoundReduction = 3300 // 100‱ = 1%
 
   const initialBalance = 1e6
   const richStake = 1000
@@ -56,12 +51,9 @@ contract('Court: Batches', ([ rich, governor, arbitrable, juror1, juror2, juror3
 
   const NEW_DISPUTE_EVENT = 'NewDispute'
   const JUROR_DRAFTED_EVENT = 'JurorDrafted'
-  const DISPUTE_STATE_CHANGED_EVENT = 'DisputeStateChanged'
   const ROUND_SLASHING_SETTLED_EVENT = 'RoundSlashingSettled'
 
   const ERROR_TERM_RANDOMNESS_UNAVAIL = 'CTRANDOM_UNAVAIL'
-
-  const SALT = soliditySha3('passw0rd')
 
   before(async () => {
     this.tokenFactory = await TokenFactory.new()
@@ -78,30 +70,25 @@ contract('Court: Batches', ([ rich, governor, arbitrable, juror1, juror2, juror3
     this.subscriptions = await Subscriptions.new()
     await this.subscriptions.setUpToDate(true)
 
-    this.court = await CourtMock.new(
+    this.courtHelper = buildHelper()
+    this.court = await this.courtHelper.deploy({
+      feeToken: ZERO_ADDRESS,
+      jurorToken: this.anj,
+      voting: this.voting,
+      accounting: this.accounting,
+      subscriptions: this.subscriptions,
+      jurorsRegistry: this.jurorsRegistry,
       termDuration,
-      [ this.anj.address, ZERO_ADDRESS ], // no fees
-      this.jurorsRegistry.address,
-      this.accounting.address,
-      this.voting.address,
-      this.subscriptions.address,
-      [ 0, 0, 0, 0 ],
-      governor,
-      firstTermStart,
-      jurorMinStake,
-      [ commitTerms, revealTerms, appealTerms, appealConfirmTerms ],
-      [ penaltyPct, finalRoundReduction ],
-      3,
-      4,
-      [ 0, 0, 0, 0, 0 ]
-    )
-
-    await this.court.mock_setBlockNumber(startBlock)
+      commitTerms,
+      revealTerms,
+      appealTerms,
+      appealConfirmTerms,
+    })
 
     MAX_JURORS_PER_DRAFT_BATCH = (await this.court.getMaxJurorsPerDraftBatch.call()).toNumber()
 
     assert.equal(await this.jurorsRegistry.token(), this.anj.address, 'court token')
-    await assertEqualBN(this.jurorsRegistry.mock_treeTotalSum(), 0, 'empty sum tree')
+    await assertEqualBN(this.jurorsRegistry.totalActiveBalance(), 0, 'empty sum tree')
 
     await this.anj.approveAndCall(this.jurorsRegistry.address, richStake, NO_DATA, { from: rich })
 
@@ -120,10 +107,9 @@ contract('Court: Batches', ([ rich, governor, arbitrable, juror1, juror2, juror3
   })
 
   const passTerms = async terms => {
-    await this.jurorsRegistry.mock_timeTravel(terms * termDuration)
-    await this.court.mock_timeTravel(terms * termDuration)
+    await this.courtHelper.increaseTime(terms * termDuration)
     await this.court.heartbeat(terms)
-    await this.court.mock_blockTravel(1)
+
     assert.isFalse(await this.court.canTransitionTerm(), 'all terms transitioned')
   }
 
@@ -146,7 +132,6 @@ contract('Court: Batches', ([ rich, governor, arbitrable, juror1, juror2, juror3
       disputeId = getLog(receipt, NEW_DISPUTE_EVENT, 'disputeId')
       voteId = getLog(receipt, NEW_DISPUTE_EVENT, 'voteId')
       await passTerms(2) // term = 3
-      await this.court.mock_blockTravel(1)
     }
 
     context('hijacked', () => {
@@ -217,7 +202,9 @@ contract('Court: Batches', ([ rich, governor, arbitrable, juror1, juror2, juror3
       it('selects expected jurors', async () => {
         let totalJurorsDrafted = 0
         let callsHistory = []
-        await this.court.setTermRandomness()
+        // advance two blocks to ensure we can compute term randomness
+        await this.courtHelper.advanceBlocks(2)
+
         while(totalJurorsDrafted < jurors) {
           assert.isFalse(await this.court.areAllJurorsDrafted.call(disputeId, firstRoundId))
           const callJurorsDrafted = getLogCount(await this.court.draftAdjudicationRound(disputeId), this.jurorsRegistry.abi, JUROR_DRAFTED_EVENT)
@@ -235,7 +222,9 @@ contract('Court: Batches', ([ rich, governor, arbitrable, juror1, juror2, juror3
         let termsPassed = 0
         while(totalJurorsDrafted < jurors) {
           assert.isFalse(await this.court.areAllJurorsDrafted.call(disputeId, firstRoundId))
-          await this.court.setTermRandomness()
+          // advance two blocks to ensure we can compute term randomness
+          await this.courtHelper.advanceBlocks(2)
+
           const callJurorsDrafted = getLogCount(await this.court.draftAdjudicationRound(disputeId), this.jurorsRegistry.abi, JUROR_DRAFTED_EVENT)
           callsHistory.push(callJurorsDrafted)
           totalJurorsDrafted += callJurorsDrafted
@@ -243,22 +232,22 @@ contract('Court: Batches', ([ rich, governor, arbitrable, juror1, juror2, juror3
           await checkAdjudicationState(disputeId, firstRoundId, initialTermId, termsPassed)
           await passTerms(1)
           termsPassed++
-          await this.court.mock_blockTravel(1)
+          await this.courtHelper.advanceBlocks(1)
         }
         assert.isTrue(await this.court.areAllJurorsDrafted.call(disputeId, firstRoundId))
         assert.isTrue(termsPassed > 1, 'draft was not split')
       })
 
-
-      it('needs to wait until next term if randomness is missing', async () => {
+      // TODO: cannot test this cause blockhash does not use mocked blocknumber to compute a hash, we need to advance real blocks
+      it.skip('needs to wait until next term if randomness is missing', async () => {
         // make sure we miss randomness
-        await this.court.mock_blockTravel(257)
+        await this.courtHelper.advanceBlocks(257)
         await assertRevert(this.court.draftAdjudicationRound(disputeId), ERROR_TERM_RANDOMNESS_UNAVAIL)
         // move forward to next term
         await passTerms(1)
-        await this.court.mock_blockTravel(1)
-        // make sure now we do have randomness
-        await this.court.setTermRandomness()
+        // advance two blocks to ensure we can compute term randomness
+        await this.courtHelper.advanceBlocks(2)
+
         const callJurorsDrafted = getLogCount(await this.court.draftAdjudicationRound(disputeId), this.jurorsRegistry.abi, JUROR_DRAFTED_EVENT)
         assert.isTrue(callJurorsDrafted > 0, 'no jurors were drafted in next term')
       })
@@ -270,7 +259,9 @@ contract('Court: Batches', ([ rich, governor, arbitrable, juror1, juror2, juror3
       })
 
       it('selects expected juror amount', async () => {
-        await this.court.setTermRandomness()
+        // advance two blocks to ensure we can compute term randomness
+        await this.courtHelper.advanceBlocks(2)
+
         // assuming jurors is not multiple of MAX_JURORS_PER_DRAFT_BATCH
         for (let i = 0; i < Math.floor(jurors / MAX_JURORS_PER_DRAFT_BATCH); i++) {
           const callJurorsDrafted = getLogCount(await this.court.draftAdjudicationRound(disputeId), this.jurorsRegistry.abi, JUROR_DRAFTED_EVENT)
@@ -301,7 +292,7 @@ contract('Court: Batches', ([ rich, governor, arbitrable, juror1, juror2, juror3
       disputeId = getLog(receipt, NEW_DISPUTE_EVENT, 'disputeId')
       voteId = getLog(receipt, NEW_DISPUTE_EVENT, 'voteId')
       await passTerms(2) // term = 3
-      await this.court.mock_blockTravel(1)
+      await this.courtHelper.advanceBlocks(1)
     }
 
     beforeEach(async () => {
@@ -311,9 +302,10 @@ contract('Court: Batches', ([ rich, governor, arbitrable, juror1, juror2, juror3
       // create dispute
       await createDispute()
 
-      // draft
-      await this.court.setTermRandomness()
+      // advance two blocks to ensure we can compute term randomness
+      await this.courtHelper.advanceBlocks(2)
 
+      // draft
       let totalJurorsDrafted = 0
       while(totalJurorsDrafted < jurors) {
         assert.isFalse(await this.court.areAllJurorsDrafted.call(disputeId, firstRoundId))

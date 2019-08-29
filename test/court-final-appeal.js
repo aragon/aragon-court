@@ -1,16 +1,19 @@
+const { ONE_DAY } = require('./helpers/time')
+const { buildHelper } = require('./helpers/court')(web3, artifacts)
 const { assertRevert } = require('@aragon/os/test/helpers/assertThrow')
+const { SALT, encryptVote } = require('./helpers/crvoting')
 // TODO: add/modify aragonOS
 const { decodeEventsOfType } = require('./helpers/decodeEvent')
-const { soliditySha3 } = require('web3-utils')
 
 const TokenFactory = artifacts.require('TokenFactory')
-const CourtMock = artifacts.require('CourtMock')
 const CourtAccounting = artifacts.require('CourtAccounting')
 const JurorsRegistry = artifacts.require('JurorsRegistryMock')
 const CRVoting = artifacts.require('CRVoting')
 const Subscriptions = artifacts.require('SubscriptionsMock')
 
 const MINIME = 'MiniMeToken'
+const NO_DATA = ''
+const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
 
 const getLog = (receipt, logName, argName) => {
   const log = receipt.logs.find(({ event }) => event == logName)
@@ -37,33 +40,26 @@ const getVoteId = (disputeId, roundId) => {
   return new web3.BigNumber(2).pow(128).mul(disputeId).add(roundId)
 }
 
-contract('Court: final appeal', ([ poor, rich, governor, juror1, juror2, juror3, juror4, juror5, juror6, juror7 ]) => {
+contract('Court: final appeal', ([ poor, rich, juror1, juror2, juror3, juror4, juror5, juror6, juror7 ]) => {
   const jurors = [ juror1, juror2, juror3, juror4, juror5, juror6, juror7 ]
-  const NO_DATA = ''
-  const ZERO_ADDRESS = '0x' + '00'.repeat(20)
   const SETTLE_BATCH_SIZE = 40
-  const APPEAL_STEP_FACTOR = 3
-  const MAX_REGULAR_APPEAL_ROUNDS = 4
   let MAX_JURORS_PER_DRAFT_BATCH
 
-  const termDuration = 10
-  const firstTermStart = 10
-  const jurorMinStake = 200
-  const startBlock = 1000
+  const termDuration = ONE_DAY
+  const jurorsMinActiveBalance = 200
   const commitTerms = 1
   const revealTerms = 1
   const appealTerms = 1
   const appealConfirmTerms = 1
   const penaltyPct = 100 // 100‱ = 1%
-  const finalRoundReduction = 3300 // 100‱ = 1%
+  const appealStepFactor = 3
+  const maxRegularAppealRounds = 4
 
   const initialBalance = 1e6
   const richStake = 1000
   const jurorGenericStake = 800
 
   const NEW_DISPUTE_EVENT = 'NewDispute'
-  const JUROR_ACTIVATED = 'JurorActivated'
-  const JUROR_DEACTIVATED = 'JurorDeactivated'
   const JUROR_DRAFTED_EVENT = 'JurorDrafted'
   const DISPUTE_STATE_CHANGED_EVENT = 'DisputeStateChanged'
   const VOTE_COMMITTED_EVENT = 'VoteCommitted'
@@ -75,17 +71,6 @@ contract('Court: final appeal', ([ poor, rich, governor, juror1, juror2, juror3,
 
   const ERROR_ZERO_MAX_ROUNDS = 'COURT_ZERO_MAX_ROUNDS'
   const ERROR_INVALID_ADJUDICATION_STATE = 'CTBAD_ADJ_STATE'
-  const ERROR_INVALID_ADJUDICATION_ROUND = 'CTBAD_ADJ_ROUND'
-
-  const SALT = soliditySha3('passw0rd')
-
-  const encryptVote = (ruling, salt = SALT) =>
-        soliditySha3(
-          { t: 'uint8', v: ruling },
-          { t: 'bytes32', v: salt }
-        )
-
-  const pct4 = (n, p) => n * p / 1e4
 
   before(async () => {
     this.tokenFactory = await TokenFactory.new()
@@ -103,30 +88,28 @@ contract('Court: final appeal', ([ poor, rich, governor, juror1, juror2, juror3,
     this.subscriptions = await Subscriptions.new()
     await this.subscriptions.setUpToDate(true)
 
-    this.court = await CourtMock.new(
+    this.courtHelper = buildHelper()
+    this.court = await this.courtHelper.deploy({
+      feeToken: ZERO_ADDRESS,
+      jurorToken: this.anj,
+      voting: this.voting,
+      accounting: this.accounting,
+      subscriptions: this.subscriptions,
+      jurorsRegistry: this.jurorsRegistry,
       termDuration,
-      [ this.anj.address, ZERO_ADDRESS ], // no fees
-      this.jurorsRegistry.address,
-      this.accounting.address,
-      this.voting.address,
-      this.subscriptions.address,
-      [ 0, 0, 0, 0 ],
-      governor,
-      firstTermStart,
-      jurorMinStake,
-      [ commitTerms, revealTerms, appealTerms, appealConfirmTerms ],
-      [ penaltyPct, finalRoundReduction ],
-      APPEAL_STEP_FACTOR,
-      MAX_REGULAR_APPEAL_ROUNDS,
-      [ 0, 0, 0, 0, 0 ]
-    )
+      commitTerms,
+      revealTerms,
+      appealTerms,
+      appealConfirmTerms,
+      appealStepFactor,
+      maxRegularAppealRounds,
+      jurorsMinActiveBalance,
+    })
 
     MAX_JURORS_PER_DRAFT_BATCH = (await this.court.getMaxJurorsPerDraftBatch.call()).toNumber()
 
-    await this.court.mock_setBlockNumber(startBlock)
-
     assert.equal(await this.jurorsRegistry.token(), this.anj.address, 'court token')
-    await assertEqualBN(this.jurorsRegistry.mock_treeTotalSum(), 0, 'empty sum tree')
+    await assertEqualBN(this.jurorsRegistry.totalActiveBalance(), 0, 'empty sum tree')
 
     await this.anj.approveAndCall(this.jurorsRegistry.address, richStake, NO_DATA, { from: rich })
 
@@ -142,17 +125,16 @@ contract('Court: final appeal', ([ poor, rich, governor, juror1, juror2, juror3,
   })
 
   const passTerms = async terms => {
-    await this.jurorsRegistry.mock_timeTravel(terms * termDuration)
-    await this.court.mock_timeTravel(terms * termDuration)
+    await this.courtHelper.increaseTime(terms * termDuration)
     await this.court.heartbeat(terms)
-    await this.court.mock_blockTravel(1)
+
     assert.isFalse(await this.court.canTransitionTerm(), 'all terms transitioned')
   }
 
   // TODO: Fix when making the court settings configurable
   context.skip('Max number of regular appeals', () => {
     it('Can change number of regular appeals', async () => {
-      const newMaxAppeals = MAX_REGULAR_APPEAL_ROUNDS + 1
+      const newMaxAppeals = maxRegularAppealRounds + 1
       // set new max
       await this.court.setMaxRegularAppealRounds(newMaxAppeals)
 
@@ -202,7 +184,8 @@ contract('Court: final appeal', ([ poor, rich, governor, juror1, juror2, juror3,
       let roundJurorsDrafted = 0
       let draftReceipt
 
-      await this.court.setTermRandomness()
+      // advance two blocks to ensure we can compute term randomness
+      await this.courtHelper.advanceBlocks(2)
 
       while (roundJurorsDrafted < roundJurors) {
         draftReceipt = await this.court.draftAdjudicationRound(disputeId)
@@ -214,10 +197,10 @@ contract('Court: final appeal', ([ poor, rich, governor, juror1, juror2, juror3,
 
     const moveForwardToFinalRound = async () => {
       await passTerms(2) // term = 3, dispute init
-      await this.court.mock_blockTravel(1)
+      await this.courtHelper.advanceBlocks(1)
 
-      for (let roundId = 0; roundId < MAX_REGULAR_APPEAL_ROUNDS; roundId++) {
-        let roundJurors = initialJurorNumber * (APPEAL_STEP_FACTOR ** roundId)
+      for (let roundId = 0; roundId < maxRegularAppealRounds; roundId++) {
+        let roundJurors = initialJurorNumber * (appealStepFactor ** roundId)
         if (roundJurors % 2 == 0) {
           roundJurors++
         }
@@ -239,7 +222,7 @@ contract('Court: final appeal', ([ poor, rich, governor, juror1, juror2, juror3,
         const nextRoundId = getLog(appealConfirmReceipt, RULING_APPEAL_CONFIRMED_EVENT, 'roundId')
         voteId = getVoteId(disputeId, nextRoundId)
         await passTerms(appealConfirmTerms)
-        await this.court.mock_blockTravel(1)
+        await this.courtHelper.advanceBlocks(1)
       }
     }
 
@@ -253,8 +236,8 @@ contract('Court: final appeal', ([ poor, rich, governor, juror1, juror2, juror3,
     })
 
     it('reaches final appeal, a juror with less than min stake can not vote', async () => {
-      await this.anj.approve(this.jurorsRegistry.address, jurorMinStake, { from: rich })
-      await this.jurorsRegistry.stakeFor(poor, jurorMinStake, NO_DATA, { from: rich })
+      await this.anj.approve(this.jurorsRegistry.address, jurorsMinActiveBalance, { from: rich })
+      await this.jurorsRegistry.stakeFor(poor, jurorsMinActiveBalance, NO_DATA, { from: rich })
       await this.jurorsRegistry.activate(0, { from: poor })
 
       // collect some tokens from poor account to act as a juror without enough balance
@@ -276,12 +259,12 @@ contract('Court: final appeal', ([ poor, rich, governor, juror1, juror2, juror3,
       await passTerms(revealTerms)
 
       // appeal
-      await assertRevert(this.court.appeal(disputeId, MAX_REGULAR_APPEAL_ROUNDS, appealRuling), ERROR_INVALID_ADJUDICATION_STATE)
+      await assertRevert(this.court.appeal(disputeId, maxRegularAppealRounds, appealRuling), ERROR_INVALID_ADJUDICATION_STATE)
     })
 
     context('Rewards and slashes', () => {
-      const penalty = jurorMinStake * penaltyPct / 10000
-      const weight = jurorGenericStake / jurorMinStake
+      const penalty = jurorsMinActiveBalance * penaltyPct / 10000
+      const weight = jurorGenericStake / jurorsMinActiveBalance
 
       // more than half of the jurors voting first option
       const winningJurors = Math.floor(jurors.length / 2) + 1
@@ -317,7 +300,7 @@ contract('Court: final appeal', ([ poor, rich, governor, juror1, juror2, juror3,
         await passTerms(revealTerms)
 
         // settle
-        for (let roundId = 0; roundId <= MAX_REGULAR_APPEAL_ROUNDS; roundId++) {
+        for (let roundId = 0; roundId <= maxRegularAppealRounds; roundId++) {
           let roundSlashingEvent = 0
           while (roundSlashingEvent == 0) {
             const receiptPromise = await this.court.settleRoundSlashing(disputeId, roundId, SETTLE_BATCH_SIZE)
@@ -330,7 +313,7 @@ contract('Court: final appeal', ([ poor, rich, governor, juror1, juror2, juror3,
         for (let i = 0; i < winningJurors; i++) {
           const tokenBalance = (await this.anj.balanceOf(jurors[i])).toNumber()
           const courtBalance = (await this.jurorsRegistry.totalStakedFor(jurors[i])).toNumber()
-          const receiptPromise = this.court.settleReward(disputeId, MAX_REGULAR_APPEAL_ROUNDS, jurors[i], { from: jurors[i] })
+          const receiptPromise = this.court.settleReward(disputeId, maxRegularAppealRounds, jurors[i], { from: jurors[i] })
           await assertLogs(receiptPromise, REWARD_SETTLED_EVENT)
 
           // as jurors are not withdrawing here, real token balance shouldn't change

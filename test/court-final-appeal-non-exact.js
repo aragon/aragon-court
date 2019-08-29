@@ -1,8 +1,10 @@
+const { bigExp } = require('./helpers/numbers')(web3)
+const { ONE_DAY } = require('./helpers/time')
+const { buildHelper } = require('./helpers/court')(web3, artifacts)
+const { SALT, encryptVote } = require('./helpers/crvoting')
 const { decodeEventsOfType } = require('./helpers/decodeEvent')
-const { soliditySha3 } = require('web3-utils')
 
 const TokenFactory = artifacts.require('TokenFactory')
-const CourtMock = artifacts.require('CourtMock')
 const CourtAccounting = artifacts.require('CourtAccounting')
 const JurorsRegistry = artifacts.require('JurorsRegistryMock')
 const CRVoting = artifacts.require('CRVoting')
@@ -35,29 +37,26 @@ const getVoteId = (disputeId, roundId) => {
   return new web3.BigNumber(2).pow(128).mul(disputeId).add(roundId)
 }
 
-contract('Court: final appeal (non-exact)', ([ poor, rich, governor, juror1, juror2, juror3 ]) => {
-  const jurors = [ juror1, juror2, juror3 ]
-  const NO_DATA = ''
-  const ZERO_ADDRESS = '0x' + '00'.repeat(20)
-  const SETTLE_BATCH_SIZE = 15
-  const DECIMALS = 1e18
+const NO_DATA = ''
+const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
 
-  const termDuration = 10
-  const firstTermStart = 10
-  const jurorMinStake = new web3.BigNumber(10).mul(DECIMALS)
-  const startBlock = 1000
+contract('Court: final appeal (non-exact)', ([ poor, rich, juror1, juror2, juror3 ]) => {
+  const jurors = [ juror1, juror2, juror3 ]
+  const SETTLE_BATCH_SIZE = 15
+
+  const termDuration = ONE_DAY
+  const jurorsMinActiveBalance = bigExp(10, 18)
   const commitTerms = 1
   const revealTerms = 1
   const appealTerms = 1
   const appealConfirmTerms = 1
   const penaltyPct = 100 // 100‱ = 1%
-  const finalRoundReduction = 3300 // 100‱ = 1%
-  const APPEAL_STEP_FACTOR = 3
-  const MAX_REGULAR_APPEAL_ROUNDS = 4
+  const appealStepFactor = 3
+  const maxRegularAppealRounds = 4
 
-  const initialBalance = new web3.BigNumber(1e6).mul(DECIMALS)
-  const richStake = new web3.BigNumber(10000).mul(DECIMALS)
-  const jurorGenericStake = new web3.BigNumber(15).mul(DECIMALS)
+  const initialBalance = bigExp(1e6, 18)
+  const richStake = bigExp(10000, 18)
+  const jurorGenericStake = bigExp(15, 18)
 
   const NEW_DISPUTE_EVENT = 'NewDispute'
   const JUROR_DRAFTED_EVENT = 'JurorDrafted'
@@ -68,16 +67,6 @@ contract('Court: final appeal (non-exact)', ([ poor, rich, governor, juror1, jur
   const RULING_APPEAL_CONFIRMED_EVENT = 'RulingAppealConfirmed'
   const ROUND_SLASHING_SETTLED_EVENT = 'RoundSlashingSettled'
   const REWARD_SETTLED_EVENT = 'RewardSettled'
-
-  const SALT = soliditySha3('passw0rd')
-
-  const encryptVote = (ruling, salt = SALT) =>
-        soliditySha3(
-          { t: 'uint8', v: ruling },
-          { t: 'bytes32', v: salt }
-        )
-
-  const pct4 = (n, p) => n * p / 1e4
 
   before(async () => {
     this.tokenFactory = await TokenFactory.new()
@@ -95,29 +84,28 @@ contract('Court: final appeal (non-exact)', ([ poor, rich, governor, juror1, jur
     this.subscriptions = await Subscriptions.new()
     await this.subscriptions.setUpToDate(true)
 
-    this.court = await CourtMock.new(
+    this.courtHelper = buildHelper()
+    this.court = await this.courtHelper.deploy({
+      feeToken: ZERO_ADDRESS,
+      jurorToken: this.anj,
+      voting: this.voting,
+      accounting: this.accounting,
+      subscriptions: this.subscriptions,
+      jurorsRegistry: this.jurorsRegistry,
       termDuration,
-      [ this.anj.address, ZERO_ADDRESS ], // no fees
-      this.jurorsRegistry.address,
-      this.accounting.address,
-      this.voting.address,
-      this.subscriptions.address,
-      [ 0, 0, 0, 0 ],
-      governor,
-      firstTermStart,
-      jurorMinStake,
-      [ commitTerms, revealTerms, appealTerms, appealConfirmTerms ],
-      [ penaltyPct, finalRoundReduction ],
-      APPEAL_STEP_FACTOR,
-      MAX_REGULAR_APPEAL_ROUNDS,
-      [ 0, 0, 0, 0, 0 ]
-    )
+      commitTerms,
+      revealTerms,
+      appealTerms,
+      appealConfirmTerms,
+      appealStepFactor,
+      maxRegularAppealRounds,
+      jurorsMinActiveBalance,
+    })
 
     await this.jurorsRegistry.mock_hijackTreeSearch()
-    await this.court.mock_setBlockNumber(startBlock)
 
     assert.equal(await this.jurorsRegistry.token(), this.anj.address, 'court token')
-    await assertEqualBN(this.jurorsRegistry.mock_treeTotalSum(), 0, 'empty sum tree')
+    await assertEqualBN(this.jurorsRegistry.totalActiveBalance(), 0, 'empty sum tree')
 
     await this.anj.approveAndCall(this.jurorsRegistry.address, richStake, NO_DATA, { from: rich })
 
@@ -133,10 +121,9 @@ contract('Court: final appeal (non-exact)', ([ poor, rich, governor, juror1, jur
   })
 
   const passTerms = async terms => {
-    await this.jurorsRegistry.mock_timeTravel(terms * termDuration)
-    await this.court.mock_timeTravel(terms * termDuration)
+    await this.courtHelper.increaseTime(terms * termDuration)
     await this.court.heartbeat(terms)
-    await this.court.mock_blockTravel(1)
+
     assert.isFalse(await this.court.canTransitionTerm(), 'all terms transitioned')
   }
 
@@ -168,7 +155,8 @@ contract('Court: final appeal (non-exact)', ([ poor, rich, governor, juror1, jur
       let roundJurorsDrafted = 0
       let draftReceipt
 
-      await this.court.setTermRandomness()
+      // advance two blocks to ensure we can compute term randomness
+      await this.courtHelper.advanceBlocks(2)
 
       while (roundJurorsDrafted < roundJurors) {
         draftReceipt = await this.court.draftAdjudicationRound(disputeId)
@@ -204,10 +192,10 @@ contract('Court: final appeal (non-exact)', ([ poor, rich, governor, juror1, jur
 
     const moveForwardToFinalRound = async () => {
       await passTerms(2) // term = 3, dispute init
-      await this.court.mock_blockTravel(1)
+      await this.courtHelper.advanceBlocks(1)
 
-      for (let roundId = 0; roundId < MAX_REGULAR_APPEAL_ROUNDS; roundId++) {
-        let roundJurors = initialJurorNumber * (APPEAL_STEP_FACTOR ** roundId)
+      for (let roundId = 0; roundId < maxRegularAppealRounds; roundId++) {
+        let roundJurors = initialJurorNumber * (appealStepFactor ** roundId)
         if (roundJurors % 2 == 0) {
           roundJurors++
         }
@@ -226,13 +214,13 @@ contract('Court: final appeal (non-exact)', ([ poor, rich, governor, juror1, jur
         const nextRoundId = getLog(appealConfirmReceipt, RULING_APPEAL_CONFIRMED_EVENT, 'roundId')
         voteId = getVoteId(disputeId, nextRoundId)
         await passTerms(appealConfirmTerms)
-        await this.court.mock_blockTravel(1)
+        await this.courtHelper.advanceBlocks(1)
       }
     }
 
     context('Rewards and slashes', () => {
-      const penalty = jurorMinStake * penaltyPct / 10000
-      const weight = jurorGenericStake / jurorMinStake
+      const penalty = jurorsMinActiveBalance * penaltyPct / 10000
+      const weight = jurorGenericStake / jurorsMinActiveBalance
 
       const testFinalRound = async (_winningJurors) => {
         await moveForwardToFinalRound()
@@ -241,7 +229,7 @@ contract('Court: final appeal (non-exact)', ([ poor, rich, governor, juror1, jur
         await vote(voteId, _winningJurors)
 
         // settle
-        for (let roundId = 0; roundId <= MAX_REGULAR_APPEAL_ROUNDS; roundId++) {
+        for (let roundId = 0; roundId <= maxRegularAppealRounds; roundId++) {
           let roundSlashingEvent = 0
           while (roundSlashingEvent == 0) {
             const receipt = await this.court.settleRoundSlashing(disputeId, roundId, SETTLE_BATCH_SIZE)
@@ -253,7 +241,7 @@ contract('Court: final appeal (non-exact)', ([ poor, rich, governor, juror1, jur
         for (let i = 0; i < _winningJurors; i++) {
           const tokenBalance = (await this.anj.balanceOf(jurors[i])).toNumber()
           const courtBalance = (await this.jurorsRegistry.totalStakedFor(jurors[i])).toNumber()
-          const receipt = await this.court.settleReward(disputeId, MAX_REGULAR_APPEAL_ROUNDS, jurors[i])
+          const receipt = await this.court.settleReward(disputeId, maxRegularAppealRounds, jurors[i])
           assertLogs(receipt, REWARD_SETTLED_EVENT)
 
           // as jurors are not withdrawing here, real token balance shouldn't change

@@ -448,6 +448,7 @@ contract JurorsRegistry is Initializable, IsContract, IJurorsRegistry, ERC900, A
     * @return active Amount of active tokens of a juror
     * @return available Amount of available tokens of a juror
     * @return locked Amount of active tokens that are locked due to ongoing disputes
+    * @return pendingDeactivation Amount of active tokens that were requested for deactivation
     */
     function balanceOf(address _juror) public view returns (uint256 active, uint256 available, uint256 locked, uint256 pendingDeactivation) {
         Juror storage juror = jurorsByAddress[_juror];

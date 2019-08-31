@@ -116,7 +116,7 @@ contract('JurorsRegistry', ([_, juror500, juror1000, juror1500, juror2000, juror
             let nextEventIndex = 0
             for (let i = 0; i < outputLength; i++) {
               for (let j = 0; j < expectedWeights[i]; j++) {
-                assertEvent({ logs }, 'JurorDrafted', { disputeId, juror: web3.toChecksumAddress(addresses[i]) }, nextEventIndex)
+                assertEvent({ logs }, 'JurorDrafted', { disputeId, juror: addresses[i] }, nextEventIndex)
                 nextEventIndex++
               }
             }

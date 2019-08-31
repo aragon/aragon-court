@@ -65,9 +65,8 @@ contract('JurorsRegistry', ([_, juror, someone]) => {
     })
 
     it('does not emit an available balance changed event', async () => {
-      const { tx } = await assignmentCall()
-      const receipt = await web3.eth.getTransactionReceipt(tx)
-      const logs = decodeEventsOfType({ receipt }, JurorsRegistry.abi, 'JurorAvailableBalanceChanged')
+      const receipt = await assignmentCall()
+      const logs = decodeEventsOfType(receipt, JurorsRegistry.abi, 'JurorAvailableBalanceChanged')
 
       assertAmountOfEvents({ logs }, 'JurorAvailableBalanceChanged', 0)
     })
@@ -123,12 +122,11 @@ contract('JurorsRegistry', ([_, juror, someone]) => {
     })
 
     it('emits an available balance changed event', async () => {
-      const { tx } = await assignmentCall()
-      const receipt = await web3.eth.getTransactionReceipt(tx)
-      const logs = decodeEventsOfType({ receipt }, JurorsRegistry.abi, 'JurorAvailableBalanceChanged')
+      const receipt = await assignmentCall()
+      const logs = decodeEventsOfType(receipt, JurorsRegistry.abi, 'JurorAvailableBalanceChanged')
 
       assertAmountOfEvents({ logs }, 'JurorAvailableBalanceChanged')
-      assertEvent({ logs }, 'JurorAvailableBalanceChanged', { juror: web3.toChecksumAddress(recipient), amount, positive: true })
+      assertEvent({ logs }, 'JurorAvailableBalanceChanged', { juror: recipient, amount, positive: true })
     })
   }
 

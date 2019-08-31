@@ -10,6 +10,7 @@ contract JurorsRegistryMock is JurorsRegistry, TimeHelpersMock {
     address[] public mockedSelectedJurors;
     uint256[] public mockedWeights;
 
+    // TODO: remove
     function mockHijackTreeSearch() external {
         treeSearchHijacked = true;
     }

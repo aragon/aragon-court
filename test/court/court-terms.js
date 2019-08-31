@@ -127,9 +127,9 @@ contract('Court', ([_, sender]) => {
 
       it(`initializes ${expectedTransitions} new terms`, async () => {
         const lastEnsuredTermId = await court.getLastEnsuredTermId()
-        const currentBlockNumber = await court.getBlockNumberExt()
 
         await court.heartbeat(maxTransitionTerms, { from: sender })
+        const currentBlockNumber = await court.getBlockNumberExt()
 
         for (let transition = 1; transition <= expectedTransitions; transition++) {
           const termId = lastEnsuredTermId.plus(transition)

@@ -815,23 +815,21 @@ contract('JurorsRegistry', ([_, juror, anotherJuror]) => {
               })
 
               it('emits an available balance changed event', async () => {
-                const { tx } = await ANJ.approveAndCall(registry.address, amount, data, { from })
-                const receipt = await web3.eth.getTransactionReceipt(tx)
-                const logs = decodeEventsOfType({ receipt }, JurorsRegistry.abi, 'JurorAvailableBalanceChanged')
+                const receipt = await ANJ.approveAndCall(registry.address, amount, data, { from })
+                const logs = decodeEventsOfType(receipt, JurorsRegistry.abi, 'JurorAvailableBalanceChanged')
 
                 assertAmountOfEvents({ logs }, 'JurorAvailableBalanceChanged')
-                assertEvent({ logs }, 'JurorAvailableBalanceChanged', { juror: web3.toChecksumAddress(juror), amount, positive: true })
+                assertEvent({ logs }, 'JurorAvailableBalanceChanged', { juror, amount, positive: true })
               })
 
               it('emits a stake event', async () => {
                 const previousTotalStake = await registry.totalStakedFor(juror)
 
-                const { tx } = await ANJ.approveAndCall(registry.address, amount, data, { from })
-                const receipt = await web3.eth.getTransactionReceipt(tx)
-                const logs = decodeEventsOfType({ receipt }, JurorsRegistry.abi, 'Staked')
+                const receipt = await ANJ.approveAndCall(registry.address, amount, data, { from })
+                const logs = decodeEventsOfType(receipt, JurorsRegistry.abi, 'Staked')
 
                 assertAmountOfEvents({ logs }, 'Staked')
-                assertEvent({ logs }, 'Staked', { user: web3.toChecksumAddress(juror), amount, total: previousTotalStake.plus(amount), data })
+                assertEvent({ logs }, 'Staked', { user: juror, amount, total: previousTotalStake.plus(amount), data })
               })
             })
 
@@ -947,33 +945,30 @@ contract('JurorsRegistry', ([_, juror, anotherJuror]) => {
           })
 
           it('emits two available balance changed events', async () => {
-            const { tx } = await ANJ.approveAndCall(registry.address, amount, data, { from })
-            const receipt = await web3.eth.getTransactionReceipt(tx)
-            const logs = decodeEventsOfType({ receipt }, JurorsRegistry.abi, 'JurorAvailableBalanceChanged')
+            const receipt = await ANJ.approveAndCall(registry.address, amount, data, { from })
+            const logs = decodeEventsOfType(receipt, JurorsRegistry.abi, 'JurorAvailableBalanceChanged')
 
             assertAmountOfEvents({ logs }, 'JurorAvailableBalanceChanged', 2)
-            assertEvent({ logs }, 'JurorAvailableBalanceChanged', { juror: web3.toChecksumAddress(juror), amount, positive: true }, 0)
-            assertEvent({ logs }, 'JurorAvailableBalanceChanged', { juror: web3.toChecksumAddress(juror), amount, positive: null }, 1)
+            assertEvent({ logs }, 'JurorAvailableBalanceChanged', { juror: juror, amount, positive: true }, 0)
+            assertEvent({ logs }, 'JurorAvailableBalanceChanged', { juror: juror, amount, positive: null }, 1)
           })
 
           it('emits a stake event', async () => {
             const previousTotalStake = await registry.totalStakedFor(juror)
 
-            const { tx } = await ANJ.approveAndCall(registry.address, amount, data, { from })
-            const receipt = await web3.eth.getTransactionReceipt(tx)
-            const logs = decodeEventsOfType({ receipt }, JurorsRegistry.abi, 'Staked')
+            const receipt = await ANJ.approveAndCall(registry.address, amount, data, { from })
+            const logs = decodeEventsOfType(receipt, JurorsRegistry.abi, 'Staked')
 
             assertAmountOfEvents({ logs }, 'Staked')
-            assertEvent({ logs }, 'Staked', { user: web3.toChecksumAddress(juror), amount, total: previousTotalStake.plus(amount), data })
+            assertEvent({ logs }, 'Staked', { user: juror, amount, total: previousTotalStake.plus(amount), data })
           })
 
           it('emits an activation event', async () => {
-            const { tx } = await ANJ.approveAndCall(registry.address, amount, data, { from })
-            const receipt = await web3.eth.getTransactionReceipt(tx)
-            const logs = decodeEventsOfType({ receipt }, JurorsRegistry.abi, 'JurorActivated')
+            const receipt = await ANJ.approveAndCall(registry.address, amount, data, { from })
+            const logs = decodeEventsOfType(receipt, JurorsRegistry.abi, 'JurorActivated')
 
             assertAmountOfEvents({ logs }, 'JurorActivated')
-            assertEvent({ logs }, 'JurorActivated', { juror: web3.toChecksumAddress(juror), fromTermId: 1, amount })
+            assertEvent({ logs }, 'JurorActivated', { juror, fromTermId: 1, amount })
           })
         }
 

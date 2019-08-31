@@ -19,9 +19,9 @@ contract('Court', () => {
     })
 
     it('cannot use a penalty pct lower than 1% (1/10,000) ', async () => {
-      await assertRevert(courtHelper.deploy({ penaltyPct: 99 }), 'CTBAD_PENALTY')
+      await assertRevert(courtHelper.deploy({ penaltyPct: 99, jurorsMinActiveBalance: 100 }), 'CT_INVALID_PENALTY_PCT')
 
-      const court = await courtHelper.deploy({ penaltyPct: 100 })
+      const court = await courtHelper.deploy({ penaltyPct: 100, jurorsMinActiveBalance: 100 })
       const penaltyPct = (await court.courtConfigs(1))[9] // config ID 0 is used for undefined
       assert.equal(penaltyPct.toString(), 100, 'penalty pct does not match')
     })

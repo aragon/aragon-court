@@ -53,7 +53,7 @@ contract('Court', ([_, sender]) => {
             assertAmountOfEvents(receipt, 'NewDispute')
             assertEvent(receipt, 'NewDispute', { disputeId: 0, subject: arbitrable.address, draftTermId, jurorsNumber })
 
-            const [subject, rulings, state, finalRuling] = await court.getDispute(0)
+            const { subject, possibleRulings: rulings, state, finalRuling } = await courtHelper.getDispute(0)
             assert.equal(subject, arbitrable.address, 'dispute subject does not match')
             assert.equal(state, DISPUTE_STATES.PRE_DRAFT, 'dispute state does not match')
             assert.equal(rulings.toString(), possibleRulings, 'dispute possible rulings do not match')
@@ -63,36 +63,37 @@ contract('Court', ([_, sender]) => {
           it('creates a new adjudication round', async () => {
             await court.createDispute(arbitrable.address, possibleRulings, jurorsNumber, draftTermId, { from: sender })
 
-            const [draftTerm, delayTerm, jurorNumber, selectedJurors, triggeredBy, settledPenalties, slashedTokens] = await court.getAdjudicationRound(0, 0)
+            const { draftTerm, delayedTerms, roundJurorsNumber, selectedJurors, triggeredBy, settledPenalties, collectedTokens } = await courtHelper.getRound(0, 0)
 
             assert.equal(draftTerm.toString(), draftTermId, 'round draft term does not match')
-            assert.equal(delayTerm.toString(), 0, 'round delay term does not match')
-            assert.equal(jurorNumber.toString(), jurorsNumber, 'round jurors number does not match')
+            assert.equal(delayedTerms.toString(), 0, 'round delay term does not match')
+            assert.equal(roundJurorsNumber.toString(), jurorsNumber, 'round jurors number does not match')
             assert.equal(selectedJurors.toString(), 0, 'round selected jurors number does not match')
             assert.equal(triggeredBy, sender, 'round trigger does not match')
             assert.equal(settledPenalties, false, 'round penalties should not be settled')
-            assert.equal(slashedTokens.toString(), 0, 'round slashed tokens should be zero')
+            assert.equal(collectedTokens.toString(), 0, 'round collected tokens should be zero')
           })
 
           it('transfers the collateral to the court', async () => {
+            const jurorFees = jurorFee.mul(jurorsNumber)
+            const draftFees = draftFee.mul(jurorsNumber)
+            const settleFees = settleFee.mul(jurorsNumber)
+            const expectedDisputeDeposit = jurorFees.plus(heartbeatFee).plus(draftFees).plus(settleFees)
+
             const previousCourtBalance = await feeToken.balanceOf(court.address)
             const previousAccountingBalance = await feeToken.balanceOf(courtHelper.accounting.address)
             const previousSenderBalance = await feeToken.balanceOf(sender)
 
             await court.createDispute(arbitrable.address, possibleRulings, jurorsNumber, draftTermId, { from: sender })
 
-            const jurorFees = jurorFee.mul(jurorsNumber)
-            const jurorRewards = (draftFee.plus(settleFee)).mul(jurorsNumber)
-            const expectedDelta = jurorFees.plus(heartbeatFee).plus(jurorRewards)
-
             const currentCourtBalance = await feeToken.balanceOf(court.address)
             assert.equal(previousCourtBalance.toString(), currentCourtBalance.toString(), 'court balances do not match')
 
             const currentAccountingBalance = await feeToken.balanceOf(courtHelper.accounting.address)
-            assert.equal(previousAccountingBalance.plus(expectedDelta).toString(), currentAccountingBalance.toString(), 'court accounting balances do not match')
+            assert.equal(previousAccountingBalance.plus(expectedDisputeDeposit).toString(), currentAccountingBalance.toString(), 'court accounting balances do not match')
 
             const currentSenderBalance = await feeToken.balanceOf(sender)
-            assert.equal(previousSenderBalance.minus(expectedDelta).toString(), currentSenderBalance.toString(), 'sender balances do not match')
+            assert.equal(previousSenderBalance.minus(expectedDisputeDeposit).toString(), currentSenderBalance.toString(), 'sender balances do not match')
           })
 
           it(`transitions ${expectedTermTransitions} terms`, async () => {
@@ -109,7 +110,7 @@ contract('Court', ([_, sender]) => {
 
         context('when the creator does not deposit enough collateral', () => {
           it('reverts', async () => {
-            await assertRevert(court.createDispute(arbitrable.address, possibleRulings, jurorsNumber, draftTermId), 'CTDEPOSIT_FAIL')
+            await assertRevert(court.createDispute(arbitrable.address, possibleRulings, jurorsNumber, draftTermId), 'CT_DEPOSIT_FAILED')
           })
         })
       }
@@ -147,7 +148,7 @@ contract('Court', ([_, sender]) => {
           })
 
           it('reverts', async () => {
-            await assertRevert(court.createDispute(arbitrable.address, possibleRulings, jurorsNumber, draftTermId), 'CTTOO_MANY_TRANSITIONS')
+            await assertRevert(court.createDispute(arbitrable.address, possibleRulings, jurorsNumber, draftTermId), 'CT_TOO_MANY_TRANSITIONS')
           })
         })
       })
@@ -160,9 +161,9 @@ contract('Court', ([_, sender]) => {
 
       context('when the possible rulings are invalid', () => {
         it('reverts', async () => {
-          await assertRevert(court.createDispute(arbitrable.address, 0, 10, 20), 'CTBAD_RULING_OPTS')
-          await assertRevert(court.createDispute(arbitrable.address, 1, 10, 20), 'CTBAD_RULING_OPTS')
-          await assertRevert(court.createDispute(arbitrable.address, 3, 10, 20), 'CTBAD_RULING_OPTS')
+          await assertRevert(court.createDispute(arbitrable.address, 0, 10, 20), 'CT_INVALID_RULING_OPTIONS')
+          await assertRevert(court.createDispute(arbitrable.address, 1, 10, 20), 'CT_INVALID_RULING_OPTIONS')
+          await assertRevert(court.createDispute(arbitrable.address, 3, 10, 20), 'CT_INVALID_RULING_OPTIONS')
         })
       })
 
@@ -170,7 +171,7 @@ contract('Court', ([_, sender]) => {
         it('reverts', async () => {
           await courtHelper.subscriptions.setUpToDate(false)
 
-          await assertRevert(court.createDispute(arbitrable.address, 2, 10, 20), 'CTSUBSC_UNPAID')
+          await assertRevert(court.createDispute(arbitrable.address, 2, 10, 20), 'CT_SUBSCRIPTION_NOT_PAID')
         })
       })
 
@@ -203,7 +204,7 @@ contract('Court', ([_, sender]) => {
       })
 
       it('returns the requested dispute', async () => {
-        const [subject, rulings, state, finalRuling] = await court.getDispute(0)
+        const { subject, possibleRulings: rulings, state, finalRuling } = await courtHelper.getDispute(0)
 
         assert.equal(subject, arbitrable.address, 'dispute subject does not match')
         assert.equal(state, DISPUTE_STATES.PRE_DRAFT, 'dispute state does not match')
@@ -235,30 +236,28 @@ contract('Court', ([_, sender]) => {
 
       context('when the round exists', async () => {
         it('returns the requested round', async () => {
-          const [draftTerm, delayTerm, jurorNumber, selectedJurors, triggeredBy, settledPenalties, slashedTokens] = await court.getAdjudicationRound(0, 0)
+          const { draftTerm, delayedTerms, roundJurorsNumber, selectedJurors, triggeredBy, settledPenalties, collectedTokens } = await courtHelper.getRound(0, 0)
 
           assert.equal(draftTerm.toString(), draftTermId, 'round draft term does not match')
-          assert.equal(delayTerm.toString(), 0, 'round delay term does not match')
-          assert.equal(jurorNumber.toString(), jurorsNumber, 'round jurors number does not match')
+          assert.equal(delayedTerms.toString(), 0, 'round delay term does not match')
+          assert.equal(roundJurorsNumber.toString(), jurorsNumber, 'round jurors number does not match')
           assert.equal(selectedJurors.toString(), 0, 'round selected jurors number does not match')
           assert.equal(triggeredBy, sender, 'round trigger does not match')
           assert.equal(settledPenalties, false, 'round penalties should not be settled')
-          assert.equal(slashedTokens.toString(), 0, 'round slashed tokens should be zero')
+          assert.equal(collectedTokens.toString(), 0, 'round collected tokens should be zero')
         })
       })
 
       context('when the round does not exist', async () => {
-        // TODO: this scenario is not implemented in the contracts yet
-        it.skip('reverts', async () => {
-          await assertRevert(court.getAdjudicationRound(0, 1), 'CT_ROUND_DOES_NOT_EXIST')
+        it('reverts', async () => {
+          await assertRevert(court.getRound(0, 1), 'CT_ROUND_DOES_NOT_EXIST')
         })
       })
     })
 
     context('when the dispute does not exist', () => {
-      // TODO: this scenario is not implemented in the contracts yet
-      it.skip('reverts', async () => {
-        await assertRevert(court.getAdjudicationRound(0, 0), 'CT_DISPUTE_DOES_NOT_EXIST')
+      it('reverts', async () => {
+        await assertRevert(court.getRound(0, 0), 'CT_DISPUTE_DOES_NOT_EXIST')
       })
     })
   })

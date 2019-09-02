@@ -1,9 +1,9 @@
-const { bigExp } = require('../helpers/numbers')(web3)
+const { bn, bigExp } = require('../helpers/numbers')
 const { filterJurors } = require('../helpers/jurors')
-const { assertRevert } = require('@aragon/os/test/helpers/assertThrow')
-const { assertAmountOfEvents, assertEvent } = require('@aragon/os/test/helpers/assertEvent')(web3)
+const { assertRevert } = require('../helpers/assertThrow')
+const { assertAmountOfEvents, assertEvent } = require('../helpers/assertEvent')
 const { buildHelper, ROUND_STATES, DISPUTE_STATES } = require('../helpers/court')(web3, artifacts)
-const { OUTCOMES, getVoteId, oppositeOutcome, outcomeFor } = require('../helpers/crvoting')(web3)
+const { OUTCOMES, getVoteId, oppositeOutcome, outcomeFor } = require('../helpers/crvoting')
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
 
@@ -37,7 +37,7 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
 
         await courtHelper.setTerm(1)
         disputeId = await courtHelper.dispute({ jurorsNumber, draftTermId, disputer })
-        await courtHelper.passTerms(draftTermId - 1) // court is already at term one
+        await courtHelper.passTerms(bn(draftTermId - 1)) // court is already at term one
       })
 
       context('when the given round is valid', () => {
@@ -46,7 +46,7 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
         const itIsAtState = (roundId, state) => {
           it(`round is at state ${state}`, async () => {
             const { roundState } = await courtHelper.getRound(disputeId, roundId)
-            assert.equal(roundState.toString(), state, 'round state does not match')
+            assert.equal(roundState.toString(), state.toString(), 'round state does not match')
           })
         }
 
@@ -94,7 +94,7 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
               await courtHelper.commit({ disputeId, roundId, voters })
               await courtHelper.reveal({ disputeId, roundId, voters })
 
-              winningRuling = (await voting.getWinningOutcome(voteId)).toNumber()
+              winningRuling = await voting.getWinningOutcome(voteId)
             })
 
             itIsAtState(roundId, ROUND_STATES.APPEALING)
@@ -144,10 +144,10 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
                     assert.equal(previousCourtBalance.toString(), currentCourtBalance.toString(), 'court balances do not match')
 
                     const currentAccountingBalance = await feeToken.balanceOf(accounting.address)
-                    assert.equal(previousAccountingBalance.plus(expectedAppealDeposit).toString(), currentAccountingBalance.toString(), 'court accounting balances do not match')
+                    assert.equal(previousAccountingBalance.add(expectedAppealDeposit).toString(), currentAccountingBalance.toString(), 'court accounting balances do not match')
 
                     const currentAppealerBalance = await feeToken.balanceOf(appealMaker)
-                    assert.equal(previousAppealerBalance.minus(expectedAppealDeposit).toString(), currentAppealerBalance.toString(), 'sender balances do not match')
+                    assert.equal(previousAppealerBalance.sub(expectedAppealDeposit).toString(), currentAppealerBalance.toString(), 'sender balances do not match')
                   })
 
                   it('does not create a new round for the dispute', async () => {
@@ -173,7 +173,7 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
                     await court.appeal(disputeId, roundId, appealMakerRuling, { from: appealMaker })
 
                     const { possibleRulings, state, finalRuling } = await courtHelper.getDispute(disputeId)
-                    assert.equal(state, DISPUTE_STATES.ADJUDICATING, 'dispute state does not match')
+                    assert.equal(state.toString(), DISPUTE_STATES.ADJUDICATING.toString(), 'dispute state does not match')
                     assert.equal(possibleRulings.toString(), 2, 'dispute possible rulings do not match')
                     assert.equal(finalRuling.toString(), 0, 'dispute final ruling does not match')
                   })
@@ -245,7 +245,7 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
 
             context('when the round was not appealed', () => {
               beforeEach('pass appeal and confirmation periods', async () => {
-                await courtHelper.passTerms(courtHelper.appealTerms + courtHelper.appealConfirmTerms)
+                await courtHelper.passTerms(courtHelper.appealTerms.add(courtHelper.appealConfirmTerms))
               })
 
               itIsAtState(roundId, ROUND_STATES.ENDED)
@@ -335,7 +335,7 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
             beforeEach('commit and reveal votes, and pass appeal and confirmation periods', async () => {
               await courtHelper.commit({ disputeId, roundId, voters })
               await courtHelper.reveal({ disputeId, roundId, voters })
-              await courtHelper.passTerms(courtHelper.appealTerms + courtHelper.appealConfirmTerms)
+              await courtHelper.passTerms(courtHelper.appealTerms.add(courtHelper.appealConfirmTerms))
             })
 
             itIsAtState(roundId, ROUND_STATES.ENDED)

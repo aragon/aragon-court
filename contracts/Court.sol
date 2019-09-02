@@ -696,7 +696,9 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
     * @return Block number used for randomness in the requested term
     * @return Randomness computed for the requested term
     */
-    function getTerm(uint64 _termId) external view returns (uint64, uint64, uint64, uint64, bytes32) {
+    function getTerm(uint64 _termId) external view
+        returns (uint64 startTime, uint64 dependingDrafts, uint64 courtConfigId, uint64 randomnessBN, bytes32 randomness)
+    {
         // We allow querying future terms that were not computed yet
         Term storage term = terms[_termId];
         return (term.startTime, term.dependingDrafts, term.courtConfigId, term.randomnessBN, term.randomness);

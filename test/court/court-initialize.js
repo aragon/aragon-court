@@ -1,6 +1,7 @@
+const { bn } = require('../helpers/numbers')
 const { buildHelper } = require('../helpers/court')(web3, artifacts)
 const { NOW, ONE_DAY } = require('../helpers/time')
-const { assertRevert } = require('@aragon/os/test/helpers/assertThrow')
+const { assertRevert } = require('../helpers/assertThrow')
 
 contract('Court', () => {
   let courtHelper
@@ -19,9 +20,9 @@ contract('Court', () => {
     })
 
     it('cannot use a penalty pct lower than 1% (1/10,000) ', async () => {
-      await assertRevert(courtHelper.deploy({ penaltyPct: 99, jurorsMinActiveBalance: 100 }), 'CT_INVALID_PENALTY_PCT')
+      await assertRevert(courtHelper.deploy({ penaltyPct: bn(99), jurorsMinActiveBalance: bn(100) }), 'CT_INVALID_PENALTY_PCT')
 
-      const court = await courtHelper.deploy({ penaltyPct: 100, jurorsMinActiveBalance: 100 })
+      const court = await courtHelper.deploy({ penaltyPct: bn(100), jurorsMinActiveBalance: bn(100) })
       const penaltyPct = (await court.courtConfigs(1))[9] // config ID 0 is used for undefined
       assert.equal(penaltyPct.toString(), 100, 'penalty pct does not match')
     })

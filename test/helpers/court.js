@@ -8,7 +8,7 @@ const { SALT, getVoteId, encryptVote, oppositeOutcome, outcomeFor } = require('.
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
 
 const APPEAL_COLLATERAL_FACTOR = bn(3)
-const APPEAL_CONFIRMATION_COLLATERAL_FACTOR = (2)
+const APPEAL_CONFIRMATION_COLLATERAL_FACTOR = bn(2)
 
 const DISPUTE_STATES = {
   PRE_DRAFT: bn(0),
@@ -118,7 +118,7 @@ module.exports = (web3, artifacts) => {
     }
 
     getNextRoundJurorsNumberFor(jurorsNumber) {
-      let nextRoundJurorsNumber = this.appealStepFactor.mul(jurorsNumber)
+      let nextRoundJurorsNumber = this.appealStepFactor.mul(bn(jurorsNumber))
       if (nextRoundJurorsNumber.mod(bn(2)).eq(bn(0))) nextRoundJurorsNumber = nextRoundJurorsNumber.add(bn(1))
       return nextRoundJurorsNumber
     }

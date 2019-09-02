@@ -1,8 +1,8 @@
-const { bigExp } = require('../helpers/numbers')(web3)
-const { assertRevert } = require('@aragon/os/test/helpers/assertThrow')
+const { bn, bigExp } = require('../helpers/numbers')
+const { assertRevert } = require('../helpers/assertThrow')
 const { TOMORROW, ONE_DAY } = require('../helpers/time')
 const { buildHelper, DISPUTE_STATES } = require('../helpers/court')(web3, artifacts)
-const { assertAmountOfEvents, assertEvent } = require('@aragon/os/test/helpers/assertEvent')(web3)
+const { assertAmountOfEvents, assertEvent } = require('../helpers/assertEvent')
 
 const MiniMeToken = artifacts.require('MiniMeToken')
 const Arbitrable = artifacts.require('ArbitrableMock')
@@ -12,8 +12,8 @@ const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
 contract('Court', ([_, sender]) => {
   let courtHelper, court, feeToken, arbitrable
 
-  const termDuration = ONE_DAY
-  const firstTermStartTime = TOMORROW
+  const termDuration = bn(ONE_DAY)
+  const firstTermStartTime = bn(TOMORROW)
   const jurorFee = bigExp(10, 18)
   const heartbeatFee = bigExp(20, 18)
   const draftFee = bigExp(30, 18)
@@ -33,14 +33,13 @@ contract('Court', ([_, sender]) => {
   describe('createDispute', () => {
     context('when the given input is valid', () => {
       const draftTermId = 2
-      const jurorsNumber = 10
+      const jurorsNumber = 6
       const possibleRulings = 2
 
       const itHandlesDisputesCreationProperly = expectedTermTransitions => {
         context('when the creator deposits enough collateral', () => {
-          const jurorFees = jurorFee.mul(jurorsNumber)
-          const jurorRewards = (draftFee.plus(settleFee)).mul(jurorsNumber)
-          const requiredCollateral = jurorFees.plus(heartbeatFee).plus(jurorRewards)
+          const jurorFees = jurorFee.add(draftFee).add(settleFee).mul(bn(jurorsNumber))
+          const requiredCollateral = jurorFees.add(heartbeatFee)
 
           beforeEach('deposit collateral', async () => {
             await feeToken.generateTokens(sender, requiredCollateral)
@@ -55,7 +54,7 @@ contract('Court', ([_, sender]) => {
 
             const { subject, possibleRulings: rulings, state, finalRuling } = await courtHelper.getDispute(0)
             assert.equal(subject, arbitrable.address, 'dispute subject does not match')
-            assert.equal(state, DISPUTE_STATES.PRE_DRAFT, 'dispute state does not match')
+            assert.equal(state.toString(), DISPUTE_STATES.PRE_DRAFT.toString(), 'dispute state does not match')
             assert.equal(rulings.toString(), possibleRulings, 'dispute possible rulings do not match')
             assert.equal(finalRuling.toString(), 0, 'dispute final ruling does not match')
           })
@@ -75,10 +74,8 @@ contract('Court', ([_, sender]) => {
           })
 
           it('transfers the collateral to the court', async () => {
-            const jurorFees = jurorFee.mul(jurorsNumber)
-            const draftFees = draftFee.mul(jurorsNumber)
-            const settleFees = settleFee.mul(jurorsNumber)
-            const expectedDisputeDeposit = jurorFees.plus(heartbeatFee).plus(draftFees).plus(settleFees)
+            const jurorFees = jurorFee.add(draftFee).add(settleFee).mul(bn(jurorsNumber))
+            const expectedDisputeDeposit = jurorFees.add(heartbeatFee)
 
             const previousCourtBalance = await feeToken.balanceOf(court.address)
             const previousAccountingBalance = await feeToken.balanceOf(courtHelper.accounting.address)
@@ -90,10 +87,10 @@ contract('Court', ([_, sender]) => {
             assert.equal(previousCourtBalance.toString(), currentCourtBalance.toString(), 'court balances do not match')
 
             const currentAccountingBalance = await feeToken.balanceOf(courtHelper.accounting.address)
-            assert.equal(previousAccountingBalance.plus(expectedDisputeDeposit).toString(), currentAccountingBalance.toString(), 'court accounting balances do not match')
+            assert.equal(previousAccountingBalance.add(expectedDisputeDeposit).toString(), currentAccountingBalance.toString(), 'court accounting balances do not match')
 
             const currentSenderBalance = await feeToken.balanceOf(sender)
-            assert.equal(previousSenderBalance.minus(expectedDisputeDeposit).toString(), currentSenderBalance.toString(), 'sender balances do not match')
+            assert.equal(previousSenderBalance.sub(expectedDisputeDeposit).toString(), currentSenderBalance.toString(), 'sender balances do not match')
           })
 
           it(`transitions ${expectedTermTransitions} terms`, async () => {
@@ -104,7 +101,7 @@ contract('Court', ([_, sender]) => {
             assertAmountOfEvents(receipt, 'NewTerm', expectedTermTransitions)
 
             const currentTermId = await court.getLastEnsuredTermId()
-            assert.equal(previousTermId.plus(expectedTermTransitions).toString(), currentTermId.toString(), 'term id does not match')
+            assert.equal(previousTermId.add(bn(expectedTermTransitions)).toString(), currentTermId.toString(), 'term id does not match')
           })
         })
 
@@ -144,7 +141,7 @@ contract('Court', ([_, sender]) => {
 
         context('when the term is outdated by more than one term', () => {
           beforeEach('set timestamp two terms after the first term', async () => {
-            await courtHelper.setTimestamp(firstTermStartTime + termDuration * 2)
+            await courtHelper.setTimestamp(firstTermStartTime.add(termDuration.mul(bn(2))))
           })
 
           it('reverts', async () => {
@@ -192,7 +189,7 @@ contract('Court', ([_, sender]) => {
   describe('getDispute', () => {
     context('when the dispute exists', async () => {
       const draftTermId = 2
-      const jurorsNumber = 10
+      const jurorsNumber = 6
       const possibleRulings = 2
 
       beforeEach('create dispute', async () => {
@@ -207,13 +204,13 @@ contract('Court', ([_, sender]) => {
         const { subject, possibleRulings: rulings, state, finalRuling } = await courtHelper.getDispute(0)
 
         assert.equal(subject, arbitrable.address, 'dispute subject does not match')
-        assert.equal(state, DISPUTE_STATES.PRE_DRAFT, 'dispute state does not match')
+        assert.equal(state.toString(), DISPUTE_STATES.PRE_DRAFT.toString(), 'dispute state does not match')
         assert.equal(rulings.toString(), possibleRulings, 'dispute possible rulings do not match')
         assert.equal(finalRuling.toString(), 0, 'dispute final ruling does not match')
       })
     })
 
-    context('when the dispute does not exist', async () => {
+    context('when the dispute does not exist', () => {
       it('reverts', async () => {
         await assertRevert(court.getDispute(0), 'CT_DISPUTE_DOES_NOT_EXIST')
       })
@@ -223,7 +220,7 @@ contract('Court', ([_, sender]) => {
   describe('getRound', () => {
     context('when the dispute exists', async () => {
       const draftTermId = 2
-      const jurorsNumber = 10
+      const jurorsNumber = 6
       const possibleRulings = 2
 
       beforeEach('create dispute', async () => {

@@ -1,6 +1,6 @@
-const { assertRevert } = require('@aragon/test-helpers/assertThrow')
-const { bigExp, MAX_UINT256 } = require('../helpers/numbers')(web3)
-const { assertEvent, assertAmountOfEvents } = require('@aragon/test-helpers/assertEvent')(web3)
+const { assertRevert } = require('../helpers/assertThrow')
+const { bn, bigExp, MAX_UINT256 } = require('../helpers/numbers')
+const { assertEvent, assertAmountOfEvents } = require('../helpers/assertEvent')
 
 const MiniMeToken = artifacts.require('MiniMeToken')
 const CourtAccounting = artifacts.require('CourtAccounting')
@@ -34,8 +34,8 @@ contract('CourtAccounting', ([_, owner, holder, someone]) => {
     })
 
     beforeEach('create tokens', async () => {
-      DAI = await MiniMeToken.new(ZERO_ADDRESS, ZERO_ADDRESS, 0, 'n', 18, 'DAI', true)
-      ANT = await MiniMeToken.new(ZERO_ADDRESS, ZERO_ADDRESS, 0, 'n', 18, 'ANT', true)
+      DAI = await MiniMeToken.new(ZERO_ADDRESS, ZERO_ADDRESS, 0, 'DAI Token', 18, 'DAI', true)
+      ANT = await MiniMeToken.new(ZERO_ADDRESS, ZERO_ADDRESS, 0, 'AN Token', 18, 'ANT', true)
     })
 
     const itHandlesDepositsProperly = account => {
@@ -45,7 +45,7 @@ contract('CourtAccounting', ([_, owner, holder, someone]) => {
         context('when the account did not have previous balance', () => {
 
           context('when the given amount is zero', () => {
-            const amount = 0
+            const amount = bn(0)
 
             it('reverts', async () => {
               await assertRevert(accounting.assign(DAI.address, account, amount, { from }), 'ACCOUNTING_DEPOSIT_AMOUNT_ZERO')
@@ -77,7 +77,7 @@ contract('CourtAccounting', ([_, owner, holder, someone]) => {
           })
 
           context('when the given amount is zero', () => {
-            const amount = 0
+            const amount = bn(0)
 
             it('reverts', async () => {
               await assertRevert(accounting.assign(DAI.address, account, amount, { from }), 'ACCOUNTING_DEPOSIT_AMOUNT_ZERO')
@@ -94,7 +94,7 @@ contract('CourtAccounting', ([_, owner, holder, someone]) => {
                 await accounting.assign(DAI.address, account, amount, { from })
 
                 const currentBalance = await accounting.balanceOf(DAI.address, account)
-                assert.equal(currentBalance.toString(), previousBalance.plus(amount).toString(), 'account balance do not match')
+                assert.equal(currentBalance.toString(), previousBalance.add(amount).toString(), 'account balance do not match')
               })
 
               it('emits an event', async () => {
@@ -149,8 +149,8 @@ contract('CourtAccounting', ([_, owner, holder, someone]) => {
     })
 
     beforeEach('create tokens and mint to accounting', async () => {
-      DAI = await MiniMeToken.new(ZERO_ADDRESS, ZERO_ADDRESS, 0, 'n', 18, 'DAI', true)
-      ANT = await MiniMeToken.new(ZERO_ADDRESS, ZERO_ADDRESS, 0, 'n', 18, 'ANT', true)
+      DAI = await MiniMeToken.new(ZERO_ADDRESS, ZERO_ADDRESS, 0, 'DAI Token', 18, 'DAI', true)
+      ANT = await MiniMeToken.new(ZERO_ADDRESS, ZERO_ADDRESS, 0, 'AN Token', 18, 'ANT', true)
     })
 
     context('when the sender has some balance', () => {
@@ -165,7 +165,7 @@ contract('CourtAccounting', ([_, owner, holder, someone]) => {
         const recipient = holder
 
         context('when the given amount is zero', () => {
-          const amount = 0
+          const amount = bn(0)
 
           it('reverts', async () => {
             await assertRevert(accounting.withdraw(DAI.address, recipient, amount, { from }), 'ACCOUNTING_WITHDRAW_AMOUNT_ZERO')
@@ -186,7 +186,7 @@ contract('CourtAccounting', ([_, owner, holder, someone]) => {
               await accounting.withdraw(DAI.address, recipient, amount, { from })
 
               const currentBalance = await accounting.balanceOf(DAI.address, recipient)
-              assert.equal(currentBalance.toString(), previousBalance.minus(amount).toString(), 'account balance do not match')
+              assert.equal(currentBalance.toString(), previousBalance.sub(amount).toString(), 'account balance do not match')
             })
 
             it('transfers the requested amount to the recipient', async () => {
@@ -279,7 +279,7 @@ contract('CourtAccounting', ([_, owner, holder, someone]) => {
         const recipient = ZERO_ADDRESS
 
         context('when the given amount is zero', () => {
-          const amount = 0
+          const amount = bn(0)
 
           it('reverts', async () => {
             await assertRevert(accounting.withdraw(DAI.address, recipient, amount, { from }), 'ACCOUNTING_WITHDRAW_AMOUNT_ZERO')

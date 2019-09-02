@@ -1,21 +1,21 @@
-const { assertRevert } = require('@aragon/os/test/helpers/assertThrow')
+const { sha3 } = require('web3-utils')
+const { bn, bigExp } = require('./helpers/numbers')
+const { assertRevert } = require('./helpers/assertThrow')
 
 const CourtSubscriptions = artifacts.require('CourtSubscriptions')
 const SubscriptionsOwner = artifacts.require('SubscriptionsOwnerMock')
 const JurorsRegistry = artifacts.require('JurorsRegistry')
 const MiniMeToken = artifacts.require('@aragon/apps-shared-minime/contracts/MiniMeToken')
 
-const deployedContract = async (receiptPromise, name) =>
-      artifacts.require(name).at(getLog(await receiptPromise, 'Deployed', 'addr'))
-
 const assertEqualBN = async (actualPromise, expected, message) =>
-      assert.equal((await actualPromise).toNumber(), expected, message)
+      assert.equal((await actualPromise).toString(), expected, message)
+
 const assertEqualBNs = (actual, expected, message) =>
-      assert.equal(actual.toNumber(), expected.toNumber(), message)
+      assert.equal(actual.toString(), expected.toString(), message)
 
 const getLog = async (receiptPromise, logName, argName) => {
   const receipt = await receiptPromise
-  const log = receipt.logs.find(({ event }) => event == logName)
+  const log = receipt.logs.find(({ event }) => event === logName)
   return log ? log.args[argName] : null
 }
 
@@ -26,10 +26,6 @@ const assertLogs = async (receiptPromise, ...logNames) => {
   }
 }
 
-const ZERO_ADDRESS = '0x' + '00'.repeat(20)
-const ACTIVATE_DATA = web3.sha3('activate(uint256)').slice(0, 10)
-const MIN_ACTIVE_TOKEN = 1e18
-
 const ERROR_NOT_GOVERNOR = 'SUB_NOT_GOVERNOR'
 const ERROR_ZERO_FEE = 'SUB_ZERO_FEE'
 const ERROR_ZERO_PREPAYMENT_PERIODS = 'SUB_ZERO_PREPAYMENT_PERIODS'
@@ -38,31 +34,35 @@ const ERROR_TOO_MANY_PERIODS = 'SUB_TOO_MANY_PERIODS'
 
 const FEES_PAID_EVENT = 'FeesPaid'
 const FEES_CLAIMED_EVENT = 'FeesClaimed'
-const GOVERNOR_FEES_TRANSFERRED_EVENT = 'GovernorFeesTransferred'
 
-const DECIMALS = 1e18
+const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
 
 contract('CourtSubscriptions', ([ org1, org2, juror1, juror2, juror3 ]) => {
   let token
+
   const START_TERM_ID = 1
   const PERIOD_DURATION = 24 * 30 // 30 days, assuming terms are 1h
   const PREPAYMENT_PERIODS = 12
-  const FEE_AMOUNT = new web3.BigNumber(10).mul(DECIMALS)
-  const INITIAL_BALANCE = new web3.BigNumber(1e6).mul(DECIMALS)
-  const GOVERNOR_SHARE_PCT = 100 // 100‱ = 1%
-  const LATE_PAYMENT_PENALTY_PCT = 1000 // 1000‱ = 10%
-  const orgs = [ org1, org2 ]
-  const jurors = [ juror1, juror2, juror3 ]
 
-  const bnPct4Decrease = (n, p) => n.mul(1e4 - p).div(1e4)
-  const bnPct4Increase = (n, p) => n.mul(1e4 + p).div(1e4)
+  const FEE_AMOUNT = bigExp(10, 18)
+  const INITIAL_BALANCE = bigExp(1e6, 18)
+  const GOVERNOR_SHARE_PCT = bn(100) // 100‱ = 1%
+  const LATE_PAYMENT_PENALTY_PCT = bn(1000) // 1000‱ = 10%
+  const MIN_ACTIVE_TOKEN = bigExp(1, 18)
+  const ACTIVATE_DATA = sha3('activate(uint256)').slice(0, 10)
+
+  const orgs = [org1, org2]
+  const jurors = [juror1, juror2, juror3]
+
+  const bnPct4Decrease = (n, p) => n.mul(bn(1e4).sub(p)).div(bn(1e4))
+  const bnPct4Increase = (n, p) => n.mul(bn(1e4).add(p)).div(bn(1e4))
 
   beforeEach(async () => {
     this.jurorsRegistry = await JurorsRegistry.new()
-    this.anj = await MiniMeToken.new(ZERO_ADDRESS, ZERO_ADDRESS, 0, 'n', 18, 'ANJ', true)
+    this.anj = await MiniMeToken.new(ZERO_ADDRESS, ZERO_ADDRESS, 0, 'ANJ Token', 18, 'ANJ', true)
     this.subscription = await CourtSubscriptions.new()
     // Mints 1,000,000 tokens for orgs
-    token = await MiniMeToken.new(ZERO_ADDRESS, ZERO_ADDRESS, 0, 'n', 0, 'n', true) // empty parameters minime
+    token = await MiniMeToken.new(ZERO_ADDRESS, ZERO_ADDRESS, 0, 'Token', 0, 'SYM', true) // empty parameters minime
     for (let org of orgs) {
       await token.generateTokens(org, INITIAL_BALANCE)
       await token.approve(this.subscription.address, INITIAL_BALANCE, { from: org })
@@ -116,7 +116,7 @@ contract('CourtSubscriptions', ([ org1, org2, juror1, juror2, juror3 ]) => {
     })
 
     it('can set Fee Token as owner', async () => {
-      const token2 = await MiniMeToken.new(ZERO_ADDRESS, ZERO_ADDRESS, 0, 'n', 0, 'n', true) // empty parameters minime
+      const token2 = await MiniMeToken.new(ZERO_ADDRESS, ZERO_ADDRESS, 0, 'Token', 0, 'SYM', true) // empty parameters minime
       await this.subscriptionOwner.setFeeToken(token2.address, FEE_AMOUNT)
       assert.equal(await this.subscription.currentFeeToken(), token2.address)
     })
@@ -144,11 +144,6 @@ contract('CourtSubscriptions', ([ org1, org2, juror1, juror2, juror3 ]) => {
     })
 
     context('Org actions', () => {
-      const logPeriod = async() => {
-        const currentTermId = (await this.subscriptionOwner.getCurrentTermId()).toNumber()
-        console.log(currentTermId, START_TERM_ID, PERIOD_DURATION, (currentTermId - START_TERM_ID) / PERIOD_DURATION);
-      }
-
       const subscribeAndPay = async (org, periods) => {
         assert.isFalse(await this.subscription.isUpToDate(org))
 
@@ -163,7 +158,7 @@ contract('CourtSubscriptions', ([ org1, org2, juror1, juror2, juror3 ]) => {
         assert.isTrue(await this.subscription.isUpToDate(org))
       }
 
-      const initialPeriods = [ 0, 3 ]
+      const initialPeriods = [0, 3]
       for (const initialPeriod of initialPeriods) {
         context(`Starting on period ${initialPeriod}`, () => {
           beforeEach(async () => {
@@ -172,13 +167,13 @@ contract('CourtSubscriptions', ([ org1, org2, juror1, juror2, juror3 ]) => {
           })
 
           it('Org subscribes and pays fees for current period', async () => {
-            await subscribeAndPay(org1, 1)
+            await subscribeAndPay(org1, bn(1))
           })
 
           it('Org subscribes and pays fees in advance', async () => {
             const periods = 5
 
-            await subscribeAndPay(org1, periods)
+            await subscribeAndPay(org1, bn(periods))
 
             await this.subscriptionOwner.addToCurrentTermId(PERIOD_DURATION * (periods - 1))
             assert.isTrue(await this.subscription.isUpToDate(org1))
@@ -201,7 +196,7 @@ contract('CourtSubscriptions', ([ org1, org2, juror1, juror2, juror3 ]) => {
             const paidDuePeriods = notPayingPeriods - 1
 
             // subscribes
-            await subscribeAndPay(org1, 1)
+            await subscribeAndPay(org1, bn(1))
 
             // stops paying
             await this.subscriptionOwner.addToCurrentTermId(PERIOD_DURATION * (notPayingPeriods + 1)) // +1 for the current, which is not yet overdue
@@ -217,7 +212,7 @@ contract('CourtSubscriptions', ([ org1, org2, juror1, juror2, juror3 ]) => {
 
             assertEqualBNs(
               initialBalance.sub(
-                bnPct4Increase(FEE_AMOUNT.mul(paidDuePeriods), LATE_PAYMENT_PENALTY_PCT)
+                bnPct4Increase(FEE_AMOUNT.mul(bn(paidDuePeriods)), LATE_PAYMENT_PENALTY_PCT)
               ),
               finalBalance,
               'Token balance mismatch'
@@ -229,7 +224,7 @@ contract('CourtSubscriptions', ([ org1, org2, juror1, juror2, juror3 ]) => {
             const notPayingPeriods = 3
 
             // subscribes
-            await subscribeAndPay(org1, 1)
+            await subscribeAndPay(org1, bn(1))
 
             // stops paying
             await this.subscriptionOwner.addToCurrentTermId(PERIOD_DURATION * (notPayingPeriods + 1)) // +1 for the current, which is not yet overdue
@@ -245,7 +240,7 @@ contract('CourtSubscriptions', ([ org1, org2, juror1, juror2, juror3 ]) => {
 
             assertEqualBNs(
               initialBalance.sub(
-                bnPct4Increase(FEE_AMOUNT.mul(notPayingPeriods), LATE_PAYMENT_PENALTY_PCT).add(FEE_AMOUNT.mul(2))
+                bnPct4Increase(FEE_AMOUNT.mul(bn(notPayingPeriods)), LATE_PAYMENT_PENALTY_PCT).add(FEE_AMOUNT.mul(bn(2)))
               ),
               finalBalance,
               'Token balance mismatch'
@@ -259,7 +254,7 @@ contract('CourtSubscriptions', ([ org1, org2, juror1, juror2, juror3 ]) => {
     })
 
     context('Juror actions', () => {
-      const JUROR_STAKE = new web3.BigNumber(20).mul(DECIMALS)
+      const JUROR_STAKE = bigExp(20, 18)
 
       beforeEach(async () => {
         // jurors stake
@@ -288,7 +283,7 @@ contract('CourtSubscriptions', ([ org1, org2, juror1, juror2, juror3 ]) => {
 
         const finalBalance = await token.balanceOf(juror1)
 
-        const jurorFee = bnPct4Decrease(FEE_AMOUNT.mul(orgs.length), GOVERNOR_SHARE_PCT).div(jurors.length)
+        const jurorFee = bnPct4Decrease(FEE_AMOUNT.mul(bn(orgs.length)), GOVERNOR_SHARE_PCT).div(bn(jurors.length))
 
         assertEqualBNs(initialBalance.add(jurorFee), finalBalance, 'Token balance mismatch')
       })

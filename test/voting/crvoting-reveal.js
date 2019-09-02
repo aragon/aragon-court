@@ -1,6 +1,7 @@
-const { assertRevert } = require('@aragon/test-helpers/assertThrow')
-const { SALT, OUTCOMES, encryptVote } = require('../helpers/crvoting')(web3)
-const { assertEvent, assertAmountOfEvents } = require('@aragon/test-helpers/assertEvent')(web3)
+const { bn } = require('../helpers/numbers')
+const { assertRevert } = require('../helpers/assertThrow')
+const { SALT, OUTCOMES, encryptVote } = require('../helpers/crvoting')
+const { assertEvent, assertAmountOfEvents } = require('../helpers/assertEvent')
 
 const CRVoting = artifacts.require('CRVoting')
 const CRVotingOwner = artifacts.require('CRVotingOwnerMock')
@@ -109,7 +110,7 @@ contract('CRVoting reveal', ([_, voter]) => {
                       await voting.reveal(voteId, outcome, salt, { from: voter })
 
                       const currentTally = await voting.getOutcomeTally(voteId, outcome)
-                      assert.equal(previousTally.plus(weight).toString(), currentTally.toString(), 'tallies do not match')
+                      assert.equal(previousTally.add(bn(weight)).toString(), currentTally.toString(), 'tallies do not match')
                     })
 
                     it('computes the new winning outcome', async () => {
@@ -278,7 +279,7 @@ contract('CRVoting reveal', ([_, voter]) => {
           })
 
           context('when the given voter committed an out-of-bounds outcome', async () => {
-            itHandlesInvalidRevealedVotesFor(OUTCOMES.HIGH + 1)
+            itHandlesInvalidRevealedVotesFor(OUTCOMES.HIGH.add(bn(1)))
           })
         })
       })

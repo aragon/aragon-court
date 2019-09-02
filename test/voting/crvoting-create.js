@@ -1,7 +1,8 @@
-const { OUTCOMES } = require('../helpers/crvoting')(web3)
-const { assertRevert } = require('@aragon/test-helpers/assertThrow')
+const { bn } = require('../helpers/numbers')
+const { OUTCOMES } = require('../helpers/crvoting')
+const { assertRevert } = require('../helpers/assertThrow')
 const { decodeEventsOfType } = require('../helpers/decodeEvent')
-const { assertEvent, assertAmountOfEvents } = require('@aragon/test-helpers/assertEvent')(web3)
+const { assertEvent, assertAmountOfEvents } = require('../helpers/assertEvent')
 
 const CRVoting = artifacts.require('CRVoting')
 const CRVotingOwner = artifacts.require('CRVotingOwnerMock')
@@ -31,7 +32,7 @@ contract('CRVoting create', ([_, someone]) => {
               await votingOwner.create(voteId, possibleOutcomes)
 
               assert.isTrue(await voting.isValidOutcome(voteId, OUTCOMES.REFUSED), 'refused outcome should be invalid')
-              assert.equal((await voting.getMaxAllowedOutcome(voteId)).toString(), possibleOutcomes + OUTCOMES.REFUSED, 'max allowed outcome does not match')
+              assert.equal((await voting.getMaxAllowedOutcome(voteId)).toString(), possibleOutcomes + OUTCOMES.REFUSED.toNumber(), 'max allowed outcome does not match')
             })
 
             it('emits an event', async () => {
@@ -45,8 +46,8 @@ contract('CRVoting create', ([_, someone]) => {
             it('considers as valid outcomes any of the possible ones', async () => {
               await votingOwner.create(voteId, possibleOutcomes)
 
-              const masAllowedOutcome = (await voting.getMaxAllowedOutcome(voteId)).toNumber()
-              for (let outcome = OUTCOMES.REFUSED + 1; outcome <= masAllowedOutcome; outcome++) {
+              const maxAllowedOutcome = (await voting.getMaxAllowedOutcome(voteId)).toNumber()
+              for (let outcome = OUTCOMES.REFUSED.toNumber(); outcome <= maxAllowedOutcome; outcome++) {
                 assert.isTrue(await voting.isValidOutcome(voteId, outcome), 'outcome should be valid')
               }
             })

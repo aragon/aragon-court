@@ -5,7 +5,7 @@ const { assertRevert } = require('./helpers/assertThrow')
 const CourtSubscriptions = artifacts.require('CourtSubscriptions')
 const SubscriptionsOwner = artifacts.require('SubscriptionsOwnerMock')
 const JurorsRegistry = artifacts.require('JurorsRegistry')
-const MiniMeToken = artifacts.require('@aragon/apps-shared-minime/contracts/MiniMeToken')
+const ERC20 = artifacts.require('ERC20Mock')
 
 const assertEqualBN = async (actualPromise, expected, message) =>
       assert.equal((await actualPromise).toString(), expected, message)
@@ -59,10 +59,10 @@ contract('CourtSubscriptions', ([ org1, org2, juror1, juror2, juror3 ]) => {
 
   beforeEach(async () => {
     this.jurorsRegistry = await JurorsRegistry.new()
-    this.anj = await MiniMeToken.new(ZERO_ADDRESS, ZERO_ADDRESS, 0, 'ANJ Token', 18, 'ANJ', true)
+    this.anj = await ERC20.new('ANJ Token', 'ANJ', 18)
     this.subscription = await CourtSubscriptions.new()
     // Mints 1,000,000 tokens for orgs
-    token = await MiniMeToken.new(ZERO_ADDRESS, ZERO_ADDRESS, 0, 'Token', 0, 'SYM', true) // empty parameters minime
+    token = await ERC20.new('Token', 'SYM', 0)
     for (let org of orgs) {
       await token.generateTokens(org, INITIAL_BALANCE)
       await token.approve(this.subscription.address, INITIAL_BALANCE, { from: org })
@@ -116,7 +116,7 @@ contract('CourtSubscriptions', ([ org1, org2, juror1, juror2, juror3 ]) => {
     })
 
     it('can set Fee Token as owner', async () => {
-      const token2 = await MiniMeToken.new(ZERO_ADDRESS, ZERO_ADDRESS, 0, 'Token', 0, 'SYM', true) // empty parameters minime
+      const token2 = await ERC20.new('Token', 'SYM', 0)
       await this.subscriptionOwner.setFeeToken(token2.address, FEE_AMOUNT)
       assert.equal(await this.subscription.currentFeeToken(), token2.address)
     })

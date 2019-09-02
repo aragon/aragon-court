@@ -5,7 +5,7 @@ const { assertRevert } = require('../helpers/assertThrow')
 const { decodeEventsOfType } = require('../helpers/decodeEvent')
 const { assertEvent, assertAmountOfEvents } = require('../helpers/assertEvent')
 
-const MiniMeToken = artifacts.require('MiniMeToken')
+const ERC20 = artifacts.require('ERC20Mock')
 const JurorsRegistry = artifacts.require('JurorsRegistryMock')
 const JurorsRegistryOwnerMock = artifacts.require('JurorsRegistryOwnerMock')
 
@@ -23,7 +23,7 @@ contract('JurorsRegistry', ([_, juror, secondJuror, thirdJuror, anyone]) => {
   beforeEach('create base contracts', async () => {
     registry = await JurorsRegistry.new()
     registryOwner = await JurorsRegistryOwnerMock.new(registry.address)
-    ANJ = await MiniMeToken.new(ZERO_ADDRESS, ZERO_ADDRESS, 0, 'ANJ Token', 18, 'ANJ', true)
+    ANJ = await ERC20.new('ANJ Token', 'ANJ', 18)
   })
 
   describe('slashOrUnlock', () => {

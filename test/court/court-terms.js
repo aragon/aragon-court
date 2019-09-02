@@ -4,7 +4,7 @@ const { assertRevert } = require('../helpers/assertThrow')
 const { TOMORROW, NOW, ONE_DAY } = require('../helpers/time')
 const { assertAmountOfEvents, assertEvent } = require('../helpers/assertEvent')
 
-const MiniMeToken = artifacts.require('MiniMeToken')
+const ERC20 = artifacts.require('ERC20Mock')
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
 const EMPTY_RANDOMNESS = '0x0000000000000000000000000000000000000000000000000000000000000000'
@@ -82,7 +82,7 @@ contract('Court', ([_, sender]) => {
     const zeroTermStartTime = firstTermStartTime.sub(termDuration)
 
     beforeEach('create court starting in one future term', async () => {
-      feeToken = await MiniMeToken.new(ZERO_ADDRESS, ZERO_ADDRESS, 0, 'Court Fee Token', 18, 'CFT', true)
+      feeToken = await ERC20.new('Court Fee Token', 'CFT', 18)
       court = await courtHelper.deploy({ firstTermStartTime, termDuration, feeToken, heartbeatFee })
     })
 

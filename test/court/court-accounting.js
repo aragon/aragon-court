@@ -2,7 +2,7 @@ const { assertRevert } = require('../helpers/assertThrow')
 const { bn, bigExp, MAX_UINT256 } = require('../helpers/numbers')
 const { assertEvent, assertAmountOfEvents } = require('../helpers/assertEvent')
 
-const MiniMeToken = artifacts.require('MiniMeToken')
+const ERC20 = artifacts.require('ERC20Mock')
 const CourtAccounting = artifacts.require('CourtAccounting')
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
@@ -34,8 +34,8 @@ contract('CourtAccounting', ([_, owner, holder, someone]) => {
     })
 
     beforeEach('create tokens', async () => {
-      DAI = await MiniMeToken.new(ZERO_ADDRESS, ZERO_ADDRESS, 0, 'DAI Token', 18, 'DAI', true)
-      ANT = await MiniMeToken.new(ZERO_ADDRESS, ZERO_ADDRESS, 0, 'AN Token', 18, 'ANT', true)
+      DAI = await ERC20.new('DAI Token', 'DAI', 18)
+      ANT = await ERC20.new('AN Token', 'ANT', 18)
     })
 
     const itHandlesDepositsProperly = account => {
@@ -149,8 +149,8 @@ contract('CourtAccounting', ([_, owner, holder, someone]) => {
     })
 
     beforeEach('create tokens and mint to accounting', async () => {
-      DAI = await MiniMeToken.new(ZERO_ADDRESS, ZERO_ADDRESS, 0, 'DAI Token', 18, 'DAI', true)
-      ANT = await MiniMeToken.new(ZERO_ADDRESS, ZERO_ADDRESS, 0, 'AN Token', 18, 'ANT', true)
+      DAI = await ERC20.new('DAI Token', 'DAI', 18)
+      ANT = await ERC20.new('AN Token', 'ANT', 18)
     })
 
     context('when the sender has some balance', () => {

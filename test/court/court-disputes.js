@@ -4,7 +4,7 @@ const { TOMORROW, ONE_DAY } = require('../helpers/time')
 const { buildHelper, DISPUTE_STATES } = require('../helpers/court')(web3, artifacts)
 const { assertAmountOfEvents, assertEvent } = require('../helpers/assertEvent')
 
-const MiniMeToken = artifacts.require('MiniMeToken')
+const ERC20 = artifacts.require('ERC20Mock')
 const Arbitrable = artifacts.require('ArbitrableMock')
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
@@ -21,7 +21,7 @@ contract('Court', ([_, sender]) => {
 
   beforeEach('create court', async () => {
     courtHelper = buildHelper()
-    feeToken = await MiniMeToken.new(ZERO_ADDRESS, ZERO_ADDRESS, 0, 'Court Fee Token', 18, 'CFT', true)
+    feeToken = await ERC20.new('Court Fee Token', 'CFT', 18)
     court = await courtHelper.deploy({ firstTermStartTime, termDuration, feeToken, jurorFee, heartbeatFee, draftFee, settleFee })
   })
 

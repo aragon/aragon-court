@@ -310,8 +310,8 @@ module.exports = (web3, artifacts) => {
       if (!this.governor) this.governor = await this._getAccount(0)
       if (!this.voting) this.voting = await this.artifacts.require('CRVoting').new()
       if (!this.accounting) this.accounting = await this.artifacts.require('CourtAccounting').new()
-      if (!this.feeToken) this.feeToken = await this.artifacts.require('MiniMeToken').new(ZERO_ADDRESS, ZERO_ADDRESS, 0, 'Court Fee Token', 18, 'CFT', true)
-      if (!this.jurorToken) this.jurorToken = await this.artifacts.require('MiniMeToken').new(ZERO_ADDRESS, ZERO_ADDRESS, 0, 'Aragon Network Juror Token', 18, 'ANJ', true)
+      if (!this.feeToken) this.feeToken = await this.artifacts.require('ERC20Mock').new('Court Fee Token', 'CFT', 18)
+      if (!this.jurorToken) this.jurorToken = await this.artifacts.require('ERC20Mock').new('Aragon Network Juror Token', 'ANJ', 18)
       if (!this.jurorsRegistry) this.jurorsRegistry =  await this.artifacts.require('JurorsRegistryMock').new()
       if (!this.subscriptions) this.subscriptions = await this.artifacts.require('SubscriptionsMock').new()
 

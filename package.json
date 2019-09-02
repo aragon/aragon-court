@@ -23,7 +23,6 @@
     "web3-eth-abi": "1.0.0-beta.33"
   },
   "dependencies": {
-    "@aragon/apps-shared-minime": "^1.0.1",
-    "@aragon/os": "^4.2.0"
+    "@aragon/os": "aragon/aragonOS#^4.2.0"
   }
 }

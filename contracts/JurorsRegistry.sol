@@ -5,7 +5,6 @@ import "@aragon/os/contracts/common/Initializable.sol";
 import "@aragon/os/contracts/lib/token/ERC20.sol";
 import "@aragon/os/contracts/common/SafeERC20.sol";
 import "@aragon/os/contracts/lib/math/SafeMath.sol";
-import { ApproveAndCallFallBack } from "@aragon/apps-shared-minime/contracts/MiniMeToken.sol";
 
 import "./lib/BytesHelpers.sol";
 import "./lib/HexSumTree.sol";
@@ -14,6 +13,7 @@ import "./lib/JurorsTreeSortition.sol";
 import "./standards/erc900/ERC900.sol";
 import "./standards/erc900/IJurorsRegistry.sol";
 import "./standards/erc900/IJurorsRegistryOwner.sol";
+import "./standards/minime/ApproveAndCall.sol";
 
 
 contract JurorsRegistry is Initializable, IsContract, IJurorsRegistry, ERC900, ApproveAndCallFallBack {

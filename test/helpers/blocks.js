@@ -1,8 +1,6 @@
-const { promisify } = require('util')
-
 module.exports = web3 => {
   const advanceBlock = async () => {
-    return new Promise((resolve, reject) => web3.currentProvider.sendAsync({
+    return new Promise((resolve, reject) => web3.currentProvider.send({
       jsonrpc: '2.0',
       method: 'evm_mine',
       id: new Date().getTime()

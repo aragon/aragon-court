@@ -1,5 +1,5 @@
-const { assertRevert } = require('@aragon/os/test/helpers/assertThrow')
-const { MAX_UINT256, MAX_UINT192 } = require('../helpers/numbers')(web3)
+const { assertRevert } = require('../helpers/assertThrow')
+const { bn, MAX_UINT256, MAX_UINT192 } = require('../helpers/numbers')
 
 const HexSumTree = artifacts.require('HexSumTreeMock')
 
@@ -55,7 +55,7 @@ contract('HexSumTree', () => {
           const key = await tree.nextKey()
           await tree.insert(time, value)
 
-          assert.equal((await tree.item(key.plus(1))).toString(), 0, 'item with key #1 does not match')
+          assert.equal((await tree.item(key.add(bn(1)))).toString(), 0, 'item with key #1 does not match')
         })
 
         it('updates the next key but not the height of the tree', async () => {
@@ -690,7 +690,7 @@ contract('HexSumTree', () => {
             const searchTime = insertTime
 
             it('returns the first item', async () => {
-              const [keys, values] = await tree.search(searchValues, searchTime)
+              const { keys, values } = await tree.search(searchValues, searchTime)
 
               assert.equal(keys.length, 1, 'result keys length does not match')
               assert.equal(values.length, 1, 'result values length does not match')
@@ -718,7 +718,7 @@ contract('HexSumTree', () => {
             const searchTime = insertTime
 
             it('returns the first item', async () => {
-              const [keys, values] = await tree.search(searchValues, searchTime)
+              const { keys, values } = await tree.search(searchValues, searchTime)
 
               assert.equal(keys.length, 1, 'result keys length does not match')
               assert.equal(values.length, 1, 'result values length does not match')
@@ -782,7 +782,7 @@ contract('HexSumTree', () => {
             const searchTime = insertTime
 
             it('returns the last item', async () => {
-              const [keys, values] = await tree.search(searchValues, searchTime)
+              const { keys, values } = await tree.search(searchValues, searchTime)
 
               assert.equal(keys.length, 1, 'result keys length does not match')
               assert.equal(values.length, 1, 'result values length does not match')
@@ -816,7 +816,7 @@ contract('HexSumTree', () => {
             const searchTime = insertTime
 
             it('returns the last item', async () => {
-              const [keys, values] = await tree.search(searchValues, searchTime)
+              const { keys, values } = await tree.search(searchValues, searchTime)
 
               assert.equal(keys.length, 1, 'result keys length does not match')
               assert.equal(values.length, 1, 'result values length does not match')
@@ -855,7 +855,7 @@ contract('HexSumTree', () => {
             const searchTime = insertTime
 
             it('returns the expected items', async () => {
-              const [keys, values] = await tree.search(searchValues, searchTime)
+              const { keys, values } = await tree.search(searchValues, searchTime)
 
               assert.equal(keys.length, searchValues.length, 'result keys length does not match')
               assert.equal(values.length, searchValues.length, 'result values length does not match')
@@ -916,22 +916,22 @@ contract('HexSumTree', () => {
           }
         })
 
-        const updateMany = async (key) => {
+        const updateMany = async key => {
           const initialValue = await tree.itemAt(key, 0)
           for (let time = 1; time <= updateTimes; time++) {
-            await tree.set(key, time, initialValue.add(time))
+            await tree.set(key, time, initialValue.add(bn(time)))
           }
         }
 
-        const assertCheckpointValues = async (key) => {
+        const assertCheckpointValues = async key => {
           const initialValue = await tree.itemAt(key, 0)
           for (let time = 0; time <= updateTimes; time++) {
             const value = await tree.itemAt(key, time)
-            const expectedValue = initialValue.plus(time)
+            const expectedValue = initialValue.add(bn(time))
             assert.equal(value.toString(), expectedValue.toString(), `Value at time ${time} does not match`)
 
-            const searchedValue = initialValue.times(key).plus(value)
-            const [keys, values] = await tree.search([searchedValue], time)
+            const searchedValue = initialValue.mul(bn(key)).add(value)
+            const { keys, values } = await tree.search([searchedValue], time)
             assert.equal(keys.length, 1, 'result keys length does not match')
             assert.equal(values.length, 1, 'result values length does not match')
             assert.equal(keys[0].toString(), key, 'result key does not match')

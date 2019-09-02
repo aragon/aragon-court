@@ -6,10 +6,11 @@ const { assertEvent, assertAmountOfEvents } = require('../helpers/assertEvent')
 const CRVoting = artifacts.require('CRVoting')
 const CRVotingOwner = artifacts.require('CRVotingOwnerMock')
 
-const POSSIBLE_OUTCOMES = 2
-
 contract('CRVoting commit', ([_, voter]) => {
   let voting, votingOwner
+
+  const POSSIBLE_OUTCOMES = 2
+  const EMPTY_DATA = '0x0000000000000000000000000000000000000000000000000000000000000000'
 
   beforeEach('create base contracts', async () => {
     voting = await CRVoting.new()
@@ -114,7 +115,7 @@ contract('CRVoting commit', ([_, voter]) => {
               })
 
               it('reverts', async () => {
-                await assertRevert(voting.commit(voteId, '0x', { from: voter }), 'CRV_COMMIT_DENIED_BY_OWNER')
+                await assertRevert(voting.commit(voteId, EMPTY_DATA, { from: voter }), 'CRV_COMMIT_DENIED_BY_OWNER')
               })
             })
           })
@@ -125,7 +126,7 @@ contract('CRVoting commit', ([_, voter]) => {
             })
 
             it('reverts', async () => {
-              await assertRevert(voting.commit(voteId, '0x', { from: voter }), 'CRV_OWNER_MOCK_COMMIT_CHECK_REVERTED')
+              await assertRevert(voting.commit(voteId, EMPTY_DATA, { from: voter }), 'CRV_OWNER_MOCK_COMMIT_CHECK_REVERTED')
             })
           })
         })
@@ -155,7 +156,7 @@ contract('CRVoting commit', ([_, voter]) => {
 
       context('when the given vote ID is not valid', () => {
         it('reverts', async () => {
-          await assertRevert(voting.commit(0, '0x', { from: voter }), 'CRV_VOTE_DOES_NOT_EXIST')
+          await assertRevert(voting.commit(0, EMPTY_DATA, { from: voter }), 'CRV_VOTE_DOES_NOT_EXIST')
         })
       })
 
@@ -163,7 +164,7 @@ contract('CRVoting commit', ([_, voter]) => {
 
     context('when the voting is not initialized', () => {
       it('reverts', async () => {
-        await assertRevert(voting.commit(0, '0x', { from: voter }), 'CRV_VOTE_DOES_NOT_EXIST')
+        await assertRevert(voting.commit(0, EMPTY_DATA, { from: voter }), 'CRV_VOTE_DOES_NOT_EXIST')
       })
     })
   })

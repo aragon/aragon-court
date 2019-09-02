@@ -1,4 +1,4 @@
-pragma solidity ^0.4.24;
+pragma solidity ^0.5.8;
 
 import "@aragon/os/contracts/common/IsContract.sol";
 import "@aragon/os/contracts/common/Initializable.sol";
@@ -38,7 +38,7 @@ contract JurorsRegistry is Initializable, IsContract, IJurorsRegistry, ERC900, A
     string internal constant ERROR_TOKEN_APPROVE_NOT_ALLOWED = "JR_TOKEN_APPROVE_NOT_ALLOWED";
 
     // Address that will be used to burn juror tokens
-    address internal constant BURN_ACCOUNT = 0xdead;
+    address internal constant BURN_ACCOUNT = address(0x000000000000000000000000000000000000dEaD);
 
     /**
     * @dev Jurors have three kind of balances, these are:
@@ -114,7 +114,7 @@ contract JurorsRegistry is Initializable, IsContract, IJurorsRegistry, ERC900, A
     function init(IJurorsRegistryOwner _owner, ERC20 _jurorToken, uint256 _minActiveBalance) external {
         // TODO: cannot check the given owner is a contract cause the Court set this up in the constructor, move to a factory
         // require(isContract(_owner), ERROR_NOT_CONTRACT);
-        require(isContract(_jurorToken), ERROR_NOT_CONTRACT);
+        require(isContract(address(_jurorToken)), ERROR_NOT_CONTRACT);
 
         initialized();
         owner = _owner;
@@ -166,7 +166,7 @@ contract JurorsRegistry is Initializable, IsContract, IJurorsRegistry, ERC900, A
     * @param _amount Amount of tokens to be staked
     * @param _data Optional data that can be used to request the activation of the transferred tokens
     */
-    function stake(uint256 _amount, bytes _data) external isInitialized {
+    function stake(uint256 _amount, bytes calldata _data) external isInitialized {
         _stake(msg.sender, msg.sender, _amount, _data);
     }
 
@@ -176,7 +176,7 @@ contract JurorsRegistry is Initializable, IsContract, IJurorsRegistry, ERC900, A
     * @param _amount Amount of tokens to be staked
     * @param _data Optional data that can be used to request the activation of the transferred tokens
     */
-    function stakeFor(address _to, uint256 _amount, bytes _data) external isInitialized {
+    function stakeFor(address _to, uint256 _amount, bytes calldata _data) external isInitialized {
         _stake(msg.sender, _to, _amount, _data);
     }
 
@@ -185,7 +185,7 @@ contract JurorsRegistry is Initializable, IsContract, IJurorsRegistry, ERC900, A
     * @param _amount Amount of tokens to be unstaked
     * @param _data Optional data is never used by this function, only logged
     */
-    function unstake(uint256 _amount, bytes _data) external isInitialized {
+    function unstake(uint256 _amount, bytes calldata _data) external isInitialized {
         _unstake(msg.sender, _amount, _data);
     }
 
@@ -222,8 +222,8 @@ contract JurorsRegistry is Initializable, IsContract, IJurorsRegistry, ERC900, A
     * @return outputLength Size of the list of the draft result
     * @return selectedJurors Number of seats selected for the draft
     */
-    function draft(uint256[7] _params) external onlyOwner
-        returns (address[] jurors, uint64[] weights, uint256 outputLength, uint64 selectedJurors)
+    function draft(uint256[7] calldata _params) external onlyOwner
+        returns (address[] memory jurors, uint64[] memory weights, uint256 outputLength, uint64 selectedJurors)
     {
         uint256 batchRequestedJurors = _params[4];
         jurors = new address[](batchRequestedJurors);
@@ -288,7 +288,7 @@ contract JurorsRegistry is Initializable, IsContract, IJurorsRegistry, ERC900, A
     * @param _rewardedJurors List of booleans to tell whether a juror's active balance has to be slashed or not
     * @return Total amount of slashed tokens
     */
-    function slashOrUnlock(uint64 _termId, address[] _jurors, uint256[] _lockedAmounts, bool[] _rewardedJurors)
+    function slashOrUnlock(uint64 _termId, address[] calldata _jurors, uint256[] calldata _lockedAmounts, bool[] calldata _rewardedJurors)
         external
         onlyOwner
         returns (uint256)
@@ -377,7 +377,7 @@ contract JurorsRegistry is Initializable, IsContract, IJurorsRegistry, ERC900, A
     * @return Amount of juror tokens held by the registry contract
     */
     function totalStaked() external view returns (uint256) {
-        return jurorsToken.balanceOf(this);
+        return jurorsToken.balanceOf(address(this));
     }
 
     /**
@@ -437,7 +437,7 @@ contract JurorsRegistry is Initializable, IsContract, IJurorsRegistry, ERC900, A
     * @param _token Address of the token
     * @param _data Optional data that can be used to request the activation of the transferred tokens
     */
-    function receiveApproval(address _from, uint256 _amount, address _token, bytes _data) public {
+    function receiveApproval(address _from, uint256 _amount, address _token, bytes memory _data) public {
         require(msg.sender == _token && _token == address(jurorsToken), ERROR_TOKEN_APPROVE_NOT_ALLOWED);
         _stake(_from, _from, _amount, _data);
     }
@@ -714,7 +714,7 @@ contract JurorsRegistry is Initializable, IsContract, IJurorsRegistry, ERC900, A
     * @return ids List of juror ids obtained based on the requested search
     * @return activeBalances List of active balances for each juror obtained based on the requested search
     */
-    function _treeSearch(uint256[7] _treeSearchParams) internal view returns (uint256[] ids, uint256[] activeBalances) {
+    function _treeSearch(uint256[7] memory _treeSearchParams) internal view returns (uint256[] memory ids, uint256[] memory activeBalances) {
         (ids, activeBalances) = tree.batchedRandomSearch(
             bytes32(_treeSearchParams[0]),  // _termRandomness,
             _treeSearchParams[1],           // _disputeId

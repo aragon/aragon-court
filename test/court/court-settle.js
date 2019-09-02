@@ -752,7 +752,7 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
         const roundId = 5
 
         it('reverts', async () => {
-          await assertRevert(court.appeal(disputeId, roundId, OUTCOMES.LOW), 'CT_ROUND_DOES_NOT_EXIST')
+          await assertRevert(court.createAppeal(disputeId, roundId, OUTCOMES.LOW), 'CT_ROUND_DOES_NOT_EXIST')
         })
       })
     })
@@ -760,7 +760,7 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
     // TODO: this scenario is not implemented in the contracts yet
     context.skip('when the given dispute does not exist', () => {
       it('reverts', async () => {
-        await assertRevert(court.appeal(0, 0, OUTCOMES.LOW), 'CT_DISPUTE_DOES_NOT_EXIST')
+        await assertRevert(court.createAppeal(0, 0, OUTCOMES.LOW), 'CT_DISPUTE_DOES_NOT_EXIST')
       })
     })
   })

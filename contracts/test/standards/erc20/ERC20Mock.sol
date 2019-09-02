@@ -20,7 +20,7 @@ contract ERC20Mock {
     event Approval(address indexed owner, address indexed spender, uint256 value);
     event Transfer(address indexed from, address indexed to, uint256 value);
 
-    constructor(string _name, string _symbol, uint8 _decimals) public {
+    constructor(string memory _name, string memory _symbol, uint8 _decimals) public {
         name = _name;
         symbol = _symbol;
         decimals = _decimals;
@@ -71,9 +71,9 @@ contract ERC20Mock {
     * @param _amount The amount to be transferred.
     */
     function transfer(address _to, uint256 _amount) public returns (bool) {
-        require(allowTransfer_);
-        require(_amount <= balances[msg.sender]);
-        require(_to != address(0));
+        require(allowTransfer_, 'ERROR_TRANSFERS_NOT_ALLOWED');
+        require(_amount <= balances[msg.sender], 'ERROR_NOT_ENOUGH_BALANCE');
+        require(_to != address(0), 'ERROR_RECIPIENT_ZERO');
 
         balances[msg.sender] = balances[msg.sender].sub(_amount);
         balances[_to] = balances[_to].add(_amount);
@@ -92,7 +92,7 @@ contract ERC20Mock {
     */
     function approve(address _spender, uint256 _amount) public returns (bool) {
         // Assume we want to protect for the race condition
-        require(_amount == 0 || allowed[msg.sender][_spender] == 0);
+        require(_amount == 0 || allowed[msg.sender][_spender] == 0, 'ERROR_ALLOWANCE_MUST_BE_ZERO');
 
         allowed[msg.sender][_spender] = _amount;
         emit Approval(msg.sender, _spender, _amount);
@@ -108,7 +108,7 @@ contract ERC20Mock {
     * @return True if the function call was successful
     */
     function approveAndCall(ApproveAndCallFallBack _spender, uint256 _amount, bytes memory _extraData) public returns (bool) {
-        require(approve(address(_spender), _amount));
+        require(approve(address(_spender), _amount), 'ERROR_APPROVE_FAILED');
         _spender.receiveApproval(msg.sender, _amount, address(this), _extraData);
         return true;
     }
@@ -120,10 +120,10 @@ contract ERC20Mock {
     * @param _amount The amount of tokens to be transferred
     */
     function transferFrom(address _from, address _to, uint256 _amount) public returns (bool) {
-        require(allowTransfer_);
-        require(_amount <= balances[_from]);
-        require(_amount <= allowed[_from][msg.sender]);
-        require(_to != address(0));
+        require(allowTransfer_, 'ERROR_TRANSFERS_NOT_ALLOWED');
+        require(_amount <= balances[_from], 'ERROR_NOT_ENOUGH_BALANCE');
+        require(_amount <= allowed[_from][msg.sender], 'ERROR_NOT_ENOUGH_ALLOWED_BALANCE');
+        require(_to != address(0), 'ERROR_RECIPIENT_ZERO');
 
         balances[_from] = balances[_from].sub(_amount);
         balances[_to] = balances[_to].add(_amount);

@@ -1,4 +1,4 @@
-pragma solidity ^0.4.24;
+pragma solidity ^0.5.8;
 
 import "./standards/arbitration/Arbitrable.sol";
 
@@ -7,7 +7,7 @@ contract Agreement is Arbitrable { /* AragonApp/Trigger */
     address[] internal parties;
 
     // TODO: Probably needs to be moved into an 'initialize()' function at some point
-    constructor(address _court, address[] _parties) public Arbitrable(_court) {
+    constructor(address _court, address[] memory _parties) public Arbitrable(_court) {
         parties = _parties;
     }
 
@@ -19,6 +19,7 @@ contract Agreement is Arbitrable { /* AragonApp/Trigger */
                 return true;
             }
         }
+        return false;
     }
 
     /**

@@ -1,4 +1,4 @@
-pragma solidity ^0.4.24; // TODO: pin solc
+pragma solidity ^0.5.8;
 
 import "@aragon/os/contracts/lib/token/ERC20.sol";
 import "@aragon/os/contracts/common/SafeERC20.sol";
@@ -240,7 +240,7 @@ contract CourtSubscriptions is IsContract, ISubscriptions, TimeHelpers {
      * @return Address of owner
      */
     function getOwner() external view returns (address) {
-        return owner;
+        return address(owner);
     }
 
     /**
@@ -339,8 +339,8 @@ contract CourtSubscriptions is IsContract, ISubscriptions, TimeHelpers {
     }
 
     function _setFeeToken(ERC20 _feeToken) internal {
-        require(isContract(_feeToken), ERROR_NOT_CONTRACT);
-        if (accumulatedGovernorFees > 0) {
+        require(isContract(address(_feeToken)), ERROR_NOT_CONTRACT);
+        if (accumulatedGovernorFees > uint256(0)) {
             transferFeesToGovernor();
         }
         currentFeeToken = _feeToken;
@@ -360,7 +360,7 @@ contract CourtSubscriptions is IsContract, ISubscriptions, TimeHelpers {
     function _ensurePeriodFeeTokenAndAmount(Period storage _period) internal returns (ERC20 feeToken, uint256 feeAmount) {
         // if payFees has not been called for this period, these variables have not been set yet, so we get the global current ones
         feeToken = _period.feeToken;
-        if (feeToken == address(0)) {
+        if (feeToken == ERC20(0)) {
             feeToken = currentFeeToken;
             _period.feeToken = feeToken;
             _period.feeAmount = currentFeeAmount;
@@ -399,7 +399,7 @@ contract CourtSubscriptions is IsContract, ISubscriptions, TimeHelpers {
     function _getPeriodFeeTokenAndAmount(Period storage _period) internal view returns (ERC20 feeToken, uint256 feeAmount) {
         // if payFees has not been called for this period, these variables have not been set yet, so we get the global current ones
         feeToken = _period.feeToken;
-        if (feeToken == address(0)) {
+        if (feeToken == ERC20(0)) {
             feeToken = currentFeeToken;
             feeAmount = currentFeeAmount;
         } else {

@@ -6,11 +6,10 @@ const { assertAmountOfEvents, assertEvent } = require('../helpers/assertEvent')
 
 const ERC20 = artifacts.require('ERC20Mock')
 
-const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
-const EMPTY_RANDOMNESS = '0x0000000000000000000000000000000000000000000000000000000000000000'
-
 contract('Court', ([_, sender]) => {
   let courtHelper, court
+
+const EMPTY_RANDOMNESS = '0x0000000000000000000000000000000000000000000000000000000000000000'
 
   beforeEach('build court helper', async () => {
     courtHelper = buildHelper()

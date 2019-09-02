@@ -275,7 +275,7 @@ module.exports = (web3, artifacts) => {
       }
 
       // appeal and move to confirm appeal period
-      await this.court.appeal(disputeId, roundId, ruling, { from: appealMaker })
+      await this.court.createAppeal(disputeId, roundId, ruling, { from: appealMaker })
       await this.passTerms(this.appealTerms)
     }
 
@@ -295,8 +295,8 @@ module.exports = (web3, artifacts) => {
       await this.passTerms(this.appealConfirmTerms)
     }
 
-    async moveToFinalRound({ disputeId, fromRoundId = bn(0) }) {
-      for (let roundId = fromRoundId; roundId < this.maxRegularAppealRounds; roundId = roundId.add(bn(1))) {
+    async moveToFinalRound({ disputeId }) {
+      for (let roundId = 0; roundId < this.maxRegularAppealRounds.toNumber(); roundId++) {
         const draftedJurors = await this.draft({ disputeId })
         await this.commit({ disputeId, roundId, voters: draftedJurors })
         await this.reveal({ disputeId, roundId, voters: draftedJurors })

@@ -1,4 +1,4 @@
-pragma solidity ^0.4.24;
+pragma solidity ^0.5.8;
 
 import "./Checkpointing.sol";
 
@@ -153,7 +153,7 @@ library HexSumTree {
      * @return keys List of keys found for each requested value in the same order
      * @return values List of node values found for each requested value in the same order
      */
-    function search(Tree storage self, uint256[] _values, uint64 _time) internal view returns (uint256[] keys, uint256[] values) {
+    function search(Tree storage self, uint256[] memory _values, uint64 _time) internal view returns (uint256[] memory keys, uint256[] memory values) {
         require(_values.length > uint256(0), ERROR_MISSING_SEARCH_VALUES);
 
         // Throw out-of-bounds error if there are no items in the tree or the highest value being searched is greater than the total
@@ -340,7 +340,7 @@ library HexSumTree {
      * @param _resultKeys List of keys found for each requested value in the same order
      * @param _resultValues List of node values found for each requested value in the same order
      */
-    function _search(Tree storage self, uint256[] _values, SearchParams memory _params, uint256[] _resultKeys, uint256[] _resultValues) private view {
+    function _search(Tree storage self, uint256[] memory _values, SearchParams memory _params, uint256[] memory _resultKeys, uint256[] memory _resultValues) private view {
         uint256 levelKeyLessSignificantNibble = _params.level * BITS_IN_NIBBLE;
         for (uint256 childNumber = 0; childNumber < CHILDREN; childNumber++) {
             // Return if we already found enough values

@@ -1,4 +1,4 @@
-pragma solidity ^0.4.24; // TODO: pin solc
+pragma solidity ^0.5.8;
 
 
 interface ISubscriptionsOwner {

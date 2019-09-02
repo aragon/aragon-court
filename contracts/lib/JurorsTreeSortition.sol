@@ -1,4 +1,4 @@
-pragma solidity ^0.4.24;
+pragma solidity ^0.5.8;
 
 import "./HexSumTree.sol";
 
@@ -35,7 +35,7 @@ library JurorsTreeSortition {
     )
         internal
         view
-        returns (uint256[] jurorsIds, uint256[] jurorsBalances)
+        returns (uint256[] memory jurorsIds, uint256[] memory jurorsBalances)
     {
         (uint256 low, uint256 high) = getSearchBatchBounds(tree, _termId, _selectedJurors, _batchRequestedJurors, _roundRequestedJurors);
         uint256[] memory balances = _computeSearchRandomBalances(_randomnessHash(_termRandomness, _disputeId, _sortitionIteration), _batchRequestedJurors, low, high);
@@ -95,7 +95,7 @@ library JurorsTreeSortition {
     )
         internal
         pure
-        returns (uint256[])
+        returns (uint256[] memory)
     {
         // Calculate the interval to be used to search the balances in the tree. Since we are using a modulo function
         // to compute the random balances to be searched, we add one to the difference to make sure the last number

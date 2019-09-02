@@ -6,12 +6,11 @@ const JurorsRegistry = artifacts.require('JurorsRegistry')
 const ERC20 = artifacts.require('ERC20Mock')
 const JurorsRegistryOwnerMock = artifacts.require('JurorsRegistryOwnerMock')
 
-const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
-
 contract('JurorsRegistry', ([_, juror]) => {
   let registry, registryOwner, ANJ
 
   const MIN_ACTIVE_AMOUNT = bigExp(100, 18)
+  const EMPTY_DATA = '0x0000000000000000000000000000000000000000000000000000000000000000'
 
   beforeEach('create base contracts', async () => {
     registry = await JurorsRegistry.new()
@@ -58,7 +57,7 @@ contract('JurorsRegistry', ([_, juror]) => {
 
         beforeEach('stake some tokens', async () => {
           await ANJ.generateTokens(from, stakedBalance)
-          await ANJ.approveAndCall(registry.address, stakedBalance, '0x', { from })
+          await ANJ.approveAndCall(registry.address, stakedBalance, EMPTY_DATA, { from })
         })
 
         const itHandlesActivationProperlyFor = (requestedAmount, expectedAmount = requestedAmount, deactivationAmount = bn(0)) => {
@@ -217,7 +216,7 @@ contract('JurorsRegistry', ([_, juror]) => {
               context('when the juror was slashed and does not reach the minimum active amount of tokens', () => {
                 beforeEach('slash juror', async () => {
                   await registryOwner.collect(juror, activeBalance)
-                  await registry.unstake(stakedBalance.sub(activeBalance).sub(bn(1)), '0x', { from })
+                  await registry.unstake(stakedBalance.sub(activeBalance).sub(bn(1)), EMPTY_DATA, { from })
                 })
 
                 it('reverts', async () => {
@@ -419,7 +418,7 @@ contract('JurorsRegistry', ([_, juror]) => {
 
         beforeEach('stake some tokens', async () => {
           await ANJ.generateTokens(from, stakedBalance)
-          await ANJ.approveAndCall(registry.address, stakedBalance, '0x', { from })
+          await ANJ.approveAndCall(registry.address, stakedBalance, EMPTY_DATA, { from })
         })
 
         context('when the juror did not activate any tokens yet', () => {

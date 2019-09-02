@@ -1,4 +1,4 @@
-pragma solidity ^0.4.24;
+pragma solidity ^0.5.8;
 
 import "@aragon/os/contracts/lib/token/ERC20.sol";
 

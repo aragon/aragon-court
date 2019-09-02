@@ -1,4 +1,4 @@
-pragma solidity ^0.4.24;
+pragma solidity ^0.5.8;
 
 import "../../JurorsRegistry.sol";
 import "../lib/TimeHelpersMock.sol";
@@ -15,7 +15,7 @@ contract JurorsRegistryMock is JurorsRegistry, TimeHelpersMock {
         treeSearchHijacked = true;
     }
 
-    function mockNextDraft(address[] _selectedJurors, uint256[] _weights) external {
+    function mockNextDraft(address[] calldata _selectedJurors, uint256[] calldata _weights) external {
         nextDraftMocked = true;
 
         delete mockedSelectedJurors;
@@ -29,7 +29,7 @@ contract JurorsRegistryMock is JurorsRegistry, TimeHelpersMock {
         }
     }
 
-    function _treeSearch(uint256[7] _params) internal view returns (uint256[], uint256[]) {
+    function _treeSearch(uint256[7] memory _params) internal view returns (uint256[] memory, uint256[] memory) {
         if (treeSearchHijacked) {
             return _runHijackedSearch(_params);
         }
@@ -39,7 +39,7 @@ contract JurorsRegistryMock is JurorsRegistry, TimeHelpersMock {
         return super._treeSearch(_params);
     }
 
-    function _runHijackedSearch(uint256[7] _params) internal view returns (uint256[] keys, uint256[] nodeValues) {
+    function _runHijackedSearch(uint256[7] memory _params) internal view returns (uint256[] memory keys, uint256[] memory nodeValues) {
         uint256 _jurorsRequested = _params[4];
 
         keys = new uint256[](_jurorsRequested);
@@ -51,7 +51,7 @@ contract JurorsRegistryMock is JurorsRegistry, TimeHelpersMock {
         }
     }
 
-    function _runMockedSearch(uint256[7] _params) internal returns (uint256[] ids, uint256[] activeBalances) {
+    function _runMockedSearch(uint256[7] memory /* _params */) internal view returns (uint256[] memory ids, uint256[] memory activeBalances) {
         uint256 totalLength = 0;
         for (uint256 k = 0; k < mockedWeights.length; k++) {
             totalLength += mockedWeights[k];
@@ -72,7 +72,5 @@ contract JurorsRegistryMock is JurorsRegistry, TimeHelpersMock {
                 index++;
             }
         }
-
-        nextDraftMocked = false;
     }
 }

@@ -5,10 +5,11 @@ const { buildHelper, ROUND_STATES } = require('../helpers/court')(web3, artifact
 const { assertAmountOfEvents, assertEvent } = require('../helpers/assertEvent')
 const { SALT, OUTCOMES, getVoteId, encryptVote, outcomeFor } = require('../helpers/crvoting')
 
-contract('Court', ([_, disputer, drafter, juror500, juror1000, juror1500, juror2000, juror2500, juror3000, juror3500, juror4000]) => {
+contract('Court', ([_, disputer, drafter, juror100, juror500, juror1000, juror1500, juror2000, juror2500, juror3000, juror3500, juror4000]) => {
   let courtHelper, court, voting
 
   const jurors = [
+    { address: juror100,  initialActiveBalance: bigExp(100,  18) },
     { address: juror3000, initialActiveBalance: bigExp(3000, 18) },
     { address: juror500,  initialActiveBalance: bigExp(500,  18) },
     { address: juror1000, initialActiveBalance: bigExp(1000, 18) },
@@ -245,20 +246,14 @@ contract('Court', ([_, disputer, drafter, juror500, juror1000, juror1500, juror2
     })
 
     context('for a final round', () => {
-      const roundId = 3, poorJuror = juror500
+      const roundId = 3, poorJuror = juror100
 
       beforeEach('simulate juror without enough balance to vote on a final round', async () => {
-        const { initialActiveBalance } = jurors.find(({ address }) => address === poorJuror)
-        const lockPerDraft = courtHelper.jurorsMinActiveBalance.mul(courtHelper.penaltyPct).div(bn(10000))
-        const jurorsNumber = initialActiveBalance.div(lockPerDraft).toNumber()
-
-        const nextTerm = (await court.getLastEnsuredTermId()).add(bn(1))
-        const anotherDisputeId = await courtHelper.dispute({ jurorsNumber, draftTermId: nextTerm })
+        await court.collect(poorJuror, bigExp(99, 18))
         await courtHelper.passTerms(bn(1))
-        await courtHelper.draft({ disputeId: anotherDisputeId, draftedJurors: [{ address: poorJuror, weight: jurorsNumber }] })
 
-        const { active, locked } = await courtHelper.jurorsRegistry.balanceOf(poorJuror)
-        assert.equal(active.toString(), locked.toString(), 'poor juror locked balance does not match')
+        const { active } = await courtHelper.jurorsRegistry.balanceOf(poorJuror)
+        assert.equal(active.toString(), bigExp(1, 18).toString(), 'poor juror active balance does not match')
       })
 
       beforeEach('move to final round', async () => {

@@ -1,7 +1,7 @@
-pragma solidity ^0.4.15;
+pragma solidity ^0.5.8;
 
 
-interface IArbitrable {
+contract IArbitrable {
     /**
     * @dev To be emitted when a dispute is created to link the correct meta-evidence to the disputeId
     * @param court The court resolving the dispute

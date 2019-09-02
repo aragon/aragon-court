@@ -1,4 +1,4 @@
-pragma solidity ^0.4.24;
+pragma solidity ^0.5.8;
 
 import "../../standards/erc900/IJurorsRegistry.sol";
 import "../../standards/erc900/IJurorsRegistryOwner.sol";
@@ -36,7 +36,7 @@ contract JurorsRegistryOwnerMock is IJurorsRegistryOwner {
         registry.burnTokens(_amount);
     }
 
-    function slashOrUnlock(address[] _jurors, uint256[] _lockedAmounts, bool[] _rewardedJurors) public {
+    function slashOrUnlock(address[] memory _jurors, uint256[] memory _lockedAmounts, bool[] memory _rewardedJurors) public {
         uint256 collectedTokens = registry.slashOrUnlock(termId, _jurors, _lockedAmounts, _rewardedJurors);
         emit Slashed(collectedTokens);
     }

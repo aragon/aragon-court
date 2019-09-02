@@ -1,4 +1,4 @@
-pragma solidity ^0.4.15;
+pragma solidity ^0.5.8;
 
 import "./IArbitrable.sol";
 import "../erc165/ERC165.sol";
@@ -34,7 +34,7 @@ contract Arbitrable is IArbitrable, ERC165 {
         emit CourtRuling(msg.sender, _disputeId, _ruling);
     }
 
-    function submitEvidence(uint256 _disputeId, bytes _evidence) external {
+    function submitEvidence(uint256 _disputeId, bytes calldata _evidence) external {
         require(canSubmitEvidence(_disputeId, msg.sender), ERROR_CANNOT_SUBMIT_EVIDENCE);
 
         emit NewEvidence(court, _disputeId, msg.sender, _evidence);

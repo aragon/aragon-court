@@ -3,17 +3,16 @@ const { decodeEventsOfType } = require('../helpers/decodeEvent')
 const { bn, bigExp, MAX_UINT256 } = require('../helpers/numbers')
 const { assertEvent, assertAmountOfEvents } = require('../helpers/assertEvent')
 
-const JurorsRegistry = artifacts.require('JurorsRegistry')
 const ERC20 = artifacts.require('ERC20Mock')
+const JurorsRegistry = artifacts.require('JurorsRegistry')
 const JurorsRegistryOwnerMock = artifacts.require('JurorsRegistryOwnerMock')
-
-const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
-const BURN_ADDRESS = '0x000000000000000000000000000000000000dead'
 
 contract('JurorsRegistry', ([_, juror, someone]) => {
   let registry, registryOwner, ANJ
 
   const MIN_ACTIVE_AMOUNT = bigExp(100, 18)
+  const BURN_ADDRESS = '0x000000000000000000000000000000000000dead'
+  const EMPTY_DATA = '0x0000000000000000000000000000000000000000000000000000000000000000'
 
   beforeEach('create base contracts', async () => {
     registry = await JurorsRegistry.new()
@@ -154,7 +153,7 @@ contract('JurorsRegistry', ([_, juror, someone]) => {
             beforeEach('stake some balance', async () => {
               const initialBalance = bigExp(50, 18)
               await ANJ.generateTokens(juror, initialBalance)
-              await ANJ.approveAndCall(registry.address, initialBalance, '0x', { from: juror })
+              await ANJ.approveAndCall(registry.address, initialBalance, EMPTY_DATA, { from: juror })
             })
 
             context('when the given amount does not overflow', () => {

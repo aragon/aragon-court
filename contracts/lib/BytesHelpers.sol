@@ -1,4 +1,4 @@
-pragma solidity ^0.4.24;
+pragma solidity ^0.5.8;
 
 
 library BytesHelpers {
@@ -8,7 +8,15 @@ library BytesHelpers {
 
         if (length < 4) {
             uint256 shiftingPositions = 8 - length * 2;
-            result = bytes4(uint256(result) / (16 ** shiftingPositions));
+            result = toBytes4(toUint256(result) / (16 ** shiftingPositions));
         }
+    }
+
+    function toBytes4(uint256 i) private pure returns (bytes4 o) {
+        assembly { o := mload(add(i, 0x20)) }
+    }
+
+    function toUint256(bytes4 i) private pure returns (uint256 o) {
+        assembly { o := mload(add(i, 0x20)) }
     }
 }

@@ -1,4 +1,4 @@
-pragma solidity ^0.4.24;
+pragma solidity ^0.5.8;
 
 import "@aragon/os/contracts/lib/token/ERC20.sol";
 import "@aragon/os/contracts/common/SafeERC20.sol";
@@ -37,8 +37,9 @@ contract CourtAccounting is IAccounting {
     function assign(ERC20 _token, address _to, uint256 _amount) external onlyOwner {
         require(_amount > 0, ERROR_DEPOSIT_AMOUNT_ZERO);
 
-        balances[_token][_to] = balances[_token][_to].add(_amount);
-        emit Assign(address(_token), msg.sender, _to, _amount);
+        address tokenAddress = address(_token);
+        balances[tokenAddress][_to] = balances[tokenAddress][_to].add(_amount);
+        emit Assign(tokenAddress, msg.sender, _to, _amount);
     }
 
     function withdraw(ERC20 _token, address _to, uint256 _amount) external {
@@ -46,13 +47,14 @@ contract CourtAccounting is IAccounting {
         require(_amount > 0, ERROR_WITHDRAW_AMOUNT_ZERO);
         require(balance >= _amount, ERROR_WITHDRAW_INVALID_AMOUNT);
 
-        balances[_token][msg.sender] = balance.sub(_amount);
-        emit Withdraw(address(_token), msg.sender, _to, _amount);
+        address tokenAddress = address(_token);
+        balances[tokenAddress][msg.sender] = balance.sub(_amount);
+        emit Withdraw(tokenAddress, msg.sender, _to, _amount);
 
         require(_token.safeTransfer(_to, _amount), ERROR_WITHDRAW_FAILED);
     }
 
     function balanceOf(ERC20 _token, address _holder) public view returns (uint256) {
-        return balances[_token][_holder];
+        return balances[address(_token)][_holder];
     }
 }

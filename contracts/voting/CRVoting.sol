@@ -245,7 +245,9 @@ contract CRVoting is Initializable, ICRVoting {
     * @param _voters List of addresses of the voters to be filtered
     * @return List of results to tell whether a voter voted in favor of the given outcome or not
     */
-    function getVotersInFavorOf(uint256 _voteId, uint8 _outcome, address[] calldata _voters) external voteExists(_voteId) view returns (bool[] memory) {
+    function getVotersInFavorOf(uint256 _voteId, uint8 _outcome, address[] calldata _voters) external voteExists(_voteId) view
+        returns (bool[] memory)
+    {
         Vote storage vote = voteRecords[_voteId];
         uint8 winningOutcome = vote.winningOutcome;
         bool[] memory votersInFavor = new bool[](_voters.length);

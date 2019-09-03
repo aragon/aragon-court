@@ -157,7 +157,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
         address[] jurors;           // List of jurors drafted for a round
         mapping (address => JurorState) jurorsStates; // List of states for each drafted juror indexed by address
         uint64 delayedTerms;        // Number of terms a round was delayed based on its requested draft term id
-        uint64 selectedJurors;      // Number of jurors selected for a round, since drafts can be batched, could be different to jurors number temporarily
+        uint64 selectedJurors;      // Number of jurors selected for a round, to allow drafts to be batched
         uint64 coherentJurors;      // Number of drafted jurors that voted in favor of the dispute final ruling
         uint64 settledJurors;       // Number of jurors whose rewards were already settled
         uint256 collectedTokens;    // Total amount of tokens collected from losing jurors
@@ -1264,7 +1264,8 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
         CourtConfig storage config = _getConfigAtDraftTerm(_round);
         // Court terms are assumed to always fit in uint64. Thus, the end term of a round is assumed to fit in uint64 too.
         // For a regular round, its end term is at the end of its appeal confirmation term.
-        return _round.draftTermId + _round.delayedTerms + config.commitTerms + config.revealTerms + config.appealTerms + config.appealConfirmTerms;
+        uint64 draftTerm = _round.draftTermId + _round.delayedTerms;
+        return draftTerm + config.commitTerms + config.revealTerms + config.appealTerms + config.appealConfirmTerms;
     }
 
     /**
@@ -1512,7 +1513,15 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
     * @param _draftTerm Term in which the dispute was requested to be drafted
     * @param _config Config of the Court at the draft term
     */
-    function _draft(uint256 _jurorsRequested, uint256 _disputeId, AdjudicationRound storage _round, Term storage _draftTerm, CourtConfig storage _config) private {
+    function _draft(
+        uint256 _jurorsRequested,
+        uint256 _disputeId,
+        AdjudicationRound storage _round,
+        Term storage _draftTerm,
+        CourtConfig storage _config
+    )
+        private
+    {
         // Draft jurors for the requested round
         uint256[7] memory draftParams = [
             uint256(_draftTerm.randomness),
@@ -1545,12 +1554,12 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
 
     // TODO: move to a factory contract
     function _initSubscriptions(ERC20 _feeToken, uint256[5] memory _subscriptionParams) private {
-        uint64 MAX_UINT64 = uint64(-1);
-        uint256 MAX_UINT16 = uint16(-1);
+        uint64 maxUINT64 = uint64(-1);
+        uint256 maxUINT16 = uint16(-1);
 
-        require(_subscriptionParams[0] <= MAX_UINT64, ERROR_INVALID_PERIOD_DURATION); // _periodDuration
-        require(_subscriptionParams[3] <= MAX_UINT16, ERROR_INVALID_LATE_PAYMENT_PENALTY); // _latePaymentPenaltyPct
-        require(_subscriptionParams[4] <= MAX_UINT16, ERROR_INVALID_GOVERNANCE_SHARE); // _governorSharePct
+        require(_subscriptionParams[0] <= maxUINT64, ERROR_INVALID_PERIOD_DURATION); // _periodDuration
+        require(_subscriptionParams[3] <= maxUINT16, ERROR_INVALID_LATE_PAYMENT_PENALTY); // _latePaymentPenaltyPct
+        require(_subscriptionParams[4] <= maxUINT16, ERROR_INVALID_GOVERNANCE_SHARE); // _governorSharePct
         subscriptions.init(
             ISubscriptionsOwner(this),
             jurorsRegistry,

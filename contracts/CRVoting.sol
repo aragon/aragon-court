@@ -224,8 +224,7 @@ contract CRVoting is Initializable, ICRVoting {
     }
 
     /**
-    * @dev Tell whether a voter voted in favor of a certain outcome in a vote instance or not. If there was no winning
-    *      outcome, it means that no one voted in favor of any of the possible outcomes.
+    * @dev Tell whether a voter voted in favor of a certain outcome in a vote instance or not.
     * @param _voteId ID of the vote instance to query if a voter voted in favor of a certain outcome
     * @param _outcome Outcome to query if the given voter voted in favor of
     * @param _voter Address of the voter to query if voted in favor of the given outcome
@@ -233,7 +232,8 @@ contract CRVoting is Initializable, ICRVoting {
     */
     function hasVotedInFavorOf(uint256 _voteId, uint8 _outcome, address _voter) external voteExists(_voteId) view returns (bool) {
         Vote storage vote = voteRecords[_voteId];
-        return vote.winningOutcome != OUTCOME_MISSING && _outcome != OUTCOME_MISSING && vote.votes[_voter].outcome == _outcome;
+        require(_outcome != OUTCOME_MISSING, ERROR_INVALID_OUTCOME);
+        return vote.votes[_voter].outcome == _outcome;
     }
 
     /**

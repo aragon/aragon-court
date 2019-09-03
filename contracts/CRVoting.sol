@@ -247,11 +247,12 @@ contract CRVoting is Initializable, ICRVoting {
     */
     function getVotersInFavorOf(uint256 _voteId, uint8 _outcome, address[] _voters) external voteExists(_voteId) view returns (bool[]) {
         Vote storage vote = voteRecords[_voteId];
+        require(_outcome != OUTCOME_MISSING, ERROR_INVALID_OUTCOME);
         uint8 winningOutcome = vote.winningOutcome;
         bool[] memory votersInFavor = new bool[](_voters.length);
 
         // If there is no winning outcome (if no valid votes were tallied), no one will be marked as voting in favor of any given outcome.
-        if (winningOutcome == OUTCOME_MISSING || _outcome == OUTCOME_MISSING) {
+        if (winningOutcome == OUTCOME_MISSING) {
             return votersInFavor;
         }
 

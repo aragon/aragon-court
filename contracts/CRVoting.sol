@@ -61,12 +61,6 @@ contract CRVoting is Initializable, ICRVoting {
         _;
     }
 
-    modifier voteExists(uint256 _voteId) {
-        Vote storage vote = voteRecords[_voteId];
-        require(_existsVote(vote), ERROR_VOTE_DOES_NOT_EXIST);
-        _;
-    }
-
     /**
     * @notice Initialize a CRVoting instance
     * @param _owner Address to be set as the owner of the CRVoting instance
@@ -89,7 +83,7 @@ contract CRVoting is Initializable, ICRVoting {
         require(_possibleOutcomes >= MIN_POSSIBLE_OUTCOMES && _possibleOutcomes <= MAX_POSSIBLE_OUTCOMES, ERROR_INVALID_OUTCOMES_AMOUNT);
 
         Vote storage vote = voteRecords[_voteId];
-        require(!_existsVote(vote), ERROR_VOTE_ALREADY_EXISTS);
+        _ensureVoteDoesNotExist(vote);
 
         // Note that there is no need to use SafeMath here, we already checked the number of outcomes above
         vote.maxAllowedOutcome = OUTCOME_REFUSED + _possibleOutcomes;
@@ -101,10 +95,12 @@ contract CRVoting is Initializable, ICRVoting {
     * @param _voteId ID of the vote instance to commit a vote to
     * @param _commitment Encrypted outcome to be stored for future reveal
     */
-    function commit(uint256 _voteId, bytes32 _commitment) external voteExists(_voteId) {
+    function commit(uint256 _voteId, bytes32 _commitment) external {
+        Vote storage vote = voteRecords[_voteId];
+        _ensureVoteExists(vote);
         _ensureVoterWeightToCommit(_voteId, msg.sender);
 
-        CastVote storage castVote = voteRecords[_voteId].votes[msg.sender];
+        CastVote storage castVote = vote.votes[msg.sender];
         require(castVote.commitment == bytes32(0), ERROR_VOTE_ALREADY_COMMITTED);
 
         castVote.commitment = _commitment;
@@ -118,10 +114,12 @@ contract CRVoting is Initializable, ICRVoting {
     * @param _outcome Outcome leaked for the voter
     * @param _salt Salt to decrypt and validate the committed vote of the voter
     */
-    function leak(uint256 _voteId, address _voter, uint8 _outcome, bytes32 _salt) external voteExists(_voteId) {
+    function leak(uint256 _voteId, address _voter, uint8 _outcome, bytes32 _salt) external {
+        Vote storage vote = voteRecords[_voteId];
+        _ensureVoteExists(vote);
         _ensureVoterWeightToCommit(_voteId, _voter);
 
-        CastVote storage castVote = voteRecords[_voteId].votes[_voter];
+        CastVote storage castVote = vote.votes[_voter];
         _ensureCanReveal(castVote, _outcome, _salt);
 
         // There is no need to check if an outcome is valid if it was leaked.
@@ -136,10 +134,11 @@ contract CRVoting is Initializable, ICRVoting {
     * @param _outcome Outcome revealed by the voter
     * @param _salt Salt to decrypt and validate the committed vote of the voter
     */
-    function reveal(uint256 _voteId, uint8 _outcome, bytes32 _salt) external voteExists(_voteId) {
+    function reveal(uint256 _voteId, uint8 _outcome, bytes32 _salt) external {
+        Vote storage vote = voteRecords[_voteId];
+        _ensureVoteExists(vote);
         uint256 weight = _ensureVoterWeightToReveal(_voteId, msg.sender);
 
-        Vote storage vote = voteRecords[_voteId];
         CastVote storage castVote = vote.votes[msg.sender];
         _ensureCanReveal(castVote, _outcome, _salt);
         require(_isValidOutcome(vote, _outcome), ERROR_INVALID_OUTCOME);
@@ -162,8 +161,9 @@ contract CRVoting is Initializable, ICRVoting {
     * @param _voteId ID of the vote instance querying the max allowed outcome of
     * @return Max allowed outcome for the given vote instance
     */
-    function getMaxAllowedOutcome(uint256 _voteId) external voteExists(_voteId) view returns (uint8) {
+    function getMaxAllowedOutcome(uint256 _voteId) external view returns (uint8) {
         Vote storage vote = voteRecords[_voteId];
+        _ensureVoteExists(vote);
         return vote.maxAllowedOutcome;
     }
 
@@ -173,8 +173,9 @@ contract CRVoting is Initializable, ICRVoting {
     * @param _voteId ID of the vote instance querying the winning outcome of
     * @return Winning outcome of the given vote instance or refused in case it's missing
     */
-    function getWinningOutcome(uint256 _voteId) external voteExists(_voteId) view returns (uint8) {
+    function getWinningOutcome(uint256 _voteId) external view returns (uint8) {
         Vote storage vote = voteRecords[_voteId];
+        _ensureVoteExists(vote);
         uint8 winningOutcome = vote.winningOutcome;
         return winningOutcome == OUTCOME_MISSING ? OUTCOME_REFUSED : winningOutcome;
     }
@@ -184,8 +185,9 @@ contract CRVoting is Initializable, ICRVoting {
     * @param _voteId ID of the vote instance querying the tally of
     * @return Tally of the winning outcome being queried for the given vote instance
     */
-    function getWinningOutcomeTally(uint256 _voteId) external voteExists(_voteId) view returns (uint256) {
+    function getWinningOutcomeTally(uint256 _voteId) external view returns (uint256) {
         Vote storage vote = voteRecords[_voteId];
+        _ensureVoteExists(vote);
         return vote.outcomesTally[vote.winningOutcome];
     }
 
@@ -195,8 +197,9 @@ contract CRVoting is Initializable, ICRVoting {
     * @param _outcome Outcome querying the tally of
     * @return Tally of the outcome being queried for the given vote instance
     */
-    function getOutcomeTally(uint256 _voteId, uint8 _outcome) external voteExists(_voteId) view returns (uint256) {
+    function getOutcomeTally(uint256 _voteId, uint8 _outcome) external view returns (uint256) {
         Vote storage vote = voteRecords[_voteId];
+        _ensureVoteExists(vote);
         return vote.outcomesTally[_outcome];
     }
 
@@ -207,8 +210,9 @@ contract CRVoting is Initializable, ICRVoting {
     * @param _outcome Outcome to check if valid or not
     * @return True if the given outcome is valid for the requested vote instance, false otherwise.
     */
-    function isValidOutcome(uint256 _voteId, uint8 _outcome) external voteExists(_voteId) view returns (bool) {
+    function isValidOutcome(uint256 _voteId, uint8 _outcome) external view returns (bool) {
         Vote storage vote = voteRecords[_voteId];
+        _ensureVoteExists(vote);
         return _isValidOutcome(vote, _outcome);
     }
 
@@ -218,8 +222,9 @@ contract CRVoting is Initializable, ICRVoting {
     * @param _voter Address of the voter querying the outcome of
     * @return Outcome of the voter for the given vote instance
     */
-    function getVoterOutcome(uint256 _voteId, address _voter) external voteExists(_voteId) view returns (uint8) {
+    function getVoterOutcome(uint256 _voteId, address _voter) external view returns (uint8) {
         Vote storage vote = voteRecords[_voteId];
+        _ensureVoteExists(vote);
         return vote.votes[_voter].outcome;
     }
 
@@ -231,8 +236,9 @@ contract CRVoting is Initializable, ICRVoting {
     * @param _voter Address of the voter to query if voted in favor of the given outcome
     * @return True if the given voter voted in favor of the given outcome, false otherwise
     */
-    function hasVotedInFavorOf(uint256 _voteId, uint8 _outcome, address _voter) external voteExists(_voteId) view returns (bool) {
+    function hasVotedInFavorOf(uint256 _voteId, uint8 _outcome, address _voter) external view returns (bool) {
         Vote storage vote = voteRecords[_voteId];
+        _ensureVoteExists(vote);
         return vote.winningOutcome != OUTCOME_MISSING && _outcome != OUTCOME_MISSING && vote.votes[_voter].outcome == _outcome;
     }
 
@@ -245,8 +251,9 @@ contract CRVoting is Initializable, ICRVoting {
     * @param _voters List of addresses of the voters to be filtered
     * @return List of results to tell whether a voter voted in favor of the given outcome or not
     */
-    function getVotersInFavorOf(uint256 _voteId, uint8 _outcome, address[] _voters) external voteExists(_voteId) view returns (bool[]) {
+    function getVotersInFavorOf(uint256 _voteId, uint8 _outcome, address[] _voters) external view returns (bool[]) {
         Vote storage vote = voteRecords[_voteId];
+        _ensureVoteExists(vote);
         uint8 winningOutcome = vote.winningOutcome;
         bool[] memory votersInFavor = new bool[](_voters.length);
 
@@ -320,12 +327,19 @@ contract CRVoting is Initializable, ICRVoting {
     }
 
     /**
-    * @dev Internal function to check if a vote instance was already created
+    * @dev Internal function to check that a vote instance was not already created
     * @param _vote Vote instance to be checked
-    * @return True if the given vote instance was already created, false otherwise
     */
-    function _existsVote(Vote storage _vote) internal view returns (bool) {
-        return _vote.maxAllowedOutcome != OUTCOME_MISSING;
+    function _ensureVoteDoesNotExist(Vote storage _vote) internal view {
+        require(_vote.maxAllowedOutcome == 0, ERROR_VOTE_ALREADY_EXISTS);
+    }
+
+    /**
+     * @dev Internal function to check if a vote instance was already created
+     * @param _vote Vote instance to be checked
+     */
+    function _ensureVoteExists(Vote storage _vote) internal view {
+        require(_vote.maxAllowedOutcome != OUTCOME_MISSING, ERROR_VOTE_DOES_NOT_EXIST);
     }
 
     /**

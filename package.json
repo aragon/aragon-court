@@ -14,6 +14,7 @@
   "devDependencies": {
     "@aragon/apps-shared-migrations": "^1.0.0",
     "@aragon/test-helpers": "^2.0.0",
+    "eth-gas-reporter": "^0.2.9",
     "ganache-cli": "^6.1.0",
     "solidity-coverage": "0.5.8",
     "solium": "^1.2.3",

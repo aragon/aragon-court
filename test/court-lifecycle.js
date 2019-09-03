@@ -129,15 +129,15 @@ contract('Court: Lifecycle', ([ poor, rich, governor, juror1, juror2 ]) => {
       await assertEqualBN(this.court.getLastEnsuredTermId(), 1, 'court term #1')
       const [
         startTime,
-        dependingDraws,
+        dependingDrafts,
         courtConfigId,
         randomnessBn
       ] = await this.court.terms(1)
 
       await assertEqualBN(startTime, firstTermStart, 'first term start')
-      await assertEqualBN(dependingDraws, 0, 'depending draws')
+      await assertEqualBN(dependingDrafts, 0, 'depending drafts')
       await assertEqualBN(courtConfigId, 1, 'court config id')
-      await assertEqualBN(randomnessBn, (await this.court.getBlockNumberExt()), 'randomeness bn')
+      await assertEqualBN(randomnessBn, (await this.court.getBlockNumberExt()).toNumber() + 1, 'randomness bn')
     })
 
     it('can activate during period before heartbeat', async () => {
@@ -200,15 +200,15 @@ contract('Court: Lifecycle', ([ poor, rich, governor, juror1, juror2 ]) => {
     it('has correct term state', async () => {
       const [
         startTime,
-        dependingDraws,
+        dependingDrafts,
         courtConfigId,
         randomnessBn
       ] = await this.court.terms(term)
 
       await assertEqualBN(startTime, firstTermStart + (term - 1) * termDuration, 'term start')
-      await assertEqualBN(dependingDraws, 0, 'depending draws')
+      await assertEqualBN(dependingDrafts, 0, 'depending drafts')
       await assertEqualBN(courtConfigId, 1, 'court config id')
-      await assertEqualBN(randomnessBn, (await this.court.getBlockNumberExt()), 'randomeness bn')
+      await assertEqualBN(randomnessBn, (await this.court.getBlockNumberExt()).toNumber() + 1, 'randomness bn')
     })
 
     it('jurors can activate', async () => {

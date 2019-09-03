@@ -1,12 +1,14 @@
-const skipFiles = [
-  'lib',
-  'test',
-  'standards'
-]
-
 module.exports = {
-    norpc: true,
-    compileCommand: '../node_modules/.bin/truffle compile',
-    testCommand: 'node --max-old-space-size=4096 ../node_modules/.bin/truffle test --network coverage',
-    skipFiles,
+  norpc: true,
+  compileCommand: '../node_modules/.bin/truffle compile',
+  copyPackages: [
+    '@aragon/os',
+    '@aragon/test-helpers'
+  ],
+  skipFiles: [
+    'test',
+    '@aragon/os',
+    '@aragon/test-helpers',
+  ],
+  deepSkip: true // Turn on deep skip to avoid preprocessing (e.g. removing view/pure modifiers) for skipped files
 }

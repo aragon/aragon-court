@@ -1,7 +1,7 @@
 pragma solidity ^0.5.8;
 
-import "../../standards/erc900/IJurorsRegistry.sol";
-import "../../standards/erc900/IJurorsRegistryOwner.sol";
+import "../../registry/IJurorsRegistry.sol";
+import "../../registry/IJurorsRegistryOwner.sol";
 
 
 contract JurorsRegistryOwnerMock is IJurorsRegistryOwner {

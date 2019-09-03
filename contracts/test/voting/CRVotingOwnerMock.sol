@@ -1,7 +1,7 @@
 pragma solidity ^0.5.8;
 
-import "../../standards/voting/ICRVoting.sol";
-import "../../standards/voting/ICRVotingOwner.sol";
+import "../../voting/ICRVoting.sol";
+import "../../voting/ICRVotingOwner.sol";
 
 
 contract CRVotingOwnerMock is ICRVotingOwner {

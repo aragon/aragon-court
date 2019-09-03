@@ -1,6 +1,6 @@
 pragma solidity ^0.5.8;
 
-import "./standards/arbitration/Arbitrable.sol";
+import "./Arbitrable.sol";
 
 
 contract Agreement is Arbitrable { /* AragonApp/Trigger */

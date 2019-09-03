@@ -1,7 +1,7 @@
 pragma solidity ^0.5.8;
 
 import "./IArbitrable.sol";
-import "../erc165/ERC165.sol";
+import "../standards/ERC165.sol";
 
 
 contract Arbitrable is IArbitrable, ERC165 {

@@ -3,7 +3,7 @@ pragma solidity ^0.5.8;
 import "@aragon/os/contracts/lib/token/ERC20.sol";
 
 import "./ISubscriptionsOwner.sol";
-import "../erc900/IJurorsRegistry.sol";
+import "../registry/IJurorsRegistry.sol";
 
 
 interface ISubscriptions {

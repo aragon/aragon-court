@@ -1,22 +1,22 @@
 pragma solidity ^0.5.8;
 
 // Inspired by: Kleros.sol https://github.com/kleros/kleros @ 7281e69
-import "./lib/PctHelpers.sol";
-import "./standards/arbitration/IArbitrable.sol";
-import "./standards/erc900/IJurorsRegistry.sol";
-import "./standards/erc900/IJurorsRegistryOwner.sol";
-import "./standards/accounting/IAccounting.sol";
-import "./standards/voting/ICRVoting.sol";
-import "./standards/voting/ICRVotingOwner.sol";
-import "./standards/subscription/ISubscriptions.sol";
-import "./standards/subscription/ISubscriptionsOwner.sol";
-
 import "@aragon/os/contracts/lib/token/ERC20.sol";
 import "@aragon/os/contracts/common/SafeERC20.sol";
 import "@aragon/os/contracts/lib/math/SafeMath.sol";
 import "@aragon/os/contracts/common/Uint256Helpers.sol";
 import "@aragon/os/contracts/common/TimeHelpers.sol";
-import "./standards/arbitration/Arbitrable.sol";
+
+import "./IAccounting.sol";
+import "../lib/PctHelpers.sol";
+import "../voting/ICRVoting.sol";
+import "../voting/ICRVotingOwner.sol";
+import "../arbitration/Arbitrable.sol";
+import "../arbitration/IArbitrable.sol";
+import "../registry/IJurorsRegistry.sol";
+import "../registry/IJurorsRegistryOwner.sol";
+import "../subscriptions/ISubscriptions.sol";
+import "../subscriptions/ISubscriptionsOwner.sol";
 
 
 contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, TimeHelpers {

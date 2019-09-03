@@ -1,6 +1,6 @@
 pragma solidity ^0.5.8;
 
-import "../standards/arbitration/IArbitrable.sol";
+import "../../arbitration/IArbitrable.sol";
 
 
 contract ArbitrableMock is IArbitrable {

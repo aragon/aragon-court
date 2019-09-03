@@ -1,7 +1,7 @@
 pragma solidity ^0.5.8;
 
-import "../Court.sol";
-import "./lib/TimeHelpersMock.sol";
+import "../../court/Court.sol";
+import "../lib/TimeHelpersMock.sol";
 
 
 contract CourtMock is Court, TimeHelpersMock {

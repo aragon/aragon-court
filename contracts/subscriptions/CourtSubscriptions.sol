@@ -6,10 +6,10 @@ import "@aragon/os/contracts/common/IsContract.sol";
 import "@aragon/os/contracts/lib/math/SafeMath.sol";
 import "@aragon/os/contracts/common/TimeHelpers.sol";
 
-import "./lib/PctHelpers.sol";
-import "./standards/erc900/IJurorsRegistry.sol";
-import "./standards/subscription/ISubscriptions.sol";
-import "./standards/subscription/ISubscriptionsOwner.sol";
+import "../lib/PctHelpers.sol";
+import "../registry/IJurorsRegistry.sol";
+import "../subscriptions/ISubscriptions.sol";
+import "../subscriptions/ISubscriptionsOwner.sol";
 
 
 contract CourtSubscriptions is IsContract, ISubscriptions, TimeHelpers {

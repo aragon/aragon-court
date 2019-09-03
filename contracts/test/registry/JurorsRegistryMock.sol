@@ -1,7 +1,7 @@
 pragma solidity ^0.5.8;
 
-import "../../JurorsRegistry.sol";
 import "../lib/TimeHelpersMock.sol";
+import "../../registry/JurorsRegistry.sol";
 
 
 contract JurorsRegistryMock is JurorsRegistry, TimeHelpersMock {
@@ -9,11 +9,6 @@ contract JurorsRegistryMock is JurorsRegistry, TimeHelpersMock {
     bool internal nextDraftMocked;
     address[] public mockedSelectedJurors;
     uint256[] public mockedWeights;
-
-    // TODO: remove
-    function mockHijackTreeSearch() external {
-        treeSearchHijacked = true;
-    }
 
     function mockNextDraft(address[] calldata _selectedJurors, uint256[] calldata _weights) external {
         nextDraftMocked = true;
@@ -30,25 +25,10 @@ contract JurorsRegistryMock is JurorsRegistry, TimeHelpersMock {
     }
 
     function _treeSearch(uint256[7] memory _params) internal view returns (uint256[] memory, uint256[] memory) {
-        if (treeSearchHijacked) {
-            return _runHijackedSearch(_params);
-        }
         if (nextDraftMocked) {
             return _runMockedSearch(_params);
         }
         return super._treeSearch(_params);
-    }
-
-    function _runHijackedSearch(uint256[7] memory _params) internal view returns (uint256[] memory keys, uint256[] memory nodeValues) {
-        uint256 _jurorsRequested = _params[4];
-
-        keys = new uint256[](_jurorsRequested);
-        nodeValues = new uint256[](_jurorsRequested);
-        for (uint256 i = 0; i < _jurorsRequested; i++) {
-            uint256 key = i % (tree.nextKey - 1) + 1; // loop, and avoid 0
-            keys[i] = key;
-            nodeValues[i] = tree.getItem(key);
-        }
     }
 
     function _runMockedSearch(uint256[7] memory /* _params */) internal view returns (uint256[] memory ids, uint256[] memory activeBalances) {

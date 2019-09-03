@@ -1,7 +1,8 @@
 pragma solidity ^0.5.8;
 
-import "./IJurorsRegistryOwner.sol";
 import "@aragon/os/contracts/lib/token/ERC20.sol";
+
+import "./IJurorsRegistryOwner.sol";
 
 
 interface IJurorsRegistry {

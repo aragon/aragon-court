@@ -2,9 +2,9 @@ pragma solidity ^0.5.8;
 
 import "@aragon/os/contracts/lib/token/ERC20.sol";
 
-import "../standards/subscription/ISubscriptionsOwner.sol";
-import "../standards/subscription/ISubscriptions.sol";
-import "../standards/erc900/IJurorsRegistryOwner.sol";
+import "../../registry/IJurorsRegistryOwner.sol";
+import "../../subscriptions/ISubscriptions.sol";
+import "../../subscriptions/ISubscriptionsOwner.sol";
 
 
 contract SubscriptionsOwnerMock is ISubscriptionsOwner, IJurorsRegistryOwner {

@@ -2,7 +2,7 @@ pragma solidity ^0.5.8;
 
 import "@aragon/os/contracts/lib/math/SafeMath.sol";
 
-import "../../../standards/minime/ApproveAndCall.sol";
+import "../../standards/ApproveAndCall.sol";
 
 
 contract ERC20Mock {

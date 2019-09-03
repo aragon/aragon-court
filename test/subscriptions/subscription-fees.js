@@ -1,6 +1,6 @@
 const { sha3 } = require('web3-utils')
-const { bn, bigExp } = require('./helpers/numbers')
-const { assertRevert } = require('./helpers/assertThrow')
+const { bn, bigExp } = require('../helpers/numbers')
+const { assertRevert } = require('../helpers/assertThrow')
 
 const CourtSubscriptions = artifacts.require('CourtSubscriptions')
 const SubscriptionsOwner = artifacts.require('SubscriptionsOwnerMock')

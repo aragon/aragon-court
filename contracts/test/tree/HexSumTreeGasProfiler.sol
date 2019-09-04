@@ -56,4 +56,8 @@ contract HexSumTreeGasProfiler is TimeHelpersMock {
     function height() external view returns (uint256) {
         return tree.getHeight();
     }
+
+    function getHeightHistoryLength() external view returns (uint256) {
+        return tree.height.history.length;
+    }
 }

@@ -161,7 +161,7 @@ library HexSumTree {
         require(total > uint256(0) && total >= _values[_values.length - 1], ERROR_SEARCH_OUT_OF_BOUNDS);
 
         // Build search params for the first iteration
-        uint256 rootLevel = getHeightAt(self, _time);
+        uint256 rootLevel = getRecentHeightAt(self, _time);
         SearchParams memory searchParams = SearchParams(_time, rootLevel - 1, BASE_KEY, 0, 0);
 
         // These arrays will be used to fill in the results. We are passing them as parameters to avoid extra copies
@@ -181,11 +181,11 @@ library HexSumTree {
 
     /**
     * @dev Tell the sum of the all the items (leaves) stored in the tree, i.e. value of the root of the tree, at a given point in time
-    *      It uses a binary search.
+    *      It uses a binary search for the root node, a linear one for the height.
     * @param _time Point in time to query the sum of all the items (leaves) stored in the tree
     */
     function getTotalAt(Tree storage self, uint64 _time) internal view returns (uint256) {
-        uint256 rootLevel = getHeightAt(self, _time);
+        uint256 rootLevel = getRecentHeightAt(self, _time);
         return getNodeAt(self, rootLevel, BASE_KEY, _time);
     }
 
@@ -253,15 +253,6 @@ library HexSumTree {
     */
     function getHeight(Tree storage self) internal view returns (uint256) {
         return self.height.getLast();
-    }
-
-    /**
-    * @dev Tell the height of the tree at a given point in time
-    *      It uses a binary search.
-    * @param _time Point in time to query the height of the tree
-    */
-    function getHeightAt(Tree storage self, uint64 _time) internal view returns (uint256) {
-        return self.height.get(_time);
     }
 
     /**

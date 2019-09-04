@@ -6,6 +6,8 @@ const HexSumTree = artifacts.require('HexSumTreeGasProfiler')
 contract('HexSumTree', () => {
   let tree
   const CHILDREN = 16
+  const BIG_KEY_HEIGHT = 27
+  const BIG_KEY = (new web3.BigNumber(CHILDREN)).pow(BIG_KEY_HEIGHT)
 
   beforeEach(async () => {
     tree = await HexSumTree.new()
@@ -35,7 +37,7 @@ contract('HexSumTree', () => {
 
           itCostsAtMost(expectedCost, async () => {
             // mock huge next key
-            const nextKey = bigExp(CHILDREN, 32)
+            const nextKey = BIG_KEY
             await tree.mockNextKey(0, nextKey)
 
             await tree.insert(0, 10)
@@ -97,7 +99,7 @@ contract('HexSumTree', () => {
       })
 
       context('huge tree', () => {
-        const nextKey = bigExp(CHILDREN, 32)
+        const nextKey = BIG_KEY
 
         beforeEach('insert item', async () => {
           // mock huge next key
@@ -145,7 +147,7 @@ contract('HexSumTree', () => {
       })
 
       context('huge tree', () => {
-        const nextKey = bigExp(CHILDREN, 32)
+        const nextKey = BIG_KEY
 
         beforeEach('insert item', async () => {
           // mock huge next key
@@ -170,6 +172,13 @@ contract('HexSumTree', () => {
     })
 
     describe('search', () => {
+      const mockNextKeyProgressively = async (exp) => {
+        for (let i = 1; i <= exp; i++) {
+          const nextKey = (new web3.BigNumber(CHILDREN)).pow(i)
+          await tree.mockNextKey(i, nextKey)
+        }
+      }
+
       const value = 10
 
       const updateMany = async (key, updateTimes) => {
@@ -209,7 +218,7 @@ contract('HexSumTree', () => {
 
             itCostsAtMost(expectedCost, async () => {
               // mock huge next key
-              const nextKey = bigExp(CHILDREN, 32)
+              const nextKey = BIG_KEY
               await tree.mockNextKey(0, nextKey)
               await tree.insert(0, value)
 
@@ -223,8 +232,7 @@ contract('HexSumTree', () => {
 
             itCostsAtMost(expectedCost, async () => {
               // mock huge next key
-              const nextKey = bigExp(CHILDREN, 32)
-              await tree.mockNextKey(0, nextKey)
+              await mockNextKeyProgressively(BIG_KEY_HEIGHT)
               await tree.insert(0, value)
               await updateMany(0, updateTimes)
 
@@ -275,7 +283,7 @@ contract('HexSumTree', () => {
 
             itCostsAtMost(expectedCost, async () => {
               // mock huge next key
-              const nextKey = bigExp(CHILDREN, 32)
+              const nextKey = BIG_KEY
               await tree.mockNextKey(0, nextKey)
               await insertMany(value, insertTimes)
 
@@ -289,8 +297,7 @@ contract('HexSumTree', () => {
 
             itCostsAtMost(expectedCost, async () => {
               // mock huge next key
-              const nextKey = bigExp(CHILDREN, 32)
-              await tree.mockNextKey(0, nextKey)
+              await mockNextKeyProgressively(BIG_KEY_HEIGHT)
               await insertMany(value, insertTimes)
               await updateMany(0, updateTimes)
 

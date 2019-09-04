@@ -75,7 +75,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
     // Initial term to start the Court, disputes are not allowed during this term. It can be used to active jurors
     uint64 internal constant ZERO_TERM_ID = 0;
 
-    // Maximum number of terms a callee may have to assume in order to call certain functions that require the Court being up-to-date
+    // Maximum number of term transitions a callee may have to assume in order to call certain functions that require the Court being up-to-date
     uint64 internal constant MAX_AUTO_TERM_TRANSITIONS_ALLOWED = 1;
 
     // Minimum possible rulings for a dispute
@@ -134,7 +134,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
 
     struct Term {
         uint64 startTime;           // Timestamp when the term started
-        uint64 dependingDrafts;     // Disputes or appeals pegged to this term for randomness
+        uint64 dependingDrafts;     // Adjudication rounds pegged to this term for randomness
         uint64 courtConfigId;       // Fee structure for this term (index in courtConfigs array)
         uint64 randomnessBN;        // Block number for entropy
         bytes32 randomness;         // Entropy from randomnessBN block hash
@@ -679,7 +679,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
     }
 
     /**
-    * @dev Tell the current term identification number. Note that the current term may not be ensured yet.
+    * @dev Tell the current term identification number. Note that there may be pending term transitions.
     * @return Identification number of the current term
     */
     function getCurrentTermId() external view returns (uint64) {
@@ -869,7 +869,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
     */
     function neededTermTransitions() public view returns (uint64) {
         // Note that the Court is always initialized at least for the current initialization time or more likely a
-        // in the future. If that the case, no term transitions are needed.
+        // in the future. If that's the case, no term transitions are needed.
         uint64 currentTermStartTime = terms[termId].startTime;
         if (getTimestamp64() < currentTermStartTime) {
             return uint64(0);

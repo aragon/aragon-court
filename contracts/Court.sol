@@ -390,8 +390,8 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
         _ensureTermRandomness(draftTerm);
 
         // Draft the min number of jurors between the one requested by the sender and the one requested by the disputer
-        uint64 jurorsNumber = round.jurorsNumber;
-        uint256 jurorsRequested = jurorsNumber < _maxJurorsToBeDrafted ? jurorsNumber : _maxJurorsToBeDrafted;
+        uint64 jurorsToBeDrafted = round.jurorsNumber - round.selectedJurors;
+        uint256 jurorsRequested = jurorsToBeDrafted < _maxJurorsToBeDrafted ? jurorsToBeDrafted : _maxJurorsToBeDrafted;
 
         // Draft jurors for the given dispute and reimburse fees
         CourtConfig storage config = _getConfigAtDraftTerm(round);

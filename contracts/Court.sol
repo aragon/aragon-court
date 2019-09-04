@@ -60,7 +60,6 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
     string private constant ERROR_ROUND_NOT_APPEALED = "CT_ROUND_NOT_APPEALED";
     string private constant ERROR_ROUND_ALREADY_APPEALED = "CT_ROUND_ALREADY_APPEALED";
     string private constant ERROR_ROUND_APPEAL_ALREADY_CONFIRMED = "CT_APPEAL_ALREADY_CONFIRMED";
-    string private constant ERROR_SENDER_CANNOT_CONFIRM_APPEAL = "CT_SENDER_CANNOT_CONFIRM_APPEAL";
     string private constant ERROR_INVALID_APPEAL_RULING = "CT_INVALID_APPEAL_RULING";
 
     // Settlements-related error messages
@@ -453,7 +452,6 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
         // Ensure given round appeal was not confirmed yet
         AdjudicationRound storage round = dispute.rounds[_roundId];
         require(_isRoundAppealed(round), ERROR_ROUND_NOT_APPEALED);
-        require(round.appeal.maker != msg.sender, ERROR_SENDER_CANNOT_CONFIRM_APPEAL);
         require(!_isRoundAppealConfirmed(round), ERROR_ROUND_APPEAL_ALREADY_CONFIRMED);
 
         // Ensure that the ruling being confirmed in favor of is valid and different from the appealed ruling

@@ -204,10 +204,6 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
 
                       await assertRevert(court.confirmAppeal(disputeId, roundId, appealTakerRuling, { from: appealTaker }), 'CT_INVALID_ADJUDICATION_STATE')
                     })
-
-                    it('cannot be confirmed by the appealer', async () => {
-                      await assertRevert(court.confirmAppeal(disputeId, roundId, appealTakerRuling, { from: appealMaker }), 'CT_SENDER_CANNOT_CONFIRM_APPEAL')
-                    })
                   })
 
                   context('when the appeal taker does not have enough balance', () => {

@@ -61,6 +61,7 @@ library Checkpointing {
     * @dev Fetch the most recent registered past value of a history based on a given point in time that is not known
     *      how recent it is beforehand. It will return zero if there is no registered value or if given time is
     *      previous to the first registered value.
+    *      It uses a binary search.
     * @param self Checkpoints history to be queried
     * @param _time Point in time to query the most recent registered past value of
     */
@@ -71,12 +72,12 @@ library Checkpointing {
     /**
     * @dev Fetch the most recent registered past value of a history based on a given point in time. It will return zero
     *      if there is no registered value or if given time is previous to the first registered value.
+    *      It uses a linear search starting from the end.
     * @param self Checkpoints history to be queried
     * @param _time Point in time to query the most recent registered past value of
-    * @param _recent Boolean indicating whether the given point in time is known to be recent or not
     */
-    function get(History storage self, uint64 _time, bool _recent) internal view returns (uint256) {
-        return _recent ? _backwardsLinearSearch(self, _time) : _binarySearch(self, _time);
+    function getRecent(History storage self, uint64 _time) internal view returns (uint256) {
+        return _backwardsLinearSearch(self, _time);
     }
 
     /**

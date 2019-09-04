@@ -67,7 +67,7 @@ library JurorsTreeSortition {
     {
         // Note that the low bound will be always equal to the previous high bound incremented by one, or one for the
         // first iteration. Thus, we can make sure we are not excluding any juror from the tree.
-        uint256 totalActiveBalance = tree.getTotalAt(_termId, true);
+        uint256 totalActiveBalance = tree.getRecentTotalAt(_termId);
         uint256 ratio = totalActiveBalance / _roundRequestedJurors;
         low = _selectedJurors == uint256(0) ? uint256(1) : (_selectedJurors * ratio) + 1;
 

@@ -34,7 +34,7 @@ contract HexSumTreeMock is TimeHelpersMock {
     }
 
     function totalAt(uint64 _time) public view returns (uint256) {
-        return tree.getTotalAt(_time, false);
+        return tree.getTotalAt(_time);
     }
 
     function node(uint256 _level, uint256 _key) public view returns (uint256) {

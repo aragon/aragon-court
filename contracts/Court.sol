@@ -1225,43 +1225,33 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
             uint256 confirmAppealDeposit
         )
     {
-        // Next round start term is current round end term, nevertheless it is final or regular
-        nextRoundStartTerm = _getRegularRoundEndTerm(_round);
+        CourtConfig storage config = _getConfigAtDraftTerm(_round);
+        // Court terms are assumed to always fit in uint64. Thus, the end term of a round is assumed to fit in uint64 too.
+        uint64 currentRoundAppealStartTerm = _round.draftTermId + _round.delayedTerms + config.commitTerms + config.revealTerms;
+        // Next round start term is current round end term
+        nextRoundStartTerm = currentRoundAppealStartTerm + config.appealTerms + config.appealConfirmTerms;
 
         // Compute next round settings depending on if it will be the final round or not
-        CourtConfig storage config = _getConfigAtDraftTerm(_round);
         if (_roundId >= config.maxRegularAppealRounds - 1) {
             // If the next round is the final round, no draft is needed.
             newDisputeState = DisputeState.Adjudicating;
             // The number of jurors will be the number of times the minimum stake is hold in the registry,
             // multiplied by a precision factor to help with division rounding.
             nextRoundJurorsNumber = _getFinalRoundJurorsNumber(nextRoundStartTerm);
-            // Calculate fees for the final round
-            (feeToken, jurorFees, totalFees) = _getFinalRoundFees(nextRoundStartTerm, nextRoundJurorsNumber);
+            // Calculate fees for the final round using the appeal start term of the current round
+            (feeToken, jurorFees, totalFees) = _getFinalRoundFees(currentRoundAppealStartTerm, nextRoundJurorsNumber);
         } else {
             // For a new regular rounds we need to draft jurors
             newDisputeState = DisputeState.PreDraft;
             // The number of jurors will be the number of jurors of the current round multiplied by an appeal factor
             nextRoundJurorsNumber = _getNextRegularRoundJurorsNumber(_round, config);
-            // Calculate fees for the next regular round
-            (feeToken, jurorFees, totalFees) = _getRegularRoundFees(nextRoundStartTerm, nextRoundJurorsNumber);
+            // Calculate fees for the next regular round using the appeal start term of the current round
+            (feeToken, jurorFees, totalFees) = _getRegularRoundFees(currentRoundAppealStartTerm, nextRoundJurorsNumber);
         }
 
         // Calculate appeal collateral
         appealDeposit = totalFees * APPEAL_COLLATERAL_FACTOR;
         confirmAppealDeposit = totalFees * APPEAL_CONFIRMATION_COLLATERAL_FACTOR;
-    }
-
-    /**
-    * @dev Internal function to calculate the end term of a regular round. This function assumes the given round is regular.
-    * @param _round Regular round querying the end term of
-    * @return End term of the given regular round
-    */
-    function _getRegularRoundEndTerm(AdjudicationRound storage _round) internal view returns (uint64) {
-        CourtConfig storage config = _getConfigAtDraftTerm(_round);
-        // Court terms are assumed to always fit in uint64. Thus, the end term of a round is assumed to fit in uint64 too.
-        // For a regular round, its end term is at the end of its appeal confirmation term.
-        return _round.draftTermId + _round.delayedTerms + config.commitTerms + config.revealTerms + config.appealTerms + config.appealConfirmTerms;
     }
 
     /**

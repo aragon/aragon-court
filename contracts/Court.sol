@@ -868,8 +868,8 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
     * @return Number of terms the Court should transition to be up-to-date
     */
     function neededTermTransitions() public view returns (uint64) {
-        // Note that the Court is always initialized at least for the current initialization time or more likely a
-        // in the future. If that's the case, no term transitions are needed.
+        // Note that the Court is always initialized providing a start time for the first-term at least equal to the initialization time or more
+        // likely in the future. If that's the case, no term transitions are needed.
         uint64 currentTermStartTime = terms[termId].startTime;
         if (getTimestamp64() < currentTermStartTime) {
             return uint64(0);

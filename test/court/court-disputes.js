@@ -1,4 +1,4 @@
-const { bigExp } = require('../helpers/numbers')(web3)
+const { bn, bigExp } = require('../helpers/numbers')(web3)
 const { assertRevert } = require('@aragon/os/test/helpers/assertThrow')
 const { TOMORROW, ONE_DAY } = require('../helpers/time')
 const { buildHelper, DISPUTE_STATES } = require('../helpers/court')(web3, artifacts)
@@ -12,8 +12,8 @@ const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
 contract('Court', ([_, sender]) => {
   let courtHelper, court, feeToken, arbitrable
 
-  const termDuration = ONE_DAY
-  const firstTermStartTime = TOMORROW
+  const termDuration = bn(ONE_DAY)
+  const firstTermStartTime = bn(TOMORROW)
   const jurorFee = bigExp(10, 18)
   const heartbeatFee = bigExp(20, 18)
   const draftFee = bigExp(30, 18)
@@ -115,13 +115,14 @@ contract('Court', ([_, sender]) => {
         })
       }
 
-      context('when the court is at term zero', () => {
+      context('when the given draft term is not after the current term', () => {
         it('reverts', async () => {
+          await courtHelper.setTerm(draftTermId)
           await assertRevert(court.createDispute(arbitrable.address, possibleRulings, jurorsNumber, draftTermId), 'CT_CANNOT_CREATE_DISPUTE')
         })
       })
 
-      context('when the court is after term zero', () => {
+      context('when the given draft term is after the current term', () => {
         beforeEach('set timestamp at the beginning of the first term', async () => {
           await courtHelper.setTimestamp(firstTermStartTime)
         })
@@ -144,7 +145,7 @@ contract('Court', ([_, sender]) => {
 
         context('when the term is outdated by more than one term', () => {
           beforeEach('set timestamp two terms after the first term', async () => {
-            await courtHelper.setTimestamp(firstTermStartTime + termDuration * 2)
+            await courtHelper.setTimestamp(firstTermStartTime.add(termDuration.mul(2)))
           })
 
           it('reverts', async () => {

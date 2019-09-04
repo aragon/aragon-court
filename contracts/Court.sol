@@ -350,7 +350,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
         // TODO: Limit the max number of initial jurors
         // TODO: ERC165 check that _subject conforms to the Arbitrable interface
         // TODO: require(address(_subject) == msg.sender, ERROR_INVALID_DISPUTE_CREATOR);
-        require(termId > ZERO_TERM_ID, ERROR_CANNOT_CREATE_DISPUTE);
+        require(_draftTermId > termId, ERROR_CANNOT_CREATE_DISPUTE);
         require(subscriptions.isUpToDate(address(_subject)), ERROR_SUBSCRIPTION_NOT_PAID);
         require(_possibleRulings >= MIN_RULING_OPTIONS && _possibleRulings <= MAX_RULING_OPTIONS, ERROR_INVALID_RULING_OPTIONS);
 

@@ -728,7 +728,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
     * @return finalRuling The winning ruling in case the dispute is finished
     * @return lastRoundId Identification number of the last round created for the dispute
     */
-    function getDispute(uint256 _disputeId) external disputeExists(_disputeId) view
+    function getDispute(uint256 _disputeId) external view disputeExists(_disputeId)
         returns (address subject, uint8 possibleRulings, DisputeState state, uint8 finalRuling, uint256 lastRoundId)
     {
         Dispute storage dispute = disputes[_disputeId];
@@ -815,7 +815,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
     * @return weight Juror weight drafted for the requested round
     * @return rewarded Whether or not the given juror was rewarded based on the requested round
     */
-    function getJuror(uint256 _disputeId, uint256 _roundId, address _juror) external roundExists(_disputeId, _roundId) view
+    function getJuror(uint256 _disputeId, uint256 _roundId, address _juror) external view roundExists(_disputeId, _roundId)
         returns (uint64 weight, bool rewarded)
     {
         weight = _getJurorWeight(_disputeId, _roundId, _juror);

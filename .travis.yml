@@ -8,6 +8,7 @@ node_js:
   - '8'
 env:
   - TASK=test
+  - TASK=check-bytecode-size
 before_script:
   - npm prune
 script: "npm run $TASK"

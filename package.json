@@ -7,7 +7,8 @@
     "analysis:tree": "TRUFFLE_TEST=true SUMTREE_GAS_ANALYSIS=true npm run ganache-cli:test",
     "coverage": "SOLIDITY_COVERAGE=true npm run ganache-cli:test",
     "ganache-cli:test": "./node_modules/@aragon/test-helpers/ganache-cli.sh",
-    "lint": "solium --dir ./contracts"
+    "lint": "solium --dir ./contracts",
+    "check-bytecode-size": "./scripts/bytecodesize_check.sh"
   },
   "author": "Aragon Association",
   "license": "GPL-3.0",

@@ -302,8 +302,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
         uint32 _maxRegularAppealRounds,
         uint256[5] _subscriptionParams // _periodDuration, _feeAmount, _prePaymentPeriods, _latePaymentPenaltyPct, _governorSharePct
     ) public {
-        require(_firstTermStartTime >= _termDuration, ERROR_BAD_FIRST_TERM_START_TIME);
-        require(_firstTermStartTime >= getTimestamp64(), ERROR_BAD_FIRST_TERM_START_TIME);
+        require(_firstTermStartTime >= getTimestamp64() + _termDuration, ERROR_BAD_FIRST_TERM_START_TIME);
 
         termDuration = _termDuration;
         jurorsRegistry = _jurorsRegistry;
@@ -866,8 +865,8 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
     * @return Number of terms the Court should transition to be up-to-date
     */
     function neededTermTransitions() public view returns (uint64) {
-        // Note that the Court is always initialized providing a start time for the first-term at least equal to the initialization time or more
-        // likely in the future. If that's the case, no term transitions are needed.
+        // Note that the Court is always initialized providing a start time for the first-term in the future. If that's the case,
+        // no term transitions are required.
         uint64 currentTermStartTime = terms[termId].startTime;
         if (getTimestamp64() < currentTermStartTime) {
             return uint64(0);

@@ -1,6 +1,6 @@
 const { bn, bigExp } = require('../helpers/numbers')(web3)
 const { assertRevert } = require('@aragon/os/test/helpers/assertThrow')
-const { TOMORROW, ONE_DAY } = require('../helpers/time')
+const { NEXT_WEEK, ONE_DAY } = require('../helpers/time')
 const { buildHelper, DISPUTE_STATES } = require('../helpers/court')(web3, artifacts)
 const { assertAmountOfEvents, assertEvent } = require('@aragon/os/test/helpers/assertEvent')(web3)
 
@@ -13,7 +13,7 @@ contract('Court', ([_, sender]) => {
   let courtHelper, court, feeToken, arbitrable
 
   const termDuration = bn(ONE_DAY)
-  const firstTermStartTime = bn(TOMORROW)
+  const firstTermStartTime = bn(NEXT_WEEK)
   const jurorFee = bigExp(10, 18)
   const heartbeatFee = bigExp(20, 18)
   const draftFee = bigExp(30, 18)

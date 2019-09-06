@@ -215,7 +215,7 @@ contract JurorsRegistry is Initializable, IsContract, IJurorsRegistry, ERC900, A
     *        3. uint256 Number of seats already filled
     *        4. uint256 Number of seats left to be filled
     *        5. uint64  Number of jurors required for the draft
-    *        6. uint16  Percentage of the minimum active balance to be locked for the draft
+    *        6. uint16  Per ten thousand of the minimum active balance to be locked for the draft
     *
     * @return jurors List of jurors selected for the draft
     * @return weights List of weights corresponding to each juror
@@ -693,7 +693,7 @@ contract JurorsRegistry is Initializable, IsContract, IJurorsRegistry, ERC900, A
 
     /**
     * @dev Internal function to tell the fraction of minimum active tokens that must be locked for a draft
-    * @param _pct Percentage of the minimum active balance to be locked for a draft
+    * @param _pct Per ten thousand of the minimum active balance to be locked for a draft
     * @return The fraction of minimum active tokens that must be locked for a draft
     */
     function _draftLockAmount(uint16 _pct) internal view returns (uint256) {

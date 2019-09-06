@@ -125,7 +125,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
         uint64 revealTerms;         // revealing period duration in terms
         uint64 appealTerms;         // appealing period duration in terms
         uint64 appealConfirmTerms;  // confirmation appeal period duration in terms
-        uint16 penaltyPct;          // pre-mille that will be used to compute the tokens to be locked for a juror on a draft
+        uint16 penaltyPct;          // pre ten thousand that will be used to compute the tokens to be locked for a juror on a draft
         uint16 finalRoundReduction; // ‱ of reduction applied for final appeal round (1/10,000)
         uint64 appealStepFactor;    // factor in which the jurors number is increased on each appeal
         uint32 maxRegularAppealRounds; // before the final appeal
@@ -151,6 +151,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
         uint64 draftTermId;         // Term from which the jurors of a round can be drafted
         uint64 jurorsNumber;        // Number of jurors drafted for a round
         address triggeredBy;        // Address that triggered a round
+        bool settledPenalties;      // Whether or not penalties have been settled for a round
         uint256 jurorFees;          // Total amount of fees to be distributed between the winning jurors of a round
         address[] jurors;           // List of jurors drafted for a round
         mapping (address => JurorState) jurorsStates; // List of states for each drafted juror indexed by address
@@ -158,7 +159,6 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
         uint64 selectedJurors;      // Number of jurors selected for a round, since drafts can be batched, could be different to jurors number temporarily
         uint64 coherentJurors;      // Number of drafted jurors that voted in favor of the dispute final ruling
         uint64 settledJurors;       // Number of jurors whose rewards were already settled
-        bool settledPenalties;      // Whether or not penalties have been settled for a round
         uint256 collectedTokens;    // Total amount of tokens collected from losing jurors
         Appeal appeal;              // Appeal-related information of a round
     }
@@ -391,13 +391,14 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
 
         // Draft the min number of jurors between the one requested by the sender and the one requested by the disputer
         uint64 jurorsNumber = round.jurorsNumber;
-        uint64 jurorsToBeDrafted = jurorsNumber - round.selectedJurors;
-        uint256 jurorsRequested = uint256(jurorsToBeDrafted < _maxJurorsToBeDrafted ? jurorsToBeDrafted : _maxJurorsToBeDrafted);
+        uint64 selectedJurors = round.selectedJurors;
+        uint64 jurorsToBeDrafted = jurorsNumber - selectedJurors;
+        uint256 requestedJurors = uint256(jurorsToBeDrafted < _maxJurorsToBeDrafted ? jurorsToBeDrafted : _maxJurorsToBeDrafted);
 
         // Draft jurors for the given dispute and reimburse fees
         CourtConfig storage config = _getConfigAtDraftTerm(round);
-        _draft(jurorsRequested, _disputeId, round, draftTerm, config);
-        accounting.assign(config.feeToken, msg.sender, config.draftFee * jurorsRequested);
+        _draft(_disputeId, round, jurorsNumber, requestedJurors, draftTerm, config);
+        accounting.assign(config.feeToken, msg.sender, config.draftFee * requestedJurors);
 
         // If the drafting is over, update its state
         if (round.selectedJurors == jurorsNumber) {
@@ -525,7 +526,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
         }
 
         CourtConfig storage config = _getConfigAtDraftTerm(round);
-        if (_roundId < config.maxRegularAppealRounds) {
+        if (_roundId < uint256(config.maxRegularAppealRounds)) {
             // For regular appeal rounds we compute the amount of locked tokens that needs to get burned in batches.
             // The callers of this function will get rewarded in this case.
             uint256 jurorsSettled = _settleRegularRoundPenalties(round, voteId, finalRuling, config.penaltyPct, _jurorsToSettle);
@@ -979,7 +980,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
     * @param _round Round to slash the non-winning jurors of
     * @param _voteId Identification number of the voting associated to the given round
     * @param _finalRuling Winning ruling of the dispute corresponding to the given round
-    * @param _penaltyPct Pre-mille of the minimum active balance of a juror to be slashed
+    * @param _penaltyPct Per ten thousand of the minimum active balance of a juror to be slashed
     * @param _jurorsToSettle Maximum number of jurors to be slashed in this call. It can be set to zero to slash all the losing jurors of the round.
     * @return Number of jurors slashed for the given round
     */
@@ -1040,7 +1041,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
         AdjudicationRound storage round = _dispute.rounds[_roundId];
         CourtConfig storage config = _getConfigAtDraftTerm(round);
 
-        return (_roundId < config.maxRegularAppealRounds)
+        return (_roundId < uint256(config.maxRegularAppealRounds))
             ? _getJurorWeightForRegularRound(round, _juror)
             : _computeJurorWeightForFinalRound(round, _juror);
     }
@@ -1166,7 +1167,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
         AdjudicationRound storage round = disputes[_disputeId].rounds[_roundId];
         CourtConfig storage config = _getConfigAtDraftTerm(round);
 
-        return (_roundId < config.maxRegularAppealRounds)
+        return (_roundId < uint256(config.maxRegularAppealRounds))
             ? _getJurorWeightForRegularRound(round, _juror)
             : _getJurorWeightForFinalRound(round, _juror);
     }
@@ -1237,7 +1238,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
         nextRoundStartTerm = currentRoundAppealStartTerm + config.appealTerms + config.appealConfirmTerms;
 
         // Compute next round settings depending on if it will be the final round or not
-        if (_roundId >= config.maxRegularAppealRounds - 1) {
+        if (_roundId >= uint256(config.maxRegularAppealRounds) - 1) {
             // If the next round is the final round, no draft is needed.
             newDisputeState = DisputeState.Adjudicating;
             // The number of jurors will be the number of times the minimum stake is hold in the registry,
@@ -1511,22 +1512,24 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
 
     /**
     * @dev Private function to draft jurors for a given dispute and round. It assumes the given data is correct
-    * @param _jurorsRequested Number of jurors to be drafted for the given dispute. Note that the drafter might have requested part of the jurors number
     * @param _disputeId Identification number of the dispute to be drafted
     * @param _round Round of the dispute to be drafted
+    * @param _jurorsNumber Number of jurors requested for the dispute round
+    * @param _requestedJurors Number of jurors to be drafted for the given dispute. Note that this number could be part of the jurors number.
     * @param _draftTerm Term in which the dispute was requested to be drafted
     * @param _config Config of the Court at the draft term
     */
-    function _draft(uint256 _jurorsRequested, uint256 _disputeId, AdjudicationRound storage _round, Term storage _draftTerm, CourtConfig storage _config) private {
+    function _draft(uint256 _disputeId, AdjudicationRound storage _round, uint64 _jurorsNumber, uint256 _requestedJurors, Term storage _draftTerm, CourtConfig storage _config) private {
+        // TODO: Could not pass selectedJurors due to a stack-to-deep issue here
         // Draft jurors for the requested round
         uint256[7] memory draftParams = [
             uint256(_draftTerm.randomness),
             _disputeId,
-            termId,
+            uint256(termId),
             _round.selectedJurors,
-            _jurorsRequested,
-            _round.jurorsNumber,
-            _config.penaltyPct
+            _requestedJurors,
+            uint256(_jurorsNumber),
+            uint256(_config.penaltyPct)
         ];
         (address[] memory jurors, uint64[] memory weights, uint256 outputLength, uint64 selectedJurors) = jurorsRegistry.draft(draftParams);
 
@@ -1535,11 +1538,12 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
         for (uint256 i = 0; i < outputLength; i++) {
             // If the juror was already registered in the list, then don't add it twice
             address juror = jurors[i];
-            if (_round.jurorsStates[juror].weight == uint64(0)) {
+            JurorState storage jurorState = _round.jurorsStates[juror];
+            if (jurorState.weight == uint64(0)) {
                 _round.jurors.push(juror);
             }
             // We assume a juror cannot be drafted 2^64 times for a round
-            _round.jurorsStates[juror].weight += weights[i];
+            jurorState.weight += weights[i];
         }
     }
 

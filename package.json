@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "",
   "scripts": {
-    "compile": "docker pull ethereum/solc:0.4.24 && npx truffle compile",
+    "compile": "truffle compile",
     "lint": "solium --dir ./contracts",
     "test": "npm run ganache-cli:test",
     "coverage": "SOLIDITY_COVERAGE=true npm run ganache-cli:test",

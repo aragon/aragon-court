@@ -1284,7 +1284,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
     * @return Jurors number for final rounds for the given term
     */
     function _getFinalRoundJurorsNumber(uint64 _termId) internal view returns (uint64) {
-        // The registry guarantees its total active balance will never be grater than
+        // The registry guarantees its total active balance will never be greater than
         // `2^64 * minJurorsActiveBalance / FINAL_ROUND_WEIGHT_PRECISION`. Thus, the
         // jurors number for a final round will always fit in uint64
         uint256 totalActiveBalance = jurorsRegistry.totalActiveBalanceAt(_termId);

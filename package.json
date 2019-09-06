@@ -13,7 +13,6 @@
   "license": "GPL-3.0",
   "devDependencies": {
     "@aragon/test-helpers": "^2.0.0",
-    "chai-bignumber": "^3.0.0",
     "ganache-cli": "^6.4.5",
     "solidity-coverage": "0.5.8",
     "solium": "^1.2.3",

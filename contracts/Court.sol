@@ -414,8 +414,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
     * @param _roundId Identification number of the dispute round being appealed
     * @param _ruling Ruling appealing a dispute round in favor of
     */
-    function appeal(uint256 _disputeId, uint256 _roundId, uint8 _ruling) external ensureTerm {
-        // TODO: ensure round exists
+    function appeal(uint256 _disputeId, uint256 _roundId, uint8 _ruling) external disputeExists(_disputeId) ensureTerm {
         // Ensure given round can be appealed. Note that if there was a final appeal the adjudication state will be 'Ended'.
         Dispute storage dispute = disputes[_disputeId];
         _ensureAdjudicationState(dispute, _roundId, AdjudicationState.Appealing);
@@ -447,7 +446,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
     * @param _ruling Ruling being confirmed against a dispute round appeal
     */
     function confirmAppeal(uint256 _disputeId, uint256 _roundId, uint8 _ruling) external ensureTerm {
-        // TODO: ensure round exists
+        // TODO: ensure dispute exists
         // Ensure given round is appealed and can be confirmed. Note that if there was a final appeal the adjudication state will be 'Ended'.
         Dispute storage dispute = disputes[_disputeId];
         _ensureAdjudicationState(dispute, _roundId, AdjudicationState.ConfirmingAppeal);
@@ -646,7 +645,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
     * @param _voter Address of the voter querying the weight of
     * @return Weight of the requested juror for the requested dispute's round
     */
-    function getVoterWeightToCommit(uint256 _voteId, address _voter) external ensureTerm only(voting) returns (uint64) {
+    function getVoterWeightToCommit(uint256 _voteId, address _voter) external only(voting) ensureTerm returns (uint64) {
         (uint256 disputeId, uint256 roundId) = _decodeVoteId(_voteId);
         Dispute storage dispute = disputes[disputeId];
         _ensureAdjudicationState(dispute, roundId, AdjudicationState.Committing);
@@ -659,7 +658,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
     * @param _voter Address of the voter querying the weight of
     * @return Weight of the requested juror for the requested dispute's round
     */
-    function getVoterWeightToReveal(uint256 _voteId, address _voter) external ensureTerm only(voting) returns (uint64) {
+    function getVoterWeightToReveal(uint256 _voteId, address _voter) external only(voting) ensureTerm returns (uint64) {
         (uint256 disputeId, uint256 roundId) = _decodeVoteId(_voteId);
         Dispute storage dispute = disputes[disputeId];
         _ensureAdjudicationState(dispute, roundId, AdjudicationState.Revealing);
@@ -1339,58 +1338,71 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
     * @param _state Expected adjudication state for the given dispute round
     */
     function _ensureAdjudicationState(Dispute storage _dispute, uint256 _roundId, AdjudicationState _state) internal view {
+        require(_roundId < _dispute.rounds.length, ERROR_ROUND_DOES_NOT_EXIST);
         require(_adjudicationStateAt(_dispute, _roundId, termId) == _state, ERROR_INVALID_ADJUDICATION_STATE);
     }
 
     /**
-    * @dev Internal function to tell adjudication state of a round at a certain term
+    * @dev Internal function to tell adjudication state of a round at a certain term. This function assumes the given round exists.
     * @param _dispute Dispute querying the adjudication round of
     * @param _roundId Identification number of the dispute round querying the adjudication round of
     * @param _termId Identification number of the dispute round querying the adjudication round of
     * @return Adjudication state of the requested dispute round for the given term
     */
     function _adjudicationStateAt(Dispute storage _dispute, uint256 _roundId, uint64 _termId) internal view returns (AdjudicationState) {
-        // TODO: move the max appeal rounds validation to a separate method
         AdjudicationRound storage round = _dispute.rounds[_roundId];
         CourtConfig storage config = _getConfigAtDraftTerm(round);
 
         // If the dispute is executed or the given round is not the last one, we consider it ended
-        if (_dispute.state == DisputeState.Executed || _roundId < _dispute.rounds.length - 1) {
+        uint256 numberOfRounds = _dispute.rounds.length;
+        if (_dispute.state == DisputeState.Executed || _roundId < numberOfRounds - 1) {
             return AdjudicationState.Ended;
         }
 
-        // If given term is before the actual term when the round was finally drafted, we consider it invalid
+        // If given term is before the actual term when the last round was finally drafted, then the last round adjudication state is invalid
         uint64 draftFinishedTermId = round.draftTermId + round.delayedTerms;
         if (_dispute.state == DisputeState.PreDraft || _termId < draftFinishedTermId) {
             return AdjudicationState.Invalid;
         }
 
-        // If given term is before the reveal start term, jurors are still allowed to commit votes
+        // If given term is before the reveal start term of the last round, then jurors are still allowed to commit votes for the last round
         uint64 revealStartTerm = draftFinishedTermId + config.commitTerms;
         if (_termId < revealStartTerm) {
             return AdjudicationState.Committing;
         }
 
-        // If given term is before the appeal start term, jurors are still allowed to reveal votes
+        // If given term is before the appeal start term of the last round, then jurors are still allowed to reveal votes for the last round
         uint64 appealStartTerm = revealStartTerm + config.revealTerms;
         if (_termId < appealStartTerm) {
             return AdjudicationState.Revealing;
         }
 
-        // TODO: solve max regular rounds by dispute rounds length
-        // If given term is before the appeal confirmation start term and the max number of appeal round hasn't been reached, round appeal cannot be confirmed yet
+        // If the max number of appeals has been reached, then the last round is the final round and can be considered ended
+        bool maxAppealReached = numberOfRounds > uint256(config.maxRegularAppealRounds);
+        if (maxAppealReached) {
+            return AdjudicationState.Ended;
+        }
+
+        // If given term is before the appeal confirmation start term and the last round was not appealed yet, then the last round can still be appealed
+        Appeal storage appeal = round.appeal;
+        bool isLastRoundAppealed = !_existsAppeal(round.appeal);
         uint64 appealConfirmationStartTerm = appealStartTerm + config.appealTerms;
-        if (_termId < appealConfirmationStartTerm && _roundId < config.maxRegularAppealRounds) {
+        if (isLastRoundAppealed && _termId < appealConfirmationStartTerm) {
             return AdjudicationState.Appealing;
         }
 
-        // If given term is before the appeal confirmation end term and the max number of appeal round hasn't been reached, round appeal can still be confirmed
+        // If given term is after the appeal end term and the last round wasn't appealed, then the last round is ended
+        if (isLastRoundAppealed) {
+            return AdjudicationState.Ended;
+        }
+
+        // If the last round was appealed and the given term is before the appeal confirmation end term, then the last round appeal can still be confirmed
         uint64 appealConfirmationEndTerm = appealConfirmationStartTerm + config.appealConfirmTerms;
-        if (_termId < appealConfirmationEndTerm && _roundId < config.maxRegularAppealRounds) {
+        if (_termId < appealConfirmationEndTerm) {
             return AdjudicationState.ConfirmingAppeal;
         }
 
-        // If non of the above conditions have been met, the given round is considered ended
+        // If non of the above conditions have been met, the last round is considered ended
         return AdjudicationState.Ended;
     }
 

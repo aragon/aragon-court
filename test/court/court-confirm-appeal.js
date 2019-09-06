@@ -106,7 +106,7 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
                 await courtHelper.passTerms(courtHelper.appealTerms)
               })
 
-              itIsAtState(roundId, ROUND_STATES.CONFIRMING_APPEAL)
+              itIsAtState(roundId, ROUND_STATES.ENDED)
               itFailsToConfirmAppeal(roundId, 'CT_ROUND_NOT_APPEALED')
             })
 

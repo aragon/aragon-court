@@ -223,7 +223,7 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
                 await courtHelper.passTerms(courtHelper.appealTerms)
               })
 
-              itIsAtState(roundId, ROUND_STATES.CONFIRMING_APPEAL)
+              itIsAtState(roundId, ROUND_STATES.ENDED)
               itFailsToAppeal(roundId)
             })
 
@@ -354,8 +354,7 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
       })
     })
 
-    // TODO: this scenario is not implemented in the contracts yet
-    context.skip('when the given dispute does not exist', () => {
+    context('when the given dispute does not exist', () => {
       it('reverts', async () => {
         await assertRevert(court.appeal(0, 0, OUTCOMES.LOW), 'CT_DISPUTE_DOES_NOT_EXIST')
       })

@@ -10,7 +10,6 @@ contract('CRVoting leak', ([_, voter, someone]) => {
   let voting, votingOwner
 
   const POSSIBLE_OUTCOMES = 2
-  const EMPTY_DATA = '0x0000000000000000000000000000000000000000000000000000000000000000'
 
   beforeEach('create base contracts', async () => {
     voting = await CRVoting.new()
@@ -136,7 +135,7 @@ contract('CRVoting leak', ([_, voter, someone]) => {
                   })
 
                   context('when the given salt does not match the one used by the voter', () => {
-                    const salt = EMPTY_DATA
+                    const salt = '0x'
 
                     it('reverts', async () => {
                       await assertRevert(voting.leak(voteId, voter, outcome, salt, { from: someone }), 'CRV_INVALID_COMMITMENT_SALT')
@@ -156,7 +155,7 @@ contract('CRVoting leak', ([_, voter, someone]) => {
                   })
 
                   context('when the given salt does not match the one used by the voter', () => {
-                    const salt = EMPTY_DATA
+                    const salt = '0x'
 
                     it('reverts', async () => {
                       await assertRevert(voting.leak(voteId, voter, outcome, salt, { from: someone }), 'CRV_INVALID_COMMITMENT_SALT')
@@ -213,14 +212,14 @@ contract('CRVoting leak', ([_, voter, someone]) => {
 
       context('when the given vote ID is not valid', () => {
         it('reverts', async () => {
-          await assertRevert(voting.leak(0, voter, 0, EMPTY_DATA, { from: someone }), 'CRV_VOTE_DOES_NOT_EXIST')
+          await assertRevert(voting.leak(0, voter, 0, '0x', { from: someone }), 'CRV_VOTE_DOES_NOT_EXIST')
         })
       })
     })
 
     context('when the voting is not initialized', () => {
       it('reverts', async () => {
-        await assertRevert(voting.leak(0, voter, 0, EMPTY_DATA, { from: someone }), 'CRV_VOTE_DOES_NOT_EXIST')
+        await assertRevert(voting.leak(0, voter, 0, '0x', { from: someone }), 'CRV_VOTE_DOES_NOT_EXIST')
       })
     })
   })

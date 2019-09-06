@@ -10,7 +10,6 @@ contract('CRVoting reveal', ([_, voter]) => {
   let voting, votingOwner
 
   const POSSIBLE_OUTCOMES = 2
-  const EMPTY_DATA = '0x0000000000000000000000000000000000000000000000000000000000000000'
 
   beforeEach('create base contracts', async () => {
     voting = await CRVoting.new()
@@ -129,7 +128,7 @@ contract('CRVoting reveal', ([_, voter]) => {
                   })
 
                   context('when the given salt does not match the one used', () => {
-                    const salt = EMPTY_DATA
+                    const salt = '0x'
 
                     it('reverts', async () => {
                       await assertRevert(voting.reveal(voteId, outcome, salt, { from: voter }), 'CRV_INVALID_COMMITMENT_SALT')
@@ -149,7 +148,7 @@ contract('CRVoting reveal', ([_, voter]) => {
                   })
 
                   context('when the given salt does not match the one used', () => {
-                    const salt = EMPTY_DATA
+                    const salt = '0x'
 
                     it('reverts', async () => {
                       await assertRevert(voting.reveal(voteId, outcome, salt, { from: voter }), 'CRV_INVALID_COMMITMENT_SALT')
@@ -210,7 +209,7 @@ contract('CRVoting reveal', ([_, voter]) => {
                   })
 
                   context('when the given salt does not match the one used by the voter', () => {
-                    const salt = EMPTY_DATA
+                    const salt = '0x'
 
                     it('reverts', async () => {
                       await assertRevert(voting.reveal(voteId, outcome, salt, { from: voter }), 'CRV_INVALID_COMMITMENT_SALT')
@@ -230,7 +229,7 @@ contract('CRVoting reveal', ([_, voter]) => {
                   })
 
                   context('when the given salt does not match the one used by the voter', () => {
-                    const salt = EMPTY_DATA
+                    const salt = '0x'
 
                     it('reverts', async () => {
                       await assertRevert(voting.reveal(voteId, outcome, salt, { from: voter }), 'CRV_INVALID_COMMITMENT_SALT')
@@ -287,14 +286,14 @@ contract('CRVoting reveal', ([_, voter]) => {
 
       context('when the given vote ID is not valid', () => {
         it('reverts', async () => {
-          await assertRevert(voting.reveal(0, 0, EMPTY_DATA, { from: voter }), 'CRV_VOTE_DOES_NOT_EXIST')
+          await assertRevert(voting.reveal(0, 0, '0x', { from: voter }), 'CRV_VOTE_DOES_NOT_EXIST')
         })
       })
     })
 
     context('when the voting is not initialized', () => {
       it('reverts', async () => {
-        await assertRevert(voting.reveal(0, 0, EMPTY_DATA, { from: voter }), 'CRV_VOTE_DOES_NOT_EXIST')
+        await assertRevert(voting.reveal(0, 0, '0x', { from: voter }), 'CRV_VOTE_DOES_NOT_EXIST')
       })
     })
   })

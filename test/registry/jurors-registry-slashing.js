@@ -16,7 +16,6 @@ contract('JurorsRegistry', ([_, juror, secondJuror, thirdJuror, anyone]) => {
   const MIN_ACTIVE_AMOUNT = bigExp(100, 18)
   const DRAFT_LOCK_PCT = bn(2000) // 20%
   const DRAFT_LOCK_AMOUNT = MIN_ACTIVE_AMOUNT.mul(DRAFT_LOCK_PCT).div(bn(10000))
-  const EMPTY_DATA = '0x0000000000000000000000000000000000000000000000000000000000000000'
   const EMPTY_RANDOMNESS = '0x0000000000000000000000000000000000000000000000000000000000000000'
 
   beforeEach('create base contracts', async () => {
@@ -341,7 +340,7 @@ contract('JurorsRegistry', ([_, juror, secondJuror, thirdJuror, anyone]) => {
 
           beforeEach('stake some tokens', async () => {
             await ANJ.generateTokens(juror, stakedBalance)
-            await ANJ.approveAndCall(registry.address, stakedBalance, EMPTY_DATA, { from: juror })
+            await ANJ.approveAndCall(registry.address, stakedBalance, '0x', { from: juror })
           })
 
           context('when the juror did not activate any tokens yet', () => {

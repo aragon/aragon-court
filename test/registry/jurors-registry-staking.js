@@ -15,7 +15,6 @@ contract('JurorsRegistry', ([_, juror, anotherJuror]) => {
 
   const MIN_ACTIVE_AMOUNT = bigExp(100, 18)
   const ACTIVATE_DATA = sha3('activate(uint256)').slice(0, 10)
-  const EMPTY_DATA = '0x0000000000000000000000000000000000000000000000000000000000000000'
 
   beforeEach('create base contracts', async () => {
     registry = await JurorsRegistry.new()
@@ -159,7 +158,7 @@ contract('JurorsRegistry', ([_, juror, anotherJuror]) => {
             const initialAmount = bigExp(50, 18)
             await ANJ.generateTokens(from, initialAmount)
             await ANJ.approve(registry.address, initialAmount, { from })
-            await registry.stake(initialAmount, EMPTY_DATA, { from })
+            await registry.stake(initialAmount, '0x', { from })
           })
 
           itHandlesStakesProperlyForDifferentAmounts(data)
@@ -317,7 +316,7 @@ contract('JurorsRegistry', ([_, juror, anotherJuror]) => {
             const initialAmount = bigExp(50, 18)
             await ANJ.generateTokens(from, initialAmount)
             await ANJ.approve(registry.address, initialAmount, { from })
-            await registry.stake(initialAmount, EMPTY_DATA, { from })
+            await registry.stake(initialAmount, '0x', { from })
           })
 
           itHandlesStakesProperlyForDifferentAmounts(data)
@@ -327,7 +326,7 @@ contract('JurorsRegistry', ([_, juror, anotherJuror]) => {
 
     context('when the registry is not initialized', () => {
       it('reverts', async () => {
-        await assertRevert(registry.stake(bigExp(100, 18), EMPTY_DATA, { from }), 'INIT_NOT_INITIALIZED')
+        await assertRevert(registry.stake(bigExp(100, 18), '0x', { from }), 'INIT_NOT_INITIALIZED')
       })
     })
   })
@@ -520,7 +519,7 @@ contract('JurorsRegistry', ([_, juror, anotherJuror]) => {
             const initialAmount = bigExp(50, 18)
             await ANJ.generateTokens(from, initialAmount)
             await ANJ.approve(registry.address, initialAmount, { from })
-            await registry.stake(initialAmount, EMPTY_DATA, { from })
+            await registry.stake(initialAmount, '0x', { from })
           })
 
           itHandlesStakesProperlyForDifferentRecipients(data)
@@ -730,7 +729,7 @@ contract('JurorsRegistry', ([_, juror, anotherJuror]) => {
             const initialAmount = bigExp(50, 18)
             await ANJ.generateTokens(from, initialAmount)
             await ANJ.approve(registry.address, initialAmount, { from })
-            await registry.stake(initialAmount, EMPTY_DATA, { from })
+            await registry.stake(initialAmount, '0x', { from })
           })
 
           itHandlesStakesProperlyForDifferentRecipients(data)
@@ -740,7 +739,7 @@ contract('JurorsRegistry', ([_, juror, anotherJuror]) => {
 
     context('when the registry is not initialized', () => {
       it('reverts', async () => {
-        await assertRevert(registry.stake(bigExp(100, 18), EMPTY_DATA, { from }), 'INIT_NOT_INITIALIZED')
+        await assertRevert(registry.stake(bigExp(100, 18), '0x', { from }), 'INIT_NOT_INITIALIZED')
       })
     })
   })
@@ -872,7 +871,7 @@ contract('JurorsRegistry', ([_, juror, anotherJuror]) => {
             beforeEach('stake some tokens', async () => {
               const initialAmount = bigExp(50, 18)
               await ANJ.generateTokens(from, initialAmount)
-              await ANJ.approveAndCall(registry.address, initialAmount, EMPTY_DATA, { from })
+              await ANJ.approveAndCall(registry.address, initialAmount, '0x', { from })
             })
 
             itHandlesStakesProperlyForDifferentAmounts(data)
@@ -1030,7 +1029,7 @@ contract('JurorsRegistry', ([_, juror, anotherJuror]) => {
           beforeEach('stake some tokens', async () => {
             const initialAmount = bigExp(50, 18)
             await ANJ.generateTokens(from, initialAmount)
-            await ANJ.approveAndCall(registry.address, initialAmount, EMPTY_DATA, { from })
+            await ANJ.approveAndCall(registry.address, initialAmount, '0x', { from })
           })
 
           itHandlesStakesProperlyForDifferentAmounts(data)
@@ -1051,7 +1050,7 @@ contract('JurorsRegistry', ([_, juror, anotherJuror]) => {
 
     context('when the registry is not initialized', () => {
       it('reverts', async () => {
-        await assertRevert(registry.stake(bigExp(100, 18), EMPTY_DATA, { from }), 'INIT_NOT_INITIALIZED')
+        await assertRevert(registry.stake(bigExp(100, 18), '0x', { from }), 'INIT_NOT_INITIALIZED')
       })
     })
   })
@@ -1101,7 +1100,7 @@ contract('JurorsRegistry', ([_, juror, anotherJuror]) => {
         beforeEach('stake some tokens', async () => {
           await ANJ.generateTokens(from, stakedBalance)
           await ANJ.approve(registry.address, stakedBalance, { from })
-          await registry.stake(stakedBalance, EMPTY_DATA, { from })
+          await registry.stake(stakedBalance, '0x', { from })
         })
 
         const itHandlesUnstakesProperlyFor = (amount, deactivationAmount = bn(0)) => {
@@ -1274,7 +1273,7 @@ contract('JurorsRegistry', ([_, juror, anotherJuror]) => {
 
     context('when the registry is not initialized', () => {
       it('reverts', async () => {
-        await assertRevert(registry.stake(bigExp(100, 18), EMPTY_DATA, { from }), 'INIT_NOT_INITIALIZED')
+        await assertRevert(registry.stake(bigExp(100, 18), '0x', { from }), 'INIT_NOT_INITIALIZED')
       })
     })
   })

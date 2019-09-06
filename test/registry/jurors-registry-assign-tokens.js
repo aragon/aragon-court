@@ -12,7 +12,6 @@ contract('JurorsRegistry', ([_, juror, someone]) => {
 
   const MIN_ACTIVE_AMOUNT = bigExp(100, 18)
   const BURN_ADDRESS = '0x000000000000000000000000000000000000dead'
-  const EMPTY_DATA = '0x0000000000000000000000000000000000000000000000000000000000000000'
 
   beforeEach('create base contracts', async () => {
     registry = await JurorsRegistry.new()
@@ -153,7 +152,7 @@ contract('JurorsRegistry', ([_, juror, someone]) => {
             beforeEach('stake some balance', async () => {
               const initialBalance = bigExp(50, 18)
               await ANJ.generateTokens(juror, initialBalance)
-              await ANJ.approveAndCall(registry.address, initialBalance, EMPTY_DATA, { from: juror })
+              await ANJ.approveAndCall(registry.address, initialBalance, '0x', { from: juror })
             })
 
             context('when the given amount does not overflow', () => {

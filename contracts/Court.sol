@@ -952,7 +952,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
     function _ensureFinalRuling(uint256 _disputeId) internal returns (uint8) {
         // Check if there was a final ruling already cached
         Dispute storage dispute = disputes[_disputeId];
-        if (dispute.finalRuling > 0) {
+        if (uint256(dispute.finalRuling) > 0) {
             return dispute.finalRuling;
         }
 
@@ -1106,9 +1106,9 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
         require(configChangeTermId > termId || termId == ZERO_TERM_ID, ERROR_PAST_TERM_FEE_CHANGE);
         // We make sure that when applying penalty pct to juror min stake it doesn't result in zero
         uint256 minJurorsActiveBalance = jurorsRegistry.minJurorsActiveBalance();
-        require(minJurorsActiveBalance.pct(_penaltyPct) > uint256(0), ERROR_INVALID_PENALTY_PCT);
+        require(minJurorsActiveBalance.pct(_penaltyPct) > 0, ERROR_INVALID_PENALTY_PCT);
         require(
-            _maxRegularAppealRounds > uint32(0) && _maxRegularAppealRounds <= MAX_REGULAR_APPEAL_ROUNDS_LIMIT,
+            uint256(_maxRegularAppealRounds) > 0 && _maxRegularAppealRounds <= MAX_REGULAR_APPEAL_ROUNDS_LIMIT,
             ERROR_INVALID_MAX_APPEAL_ROUNDS
         );
 
@@ -1271,7 +1271,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
         // Jurors number are increased by a step factor on each appeal
         uint64 jurorsNumber = _round.jurorsNumber * _config.appealStepFactor;
         // Make sure it's odd to enforce avoiding a tie. Note that it can happen if any of the jurors don't vote anyway.
-        if (jurorsNumber % 2 == uint256(0)) {
+        if (uint256(jurorsNumber) % 2 == 0) {
             jurorsNumber++;
         }
         return jurorsNumber;

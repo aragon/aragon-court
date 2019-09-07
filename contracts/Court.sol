@@ -55,11 +55,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
     string private constant ERROR_INVALID_ADJUDICATION_STATE = "CT_INVALID_ADJUDICATION_STATE";
     string private constant ERROR_ROUND_ALREADY_DRAFTED = "CT_ROUND_ALREADY_DRAFTED";
     string private constant ERROR_ROUND_NOT_DRAFT_TERM = "CT_ROUND_NOT_DRAFT_TERM";
-
-    // Appeals-related error messages
     string private constant ERROR_ROUND_NOT_APPEALED = "CT_ROUND_NOT_APPEALED";
-    string private constant ERROR_ROUND_ALREADY_APPEALED = "CT_ROUND_ALREADY_APPEALED";
-    string private constant ERROR_ROUND_APPEAL_ALREADY_CONFIRMED = "CT_APPEAL_ALREADY_CONFIRMED";
     string private constant ERROR_INVALID_APPEAL_RULING = "CT_INVALID_APPEAL_RULING";
 
     // Settlements-related error messages
@@ -125,7 +121,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
         uint64 revealTerms;         // revealing period duration in terms
         uint64 appealTerms;         // appealing period duration in terms
         uint64 appealConfirmTerms;  // confirmation appeal period duration in terms
-        uint16 penaltyPct;          // pre ten thousand that will be used to compute the tokens to be locked for a juror on a draft
+        uint16 penaltyPct;          // per ten thousand that will be used to compute the tokens to be locked for a juror on a draft
         uint16 finalRoundReduction; // ‱ of reduction applied for final appeal round (1/10,000)
         uint64 appealStepFactor;    // factor in which the jurors number is increased on each appeal
         uint32 maxRegularAppealRounds; // before the final appeal
@@ -420,17 +416,14 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
         Dispute storage dispute = disputes[_disputeId];
         _ensureAdjudicationState(dispute, _roundId, AdjudicationState.Appealing);
 
-        // Ensure given round was not appealed yet
-        AdjudicationRound storage round = dispute.rounds[_roundId];
-        Appeal storage appeal = round.appeal;
-        require(!_existsAppeal(appeal), ERROR_ROUND_ALREADY_APPEALED);
-
         // Ensure that the ruling being appealed in favor of is valid and different from the current winning ruling
         uint256 voteId = _getVoteId(_disputeId, _roundId);
         uint8 roundWinningRuling = voting.getWinningOutcome(voteId);
         require(roundWinningRuling != _ruling && voting.isValidOutcome(voteId, _ruling), ERROR_INVALID_APPEAL_RULING);
 
         // Update round appeal state
+        AdjudicationRound storage round = dispute.rounds[_roundId];
+        Appeal storage appeal = round.appeal;
         appeal.maker = msg.sender;
         appeal.appealedRuling = _ruling;
         emit RulingAppealed(_disputeId, _roundId, _ruling);
@@ -452,13 +445,9 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
         Dispute storage dispute = disputes[_disputeId];
         _ensureAdjudicationState(dispute, _roundId, AdjudicationState.ConfirmingAppeal);
 
-        // Ensure given round appeal was not confirmed yet
+        // Ensure that the ruling being confirmed in favor of is valid and different from the appealed ruling
         AdjudicationRound storage round = dispute.rounds[_roundId];
         Appeal storage appeal = round.appeal;
-        require(_existsAppeal(appeal), ERROR_ROUND_NOT_APPEALED);
-        require(!_isAppealConfirmed(appeal), ERROR_ROUND_APPEAL_ALREADY_CONFIRMED);
-
-        // Ensure that the ruling being confirmed in favor of is valid and different from the appealed ruling
         uint256 voteId = _getVoteId(_disputeId, _roundId);
         require(appeal.appealedRuling != _ruling && voting.isValidOutcome(voteId, _ruling), ERROR_INVALID_APPEAL_RULING);
 
@@ -1397,7 +1386,9 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
             return AdjudicationState.Ended;
         }
 
-        // If the last round was appealed and the given term is before the appeal confirmation end term, then the last round appeal can still be confirmed
+        // If the last round was appealed and the given term is before the appeal confirmation end term, then the last round appeal can still be
+        // confirmed. Note that if the round being checked was already appealed and confirmed, it won't be the last round, thus it will be caught
+        // above by the first check and considered 'Ended'
         uint64 appealConfirmationEndTerm = appealConfirmationStartTerm + config.appealConfirmTerms;
         if (_termId < appealConfirmationEndTerm) {
             return AdjudicationState.ConfirmingAppeal;

@@ -86,6 +86,282 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
           itFailsToSettleAppealDeposits(roundId)
         }
 
+        const itExecutesFinalRulingProperly = expectedFinalRuling => {
+          describe('executeRuling', () => {
+            it('emits an event', async () => {
+              const receipt = await court.executeRuling(disputeId)
+
+              assertAmountOfEvents(receipt, 'RulingExecuted')
+              assertEvent(receipt, 'RulingExecuted', { disputeId, ruling: expectedFinalRuling })
+            })
+
+            it('executes the associated airbitrable', async () => {
+              const receipt = await court.executeRuling(disputeId)
+
+              const logs = decodeEventsOfType(receipt, Arbitrable.abi, 'CourtRuling')
+              assertAmountOfEvents({ logs }, 'CourtRuling')
+              assertEvent({ logs }, 'CourtRuling', { court: court.address, disputeId, ruling: expectedFinalRuling })
+            })
+
+            it('marks the dispute as executed', async () => {
+              await court.executeRuling(disputeId)
+
+              const { possibleRulings, state, finalRuling } = await courtHelper.getDispute(disputeId)
+              assert.equal(state, DISPUTE_STATES.EXECUTED, 'dispute state does not match')
+              assert.equal(possibleRulings.toString(), 2, 'dispute possible rulings do not match')
+              assert.equal(finalRuling.toString(), expectedFinalRuling.toString(), 'dispute final ruling does not match')
+            })
+
+            it('cannot be executed twice', async () => {
+              await court.executeRuling(disputeId)
+
+              await assertRevert(court.executeRuling(disputeId), 'CT_INVALID_DISPUTE_STATE')
+            })
+          })
+        }
+
+        const itSettlesPenaltiesAndRewardsProperly = (roundId, expectedWinningJurors, expectedLosingJurors) => {
+          let previousBalances = {}, expectedCoherentJurors, expectedCollectedTokens
+
+          beforeEach('load previous balances', async () => {
+            previousBalances = {}
+            for (const { address } of jurors) {
+              const [active, available, locked] = await courtHelper.jurorsRegistry.balanceOf(address)
+              previousBalances[address] = { active, available, locked }
+            }
+          })
+
+          beforeEach('load expected coherent jurors', async () => {
+            // for final rounds compute voter's weight
+            if (roundId >= courtHelper.maxRegularAppealRounds) {
+              for (const juror of expectedWinningJurors) {
+                juror.weight = (await courtHelper.getFinalRoundWeight(disputeId, roundId, juror.address)).toNumber()
+              }
+            }
+
+            expectedCoherentJurors = expectedWinningJurors.reduce((total, { weight }) => total + weight, 0)
+
+            expectedCollectedTokens = bn(0)
+            for (const { address } of expectedLosingJurors) {
+              const roundLockedBalance = await courtHelper.getRoundLockBalance(disputeId, roundId, address)
+              expectedCollectedTokens = expectedCollectedTokens.plus(roundLockedBalance)
+            }
+
+            // for final rounds all voter's tokens are collected before hand
+            if (roundId >= courtHelper.maxRegularAppealRounds) {
+              for (const { address } of expectedWinningJurors) {
+                const roundLockedBalance = await courtHelper.getRoundLockBalance(disputeId, roundId, address)
+                expectedCollectedTokens = expectedCollectedTokens.plus(roundLockedBalance)
+              }
+            }
+          })
+
+          describe('settlePenalties', () => {
+            let receipt
+
+            const itSettlesPenaltiesProperly = () => {
+              it('unlocks the locked balances of the winning jurors', async () => {
+                for (const { address } of expectedWinningJurors) {
+                  const roundLockedBalance = await courtHelper.getRoundLockBalance(disputeId, roundId, address)
+
+                  const { locked: previousLockedBalance, active: previousActiveBalance } = previousBalances[address]
+                  const [currentActiveBalance, , currentLockedBalance] = await courtHelper.jurorsRegistry.balanceOf(address)
+                  assert.equal(currentActiveBalance.toString(), previousActiveBalance.toString(), 'current active balance does not match')
+
+                  // for the final round tokens are slashed before hand, thus they are not considered as locked tokens
+                  const expectedLockedBalance = roundId < courtHelper.maxRegularAppealRounds ? previousLockedBalance.minus(roundLockedBalance).toString() : 0
+                  assert.equal(currentLockedBalance.toString(), expectedLockedBalance, 'current locked balance does not match')
+                }
+              })
+
+              it('slashes the losing jurors', async () => {
+                for (const { address } of expectedLosingJurors) {
+                  const roundLockedBalance = await courtHelper.getRoundLockBalance(disputeId, roundId, address)
+
+                  const { locked: previousLockedBalance, active: previousActiveBalance } = previousBalances[address]
+                  const [currentActiveBalance, , currentLockedBalance] = await courtHelper.jurorsRegistry.balanceOf(address)
+
+                  // for the final round tokens are slashed before hand, thus the active tokens for slashed jurors stays equal
+                  const expectedActiveBalance = roundId < courtHelper.maxRegularAppealRounds
+                    ? previousActiveBalance.minus(roundLockedBalance)
+                    : previousActiveBalance
+                  assert.equal(currentActiveBalance.toString(), expectedActiveBalance.toString(), 'current active balance does not match')
+
+                  // for the final round tokens are slashed before hand, thus they are not considered as locked tokens
+                  const expectedLockedBalance = roundId < courtHelper.maxRegularAppealRounds
+                    ? previousLockedBalance.minus(roundLockedBalance)
+                    : 0
+                  assert.equal(currentLockedBalance.toString(), expectedLockedBalance.toString(), 'current locked balance does not match')
+                }
+              })
+
+              it('emits an event', async () => {
+                assertAmountOfEvents(receipt, 'PenaltiesSettled')
+                assertEvent(receipt, 'PenaltiesSettled', { disputeId, roundId, collectedTokens: expectedCollectedTokens })
+              })
+
+              it('updates the given round', async () => {
+                let expectedDraftTermId = draftTermId
+                for (let round = 0; round < roundId; round++) {
+                  const { commitTerms, revealTerms, appealTerms, appealConfirmTerms } = courtHelper
+                  expectedDraftTermId = commitTerms.plus(revealTerms).plus(appealTerms).plus(appealConfirmTerms).plus(expectedDraftTermId)
+                }
+
+                let expectedJurorsNumber
+                if (roundId < courtHelper.maxRegularAppealRounds) {
+                  expectedJurorsNumber = jurorsNumber
+                  for (let round = 0; round < roundId; round++) {
+                    expectedJurorsNumber = courtHelper.getNextRoundJurorsNumberFor(expectedJurorsNumber)
+                  }
+                } else {
+                  const totalActiveBalance = await courtHelper.jurorsRegistry.totalActiveBalanceAt(expectedDraftTermId)
+                  expectedJurorsNumber = totalActiveBalance.mul(1000).div(courtHelper.jurorsMinActiveBalance).toNumber()
+                }
+
+                const { draftTerm, delayedTerms, roundJurorsNumber, selectedJurors, triggeredBy, settledPenalties, collectedTokens, coherentJurors } = await courtHelper.getRound(disputeId, roundId)
+                assert.equal(settledPenalties, true, 'current round penalties should be settled')
+                assert.equal(collectedTokens.toString(), expectedCollectedTokens.toString(), 'current round collected tokens does not match')
+                assert.equal(coherentJurors.toString(), expectedCoherentJurors, 'current round coherent jurors does not match')
+                assert.equal(delayedTerms.toString(), 0, 'current round delay term does not match')
+                assert.equal(draftTerm.toString(), expectedDraftTermId, 'current round draft term does not match')
+                assert.equal(roundJurorsNumber.toString(), expectedJurorsNumber, 'current round jurors number does not match')
+                assert.equal(selectedJurors.toString(), roundId < courtHelper.maxRegularAppealRounds ? expectedJurorsNumber : 0, 'current round selected jurors number does not match')
+                assert.equal(triggeredBy, roundId === 0 ? disputer : appealTaker, 'current round trigger does not match')
+              })
+
+              it('cannot be settled twice', async () => {
+                await assertRevert(court.settlePenalties(disputeId, roundId, 0), 'CT_ROUND_ALREADY_SETTLED')
+              })
+            }
+
+            context('when settling in one batch', () => {
+              beforeEach('settle penalties', async () => {
+                receipt = await court.settlePenalties(disputeId, roundId, 0)
+              })
+
+              itSettlesPenaltiesProperly()
+            })
+
+            context('when settling in multiple batches', () => {
+              if (roundId < DEFAULTS.maxRegularAppealRounds) {
+                beforeEach('settle penalties', async () => {
+                  const batches = expectedWinningJurors.length + expectedLosingJurors.length
+                  for (let batch = 0; batch < batches; batch++) {
+                    receipt = await court.settlePenalties(disputeId, roundId, 1)
+                    // assert round is not settle in the middle batches
+                    if (batch < batches - 1) assertAmountOfEvents(receipt, 'PenaltiesSettled', 0)
+                  }
+                })
+
+                itSettlesPenaltiesProperly()
+
+              } else {
+                it ('reverts', async () => {
+                  await court.settlePenalties(disputeId, roundId, 1)
+
+                  await assertRevert(court.settlePenalties(disputeId, roundId, 1), '')
+                })
+              }
+            })
+          })
+
+          describe('settleReward', () => {
+            context('when penalties have been settled', () => {
+              beforeEach('settle penalties', async () => {
+                await court.settlePenalties(disputeId, roundId, 0)
+              })
+
+              if (expectedWinningJurors.length > 0) {
+                it('emits an event for each juror', async () => {
+                  for(const { address } of expectedWinningJurors) {
+                    const receipt = await court.settleReward(disputeId, roundId, address)
+
+                    assertAmountOfEvents(receipt, 'RewardSettled')
+                    assertEvent(receipt, 'RewardSettled', { disputeId, roundId, juror: address })
+                  }
+                })
+
+                it('rewards the winning jurors', async () => {
+                  for(const { address, weight } of expectedWinningJurors) {
+                    await court.settleReward(disputeId, roundId, address)
+
+                    const [, available] = await courtHelper.jurorsRegistry.balanceOf(address)
+                    const expectedReward = expectedCollectedTokens.mul(weight).divToInt(expectedCoherentJurors)
+                    const expectedCurrentAvailableBalance = previousBalances[address].available.plus(expectedReward);
+
+                    assert.equal(expectedCurrentAvailableBalance.toString(), available.toString(), 'current available balance does not match')
+                  }
+                })
+
+                it('updates the juror state of the round', async () => {
+                  for(const { address, weight } of expectedWinningJurors) {
+                    await court.settleReward(disputeId, roundId, address)
+
+                    const [actualWeight, rewarded] = await court.getJuror(disputeId, roundId, address)
+                    assert.isTrue(rewarded, 'juror should have been rewarded')
+                    assert.equal(actualWeight.toString(), weight, 'juror weight should not have changed')
+                  }
+                })
+
+                it('does not allow settling non-winning jurors', async () => {
+                  for(const { address } of expectedLosingJurors) {
+                    await assertRevert(court.settleReward(disputeId, roundId, address), 'CT_WONT_REWARD_INCOHERENT_JUROR')
+                  }
+                })
+
+                it('cannot be settled twice', async () => {
+                  const { address } = expectedWinningJurors[0]
+                  await court.settleReward(disputeId, roundId, address)
+
+                  await assertRevert(court.settleReward(disputeId, roundId, address), 'CT_JUROR_ALREADY_REWARDED')
+                })
+              } else {
+                it('does not allow settling non-winning jurors', async () => {
+                  for(const { address } of expectedLosingJurors) {
+                    await assertRevert(court.settleReward(disputeId, roundId, address), 'CT_WONT_REWARD_INCOHERENT_JUROR')
+                  }
+                })
+              }
+
+              it('does not allow settling non-voting jurors', async () => {
+                const nonVoters = filterJurors(jurors, expectedWinningJurors.concat(expectedLosingJurors))
+
+                for(const { address } of nonVoters) {
+                  await assertRevert(court.settleReward(disputeId, roundId, address), 'CT_WONT_REWARD_NON_VOTER_JUROR')
+                }
+              })
+            })
+
+            context('when penalties have not been settled yet', () => {
+              it('reverts', async () => {
+                for (const { address } of expectedWinningJurors) {
+                  await assertRevert(court.settleReward(disputeId, roundId, address), 'CT_ROUND_PENALTIES_NOT_SETTLED')
+                }
+              })
+            })
+          })
+        }
+
+        const itCannotSettleAppealDeposits = (roundId) => {
+          describe('settleAppealDeposit', () => {
+            context('when penalties have been settled', () => {
+              beforeEach('settle penalties', async () => {
+                await court.settlePenalties(disputeId, roundId, 0)
+              })
+
+              it('reverts', async () => {
+                await assertRevert(court.settleAppealDeposit(disputeId, roundId), 'CT_ROUND_NOT_APPEALED')
+              })
+            })
+
+            context('when penalties have not been settled yet', () => {
+              it('reverts', async () => {
+                await assertRevert(court.settleAppealDeposit(disputeId, roundId), 'CT_ROUND_PENALTIES_NOT_SETTLED')
+              })
+            })
+          })
+        }
+
         beforeEach('mock draft round', async () => {
           voteId = getVoteId(disputeId, roundId)
           await courtHelper.draft({ disputeId, drafter, draftedJurors: voters })
@@ -125,13 +401,18 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
           })
 
           context('when the round was not appealed', () => {
+            const expectedFinalRuling = OUTCOMES.LOW
+            const expectedWinningJurors = voters.filter(({ outcome }) => outcome === expectedFinalRuling)
+            const expectedLosingJurors = filterJurors(voters, expectedWinningJurors)
+
             beforeEach('pass appeal period', async () => {
               await courtHelper.passTerms(courtHelper.appealTerms)
             })
 
             itIsAtState(roundId, ROUND_STATES.ENDED)
-            itFailsToExecuteRuling()
-            itFailsToSettleAll(roundId)
+            itExecutesFinalRulingProperly(expectedFinalRuling)
+            itSettlesPenaltiesAndRewardsProperly(roundId, expectedWinningJurors, expectedLosingJurors)
+            itCannotSettleAppealDeposits(roundId)
           })
 
           context('when the round was appealed', () => {
@@ -150,262 +431,6 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
             await courtHelper.commit({ disputeId, roundId, voters })
             await courtHelper.reveal({ disputeId, roundId, voters })
           })
-
-          const itExecutesFinalRulingProperly = expectedFinalRuling => {
-            describe('executeRuling', () => {
-              it('emits an event', async () => {
-                const receipt = await court.executeRuling(disputeId)
-
-                assertAmountOfEvents(receipt, 'RulingExecuted')
-                assertEvent(receipt, 'RulingExecuted', { disputeId, ruling: expectedFinalRuling })
-              })
-
-              it('executes the associated airbitrable', async () => {
-                const receipt = await court.executeRuling(disputeId)
-
-                const logs = decodeEventsOfType(receipt, Arbitrable.abi, 'CourtRuling')
-                assertAmountOfEvents({ logs }, 'CourtRuling')
-                assertEvent({ logs }, 'CourtRuling', { court: court.address, disputeId, ruling: expectedFinalRuling })
-              })
-
-              it('marks the dispute as executed', async () => {
-                await court.executeRuling(disputeId)
-
-                const { possibleRulings, state, finalRuling } = await courtHelper.getDispute(disputeId)
-                assert.equal(state, DISPUTE_STATES.EXECUTED, 'dispute state does not match')
-                assert.equal(possibleRulings.toString(), 2, 'dispute possible rulings do not match')
-                assert.equal(finalRuling.toString(), expectedFinalRuling.toString(), 'dispute final ruling does not match')
-              })
-
-              it('cannot be executed twice', async () => {
-                await court.executeRuling(disputeId)
-
-                await assertRevert(court.executeRuling(disputeId), 'CT_INVALID_DISPUTE_STATE')
-              })
-            })
-          }
-
-          const itSettlesPenaltiesAndRewardsProperly = (roundId, expectedWinningJurors, expectedLosingJurors) => {
-            let previousBalances = {}, expectedCoherentJurors, expectedCollectedTokens
-
-            beforeEach('load previous balances', async () => {
-              previousBalances = {}
-              for (const { address } of jurors) {
-                const [active, available, locked] = await courtHelper.jurorsRegistry.balanceOf(address)
-                previousBalances[address] = { active, available, locked }
-              }
-            })
-
-            beforeEach('load expected coherent jurors', async () => {
-              // for final rounds compute voter's weight
-              if (roundId >= courtHelper.maxRegularAppealRounds) {
-                for (const juror of expectedWinningJurors) {
-                  juror.weight = (await courtHelper.getFinalRoundWeight(disputeId, roundId, juror.address)).toNumber()
-                }
-              }
-
-              expectedCoherentJurors = expectedWinningJurors.reduce((total, { weight }) => total + weight, 0)
-
-              expectedCollectedTokens = bn(0)
-              for (const { address } of expectedLosingJurors) {
-                const roundLockedBalance = await courtHelper.getRoundLockBalance(disputeId, roundId, address)
-                expectedCollectedTokens = expectedCollectedTokens.plus(roundLockedBalance)
-              }
-
-              // for final rounds all voter's tokens are collected before hand
-              if (roundId >= courtHelper.maxRegularAppealRounds) {
-                for (const { address } of expectedWinningJurors) {
-                  const roundLockedBalance = await courtHelper.getRoundLockBalance(disputeId, roundId, address)
-                  expectedCollectedTokens = expectedCollectedTokens.plus(roundLockedBalance)
-                }
-              }
-            })
-
-            describe('settlePenalties', () => {
-              let receipt
-
-              const itSettlesPenaltiesProperly = () => {
-                it('unlocks the locked balances of the winning jurors', async () => {
-                  for (const { address } of expectedWinningJurors) {
-                    const roundLockedBalance = await courtHelper.getRoundLockBalance(disputeId, roundId, address)
-
-                    const { locked: previousLockedBalance, active: previousActiveBalance } = previousBalances[address]
-                    const [currentActiveBalance, , currentLockedBalance] = await courtHelper.jurorsRegistry.balanceOf(address)
-                    assert.equal(currentActiveBalance.toString(), previousActiveBalance.toString(), 'current active balance does not match')
-
-                    // for the final round tokens are slashed before hand, thus they are not considered as locked tokens
-                    const expectedLockedBalance = roundId < courtHelper.maxRegularAppealRounds ? previousLockedBalance.minus(roundLockedBalance).toString() : 0
-                    assert.equal(currentLockedBalance.toString(), expectedLockedBalance, 'current locked balance does not match')
-                  }
-                })
-
-                it('slashes the losing jurors', async () => {
-                  for (const { address } of expectedLosingJurors) {
-                    const roundLockedBalance = await courtHelper.getRoundLockBalance(disputeId, roundId, address)
-
-                    const { locked: previousLockedBalance, active: previousActiveBalance } = previousBalances[address]
-                    const [currentActiveBalance, , currentLockedBalance] = await courtHelper.jurorsRegistry.balanceOf(address)
-
-                    // for the final round tokens are slashed before hand, thus the active tokens for slashed jurors stays equal
-                    const expectedActiveBalance = roundId < courtHelper.maxRegularAppealRounds
-                      ? previousActiveBalance.minus(roundLockedBalance)
-                      : previousActiveBalance
-                    assert.equal(currentActiveBalance.toString(), expectedActiveBalance.toString(), 'current active balance does not match')
-
-                    // for the final round tokens are slashed before hand, thus they are not considered as locked tokens
-                    const expectedLockedBalance = roundId < courtHelper.maxRegularAppealRounds
-                      ? previousLockedBalance.minus(roundLockedBalance)
-                      : 0
-                    assert.equal(currentLockedBalance.toString(), expectedLockedBalance.toString(), 'current locked balance does not match')
-                  }
-                })
-
-                it('emits an event', async () => {
-                  assertAmountOfEvents(receipt, 'PenaltiesSettled')
-                  assertEvent(receipt, 'PenaltiesSettled', { disputeId, roundId, collectedTokens: expectedCollectedTokens })
-                })
-
-                it('updates the given round', async () => {
-                  let expectedDraftTermId = draftTermId
-                  for (let round = 0; round < roundId; round++) {
-                    const { commitTerms, revealTerms, appealTerms, appealConfirmTerms } = courtHelper
-                    expectedDraftTermId = commitTerms.plus(revealTerms).plus(appealTerms).plus(appealConfirmTerms).plus(expectedDraftTermId)
-                  }
-
-                  let expectedJurorsNumber
-                  if (roundId < courtHelper.maxRegularAppealRounds) {
-                    expectedJurorsNumber = jurorsNumber
-                    for (let round = 0; round < roundId; round++) {
-                      expectedJurorsNumber = courtHelper.getNextRoundJurorsNumberFor(expectedJurorsNumber)
-                    }
-                  } else {
-                    const totalActiveBalance = await courtHelper.jurorsRegistry.totalActiveBalanceAt(expectedDraftTermId)
-                    expectedJurorsNumber = totalActiveBalance.mul(1000).div(courtHelper.jurorsMinActiveBalance).toNumber()
-                  }
-
-                  const { draftTerm, delayedTerms, roundJurorsNumber, selectedJurors, triggeredBy, settledPenalties, collectedTokens, coherentJurors } = await courtHelper.getRound(disputeId, roundId)
-                  assert.equal(settledPenalties, true, 'current round penalties should be settled')
-                  assert.equal(collectedTokens.toString(), expectedCollectedTokens.toString(), 'current round collected tokens does not match')
-                  assert.equal(coherentJurors.toString(), expectedCoherentJurors, 'current round coherent jurors does not match')
-                  assert.equal(delayedTerms.toString(), 0, 'current round delay term does not match')
-                  assert.equal(draftTerm.toString(), expectedDraftTermId, 'current round draft term does not match')
-                  assert.equal(roundJurorsNumber.toString(), expectedJurorsNumber, 'current round jurors number does not match')
-                  assert.equal(selectedJurors.toString(), roundId < courtHelper.maxRegularAppealRounds ? expectedJurorsNumber : 0, 'current round selected jurors number does not match')
-                  assert.equal(triggeredBy, roundId === 0 ? disputer : appealTaker, 'current round trigger does not match')
-                })
-
-                it('cannot be settled twice', async () => {
-                  await assertRevert(court.settlePenalties(disputeId, roundId, 0), 'CT_ROUND_ALREADY_SETTLED')
-                })
-              }
-
-              context('when settling in one batch', () => {
-                beforeEach('settle penalties', async () => {
-                  receipt = await court.settlePenalties(disputeId, roundId, 0)
-                })
-
-                itSettlesPenaltiesProperly()
-              })
-
-              context('when settling in multiple batches', () => {
-                if (roundId < DEFAULTS.maxRegularAppealRounds) {
-                  beforeEach('settle penalties', async () => {
-                    const batches = expectedWinningJurors.length + expectedLosingJurors.length
-                    for (let batch = 0; batch < batches; batch++) {
-                      receipt = await court.settlePenalties(disputeId, roundId, 1)
-                      // assert round is not settle in the middle batches
-                      if (batch < batches - 1) assertAmountOfEvents(receipt, 'PenaltiesSettled', 0)
-                    }
-                  })
-
-                  itSettlesPenaltiesProperly()
-
-                } else {
-                  it ('reverts', async () => {
-                    await court.settlePenalties(disputeId, roundId, 1)
-
-                    await assertRevert(court.settlePenalties(disputeId, roundId, 1), '')
-                  })
-                }
-              })
-            })
-
-            describe('settleReward', () => {
-              context('when penalties have been settled', () => {
-                beforeEach('settle penalties', async () => {
-                  await court.settlePenalties(disputeId, roundId, 0)
-                })
-
-                if (expectedWinningJurors.length > 0) {
-                  it('emits an event for each juror', async () => {
-                    for(const { address } of expectedWinningJurors) {
-                      const receipt = await court.settleReward(disputeId, roundId, address)
-
-                      assertAmountOfEvents(receipt, 'RewardSettled')
-                      assertEvent(receipt, 'RewardSettled', { disputeId, roundId, juror: address })
-                    }
-                  })
-
-                  it('rewards the winning jurors', async () => {
-                    for(const { address, weight } of expectedWinningJurors) {
-                      await court.settleReward(disputeId, roundId, address)
-
-                      const [, available] = await courtHelper.jurorsRegistry.balanceOf(address)
-                      const expectedReward = expectedCollectedTokens.mul(weight).divToInt(expectedCoherentJurors)
-                      const expectedCurrentAvailableBalance = previousBalances[address].available.plus(expectedReward);
-
-                      assert.equal(expectedCurrentAvailableBalance.toString(), available.toString(), 'current available balance does not match')
-                    }
-                  })
-
-                  it('updates the juror state of the round', async () => {
-                    for(const { address, weight } of expectedWinningJurors) {
-                      await court.settleReward(disputeId, roundId, address)
-
-                      const [actualWeight, rewarded] = await court.getJuror(disputeId, roundId, address)
-                      assert.isTrue(rewarded, 'juror should have been rewarded')
-                      assert.equal(actualWeight.toString(), weight, 'juror weight should not have changed')
-                    }
-                  })
-
-                  it('does not allow settling non-winning jurors', async () => {
-                    for(const { address } of expectedLosingJurors) {
-                      await assertRevert(court.settleReward(disputeId, roundId, address), 'CT_WONT_REWARD_INCOHERENT_JUROR')
-                    }
-                  })
-
-                  it('cannot be settled twice', async () => {
-                    const { address } = expectedWinningJurors[0]
-                    await court.settleReward(disputeId, roundId, address)
-
-                    await assertRevert(court.settleReward(disputeId, roundId, address), 'CT_JUROR_ALREADY_REWARDED')
-                  })
-                } else {
-                  it('does not allow settling non-winning jurors', async () => {
-                    for(const { address } of expectedLosingJurors) {
-                      await assertRevert(court.settleReward(disputeId, roundId, address), 'CT_WONT_REWARD_INCOHERENT_JUROR')
-                    }
-                  })
-                }
-
-                it('does not allow settling non-voting jurors', async () => {
-                  const nonVoters = filterJurors(jurors, expectedWinningJurors.concat(expectedLosingJurors))
-
-                  for(const { address } of nonVoters) {
-                    await assertRevert(court.settleReward(disputeId, roundId, address), 'CT_WONT_REWARD_NON_VOTER_JUROR')
-                  }
-                })
-              })
-
-              context('when penalties have not been settled yet', () => {
-                it('reverts', async () => {
-                  for (const { address } of expectedWinningJurors) {
-                    await assertRevert(court.settleReward(disputeId, roundId, address), 'CT_ROUND_PENALTIES_NOT_SETTLED')
-                  }
-                })
-              })
-            })
-          }
 
           const itSettlesAppealDeposits = (roundId, itTransferAppealsDeposits) => {
             describe('settleAppealDeposit', () => {
@@ -542,7 +567,7 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
             itIsAtState(roundId, ROUND_STATES.ENDED)
             itExecutesFinalRulingProperly(expectedFinalRuling)
             itSettlesPenaltiesAndRewardsProperly(roundId, expectedWinningJurors, expectedLosingJurors)
-            itFailsToSettleAppealDeposits(roundId)
+            itCannotSettleAppealDeposits(roundId)
           })
 
           context('when the round was appealed', () => {
@@ -698,6 +723,7 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
 
                   itExecutesFinalRulingProperly(expectedFinalRuling)
                   itSettlesPenaltiesAndRewardsProperly(finalRoundId, expectedWinners, expectedLosers)
+                  itCannotSettleAppealDeposits(finalRoundId)
                 }
 
                 context('when the ruling is sustained', async () => {
@@ -711,7 +737,6 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
                   ]
 
                   itHandlesRoundsSettlesProperly(finalRoundVoters, expectedFinalRuling)
-                  itFailsToSettleAppealDeposits(finalRoundId)
                 })
 
                 context('when the ruling is flipped', async () => {
@@ -725,7 +750,6 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
                   ]
 
                   itHandlesRoundsSettlesProperly(finalRoundVoters, expectedFinalRuling)
-                  itFailsToSettleAppealDeposits(finalRoundId)
                 })
 
                 context('when the ruling is refused', async () => {
@@ -739,7 +763,6 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
                   ]
 
                   itHandlesRoundsSettlesProperly(finalRoundVoters, expectedFinalRuling)
-                  itFailsToSettleAppealDeposits(finalRoundId)
                 })
               })
             })

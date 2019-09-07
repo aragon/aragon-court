@@ -107,7 +107,7 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
               })
 
               itIsAtState(roundId, ROUND_STATES.ENDED)
-              itFailsToConfirmAppeal(roundId, 'CT_ROUND_NOT_APPEALED')
+              itFailsToConfirmAppeal(roundId)
             })
 
             context('when the round was appealed', () => {

@@ -181,7 +181,7 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
                   it('cannot be appealed twice', async () => {
                     await court.appeal(disputeId, roundId, appealMakerRuling, { from: appealMaker })
 
-                    await assertRevert(court.appeal(disputeId, roundId, appealMakerRuling, { from: appealMaker }), 'CT_ROUND_ALREADY_APPEALED')
+                    await assertRevert(court.appeal(disputeId, roundId, appealMakerRuling, { from: appealMaker }), 'CT_INVALID_ADJUDICATION_STATE')
                   })
                 })
 

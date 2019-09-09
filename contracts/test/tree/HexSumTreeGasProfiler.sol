@@ -8,7 +8,9 @@ contract HexSumTreeGasProfiler is TimeHelpersMock {
     using HexSumTree for HexSumTree.Tree;
     using Checkpointing for Checkpointing.History;
 
+    uint256 private constant BASE_KEY = 0;
     uint256 private constant CHILDREN = 16;
+    uint256 private constant ITEMS_LEVEL = 0;
     uint256 private constant BITS_IN_NIBBLE = 4;
 
     HexSumTree.Tree internal tree;
@@ -53,7 +55,15 @@ contract HexSumTreeGasProfiler is TimeHelpersMock {
         tree.height.add(_time, newHeight);
     }
 
+    function nextKey() external view returns (uint256) {
+        return tree.nextKey;
+    }
+
     function height() external view returns (uint256) {
         return tree.getHeight();
+    }
+
+    function total() public view returns (uint256) {
+        return tree.getTotal();
     }
 }

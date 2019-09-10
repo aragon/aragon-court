@@ -18,12 +18,19 @@ async function assertThrows(blockOrPromise, expectedErrorCode, expectedReason) {
 }
 
 async function assertRevert(blockOrPromise, reason) {
+  let ganacheCoreError = true;
   const error = await assertThrows(blockOrPromise, REVERT_CODE, reason)
   const errorPrefix_A = `${THROW_ERROR_PREFIX_A} ${REVERT_CODE}`
   const errorPrefix_B = `${THROW_ERROR_PREFIX_B} ${REVERT_CODE}`
 
-  if (error.message.includes(errorPrefix_A) || error.message.includes(errorPrefix_B)) {
+  if (error.message.includes(errorPrefix_A)) {
+    ganacheCoreError = false;
     error.reason = error.message.replace(errorPrefix_A, '')
+    // Truffle 5 sometimes add an extra ' -- Reason given: reason.' to the error message 🤷
+    error.reason = error.reason.replace(` -- Reason given: ${reason}.`, '').trim()
+  }
+
+  if (error.message.includes(errorPrefix_B) && ganacheCoreError){
     error.reason = error.message.replace(errorPrefix_B, '')
     // Truffle 5 sometimes add an extra ' -- Reason given: reason.' to the error message 🤷
     error.reason = error.reason.replace(` -- Reason given: ${reason}.`, '').trim()

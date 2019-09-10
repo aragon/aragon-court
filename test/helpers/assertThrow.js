@@ -1,5 +1,6 @@
 const REVERT_CODE = 'revert'
-const THROW_ERROR_PREFIX = 'Returned error: VM Exception while processing transaction:'
+const THROW_ERROR_PREFIX_A = 'Returned error: VM Exception while processing transaction:'
+const THROW_ERROR_PREFIX_B = 'VM Exception while processing transaction:' // ganache-core
 
 function assertError(error, expectedErrorCode) {
   assert(error.message.search(expectedErrorCode) > -1, `Expected error code "${expectedErrorCode}" but failed with "${error}" instead.`)
@@ -18,10 +19,12 @@ async function assertThrows(blockOrPromise, expectedErrorCode, expectedReason) {
 
 async function assertRevert(blockOrPromise, reason) {
   const error = await assertThrows(blockOrPromise, REVERT_CODE, reason)
-  const errorPrefix = `${THROW_ERROR_PREFIX} ${REVERT_CODE}`
+  const errorPrefix_A = `${THROW_ERROR_PREFIX_A} ${REVERT_CODE}`
+  const errorPrefix_B = `${THROW_ERROR_PREFIX_B} ${REVERT_CODE}`
 
-  if (error.message.includes(errorPrefix)) {
-    error.reason = error.message.replace(errorPrefix, '')
+  if (error.message.includes(errorPrefix_A) || error.message.includes(errorPrefix_B)) {
+    error.reason = error.message.replace(errorPrefix_A, '')
+    error.reason = error.message.replace(errorPrefix_B, '')
     // Truffle 5 sometimes add an extra ' -- Reason given: reason.' to the error message 🤷
     error.reason = error.reason.replace(` -- Reason given: ${reason}.`, '').trim()
   }

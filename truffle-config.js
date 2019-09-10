@@ -15,7 +15,10 @@ const config = {
         },
       },
     },
-  }
+  },
+  plugins: [
+    "solidity-coverage"
+  ]
 }
 
 module.exports = config

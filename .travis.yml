@@ -34,3 +34,6 @@ jobs:
     - stage: tests
       script: npm test test/subscriptions/*.js
       name: "Subscriptions"
+    - stage: tests
+      script: npx truffle run coverage --file test/registry/*.js
+      name: "Registry Coverage"

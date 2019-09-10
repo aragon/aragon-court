@@ -6,7 +6,7 @@
     "compile": "npx truffle compile",
     "lint": "solium --dir ./contracts",
     "test": "npm run ganache-cli:test",
-    "coverage": "SOLIDITY_COVERAGE=true npm run ganache-cli:test",
+    "coverage": "npx truffle run coverage",
     "ganache-cli:test": "./scripts/ganache-cli.sh"
   },
   "author": "Aragon Association",
@@ -14,7 +14,7 @@
   "devDependencies": {
     "@aragon/test-helpers": "^2.0.0",
     "ganache-cli": "^6.4.5",
-    "solidity-coverage": "0.6.1",
+    "solidity-coverage": "^0.7.0-beta.0",
     "solium": "^1.2.3",
     "truffle": "^5.0.34",
     "web3": "^1.2.1",

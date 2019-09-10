@@ -90,33 +90,43 @@ const logTreeState = async (tree) => {
 }
 
 const logInsertStats = (title, gasCosts) => {
-  const COL_SIZE = 8
-  const min = (k) => Math.min(...gasCosts.map(x => x[k]))
-  const max = (k) => Math.max(...gasCosts.map(x => x[k]))
-  const avg = (k) => Math.round(gasCosts.map(x => x[k]).reduce((a, b) => a + b, 0) / gasCosts.length)
+  const min = prop => Math.min(...gasCosts.map(x => x[prop])).toLocaleString()
+  const max = prop => Math.max(...gasCosts.map(x => x[prop])).toLocaleString()
+  const avg = prop => Math.round(gasCosts.map(x => x[prop]).reduce((a, b) => a + b, 0) / gasCosts.length).toLocaleString()
 
-  console.log(`\n${title}\n`)
-  console.log('|', ' '.padEnd(COL_SIZE, ' '), '|', 'Total'.padEnd(COL_SIZE, ' '), '|', 'Function'.padEnd(COL_SIZE, ' '), '|')
-  console.log('|', '-'.padEnd(COL_SIZE, '-'), '|', '-'.padEnd(COL_SIZE, '-'), '|', '-'.padEnd(COL_SIZE, '-'), '|')
-  console.log('| Min      |', formatDivision(min('total'), COL_SIZE), '|', formatDivision(min('function'), COL_SIZE), '|')
-  console.log('| Max      |', formatDivision(max('total'), COL_SIZE), '|', formatDivision(max('function'), COL_SIZE), '|')
-  console.log('| Average  |', formatDivision(avg('total'), COL_SIZE), '|', formatDivision(avg('function'), COL_SIZE), '|')
+  printTable(title, [
+    ['', 'Total', 'Function'],
+    ['Min', min('total'), min('function')],
+    ['Max', max('total'), max('function')],
+    ['Average', avg('total'), avg('function')],
+  ])
 }
 
 const logSearchStats = (title, gasCosts) => {
-  const COL_SIZE = 8
-  console.log(`\n${title}\n`)
-  console.log('|', ' '.padEnd(20, ' '), '|', 'Total'.padEnd(COL_SIZE, ' '), '|', 'Function'.padEnd(COL_SIZE, ' '), '|')
-  console.log('|', '-'.padEnd(20, '-'), '|', '-'.padEnd(COL_SIZE, '-'), '|', '-'.padEnd(COL_SIZE, '-'), '|')
+  const body = gasCosts.map((gasCost, batch) => {
+    const { total, values, function: fnCost } = gasCost
+    const batchName = `Batch ${batch} - ${values} values`
+    return [batchName, total.toLocaleString(), fnCost.toLocaleString()]
+  })
 
-  for (let batch = 0; batch < gasCosts.length; batch++) {
-    const { total, values, function: fnCost } = gasCosts[batch]
-    console.log(`| Batch ${batch} - ${values} values`.padEnd(22, ' '), '|', formatDivision(total, COL_SIZE), '|', formatDivision(fnCost, COL_SIZE), '|')
-  }
+  printTable(title, [['', 'Total', 'Function'], ...body])
 }
 
-const formatDivision = (result, colSize) => {
-  return Math.round(result).toLocaleString().padStart(colSize, ' ')
+const printTable = (title, rows) => {
+  const header = rows[0]
+  const columnsMaxLengths = rows.reduce((maxLengths, row) =>
+    row.map((cell, i) => Math.max(cell.length, maxLengths[i])),
+    header.map(() => 0)
+  )
+
+  const formattedHeader = header.map((cell, i) => cell.padEnd(columnsMaxLengths[i], ' '))
+  const formattedHeaderDiv = header.map((cell, i) => '-'.padEnd(columnsMaxLengths[i], '-'))
+  const formattedBody = rows.slice(1).map(row => row.map((cell, i) => cell.padStart(columnsMaxLengths[i], ' ')))
+
+  console.log(`\n${title}\n`)
+  console.log(`| ${formattedHeader.join(' | ')} |`)
+  console.log(`|-${formattedHeaderDiv.join('-|-')}-|`)
+  formattedBody.forEach(row => console.log(`| ${row.join(' | ')} |`))
 }
 
 module.exports = callback => {

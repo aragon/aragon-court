@@ -184,7 +184,7 @@ contract('Court', ([_, disputer, drafter, juror500, juror1000, juror1500, juror2
             await courtHelper.passTerms(courtHelper.appealTerms)
           })
 
-          itIsAtState(roundId, ROUND_STATES.CONFIRMING_APPEAL)
+          itIsAtState(roundId, ROUND_STATES.ENDED)
           itFailsToCommitVotes()
           itFailsToRevealVotes()
         })

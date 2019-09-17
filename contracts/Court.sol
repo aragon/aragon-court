@@ -847,7 +847,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
             emit NewTerm(currentTermId, msg.sender);
 
             // Add amount of fees to be paid for the transitioned term
-            CourtConfig storage config = _getConfigSafeAt(currentTerm.courtConfigId);
+            CourtConfig storage config = _getConfigSafeAt(currentTermId);
             totalFee = totalFee.add(config.heartbeatFee.mul(uint256(currentTerm.dependingDrafts)));
         }
 

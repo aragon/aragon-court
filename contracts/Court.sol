@@ -414,7 +414,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
     function appeal(uint256 _disputeId, uint256 _roundId, uint8 _ruling) external disputeExists(_disputeId) ensureTerm {
         // Ensure given round can be appealed. Note that if there was a final appeal the adjudication state will be 'Ended'.
         Dispute storage dispute = disputes[_disputeId];
-        _ensureAdjudicationState(dispute, _roundId, AdjudicationState.Appealing);
+        _checkAdjudicationState(dispute, _roundId, AdjudicationState.Appealing);
 
         // Ensure that the ruling being appealed in favor of is valid and different from the current winning ruling
         uint256 voteId = _getVoteId(_disputeId, _roundId);
@@ -443,7 +443,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
         // TODO: ensure dispute exists
         // Ensure given round is appealed and can be confirmed. Note that if there was a final appeal the adjudication state will be 'Ended'.
         Dispute storage dispute = disputes[_disputeId];
-        _ensureAdjudicationState(dispute, _roundId, AdjudicationState.ConfirmingAppeal);
+        _checkAdjudicationState(dispute, _roundId, AdjudicationState.ConfirmingAppeal);
 
         // Ensure that the ruling being confirmed in favor of is valid and different from the appealed ruling
         AdjudicationRound storage round = dispute.rounds[_roundId];
@@ -638,7 +638,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
     function getVoterWeightToCommit(uint256 _voteId, address _voter) external only(voting) ensureTerm returns (uint64) {
         (uint256 disputeId, uint256 roundId) = _decodeVoteId(_voteId);
         Dispute storage dispute = disputes[disputeId];
-        _ensureAdjudicationState(dispute, roundId, AdjudicationState.Committing);
+        _checkAdjudicationState(dispute, roundId, AdjudicationState.Committing);
         return _computeJurorWeight(dispute, roundId, _voter);
     }
 
@@ -651,7 +651,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
     function getVoterWeightToReveal(uint256 _voteId, address _voter) external only(voting) ensureTerm returns (uint64) {
         (uint256 disputeId, uint256 roundId) = _decodeVoteId(_voteId);
         Dispute storage dispute = disputes[disputeId];
-        _ensureAdjudicationState(dispute, roundId, AdjudicationState.Revealing);
+        _checkAdjudicationState(dispute, roundId, AdjudicationState.Revealing);
         return _computeJurorWeight(dispute, roundId, _voter);
     }
 
@@ -947,7 +947,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
 
         // Ensure the last adjudication round has ended. Note that there will always be at least one round.
         uint256 lastRoundId = dispute.rounds.length - 1;
-        _ensureAdjudicationState(dispute, lastRoundId, AdjudicationState.Ended);
+        _checkAdjudicationState(dispute, lastRoundId, AdjudicationState.Ended);
 
         // If the last adjudication round was appealed but no-one confirmed it, the final ruling is the outcome the
         // appealer vouched for. Otherwise, fetch the winning outcome from the voting app of the last round.
@@ -1322,12 +1322,12 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
     }
 
     /**
-    * @dev Internal function to ensure the adjudication state of a certain dispute round. This function assumes Court term is up-to-date.
+    * @dev Internal function to check the adjudication state of a certain dispute round. This function assumes Court term is up-to-date.
     * @param _dispute Dispute to be checked
     * @param _roundId Identification number of the dispute round to be checked
     * @param _state Expected adjudication state for the given dispute round
     */
-    function _ensureAdjudicationState(Dispute storage _dispute, uint256 _roundId, AdjudicationState _state) internal view {
+    function _checkAdjudicationState(Dispute storage _dispute, uint256 _roundId, AdjudicationState _state) internal view {
         require(_roundId < _dispute.rounds.length, ERROR_ROUND_DOES_NOT_EXIST);
         require(_adjudicationStateAt(_dispute, _roundId, termId) == _state, ERROR_INVALID_ADJUDICATION_STATE);
     }

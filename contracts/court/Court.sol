@@ -26,11 +26,11 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
     using Uint256Helpers for uint256;
 
     // Configs-related error messages
-    string private constant ERROR_INVALID_PENALTY_PCT = "CT_INVALID_PENALTY_PCT";
-    string private constant ERROR_INVALID_SENDER_ADDRESS = "CT_INVALID_SENDER_ADDRESS";
+    string private constant ERROR_SENDER_NOT_VOTING = "CT_SENDER_NOT_VOTING";
     string private constant ERROR_BAD_FIRST_TERM_START_TIME = "CT_BAD_FIRST_TERM_START_TIME";
-    string private constant ERROR_INVALID_MAX_APPEAL_ROUNDS = "CT_INVALID_MAX_APPEAL_ROUNDS";
     string private constant ERROR_CONFIG_PERIOD_ZERO_TERMS = "CT_CONFIG_PERIOD_0";
+    string private constant ERROR_INVALID_PENALTY_PCT = "CT_INVALID_PENALTY_PCT";
+    string private constant ERROR_INVALID_MAX_APPEAL_ROUNDS = "CT_INVALID_MAX_APPEAL_ROUNDS";
     string private constant ERROR_INVALID_PERIOD_DURATION = "CT_INVALID_PERIOD_DURATION";
     string private constant ERROR_INVALID_GOVERNANCE_SHARE = "CT_INVALID_GOVERNANCE_SHARE";
     string private constant ERROR_INVALID_LATE_PAYMENT_PENALTY = "CT_INVALID_LATE_PAYMENT_PENALTY";
@@ -227,7 +227,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
     * @dev Ensure the msg.sender is the CR Voting module
     */
     modifier onlyVoting() {
-        require(msg.sender == address(voting), ERROR_INVALID_SENDER_ADDRESS);
+        require(msg.sender == address(voting), ERROR_SENDER_NOT_VOTING);
         _;
     }
 
@@ -1554,12 +1554,12 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
 
     // TODO: move to a factory contract
     function _initSubscriptions(ERC20 _feeToken, uint256[5] memory _subscriptionParams) private {
-        uint64 maxUINT64 = uint64(-1);
-        uint256 maxUINT16 = uint16(-1);
+        uint64 maxUint64 = uint64(-1);
+        uint256 maxUint16 = uint16(-1);
 
-        require(_subscriptionParams[0] <= maxUINT64, ERROR_INVALID_PERIOD_DURATION); // _periodDuration
-        require(_subscriptionParams[3] <= maxUINT16, ERROR_INVALID_LATE_PAYMENT_PENALTY); // _latePaymentPenaltyPct
-        require(_subscriptionParams[4] <= maxUINT16, ERROR_INVALID_GOVERNANCE_SHARE); // _governorSharePct
+        require(_subscriptionParams[0] <= maxUint64, ERROR_INVALID_PERIOD_DURATION); // _periodDuration
+        require(_subscriptionParams[3] <= maxUint16, ERROR_INVALID_LATE_PAYMENT_PENALTY); // _latePaymentPenaltyPct
+        require(_subscriptionParams[4] <= maxUint16, ERROR_INVALID_GOVERNANCE_SHARE); // _governorSharePct
         subscriptions.init(
             ISubscriptionsOwner(this),
             jurorsRegistry,

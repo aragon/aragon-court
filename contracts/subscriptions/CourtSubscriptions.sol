@@ -340,7 +340,7 @@ contract CourtSubscriptions is IsContract, ISubscriptions, TimeHelpers {
 
     function _setFeeToken(ERC20 _feeToken) internal {
         require(isContract(address(_feeToken)), ERROR_NOT_CONTRACT);
-        if (accumulatedGovernorFees > uint256(0)) {
+        if (accumulatedGovernorFees > 0) {
             transferFeesToGovernor();
         }
         currentFeeToken = _feeToken;

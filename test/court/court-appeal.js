@@ -344,8 +344,7 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
         })
       })
 
-      // TODO: this scenario is not implemented in the contracts yet
-      context.skip('when the given round is not valid', () => {
+      context('when the given round is not valid', () => {
         const roundId = 5
 
         it('reverts', async () => {

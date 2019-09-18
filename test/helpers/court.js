@@ -24,6 +24,7 @@ const ROUND_STATES = {
 
 module.exports = (web3, artifacts) => {
   const { bn, bigExp } = require('./numbers')(web3)
+  const { advanceBlocks } = require('../helpers/blocks')(web3)
   const { SALT, getVoteId, encryptVote, oppositeOutcome, outcomeFor } = require('../helpers/crvoting')(web3)
 
   // TODO: update default to make sure we test using real values
@@ -167,7 +168,6 @@ module.exports = (web3, artifacts) => {
       // call heartbeat function for X terms
       await this.court.heartbeat(terms)
       // advance 2 blocks to ensure we can compute term randomness
-      const { advanceBlocks } = require('../helpers/blocks')(web3)
       await advanceBlocks(2)
     }
 
@@ -280,7 +280,7 @@ module.exports = (web3, artifacts) => {
 
     async confirmAppeal({ disputeId, roundId, appealTaker = undefined, ruling = undefined }) {
       // mint fee tokens for the appeal taker, if no taker was given pick the fifth account
-      if (!appealTaker) appealTaker = web3.eth.accounts[4 + roundId * 2]
+      if (!appealTaker) appealTaker = web3.eth.accounts[4]
       await this.mintFeeTokens(appealTaker)
 
       // use the opposite ruling the one appealed if no one was given

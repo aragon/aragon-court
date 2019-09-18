@@ -8,7 +8,7 @@ const { buildHelper, DEFAULTS, ROUND_STATES, DISPUTE_STATES } = require('../help
 
 const Arbitrable = artifacts.require('Arbitrable')
 
-contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, juror1000, juror1500, juror2000, juror2500, juror3000, juror3500, juror4000]) => {
+contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, juror1000, juror1500, juror2000, juror2500, juror3000, juror3500, juror4000, anyone]) => {
   let courtHelper, court, voting
 
   const jurors = [
@@ -70,7 +70,7 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
 
         const itFailsToSettleRewards = (roundId) => {
           it('fails to settle rewards', async () => {
-            await assertRevert(court.settleReward(disputeId, roundId, juror1000), 'CT_ROUND_PENALTIES_NOT_SETTLED')
+            await assertRevert(court.settleReward(disputeId, roundId, anyone), 'CT_ROUND_PENALTIES_NOT_SETTLED')
           })
         }
 

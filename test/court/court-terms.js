@@ -70,7 +70,7 @@ contract('Court', ([_, sender]) => {
       court = await courtHelper.deploy({ firstTermStartTime, termDuration, feeToken, heartbeatFee })
     })
 
-    const itReverts = maxTransitionTerms => {
+    const itRevertsOnHeartbeat = maxTransitionTerms => {
       it('reverts', async () => {
         await assertRevert(court.heartbeat(maxTransitionTerms, { from: sender }), 'CT_INVALID_TRANSITION_TERMS')
       })
@@ -80,13 +80,13 @@ contract('Court', ([_, sender]) => {
       context('when the max transition terms given is zero', () => {
         const maxTransitionTerms = 0
 
-        itReverts(maxTransitionTerms)
+        itRevertsOnHeartbeat(maxTransitionTerms)
       })
 
       context('when the max transition terms given is one', () => {
         const maxTransitionTerms = 1
 
-        itReverts(maxTransitionTerms)
+        itRevertsOnHeartbeat(maxTransitionTerms)
       })
     }
 
@@ -171,7 +171,7 @@ contract('Court', ([_, sender]) => {
       context('when the max transition terms given is zero', () => {
         const maxTransitionTerms = 0
 
-        itReverts(maxTransitionTerms)
+        itRevertsOnHeartbeat(maxTransitionTerms)
       })
 
       context('when the max transition terms given is one', () => {
@@ -193,7 +193,7 @@ contract('Court', ([_, sender]) => {
       context('when the max transition terms given is zero', () => {
         const maxTransitionTerms = 0
 
-        itReverts(maxTransitionTerms)
+        itRevertsOnHeartbeat(maxTransitionTerms)
       })
 
       context('when the max transition terms given is one', () => {
@@ -231,7 +231,7 @@ contract('Court', ([_, sender]) => {
       context('when the max transition terms given is zero', () => {
         const maxTransitionTerms = 0
 
-        itReverts(maxTransitionTerms)
+        itRevertsOnHeartbeat(maxTransitionTerms)
       })
 
       context('when the max transition terms given is one', () => {

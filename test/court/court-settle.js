@@ -95,7 +95,7 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
               assertEvent(receipt, 'RulingExecuted', { disputeId, ruling: expectedFinalRuling })
             })
 
-            it('executes the associated airbitrable', async () => {
+            it('executes the associated arbitrable', async () => {
               const receipt = await court.executeRuling(disputeId)
 
               const logs = decodeEventsOfType(receipt, Arbitrable.abi, 'CourtRuling')
@@ -256,7 +256,7 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
                 itSettlesPenaltiesProperly()
 
               } else {
-                it ('reverts', async () => {
+                it('reverts', async () => {
                   await court.settlePenalties(disputeId, roundId, 1)
 
                   await assertRevert(court.settlePenalties(disputeId, roundId, 1), '')

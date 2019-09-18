@@ -42,7 +42,7 @@ contract('Court', ([_, sender]) => {
           const jurorRewards = (draftFee.plus(settleFee)).mul(jurorsNumber)
           const requiredCollateral = jurorFees.plus(heartbeatFee).plus(jurorRewards)
 
-          beforeEach('deposit collateral', async () => {
+          beforeEach('approve fee amount', async () => {
             await feeToken.generateTokens(sender, requiredCollateral)
             await feeToken.approve(court.address, requiredCollateral, { from: sender })
           })
@@ -74,7 +74,7 @@ contract('Court', ([_, sender]) => {
             assert.equal(collectedTokens.toString(), 0, 'round collected tokens should be zero')
           })
 
-          it('transfers the collateral to the court', async () => {
+          it('transfers fees to the court', async () => {
             const jurorFees = jurorFee.mul(jurorsNumber)
             const draftFees = draftFee.mul(jurorsNumber)
             const settleFees = settleFee.mul(jurorsNumber)
@@ -108,7 +108,7 @@ contract('Court', ([_, sender]) => {
           })
         })
 
-        context('when the creator does not deposit enough collateral', () => {
+        context('when the creator doesn\'t have enough fee tokens approved', () => {
           it('reverts', async () => {
             await assertRevert(court.createDispute(arbitrable.address, possibleRulings, jurorsNumber, draftTermId), 'CT_DEPOSIT_FAILED')
           })

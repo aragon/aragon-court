@@ -142,7 +142,7 @@ contract('Court', ([_, disputer, drafter, juror500, juror1000, juror1500, juror2
             const expectedWinningOutcome = highOutcomeTally > lowOutcomeTally ? OUTCOMES.HIGH : OUTCOMES.LOW
             assert.equal(winningOutcome.toString(), expectedWinningOutcome, 'winning outcome does not match')
           })
-          })
+        })
 
           context('when the sender did not vote', () => {
             it('reverts', async () => {

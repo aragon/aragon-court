@@ -470,7 +470,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
     }
 
     /**
-    * @notice Execute the airbitrable associated to dispute #`_disputeId` based on its final ruling
+    * @notice Execute the arbitrable associated to dispute #`_disputeId` based on its final ruling
     * @param _disputeId Identification number of the dispute to be executed
     */
     function executeRuling(uint256 _disputeId) external disputeExists(_disputeId) ensureTerm {
@@ -748,7 +748,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
     * @return coherentJurors Number of jurors that voted in favor of the final ruling in the requested round
     * @return state Adjudication state of the requested round
     */
-    function getRound(uint256 _disputeId, uint256 _roundId) external roundExists(_disputeId, _roundId) view
+    function getRound(uint256 _disputeId, uint256 _roundId) external view roundExists(_disputeId, _roundId)
         returns (
             uint64 draftTerm,
             uint64 delayedTerms,
@@ -1089,18 +1089,16 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
     {
         // TODO: Require config changes happening at least X terms in the future
         // Where X is the amount of terms in the future a dispute can be scheduled to be drafted at
-
         require(configChangeTermId > termId || termId == ZERO_TERM_ID, ERROR_PAST_TERM_FEE_CHANGE);
-        // We make sure that when applying penalty pct to juror min stake it doesn't result in zero
-        uint256 minJurorsActiveBalance = jurorsRegistry.minJurorsActiveBalance();
-        require(minJurorsActiveBalance.pct(_penaltyPct) > 0, ERROR_INVALID_PENALTY_PCT);
-        require(
-            uint256(_maxRegularAppealRounds) > 0 && _maxRegularAppealRounds <= MAX_REGULAR_APPEAL_ROUNDS_LIMIT,
-            ERROR_INVALID_MAX_APPEAL_ROUNDS
-        );
+
+        // Make sure the given penalty pct is not greater than 100%
+        require(PctHelpers.isValid(_penaltyPct), ERROR_INVALID_PENALTY_PCT);
+
+        // Make sure the max number of appeals allowed does not reach the limit
+        bool isMaxAppealRoundsValid = uint256(_maxRegularAppealRounds) > 0 && _maxRegularAppealRounds <= MAX_REGULAR_APPEAL_ROUNDS_LIMIT;
+        require(isMaxAppealRoundsValid, ERROR_INVALID_MAX_APPEAL_ROUNDS);
 
         // TODO: add reasonable limits for durations
-
         for (uint i = 0; i < _roundStateDurations.length; i++) {
             require(_roundStateDurations[i] > 0, ERROR_CONFIG_PERIOD_ZERO_TERMS);
         }
@@ -1371,17 +1369,17 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
             return AdjudicationState.Ended;
         }
 
-        // If given term is before the appeal confirmation start term and the last round was not appealed yet, then the last round can still be appealed
+        // If the last round was not appealed yet, check if the confirmation period has started or not
         Appeal storage appeal = round.appeal;
-        bool isLastRoundAppealed = !_existsAppeal(round.appeal);
+        bool isLastRoundAppealed = _existsAppeal(round.appeal);
         uint64 appealConfirmationStartTerm = appealStartTerm + config.appealTerms;
-        if (isLastRoundAppealed && _termId < appealConfirmationStartTerm) {
-            return AdjudicationState.Appealing;
-        }
-
-        // If given term is after the appeal end term and the last round wasn't appealed, then the last round is ended
-        if (isLastRoundAppealed) {
-            return AdjudicationState.Ended;
+        if (!isLastRoundAppealed) {
+            // If given term is before the appeal confirmation start term, then the last round can still be appealed. Otherwise, it is ended.
+            if (_termId < appealConfirmationStartTerm) {
+                return AdjudicationState.Appealing;
+            } else {
+                return AdjudicationState.Ended;
+            }
         }
 
         // If the last round was appealed and the given term is before the appeal confirmation end term, then the last round appeal can still be

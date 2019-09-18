@@ -353,7 +353,7 @@ contract CourtSubscriptions is IsContract, ISubscriptions, TimeHelpers {
     }
 
     function _setGovernorSharePct(uint16 _governorSharePct) internal {
-        require(_governorSharePct <= PctHelpers.base(), ERROR_OVERFLOW);
+        require(PctHelpers.isValid(_governorSharePct), ERROR_OVERFLOW);
         governorSharePct = _governorSharePct;
     }
 

@@ -35,6 +35,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
     string private constant ERROR_INVALID_LATE_PAYMENT_PENALTY = "CT_INVALID_LATE_PAYMENT_PENALTY";
 
     // Terms-related error messages
+    string private constant ERROR_TERM_OUTDATED = "CT_TERM_OUTDATED";
     string private constant ERROR_TOO_MANY_TRANSITIONS = "CT_TOO_MANY_TRANSITIONS";
     string private constant ERROR_INVALID_TRANSITION_TERMS = "CT_INVALID_TRANSITION_TERMS";
     string private constant ERROR_PAST_TERM_FEE_CHANGE = "CT_PAST_TERM_FEE_CHANGE";
@@ -370,7 +371,12 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
      * @param _disputeId Identification number of the dispute to be drafted
      * @param _maxJurorsToBeDrafted Max number of jurors to be drafted, it will be capped to the requested number of jurors of the dispute
      */
-    function draft(uint256 _disputeId, uint64 _maxJurorsToBeDrafted) external disputeExists(_disputeId) ensureTerm {
+    function draft(uint256 _disputeId, uint64 _maxJurorsToBeDrafted) external disputeExists(_disputeId) {
+        // Drafts can only be computed when the Court is up-to-date. Note that forcing a term transition won't work since the term randomness
+        // is always based on the next term which means it won't be available anyway.
+        uint64 requiredTransitions = _neededTermTransitions();
+        require(uint256(requiredTransitions) == 0, ERROR_TERM_OUTDATED);
+
         // Ensure dispute has not been drafted yet
         Dispute storage dispute = disputes[_disputeId];
         require(dispute.state == DisputeState.PreDraft, ERROR_ROUND_ALREADY_DRAFTED);
@@ -678,6 +684,14 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
     }
 
     /**
+    * @dev Tell the number of terms the Court should transition to be up-to-date
+    * @return Number of terms the Court should transition to be up-to-date
+    */
+    function neededTermTransitions() external view returns (uint64) {
+        return _neededTermTransitions();
+    }
+
+    /**
     * @dev Tell the information related to a term based on its ID. Note that if the term has not been reached, the
     *      information returned won't be computed yet.
     * @param _termId ID of the term being queried
@@ -820,7 +834,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
     * @param _maxRequestedTransitions Max number of term transitions allowed by the sender
     */
     function heartbeat(uint64 _maxRequestedTransitions) public {
-        uint64 neededTransitions = neededTermTransitions();
+        uint64 neededTransitions = _neededTermTransitions();
         uint256 transitions = uint256(_maxRequestedTransitions < neededTransitions ? _maxRequestedTransitions : neededTransitions);
         require(transitions > 0, ERROR_INVALID_TRANSITION_TERMS);
 
@@ -856,27 +870,11 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
     }
 
     /**
-    * @dev Tells the number of terms the Court should transition to be up-to-date
-    * @return Number of terms the Court should transition to be up-to-date
-    */
-    function neededTermTransitions() public view returns (uint64) {
-        // Note that the Court is always initialized providing a start time for the first-term in the future. If that's the case,
-        // no term transitions are required.
-        uint64 currentTermStartTime = terms[termId].startTime;
-        if (getTimestamp64() < currentTermStartTime) {
-            return uint64(0);
-        }
-
-        // We already know that the start time of the current term is in the past, we are safe to avoid SafeMath here
-        return (getTimestamp64() - currentTermStartTime) / termDuration;
-    }
-
-    /**
     * @dev Internal function to ensure the current term. If the Court term is outdated it will update it. Note that this function
     *      only allows updating the Court by one term, if more terms are required, users will have to call the heartbeat function manually.
     */
     function _ensureTerm() internal {
-        uint64 requiredTransitions = neededTermTransitions();
+        uint64 requiredTransitions = _neededTermTransitions();
         require(requiredTransitions <= MAX_AUTO_TERM_TRANSITIONS_ALLOWED, ERROR_TOO_MANY_TRANSITIONS);
 
         if (uint256(requiredTransitions) > 0) {
@@ -1142,6 +1140,22 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
     }
 
     /**
+    * @dev Internal function to tell the number of terms the Court should transition to be up-to-date
+    * @return Number of terms the Court should transition to be up-to-date
+    */
+    function _neededTermTransitions() internal view returns (uint64) {
+        // Note that the Court is always initialized providing a start time for the first-term in the future. If that's the case,
+        // no term transitions are required.
+        uint64 currentTermStartTime = terms[termId].startTime;
+        if (getTimestamp64() < currentTermStartTime) {
+            return uint64(0);
+        }
+
+        // We already know that the start time of the current term is in the past, we are safe to avoid SafeMath here
+        return (getTimestamp64() - currentTermStartTime) / termDuration;
+    }
+
+    /**
     * @dev Internal function to get the juror weight for a dispute's round
     * @param _disputeId ID of the dispute to calculate the juror's weight of
     * @param _roundId ID of the dispute's round to calculate the juror's weight of
@@ -1370,7 +1384,6 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
         }
 
         // If the last round was not appealed yet, check if the confirmation period has started or not
-        Appeal storage appeal = round.appeal;
         bool isLastRoundAppealed = _existsAppeal(round.appeal);
         uint64 appealConfirmationStartTerm = appealStartTerm + config.appealTerms;
         if (!isLastRoundAppealed) {
@@ -1441,7 +1454,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
     */
     function _getCurrentTermId() internal view returns (uint64) {
         // Court terms are assumed to always fit in uint64. Thus, some terms after the last ensured term is assumed to fit in uint64 too.
-        return termId + neededTermTransitions();
+        return termId + _neededTermTransitions();
     }
 
     /**
@@ -1507,7 +1520,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
     * @param _config Config of the Court at the draft term
     */
     function _draft(uint256 _disputeId, AdjudicationRound storage _round, uint64 _jurorsNumber, uint256 _requestedJurors, Term storage _draftTerm, CourtConfig storage _config) private {
-        // TODO: Could not pass selectedJurors due to a stack-to-deep issue here
+        // TODO: Could not pass selectedJurors due to a stack-too-deep issue here
         // Draft jurors for the requested round
         uint256[7] memory draftParams = [
             uint256(_draftTerm.randomness),
@@ -1532,6 +1545,8 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
             // We assume a juror cannot be drafted 2^64 times for a round
             jurorState.weight += weights[i];
         }
+
+        // TODO: return boolean to tell whether the draft has finished or not, cannot do it due to a stack-too-deep issue
     }
 
     // TODO: move to a factory contract

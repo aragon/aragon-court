@@ -37,7 +37,7 @@ contract('Court', ([_, sender]) => {
       const possibleRulings = 2
 
       const itHandlesDisputesCreationProperly = expectedTermTransitions => {
-        context('when the creator deposits enough collateral', () => {
+        context('when the creator approves enough fee tokens', () => {
           const jurorFees = jurorFee.mul(jurorsNumber)
           const jurorRewards = (draftFee.plus(settleFee)).mul(jurorsNumber)
           const requiredCollateral = jurorFees.plus(heartbeatFee).plus(jurorRewards)

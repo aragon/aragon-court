@@ -605,27 +605,25 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
         emit AppealDepositSettled(_disputeId, _roundId);
 
         // If the appeal wasn't confirmed, return the entire deposit to appeal maker
-        address appealMaker = appeal.maker;
         (,,,ERC20 depositToken, uint256 totalFees,, uint256 appealDeposit, uint256 confirmAppealDeposit) = _getNextRoundDetails(round, _roundId);
         if (!_isAppealConfirmed(appeal)) {
-            accounting.assign(depositToken, appealMaker, appealDeposit);
+            accounting.assign(depositToken, appeal.maker, appealDeposit);
             return;
         }
 
         // If the appeal was confirmed pay the winner the total deposit or split it between both in case no one voted in favor
         // of the winning outcome. Since we already ensured that round penalties were settled, we are safe to access the dispute final ruling
         uint8 finalRuling = dispute.finalRuling;
-        address appealTaker = appeal.taker;
         uint256 totalDeposit = appealDeposit + confirmAppealDeposit;
         if (appeal.appealedRuling == finalRuling) {
-            accounting.assign(depositToken, appealMaker, totalDeposit - totalFees);
+            accounting.assign(depositToken, appeal.maker, totalDeposit - totalFees);
         } else if (appeal.opposedRuling == finalRuling) {
-            accounting.assign(depositToken, appealTaker, totalDeposit - totalFees);
+            accounting.assign(depositToken, appeal.taker, totalDeposit - totalFees);
         } else {
             // If the final ruling wasn't selected by any of the appealing parties or no jurors voted in the
             // final round, return their deposits minus half of the fees to each party
-            accounting.assign(depositToken, appealMaker, appealDeposit - totalFees / 2);
-            accounting.assign(depositToken, appealTaker, confirmAppealDeposit - totalFees / 2);
+            accounting.assign(depositToken, appeal.maker, appealDeposit - totalFees / 2);
+            accounting.assign(depositToken, appeal.taker, confirmAppealDeposit - totalFees / 2);
         }
     }
 

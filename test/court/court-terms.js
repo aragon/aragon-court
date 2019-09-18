@@ -1,7 +1,7 @@
 const { bn, bigExp } = require('../helpers/numbers')
 const { buildHelper } = require('../helpers/court')(web3, artifacts)
 const { assertRevert } = require('../helpers/assertThrow')
-const { TOMORROW, NOW, ONE_DAY } = require('../helpers/time')
+const { NEXT_WEEK, NOW, ONE_DAY } = require('../helpers/time')
 const { assertAmountOfEvents, assertEvent } = require('../helpers/assertEvent')
 
 const ERC20 = artifacts.require('ERC20Mock')
@@ -26,32 +26,16 @@ const EMPTY_RANDOMNESS = '0x0000000000000000000000000000000000000000000000000000
       })
     })
 
-    context('when setting the first term start time to now', () => {
-      // TODO: cannot test this scenario properly until we move the court initialization logic to a separate contract
-      const firstTermStartTime = bn(TOMORROW) // using tomorrow but will set current timestamp to same datetime
+    context('when setting the first term start time previous to one term duration', () => {
+      const firstTermStartTime = bn(NOW).add(termDuration.sub(bn(1)))
 
-      beforeEach('deploy court', async () => {
-        court = await courtHelper.deploy({ firstTermStartTime, termDuration })
-        await courtHelper.setTimestamp(firstTermStartTime)
-      })
-
-      it('it must have already started', async () => {
-        const { startTime, dependingDrafts, courtConfigId, randomnessBN, randomness } = await court.getTerm(0)
-
-        assert.equal(startTime.toString(), firstTermStartTime.sub(termDuration), 'term zero start time does not match')
-        assert.equal(dependingDrafts.toString(), 0, 'zero term should not have depending drafts initially')
-        assert.equal(courtConfigId.toString(), 1, 'zero term config should not be set')
-        assert.equal(randomnessBN.toString(), 0, 'zero term randomness block number should not be computed')
-        assert.equal(randomness, EMPTY_RANDOMNESS, 'zero term randomness should not be computed')
-      })
-
-      it('requires one term transition', async () => {
-        assert.equal((await court.neededTermTransitions()).toString(), 1, 'needed term transitions does not match')
+      it('reverts', async () => {
+        await assertRevert(courtHelper.deploy({ firstTermStartTime, termDuration }), 'CT_BAD_FIRST_TERM_START_TIME')
       })
     })
 
     context('when setting the first term start time in the future', () => {
-      const firstTermStartTime = bn(TOMORROW)
+      const firstTermStartTime = bn(NEXT_WEEK)
 
       beforeEach('deploy court', async () => {
         court = await courtHelper.deploy({ firstTermStartTime, termDuration })
@@ -77,7 +61,7 @@ const EMPTY_RANDOMNESS = '0x0000000000000000000000000000000000000000000000000000
     let feeToken
     const termDuration = bn(ONE_DAY)
     const heartbeatFee = bigExp(50, 18)
-    const firstTermStartTime = bn(TOMORROW)
+    const firstTermStartTime = bn(NEXT_WEEK)
     const zeroTermStartTime = firstTermStartTime.sub(termDuration)
 
     beforeEach('create court starting in one future term', async () => {

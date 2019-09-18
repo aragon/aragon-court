@@ -135,7 +135,7 @@ contract JurorsRegistry is Initializable, IsContract, IJurorsRegistry, ERC900, A
         _processDeactivationRequest(msg.sender, termId);
 
         uint256 availableBalance = jurorsByAddress[msg.sender].availableBalance;
-        uint256 amountToActivate = _amount == uint256(0) ? availableBalance : _amount;
+        uint256 amountToActivate = _amount == 0 ? availableBalance : _amount;
         require(amountToActivate > 0, ERROR_INVALID_ZERO_AMOUNT);
         require(amountToActivate <= availableBalance, ERROR_INVALID_ACTIVATION_AMOUNT);
 
@@ -150,13 +150,13 @@ contract JurorsRegistry is Initializable, IsContract, IJurorsRegistry, ERC900, A
         uint64 termId = owner.ensureAndGetTermId();
 
         uint256 unlockedActiveBalance = unlockedActiveBalanceOf(msg.sender);
-        uint256 amountToDeactivate = _amount == uint256(0) ? unlockedActiveBalance : _amount;
+        uint256 amountToDeactivate = _amount == 0 ? unlockedActiveBalance : _amount;
         require(amountToDeactivate > 0, ERROR_INVALID_ZERO_AMOUNT);
         require(amountToDeactivate <= unlockedActiveBalance, ERROR_INVALID_DEACTIVATION_AMOUNT);
 
         // No need to use SafeMath here, we already checked values above
         uint256 futureActiveBalance = unlockedActiveBalance - amountToDeactivate;
-        require(futureActiveBalance == uint256(0) || futureActiveBalance >= minActiveBalance, ERROR_INVALID_DEACTIVATION_AMOUNT);
+        require(futureActiveBalance == 0 || futureActiveBalance >= minActiveBalance, ERROR_INVALID_DEACTIVATION_AMOUNT);
 
         _createDeactivationRequest(msg.sender, termId, amountToDeactivate);
     }
@@ -215,7 +215,7 @@ contract JurorsRegistry is Initializable, IsContract, IJurorsRegistry, ERC900, A
     *        3. uint256 Number of seats already filled
     *        4. uint256 Number of seats left to be filled
     *        5. uint64  Number of jurors required for the draft
-    *        6. uint16  Percentage of the minimum active balance to be locked for the draft
+    *        6. uint16  Per ten thousand of the minimum active balance to be locked for the draft
     *
     * @return jurors List of jurors selected for the draft
     * @return weights List of weights corresponding to each juror
@@ -325,7 +325,7 @@ contract JurorsRegistry is Initializable, IsContract, IJurorsRegistry, ERC900, A
     * @return True if the juror has enough unlocked tokens to be collected for the requested term, false otherwise
     */
     function collectTokens(address _juror, uint256 _amount, uint64 _termId) external onlyOwner returns (bool) {
-        if (_amount == uint256(0)) {
+        if (_amount == 0) {
             return true;
         }
 
@@ -347,7 +347,7 @@ contract JurorsRegistry is Initializable, IsContract, IJurorsRegistry, ERC900, A
             // Note there's no need to use SafeMath here, amounts were already checked above
             uint256 amountToReduce = _amount - unlockedActiveBalance;
             _reduceDeactivationRequest(_juror, amountToReduce, _termId);
-            tree.set(juror.id, nextTermId, uint256(0));
+            tree.set(juror.id, nextTermId, 0);
         } else {
             tree.update(juror.id, nextTermId, _amount, false);
         }
@@ -410,7 +410,7 @@ contract JurorsRegistry is Initializable, IsContract, IJurorsRegistry, ERC900, A
     */
     function activeBalanceOfAt(address _juror, uint64 _termId) external view returns (uint256) {
         Juror storage juror = jurorsByAddress[_juror];
-        return _existsJuror(juror) ? tree.getItemAt(juror.id, _termId) : uint256(0);
+        return _existsJuror(juror) ? tree.getItemAt(juror.id, _termId) : 0;
     }
 
     /**
@@ -453,7 +453,7 @@ contract JurorsRegistry is Initializable, IsContract, IJurorsRegistry, ERC900, A
     function balanceOf(address _juror) public view returns (uint256 active, uint256 available, uint256 locked, uint256 pendingDeactivation) {
         Juror storage juror = jurorsByAddress[_juror];
 
-        active = _existsJuror(juror) ? tree.getItem(juror.id) : uint256(0);
+        active = _existsJuror(juror) ? tree.getItem(juror.id) : 0;
         available = juror.availableBalance;
         locked = juror.lockedBalance;
         pendingDeactivation = juror.deactivationRequest.amount;
@@ -550,7 +550,7 @@ contract JurorsRegistry is Initializable, IsContract, IJurorsRegistry, ERC900, A
         // Note that we can use a zeroed term id to denote void here since we are storing
         // the minimum allowed term to deactivate tokens which will always be at least 1
         request.availableTermId = uint64(0);
-        request.amount = uint256(0);
+        request.amount = 0;
         _updateAvailableBalanceOf(_juror, deactivationAmount, true);
 
         emit JurorDeactivationProcessed(_juror, deactivationAvailableTermId, deactivationAmount, _termId);
@@ -647,7 +647,7 @@ contract JurorsRegistry is Initializable, IsContract, IJurorsRegistry, ERC900, A
         // We are not using a require here to avoid reverting in case any of the accounting maths reaches this point
         // with a zeroed amount value. Instead, we are doing this validation in the external entry points such as
         // stake, unstake, activate, deactivate, among others.
-        if (_amount == uint256(0)) {
+        if (_amount == 0) {
             return;
         }
 
@@ -668,7 +668,7 @@ contract JurorsRegistry is Initializable, IsContract, IJurorsRegistry, ERC900, A
     * @return Amount of active tokens of a juror that are not locked due to ongoing disputes
     */
     function _unlockedActiveBalanceOf(Juror storage _juror) internal view returns (uint256) {
-        return _existsJuror(_juror) ? tree.getItem(_juror.id).sub(_juror.lockedBalance) : uint256(0);
+        return _existsJuror(_juror) ? tree.getItem(_juror.id).sub(_juror.lockedBalance) : 0;
     }
 
     /**
@@ -677,7 +677,7 @@ contract JurorsRegistry is Initializable, IsContract, IJurorsRegistry, ERC900, A
     * @return True if the given juror was already registered, false otherwise
     */
     function _existsJuror(Juror storage _juror) internal view returns (bool) {
-        return _juror.id != uint256(0);
+        return _juror.id != 0;
     }
 
     /**
@@ -688,12 +688,12 @@ contract JurorsRegistry is Initializable, IsContract, IJurorsRegistry, ERC900, A
     */
     function _deactivationRequestedAmountForTerm(Juror storage _juror, uint64 _termId) internal view returns (uint256) {
         DeactivationRequest storage request = _juror.deactivationRequest;
-        return request.availableTermId == _termId ? request.amount : uint256(0);
+        return request.availableTermId == _termId ? request.amount : 0;
     }
 
     /**
     * @dev Internal function to tell the fraction of minimum active tokens that must be locked for a draft
-    * @param _pct Percentage of the minimum active balance to be locked for a draft
+    * @param _pct Per ten thousand of the minimum active balance to be locked for a draft
     * @return The fraction of minimum active tokens that must be locked for a draft
     */
     function _draftLockAmount(uint16 _pct) internal view returns (uint256) {

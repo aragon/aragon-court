@@ -106,8 +106,8 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
                 await courtHelper.passTerms(courtHelper.appealTerms)
               })
 
-              itIsAtState(roundId, ROUND_STATES.CONFIRMING_APPEAL)
-              itFailsToConfirmAppeal(roundId, 'CT_ROUND_NOT_APPEALED')
+              itIsAtState(roundId, ROUND_STATES.ENDED)
+              itFailsToConfirmAppeal(roundId)
             })
 
             context('when the round was appealed', () => {
@@ -203,10 +203,6 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
                       await court.confirmAppeal(disputeId, roundId, appealTakerRuling, { from: appealTaker })
 
                       await assertRevert(court.confirmAppeal(disputeId, roundId, appealTakerRuling, { from: appealTaker }), 'CT_INVALID_ADJUDICATION_STATE')
-                    })
-
-                    it('cannot be confirmed by the appealer', async () => {
-                      await assertRevert(court.confirmAppeal(disputeId, roundId, appealTakerRuling, { from: appealMaker }), 'CT_SENDER_CANNOT_CONFIRM_APPEAL')
                     })
                   })
 

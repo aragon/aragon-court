@@ -137,21 +137,22 @@ contract('Court', ([_, disputer, drafter, juror500, juror1000, juror1500, juror2
         })
       }
 
-      const itDraftsRequestedRoundInMultipleBatches = (term, jurorsToBeDrafted, batches) => {
-        const jurorsPerBatch = jurorsToBeDrafted  / batches
-
+      const itDraftsRequestedRoundInMultipleBatches = (term, jurorsToBeDrafted, batches, jurorsPerBatch) => {
         it('selects random jurors for the last round of the dispute', async () => {
           const jurorsAddresses = jurors.map(j => j.address)
 
-          for (let batch = 0; batch < batches; batch++) {
+          for (let batch = 0, selectedJurors = 0; batch < batches; batch++, selectedJurors += jurorsPerBatch) {
             // advance one term to avoid drafting all the batches in the same term
             await courtHelper.passRealTerms(1)
             const receipt = await court.draft(disputeId, jurorsPerBatch, { from: drafter })
 
-            const logs = decodeEventsOfType(receipt, JurorsRegistry.abi, 'JurorDrafted')
-            assertAmountOfEvents({ logs }, 'JurorDrafted', jurorsPerBatch)
+            const pendingJurorsToBeDrafted = jurorsToBeDrafted - selectedJurors;
+            const expectedDraftedJurors = pendingJurorsToBeDrafted < jurorsPerBatch ? pendingJurorsToBeDrafted : jurorsPerBatch;
 
-            for(let i = 0; i < jurorsPerBatch; i++) {
+            const logs = decodeEventsOfType(receipt, JurorsRegistry.abi, 'JurorDrafted')
+            assertAmountOfEvents({ logs }, 'JurorDrafted', expectedDraftedJurors)
+
+            for(let i = 0; i < expectedDraftedJurors; i++) {
               const { disputeId: eventDisputeId, juror } = getEventAt({ logs }, 'JurorDrafted', i).args
               assert.equal(eventDisputeId.toString(), disputeId, 'dispute id does not match')
               assert.isTrue(jurorsAddresses.includes(toChecksumAddress(juror)), 'drafted juror is not included in the list')
@@ -222,9 +223,8 @@ contract('Court', ([_, disputer, drafter, juror500, juror1000, juror1500, juror2
 
         it('deposits the draft fee to the accounting for the caller', async () => {
           const { draftFee, accounting, feeToken } = courtHelper
-          const expectedFee = draftFee.mul(bn(jurorsPerBatch))
 
-          for (let batch = 0; batch < batches; batch++) {
+          for (let batch = 0, selectedJurors = 0; batch < batches; batch++, selectedJurors += jurorsPerBatch) {
             const previousCourtAmount = await feeToken.balanceOf(court.address)
             const previousAccountingAmount = await feeToken.balanceOf(accounting.address)
             const previousDrafterAmount = await accounting.balanceOf(feeToken.address, drafter)
@@ -239,6 +239,9 @@ contract('Court', ([_, disputer, drafter, juror500, juror1000, juror1500, juror2
             const currentAccountingAmount = await feeToken.balanceOf(accounting.address)
             assert.equal(previousAccountingAmount.toString(), currentAccountingAmount.toString(), 'accounting balances should remain the same')
 
+            const pendingJurorsToBeDrafted = jurorsToBeDrafted - selectedJurors;
+            const expectedDraftedJurors = pendingJurorsToBeDrafted < jurorsPerBatch ? pendingJurorsToBeDrafted : jurorsPerBatch;
+            const expectedFee = draftFee.mul(bn(expectedDraftedJurors))
             const currentDrafterAmount = await accounting.balanceOf(feeToken.address, drafter)
             assert.equal(previousDrafterAmount.add(expectedFee).toString(), currentDrafterAmount.toString(), 'drafter amount does not match')
           }
@@ -267,9 +270,9 @@ contract('Court', ([_, disputer, drafter, juror500, juror1000, juror1500, juror2
             })
 
             context('when drafting in multiple batches', () => {
-              const batches = jurorsNumber
+              const batches = 2, jurorsPerBatch = 4
 
-              itDraftsRequestedRoundInMultipleBatches(term, jurorsToBeDrafted, batches)
+              itDraftsRequestedRoundInMultipleBatches(term, jurorsToBeDrafted, batches, jurorsPerBatch)
             })
           })
 
@@ -298,10 +301,10 @@ contract('Court', ([_, disputer, drafter, juror500, juror1000, juror1500, juror2
               itDraftsRequestedRoundInOneBatch(term, jurorsToBeDrafted)
             })
 
-            context('when drafting in multiple batches', () => {
-              const batches = 2
+            context.only('when drafting in multiple batches', () => {
+              const batches = 2, jurorsPerBatch = 3
 
-              itDraftsRequestedRoundInMultipleBatches(term, jurorsToBeDrafted, batches)
+              itDraftsRequestedRoundInMultipleBatches(term, jurorsToBeDrafted, batches, jurorsPerBatch)
             })
           })
 
@@ -330,10 +333,10 @@ contract('Court', ([_, disputer, drafter, juror500, juror1000, juror1500, juror2
               itDraftsRequestedRoundInOneBatch(term, jurorsToBeDrafted)
             })
 
-            context('when drafting in multiple batches', () => {
-              const batches = 2
+            context.only('when drafting in multiple batches', () => {
+              const batches = 2, jurorsPerBatch = 3
 
-              itDraftsRequestedRoundInMultipleBatches(term, jurorsToBeDrafted, batches)
+              itDraftsRequestedRoundInMultipleBatches(term, jurorsToBeDrafted, batches, jurorsPerBatch)
             })
           })
 

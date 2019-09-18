@@ -50,11 +50,11 @@ library Checkpointing {
     */
     function getLast(History storage self) internal view returns (uint256) {
         uint256 length = self.history.length;
-        if (length > uint256(0)) {
+        if (length > 0) {
             return uint256(self.history[length - 1].value);
         }
 
-        return uint256(0);
+        return 0;
     }
 
     /**
@@ -89,7 +89,7 @@ library Checkpointing {
     */
     function _add192(History storage self, uint64 _time, uint192 _value) private {
         uint256 length = self.history.length;
-        if (length == uint256(0) || self.history[self.history.length - 1].time < _time) {
+        if (length == 0 || self.history[self.history.length - 1].time < _time) {
             // If there was no value registered or the given point in time is after the latest registered value,
             // we can insert it to the history directly
             self.history.push(Checkpoint(_time, _value));
@@ -113,8 +113,8 @@ library Checkpointing {
     function _backwardsLinearSearch(History storage self, uint64 _time) private view returns (uint256) {
         // If there was no value registered for the given history return simply zero
         uint256 length = self.history.length;
-        if (length == uint256(0)) {
-            return uint256(0);
+        if (length == 0) {
+            return 0;
         }
 
         uint256 index = length - 1;
@@ -124,7 +124,7 @@ library Checkpointing {
             checkpoint = self.history[index];
         }
 
-        return checkpoint.time > _time ? uint256(0) : uint256(checkpoint.value);
+        return checkpoint.time > _time ? 0 : uint256(checkpoint.value);
     }
 
     /**
@@ -138,13 +138,13 @@ library Checkpointing {
     function _binarySearch(History storage self, uint64 _time) private view returns (uint256) {
         // If there was no value registered for the given history return simply zero
         uint256 length = self.history.length;
-        if (length == uint256(0)) {
-            return uint256(0);
+        if (length == 0) {
+            return 0;
         }
 
         // If the requested time is previous to the first registered value, return zero to denote missing checkpoint
         if (_time < self.history[0].time) {
-            return uint256(0);
+            return 0;
         }
 
         // Execute a binary search between the checkpointed times of the history

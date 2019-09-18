@@ -282,7 +282,7 @@ contract CRVoting is Initializable, ICRVoting {
     */
     function _ensureVoterWeightToCommit(uint256 _voteId, address _voter) internal returns (uint256) {
         uint256 weight = uint256(owner.getVoterWeightToCommit(_voteId, _voter));
-        require(weight > uint256(0), ERROR_COMMIT_DENIED_BY_OWNER);
+        require(weight > 0, ERROR_COMMIT_DENIED_BY_OWNER);
         return weight;
     }
 
@@ -294,7 +294,7 @@ contract CRVoting is Initializable, ICRVoting {
     */
     function _ensureVoterWeightToReveal(uint256 _voteId, address _voter) internal returns (uint256) {
         uint256 weight = uint256(owner.getVoterWeightToReveal(_voteId, _voter));
-        require(weight > uint256(0), ERROR_REVEAL_DENIED_BY_OWNER);
+        require(weight > 0, ERROR_REVEAL_DENIED_BY_OWNER);
         return weight;
     }
 

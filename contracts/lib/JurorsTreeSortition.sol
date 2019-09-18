@@ -75,7 +75,7 @@ library JurorsTreeSortition {
         // first iteration. Thus, we can make sure we are not excluding any juror from the tree.
         uint256 totalActiveBalance = tree.getTotalAt(_termId, true);
         uint256 ratio = totalActiveBalance / _roundRequestedJurors;
-        low = _selectedJurors == uint256(0) ? uint256(1) : (_selectedJurors * ratio) + 1;
+        low = _selectedJurors == 0 ? 1 : (_selectedJurors * ratio) + 1;
 
         // This function assumes that `_roundRequestedJurors` is greater than or equal to `newSelectedJurors`
         uint256 newSelectedJurors = _selectedJurors + _batchRequestedJurors;

@@ -1,4 +1,4 @@
-pragma solidity ^0.4.24;
+pragma solidity ^0.5.8;
 
 import "./HexSumTreeMock.sol";
 import "../../lib/JurorsTreeSortition.sol";
@@ -18,7 +18,7 @@ contract JurorsTreeSortitionMock is HexSumTreeMock {
     )
         public
         view
-        returns (uint256[] jurorsIds, uint256[] jurorsBalances)
+        returns (uint256[] memory jurorsIds, uint256[] memory activeBalances)
     {
         return tree.batchedRandomSearch(_termRandomness, _disputeId, _termId, _selectedJurors, _batchRequestedJurors, _roundRequestedJurors, _sortitionIteration);
     }
@@ -26,7 +26,7 @@ contract JurorsTreeSortitionMock is HexSumTreeMock {
     function getSearchBatchBounds(uint64 _termId, uint256 _selectedJurors, uint256 _batchRequestedJurors, uint256 _roundRequestedJurors)
         public
         view
-        returns (uint256, uint256)
+        returns (uint256 low, uint256 high)
     {
         return tree.getSearchBatchBounds(_termId, _selectedJurors, _batchRequestedJurors, _roundRequestedJurors);
     }
@@ -39,7 +39,7 @@ contract JurorsTreeSortitionMock is HexSumTreeMock {
     )
         public
         pure
-        returns (uint256[])
+        returns (uint256[] memory)
     {
         return JurorsTreeSortition._computeSearchRandomBalances(_randomnessHash, _batchRequestedJurors, _lowActiveBalanceBatchBound, _highActiveBalanceBatchBound);
     }

@@ -1,14 +1,15 @@
-const { assertRevert } = require('@aragon/test-helpers/assertThrow')
+const { bn } = require('../helpers/numbers')
+const { assertRevert } = require('../helpers/assertThrow')
 const { SALT, OUTCOMES, encryptVote } = require('../helpers/crvoting')
-const { assertEvent, assertAmountOfEvents } = require('@aragon/test-helpers/assertEvent')(web3)
+const { assertEvent, assertAmountOfEvents } = require('../helpers/assertEvent')
 
 const CRVoting = artifacts.require('CRVoting')
 const CRVotingOwner = artifacts.require('CRVotingOwnerMock')
 
-const POSSIBLE_OUTCOMES = 2
-
 contract('CRVoting leak', ([_, voter, someone]) => {
   let voting, votingOwner
+
+  const POSSIBLE_OUTCOMES = 2
 
   beforeEach('create base contracts', async () => {
     voting = await CRVoting.new()
@@ -204,7 +205,7 @@ contract('CRVoting leak', ([_, voter, someone]) => {
           })
 
           context('when the given voter committed an out-of-bounds outcome', async () => {
-            itHandlesLeakedVotesFor(OUTCOMES.HIGH + 1)
+            itHandlesLeakedVotesFor(OUTCOMES.HIGH.add(bn(1)))
           })
         })
       })

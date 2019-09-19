@@ -58,7 +58,7 @@ contract HexSumTreeMock is TimeHelpersMock {
     }
 
     function heightAt(uint64 _time) public view returns (uint256) {
-        return tree.getHeightAt(_time);
+        return tree.getRecentHeightAt(_time);
     }
 
     function search(uint256[] memory _values, uint64 _time) public view returns (uint256[] memory keys, uint256[] memory values) {

@@ -38,11 +38,8 @@ contract('Court', ([_, sender]) => {
 
       const itHandlesDisputesCreationProperly = expectedTermTransitions => {
         context('when the creator approves enough fee tokens', () => {
-          const jurorFees = jurorFee.mul(jurorsNumber)
-          const jurorRewards = (draftFee.plus(settleFee)).mul(jurorsNumber)
-          const disputeFees = jurorFees.plus(heartbeatFee).plus(jurorRewards)
-
           beforeEach('approve fee amount', async () => {
+            const { disputeFees } = await courtHelper.getDisputeFees(draftTermId, jurorsNumber)
             await courtHelper.mintAndApproveFeeTokens(sender, court.address, disputeFees)
           })
 
@@ -74,11 +71,7 @@ contract('Court', ([_, sender]) => {
           })
 
           it('transfers fees to the court', async () => {
-            const jurorFees = jurorFee.mul(jurorsNumber)
-            const draftFees = draftFee.mul(jurorsNumber)
-            const settleFees = settleFee.mul(jurorsNumber)
-            const expectedDisputeDeposit = jurorFees.plus(heartbeatFee).plus(draftFees).plus(settleFees)
-
+            const { disputeFees: expectedDisputeDeposit } = await courtHelper.getDisputeFees(draftTermId, jurorsNumber)
             const previousCourtBalance = await feeToken.balanceOf(court.address)
             const previousAccountingBalance = await feeToken.balanceOf(courtHelper.accounting.address)
             const previousSenderBalance = await feeToken.balanceOf(sender)
@@ -197,7 +190,7 @@ contract('Court', ([_, sender]) => {
 
       beforeEach('create dispute', async () => {
         await courtHelper.setTimestamp(firstTermStartTime)
-        const disputeFees = courtHelper.getDisputeFees(jurorsNumber)
+        const { disputeFees } = await courtHelper.getDisputeFees(draftTermId, jurorsNumber)
         await courtHelper.mintAndApproveFeeTokens(sender, court.address, disputeFees)
 
         await court.createDispute(arbitrable.address, possibleRulings, jurorsNumber, draftTermId, { from: sender })
@@ -228,7 +221,7 @@ contract('Court', ([_, sender]) => {
 
       beforeEach('create dispute', async () => {
         await courtHelper.setTimestamp(firstTermStartTime)
-        const disputeFees = courtHelper.getDisputeFees(jurorsNumber)
+        const { disputeFees } = await courtHelper.getDisputeFees(draftTermId, jurorsNumber)
         await courtHelper.mintAndApproveFeeTokens(sender, court.address, disputeFees)
 
         await court.createDispute(arbitrable.address, possibleRulings, jurorsNumber, draftTermId, { from: sender })

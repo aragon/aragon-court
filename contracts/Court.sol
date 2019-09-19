@@ -816,6 +816,19 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
     }
 
     /**
+    * @dev Tell the amount of token fees required to create a dispute
+    * @param _draftTermId Term id in which the dispute will be drafted
+    * @param _jurorsNumber Number of jurors to be drafted for the dispute
+    * @return feeToken ERC20 token used for the fees
+    * @return jurorFees Total amount of fees to be distributed between the winning jurors of a round
+    * @return totalFees Total amount of fees for a regular round at the given term
+    */
+    function getDisputeFees(uint64 _draftTermId, uint64 _jurorsNumber) external view returns (ERC20 feeToken, uint256 jurorFees, uint256 totalFees) {
+        require(_draftTermId > termId, ERROR_CANNOT_CREATE_DISPUTE);
+        return _getRegularRoundFees(_draftTermId, _jurorsNumber);
+    }
+
+    /**
     * @dev Tell information related to the next round due to an appeal of a certain round given.
     * @param _disputeId Identification number of the dispute being queried
     * @param _roundId Identification number of the round requesting the appeal details of

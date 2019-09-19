@@ -43,7 +43,7 @@ module.exports = (web3, artifacts) => {
     penaltyPct:                         bn(100),         //  1% (1/10,000)
     finalRoundReduction:                bn(3300),        //  33% (1/10,000)
     appealStepFactor:                   bn(3),           //  each time a new appeal occurs, the amount of jurors to be drafted will be incremented 3 times
-    maxRegularAppealRounds:             bn(3),           //  there can be up to 3 appeals in total per dispute
+    maxRegularAppealRounds:             bn(2),           //  there can be up to 2 appeals in total per dispute
     jurorsMinActiveBalance:             bigExp(100, 18), //  100 ANJ is the minimum balance jurors must activate to participate in the Court
     subscriptionPeriodDuration:         bn(0),           //  none subscription period
     subscriptionFeeAmount:              bn(0),           //  none subscription fee
@@ -59,13 +59,6 @@ module.exports = (web3, artifacts) => {
       this.artifacts = artifacts
     }
 
-    getDisputeFees(jurorsNumber) {
-      const jurorFees = this.jurorFee.mul(jurorsNumber)
-      const draftFees = this.draftFee.mul(jurorsNumber)
-      const settleFees = this.settleFee.mul(jurorsNumber)
-      return this.heartbeatFee.plus(jurorFees).plus(draftFees).plus(settleFees)
-    }
-
     async getDispute(disputeId) {
       const [subject, possibleRulings, state, finalRuling, lastRoundId] = await this.court.getDispute(disputeId)
       return { subject, possibleRulings, state, finalRuling, lastRoundId }
@@ -79,6 +72,11 @@ module.exports = (web3, artifacts) => {
     async getAppeal(disputeId, roundId) {
       const [appealer, appealedRuling, taker, opposedRuling] = await this.court.getAppeal(disputeId, roundId)
       return { appealer, appealedRuling, taker, opposedRuling }
+    }
+
+    async getDisputeFees(draftTermId, jurorsNumber) {
+      const [feeToken, jurorFees, disputeFees] = await this.court.getDisputeFees(draftTermId, jurorsNumber)
+      return { feeToken, jurorFees, disputeFees }
     }
 
     async getNextRoundJurorsNumber(disputeId, roundId) {
@@ -212,7 +210,7 @@ module.exports = (web3, artifacts) => {
     async dispute({ jurorsNumber, draftTermId, possibleRulings = 2, arbitrable = undefined, disputer = undefined }) {
       // mint enough fee tokens for the disputer, if no disputer was given pick the second account
       if (!disputer) disputer = web3.eth.accounts[1]
-      const disputeFees = this.getDisputeFees(jurorsNumber)
+      const { disputeFees } = await this.getDisputeFees(draftTermId, jurorsNumber)
       await this.mintAndApproveFeeTokens(disputer, this.court.address, disputeFees)
 
       // create an arbitrable if no one was given, and mock subscriptions

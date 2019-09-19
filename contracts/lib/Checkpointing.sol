@@ -143,6 +143,12 @@ library Checkpointing {
             return 0;
         }
 
+        // If the requested time is equal to or after the time of the latest registered value, return latest value
+        uint256 lastIndex = length - 1;
+        if (_time >= self.history[lastIndex].time) {
+            return uint256(self.history[lastIndex].value);
+        }
+
         // If the requested time is previous to the first registered value, return zero to denote missing checkpoint
         if (_time < self.history[0].time) {
             return 0;
@@ -150,7 +156,7 @@ library Checkpointing {
 
         // Execute a binary search between the checkpointed times of the history
         uint256 low = 0;
-        uint256 high = length - 1;
+        uint256 high = lastIndex;
 
         while (high > low) {
             uint256 mid = (high + low + 1) / 2;

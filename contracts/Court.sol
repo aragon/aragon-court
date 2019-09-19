@@ -1235,6 +1235,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
 
         // Otherwise, return the times the active balance of the juror fits in the min active balance, multiplying
         // it by a round factor to ensure a better precision rounding.
+        // TODO: review, we are not using the final round discount here
         return (FINAL_ROUND_WEIGHT_PRECISION.mul(activeBalance) / minJurorsActiveBalance).toUint64();
     }
 

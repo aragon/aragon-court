@@ -40,11 +40,10 @@ contract('Court', ([_, sender]) => {
         context('when the creator approves enough fee tokens', () => {
           const jurorFees = jurorFee.mul(jurorsNumber)
           const jurorRewards = (draftFee.plus(settleFee)).mul(jurorsNumber)
-          const requiredCollateral = jurorFees.plus(heartbeatFee).plus(jurorRewards)
+          const disputeFees = jurorFees.plus(heartbeatFee).plus(jurorRewards)
 
           beforeEach('approve fee amount', async () => {
-            await feeToken.generateTokens(sender, requiredCollateral)
-            await feeToken.approve(court.address, requiredCollateral, { from: sender })
+            await courtHelper.mintAndApproveFeeTokens(sender, court.address, disputeFees)
           })
 
           it('creates a new dispute', async () => {
@@ -198,8 +197,8 @@ contract('Court', ([_, sender]) => {
 
       beforeEach('create dispute', async () => {
         await courtHelper.setTimestamp(firstTermStartTime)
-        await feeToken.generateTokens(sender, bigExp(1000, 18))
-        await feeToken.approve(court.address, bigExp(1000, 18), { from: sender })
+        const disputeFees = courtHelper.getDisputeFees(jurorsNumber)
+        await courtHelper.mintAndApproveFeeTokens(sender, court.address, disputeFees)
 
         await court.createDispute(arbitrable.address, possibleRulings, jurorsNumber, draftTermId, { from: sender })
       })
@@ -229,8 +228,8 @@ contract('Court', ([_, sender]) => {
 
       beforeEach('create dispute', async () => {
         await courtHelper.setTimestamp(firstTermStartTime)
-        await feeToken.generateTokens(sender, bigExp(1000, 18))
-        await feeToken.approve(court.address, bigExp(1000, 18), { from: sender })
+        const disputeFees = courtHelper.getDisputeFees(jurorsNumber)
+        await courtHelper.mintAndApproveFeeTokens(sender, court.address, disputeFees)
 
         await court.createDispute(arbitrable.address, possibleRulings, jurorsNumber, draftTermId, { from: sender })
       })

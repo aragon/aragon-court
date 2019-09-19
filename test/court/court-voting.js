@@ -1,9 +1,9 @@
 const { bigExp } = require('../helpers/numbers')(web3)
 const { filterJurors } = require('../helpers/jurors')
 const { assertRevert } = require('@aragon/os/test/helpers/assertThrow')
-const { buildHelper, ROUND_STATES } = require('../helpers/court')(web3, artifacts)
+const { buildHelper, DEFAULTS, ROUND_STATES } = require('../helpers/court')(web3, artifacts)
 const { assertAmountOfEvents, assertEvent } = require('@aragon/os/test/helpers/assertEvent')(web3)
-const { SALT, OUTCOMES, getVoteId, encryptVote, outcomeFor } = require('../helpers/crvoting')(web3)
+const { getVoteId, encryptVote, outcomeFor, SALT, OUTCOMES } = require('../helpers/crvoting')(web3)
 
 contract('Court', ([_, disputer, drafter, juror500, juror1000, juror1500, juror2000, juror2500, juror3000, juror3500, juror4000]) => {
   let courtHelper, court, voting
@@ -245,7 +245,7 @@ contract('Court', ([_, disputer, drafter, juror500, juror1000, juror1500, juror2
     })
 
     context('for a final round', () => {
-      const roundId = 3, poorJuror = juror500
+      const roundId = DEFAULTS.maxRegularAppealRounds.toNumber(), poorJuror = juror500
 
       beforeEach('simulate juror without enough balance to vote on a final round', async () => {
         const { initialActiveBalance } = jurors.find(({ address }) => address === poorJuror)

@@ -5,9 +5,32 @@ cache:
 notifications:
   email: false
 node_js:
-  - '8'
-env:
-  - TASK=test
+  - '10'
 before_script:
   - npm prune
-script: "npm run $TASK"
+jobs:
+  include:
+    - stage: tests
+      script: npm run lint
+      name: "Lint"
+    - stage: tests
+      script: npm test test/court/court-{initialize,accounting,terms,draft}.js
+      name: "Court Basics"
+    - stage: tests
+      script: npm test test/court/court-{disputes,voting,appeal,confirm-appeal}.js
+      name: "Court Disputes"
+    - stage: tests
+      script: npm test test/court/court-settle.js
+      name: "Court Settles"
+    - stage: tests
+      script: npm test test/registry/*.js
+      name: "Registry"
+    - stage: tests
+      script: npm test test/lib/*.js
+      name: "Lib"
+    - stage: tests
+      script: npm test test/voting/*.js
+      name: "Voting"
+    - stage: tests
+      script: npm test test/subscriptions/*.js
+      name: "Subscriptions"

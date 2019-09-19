@@ -1,13 +1,13 @@
-const { bigExp } = require('../helpers/numbers')(web3)
-const { assertRevert } = require('@aragon/test-helpers/assertThrow')
+const { bn, bigExp } = require('../helpers/numbers')
+const { assertRevert } = require('../helpers/assertThrow')
 
 const JurorsRegistry = artifacts.require('JurorsRegistry')
-const MiniMeToken = artifacts.require('MiniMeToken')
+const ERC20 = artifacts.require('ERC20Mock')
 const JurorsRegistryOwnerMock = artifacts.require('JurorsRegistryOwnerMock')
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
 
-contract('JurorsRegistry initialization', ([_, something]) => {
+contract('JurorsRegistry', ([_, something]) => {
   let registry, registryOwner, ANJ
 
   const MIN_ACTIVE_AMOUNT = bigExp(100, 18)
@@ -15,7 +15,7 @@ contract('JurorsRegistry initialization', ([_, something]) => {
   beforeEach('create base contracts', async () => {
     registry = await JurorsRegistry.new()
     registryOwner = await JurorsRegistryOwnerMock.new(registry.address)
-    ANJ = await MiniMeToken.new(ZERO_ADDRESS, ZERO_ADDRESS, 0, 'n', 18, 'ANJ', true)
+    ANJ = await ERC20.new('ANJ Token', 'ANJ', 18)
   })
 
   describe('initialize', () => {
@@ -59,7 +59,7 @@ contract('JurorsRegistry initialization', ([_, something]) => {
 
       context('when the initialization succeeds', () => {
         context('when the minimum active amount is zero', () => {
-          const minActiveBalance = 0
+          const minActiveBalance = bn(0)
 
           it('is initialized', async () => {
             await registry.init(registryOwner.address, ANJ.address, minActiveBalance)

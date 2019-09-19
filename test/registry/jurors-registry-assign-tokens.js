@@ -1,37 +1,35 @@
-const { assertRevert } = require('@aragon/test-helpers/assertThrow')
+const { assertRevert } = require('../helpers/assertThrow')
 const { decodeEventsOfType } = require('../helpers/decodeEvent')
-const { bigExp, MAX_UINT256 } = require('../helpers/numbers')(web3)
-const { assertEvent, assertAmountOfEvents } = require('@aragon/test-helpers/assertEvent')(web3)
+const { bn, bigExp, MAX_UINT256 } = require('../helpers/numbers')
+const { assertEvent, assertAmountOfEvents } = require('../helpers/assertEvent')
 
+const ERC20 = artifacts.require('ERC20Mock')
 const JurorsRegistry = artifacts.require('JurorsRegistry')
-const MiniMeToken = artifacts.require('MiniMeToken')
 const JurorsRegistryOwnerMock = artifacts.require('JurorsRegistryOwnerMock')
 
-const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
-const BURN_ADDRESS = '0x000000000000000000000000000000000000dead'
-
-contract('JurorsRegistry assign tokens', ([_, juror, someone]) => {
+contract('JurorsRegistry', ([_, juror, someone]) => {
   let registry, registryOwner, ANJ
 
   const MIN_ACTIVE_AMOUNT = bigExp(100, 18)
+  const BURN_ADDRESS = '0x000000000000000000000000000000000000dead'
 
   beforeEach('create base contracts', async () => {
     registry = await JurorsRegistry.new()
     registryOwner = await JurorsRegistryOwnerMock.new(registry.address)
-    ANJ = await MiniMeToken.new(ZERO_ADDRESS, ZERO_ADDRESS, 0, 'n', 18, 'ANJ', true)
+    ANJ = await ERC20.new('ANJ Token', 'ANJ', 18)
   })
 
   const itHandlesZeroTokenAssignmentsProperly = (assignmentCall, recipient) => {
     it('does not affect any of the balances', async () => {
       const previousUnlockedActiveBalance = await registry.unlockedActiveBalanceOf(recipient)
-      const [previousActiveBalance, previousAvailableBalance, previousLockedBalance, previousDeactivationBalance] = await registry.balanceOf(recipient)
+      const { active: previousActiveBalance, available: previousAvailableBalance, locked: previousLockedBalance, pendingDeactivation: previousDeactivationBalance } = await registry.balanceOf(recipient)
 
       await assignmentCall()
 
       const currentUnlockedActiveBalance = await registry.unlockedActiveBalanceOf(recipient)
       assert.equal(previousUnlockedActiveBalance.toString(), currentUnlockedActiveBalance.toString(), 'unlocked balances do not match')
 
-      const [currentActiveBalance, currentAvailableBalance, currentLockedBalance, currentDeactivationBalance] = await registry.balanceOf(recipient)
+      const { active: currentActiveBalance, available: currentAvailableBalance, locked: currentLockedBalance, pendingDeactivation: currentDeactivationBalance } = await registry.balanceOf(recipient)
       assert.equal(previousLockedBalance.toString(), currentLockedBalance.toString(), 'locked balances do not match')
       assert.equal(previousActiveBalance.toString(), currentActiveBalance.toString(), 'active balances do not match')
       assert.equal(previousAvailableBalance.toString(), currentAvailableBalance.toString(), 'available balances do not match')
@@ -65,9 +63,8 @@ contract('JurorsRegistry assign tokens', ([_, juror, someone]) => {
     })
 
     it('does not emit an available balance changed event', async () => {
-      const { tx } = await assignmentCall()
-      const receipt = await web3.eth.getTransactionReceipt(tx)
-      const logs = decodeEventsOfType({ receipt }, JurorsRegistry.abi, 'JurorAvailableBalanceChanged')
+      const receipt = await assignmentCall()
+      const logs = decodeEventsOfType(receipt, JurorsRegistry.abi, 'JurorAvailableBalanceChanged')
 
       assertAmountOfEvents({ logs }, 'JurorAvailableBalanceChanged', 0)
     })
@@ -75,12 +72,12 @@ contract('JurorsRegistry assign tokens', ([_, juror, someone]) => {
 
   const itHandlesTokenAssignmentsProperly = (assignmentCall, recipient, amount) => {
     it('adds the given amount to the available balance', async () => {
-      const [previousActiveBalance, previousAvailableBalance, previousLockedBalance, previousDeactivationBalance] = await registry.balanceOf(recipient)
+      const { active: previousActiveBalance, available: previousAvailableBalance, locked: previousLockedBalance, pendingDeactivation: previousDeactivationBalance } = await registry.balanceOf(recipient)
 
       await assignmentCall()
 
-      const [currentActiveBalance, currentAvailableBalance, currentLockedBalance, currentDeactivationBalance] = await registry.balanceOf(recipient)
-      assert.equal(previousAvailableBalance.plus(amount).toString(), currentAvailableBalance.toString(), 'available balances do not match')
+      const { active: currentActiveBalance, available: currentAvailableBalance, locked: currentLockedBalance, pendingDeactivation: currentDeactivationBalance } = await registry.balanceOf(recipient)
+      assert.equal(previousAvailableBalance.add(amount).toString(), currentAvailableBalance.toString(), 'available balances do not match')
 
       assert.equal(previousLockedBalance.toString(), currentLockedBalance.toString(), 'locked balances do not match')
       assert.equal(previousActiveBalance.toString(), currentActiveBalance.toString(), 'active balances do not match')
@@ -106,7 +103,7 @@ contract('JurorsRegistry assign tokens', ([_, juror, someone]) => {
       assert.equal(previousTotalStake.toString(), currentTotalStake.toString(), 'total stake amounts do not match')
 
       const currentJurorStake = await registry.totalStakedFor(recipient)
-      assert.equal(previousJurorStake.plus(amount).toString(), currentJurorStake.toString(), 'recipient stake amounts do not match')
+      assert.equal(previousJurorStake.add(amount).toString(), currentJurorStake.toString(), 'recipient stake amounts do not match')
     })
 
     it('does not affect the token balances', async () => {
@@ -123,12 +120,11 @@ contract('JurorsRegistry assign tokens', ([_, juror, someone]) => {
     })
 
     it('emits an available balance changed event', async () => {
-      const { tx } = await assignmentCall()
-      const receipt = await web3.eth.getTransactionReceipt(tx)
-      const logs = decodeEventsOfType({ receipt }, JurorsRegistry.abi, 'JurorAvailableBalanceChanged')
+      const receipt = await assignmentCall()
+      const logs = decodeEventsOfType(receipt, JurorsRegistry.abi, 'JurorAvailableBalanceChanged')
 
       assertAmountOfEvents({ logs }, 'JurorAvailableBalanceChanged')
-      assertEvent({ logs }, 'JurorAvailableBalanceChanged', { juror: web3.toChecksumAddress(recipient), amount, positive: true })
+      assertEvent({ logs }, 'JurorAvailableBalanceChanged', { juror: recipient, amount, positive: true })
     })
   }
 
@@ -140,7 +136,7 @@ contract('JurorsRegistry assign tokens', ([_, juror, someone]) => {
 
       context('when the sender is the owner', () => {
         context('when the given amount is zero', () => {
-          const amount = 0
+          const amount = bn(0)
 
           itHandlesZeroTokenAssignmentsProperly(() => registryOwner.assignTokens(juror, amount), juror)
         })
@@ -200,7 +196,7 @@ contract('JurorsRegistry assign tokens', ([_, juror, someone]) => {
 
       context('when the sender is the owner', () => {
         context('when the given amount is zero', () => {
-          const amount = 0
+          const amount = bn(0)
 
           itHandlesZeroTokenAssignmentsProperly(() => registryOwner.burnTokens(amount), BURN_ADDRESS)
         })

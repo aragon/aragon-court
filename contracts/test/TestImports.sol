@@ -1,6 +1,6 @@
-pragma solidity ^0.4.24;
+pragma solidity ^0.5.8;
 
-import "@aragon/apps-shared-migrations/contracts/Migrations.sol";
+import "@aragon/os/contracts/lib/misc/Migrations.sol";
 
 
 contract TestImports {

@@ -1,4 +1,4 @@
-const { SALT, OUTCOMES, encryptVote } = require('../helpers/crvoting')
+const { SALT, OUTCOMES, encryptVote } = require('../helpers/crvoting')(web3)
 
 const CRVoting = artifacts.require('CRVoting')
 const CRVotingOwner = artifacts.require('CRVotingOwnerMock')

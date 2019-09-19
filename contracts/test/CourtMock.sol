@@ -46,11 +46,7 @@ contract CourtMock is Court, TimeHelpersMock {
         jurorsRegistry.collectTokens(_juror, _amount, termId);
     }
 
-    function getMaxJurorsPerDraftBatch() public pure returns (uint256) {
-        return MAX_JURORS_PER_DRAFT_BATCH;
-    }
-
     function getAdjudicationState(uint256 _disputeId, uint256 _roundId, uint64 _termId) public view returns (AdjudicationState) {
-        return _adjudicationStateAtTerm(_disputeId, _roundId, _termId);
+        return _adjudicationStateAt(disputes[_disputeId], _roundId, _termId);
     }
 }

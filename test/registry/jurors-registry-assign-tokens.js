@@ -10,7 +10,7 @@ const JurorsRegistryOwnerMock = artifacts.require('JurorsRegistryOwnerMock')
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
 const BURN_ADDRESS = '0x000000000000000000000000000000000000dead'
 
-contract('JurorsRegistry assign tokens', ([_, juror, someone]) => {
+contract('JurorsRegistry', ([_, juror, someone]) => {
   let registry, registryOwner, ANJ
 
   const MIN_ACTIVE_AMOUNT = bigExp(100, 18)
@@ -65,9 +65,8 @@ contract('JurorsRegistry assign tokens', ([_, juror, someone]) => {
     })
 
     it('does not emit an available balance changed event', async () => {
-      const { tx } = await assignmentCall()
-      const receipt = await web3.eth.getTransactionReceipt(tx)
-      const logs = decodeEventsOfType({ receipt }, JurorsRegistry.abi, 'JurorAvailableBalanceChanged')
+      const receipt = await assignmentCall()
+      const logs = decodeEventsOfType(receipt, JurorsRegistry.abi, 'JurorAvailableBalanceChanged')
 
       assertAmountOfEvents({ logs }, 'JurorAvailableBalanceChanged', 0)
     })
@@ -123,12 +122,11 @@ contract('JurorsRegistry assign tokens', ([_, juror, someone]) => {
     })
 
     it('emits an available balance changed event', async () => {
-      const { tx } = await assignmentCall()
-      const receipt = await web3.eth.getTransactionReceipt(tx)
-      const logs = decodeEventsOfType({ receipt }, JurorsRegistry.abi, 'JurorAvailableBalanceChanged')
+      const receipt = await assignmentCall()
+      const logs = decodeEventsOfType(receipt, JurorsRegistry.abi, 'JurorAvailableBalanceChanged')
 
       assertAmountOfEvents({ logs }, 'JurorAvailableBalanceChanged')
-      assertEvent({ logs }, 'JurorAvailableBalanceChanged', { juror: web3.toChecksumAddress(recipient), amount, positive: true })
+      assertEvent({ logs }, 'JurorAvailableBalanceChanged', { juror: recipient, amount, positive: true })
     })
   }
 

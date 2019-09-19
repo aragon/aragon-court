@@ -1,5 +1,5 @@
 const { assertRevert } = require('@aragon/test-helpers/assertThrow')
-const { SALT, OUTCOMES, encryptVote } = require('../helpers/crvoting')
+const { SALT, OUTCOMES, encryptVote } = require('../helpers/crvoting')(web3)
 const { assertEvent, assertAmountOfEvents } = require('@aragon/test-helpers/assertEvent')(web3)
 
 const CRVoting = artifacts.require('CRVoting')

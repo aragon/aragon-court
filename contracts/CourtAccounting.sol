@@ -35,8 +35,7 @@ contract CourtAccounting is IAccounting {
     }
 
     function assign(ERC20 _token, address _to, uint256 _amount) external onlyOwner {
-        // TODO: uncomment, we are testing with 0 fees for now
-        // require(_amount > 0, ERROR_DEPOSIT_AMOUNT_ZERO);
+        require(_amount > 0, ERROR_DEPOSIT_AMOUNT_ZERO);
 
         balances[_token][_to] = balances[_token][_to].add(_amount);
         emit Assign(address(_token), msg.sender, _to, _amount);

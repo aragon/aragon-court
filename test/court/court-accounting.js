@@ -1,5 +1,5 @@
 const { assertRevert } = require('@aragon/test-helpers/assertThrow')
-const { bigExp, MAX_UINT256 } = require('./helpers/numbers')(web3)
+const { bigExp, MAX_UINT256 } = require('../helpers/numbers')(web3)
 const { assertEvent, assertAmountOfEvents } = require('@aragon/test-helpers/assertEvent')(web3)
 
 const MiniMeToken = artifacts.require('MiniMeToken')
@@ -43,13 +43,11 @@ contract('CourtAccounting', ([_, owner, holder, someone]) => {
         const from = owner
 
         context('when the account did not have previous balance', () => {
+
           context('when the given amount is zero', () => {
             const amount = 0
 
-            // TODO: this validation has been commented in the contract to avoid having the rest of the tests failing,
-            //       since they are testing with zero fees
-
-            it.skip('reverts', async () => {
+            it('reverts', async () => {
               await assertRevert(accounting.assign(DAI.address, account, amount, { from }), 'ACCOUNTING_DEPOSIT_AMOUNT_ZERO')
             })
           })
@@ -81,10 +79,7 @@ contract('CourtAccounting', ([_, owner, holder, someone]) => {
           context('when the given amount is zero', () => {
             const amount = 0
 
-            // TODO: this validation has been commented in the contract to avoid having the rest of the tests failing,
-            //       since they are testing with zero fees
-
-            it.skip('reverts', async () => {
+            it('reverts', async () => {
               await assertRevert(accounting.assign(DAI.address, account, amount, { from }), 'ACCOUNTING_DEPOSIT_AMOUNT_ZERO')
             })
           })

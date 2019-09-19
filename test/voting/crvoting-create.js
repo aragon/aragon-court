@@ -1,4 +1,4 @@
-const { OUTCOMES } = require('../helpers/crvoting')
+const { OUTCOMES } = require('../helpers/crvoting')(web3)
 const { assertRevert } = require('@aragon/test-helpers/assertThrow')
 const { decodeEventsOfType } = require('../helpers/decodeEvent')
 const { assertEvent, assertAmountOfEvents } = require('@aragon/test-helpers/assertEvent')(web3)
@@ -35,9 +35,8 @@ contract('CRVoting create', ([_, someone]) => {
             })
 
             it('emits an event', async () => {
-              const { tx } = await votingOwner.create(voteId, possibleOutcomes)
-              const receipt = await web3.eth.getTransactionReceipt(tx)
-              const logs = decodeEventsOfType({ receipt }, CRVoting.abi, 'VotingCreated')
+              const receipt = await votingOwner.create(voteId, possibleOutcomes)
+              const logs = decodeEventsOfType(receipt, CRVoting.abi, 'VotingCreated')
 
               assertAmountOfEvents({ logs }, 'VotingCreated')
               assertEvent({ logs }, 'VotingCreated', { voteId, possibleOutcomes })
@@ -98,7 +97,6 @@ contract('CRVoting create', ([_, someone]) => {
           await assertRevert(voting.create(1, 2, { from }), 'CRV_SENDER_NOT_OWNER')
         })
       })
-
     })
 
     context('when the voting is not initialized', () => {

@@ -7,7 +7,7 @@ const JurorsRegistryOwnerMock = artifacts.require('JurorsRegistryOwnerMock')
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
 
-contract('JurorsRegistry initialization', ([_, something]) => {
+contract('JurorsRegistry', ([_, something]) => {
   let registry, registryOwner, ANJ
 
   const MIN_ACTIVE_AMOUNT = bigExp(100, 18)

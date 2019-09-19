@@ -1,4 +1,5 @@
 const abi = require('web3-eth-abi')
+const { isAddress } = require('web3-utils')
 
 module.exports = {
   decodeEventsOfType(receipt, contractAbi, eventName) {
@@ -8,6 +9,13 @@ module.exports = {
     return eventLogs.map(log => {
       log.event = eventAbi.name
       log.args = abi.decodeLog(eventAbi.inputs, log.data, log.topics.slice(1))
+
+      // undo checksumed addresses
+      Object.keys(log.args).forEach(arg => {
+        const value = log.args[arg]
+        if (isAddress(value)) log.args[arg] = value.toLowerCase()
+      })
+
       return log
     })
   }

@@ -10,6 +10,7 @@ contract JurorsRegistryMock is JurorsRegistry, TimeHelpersMock {
     address[] public mockedSelectedJurors;
     uint256[] public mockedWeights;
 
+    // TODO: remove
     function mockHijackTreeSearch() external {
         treeSearchHijacked = true;
     }
@@ -39,11 +40,11 @@ contract JurorsRegistryMock is JurorsRegistry, TimeHelpersMock {
     }
 
     function _runHijackedSearch(uint256[7] _params) internal view returns (uint256[] keys, uint256[] nodeValues) {
-        uint256 _jurorsRequested = _params[4];
+        uint256 _requestedJurors = _params[4];
 
-        keys = new uint256[](_jurorsRequested);
-        nodeValues = new uint256[](_jurorsRequested);
-        for (uint256 i = 0; i < _jurorsRequested; i++) {
+        keys = new uint256[](_requestedJurors);
+        nodeValues = new uint256[](_requestedJurors);
+        for (uint256 i = 0; i < _requestedJurors; i++) {
             uint256 key = i % (tree.nextKey - 1) + 1; // loop, and avoid 0
             keys[i] = key;
             nodeValues[i] = tree.getItem(key);

@@ -10,7 +10,7 @@ const JurorsRegistryOwnerMock = artifacts.require('JurorsRegistryOwnerMock')
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
 
-contract('JurorsRegistry slashing', ([_, juror, secondJuror, thirdJuror, anyone]) => {
+contract('JurorsRegistry', ([_, juror, secondJuror, thirdJuror, anyone]) => {
   let registry, registryOwner, ANJ
 
   const ACTIVATE_DATA = web3.sha3('activate(uint256)').slice(0, 10)
@@ -285,9 +285,8 @@ contract('JurorsRegistry slashing', ([_, juror, secondJuror, thirdJuror, anyone]
 
           if (amount === 0) {
             it('does not emit a juror tokens collected event', async () => {
-              const { tx } = await registryOwner.collect(juror, amount)
-              const receipt = await web3.eth.getTransactionReceipt(tx)
-              const logs = decodeEventsOfType({ receipt }, JurorsRegistry.abi, 'JurorTokensCollected')
+              const receipt = await registryOwner.collect(juror, amount)
+              const logs = decodeEventsOfType(receipt, JurorsRegistry.abi, 'JurorTokensCollected')
 
               assertAmountOfEvents({ logs }, 'JurorTokensCollected', 0)
             })
@@ -295,12 +294,11 @@ contract('JurorsRegistry slashing', ([_, juror, secondJuror, thirdJuror, anyone]
             it('emits a juror tokens collected event', async () => {
               const termId = await registryOwner.getLastEnsuredTermId()
 
-              const { tx } = await registryOwner.collect(juror, amount)
-              const receipt = await web3.eth.getTransactionReceipt(tx)
-              const logs = decodeEventsOfType({ receipt }, JurorsRegistry.abi, 'JurorTokensCollected')
+              const receipt = await registryOwner.collect(juror, amount)
+              const logs = decodeEventsOfType(receipt, JurorsRegistry.abi, 'JurorTokensCollected')
 
               assertAmountOfEvents({ logs }, 'JurorTokensCollected')
-              assertEvent({ logs }, 'JurorTokensCollected', { juror: web3.toChecksumAddress(juror), termId: termId.plus(1), amount })
+              assertEvent({ logs }, 'JurorTokensCollected', { juror, termId: termId.plus(1), amount })
             })
           }
 
@@ -315,17 +313,11 @@ contract('JurorsRegistry slashing', ([_, juror, secondJuror, thirdJuror, anyone]
               const termId = await registryOwner.getLastEnsuredTermId()
               const [, , , previousDeactivationBalance] = await registry.balanceOf(juror)
 
-              const { tx } = await registryOwner.collect(juror, amount)
-              const receipt = await web3.eth.getTransactionReceipt(tx)
-              const logs = decodeEventsOfType({ receipt }, JurorsRegistry.abi, 'JurorDeactivationUpdated')
+              const receipt = await registryOwner.collect(juror, amount)
+              const logs = decodeEventsOfType(receipt, JurorsRegistry.abi, 'JurorDeactivationUpdated')
 
               assertAmountOfEvents({ logs }, 'JurorDeactivationUpdated')
-              assertEvent({ logs }, 'JurorDeactivationUpdated', {
-                juror: web3.toChecksumAddress(juror),
-                amount: previousDeactivationBalance.minus(deactivationReduced),
-                availableTermId: 1,
-                updateTermId: termId
-              })
+              assertEvent({ logs }, 'JurorDeactivationUpdated', { juror, availableTermId: 1, updateTermId: termId, amount: previousDeactivationBalance.minus(deactivationReduced) })
             })
           }
         }

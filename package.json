@@ -1,7 +1,9 @@
 {
   "name": "@aragon/court",
   "version": "1.0.0",
-  "description": "",
+  "description": "Aragon Court",
+  "author": "Aragon Association",
+  "license": "GPL-3.0",
   "scripts": {
     "compile": "truffle compile",
     "lint": "solium --dir ./contracts",
@@ -9,18 +11,18 @@
     "coverage": "SOLIDITY_COVERAGE=true npm run ganache-cli:test",
     "ganache-cli:test": "./node_modules/@aragon/test-helpers/ganache-cli.sh"
   },
-  "author": "Aragon Association",
-  "license": "GPL-3.0",
+  "pre-push": ["lint"],
+  "dependencies": {
+    "@aragon/os": "aragon/aragonOS#alpha_upgrade_solidity_5"
+  },
   "devDependencies": {
     "@aragon/test-helpers": "^2.1.0",
     "ganache-cli": "^6.4.5",
+    "pre-push": "^0.1.1",
     "solidity-coverage": "0.5.8",
     "solium": "^1.2.3",
     "truffle": "^5.0.34",
     "web3": "^1.2.1",
     "web3-eth-abi": "1.0.0-beta.33"
-  },
-  "dependencies": {
-    "@aragon/os": "aragon/aragonOS#alpha_upgrade_solidity_5"
   }
 }

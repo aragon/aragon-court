@@ -1,4 +1,4 @@
-pragma solidity ^0.4.24;
+pragma solidity ^0.5.8;
 
 import "./Checkpointing.sol";
 
@@ -97,7 +97,7 @@ library HexSumTree {
 
         // If the new value is not zero, first set the value of the new leaf node, then add a new level at the top of
         // the tree if necessary, and finally update sums cached in all the non-leaf nodes.
-        if (_value > uint256(0)) {
+        if (_value > 0) {
             _add(self, ITEMS_LEVEL, key, _time, _value);
             _updateSums(self, key, _time, _value, true);
         }
@@ -153,12 +153,14 @@ library HexSumTree {
      * @return keys List of keys found for each requested value in the same order
      * @return values List of node values found for each requested value in the same order
      */
-    function search(Tree storage self, uint256[] _values, uint64 _time) internal view returns (uint256[] keys, uint256[] values) {
-        require(_values.length > uint256(0), ERROR_MISSING_SEARCH_VALUES);
+    function search(Tree storage self, uint256[] memory _values, uint64 _time) internal view
+        returns (uint256[] memory keys, uint256[] memory values)
+    {
+        require(_values.length > 0, ERROR_MISSING_SEARCH_VALUES);
 
         // Throw out-of-bounds error if there are no items in the tree or the highest value being searched is greater than the total
         uint256 total = getRecentTotalAt(self, _time);
-        require(total > uint256(0) && total >= _values[_values.length - 1], ERROR_SEARCH_OUT_OF_BOUNDS);
+        require(total > 0 && total >= _values[_values.length - 1], ERROR_SEARCH_OUT_OF_BOUNDS);
 
         // Build search params for the first iteration
         uint256 rootLevel = getHeightAt(self, _time);
@@ -353,7 +355,15 @@ library HexSumTree {
      * @param _resultKeys List of keys found for each requested value in the same order
      * @param _resultValues List of node values found for each requested value in the same order
      */
-    function _search(Tree storage self, uint256[] _values, SearchParams memory _params, uint256[] _resultKeys, uint256[] _resultValues) private view {
+    function _search(
+        Tree storage self,
+        uint256[] memory _values,
+        SearchParams memory _params,
+        uint256[] memory _resultKeys,
+        uint256[] memory _resultValues
+    )
+        private view
+    {
         uint256 levelKeyLessSignificantNibble = _params.level * BITS_IN_NIBBLE;
         for (uint256 childNumber = 0; childNumber < CHILDREN; childNumber++) {
             // Return if we already found enough values
@@ -414,7 +424,7 @@ library HexSumTree {
         uint256 mask = uint256(-1) << shift;
 
         // Check if the given key can be represented in the tree with the current given height using the mask.
-        return (_newKey & mask) != uint256(0);
+        return (_newKey & mask) != 0;
     }
 
     /**
@@ -426,8 +436,8 @@ library HexSumTree {
     */
     function _getValuesIncludedInSubtree(uint256[] memory _values, uint256 _foundValues, uint256 _subtreeTotal) private pure returns (uint256) {
         // If the given subtree total is zero, we already know any value will be included in it
-        if (_subtreeTotal == uint256(0)) {
-            return uint256(0);
+        if (_subtreeTotal == 0) {
+            return 0;
         }
 
         // Otherwise, look for all the values that can be found in the given subtree
@@ -448,7 +458,16 @@ library HexSumTree {
     * @param _value Value of the node to be copied
     * @param _resultValues Lists of value results to copy the given node value to
     */
-    function _copyFoundNode(uint256 _from, uint256 _times, uint256 _key, uint256[] memory _resultKeys, uint256 _value, uint256[] memory _resultValues) private pure {
+    function _copyFoundNode(
+        uint256 _from,
+        uint256 _times,
+        uint256 _key,
+        uint256[] memory _resultKeys,
+        uint256 _value,
+        uint256[] memory _resultValues
+    )
+        private pure
+    {
         for (uint256 i = 0; i < _times; i++) {
             _resultKeys[_from + i] = _key;
             _resultValues[_from + i] = _value;

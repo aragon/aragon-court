@@ -1,4 +1,4 @@
-const { assertRevert } = require('@aragon/test-helpers/assertThrow')
+const { assertRevert } = require('../helpers/assertThrow')
 
 const CRVoting = artifacts.require('CRVoting')
 const CRVotingOwnerMock = artifacts.require('CRVotingOwnerMock')

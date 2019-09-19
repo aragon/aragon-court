@@ -1,15 +1,21 @@
 const aOSConfig = require("@aragon/os/truffle-config")
+delete aOSConfig.solc
 
-let config = {
+const config = {
   ...aOSConfig,
 
-  solc: {
-    optimizer: {
-      enabled: true,
-      runs: 1     // could be increased depending on the final size of Court.sol
-      // Disabling the optimizer or setting a higher runs value causes CourtMock deployments to out of gas for any gas amount
+  compilers: {
+    solc: {
+      version: '0.5.8',
+      settings: {
+        optimizer: {
+          enabled: true,
+          runs: 1     // Could be increased depending on the final size of Court.sol. We are currently disabling the optimizer
+                      // cause it is increasing the Court bytecode which causes an out-of-gas error when deploying it.
+        },
+      },
     },
-  },
+  }
 }
 
 module.exports = config

@@ -44,7 +44,7 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
       context('when the given round is valid', () => {
         const roundId = 0
         const voters = [
-          { address: juror1000, weight: 1, outcome: OUTCOMES.LOW },
+          { address: juror1000, weight: 1, outcome: OUTCOMES.LEAKED },
           { address: juror2000, weight: 1, outcome: OUTCOMES.HIGH },
           { address: juror4000, weight: 1, outcome: OUTCOMES.LOW },
         ]

@@ -825,7 +825,9 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
     * @return jurorFees Total amount of fees to be distributed between the winning jurors of a round
     * @return totalFees Total amount of fees for a regular round at the given term
     */
-    function getDisputeFees(uint64 _draftTermId, uint64 _jurorsNumber) external view returns (ERC20 feeToken, uint256 jurorFees, uint256 totalFees) {
+    function getDisputeFees(uint64 _draftTermId, uint64 _jurorsNumber) external view
+        returns (ERC20 feeToken, uint256 jurorFees, uint256 totalFees)
+    {
         require(_draftTermId > termId, ERROR_CANNOT_CREATE_DISPUTE);
         return _getRegularRoundFees(_draftTermId, _jurorsNumber);
     }

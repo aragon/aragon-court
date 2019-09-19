@@ -159,7 +159,7 @@ library HexSumTree {
         require(_values.length > 0, ERROR_MISSING_SEARCH_VALUES);
 
         // Throw out-of-bounds error if there are no items in the tree or the highest value being searched is greater than the total
-        uint256 total = getTotalAt(self, _time, true);
+        uint256 total = getRecentTotalAt(self, _time);
         require(total > 0 && total >= _values[_values.length - 1], ERROR_SEARCH_OUT_OF_BOUNDS);
 
         // Build search params for the first iteration
@@ -183,12 +183,22 @@ library HexSumTree {
 
     /**
     * @dev Tell the sum of the all the items (leaves) stored in the tree, i.e. value of the root of the tree, at a given point in time
+    *      It uses a binary search.
     * @param _time Point in time to query the sum of all the items (leaves) stored in the tree
-    * @param _recent Boolean indicating whether the given point in time is known to be recent or not
     */
-    function getTotalAt(Tree storage self, uint64 _time, bool _recent) internal view returns (uint256) {
-        uint256 rootLevel = getHeightAt(self, _time, _recent);
-        return getNodeAt(self, rootLevel, BASE_KEY, _time, _recent);
+    function getTotalAt(Tree storage self, uint64 _time) internal view returns (uint256) {
+        uint256 rootLevel = getHeightAt(self, _time);
+        return getNodeAt(self, rootLevel, BASE_KEY, _time);
+    }
+
+    /**
+     * @dev Tell the sum of the all the items (leaves) stored in the tree, i.e. value of the root of the tree, at a given point in time
+     *      It uses a linear search starting from the end.
+     * @param _time Point in time to query the sum of all the items (leaves) stored in the tree
+     */
+    function getRecentTotalAt(Tree storage self, uint64 _time) internal view returns (uint256) {
+        uint256 rootLevel = getRecentHeightAt(self, _time);
+        return getRecentNodeAt(self, rootLevel, BASE_KEY, _time);
     }
 
     /**
@@ -201,6 +211,7 @@ library HexSumTree {
 
     /**
     * @dev Tell the value of a certain leaf indexed by a given key at a given point in time
+    *      It uses a binary search.
     * @param _key Key of the leaf node querying the value of
     * @param _time Point in time to query the value of the requested leaf
     */
@@ -219,6 +230,7 @@ library HexSumTree {
 
     /**
     * @dev Tell the value of a certain node indexed by a given (level,key) pair at a given point in time
+    *      It uses a binary search.
     * @param _level Level of the node querying the value of
     * @param _key Key of the node querying the value of
     * @param _time Point in time to query the value of the requested node
@@ -229,13 +241,13 @@ library HexSumTree {
 
     /**
     * @dev Tell the value of a certain node indexed by a given (level,key) pair at a given point in time
+    *      It uses a linear search starting from the end.
     * @param _level Level of the node querying the value of
     * @param _key Key of the node querying the value of
     * @param _time Point in time to query the value of the requested node
-    * @param _recent Boolean indicating whether the given point in time is known to be recent or not
     */
-    function getNodeAt(Tree storage self, uint256 _level, uint256 _key, uint64 _time, bool _recent) internal view returns (uint256) {
-        return self.nodes[_level][_key].get(_time, _recent);
+    function getRecentNodeAt(Tree storage self, uint256 _level, uint256 _key, uint64 _time) internal view returns (uint256) {
+        return self.nodes[_level][_key].getRecent(_time);
     }
 
     /**
@@ -247,6 +259,7 @@ library HexSumTree {
 
     /**
     * @dev Tell the height of the tree at a given point in time
+    *      It uses a binary search.
     * @param _time Point in time to query the height of the tree
     */
     function getHeightAt(Tree storage self, uint64 _time) internal view returns (uint256) {
@@ -255,11 +268,11 @@ library HexSumTree {
 
     /**
     * @dev Tell the height of the tree at a given point in time
+    *      It uses a linear search starting from the end.
     * @param _time Point in time to query the height of the tree
-    * @param _recent Boolean indicating whether the given point in time is known to be recent or not
     */
-    function getHeightAt(Tree storage self, uint64 _time, bool _recent) internal view returns (uint256) {
-        return self.height.get(_time, _recent);
+    function getRecentHeightAt(Tree storage self, uint64 _time) internal view returns (uint256) {
+        return self.height.getRecent(_time);
     }
 
     /**
@@ -370,7 +383,7 @@ library HexSumTree {
             // Note that this cannot overflow since the root key of the highest tree is 0x0 and its highest child
             // key is 16^64, which is 2^256
             uint256 childNodeKey = _params.parentKey + (childNumber << levelKeyLessSignificantNibble);
-            uint256 childNodeValue = getNodeAt(self, _params.level, childNodeKey, _params.time, true);
+            uint256 childNodeValue = getRecentNodeAt(self, _params.level, childNodeKey, _params.time);
 
             // Check how many values belong to the subtree of this node. As they are ordered, it will be a contiguous
             // subset starting from the beginning, so we only need to know the length of that subset.

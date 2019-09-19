@@ -399,7 +399,7 @@ contract JurorsRegistry is Initializable, IsContract, IJurorsRegistry, ERC900, A
         // depending on whether the given checkpoint is considered to be recent or not. In this case, we consider
         // current or future terms as recent ones.
         bool recent = _termId >= owner.getLastEnsuredTermId();
-        return tree.getTotalAt(_termId, recent);
+        return recent ? tree.getRecentTotalAt(_termId) : tree.getTotalAt(_termId);
     }
 
     /**

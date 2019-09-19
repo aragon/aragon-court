@@ -16,7 +16,11 @@ contract CheckpointingMock {
         return history.getLast();
     }
 
-    function get(uint64 _time, bool _recent) public view returns (uint256) {
-        return history.get(_time, _recent);
+    function get(uint64 _time) public view returns (uint256) {
+        return history.get(_time);
+    }
+
+    function getRecent(uint64 _time) public view returns (uint256) {
+        return history.getRecent(_time);
     }
 }

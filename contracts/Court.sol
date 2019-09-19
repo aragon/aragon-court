@@ -52,6 +52,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
     string private constant ERROR_DEPOSIT_FAILED = "CT_DEPOSIT_FAILED";
 
     // Rounds-related error messages
+    string private constant ERROR_ROUND_IS_FINAL = "CT_ROUND_IS_FINAL";
     string private constant ERROR_ROUND_DOES_NOT_EXIST = "CT_ROUND_DOES_NOT_EXIST";
     string private constant ERROR_INVALID_ADJUDICATION_STATE = "CT_INVALID_ADJUDICATION_STATE";
     string private constant ERROR_ROUND_ALREADY_DRAFTED = "CT_ROUND_ALREADY_DRAFTED";
@@ -521,7 +522,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
         }
 
         CourtConfig storage config = _getConfigAtDraftTerm(round);
-        if (_roundId < uint256(config.maxRegularAppealRounds)) {
+        if (_isRegularRound(_roundId, config)) {
             // For regular appeal rounds we compute the amount of locked tokens that needs to get burned in batches.
             // The callers of this function will get rewarded in this case.
             uint256 jurorsSettled = _settleRegularRoundPenalties(round, voteId, finalRuling, config.penaltyPct, _jurorsToSettle);
@@ -611,9 +612,9 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
         emit AppealDepositSettled(_disputeId, _roundId);
 
         // If the appeal wasn't confirmed, return the entire deposit to appeal maker
-        (,,,ERC20 depositToken, uint256 totalFees,, uint256 appealDeposit, uint256 confirmAppealDeposit) = _getNextRoundDetails(round, _roundId);
+        (,,,ERC20 feeToken, uint256 totalFees,, uint256 appealDeposit, uint256 confirmAppealDeposit) = _getNextRoundDetails(round, _roundId);
         if (!_isAppealConfirmed(appeal)) {
-            accounting.assign(depositToken, appeal.maker, appealDeposit);
+            accounting.assign(feeToken, appeal.maker, appealDeposit);
             return;
         }
 
@@ -622,14 +623,14 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
         uint8 finalRuling = dispute.finalRuling;
         uint256 totalDeposit = appealDeposit + confirmAppealDeposit;
         if (appeal.appealedRuling == finalRuling) {
-            accounting.assign(depositToken, appeal.maker, totalDeposit - totalFees);
+            accounting.assign(feeToken, appeal.maker, totalDeposit - totalFees);
         } else if (appeal.opposedRuling == finalRuling) {
-            accounting.assign(depositToken, appeal.taker, totalDeposit - totalFees);
+            accounting.assign(feeToken, appeal.taker, totalDeposit - totalFees);
         } else {
             // If the final ruling wasn't selected by any of the appealing parties or no jurors voted in the
             // final round, return their deposits minus half of the fees to each party
-            accounting.assign(depositToken, appeal.maker, appealDeposit - totalFees / 2);
-            accounting.assign(depositToken, appeal.taker, confirmAppealDeposit - totalFees / 2);
+            accounting.assign(feeToken, appeal.maker, appealDeposit - totalFees / 2);
+            accounting.assign(feeToken, appeal.taker, confirmAppealDeposit - totalFees / 2);
         }
     }
 
@@ -812,6 +813,38 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
         appealedRuling = appeal.appealedRuling;
         taker = appeal.taker;
         opposedRuling = appeal.opposedRuling;
+    }
+
+    /**
+    * @dev Tell information related to the next round due to an appeal of a certain round given.
+    * @param _disputeId Identification number of the dispute being queried
+    * @param _roundId Identification number of the round requesting the appeal details of
+    * @return nextRoundStartTerm Term id from which the next round will start
+    * @return nextRoundJurorsNumber Jurors number for the next round
+    * @return newDisputeState New state for the dispute associated to the given round after the appeal
+    * @return feeToken ERC20 token used for the next round fees
+    * @return jurorFees Total amount of fees to be distributed between the winning jurors of the next round
+    * @return totalFees Total amount of fees for a regular round at the given term
+    * @return appealDeposit Amount to be deposit of fees for a regular round at the given term
+    * @return confirmAppealDeposit Total amount of fees for a regular round at the given term
+    */
+    function getNextRoundDetails(uint256 _disputeId, uint256 _roundId) external view roundExists(_disputeId, _roundId)
+        returns (
+            uint64 nextRoundStartTerm,
+            uint64 nextRoundJurorsNumber,
+            DisputeState newDisputeState,
+            ERC20 feeToken,
+            uint256 totalFees,
+            uint256 jurorFees,
+            uint256 appealDeposit,
+            uint256 confirmAppealDeposit
+        )
+    {
+        Dispute storage dispute = disputes[_disputeId];
+        AdjudicationRound storage round = dispute.rounds[_roundId];
+        CourtConfig storage config = _getConfigAtDraftTerm(round);
+        require(_isRegularRound(_roundId, config), ERROR_ROUND_IS_FINAL);
+        return _getNextRoundDetails(round, _roundId);
     }
 
     /**
@@ -1026,7 +1059,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
         AdjudicationRound storage round = _dispute.rounds[_roundId];
         CourtConfig storage config = _getConfigAtDraftTerm(round);
 
-        return (_roundId < uint256(config.maxRegularAppealRounds))
+        return _isRegularRound(_roundId, config)
             ? _getJurorWeightForRegularRound(round, _juror)
             : _computeJurorWeightForFinalRound(round, _juror);
     }
@@ -1166,7 +1199,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
         AdjudicationRound storage round = disputes[_disputeId].rounds[_roundId];
         CourtConfig storage config = _getConfigAtDraftTerm(round);
 
-        return (_roundId < uint256(config.maxRegularAppealRounds))
+        return (_isRegularRound(_roundId, config))
             ? _getJurorWeightForRegularRound(round, _juror)
             : _getJurorWeightForFinalRound(round, _juror);
     }
@@ -1206,7 +1239,8 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
     }
 
     /**
-    * @dev Tell information related to the next round due to an appeal of a certain round given. This function assumes given round can be appealed.
+    * @dev Internal function to tell information related to the next round due to an appeal of a certain round given. This function assumes
+    *      given round can be appealed and that the given round ID corresponds to the given round pointer.
     * @param _round Round requesting the appeal details of
     * @param _roundId Identification number of the round requesting the appeal details of
     * @return nextRoundStartTerm Term id from which the next round will start
@@ -1288,7 +1322,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
         // jurors number for a final round will always fit in uint64
         uint256 totalActiveBalance = jurorsRegistry.totalActiveBalanceAt(_termId);
         uint256 minJurorsActiveBalance = jurorsRegistry.minJurorsActiveBalance();
-        return uint64(FINAL_ROUND_WEIGHT_PRECISION * totalActiveBalance / minJurorsActiveBalance);
+        return (FINAL_ROUND_WEIGHT_PRECISION.mul(totalActiveBalance) / minJurorsActiveBalance).toUint64();
     }
 
     /**
@@ -1326,7 +1360,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
         feeToken = config.feeToken;
         // For final rounds, the jurors number is computed as the number of times the registry's minimum active balance is held in the registry
         // itself, multiplied by a precision factor. To avoid requesting a huge amount of fees, a final round discount is applied for each juror.
-        jurorFees = (_jurorsNumber * config.jurorFee / FINAL_ROUND_WEIGHT_PRECISION).pct(config.finalRoundReduction);
+        jurorFees = (uint256(_jurorsNumber).mul(config.jurorFee) / FINAL_ROUND_WEIGHT_PRECISION).pct(config.finalRoundReduction);
         // The total fees for final rounds only considers the heartbeat, there is no draft and no extra settle fees considered
         totalFees = config.heartbeatFee.add(jurorFees);
     }
@@ -1468,6 +1502,16 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
     function _getTermRandomness(Term storage _term) internal view returns (bytes32) {
         require(getBlockNumber64() > _term.randomnessBN, ERROR_TERM_RANDOMNESS_NOT_YET);
         return blockhash(_term.randomnessBN);
+    }
+
+    /**
+    * @dev Internal function to tell whether a round is regular or final. This function assumes the given round exists.
+    * @param _roundId Identification number of the round to be checked
+    * @param _config Court config to use in order to check if the given round is regular or final
+    * @return True if the given round is regular, false in case its a final round
+    */
+    function _isRegularRound(uint256 _roundId, CourtConfig storage _config) internal view returns (bool) {
+        return _roundId < uint256(_config.maxRegularAppealRounds);
     }
 
     /**

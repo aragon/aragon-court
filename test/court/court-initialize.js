@@ -19,12 +19,22 @@ contract('Court', () => {
       await assertRevert(courtHelper.deploy({ mockedTimestamp: NOW, firstTermStartTime: NOW - 1, termDuration: ONE_DAY }), 'CT_BAD_FIRST_TERM_START_TIME')
     })
 
-    it('cannot use a penalty pct lower than 1% (1/10,000) ', async () => {
-      await assertRevert(courtHelper.deploy({ penaltyPct: bn(99), jurorsMinActiveBalance: bn(100) }), 'CT_INVALID_PENALTY_PCT')
+    context('penalty pct (1/10,000)', () => {
+      it('cannot be above 100%', async () => {
+        await assertRevert(courtHelper.deploy({ penaltyPct: bn(10001) }), 'CT_INVALID_PENALTY_PCT')
+      })
 
-      const court = await courtHelper.deploy({ penaltyPct: bn(100), jurorsMinActiveBalance: bn(100) })
-      const penaltyPct = (await court.courtConfigs(1))[9] // config ID 0 is used for undefined
-      assert.equal(penaltyPct.toString(), 100, 'penalty pct does not match')
+      it('can be 0%', async () => {
+        const court = await courtHelper.deploy({ penaltyPct: bn(0) })
+        const penaltyPct = (await court.courtConfigs(1))[9] // config ID 0 is used for undefined
+        assert.equal(penaltyPct.toString(), 0, 'penalty pct does not match')
+      })
+
+      it('can be 100%', async () => {
+        const court = await courtHelper.deploy({ penaltyPct: bn(10000) })
+        const penaltyPct = (await court.courtConfigs(1))[9] // config ID 0 is used for undefined
+        assert.equal(penaltyPct.toString(), 10000, 'penalty pct does not match')
+      })
     })
   })
 })

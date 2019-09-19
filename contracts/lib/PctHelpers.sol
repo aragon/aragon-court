@@ -8,8 +8,8 @@ library PctHelpers {
 
     uint256 internal constant PCT_BASE = 10000; // ‱ (1 / 10,000)
 
-    function base() internal pure returns (uint256) {
-        return PCT_BASE;
+    function isValid(uint16 _pct) internal pure returns (bool) {
+        return _pct <= PCT_BASE;
     }
 
     function pct(uint256 self, uint16 _pct) internal pure returns (uint256) {

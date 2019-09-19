@@ -1,8 +1,9 @@
-const { bn, bigExp } = require('../helpers/numbers')(web3)
-const { assertRevert } = require('@aragon/test-helpers/assertThrow')
+const { sha3 } = require('web3-utils')
+const { bn, bigExp } = require('../helpers/numbers')
+const { assertRevert } = require('../helpers/assertThrow')
 const { decodeEventsOfType } = require('../helpers/decodeEvent')
 const { getEventAt, getEventArgument } = require('@aragon/test-helpers/events')
-const { assertAmountOfEvents, assertEvent } = require('@aragon/test-helpers/assertEvent')(web3)
+const { assertAmountOfEvents, assertEvent } = require('../helpers/assertEvent')
 
 const JurorsRegistry = artifacts.require('JurorsRegistry')
 const MiniMeToken = artifacts.require('MiniMeToken')
@@ -15,7 +16,7 @@ contract('JurorsRegistry', ([_, juror500, juror1000, juror1500, juror2000, juror
 
   const DRAFT_LOCK_PCT = bn(2000) // 20%
   const MIN_ACTIVE_AMOUNT = bigExp(100, 18)
-  const ACTIVATE_DATA = web3.sha3('activate(uint256)').slice(0, 10)
+  const ACTIVATE_DATA = sha3('activate(uint256)').slice(0, 10)
 
   const jurors = [
     { address: juror500,  initialActiveBalance: bigExp(500,  18) },
@@ -35,7 +36,7 @@ contract('JurorsRegistry', ([_, juror500, juror1000, juror1500, juror2000, juror
   beforeEach('create base contracts', async () => {
     registry = await JurorsRegistry.new()
     registryOwner = await JurorsRegistryOwnerMock.new(registry.address)
-    ANJ = await MiniMeToken.new(ZERO_ADDRESS, ZERO_ADDRESS, 0, 'n', 18, 'ANJ', true)
+    ANJ = await MiniMeToken.new(ZERO_ADDRESS, ZERO_ADDRESS, 0, 'ANJ Token', 18, 'ANJ', true)
   })
 
   describe('draft', () => {
@@ -71,9 +72,8 @@ contract('JurorsRegistry', ([_, juror500, juror1000, juror1500, juror2000, juror
           })
 
           it('does not emit JurorDrafted events', async () => {
-            const { tx } = await draft({ batchRequestedJurors, roundRequestedJurors })
-            const receipt = await web3.eth.getTransactionReceipt(tx)
-            const logs = decodeEventsOfType({ receipt }, JurorsRegistry.abi, 'JurorDrafted')
+            const receipt = await draft({ batchRequestedJurors, roundRequestedJurors })
+            const logs = decodeEventsOfType(receipt, JurorsRegistry.abi, 'JurorDrafted')
 
             assertAmountOfEvents({ logs }, 'JurorDrafted', 0)
           })
@@ -106,15 +106,14 @@ contract('JurorsRegistry', ([_, juror500, juror1000, juror1500, juror2000, juror
           })
 
           it('emits JurorDrafted events', async () => {
-            const result = await draft({ termRandomness, disputeId, previousSelectedJurors, batchRequestedJurors, roundRequestedJurors })
-            const receipt = await web3.eth.getTransactionReceipt(result.tx)
-            const logs = decodeEventsOfType({ receipt }, JurorsRegistry.abi, 'JurorDrafted')
+            const receipt = await draft({ termRandomness, disputeId, previousSelectedJurors, batchRequestedJurors, roundRequestedJurors })
+            const logs = decodeEventsOfType(receipt, JurorsRegistry.abi, 'JurorDrafted')
 
-            const { addresses, outputLength } = getEventAt(result, 'Drafted').args
+            const { addresses, outputLength } = getEventAt(receipt, 'Drafted').args
             assertAmountOfEvents({ logs }, 'JurorDrafted', batchRequestedJurors)
 
             let nextEventIndex = 0
-            for (let i = 0; i < outputLength; i++) {
+            for (let i = 0; i < outputLength.toNumber(); i++) {
               for (let j = 0; j < expectedWeights[i]; j++) {
                 assertEvent({ logs }, 'JurorDrafted', { disputeId, juror: addresses[i] }, nextEventIndex)
                 nextEventIndex++
@@ -132,11 +131,11 @@ contract('JurorsRegistry', ([_, juror500, juror1000, juror1500, juror2000, juror
             const receipt = await draft({ termRandomness, disputeId, previousSelectedJurors, batchRequestedJurors, roundRequestedJurors })
             const outputLength = getEventArgument(receipt, 'Drafted', 'outputLength')
 
-            for (let i = 0; i < outputLength; i++) {
+            for (let i = 0; i < outputLength.toNumber(); i++) {
               const currentLockedBalance = (await registry.balanceOf(expectedAddresses[i]))[2]
               const previousLockedBalance = previousLockedBalances[expectedAddresses[i]]
-              const expectedLockedBalance = expectedWeights[i] * (MIN_ACTIVE_AMOUNT * DRAFT_LOCK_PCT / 10000)
-              assert.equal(currentLockedBalance.minus(previousLockedBalance).toString(), expectedLockedBalance, `locked balance for juror #${i} does not match`)
+              const expectedLockedBalance = expectedWeights[i] * (MIN_ACTIVE_AMOUNT.mul(DRAFT_LOCK_PCT).div(bn(10000)))
+              assert.equal(currentLockedBalance.sub(previousLockedBalance).toString(), expectedLockedBalance, `locked balance for juror #${i} does not match`)
             }
           })
         }
@@ -388,12 +387,12 @@ contract('JurorsRegistry', ([_, juror500, juror1000, juror1500, juror2000, juror
                     context('when some jurors do not have been enough balance to be drafted again', () => {
                       beforeEach('compute multiple previous drafts', async () => {
                         // draft enough times to leave the first drafted juror (juror1000) without unlocked balance
-                        while ((await registry.unlockedActiveBalanceOf(juror1000)).gt(0)) {
+                        while ((await registry.unlockedActiveBalanceOf(juror1000)).gt(bn(0))) {
                           await draft({ batchRequestedJurors: 3, roundRequestedJurors })
                         }
 
-                        const [activeBalance, , lockedBalance] = await registry.balanceOf(juror1000)
-                        assert.equal(activeBalance.toString(), lockedBalance.toString(), 'juror1000 locked balance does not match')
+                        const { active, locked } = await registry.balanceOf(juror1000)
+                        assert.equal(active.toString(), locked.toString(), 'juror1000 locked balance does not match')
                       })
 
                       context('for the first batch', () => {
@@ -426,7 +425,7 @@ contract('JurorsRegistry', ([_, juror500, juror1000, juror1500, juror2000, juror
 
       context('when the sender is not the registry owner', () => {
         it('reverts', async () => {
-          await assertRevert(registry.draft(new Array(7)), 'JR_SENDER_NOT_OWNER')
+          await assertRevert(registry.draft([0,0,0,0,0,0,0]), 'JR_SENDER_NOT_OWNER')
         })
       })
     })

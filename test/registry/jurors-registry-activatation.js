@@ -1,6 +1,6 @@
-const { bigExp } = require('../helpers/numbers')(web3)
-const { assertRevert } = require('@aragon/test-helpers/assertThrow')
-const { assertEvent, assertAmountOfEvents } = require('@aragon/test-helpers/assertEvent')(web3)
+const { bn, bigExp } = require('../helpers/numbers')
+const { assertRevert } = require('../helpers/assertThrow')
+const { assertEvent, assertAmountOfEvents } = require('../helpers/assertEvent')
 
 const JurorsRegistry = artifacts.require('JurorsRegistry')
 const MiniMeToken = artifacts.require('MiniMeToken')
@@ -16,7 +16,7 @@ contract('JurorsRegistry', ([_, juror]) => {
   beforeEach('create base contracts', async () => {
     registry = await JurorsRegistry.new()
     registryOwner = await JurorsRegistryOwnerMock.new(registry.address)
-    ANJ = await MiniMeToken.new(ZERO_ADDRESS, ZERO_ADDRESS, 0, 'n', 18, 'ANJ', true)
+    ANJ = await MiniMeToken.new(ZERO_ADDRESS, ZERO_ADDRESS, 0, 'ANJ Token', 18, 'ANJ', true)
   })
 
   describe('activate', () => {
@@ -29,7 +29,7 @@ contract('JurorsRegistry', ([_, juror]) => {
 
       context('when the juror has not staked some tokens yet', () => {
         context('when the given amount is zero', () => {
-          const amount = 0
+          const amount = bn(0)
 
           it('reverts', async () => {
             await assertRevert(registry.activate(amount, { from }), 'JR_INVALID_ZERO_AMOUNT')
@@ -37,7 +37,7 @@ contract('JurorsRegistry', ([_, juror]) => {
         })
 
         context('when the given amount is lower than the minimum active value', () => {
-          const amount = MIN_ACTIVE_AMOUNT.sub(1)
+          const amount = MIN_ACTIVE_AMOUNT.sub(bn(1))
 
           it('reverts', async () => {
             await assertRevert(registry.activate(amount, { from }), 'JR_INVALID_ACTIVATION_AMOUNT')
@@ -45,7 +45,7 @@ contract('JurorsRegistry', ([_, juror]) => {
         })
 
         context('when the given amount is greater than the minimum active value', () => {
-          const amount = MIN_ACTIVE_AMOUNT.times(2)
+          const amount = MIN_ACTIVE_AMOUNT.mul(bn(2))
 
           it('reverts', async () => {
             await assertRevert(registry.activate(amount, { from }), 'JR_INVALID_ACTIVATION_AMOUNT')
@@ -54,25 +54,25 @@ contract('JurorsRegistry', ([_, juror]) => {
       })
 
       context('when the juror has already staked some tokens', () => {
-        const stakedBalance = MIN_ACTIVE_AMOUNT.times(3)
+        const stakedBalance = MIN_ACTIVE_AMOUNT.mul(bn(3))
 
         beforeEach('stake some tokens', async () => {
           await ANJ.generateTokens(from, stakedBalance)
           await ANJ.approveAndCall(registry.address, stakedBalance, '0x', { from })
         })
 
-        const itHandlesActivationProperlyFor = (requestedAmount, expectedAmount = requestedAmount, deactivationAmount = 0) => {
+        const itHandlesActivationProperlyFor = (requestedAmount, expectedAmount = requestedAmount, deactivationAmount = bn(0)) => {
           it('adds the requested amount to the active balance of the juror and removes it from the available balance', async () => {
-            const [previousActiveBalance, previousAvailableBalance, previousLockedBalance, previousDeactivationBalance] = await registry.balanceOf(juror)
+            const { active: previousActiveBalance, available: previousAvailableBalance, locked: previousLockedBalance, pendingDeactivation: previousDeactivationBalance } = await registry.balanceOf(juror)
 
             await registry.activate(requestedAmount, { from })
 
-            const [currentActiveBalance, currentAvailableBalance, currentLockedBalance, currentDeactivationBalance] = await registry.balanceOf(juror)
+            const { active: currentActiveBalance, available: currentAvailableBalance, locked: currentLockedBalance, pendingDeactivation: currentDeactivationBalance } = await registry.balanceOf(juror)
             assert.equal(previousLockedBalance.toString(), currentLockedBalance.toString(), 'locked balances do not match')
-            assert.equal(previousAvailableBalance.minus(expectedAmount.minus(deactivationAmount)).toString(), currentAvailableBalance.toString(), 'available balances do not match')
+            assert.equal(previousAvailableBalance.sub(expectedAmount.sub(deactivationAmount)).toString(), currentAvailableBalance.toString(), 'available balances do not match')
 
-            assert.equal(previousActiveBalance.plus(expectedAmount).toString(), currentActiveBalance.toString(), 'active balances do not match')
-            assert.equal(previousDeactivationBalance.minus(deactivationAmount).toString(), currentDeactivationBalance.toString(), 'deactivation balances do not match')
+            assert.equal(previousActiveBalance.add(expectedAmount).toString(), currentActiveBalance.toString(), 'active balances do not match')
+            assert.equal(previousDeactivationBalance.sub(deactivationAmount).toString(), currentDeactivationBalance.toString(), 'deactivation balances do not match')
           })
 
           it('does not affect the active balance of the current term', async () => {
@@ -91,7 +91,7 @@ contract('JurorsRegistry', ([_, juror]) => {
             await registry.activate(requestedAmount, { from })
 
             const currentUnlockedActiveBalance = await registry.unlockedActiveBalanceOf(juror)
-            assert.equal(previousUnlockedActiveBalance.plus(expectedAmount).toString(), currentUnlockedActiveBalance.toString(), 'unlocked balances do not match')
+            assert.equal(previousUnlockedActiveBalance.add(expectedAmount).toString(), currentUnlockedActiveBalance.toString(), 'unlocked balances do not match')
           })
 
           it('does not affect the staked balances', async () => {
@@ -126,11 +126,11 @@ contract('JurorsRegistry', ([_, juror]) => {
             const receipt = await registry.activate(requestedAmount, { from })
 
             assertAmountOfEvents(receipt, 'JurorActivated')
-            assertEvent(receipt, 'JurorActivated', { juror, fromTermId: termId.plus(1), amount: expectedAmount })
+            assertEvent(receipt, 'JurorActivated', { juror, fromTermId: termId.add(bn(1)), amount: expectedAmount })
           })
 
-          if (deactivationAmount === 0) {
-            it('emits two available balance changed events', async () => {
+          if (deactivationAmount.eq(bn(0))) {
+            it('emits one available balance changed events', async () => {
               const receipt = await registry.activate(requestedAmount, { from })
 
               assertAmountOfEvents(receipt, 'JurorAvailableBalanceChanged')
@@ -168,14 +168,14 @@ contract('JurorsRegistry', ([_, juror]) => {
           }
 
           context('when the given amount is zero', () => {
-            const amount = 0
+            const amount = bn(0)
 
             itCreatesAnIdForTheJuror(amount)
             itHandlesActivationProperlyFor(amount, stakedBalance)
           })
 
           context('when the given amount is lower than the minimum active value', () => {
-            const amount = MIN_ACTIVE_AMOUNT.sub(1)
+            const amount = MIN_ACTIVE_AMOUNT.sub(bn(1))
 
             it('reverts', async () => {
               await assertRevert(registry.activate(amount, { from }), 'JR_ACTIVE_BALANCE_BELOW_MIN')
@@ -183,7 +183,7 @@ contract('JurorsRegistry', ([_, juror]) => {
           })
 
           context('when the given amount is greater than the minimum active value', () => {
-            const amount = MIN_ACTIVE_AMOUNT.plus(1)
+            const amount = MIN_ACTIVE_AMOUNT.add(bn(1))
 
             itCreatesAnIdForTheJuror(amount)
             itHandlesActivationProperlyFor(amount)
@@ -199,8 +199,8 @@ contract('JurorsRegistry', ([_, juror]) => {
 
           context('when the juror does not have a deactivation request', () => {
             context('when the given amount is zero', () => {
-              const amount = 0
-              const expectedAmount = stakedBalance.minus(activeBalance)
+              const amount = bn(0)
+              const expectedAmount = stakedBalance.sub(activeBalance)
 
               context('when the juror was not slash and reaches the minimum active amount of tokens', () => {
                 itHandlesActivationProperlyFor(amount, expectedAmount)
@@ -217,7 +217,7 @@ contract('JurorsRegistry', ([_, juror]) => {
               context('when the juror was slashed and does not reach the minimum active amount of tokens', () => {
                 beforeEach('slash juror', async () => {
                   await registryOwner.collect(juror, activeBalance)
-                  await registry.unstake(stakedBalance.minus(activeBalance).minus(1), '0x', { from })
+                  await registry.unstake(stakedBalance.sub(activeBalance).sub(bn(1)), '0x', { from })
                 })
 
                 it('reverts', async () => {
@@ -261,16 +261,16 @@ contract('JurorsRegistry', ([_, juror]) => {
             })
 
             context('when the deactivation request is for the next term', () => {
-              const currentAvailableBalance = stakedBalance.minus(deactivationAmount)
+              const currentAvailableBalance = stakedBalance.sub(deactivationAmount)
 
               context('when the given amount is zero', () => {
-                const amount = 0
+                const amount = bn(0)
 
                 itHandlesActivationProperlyFor(amount, currentAvailableBalance)
               })
 
               context('when the given amount is greater than the available balance', () => {
-                const amount = currentAvailableBalance.plus(1)
+                const amount = currentAvailableBalance.add(bn(1))
 
                 it('reverts', async () => {
                   await assertRevert(registry.activate(amount, { from }), 'JR_INVALID_ACTIVATION_AMOUNT')
@@ -278,7 +278,7 @@ contract('JurorsRegistry', ([_, juror]) => {
               })
 
               context('when the future active amount will be lower than the minimum active value', () => {
-                const amount = MIN_ACTIVE_AMOUNT.sub(1)
+                const amount = MIN_ACTIVE_AMOUNT.sub(bn(1))
 
                 it('reverts', async () => {
                   await assertRevert(registry.activate(amount, { from }), 'JR_ACTIVE_BALANCE_BELOW_MIN')
@@ -293,20 +293,20 @@ contract('JurorsRegistry', ([_, juror]) => {
             })
 
             context('when the deactivation request is for the current term', () => {
-              const currentAvailableBalance = stakedBalance.minus(activeBalance).plus(deactivationAmount)
+              const currentAvailableBalance = stakedBalance.sub(activeBalance).add(deactivationAmount)
 
               beforeEach('increment term', async () => {
                 await registryOwner.incrementTerm()
               })
 
               context('when the given amount is zero', () => {
-                const amount = 0
+                const amount = bn(0)
 
                 itHandlesActivationProperlyFor(amount, currentAvailableBalance, deactivationAmount)
               })
 
               context('when the given amount is greater than the available balance', () => {
-                const amount = currentAvailableBalance.plus(1)
+                const amount = currentAvailableBalance.add(bn(1))
 
                 it('reverts', async () => {
                   await assertRevert(registry.activate(amount, { from }), 'JR_INVALID_ACTIVATION_AMOUNT')
@@ -314,7 +314,7 @@ contract('JurorsRegistry', ([_, juror]) => {
               })
 
               context('when the future active amount will be lower than the minimum active value', () => {
-                const amount = MIN_ACTIVE_AMOUNT.sub(1)
+                const amount = MIN_ACTIVE_AMOUNT.sub(bn(1))
 
                 it('reverts', async () => {
                   await assertRevert(registry.activate(amount, { from }), 'JR_ACTIVE_BALANCE_BELOW_MIN')
@@ -329,7 +329,7 @@ contract('JurorsRegistry', ([_, juror]) => {
             })
 
             context('when the deactivation request is for the previous term', () => {
-              const currentAvailableBalance = stakedBalance.minus(activeBalance).plus(deactivationAmount)
+              const currentAvailableBalance = stakedBalance.sub(activeBalance).add(deactivationAmount)
 
               beforeEach('increment term twice', async () => {
                 await registryOwner.incrementTerm()
@@ -337,13 +337,13 @@ contract('JurorsRegistry', ([_, juror]) => {
               })
 
               context('when the given amount is zero', () => {
-                const amount = 0
+                const amount = bn(0)
 
                 itHandlesActivationProperlyFor(amount, currentAvailableBalance, deactivationAmount)
               })
 
               context('when the given amount is greater than the available balance', () => {
-                const amount = currentAvailableBalance.plus(1)
+                const amount = currentAvailableBalance.add(bn(1))
 
                 it('reverts', async () => {
                   await assertRevert(registry.activate(amount, { from }), 'JR_INVALID_ACTIVATION_AMOUNT')
@@ -351,7 +351,7 @@ contract('JurorsRegistry', ([_, juror]) => {
               })
 
               context('when the future active amount will be lower than the minimum active value', () => {
-                const amount = MIN_ACTIVE_AMOUNT.sub(1)
+                const amount = MIN_ACTIVE_AMOUNT.sub(bn(1))
 
                 it('reverts', async () => {
                   await assertRevert(registry.activate(amount, { from }), 'JR_ACTIVE_BALANCE_BELOW_MIN')
@@ -386,7 +386,7 @@ contract('JurorsRegistry', ([_, juror]) => {
 
       const itRevertsForDifferentAmounts = () => {
         context('when the requested amount is zero', () => {
-          const amount = 0
+          const amount = bn(0)
 
           it('reverts', async () => {
             await assertRevert(registry.deactivate(amount, { from }), 'JR_INVALID_ZERO_AMOUNT')
@@ -394,7 +394,7 @@ contract('JurorsRegistry', ([_, juror]) => {
         })
 
         context('when the requested amount is lower than the minimum active value', () => {
-          const amount = MIN_ACTIVE_AMOUNT.sub(1)
+          const amount = MIN_ACTIVE_AMOUNT.sub(bn(1))
 
           it('reverts', async () => {
             await assertRevert(registry.deactivate(amount, { from }), 'JR_INVALID_DEACTIVATION_AMOUNT')
@@ -402,7 +402,7 @@ contract('JurorsRegistry', ([_, juror]) => {
         })
 
         context('when the requested amount is greater than the minimum active value', () => {
-          const amount = MIN_ACTIVE_AMOUNT.times(2)
+          const amount = MIN_ACTIVE_AMOUNT.mul(bn(2))
 
           it('reverts', async () => {
             await assertRevert(registry.deactivate(amount, { from }), 'JR_INVALID_DEACTIVATION_AMOUNT')
@@ -415,7 +415,7 @@ contract('JurorsRegistry', ([_, juror]) => {
       })
 
       context('when the juror has already staked some tokens', () => {
-        const stakedBalance = MIN_ACTIVE_AMOUNT.times(5)
+        const stakedBalance = MIN_ACTIVE_AMOUNT.mul(bn(5))
 
         beforeEach('stake some tokens', async () => {
           await ANJ.generateTokens(from, stakedBalance)
@@ -427,22 +427,22 @@ contract('JurorsRegistry', ([_, juror]) => {
         })
 
         context('when the juror has already activated some tokens', () => {
-          const activeBalance = MIN_ACTIVE_AMOUNT.times(4)
+          const activeBalance = MIN_ACTIVE_AMOUNT.mul(bn(4))
 
           beforeEach('activate some tokens', async () => {
             await registry.activate(activeBalance, { from })
           })
 
-          const itHandlesDeactivationRequestFor = (requestedAmount, expectedAmount = requestedAmount, previousDeactivationAmount = 0) => {
+          const itHandlesDeactivationRequestFor = (requestedAmount, expectedAmount = requestedAmount, previousDeactivationAmount = bn(0)) => {
             it('decreases the active balance and increases the deactivation balance of the juror', async () => {
-              const [previousActiveBalance, previousAvailableBalance, previousLockedBalance, previousDeactivationBalance] = await registry.balanceOf(juror)
+              const { active: previousActiveBalance, available: previousAvailableBalance, locked: previousLockedBalance, pendingDeactivation: previousDeactivationBalance } = await registry.balanceOf(juror)
 
               await registry.deactivate(requestedAmount, { from })
 
-              const [currentActiveBalance, currentAvailableBalance, currentLockedBalance, currentDeactivationBalance] = await registry.balanceOf(juror)
-              assert.equal(previousActiveBalance.minus(expectedAmount).toString(), currentActiveBalance.toString(), 'active balances do not match')
-              assert.equal(previousAvailableBalance.plus(previousDeactivationAmount).toString(), currentAvailableBalance.toString(), 'available balances do not match')
-              assert.equal(previousDeactivationBalance.plus(expectedAmount).minus(previousDeactivationAmount).toString(), currentDeactivationBalance.toString(), 'deactivation balances do not match')
+              const { active: currentActiveBalance, available: currentAvailableBalance, locked: currentLockedBalance, pendingDeactivation: currentDeactivationBalance } = await registry.balanceOf(juror)
+              assert.equal(previousActiveBalance.sub(expectedAmount).toString(), currentActiveBalance.toString(), 'active balances do not match')
+              assert.equal(previousAvailableBalance.add(previousDeactivationAmount).toString(), currentAvailableBalance.toString(), 'available balances do not match')
+              assert.equal(previousDeactivationBalance.add(expectedAmount).sub(previousDeactivationAmount).toString(), currentDeactivationBalance.toString(), 'deactivation balances do not match')
 
               assert.equal(previousLockedBalance.toString(), currentLockedBalance.toString(), 'locked balances do not match')
             })
@@ -463,7 +463,7 @@ contract('JurorsRegistry', ([_, juror]) => {
               await registry.deactivate(requestedAmount, { from })
 
               const currentUnlockedActiveBalance = await registry.unlockedActiveBalanceOf(juror)
-              assert.equal(previousUnlockedActiveBalance.minus(expectedAmount).toString(), currentUnlockedActiveBalance.toString(), 'unlocked balances do not match')
+              assert.equal(previousUnlockedActiveBalance.sub(expectedAmount).toString(), currentUnlockedActiveBalance.toString(), 'unlocked balances do not match')
             })
 
             it('does not affect the staked balance of the juror', async () => {
@@ -497,10 +497,10 @@ contract('JurorsRegistry', ([_, juror]) => {
               const receipt = await registry.deactivate(requestedAmount, { from })
 
               assertAmountOfEvents(receipt, 'JurorDeactivationRequested')
-              assertEvent(receipt, 'JurorDeactivationRequested', { juror: from, availableTermId: termId.plus(1), amount: expectedAmount })
+              assertEvent(receipt, 'JurorDeactivationRequested', { juror: from, availableTermId: termId.add(bn(1)), amount: expectedAmount })
             })
 
-            if (previousDeactivationAmount !== 0) {
+            if (!previousDeactivationAmount.eq(bn(0))) {
               it('emits an available balance changed event', async () => {
                 const receipt = await registry.deactivate(requestedAmount, { from })
 
@@ -521,13 +521,13 @@ contract('JurorsRegistry', ([_, juror]) => {
 
           context('when the juror does not have a deactivation request', () => {
             context('when the requested amount is zero', () => {
-              const amount = 0
+              const amount = bn(0)
 
               itHandlesDeactivationRequestFor(amount, activeBalance)
             })
 
             context('when the requested amount will make the active balance to be below the minimum active value', () => {
-              const amount = activeBalance.minus(MIN_ACTIVE_AMOUNT).plus(1)
+              const amount = activeBalance.sub(MIN_ACTIVE_AMOUNT).add(bn(1))
 
               it('reverts', async () => {
                 await assertRevert(registry.deactivate(amount, { from }), 'JR_INVALID_DEACTIVATION_AMOUNT')
@@ -535,7 +535,7 @@ contract('JurorsRegistry', ([_, juror]) => {
             })
 
             context('when the requested amount will make the active balance to be above the minimum active value', () => {
-              const amount = activeBalance.minus(MIN_ACTIVE_AMOUNT).minus(1)
+              const amount = activeBalance.sub(MIN_ACTIVE_AMOUNT).sub(bn(1))
 
               itHandlesDeactivationRequestFor(amount)
             })
@@ -549,7 +549,7 @@ contract('JurorsRegistry', ([_, juror]) => {
 
           context('when the juror already has a previous deactivation request', () => {
             const previousDeactivationAmount = MIN_ACTIVE_AMOUNT
-            const currentActiveBalance = activeBalance.minus(previousDeactivationAmount)
+            const currentActiveBalance = activeBalance.sub(previousDeactivationAmount)
 
             beforeEach('deactivate tokens', async () => {
               await registry.deactivate(previousDeactivationAmount, { from })
@@ -557,13 +557,13 @@ contract('JurorsRegistry', ([_, juror]) => {
 
             context('when the deactivation request is for the next term', () => {
               context('when the requested amount is zero', () => {
-                const amount = 0
+                const amount = bn(0)
 
                 itHandlesDeactivationRequestFor(amount, currentActiveBalance)
               })
 
               context('when the requested amount will make the active balance to be below the minimum active value', () => {
-                const amount = currentActiveBalance.minus(MIN_ACTIVE_AMOUNT).plus(1)
+                const amount = currentActiveBalance.sub(MIN_ACTIVE_AMOUNT).add(bn(1))
 
                 it('reverts', async () => {
                   await assertRevert(registry.deactivate(amount, { from }), 'JR_INVALID_DEACTIVATION_AMOUNT')
@@ -571,7 +571,7 @@ contract('JurorsRegistry', ([_, juror]) => {
               })
 
               context('when the requested amount will make the active balance to be above the minimum active value', () => {
-                const amount = currentActiveBalance.minus(MIN_ACTIVE_AMOUNT).minus(1)
+                const amount = currentActiveBalance.sub(MIN_ACTIVE_AMOUNT).sub(bn(1))
 
                 itHandlesDeactivationRequestFor(amount)
               })
@@ -589,13 +589,13 @@ contract('JurorsRegistry', ([_, juror]) => {
               })
 
               context('when the requested amount is zero', () => {
-                const amount = 0
+                const amount = bn(0)
 
                 itHandlesDeactivationRequestFor(amount, currentActiveBalance, previousDeactivationAmount)
               })
 
               context('when the requested amount will make the active balance to be below the minimum active value', () => {
-                const amount = currentActiveBalance.minus(MIN_ACTIVE_AMOUNT).plus(1)
+                const amount = currentActiveBalance.sub(MIN_ACTIVE_AMOUNT).add(bn(1))
 
                 it('reverts', async () => {
                   await assertRevert(registry.deactivate(amount, { from }), 'JR_INVALID_DEACTIVATION_AMOUNT')
@@ -603,7 +603,7 @@ contract('JurorsRegistry', ([_, juror]) => {
               })
 
               context('when the requested amount will make the active balance to be above the minimum active value', () => {
-                const amount = currentActiveBalance.minus(MIN_ACTIVE_AMOUNT).minus(1)
+                const amount = currentActiveBalance.sub(MIN_ACTIVE_AMOUNT).sub(bn(1))
 
                 itHandlesDeactivationRequestFor(amount, amount, previousDeactivationAmount)
               })
@@ -622,13 +622,13 @@ contract('JurorsRegistry', ([_, juror]) => {
               })
 
               context('when the requested amount is zero', () => {
-                const amount = 0
+                const amount = bn(0)
 
                 itHandlesDeactivationRequestFor(amount, currentActiveBalance, previousDeactivationAmount)
               })
 
               context('when the requested amount will make the active balance to be below the minimum active value', () => {
-                const amount = currentActiveBalance.minus(MIN_ACTIVE_AMOUNT).plus(1)
+                const amount = currentActiveBalance.sub(MIN_ACTIVE_AMOUNT).add(bn(1))
 
                 it('reverts', async () => {
                   await assertRevert(registry.deactivate(amount, { from }), 'JR_INVALID_DEACTIVATION_AMOUNT')
@@ -636,7 +636,7 @@ contract('JurorsRegistry', ([_, juror]) => {
               })
 
               context('when the requested amount will make the active balance to be above the minimum active value', () => {
-                const amount = currentActiveBalance.minus(MIN_ACTIVE_AMOUNT).minus(1)
+                const amount = currentActiveBalance.sub(MIN_ACTIVE_AMOUNT).sub(bn(1))
 
                 itHandlesDeactivationRequestFor(amount, amount, previousDeactivationAmount)
               })

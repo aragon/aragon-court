@@ -1,9 +1,9 @@
-const { bigExp } = require('../helpers/numbers')(web3)
+const { bn, bigExp } = require('../helpers/numbers')
 const { filterJurors } = require('../helpers/jurors')
-const { assertRevert } = require('@aragon/os/test/helpers/assertThrow')
+const { assertRevert } = require('../helpers/assertThrow')
 const { buildHelper, DEFAULTS, ROUND_STATES } = require('../helpers/court')(web3, artifacts)
-const { assertAmountOfEvents, assertEvent } = require('@aragon/os/test/helpers/assertEvent')(web3)
-const { getVoteId, encryptVote, outcomeFor, SALT, OUTCOMES } = require('../helpers/crvoting')(web3)
+const { assertAmountOfEvents, assertEvent } = require('../helpers/assertEvent')
+const { getVoteId, encryptVote, outcomeFor, SALT, OUTCOMES } = require('../helpers/crvoting')
 
 contract('Court', ([_, disputer, drafter, juror500, juror1000, juror1500, juror2000, juror2500, juror3000, juror3500, juror4000]) => {
   let courtHelper, court, voting
@@ -34,20 +34,20 @@ contract('Court', ([_, disputer, drafter, juror500, juror1000, juror1500, juror2
 
       await courtHelper.setTerm(1)
       disputeId = await courtHelper.dispute({ jurorsNumber, draftTermId, disputer })
-      await courtHelper.passTerms(draftTermId - 1) // court is already at term one
+      await courtHelper.passTerms(bn(draftTermId - 1)) // court is already at term one
     })
 
     const itIsAtState = (roundId, state) => {
       it(`round is at state ${state}`, async () => {
         const { roundState } = await courtHelper.getRound(disputeId, roundId)
-        assert.equal(roundState.toString(), state, 'round state does not match')
+        assert.equal(roundState.toString(), state.toString(), 'round state does not match')
       })
     }
 
     const itFailsToCommitVotes = () => {
       it('fails to commit votes', async () => {
         for (const { address } of jurors) {
-          await assertRevert(voting.commit(voteId, OUTCOMES.LOW, { from: address }), 'CT_INVALID_ADJUDICATION_STATE')
+          await assertRevert(voting.commit(voteId, encryptVote(OUTCOMES.LOW), { from: address }), 'CT_INVALID_ADJUDICATION_STATE')
         }
       })
     }
@@ -119,7 +119,7 @@ contract('Court', ([_, disputer, drafter, juror500, juror1000, juror1500, juror2
               expectedTally = { [OUTCOMES.LOW]: 0, [OUTCOMES.HIGH]: 0 }
 
               for (const { address, weight, outcome } of voters) {
-                expectedTally[outcome] += weight
+                expectedTally[outcome] += weight.toNumber()
                 receipts.push(await voting.reveal(voteId, outcome, SALT, { from: address }))
               }
             })
@@ -132,17 +132,17 @@ contract('Court', ([_, disputer, drafter, juror500, juror1000, juror1500, juror2
             })
 
             it('computes tallies properly', async () => {
-            const lowOutcomeTally = await voting.getOutcomeTally(voteId, OUTCOMES.LOW)
-            assert.equal(lowOutcomeTally.toString(), expectedTally[OUTCOMES.LOW], 'low outcome tally does not match')
+              const lowOutcomeTally = await voting.getOutcomeTally(voteId, OUTCOMES.LOW)
+              assert.equal(lowOutcomeTally.toString(), expectedTally[OUTCOMES.LOW], 'low outcome tally does not match')
 
-            const highOutcomeTally = await voting.getOutcomeTally(voteId, OUTCOMES.HIGH)
-            assert.equal(highOutcomeTally.toString(), expectedTally[OUTCOMES.HIGH], 'high outcome tally does not match')
+              const highOutcomeTally = await voting.getOutcomeTally(voteId, OUTCOMES.HIGH)
+              assert.equal(highOutcomeTally.toString(), expectedTally[OUTCOMES.HIGH], 'high outcome tally does not match')
 
-            const winningOutcome = await voting.getWinningOutcome(voteId)
-            const expectedWinningOutcome = highOutcomeTally > lowOutcomeTally ? OUTCOMES.HIGH : OUTCOMES.LOW
-            assert.equal(winningOutcome.toString(), expectedWinningOutcome, 'winning outcome does not match')
+              const winningOutcome = await voting.getWinningOutcome(voteId)
+              const expectedWinningOutcome = highOutcomeTally > lowOutcomeTally ? OUTCOMES.HIGH : OUTCOMES.LOW
+              assert.equal(winningOutcome.toString(), expectedWinningOutcome, 'winning outcome does not match')
+            })
           })
-        })
 
           context('when the sender did not vote', () => {
             it('reverts', async () => {
@@ -208,7 +208,7 @@ contract('Court', ([_, disputer, drafter, juror500, juror1000, juror1500, juror2
 
         context('when the round was not appealed', () => {
           beforeEach('pass appeal and confirmation periods', async () => {
-            await courtHelper.passTerms(courtHelper.appealTerms + courtHelper.appealConfirmTerms)
+            await courtHelper.passTerms(courtHelper.appealTerms.add(courtHelper.appealConfirmTerms))
           })
 
           itIsAtState(roundId, ROUND_STATES.ENDED)
@@ -249,16 +249,16 @@ contract('Court', ([_, disputer, drafter, juror500, juror1000, juror1500, juror2
 
       beforeEach('simulate juror without enough balance to vote on a final round', async () => {
         const { initialActiveBalance } = jurors.find(({ address }) => address === poorJuror)
-        const lockPerDraft = courtHelper.jurorsMinActiveBalance.mul(courtHelper.penaltyPct).div(10000)
-        const jurorsNumber = initialActiveBalance.divToInt(lockPerDraft).toNumber()
+        const lockPerDraft = courtHelper.jurorsMinActiveBalance.mul(courtHelper.penaltyPct).div(bn(10000))
+        const jurorsNumber = initialActiveBalance.div(lockPerDraft).toNumber()
 
-        const nextTerm = (await court.getLastEnsuredTermId()).toNumber() + 1
+        const nextTerm = (await court.getLastEnsuredTermId()).add(bn(1))
         const anotherDisputeId = await courtHelper.dispute({ jurorsNumber, draftTermId: nextTerm })
-        await courtHelper.passTerms(1)
+        await courtHelper.passTerms(bn(1))
         await courtHelper.draft({ disputeId: anotherDisputeId, draftedJurors: [{ address: poorJuror, weight: jurorsNumber }] })
 
-        const [activeBalance, , lockedBalance] = await courtHelper.jurorsRegistry.balanceOf(poorJuror)
-        assert.equal(activeBalance.toString(), lockedBalance.toString(), 'poor juror locked balance does not match')
+        const { active, locked } = await courtHelper.jurorsRegistry.balanceOf(poorJuror)
+        assert.equal(active.toString(), locked.toString(), 'poor juror locked balance does not match')
       })
 
       beforeEach('move to final round', async () => {
@@ -291,7 +291,7 @@ contract('Court', ([_, disputer, drafter, juror500, juror1000, juror1500, juror2
 
         context('when the sender does not have enough active balance', () => {
           it('reverts', async () => {
-            await assertRevert(voting.commit(voteId, OUTCOMES.LOW, { from: poorJuror }), 'CRV_COMMIT_DENIED_BY_OWNER')
+            await assertRevert(voting.commit(voteId, encryptVote(OUTCOMES.LOW), { from: poorJuror }), 'CRV_COMMIT_DENIED_BY_OWNER')
           })
         })
       })
@@ -312,7 +312,7 @@ contract('Court', ([_, disputer, drafter, juror500, juror1000, juror1500, juror2
             expectedTally = { [OUTCOMES.LOW]: 0, [OUTCOMES.HIGH]: 0 }
 
             for (const { address, outcome } of voters) {
-              const [weight] = await court.getJuror(disputeId, roundId, address)
+              const { weight } = await courtHelper.getRoundJuror(disputeId, roundId, address)
               expectedTally[outcome] += weight.toNumber()
               receipts.push(await voting.reveal(voteId, outcome, SALT, { from: address }))
             }
@@ -375,7 +375,7 @@ contract('Court', ([_, disputer, drafter, juror500, juror1000, juror1500, juror2
         beforeEach('commit and reveal votes, and pass appeal and confirmation periods', async () => {
           await courtHelper.commit({ disputeId, roundId, voters })
           await courtHelper.reveal({ disputeId, roundId, voters })
-          await courtHelper.passTerms(courtHelper.appealTerms + courtHelper.appealConfirmTerms)
+          await courtHelper.passTerms(courtHelper.appealTerms.add(courtHelper.appealConfirmTerms))
         })
 
         itIsAtState(roundId, ROUND_STATES.ENDED)

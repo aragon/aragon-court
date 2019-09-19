@@ -1,6 +1,8 @@
+const { toChecksumAddress } = require('web3-utils')
+
 const filterJurors = (jurorsList, jurorsToFiler) => {
-  const addressesToFiler = jurorsToFiler.map(j => j.address)
-  return jurorsList.filter(juror => !addressesToFiler.includes(juror.address))
+  const addressesToFiler = jurorsToFiler.map(j => toChecksumAddress(j.address))
+  return jurorsList.filter(juror => !addressesToFiler.includes(toChecksumAddress(juror.address)))
 }
 
 const filterWinningJurors = (votersList, winningRuling) => {

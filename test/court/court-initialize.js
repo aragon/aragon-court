@@ -1,6 +1,7 @@
+const { bn } = require('../helpers/numbers')
 const { buildHelper } = require('../helpers/court')(web3, artifacts)
 const { NOW, ONE_DAY } = require('../helpers/time')
-const { assertRevert } = require('@aragon/os/test/helpers/assertThrow')
+const { assertRevert } = require('../helpers/assertThrow')
 
 contract('Court', () => {
   let courtHelper
@@ -20,17 +21,17 @@ contract('Court', () => {
 
     context('penalty pct (1/10,000)', () => {
       it('cannot be above 100%', async () => {
-        await assertRevert(courtHelper.deploy({ penaltyPct: 10001 }), 'CT_INVALID_PENALTY_PCT')
+        await assertRevert(courtHelper.deploy({ penaltyPct: bn(10001) }), 'CT_INVALID_PENALTY_PCT')
       })
 
       it('can be 0%', async () => {
-        const court = await courtHelper.deploy({ penaltyPct: 0 })
+        const court = await courtHelper.deploy({ penaltyPct: bn(0) })
         const penaltyPct = (await court.courtConfigs(1))[9] // config ID 0 is used for undefined
         assert.equal(penaltyPct.toString(), 0, 'penalty pct does not match')
       })
 
       it('can be 100%', async () => {
-        const court = await courtHelper.deploy({ penaltyPct: 10000 })
+        const court = await courtHelper.deploy({ penaltyPct: bn(10000) })
         const penaltyPct = (await court.courtConfigs(1))[9] // config ID 0 is used for undefined
         assert.equal(penaltyPct.toString(), 10000, 'penalty pct does not match')
       })

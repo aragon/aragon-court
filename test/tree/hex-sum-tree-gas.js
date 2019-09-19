@@ -1,4 +1,4 @@
-const { bigExp } = require('../helpers/numbers')(web3)
+const { bn, bigExp } = require('../helpers/numbers')
 const { getEventArgument } = require('@aragon/test-helpers/events')
 
 const HexSumTree = artifacts.require('HexSumTreeGasProfiler')
@@ -62,7 +62,7 @@ contract('HexSumTree', () => {
 
           itCostsAtMost(expectedCost, async () => {
             // mock huge next key
-            const nextKey = bigExp(CHILDREN, 33).minus(1)
+            const nextKey = bigExp(CHILDREN, 33).sub(bn(1))
             await tree.mockNextKey(0, nextKey)
 
             await tree.insert(0, 10)

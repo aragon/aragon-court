@@ -1,3 +1,5 @@
+const { bn } = require('../helpers/numbers')
+
 const JurorsTreeSortition = artifacts.require('JurorsTreeSortitionMock')
 
 contract('JurorsTreeSortition', () => {
@@ -28,7 +30,7 @@ contract('JurorsTreeSortition', () => {
       const expectedHighBound = 4
 
       it('includes the first juror', async () => {
-        const [low, high] = await tree.getSearchBatchBounds(termId, selectedJurors, batchRequestedJurors, totalRequestedJurors)
+        const { low, high } = await tree.getSearchBatchBounds(termId, selectedJurors, batchRequestedJurors, totalRequestedJurors)
 
         assert.equal(low.toString(), expectedLowBound, 'low bound does not match')
         assert.equal(high.toString(), expectedHighBound, 'high bound does not match')
@@ -43,7 +45,7 @@ contract('JurorsTreeSortition', () => {
       const expectedHighBound = 8
 
       it('includes middle jurors', async () => {
-        const [low, high] = await tree.getSearchBatchBounds(termId, selectedJurors, batchRequestedJurors, totalRequestedJurors)
+        const { low, high } = await tree.getSearchBatchBounds(termId, selectedJurors, batchRequestedJurors, totalRequestedJurors)
 
         assert.equal(low.toString(), expectedLowBound, 'low bound does not match')
         assert.equal(high.toString(), expectedHighBound, 'high bound does not match')
@@ -58,7 +60,7 @@ contract('JurorsTreeSortition', () => {
       const expectedHighBound = 12
 
       it('includes the last juror', async () => {
-        const [low, high] = await tree.getSearchBatchBounds(termId, selectedJurors, batchRequestedJurors, totalRequestedJurors)
+        const { low, high } = await tree.getSearchBatchBounds(termId, selectedJurors, batchRequestedJurors, totalRequestedJurors)
 
         assert.equal(low.toString(), expectedLowBound, 'low bound does not match')
         assert.equal(high.toString(), expectedHighBound, 'high bound does not match')
@@ -96,7 +98,7 @@ contract('JurorsTreeSortition', () => {
 
       assert.equal(balances.length, batchRequestedJurors, 'list length does not match')
       for (let i = 0; i < batchRequestedJurors - 1; i++) {
-        assert.isAtLeast(balances[i+1].toNumber(), balances[i].toNumber(), `item ${i} is not ordered`)
+        assert.isAtLeast(balances[i + 1].toNumber(), balances[i].toNumber(), `item ${i} is not ordered`)
         assert.isAtMost(balances[i].toNumber(), highActiveBalanceBatchBound, `item ${i} is not included in the requested interval`)
       }
     })
@@ -118,24 +120,24 @@ contract('JurorsTreeSortition', () => {
       const roundRequestedJurors = 10
 
       it('returns the expected results', async () => {
-        const [jurorIds, activeBalances] = await tree.batchedRandomSearch(termRandomness, disputeId, termId, selectedJurors, batchRequestedJurors, roundRequestedJurors, sortitionIteration)
+        const { jurorsIds, activeBalances } = await tree.batchedRandomSearch(termRandomness, disputeId, termId, selectedJurors, batchRequestedJurors, roundRequestedJurors, sortitionIteration)
 
-        assert.equal(jurorIds.length, batchRequestedJurors, 'result keys length does not match')
+        assert.equal(jurorsIds.length, batchRequestedJurors, 'result keys length does not match')
         assert.equal(activeBalances.length, batchRequestedJurors, 'result values length does not match')
 
-        assert.equal(jurorIds[0].toString(), 35, 'first result key does not match')
+        assert.equal(jurorsIds[0].toString(), 35, 'first result key does not match')
         assert.equal(activeBalances[0].toString(), 35, 'first result value does not match')
 
-        assert.equal(jurorIds[1].toString(), 38, 'second result key does not match')
+        assert.equal(jurorsIds[1].toString(), 38, 'second result key does not match')
         assert.equal(activeBalances[1].toString(), 38, 'second result value does not match')
 
-        assert.equal(jurorIds[2].toString(), 38, 'third result key does not match')
+        assert.equal(jurorsIds[2].toString(), 38, 'third result key does not match')
         assert.equal(activeBalances[2].toString(), 38, 'third result value does not match')
 
-        assert.equal(jurorIds[3].toString(), 68, 'fourth result key does not match')
+        assert.equal(jurorsIds[3].toString(), 68, 'fourth result key does not match')
         assert.equal(activeBalances[3].toString(), 68, 'fourth result value does not match')
 
-        assert.equal(jurorIds[4].toString(), 68, 'fifth result key does not match')
+        assert.equal(jurorsIds[4].toString(), 68, 'fifth result key does not match')
         assert.equal(activeBalances[4].toString(), 68, 'fifth result value does not match')
       })
     })
@@ -146,24 +148,24 @@ contract('JurorsTreeSortition', () => {
       const roundRequestedJurors = 10
 
       it('returns the expected results', async () => {
-        const [jurorIds, activeBalances] = await tree.batchedRandomSearch(termRandomness, disputeId, termId, selectedJurors, batchRequestedJurors, roundRequestedJurors, sortitionIteration)
+        const { jurorsIds, activeBalances } = await tree.batchedRandomSearch(termRandomness, disputeId, termId, selectedJurors, batchRequestedJurors, roundRequestedJurors, sortitionIteration)
 
-        assert.equal(jurorIds.length, batchRequestedJurors, 'result keys length does not match')
+        assert.equal(jurorsIds.length, batchRequestedJurors, 'result keys length does not match')
         assert.equal(activeBalances.length, batchRequestedJurors, 'result values length does not match')
 
-        assert.equal(jurorIds[0].toString(), 78, 'first result key does not match')
+        assert.equal(jurorsIds[0].toString(), 78, 'first result key does not match')
         assert.equal(activeBalances[0].toString(), 78, 'first result value does not match')
 
-        assert.equal(jurorIds[1].toString(), 80, 'second result key does not match')
+        assert.equal(jurorsIds[1].toString(), 80, 'second result key does not match')
         assert.equal(activeBalances[1].toString(), 80, 'second result value does not match')
 
-        assert.equal(jurorIds[2].toString(), 80, 'third result key does not match')
+        assert.equal(jurorsIds[2].toString(), 80, 'third result key does not match')
         assert.equal(activeBalances[2].toString(), 80, 'third result value does not match')
 
-        assert.equal(jurorIds[3].toString(), 98, 'fourth result key does not match')
+        assert.equal(jurorsIds[3].toString(), 98, 'fourth result key does not match')
         assert.equal(activeBalances[3].toString(), 98, 'fourth result value does not match')
 
-        assert.equal(jurorIds[4].toString(), 98, 'fifth result key does not match')
+        assert.equal(jurorsIds[4].toString(), 98, 'fifth result key does not match')
         assert.equal(activeBalances[4].toString(), 98, 'fifth result value does not match')
       })
     })

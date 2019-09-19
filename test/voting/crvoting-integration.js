@@ -1,4 +1,4 @@
-const { SALT, OUTCOMES, encryptVote } = require('../helpers/crvoting')(web3)
+const { SALT, OUTCOMES, encryptVote } = require('../helpers/crvoting')
 
 const CRVoting = artifacts.require('CRVoting')
 const CRVotingOwner = artifacts.require('CRVotingOwnerMock')
@@ -94,7 +94,7 @@ contract('CRVoting', ([_, voterWeighted1, voterWeighted2, voterWeighted3, voterW
       assert.equal(currentRefusedOutcomeTally.toString(), 0, 'refused tallies do not match')
 
       const winningOutcome = await voting.getWinningOutcome(voteId)
-      assert.equal(winningOutcome.toString(), OUTCOMES.REFUSED, 'refused should be the winning outcome')
+      assert.equal(winningOutcome.toString(), OUTCOMES.REFUSED.toString(), 'refused should be the winning outcome')
 
       const winningOutcomeTally = await voting.getWinningOutcomeTally(voteId)
       assert.equal(winningOutcomeTally.toString(), 0, 'winning outcome tally should be zero')

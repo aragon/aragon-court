@@ -1,8 +1,8 @@
-const { bigExp } = require('../helpers/numbers')(web3)
+const { bn, bigExp } = require('../helpers/numbers')
 const { buildHelper } = require('../helpers/court')(web3, artifacts)
-const { assertRevert } = require('@aragon/os/test/helpers/assertThrow')
+const { assertRevert } = require('../helpers/assertThrow')
 const { NEXT_WEEK, NOW, ONE_DAY } = require('../helpers/time')
-const { assertAmountOfEvents, assertEvent } = require('@aragon/os/test/helpers/assertEvent')(web3)
+const { assertAmountOfEvents, assertEvent } = require('../helpers/assertEvent')
 
 const MiniMeToken = artifacts.require('MiniMeToken')
 
@@ -17,10 +17,10 @@ contract('Court', ([_, sender]) => {
   })
 
   describe('zero term', () => {
-    const termDuration = ONE_DAY
+    const termDuration = bn(ONE_DAY)
 
     context('when setting the first term start time in the past', () => {
-      const firstTermStartTime = NOW - 1
+      const firstTermStartTime = bn(NOW - 1)
 
       it('reverts', async () => {
         await assertRevert(courtHelper.deploy({ firstTermStartTime, termDuration }), 'CT_BAD_FIRST_TERM_START_TIME')
@@ -28,7 +28,7 @@ contract('Court', ([_, sender]) => {
     })
 
     context('when setting the first term start time previous to one term duration', () => {
-      const firstTermStartTime = NOW + termDuration - 1
+      const firstTermStartTime = bn(NOW).add(termDuration.sub(bn(1)))
 
       it('reverts', async () => {
         await assertRevert(courtHelper.deploy({ firstTermStartTime, termDuration }), 'CT_BAD_FIRST_TERM_START_TIME')
@@ -36,16 +36,16 @@ contract('Court', ([_, sender]) => {
     })
 
     context('when setting the first term start time in the future', () => {
-      const firstTermStartTime = NEXT_WEEK
+      const firstTermStartTime = bn(NEXT_WEEK)
 
       beforeEach('deploy court', async () => {
         court = await courtHelper.deploy({ firstTermStartTime, termDuration })
       })
 
       it('it must have already started term #0', async () => {
-        const [startTime, dependingDrafts, courtConfigId, randomnessBN, randomness] = await court.getTerm(0)
+        const { startTime, dependingDrafts, courtConfigId, randomnessBN, randomness } = await court.getTerm(0)
 
-        assert.equal(startTime.toString(), firstTermStartTime - termDuration, 'term zero start time does not match')
+        assert.equal(startTime.toString(), firstTermStartTime.sub(termDuration), 'term zero start time does not match')
         assert.equal(dependingDrafts.toString(), 0, 'zero term should not have depending drafts initially')
         assert.equal(courtConfigId.toString(), 1, 'zero term config should not be set')
         assert.equal(randomnessBN.toString(), 0, 'zero term randomness block number should not be computed')
@@ -60,10 +60,10 @@ contract('Court', ([_, sender]) => {
 
   describe('heartbeat', () => {
     let feeToken
-    const termDuration = ONE_DAY
+    const termDuration = bn(ONE_DAY)
     const heartbeatFee = bigExp(50, 18)
-    const firstTermStartTime = NEXT_WEEK
-    const zeroTermStartTime = firstTermStartTime - termDuration
+    const firstTermStartTime = bn(NEXT_WEEK)
+    const zeroTermStartTime = firstTermStartTime.sub(termDuration)
 
     beforeEach('create court starting in one future term', async () => {
       feeToken = await MiniMeToken.new(ZERO_ADDRESS, ZERO_ADDRESS, 0, 'Court Fee Token', 18, 'CFT', true)
@@ -105,7 +105,7 @@ contract('Court', ([_, sender]) => {
         assertAmountOfEvents(receipt, 'NewTerm', expectedTransitions)
 
         for (let transition = 1; transition <= expectedTransitions; transition++) {
-          assertEvent(receipt, 'NewTerm', { termId: lastEnsuredTermId.plus(transition), heartbeatSender: sender }, transition - 1)
+          assertEvent(receipt, 'NewTerm', { termId: lastEnsuredTermId.add(bn(transition)), heartbeatSender: sender }, transition - 1)
         }
       })
 
@@ -116,13 +116,13 @@ contract('Court', ([_, sender]) => {
         const currentBlockNumber = await court.getBlockNumberExt()
 
         for (let transition = 1; transition <= expectedTransitions; transition++) {
-          const termId = lastEnsuredTermId.plus(transition)
-          const [startTime, dependingDrafts, courtConfigId, randomnessBN, randomness] = await court.getTerm(termId)
+          const termId = lastEnsuredTermId.add(bn(transition))
+          const { startTime, dependingDrafts, courtConfigId, randomnessBN, randomness } = await court.getTerm(termId)
 
-          assert.equal(startTime.toString(), firstTermStartTime + (termDuration * (transition - 1)), `start time for term ${termId} does not match`)
+          assert.equal(startTime.toString(), firstTermStartTime.add(termDuration.mul(bn(transition - 1))), `start time for term ${termId} does not match`)
           assert.equal(dependingDrafts.toString(), 0, `term ${termId} should not have depending drafts initially`)
           assert.equal(courtConfigId.toString(), 1, `term ${termId} should be using the previous config`)
-          assert.equal(randomnessBN.toString(), currentBlockNumber.plus(1).toString(), `randomness block number for term ${termId} should be the next block number`)
+          assert.equal(randomnessBN.toString(), currentBlockNumber.add(bn(1)).toString(), `randomness block number for term ${termId} should be the next block number`)
           assert.equal(randomness, EMPTY_RANDOMNESS, `randomness for term ${termId} should not be computed`)
         }
       })
@@ -154,7 +154,7 @@ contract('Court', ([_, sender]) => {
 
     context('when current timestamp is between zero term and first term ', () => {
       beforeEach('set current timestamp', async () => {
-        await courtHelper.setTimestamp(zeroTermStartTime + termDuration / 2)
+        await courtHelper.setTimestamp(zeroTermStartTime.add(termDuration).div(bn(2)))
       })
 
       itNeedsTermTransitions(0)
@@ -185,7 +185,7 @@ contract('Court', ([_, sender]) => {
 
     context('when current timestamp is right at the end of the first term ', () => {
       beforeEach('set current timestamp', async () => {
-        await courtHelper.setTimestamp(firstTermStartTime + termDuration)
+        await courtHelper.setTimestamp(firstTermStartTime.add(termDuration))
       })
 
       itNeedsTermTransitions(2)
@@ -223,7 +223,7 @@ contract('Court', ([_, sender]) => {
 
     context('when current timestamp is two terms after the first term', () => {
       beforeEach('set current timestamp', async () => {
-        await courtHelper.setTimestamp(firstTermStartTime + termDuration * 2)
+        await courtHelper.setTimestamp(firstTermStartTime.add(termDuration.mul(bn(2))))
       })
 
       itNeedsTermTransitions(3)

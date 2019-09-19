@@ -1,32 +1,33 @@
+const { sha3 } = require('web3-utils')
+const { bn, bigExp } = require('./numbers')
 const { decodeEventsOfType } = require('./decodeEvent')
 const { NEXT_WEEK, ONE_DAY } = require('./time')
 const { getEvents, getEventArgument } = require('@aragon/os/test/helpers/events')
+const { getVoteId, encryptVote, oppositeOutcome, outcomeFor, SALT } = require('../helpers/crvoting')
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
 
-const PCT_BASE = 10000
-const APPEAL_COLLATERAL_FACTOR = 3
-const APPEAL_CONFIRMATION_COLLATERAL_FACTOR = 2
+const PCT_BASE = bn(10000)
+const APPEAL_COLLATERAL_FACTOR = bn(3)
+const APPEAL_CONFIRMATION_COLLATERAL_FACTOR = bn(2)
 
 const DISPUTE_STATES = {
-  PRE_DRAFT: 0,
-  ADJUDICATING: 1,
-  EXECUTED: 2
+  PRE_DRAFT: bn(0),
+  ADJUDICATING: bn(1),
+  EXECUTED: bn(2)
 }
 
 const ROUND_STATES = {
-  INVALID: 0,
-  COMMITTING: 1,
-  REVEALING: 2,
-  APPEALING: 3,
-  CONFIRMING_APPEAL: 4,
-  ENDED: 5
+  INVALID: bn(0),
+  COMMITTING: bn(1),
+  REVEALING: bn(2),
+  APPEALING: bn(3),
+  CONFIRMING_APPEAL: bn(4),
+  ENDED: bn(5)
 }
 
 module.exports = (web3, artifacts) => {
-  const { bn, bigExp } = require('./numbers')(web3)
   const { advanceBlocks } = require('../helpers/blocks')(web3)
-  const { SALT, getVoteId, encryptVote, oppositeOutcome, outcomeFor } = require('../helpers/crvoting')(web3)
 
   // TODO: update default to make sure we test using real values
   const DEFAULTS = {
@@ -60,35 +61,35 @@ module.exports = (web3, artifacts) => {
     }
 
     async getDispute(disputeId) {
-      const [subject, possibleRulings, state, finalRuling, lastRoundId] = await this.court.getDispute(disputeId)
+      const { subject, possibleRulings, state, finalRuling, lastRoundId } = await this.court.getDispute(disputeId)
       return { subject, possibleRulings, state, finalRuling, lastRoundId }
     }
 
     async getRound(disputeId, roundId) {
-      const [draftTerm, delayedTerms, roundJurorsNumber, selectedJurors, triggeredBy, settledPenalties, collectedTokens, coherentJurors, roundState] = await this.court.getRound(disputeId, roundId)
+      const { draftTerm, delayedTerms, jurorsNumber: roundJurorsNumber, selectedJurors, triggeredBy, settledPenalties, collectedTokens, coherentJurors, state: roundState } = await this.court.getRound(disputeId, roundId)
       return { draftTerm, delayedTerms, roundJurorsNumber, selectedJurors, triggeredBy, settledPenalties, collectedTokens, coherentJurors, roundState }
     }
 
     async getAppeal(disputeId, roundId) {
-      const [appealer, appealedRuling, taker, opposedRuling] = await this.court.getAppeal(disputeId, roundId)
+      const { maker: appealer, appealedRuling, taker, opposedRuling } = await this.court.getAppeal(disputeId, roundId)
       return { appealer, appealedRuling, taker, opposedRuling }
     }
 
     async getDisputeFees(draftTermId, jurorsNumber) {
-      const [feeToken, jurorFees, disputeFees] = await this.court.getDisputeFees(draftTermId, jurorsNumber)
-      return { feeToken, jurorFees, disputeFees }
+      const { feeToken, jurorFees, totalFees } = await this.court.getDisputeFees(draftTermId, jurorsNumber)
+      return { feeToken, jurorFees, disputeFees: totalFees }
     }
 
     async getNextRoundJurorsNumber(disputeId, roundId) {
       if (roundId < this.maxRegularAppealRounds.toNumber() - 1) {
         const { roundJurorsNumber } = await this.getRound(disputeId, roundId)
-        let nextRoundJurorsNumber = this.appealStepFactor.mul(roundJurorsNumber).toNumber()
-        if (nextRoundJurorsNumber % 2 === 0) nextRoundJurorsNumber++
+        let nextRoundJurorsNumber = this.appealStepFactor.mul(roundJurorsNumber)
+        if (nextRoundJurorsNumber.mod(bn(2)).eq(bn(0))) nextRoundJurorsNumber = nextRoundJurorsNumber.add(bn(1))
         return nextRoundJurorsNumber
       } else {
         const finalRoundStartTerm = await this.getNextRoundStartTerm(disputeId, roundId)
         const totalActiveBalance = await this.jurorsRegistry.totalActiveBalanceAt(finalRoundStartTerm)
-        return totalActiveBalance.mul(this.finalRoundWeightPrecision).div(this.jurorsMinActiveBalance).toNumber()
+        return totalActiveBalance.mul(this.finalRoundWeightPrecision).div(this.jurorsMinActiveBalance)
       }
     }
 
@@ -104,7 +105,7 @@ module.exports = (web3, artifacts) => {
     async getAppealFees(disputeId, roundId) {
       const nextRoundJurorsNumber = await this.getNextRoundJurorsNumber(disputeId, roundId)
       const jurorFees = await this.getNextRoundJurorFees(disputeId, roundId)
-      let appealFees = this.heartbeatFee.plus(jurorFees)
+      let appealFees = this.heartbeatFee.add(jurorFees)
 
       if (roundId < this.maxRegularAppealRounds.toNumber() - 1) {
         const draftFees = this.draftFee.mul(nextRoundJurorsNumber)
@@ -119,11 +120,11 @@ module.exports = (web3, artifacts) => {
 
     async getNextRoundStartTerm(disputeId, roundId) {
       const { draftTerm } = await this.getRound(disputeId, roundId)
-      return draftTerm.plus(this.commitTerms).plus(this.revealTerms).plus(this.appealTerms).plus(this.appealConfirmTerms)
+      return draftTerm.add(this.commitTerms).add(this.revealTerms).add(this.appealTerms).add(this.appealConfirmTerms)
     }
 
     async getRoundJuror(disputeId, roundId, juror) {
-      const [weight, rewarded] = await this.court.getJuror(disputeId, roundId, juror)
+      const { weight, rewarded } = await this.court.getJuror(disputeId, roundId, juror)
       return { weight, rewarded }
     }
 
@@ -144,7 +145,7 @@ module.exports = (web3, artifacts) => {
       const { draftTerm } = await this.getRound(disputeId, roundId)
       const draftActiveBalance = await this.jurorsRegistry.activeBalanceOfAt(juror, draftTerm)
       if (draftActiveBalance.lt(this.jurorsMinActiveBalance)) return bn(0)
-      return draftActiveBalance.mul(this.finalRoundWeightPrecision).divToInt(this.jurorsMinActiveBalance)
+      return draftActiveBalance.mul(this.finalRoundWeightPrecision).div(this.jurorsMinActiveBalance)
     }
 
     async setTimestamp(timestamp) {
@@ -164,10 +165,10 @@ module.exports = (web3, artifacts) => {
 
     async setTerm(termId) {
       // set timestamp corresponding to given term ID
-      await this.setTimestamp(this.firstTermStartTime.plus(this.termDuration.mul(termId - 1)))
+      await this.setTimestamp(this.firstTermStartTime.add(this.termDuration.mul(bn(termId - 1))))
       // call heartbeat function for X needed terms
       const neededTransitions = await this.court.neededTermTransitions()
-      if (neededTransitions.gt(0)) await this.court.heartbeat(neededTransitions)
+      if (neededTransitions.gt(bn(0))) await this.court.heartbeat(neededTransitions)
     }
 
     async passTerms(terms) {
@@ -181,7 +182,7 @@ module.exports = (web3, artifacts) => {
 
     async passRealTerms(terms) {
       // increase X terms based on term duration
-      await this.increaseTime(this.termDuration.mul(terms))
+      await this.increaseTime(this.termDuration.mul(bn(terms)))
       // call heartbeat function for X terms
       await this.court.heartbeat(terms)
       // advance 2 blocks to ensure we can compute term randomness
@@ -191,7 +192,7 @@ module.exports = (web3, artifacts) => {
     async mintAndApproveFeeTokens(from, to, amount) {
       // reset allowance in case allowed address has already been approved some balance
       const allowance = await this.feeToken.allowance(from, to)
-      if (allowance.gt(0)) await this.feeToken.approve(to, 0, { from })
+      if (allowance.gt(bn(0))) await this.feeToken.approve(to, 0, { from })
 
       // mint and approve tokens
       await this.feeToken.generateTokens(from, amount)
@@ -199,7 +200,7 @@ module.exports = (web3, artifacts) => {
     }
 
     async activate(jurors) {
-      const ACTIVATE_DATA = web3.sha3('activate(uint256)').slice(0, 10)
+      const ACTIVATE_DATA = sha3('activate(uint256)').slice(0, 10)
 
       for (const { address, initialActiveBalance } of jurors) {
         await this.jurorToken.generateTokens(address, initialActiveBalance)
@@ -207,9 +208,9 @@ module.exports = (web3, artifacts) => {
       }
     }
 
-    async dispute({ jurorsNumber, draftTermId, possibleRulings = 2, arbitrable = undefined, disputer = undefined }) {
+    async dispute({ jurorsNumber, draftTermId, possibleRulings = bn(2), arbitrable = undefined, disputer = undefined }) {
       // mint enough fee tokens for the disputer, if no disputer was given pick the second account
-      if (!disputer) disputer = web3.eth.accounts[1]
+      if (!disputer) disputer = await this._getAccount(1)
       const { disputeFees } = await this.getDisputeFees(draftTermId, jurorsNumber)
       await this.mintAndApproveFeeTokens(disputer, this.court.address, disputeFees)
 
@@ -224,7 +225,7 @@ module.exports = (web3, artifacts) => {
 
     async draft({ disputeId, maxJurorsToBeDrafted = undefined, draftedJurors = undefined, drafter = undefined }) {
       // if no drafter was given pick the third account
-      if (!drafter) drafter = web3.eth.accounts[2]
+      if (!drafter) drafter = await this._getAccount(2)
 
       // draft all jurors if there was no max given
       if (!maxJurorsToBeDrafted) {
@@ -247,7 +248,7 @@ module.exports = (web3, artifacts) => {
       const logs = decodeEventsOfType(receipt, this.artifacts.require('JurorsRegistry').abi, 'JurorDrafted')
       const weights = getEvents({ logs }, 'JurorDrafted').reduce((jurors, event) => {
         const { juror } = event.args
-        jurors[juror] = (jurors[juror] || 0) + 1
+        jurors[juror] = (jurors[juror] || bn(0)).add(bn(1))
         return jurors
       }, {})
       return Object.keys(weights).map(address => ({ address, weight: weights[address] }))
@@ -283,7 +284,7 @@ module.exports = (web3, artifacts) => {
 
     async appeal({ disputeId, roundId, appealMaker = undefined, ruling = undefined }) {
       // mint fee tokens for the appealer, if no appealer was given pick the fourth account
-      if (!appealMaker) appealMaker = web3.eth.accounts[3]
+      if (!appealMaker) appealMaker = await this._getAccount(3)
       const { appealDeposit } = await this.getAppealFees(disputeId, roundId)
       await this.mintAndApproveFeeTokens(appealMaker, this.court.address, appealDeposit)
 
@@ -301,7 +302,7 @@ module.exports = (web3, artifacts) => {
 
     async confirmAppeal({ disputeId, roundId, appealTaker = undefined, ruling = undefined }) {
       // mint fee tokens for the appeal taker, if no taker was given pick the fifth account
-      if (!appealTaker) appealTaker = web3.eth.accounts[4]
+      if (!appealTaker) appealTaker = await this._getAccount(4)
       const { confirmAppealDeposit } = await this.getAppealFees(disputeId, roundId)
       await this.mintAndApproveFeeTokens(appealTaker, this.court.address, confirmAppealDeposit)
 
@@ -316,36 +317,8 @@ module.exports = (web3, artifacts) => {
       await this.passTerms(this.appealConfirmTerms)
     }
 
-    async settle({ disputeId, jurors }) {
-      // execute ruling
-      const { finalRuling, lastRoundId } = (await this.getDispute(disputeId)).toNumber()
-      await this.court.executeRuling(disputeId)
-
-      // settle penalties for each round
-      for (let roundId = 0; roundId <= lastRoundId; roundId++) {
-        const { roundJurorsNumber } = await this.getRound(disputeId, roundId)
-        await this.court.settlePenalties(disputeId, roundId, roundJurorsNumber)
-      }
-
-      // settle juror rewards for each round
-      const coherentJurors = []
-      for (let roundId = 0; roundId <= lastRoundId; roundId++) {
-        const voteId = getVoteId(disputeId, roundId)
-
-        for (const juror of jurors) {
-          const votedOutcome = await this.voting.getVoterOutcome(voteId, juror)
-          if (votedOutcome.eq(finalRuling)) {
-            coherentJurors.push(juror)
-            await this.court.settleReward(disputeId, roundId, juror.address)
-          }
-        }
-      }
-
-      return coherentJurors
-    }
-
-    async moveToFinalRound({ disputeId, fromRoundId = 0 }) {
-      for (let roundId = fromRoundId; roundId < this.maxRegularAppealRounds; roundId++) {
+    async moveToFinalRound({ disputeId, fromRoundId = bn(0) }) {
+      for (let roundId = fromRoundId; roundId < this.maxRegularAppealRounds; roundId = roundId.add(bn(1))) {
         const draftedJurors = await this.draft({ disputeId })
         await this.commit({ disputeId, roundId, voters: draftedJurors })
         await this.reveal({ disputeId, roundId, voters: draftedJurors })
@@ -356,7 +329,7 @@ module.exports = (web3, artifacts) => {
 
     async deploy(params) {
       Object.assign(this, { ...DEFAULTS, ...params })
-      if (!this.governor) this.governor = this.web3.eth.accounts[0]
+      if (!this.governor) this.governor = await this._getAccount(0)
       if (!this.voting) this.voting = await this.artifacts.require('CRVoting').new()
       if (!this.accounting) this.accounting = await this.artifacts.require('CourtAccounting').new()
       if (!this.feeToken) this.feeToken = await this.artifacts.require('MiniMeToken').new(ZERO_ADDRESS, ZERO_ADDRESS, 0, 'Court Fee Token', 18, 'CFT', true)
@@ -382,10 +355,15 @@ module.exports = (web3, artifacts) => {
         [ this.subscriptionPeriodDuration, this.subscriptionFeeAmount, this.subscriptionPrePaymentPeriods, this.subscriptionLatePaymentPenaltyPct, this.subscriptionGovernorSharePct ]
       )
 
-      const zeroTermStartTime = this.firstTermStartTime - this.termDuration
+      const zeroTermStartTime = this.firstTermStartTime.sub(this.termDuration)
       await this.setTimestamp(zeroTermStartTime)
 
       return this.court
+    }
+
+    async _getAccount(index) {
+      const accounts = await this.web3.eth.getAccounts()
+      return accounts[index]
     }
   }
 

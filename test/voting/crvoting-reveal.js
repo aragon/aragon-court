@@ -6,10 +6,10 @@ const { assertEvent, assertAmountOfEvents } = require('../helpers/assertEvent')
 const CRVoting = artifacts.require('CRVoting')
 const CRVotingOwner = artifacts.require('CRVotingOwnerMock')
 
-const POSSIBLE_OUTCOMES = 2
-
 contract('CRVoting reveal', ([_, voter]) => {
   let voting, votingOwner
+
+  const POSSIBLE_OUTCOMES = 2
 
   beforeEach('create base contracts', async () => {
     voting = await CRVoting.new()

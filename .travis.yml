@@ -11,6 +11,9 @@ before_script:
 jobs:
   include:
     - stage: tests
+      script: npm run lint
+      name: "Lint"
+    - stage: tests
       script: npm test test/court/court-{initialize,accounting,terms,draft}.js
       name: "Court Basics"
     - stage: tests
@@ -23,11 +26,11 @@ jobs:
       script: npm test test/registry/*.js
       name: "Registry"
     - stage: tests
-      script: npm test test/tree/*.js
-      name: "Tree"
+      script: npm test test/lib/*.js
+      name: "Lib"
     - stage: tests
       script: npm test test/voting/*.js
       name: "Voting"
     - stage: tests
-      script: npm test test/*.js
-      name: "Others"
+      script: npm test test/subscriptions/*.js
+      name: "Subscriptions"

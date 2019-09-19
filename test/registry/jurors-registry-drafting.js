@@ -6,7 +6,7 @@ const { getEventAt, getEventArgument } = require('@aragon/test-helpers/events')
 const { assertAmountOfEvents, assertEvent } = require('../helpers/assertEvent')
 
 const JurorsRegistry = artifacts.require('JurorsRegistry')
-const MiniMeToken = artifacts.require('MiniMeToken')
+const ERC20 = artifacts.require('ERC20Mock')
 const JurorsRegistryOwnerMock = artifacts.require('JurorsRegistryOwnerMock')
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
@@ -36,7 +36,7 @@ contract('JurorsRegistry', ([_, juror500, juror1000, juror1500, juror2000, juror
   beforeEach('create base contracts', async () => {
     registry = await JurorsRegistry.new()
     registryOwner = await JurorsRegistryOwnerMock.new(registry.address)
-    ANJ = await MiniMeToken.new(ZERO_ADDRESS, ZERO_ADDRESS, 0, 'ANJ Token', 18, 'ANJ', true)
+    ANJ = await ERC20.new('ANJ Token', 'ANJ', 18)
   })
 
   describe('draft', () => {

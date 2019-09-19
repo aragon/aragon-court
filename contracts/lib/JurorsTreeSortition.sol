@@ -1,4 +1,4 @@
-pragma solidity ^0.4.24;
+pragma solidity ^0.5.8;
 
 import "./HexSumTree.sol";
 
@@ -35,10 +35,16 @@ library JurorsTreeSortition {
     )
         internal
         view
-        returns (uint256[] jurorsIds, uint256[] jurorsBalances)
+        returns (uint256[] memory jurorsIds, uint256[] memory jurorsBalances)
     {
         (uint256 low, uint256 high) = getSearchBatchBounds(tree, _termId, _selectedJurors, _batchRequestedJurors, _roundRequestedJurors);
-        uint256[] memory balances = _computeSearchRandomBalances(_randomnessHash(_termRandomness, _disputeId, _sortitionIteration), _batchRequestedJurors, low, high);
+        uint256[] memory balances = _computeSearchRandomBalances(
+            _randomnessHash(_termRandomness, _disputeId, _sortitionIteration),
+            _batchRequestedJurors,
+            low,
+            high
+        );
+
         (jurorsIds, jurorsBalances) = tree.search(balances, _termId);
 
         require(jurorsIds.length == jurorsBalances.length, ERROR_SORTITION_LENGTHS_MISMATCH);
@@ -95,7 +101,7 @@ library JurorsTreeSortition {
     )
         internal
         pure
-        returns (uint256[])
+        returns (uint256[] memory)
     {
         // Calculate the interval to be used to search the balances in the tree. Since we are using a modulo function
         // to compute the random balances to be searched, we add one to the difference to make sure the last number
@@ -104,9 +110,9 @@ library JurorsTreeSortition {
         uint256[] memory balances = new uint256[](_batchRequestedJurors);
 
         // Compute an ordered list of random active balance to be searched in the jurors tree
-        for(uint256 batchJurorNumber = 0; batchJurorNumber < _batchRequestedJurors; batchJurorNumber++) {
+        for (uint256 batchJurorNumber = 0; batchJurorNumber < _batchRequestedJurors; batchJurorNumber++) {
             balances[batchJurorNumber] = _computeRandomBalance(_randomnessHash, batchJurorNumber, _lowBatchBound, interval);
-            for(uint256 i = batchJurorNumber; i > 0 && balances[i] < balances[i - 1]; i--) {
+            for (uint256 i = batchJurorNumber; i > 0 && balances[i] < balances[i - 1]; i--) {
                 uint256 tmp = balances[i - 1];
                 balances[i - 1] = balances[i];
                 balances[i] = tmp;

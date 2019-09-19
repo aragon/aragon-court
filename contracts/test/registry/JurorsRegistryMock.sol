@@ -1,7 +1,7 @@
-pragma solidity ^0.4.24;
+pragma solidity ^0.5.8;
 
-import "../../JurorsRegistry.sol";
 import "../lib/TimeHelpersMock.sol";
+import "../../registry/JurorsRegistry.sol";
 
 
 contract JurorsRegistryMock is JurorsRegistry, TimeHelpersMock {
@@ -10,12 +10,7 @@ contract JurorsRegistryMock is JurorsRegistry, TimeHelpersMock {
     address[] public mockedSelectedJurors;
     uint256[] public mockedWeights;
 
-    // TODO: remove
-    function mockHijackTreeSearch() external {
-        treeSearchHijacked = true;
-    }
-
-    function mockNextDraft(address[] _selectedJurors, uint256[] _weights) external {
+    function mockNextDraft(address[] calldata _selectedJurors, uint256[] calldata _weights) external {
         nextDraftMocked = true;
 
         delete mockedSelectedJurors;
@@ -29,29 +24,14 @@ contract JurorsRegistryMock is JurorsRegistry, TimeHelpersMock {
         }
     }
 
-    function _treeSearch(uint256[7] _params) internal view returns (uint256[], uint256[]) {
-        if (treeSearchHijacked) {
-            return _runHijackedSearch(_params);
-        }
+    function _treeSearch(uint256[7] memory _params) internal view returns (uint256[] memory, uint256[] memory) {
         if (nextDraftMocked) {
             return _runMockedSearch(_params);
         }
         return super._treeSearch(_params);
     }
 
-    function _runHijackedSearch(uint256[7] _params) internal view returns (uint256[] keys, uint256[] nodeValues) {
-        uint256 _requestedJurors = _params[4];
-
-        keys = new uint256[](_requestedJurors);
-        nodeValues = new uint256[](_requestedJurors);
-        for (uint256 i = 0; i < _requestedJurors; i++) {
-            uint256 key = i % (tree.nextKey - 1) + 1; // loop, and avoid 0
-            keys[i] = key;
-            nodeValues[i] = tree.getItem(key);
-        }
-    }
-
-    function _runMockedSearch(uint256[7] _params) internal returns (uint256[] ids, uint256[] activeBalances) {
+    function _runMockedSearch(uint256[7] memory /* _params */) internal view returns (uint256[] memory ids, uint256[] memory activeBalances) {
         uint256 totalLength = 0;
         for (uint256 k = 0; k < mockedWeights.length; k++) {
             totalLength += mockedWeights[k];
@@ -72,7 +52,5 @@ contract JurorsRegistryMock is JurorsRegistry, TimeHelpersMock {
                 index++;
             }
         }
-
-        nextDraftMocked = false;
     }
 }

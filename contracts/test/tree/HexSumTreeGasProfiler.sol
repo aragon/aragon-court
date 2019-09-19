@@ -1,4 +1,4 @@
-pragma solidity ^0.4.24;
+pragma solidity ^0.5.8;
 
 import "../../lib/HexSumTree.sol";
 import "../lib/TimeHelpersMock.sol";
@@ -37,7 +37,7 @@ contract HexSumTreeGasProfiler is TimeHelpersMock {
         tree.update(_key, _time, _delta, _positive);
     }
 
-    function search(uint256[] _values, uint64 _time) external profileGas {
+    function search(uint256[] calldata _values, uint64 _time) external profileGas {
         tree.search(_values, _time);
     }
 

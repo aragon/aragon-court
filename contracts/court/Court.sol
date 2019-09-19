@@ -11,7 +11,6 @@ import "./IAccounting.sol";
 import "../lib/PctHelpers.sol";
 import "../voting/ICRVoting.sol";
 import "../voting/ICRVotingOwner.sol";
-import "../arbitration/Arbitrable.sol";
 import "../arbitration/IArbitrable.sol";
 import "../registry/IJurorsRegistry.sol";
 import "../registry/IJurorsRegistryOwner.sol";

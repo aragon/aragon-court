@@ -772,6 +772,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
             uint64 jurorsNumber,
             uint64 selectedJurors,
             address triggeredBy,
+            uint256 jurorFees,
             bool settledPenalties,
             uint256 collectedTokens,
             uint64 coherentJurors,
@@ -779,14 +780,15 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
         )
     {
         Dispute storage dispute = disputes[_disputeId];
-        AdjudicationRound storage round = dispute.rounds[_roundId];
-
         state = _adjudicationStateAt(dispute, _roundId, _getCurrentTermId());
+
+        AdjudicationRound storage round = dispute.rounds[_roundId];
         draftTerm = round.draftTermId;
         delayedTerms = round.delayedTerms;
         jurorsNumber = round.jurorsNumber;
         selectedJurors = round.selectedJurors;
         triggeredBy = round.triggeredBy;
+        jurorFees = round.jurorFees;
         settledPenalties = round.settledPenalties;
         coherentJurors = round.coherentJurors;
         collectedTokens = round.collectedTokens;
@@ -1253,7 +1255,6 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
 
         // Otherwise, return the times the active balance of the juror fits in the min active balance, multiplying
         // it by a round factor to ensure a better precision rounding.
-        // TODO: review, we are not using the final round discount here
         return (FINAL_ROUND_WEIGHT_PRECISION.mul(activeBalance) / minJurorsActiveBalance).toUint64();
     }
 

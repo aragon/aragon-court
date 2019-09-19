@@ -184,7 +184,7 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
                       it('creates a new round for the given dispute', async () => {
                         await court.confirmAppeal(disputeId, roundId, appealTakerRuling, { from: appealTaker })
 
-                        const { draftTerm, delayedTerms, roundJurorsNumber, selectedJurors, triggeredBy, settledPenalties, collectedTokens } = await courtHelper.getRound(disputeId, roundId + 1)
+                        const { draftTerm, delayedTerms, roundJurorsNumber, selectedJurors, triggeredBy, settledPenalties, jurorFees, collectedTokens } = await courtHelper.getRound(disputeId, roundId + 1)
 
                         const nextRoundStartTerm = await courtHelper.getNextRoundStartTerm(disputeId, roundId)
                         assert.equal(draftTerm.toString(), nextRoundStartTerm.toString(), 'new round draft term does not match')
@@ -192,6 +192,10 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
 
                         const nextRoundJurorsNumber = await courtHelper.getNextRoundJurorsNumber(disputeId, roundId)
                         assert.equal(roundJurorsNumber.toString(), nextRoundJurorsNumber.toString(), 'new round jurors number does not match')
+
+                        const nextRoundJurorFees = await courtHelper.getNextRoundJurorFees(disputeId, roundId)
+                        assert.equal(jurorFees.toString(), nextRoundJurorFees.toString(), 'new round juror fees do not match')
+
                         assert.equal(selectedJurors.toString(), 0, 'new round selected jurors number does not match')
                         assert.equal(triggeredBy, appealTaker, 'new round trigger does not match')
                         assert.equal(settledPenalties, false, 'new round penalties should not be settled')
@@ -199,15 +203,16 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
                       })
 
                       it('does not modify the current round of the dispute', async () => {
-                        const { draftTerm: previousDraftTerm, delayedTerms: previousDelayedTerms, roundJurorsNumber: previousJurorsNumber, triggeredBy: previousTriggeredBy } = await courtHelper.getRound(disputeId, roundId)
+                        const { draftTerm: previousDraftTerm, delayedTerms: previousDelayedTerms, roundJurorsNumber: previousJurorsNumber, jurorFees: previousJurorFees, triggeredBy: previousTriggeredBy } = await courtHelper.getRound(disputeId, roundId)
 
                         await court.confirmAppeal(disputeId, roundId, appealTakerRuling, { from: appealTaker })
 
-                        const { draftTerm, delayedTerms, roundJurorsNumber, selectedJurors, triggeredBy, settledPenalties, collectedTokens } = await courtHelper.getRound(disputeId, roundId)
+                        const { draftTerm, delayedTerms, roundJurorsNumber, selectedJurors, jurorFees, triggeredBy, settledPenalties, collectedTokens } = await courtHelper.getRound(disputeId, roundId)
                         assert.equal(draftTerm.toString(), previousDraftTerm.toString(), 'current round draft term does not match')
                         assert.equal(delayedTerms.toString(), previousDelayedTerms.toString(), 'current round delay term does not match')
                         assert.equal(roundJurorsNumber.toString(), previousJurorsNumber.toString(), 'current round jurors number does not match')
                         assert.equal(selectedJurors.toString(), previousJurorsNumber.toString(), 'current round selected jurors number does not match')
+                        assert.equal(jurorFees.toString(), previousJurorFees.toString(), 'current round juror fees do not match')
                         assert.equal(triggeredBy, previousTriggeredBy, 'current round trigger does not match')
                         assert.equal(settledPenalties, false, 'current round penalties should not be settled')
                         assert.equal(collectedTokens.toString(), 0, 'current round collected tokens should be zero')

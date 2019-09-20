@@ -8,7 +8,7 @@ contract ArbitrableMock is IArbitrable {
         emit CourtRuling(msg.sender, _disputeId, _ruling);
     }
 
-    function canSubmitEvidence(uint256 /* _disputeId */, address /* _submitter */) public view returns (bool) {
+    function canSubmitEvidence(uint256 /* _disputeId */, address /* _submitter */) external view returns (bool) {
         return true;
     }
 }

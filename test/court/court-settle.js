@@ -271,7 +271,7 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
                   }
                 })
 
-                it('reimburses winning juror fees', async () => {
+                it('rewards winning jurors with fees', async () => {
                   const { accounting, feeToken } = courtHelper
                   const { jurorFees } = await courtHelper.getRound(disputeId, roundId)
 

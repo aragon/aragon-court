@@ -3,7 +3,7 @@ const { bn, bigExp } = require('./numbers')
 const { decodeEventsOfType } = require('./decodeEvent')
 const { NEXT_WEEK, ONE_DAY } = require('./time')
 const { getEvents, getEventArgument } = require('@aragon/os/test/helpers/events')
-const { getVoteId, encryptVote, oppositeOutcome, outcomeFor, SALT } = require('../helpers/crvoting')
+const { getVoteId, encryptVote, oppositeOutcome, outcomeFor, SALT, OUTCOMES } = require('../helpers/crvoting')
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
 
@@ -262,6 +262,9 @@ module.exports = (web3, artifacts) => {
         // if no outcome was set for the given outcome, pick one based on its index
         if (!outcome) outcome = outcomeFor(i)
         await this.voting.commit(voteId, encryptVote(outcome), { from: address })
+        if (outcome == OUTCOMES.LEAKED) {
+          await this.voting.leak(voteId, address, outcome, SALT)
+        }
       }
 
       // move to reveal period
@@ -275,7 +278,9 @@ module.exports = (web3, artifacts) => {
         let { address, outcome } = voters[i]
         // if no outcome was set for the given outcome, pick one based on its index
         if (!outcome) outcome = outcomeFor(i)
-        await this.voting.reveal(voteId, outcome, SALT, { from: address })
+        if (outcome != OUTCOMES.LEAKED) {
+          await this.voting.reveal(voteId, outcome, SALT, { from: address })
+        }
       }
 
       // move to appeal period

@@ -6,6 +6,8 @@ const HexSumTree = artifacts.require('HexSumTreeGasProfiler')
 contract('HexSumTree', () => {
   let tree
   const CHILDREN = 16
+  const BIG_KEY_HEIGHT = 27
+  const BIG_KEY = bn(CHILDREN).pow(bn(BIG_KEY_HEIGHT))
 
   beforeEach(async () => {
     tree = await HexSumTree.new()
@@ -25,17 +27,17 @@ contract('HexSumTree', () => {
     describe('insert', () => {
       context('non increasing height', () => {
         context('small tree', () => {
-          const expectedCost = 11e4
+          const expectedCost = 107e3
 
           itCostsAtMost(expectedCost, () => tree.insert(0, 10))
         })
 
         context('huge tree', () => {
-          const expectedCost = 30e4
+          const expectedCost = 280e3
 
           itCostsAtMost(expectedCost, async () => {
             // mock huge next key
-            const nextKey = bigExp(CHILDREN, 32)
+            const nextKey = BIG_KEY
             await tree.mockNextKey(0, nextKey)
 
             await tree.insert(0, 10)
@@ -47,7 +49,7 @@ contract('HexSumTree', () => {
 
       context('increasing height', () => {
         context('small tree', () => {
-          const expectedCost = 16e4
+          const expectedCost = 150e3
 
           itCostsAtMost(expectedCost, async () => {
             for (let i = 0; i < CHILDREN; i++) await tree.insert(0, 10)
@@ -58,7 +60,7 @@ contract('HexSumTree', () => {
         })
 
         context('huge tree', () => {
-          const expectedCost = 61e4
+          const expectedCost = 592e3
 
           itCostsAtMost(expectedCost, async () => {
             // mock huge next key
@@ -83,21 +85,21 @@ contract('HexSumTree', () => {
 
         context('previous registered checkpoint', () => {
           const setTime = 0
-          const expectedCost = 22e3
+          const expectedCost = 19e3
 
           itCostsAtMost(expectedCost, () => tree.set(key, setTime, 50))
         })
 
         context('new registered checkpoint', () => {
           const setTime = 10
-          const expectedCost = 61e3
+          const expectedCost = 59e3
 
           itCostsAtMost(expectedCost, () => tree.set(key, setTime, 50))
         })
       })
 
       context('huge tree', () => {
-        const nextKey = bigExp(CHILDREN, 32)
+        const nextKey = BIG_KEY
 
         beforeEach('insert item', async () => {
           // mock huge next key
@@ -107,14 +109,14 @@ contract('HexSumTree', () => {
 
         context('previous registered checkpoint', () => {
           const setTime = 0
-          const expectedCost = 26e4
+          const expectedCost = 241e3
 
           itCostsAtMost(expectedCost, () => tree.set(nextKey, setTime, 50))
         })
 
         context('new registered checkpoint', () => {
           const setTime = 10
-          const expectedCost = 84e4
+          const expectedCost = 816e3
 
           itCostsAtMost(expectedCost, () => tree.set(nextKey, setTime, 50))
         })
@@ -131,21 +133,21 @@ contract('HexSumTree', () => {
 
         context('previous registered checkpoint', () => {
           const updateTime = 0
-          const expectedCost = 22e3
+          const expectedCost = 19e3
 
           itCostsAtMost(expectedCost, () => tree.update(key, updateTime, 50, true))
         })
 
         context('new registered checkpoint', () => {
           const updateTime = 10
-          const expectedCost = 61e3
+          const expectedCost = 59e3
 
           itCostsAtMost(expectedCost, () => tree.update(key, updateTime, 50, true))
         })
       })
 
       context('huge tree', () => {
-        const nextKey = bigExp(CHILDREN, 32)
+        const nextKey = BIG_KEY
 
         beforeEach('insert item', async () => {
           // mock huge next key
@@ -155,14 +157,14 @@ contract('HexSumTree', () => {
 
         context('previous registered checkpoint', () => {
           const updateTime = 0
-          const expectedCost = 26e4
+          const expectedCost = 241e3
 
           itCostsAtMost(expectedCost, () => tree.update(nextKey, updateTime, 50, true))
         })
 
         context('new registered checkpoint', () => {
           const updateTime = 10
-          const expectedCost = 84e4
+          const expectedCost = 816e3
 
           itCostsAtMost(expectedCost, () => tree.update(nextKey, updateTime, 50, true))
         })
@@ -170,6 +172,13 @@ contract('HexSumTree', () => {
     })
 
     describe('search', () => {
+      const mockNextKeyProgressively = async (exp) => {
+        for (let i = 1; i <= exp; i++) {
+          const nextKey = bn(CHILDREN).pow(bn(i))
+          await tree.mockNextKey(i, nextKey)
+        }
+      }
+
       const value = 10
 
       const updateMany = async (key, updateTimes) => {
@@ -181,7 +190,7 @@ contract('HexSumTree', () => {
       context('searching one item', () => {
         context('small tree', () => {
           context('without checkpoints', () => {
-            const expectedCost = 9e3
+            const expectedCost = 8e3
 
             itCostsAtMost(expectedCost, async () => {
               await tree.insert(0, value)
@@ -192,7 +201,7 @@ contract('HexSumTree', () => {
 
           context('with checkpoints', () => {
             const updateTimes = 100
-            const expectedCost = 23e3
+            const expectedCost = 20e3
 
             itCostsAtMost(expectedCost, async () => {
               await tree.insert(0, value)
@@ -205,11 +214,11 @@ contract('HexSumTree', () => {
 
         context('huge tree', () => {
           context('without checkpoints', () => {
-            const expectedCost = 25e4
+            const expectedCost = 74e3
 
             itCostsAtMost(expectedCost, async () => {
               // mock huge next key
-              const nextKey = bigExp(CHILDREN, 32)
+              const nextKey = BIG_KEY
               await tree.mockNextKey(0, nextKey)
               await tree.insert(0, value)
 
@@ -219,12 +228,11 @@ contract('HexSumTree', () => {
 
           context('with checkpoints', () => {
             const updateTimes = 100
-            const expectedCost = 29e4
+            const expectedCost = 256e3
 
             itCostsAtMost(expectedCost, async () => {
               // mock huge next key
-              const nextKey = bigExp(CHILDREN, 32)
-              await tree.mockNextKey(0, nextKey)
+              await mockNextKeyProgressively(BIG_KEY_HEIGHT)
               await tree.insert(0, value)
               await updateMany(0, updateTimes)
 
@@ -247,7 +255,7 @@ contract('HexSumTree', () => {
 
         context('small tree', () => {
           context('without checkpoints', () => {
-            const expectedCost = 26e3
+            const expectedCost = 22e3
 
             itCostsAtMost(expectedCost, async () => {
               await insertMany(value, insertTimes)
@@ -258,7 +266,7 @@ contract('HexSumTree', () => {
 
           context('with checkpoints', () => {
             const updateTimes = 100
-            const expectedCost = 42e3
+            const expectedCost = 37e3
 
             itCostsAtMost(expectedCost, async () => {
               await insertMany(value, insertTimes)
@@ -271,11 +279,11 @@ contract('HexSumTree', () => {
 
         context('huge tree', () => {
           context('without checkpoints', () => {
-            const expectedCost = 30e4
+            const expectedCost = 116e3
 
             itCostsAtMost(expectedCost, async () => {
               // mock huge next key
-              const nextKey = bigExp(CHILDREN, 32)
+              const nextKey = BIG_KEY
               await tree.mockNextKey(0, nextKey)
               await insertMany(value, insertTimes)
 
@@ -285,12 +293,11 @@ contract('HexSumTree', () => {
 
           context('with checkpoints', () => {
             const updateTimes = 100
-            const expectedCost = 102e4
+            const expectedCost = 741e3
 
             itCostsAtMost(expectedCost, async () => {
               // mock huge next key
-              const nextKey = bigExp(CHILDREN, 32)
-              await tree.mockNextKey(0, nextKey)
+              await mockNextKeyProgressively(BIG_KEY_HEIGHT)
               await insertMany(value, insertTimes)
               await updateMany(0, updateTimes)
 

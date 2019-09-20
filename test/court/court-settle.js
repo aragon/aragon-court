@@ -3,12 +3,12 @@ const { assertRevert } = require('../helpers/assertThrow')
 const { decodeEventsOfType } = require('../helpers/decodeEvent')
 const { filterJurors, filterWinningJurors } = require('../helpers/jurors')
 const { assertAmountOfEvents, assertEvent } = require('../helpers/assertEvent')
-const { OUTCOMES, getVoteId, oppositeOutcome } = require('../helpers/crvoting')
+const { getVoteId, oppositeOutcome, OUTCOMES } = require('../helpers/crvoting')
 const { buildHelper, DEFAULTS, ROUND_STATES, DISPUTE_STATES } = require('../helpers/court')(web3, artifacts)
 
 const Arbitrable = artifacts.require('Arbitrable')
 
-contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, juror1000, juror1500, juror2000, juror2500, juror3000, juror3500, juror4000]) => {
+contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, juror1000, juror1500, juror2000, juror2500, juror3000, juror3500, juror4000, anyone]) => {
   let courtHelper, court, voting
 
   const jurors = [
@@ -70,7 +70,7 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
 
         const itFailsToSettleRewards = (roundId) => {
           it('fails to settle rewards', async () => {
-            await assertRevert(court.settleReward(disputeId, roundId, juror1000), 'CT_ROUND_PENALTIES_NOT_SETTLED')
+            await assertRevert(court.settleReward(disputeId, roundId, anyone), 'CT_ROUND_PENALTIES_NOT_SETTLED')
           })
         }
 
@@ -95,7 +95,7 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
               assertEvent(receipt, 'RulingExecuted', { disputeId, ruling: expectedFinalRuling })
             })
 
-            it('executes the associated airbitrable', async () => {
+            it('executes the associated arbitrable', async () => {
               const receipt = await court.executeRuling(disputeId)
 
               const logs = decodeEventsOfType(receipt, Arbitrable.abi, 'CourtRuling')
@@ -147,7 +147,7 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
               expectedCollectedTokens = expectedCollectedTokens.add(roundLockedBalance)
             }
 
-            // for final rounds all voter's tokens are collected before hand
+            // for final rounds all voter's tokens are collected before hand, then, add the balances of the winning jurors as well
             if (roundId >= courtHelper.maxRegularAppealRounds.toNumber()) {
               for (const { address } of expectedWinningJurors) {
                 const roundLockedBalance = await courtHelper.getRoundLockBalance(disputeId, roundId, address)
@@ -201,32 +201,10 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
               })
 
               it('updates the given round', async () => {
-                let expectedDraftTermId = draftTermId
-                for (let round = 0; round < roundId; round++) {
-                  const { commitTerms, revealTerms, appealTerms, appealConfirmTerms } = courtHelper
-                  expectedDraftTermId = bn(expectedDraftTermId).add(commitTerms).add(revealTerms).add(appealTerms).add(appealConfirmTerms)
-                }
-
-                let expectedJurorsNumber
-                if (roundId < courtHelper.maxRegularAppealRounds) {
-                  expectedJurorsNumber = jurorsNumber
-                  for (let round = 0; round < roundId; round++) {
-                    expectedJurorsNumber = courtHelper.getNextRoundJurorsNumberFor(expectedJurorsNumber)
-                  }
-                } else {
-                  const totalActiveBalance = await courtHelper.jurorsRegistry.totalActiveBalanceAt(expectedDraftTermId)
-                  expectedJurorsNumber = totalActiveBalance.mul(bn(1000)).div(courtHelper.jurorsMinActiveBalance)
-                }
-
-                const { draftTerm, delayedTerms, roundJurorsNumber, selectedJurors, triggeredBy, settledPenalties, collectedTokens, coherentJurors } = await courtHelper.getRound(disputeId, roundId)
+                const { settledPenalties, collectedTokens, coherentJurors } = await courtHelper.getRound(disputeId, roundId)
                 assert.equal(settledPenalties, true, 'current round penalties should be settled')
                 assert.equal(collectedTokens.toString(), expectedCollectedTokens.toString(), 'current round collected tokens does not match')
                 assert.equal(coherentJurors.toString(), expectedCoherentJurors, 'current round coherent jurors does not match')
-                assert.equal(delayedTerms.toString(), 0, 'current round delay term does not match')
-                assert.equal(draftTerm.toString(), expectedDraftTermId.toString(), 'current round draft term does not match')
-                assert.equal(roundJurorsNumber.toString(), expectedJurorsNumber.toString(), 'current round jurors number does not match')
-                assert.equal(selectedJurors.toString(), roundId < courtHelper.maxRegularAppealRounds.toNumber() ? expectedJurorsNumber.toString() : 0, 'current round selected jurors number does not match')
-                assert.equal(triggeredBy, roundId === 0 ? disputer : appealTaker, 'current round trigger does not match')
               })
 
               it('cannot be settled twice', async () => {
@@ -243,7 +221,7 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
             })
 
             context('when settling in multiple batches', () => {
-              if (roundId < DEFAULTS.maxRegularAppealRounds) {
+              if (roundId < DEFAULTS.maxRegularAppealRounds.toNumber()) {
                 beforeEach('settle penalties', async () => {
                   const batches = expectedWinningJurors.length + expectedLosingJurors.length
                   for (let batch = 0; batch < batches; batch++) {
@@ -256,10 +234,10 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
                 itSettlesPenaltiesProperly()
 
               } else {
-                it ('reverts', async () => {
+                it('reverts', async () => {
                   await court.settlePenalties(disputeId, roundId, 1)
 
-                  await assertRevert(court.settlePenalties(disputeId, roundId, 1), '')
+                  await assertRevert(court.settlePenalties(disputeId, roundId, 1), 'CT_ROUND_ALREADY_SETTLED')
                 })
               }
             })
@@ -481,14 +459,14 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
             itSettlesAppealDeposits(roundId, () => {
               it('returns the deposit to the appeal maker', async () => {
                 const { accounting, feeToken } = courtHelper
-                const expectedAppealDeposit = await courtHelper.getAppealDeposit(disputeId, roundId)
+                const { appealDeposit } = await courtHelper.getAppealFees(disputeId, roundId)
 
                 const previousBalance = await accounting.balanceOf(feeToken.address, appealMaker)
 
                 await court.settleAppealDeposit(disputeId, roundId)
 
                 const currentBalance = await accounting.balanceOf(feeToken.address, appealMaker)
-                assert.equal(previousBalance.add(expectedAppealDeposit).toString(), currentBalance.toString(), 'appealer balances do not match')
+                assert.equal(previousBalance.add(appealDeposit).toString(), currentBalance.toString(), 'appeal maker balances do not match')
               })
             })
           }
@@ -497,17 +475,15 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
             itSettlesAppealDeposits(roundId, () => {
               it('settles the total deposit to the appeal taker', async () => {
                 const { accounting, feeToken } = courtHelper
-                const appealDeposit = await courtHelper.getAppealDeposit(disputeId, roundId)
-                const appealConfirmDeposit = await courtHelper.getConfirmAppealDeposit(disputeId, roundId)
-                const appealFees = await courtHelper.getAppealFees(disputeId, roundId)
-                const expectedAppealReward = appealDeposit.add(appealConfirmDeposit).sub(appealFees)
+                const { appealFees, appealDeposit, confirmAppealDeposit } = await courtHelper.getAppealFees(disputeId, roundId)
 
+                const expectedAppealReward = appealDeposit.add(confirmAppealDeposit).sub(appealFees)
                 const previousAppealTakerBalance = await accounting.balanceOf(feeToken.address, appealTaker)
 
                 await court.settleAppealDeposit(disputeId, roundId)
 
                 const currentAppealTakerBalance = await accounting.balanceOf(feeToken.address, appealTaker)
-                assert.equal(previousAppealTakerBalance.add(expectedAppealReward).toString(), currentAppealTakerBalance.toString(), 'appealer balances do not match')
+                assert.equal(previousAppealTakerBalance.add(expectedAppealReward).toString(), currentAppealTakerBalance.toString(), 'appeal maker balances do not match')
               })
             })
           }
@@ -516,16 +492,15 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
             itSettlesAppealDeposits(roundId, () => {
               it('settles the total deposit to the appeal maker', async () => {
                 const { accounting, feeToken } = courtHelper
-                const appealDeposit = await courtHelper.getAppealDeposit(disputeId, roundId)
-                const appealConfirmDeposit = await courtHelper.getConfirmAppealDeposit(disputeId, roundId)
-                const appealFees = await courtHelper.getAppealFees(disputeId, roundId)
-                const expectedAppealReward = appealDeposit.add(appealConfirmDeposit).sub(appealFees)
+                const { appealFees, appealDeposit, confirmAppealDeposit } = await courtHelper.getAppealFees(disputeId, roundId)
+
+                const expectedAppealReward = appealDeposit.add(confirmAppealDeposit).sub(appealFees)
                 const previousAppealMakerBalance = await accounting.balanceOf(feeToken.address, appealMaker)
 
                 await court.settleAppealDeposit(disputeId, roundId)
 
                 const currentAppealMakerBalance = await accounting.balanceOf(feeToken.address, appealMaker)
-                assert.equal(previousAppealMakerBalance.add(expectedAppealReward).toString(), currentAppealMakerBalance.toString(), 'appealer balances do not match')
+                assert.equal(previousAppealMakerBalance.add(expectedAppealReward).toString(), currentAppealMakerBalance.toString(), 'appeal maker balances do not match')
               })
             })
           }
@@ -534,23 +509,21 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
             itSettlesAppealDeposits(roundId, () => {
               it('splits the appeal deposit', async () => {
                 const { accounting, feeToken } = courtHelper
-                const appealDeposit = await courtHelper.getAppealDeposit(disputeId, roundId)
-                const appealConfirmDeposit = await courtHelper.getConfirmAppealDeposit(disputeId, roundId)
-                const appealFees = await courtHelper.getAppealFees(disputeId, roundId)
+                const { appealFees, appealDeposit, confirmAppealDeposit } = await courtHelper.getAppealFees(disputeId, roundId)
 
                 const expectedAppealMakerReward = appealDeposit.sub(appealFees.div(bn(2)))
                 const previousAppealMakerBalance = await accounting.balanceOf(feeToken.address, appealMaker)
 
-                const expectedAppealTakerReward = appealConfirmDeposit.sub(appealFees.div(bn(2)))
+                const expectedAppealTakerReward = confirmAppealDeposit.sub(appealFees.div(bn(2)))
                 const previousAppealTakerBalance = await accounting.balanceOf(feeToken.address, appealTaker)
 
                 await court.settleAppealDeposit(disputeId, roundId)
 
                 const currentAppealMakerBalance = await accounting.balanceOf(feeToken.address, appealMaker)
-                assert.equal(previousAppealMakerBalance.add(expectedAppealMakerReward).toString(), currentAppealMakerBalance.toString(), 'appealer balances do not match')
+                assert.equal(previousAppealMakerBalance.add(expectedAppealMakerReward).toString(), currentAppealMakerBalance.toString(), 'appeal maker balances do not match')
 
                 const currentAppealTakerBalance = await accounting.balanceOf(feeToken.address, appealTaker)
-                assert.equal(previousAppealTakerBalance.add(expectedAppealTakerReward).toString(), currentAppealTakerBalance.toString(), 'appealer balances do not match')
+                assert.equal(previousAppealTakerBalance.add(expectedAppealTakerReward).toString(), currentAppealTakerBalance.toString(), 'appeal taker balances do not match')
               })
             })
           }
@@ -681,7 +654,7 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
               })
 
               context('when the next round is a final round', () => {
-                const finalRoundId = 3
+                const finalRoundId = DEFAULTS.maxRegularAppealRounds.toNumber()
 
                 const itHandlesRoundsSettlesProperly = (finalRoundVoters, expectedFinalRuling) => {
                   const previousRoundsVoters = { [roundId]: voters }

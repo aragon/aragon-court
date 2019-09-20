@@ -1,9 +1,9 @@
 const { bn, bigExp } = require('../helpers/numbers')
 const { filterJurors } = require('../helpers/jurors')
 const { assertRevert } = require('../helpers/assertThrow')
-const { buildHelper, ROUND_STATES } = require('../helpers/court')(web3, artifacts)
+const { buildHelper, DEFAULTS, ROUND_STATES } = require('../helpers/court')(web3, artifacts)
 const { assertAmountOfEvents, assertEvent } = require('../helpers/assertEvent')
-const { SALT, OUTCOMES, getVoteId, encryptVote, outcomeFor } = require('../helpers/crvoting')
+const { getVoteId, encryptVote, outcomeFor, SALT, OUTCOMES } = require('../helpers/crvoting')
 
 contract('Court', ([_, disputer, drafter, juror100, juror500, juror1000, juror1500, juror2000, juror2500, juror3000, juror3500, juror4000]) => {
   let courtHelper, court, voting
@@ -133,16 +133,16 @@ contract('Court', ([_, disputer, drafter, juror100, juror500, juror1000, juror15
             })
 
             it('computes tallies properly', async () => {
-            const lowOutcomeTally = await voting.getOutcomeTally(voteId, OUTCOMES.LOW)
-            assert.equal(lowOutcomeTally.toString(), expectedTally[OUTCOMES.LOW], 'low outcome tally does not match')
+              const lowOutcomeTally = await voting.getOutcomeTally(voteId, OUTCOMES.LOW)
+              assert.equal(lowOutcomeTally.toString(), expectedTally[OUTCOMES.LOW], 'low outcome tally does not match')
 
-            const highOutcomeTally = await voting.getOutcomeTally(voteId, OUTCOMES.HIGH)
-            assert.equal(highOutcomeTally.toString(), expectedTally[OUTCOMES.HIGH], 'high outcome tally does not match')
+              const highOutcomeTally = await voting.getOutcomeTally(voteId, OUTCOMES.HIGH)
+              assert.equal(highOutcomeTally.toString(), expectedTally[OUTCOMES.HIGH], 'high outcome tally does not match')
 
-            const winningOutcome = await voting.getWinningOutcome(voteId)
-            const expectedWinningOutcome = highOutcomeTally > lowOutcomeTally ? OUTCOMES.HIGH : OUTCOMES.LOW
-            assert.equal(winningOutcome.toString(), expectedWinningOutcome, 'winning outcome does not match')
-          })
+              const winningOutcome = await voting.getWinningOutcome(voteId)
+              const expectedWinningOutcome = highOutcomeTally > lowOutcomeTally ? OUTCOMES.HIGH : OUTCOMES.LOW
+              assert.equal(winningOutcome.toString(), expectedWinningOutcome, 'winning outcome does not match')
+            })
           })
 
           context('when the sender did not vote', () => {
@@ -246,7 +246,7 @@ contract('Court', ([_, disputer, drafter, juror100, juror500, juror1000, juror15
     })
 
     context('for a final round', () => {
-      const roundId = 3, poorJuror = juror100
+      const roundId = DEFAULTS.maxRegularAppealRounds.toNumber(), poorJuror = juror100
 
       beforeEach('simulate juror without enough balance to vote on a final round', async () => {
         await court.collect(poorJuror, bigExp(99, 18))

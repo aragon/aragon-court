@@ -3,10 +3,11 @@ const { bn, bigExp } = require('./numbers')
 const { decodeEventsOfType } = require('./decodeEvent')
 const { NEXT_WEEK, ONE_DAY } = require('./time')
 const { getEvents, getEventArgument } = require('@aragon/os/test/helpers/events')
-const { SALT, OUTCOMES, getVoteId, encryptVote, oppositeOutcome, outcomeFor } = require('../helpers/crvoting')
+const { getVoteId, encryptVote, oppositeOutcome, outcomeFor, SALT, OUTCOMES } = require('../helpers/crvoting')
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
 
+const PCT_BASE = bn(10000)
 const APPEAL_COLLATERAL_FACTOR = bn(3)
 const APPEAL_CONFIRMATION_COLLATERAL_FACTOR = bn(2)
 
@@ -26,6 +27,7 @@ const ROUND_STATES = {
 }
 
 module.exports = (web3, artifacts) => {
+  const { advanceBlocks } = require('../helpers/blocks')(web3)
 
   // TODO: update default to make sure we test using real values
   const DEFAULTS = {
@@ -42,13 +44,14 @@ module.exports = (web3, artifacts) => {
     penaltyPct:                         bn(100),         //  1% (1/10,000)
     finalRoundReduction:                bn(3300),        //  33% (1/10,000)
     appealStepFactor:                   bn(3),           //  each time a new appeal occurs, the amount of jurors to be drafted will be incremented 3 times
-    maxRegularAppealRounds:             bn(3),           //  there can be up to 3 appeals in total per dispute
+    maxRegularAppealRounds:             bn(2),           //  there can be up to 2 appeals in total per dispute
     jurorsMinActiveBalance:             bigExp(100, 18), //  100 ANJ is the minimum balance jurors must activate to participate in the Court
     subscriptionPeriodDuration:         bn(0),           //  none subscription period
     subscriptionFeeAmount:              bn(0),           //  none subscription fee
     subscriptionPrePaymentPeriods:      bn(0),           //  none subscription pre payment period
     subscriptionLatePaymentPenaltyPct:  bn(0),           //  none subscription late payment penalties
     subscriptionGovernorSharePct:       bn(0),           //  none subscription governor shares
+    finalRoundWeightPrecision:          bn(1000),        //  use to improve division rounding for final round maths
   }
 
   class CourtHelper {
@@ -72,6 +75,54 @@ module.exports = (web3, artifacts) => {
       return { appealer, appealedRuling, taker, opposedRuling }
     }
 
+    async getDisputeFees(draftTermId, jurorsNumber) {
+      const { feeToken, jurorFees, totalFees } = await this.court.getDisputeFees(draftTermId, jurorsNumber)
+      return { feeToken, jurorFees, disputeFees: totalFees }
+    }
+
+    async getNextRoundJurorsNumber(disputeId, roundId) {
+      if (roundId < this.maxRegularAppealRounds.toNumber() - 1) {
+        const { roundJurorsNumber } = await this.getRound(disputeId, roundId)
+        let nextRoundJurorsNumber = this.appealStepFactor.mul(roundJurorsNumber)
+        if (nextRoundJurorsNumber.mod(bn(2)).eq(bn(0))) nextRoundJurorsNumber = nextRoundJurorsNumber.add(bn(1))
+        return nextRoundJurorsNumber
+      } else {
+        const finalRoundStartTerm = await this.getNextRoundStartTerm(disputeId, roundId)
+        const totalActiveBalance = await this.jurorsRegistry.totalActiveBalanceAt(finalRoundStartTerm)
+        return totalActiveBalance.mul(this.finalRoundWeightPrecision).div(this.jurorsMinActiveBalance)
+      }
+    }
+
+    async getNextRoundJurorFees(disputeId, roundId) {
+      const jurorsNumber = await this.getNextRoundJurorsNumber(disputeId, roundId)
+      let jurorFees = this.jurorFee.mul(jurorsNumber)
+      if (roundId >= this.maxRegularAppealRounds.toNumber() - 1) {
+        jurorFees = jurorFees.div(this.finalRoundWeightPrecision).mul(this.finalRoundReduction).div(PCT_BASE)
+      }
+      return jurorFees
+    }
+
+    async getAppealFees(disputeId, roundId) {
+      const nextRoundJurorsNumber = await this.getNextRoundJurorsNumber(disputeId, roundId)
+      const jurorFees = await this.getNextRoundJurorFees(disputeId, roundId)
+      let appealFees = this.heartbeatFee.add(jurorFees)
+
+      if (roundId < this.maxRegularAppealRounds.toNumber() - 1) {
+        const draftFees = this.draftFee.mul(nextRoundJurorsNumber)
+        const settleFees = this.settleFee.mul(nextRoundJurorsNumber)
+        appealFees = appealFees.add(draftFees).add(settleFees)
+      }
+
+      const appealDeposit = appealFees.mul(APPEAL_COLLATERAL_FACTOR)
+      const confirmAppealDeposit = appealFees.mul(APPEAL_CONFIRMATION_COLLATERAL_FACTOR)
+      return { appealFees , appealDeposit, confirmAppealDeposit }
+    }
+
+    async getNextRoundStartTerm(disputeId, roundId) {
+      const { draftTerm } = await this.getRound(disputeId, roundId)
+      return draftTerm.add(this.commitTerms).add(this.revealTerms).add(this.appealTerms).add(this.appealConfirmTerms)
+    }
+
     async getRoundJuror(disputeId, roundId, juror) {
       const { weight, rewarded } = await this.court.getJuror(disputeId, roundId, juror)
       return { weight, rewarded }
@@ -79,14 +130,14 @@ module.exports = (web3, artifacts) => {
 
     async getRoundLockBalance(disputeId, roundId, juror) {
       if (roundId < this.maxRegularAppealRounds) {
-        const lockPerDraft = this.jurorsMinActiveBalance.mul(this.penaltyPct).div(bn(10000))
+        const lockPerDraft = this.jurorsMinActiveBalance.mul(this.penaltyPct).div(PCT_BASE)
         const { weight } = await this.getRoundJuror(disputeId, roundId, juror)
         return lockPerDraft.mul(weight)
       } else {
         const { draftTerm } = await this.getRound(disputeId, roundId)
         const draftActiveBalance = await this.jurorsRegistry.activeBalanceOfAt(juror, draftTerm)
         if (draftActiveBalance.lt(this.jurorsMinActiveBalance)) return bn(0)
-        return draftActiveBalance.mul(this.penaltyPct).div(bn(10000))
+        return draftActiveBalance.mul(this.penaltyPct).div(PCT_BASE)
       }
     }
 
@@ -94,40 +145,7 @@ module.exports = (web3, artifacts) => {
       const { draftTerm } = await this.getRound(disputeId, roundId)
       const draftActiveBalance = await this.jurorsRegistry.activeBalanceOfAt(juror, draftTerm)
       if (draftActiveBalance.lt(this.jurorsMinActiveBalance)) return bn(0)
-      return draftActiveBalance.mul(bn(1000)).div(this.jurorsMinActiveBalance)
-    }
-
-    async getAppealFees(disputeId, roundId) {
-      const nextRoundJurorsNumber = await this.getNextRoundJurorsNumber(disputeId, roundId)
-      return this.getDraftDepositFor(nextRoundJurorsNumber)
-    }
-
-    async getAppealDeposit(disputeId, roundId) {
-      const totalFees = await this.getAppealFees(disputeId, roundId)
-      return totalFees.mul(APPEAL_COLLATERAL_FACTOR)
-    }
-
-    async getConfirmAppealDeposit(disputeId, roundId) {
-      const totalFees = await this.getAppealFees(disputeId, roundId)
-      return totalFees.mul(APPEAL_CONFIRMATION_COLLATERAL_FACTOR)
-    }
-
-    async getNextRoundJurorsNumber(disputeId, roundId) {
-      const { roundJurorsNumber } = await this.getRound(disputeId, roundId)
-      return this.getNextRoundJurorsNumberFor(roundJurorsNumber)
-    }
-
-    getNextRoundJurorsNumberFor(jurorsNumber) {
-      let nextRoundJurorsNumber = this.appealStepFactor.mul(bn(jurorsNumber))
-      if (nextRoundJurorsNumber.mod(bn(2)).eq(bn(0))) nextRoundJurorsNumber = nextRoundJurorsNumber.add(bn(1))
-      return nextRoundJurorsNumber
-    }
-
-    getDraftDepositFor(jurorsNumber) {
-      const jurorFees = this.jurorFee.mul(jurorsNumber)
-      const draftFees = this.draftFee.mul(jurorsNumber)
-      const settleFees = this.settleFee.mul(jurorsNumber)
-      return this.heartbeatFee.add(jurorFees).add(draftFees).add(settleFees)
+      return draftActiveBalance.mul(this.finalRoundWeightPrecision).div(this.jurorsMinActiveBalance)
     }
 
     async setTimestamp(timestamp) {
@@ -168,16 +186,17 @@ module.exports = (web3, artifacts) => {
       // call heartbeat function for X terms
       await this.court.heartbeat(terms)
       // advance 2 blocks to ensure we can compute term randomness
-      const { advanceBlocks } = require('../helpers/blocks')(web3)
       await advanceBlocks(2)
     }
 
-    async mintFeeTokens(address, amount = bigExp(1e6, 18)) {
-      const allowance = await this.feeToken.allowance(address, this.court.address)
-      if (allowance.gt(bn(0))) await this.feeToken.approve(this.court.address, 0, { from: address })
+    async mintAndApproveFeeTokens(from, to, amount) {
+      // reset allowance in case allowed address has already been approved some balance
+      const allowance = await this.feeToken.allowance(from, to)
+      if (allowance.gt(bn(0))) await this.feeToken.approve(to, 0, { from })
 
-      await this.feeToken.generateTokens(address, amount)
-      await this.feeToken.approve(this.court.address, amount, { from: address })
+      // mint and approve tokens
+      await this.feeToken.generateTokens(from, amount)
+      await this.feeToken.approve(to, amount, { from })
     }
 
     async activate(jurors) {
@@ -192,7 +211,8 @@ module.exports = (web3, artifacts) => {
     async dispute({ jurorsNumber, draftTermId, possibleRulings = bn(2), arbitrable = undefined, disputer = undefined }) {
       // mint enough fee tokens for the disputer, if no disputer was given pick the second account
       if (!disputer) disputer = await this._getAccount(1)
-      await this.mintFeeTokens(disputer)
+      const { disputeFees } = await this.getDisputeFees(draftTermId, jurorsNumber)
+      await this.mintAndApproveFeeTokens(disputer, this.court.address, disputeFees)
 
       // create an arbitrable if no one was given, and mock subscriptions
       if (!arbitrable) arbitrable = await this.artifacts.require('ArbitrableMock').new()
@@ -270,7 +290,8 @@ module.exports = (web3, artifacts) => {
     async appeal({ disputeId, roundId, appealMaker = undefined, ruling = undefined }) {
       // mint fee tokens for the appealer, if no appealer was given pick the fourth account
       if (!appealMaker) appealMaker = await this._getAccount(3)
-      await this.mintFeeTokens(appealMaker)
+      const { appealDeposit } = await this.getAppealFees(disputeId, roundId)
+      await this.mintAndApproveFeeTokens(appealMaker, this.court.address, appealDeposit)
 
       // use the opposite to the round winning ruling for the appeal if no one was given
       if (!ruling) {
@@ -287,7 +308,8 @@ module.exports = (web3, artifacts) => {
     async confirmAppeal({ disputeId, roundId, appealTaker = undefined, ruling = undefined }) {
       // mint fee tokens for the appeal taker, if no taker was given pick the fifth account
       if (!appealTaker) appealTaker = await this._getAccount(4)
-      await this.mintFeeTokens(appealTaker)
+      const { confirmAppealDeposit } = await this.getAppealFees(disputeId, roundId)
+      await this.mintAndApproveFeeTokens(appealTaker, this.court.address, confirmAppealDeposit)
 
       // use the opposite ruling the one appealed if no one was given
       if (!ruling) {

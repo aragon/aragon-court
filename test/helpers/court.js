@@ -66,8 +66,8 @@ module.exports = (web3, artifacts) => {
     }
 
     async getRound(disputeId, roundId) {
-      const { draftTerm, delayedTerms, jurorsNumber: roundJurorsNumber, selectedJurors, triggeredBy, settledPenalties, collectedTokens, coherentJurors, state: roundState } = await this.court.getRound(disputeId, roundId)
-      return { draftTerm, delayedTerms, roundJurorsNumber, selectedJurors, triggeredBy, settledPenalties, collectedTokens, coherentJurors, roundState }
+      const { draftTerm, delayedTerms, jurorsNumber: roundJurorsNumber, selectedJurors, triggeredBy, settledPenalties, jurorFees, collectedTokens, coherentJurors, state: roundState } = await this.court.getRound(disputeId, roundId)
+      return { draftTerm, delayedTerms, roundJurorsNumber, selectedJurors, triggeredBy, settledPenalties, jurorFees, collectedTokens, coherentJurors, roundState }
     }
 
     async getAppeal(disputeId, roundId) {

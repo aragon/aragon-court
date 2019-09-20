@@ -265,9 +265,24 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
 
                     const { available } = await courtHelper.jurorsRegistry.balanceOf(address)
                     const expectedReward = expectedCollectedTokens.mul(bn(weight)).div(bn(expectedCoherentJurors))
-                    const expectedCurrentAvailableBalance = previousBalances[address].available.add(expectedReward);
+                    const expectedCurrentAvailableBalance = previousBalances[address].available.add(expectedReward)
 
                     assert.equal(expectedCurrentAvailableBalance.toString(), available.toString(), 'current available balance does not match')
+                  }
+                })
+
+                it('rewards winning jurors with fees', async () => {
+                  const { accounting, feeToken } = courtHelper
+                  const { jurorFees } = await courtHelper.getRound(disputeId, roundId)
+
+                  for(const { address, weight } of expectedWinningJurors) {
+                    const previousJurorBalance = await accounting.balanceOf(feeToken.address, address)
+
+                    await court.settleReward(disputeId, roundId, address)
+
+                    const expectedReward = jurorFees.mul(bn(weight)).div(bn(expectedCoherentJurors))
+                    const currentJurorBalance = await accounting.balanceOf(feeToken.address, address)
+                    assert.equal(currentJurorBalance.toString(), previousJurorBalance.add(expectedReward), 'juror fee balance does not match')
                   }
                 })
 

@@ -248,7 +248,6 @@ contract CRVoting is Initializable, ICRVoting {
         returns (bool[] memory)
     {
         Vote storage vote = voteRecords[_voteId];
-        uint8 winningOutcome = vote.winningOutcome;
         bool[] memory votersInFavor = new bool[](_voters.length);
 
         // If there was a winning outcome, filter those voters that voted in favor of the given outcome.

@@ -103,7 +103,7 @@ contract ERC20Mock {
     * @dev `msg.sender` approves `_spender` to send `_amount` tokens on its behalf, and then a function is
     *       triggered in the contract that is being approved, `_spender`. This allows users to use their
     *       tokens to interact with contracts in one function call instead of two
-    * @param _spender The address of the contract able to transfer the tokens
+    * @param _spender Address of the contract able to transfer the tokens
     * @param _amount The amount of tokens to be approved for transfer
     * @return True if the function call was successful
     */

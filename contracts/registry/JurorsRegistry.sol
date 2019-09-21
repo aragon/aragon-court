@@ -432,7 +432,7 @@ contract JurorsRegistry is Initializable, IsContract, IJurorsRegistry, ERC900, A
 
     /**
     * @dev Callback of approveAndCall, allows staking directly with a transaction to the token contract.
-    * @param _from The address making the transfer
+    * @param _from Address making the transfer
     * @param _amount Amount of tokens to transfer
     * @param _token Address of the token
     * @param _data Optional data that can be used to request the activation of the transferred tokens

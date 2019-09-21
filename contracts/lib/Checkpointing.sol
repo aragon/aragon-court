@@ -8,8 +8,8 @@ library Checkpointing {
     uint256 private constant MAX_UINT64 = uint256(uint64(-1));
     uint256 private constant MAX_UINT192 = uint256(uint192(-1));
 
-    string private constant ERROR_VALUE_TOO_BIG = "CHECKPOINT_VALUE_TOO_BIG";
-    string private constant ERROR_CANNOT_ADD_PAST_VALUE = "CHECKPOINT_CANNOT_ADD_PAST_VALUE";
+    string internal constant ERROR_VALUE_TOO_BIG = "CHECKPOINT_VALUE_TOO_BIG";
+    string internal constant ERROR_CANNOT_ADD_PAST_VALUE = "CHECKPOINT_CANNOT_ADD_PAST_VALUE";
 
     /**
     * @dev To specify a value at a given point in time, we need to store two values:

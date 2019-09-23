@@ -194,6 +194,14 @@ contract CourtSubscriptions is IsContract, ISubscriptions, TimeHelpers {
     }
 
     /**
+    * @notice Transfer owed fees to the governor
+    */
+    function transferFeesToGovernor() external {
+        require(accumulatedGovernorFees > 0, ERROR_ZERO_TRANSFER);
+        _transferFeesToGovernor();
+    }
+
+    /**
     * @notice Make sure that the balance details of a certain period have been computed
     * @param _periodId Identification number of the period being ensured
     * @return periodBalanceCheckpoint Court term id used to fetch the total active balance of the jurors registry
@@ -360,16 +368,13 @@ contract CourtSubscriptions is IsContract, ISubscriptions, TimeHelpers {
     }
 
     /**
-    * @notice Transfer owed fees to the governor
+    * @dev Internal function to transfer owed fees to the governor. This function assumes there are some accumulated fees to be transferred.
     */
-    function transferFeesToGovernor() public {
-        require(accumulatedGovernorFees > 0, ERROR_ZERO_TRANSFER);
-
+    function _transferFeesToGovernor() internal {
         uint256 amount = accumulatedGovernorFees;
         accumulatedGovernorFees = 0;
-        require(currentFeeToken.safeTransfer(owner.getGovernor(), amount), ERROR_TOKEN_TRANSFER_FAILED);
-
         emit GovernorFeesTransferred(amount);
+        require(currentFeeToken.safeTransfer(owner.getGovernor(), amount), ERROR_TOKEN_TRANSFER_FAILED);
     }
 
     /**
@@ -428,7 +433,7 @@ contract CourtSubscriptions is IsContract, ISubscriptions, TimeHelpers {
     function _setFeeToken(ERC20 _feeToken) internal {
         require(isContract(address(_feeToken)), ERROR_NOT_CONTRACT);
         if (accumulatedGovernorFees > 0) {
-            transferFeesToGovernor();
+            _transferFeesToGovernor();
         }
         currentFeeToken = _feeToken;
     }

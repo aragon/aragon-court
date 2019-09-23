@@ -11,6 +11,7 @@ contract SubscriptionsOwnerMock is ISubscriptionsOwner, IJurorsRegistryOwner {
     ISubscriptions internal subscription;
 
     uint64 termId;
+    bytes32 termRandomness;
 
     constructor(ISubscriptions _subscription) public {
         subscription = _subscription;
@@ -36,12 +37,20 @@ contract SubscriptionsOwnerMock is ISubscriptionsOwner, IJurorsRegistryOwner {
         subscription.setGovernorSharePct(_governorSharePct);
     }
 
-    function setCurrentTermId(uint64 _termId) external {
+    function mockSetTerm(uint64 _termId) external {
         termId = _termId;
     }
 
-    function addToCurrentTermId(uint64 _terms) external {
+    function mockIncreaseTerms(uint64 _terms) external {
         termId += _terms;
+    }
+
+    function mockSetTermRandomness(bytes32 _termRandomness) external {
+        termRandomness = _termRandomness;
+    }
+
+    function ensureAndGetTermId() external returns (uint64) {
+        return termId;
     }
 
     function getCurrentTermId() external view returns (uint64) {
@@ -52,12 +61,8 @@ contract SubscriptionsOwnerMock is ISubscriptionsOwner, IJurorsRegistryOwner {
         return termId;
     }
 
-    function ensureAndGetTermId() external returns (uint64) {
-        return termId;
-    }
-
     function getTermRandomness(uint64) external view returns (bytes32) {
-        return keccak256("randomness");
+        return termRandomness;
     }
 
     function getGovernor() external view returns (address) {

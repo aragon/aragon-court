@@ -267,6 +267,24 @@ contract CourtSubscriptions is IsContract, ISubscriptions, TimeHelpers {
     }
 
     /**
+    * @dev Tell the identification number of the current period
+    * @return Identification number of the current period
+    */
+    function getCurrentPeriodId() external view returns (uint256) {
+        return _getCurrentPeriodId();
+    }
+
+    /**
+    * @dev Tell total active balance of the jurors registry at a random term during a certain period
+    * @param _periodId Identification number of the period being queried
+    * @return periodBalanceCheckpoint Court term id used to fetch the total active balance of the jurors registry
+    * @return totalActiveBalance Total amount of juror tokens active in the Court at the corresponding used checkpoint
+    */
+    function getPeriodBalanceDetails(uint256 _periodId) external view returns (uint64 periodBalanceCheckpoint, uint256 totalActiveBalance) {
+        return _getPeriodBalanceDetails(_periodId);
+    }
+
+    /**
     * @dev Tell the number of overdue payments for a given subscriber
     * @param _subscriber Address of the subscriber being checked
     * @return Number of overdue payments for the requested subscriber

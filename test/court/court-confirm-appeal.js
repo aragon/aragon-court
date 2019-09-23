@@ -28,13 +28,13 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
   describe('confirmAppeal', () => {
     context('when the given dispute exists', () => {
       let disputeId
-      const draftTermId = 4, jurorsNumber = 3
+      const draftTermId = 4
 
       beforeEach('activate jurors and create dispute', async () => {
         await courtHelper.activate(jurors)
 
         await courtHelper.setTerm(1)
-        disputeId = await courtHelper.dispute({ jurorsNumber, draftTermId, disputer })
+        disputeId = await courtHelper.dispute({ draftTermId, disputer })
         await courtHelper.passTerms(bn(draftTermId - 1)) // court is already at term one
       })
 

@@ -21,23 +21,24 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
     { address: juror3500, initialActiveBalance: bigExp(3500, 18) },
     { address: juror2500, initialActiveBalance: bigExp(2500, 18) },
   ]
+  const firstRoundJurorsNumber = 3
 
   beforeEach('create court', async () => {
     courtHelper = buildHelper()
-    court = await courtHelper.deploy()
+    court = await courtHelper.deploy({ firstRoundJurorsNumber })
     voting = courtHelper.voting
   })
 
   describe('settle', () => {
     context('when the given dispute exists', () => {
       let disputeId, voteId
-      const draftTermId = 4, jurorsNumber = 3
+      const draftTermId = 4
 
       beforeEach('activate jurors and create dispute', async () => {
         await courtHelper.activate(jurors)
 
         await courtHelper.setTerm(1)
-        disputeId = await courtHelper.dispute({ jurorsNumber, draftTermId, disputer })
+        disputeId = await courtHelper.dispute({ draftTermId, disputer })
         await courtHelper.passTerms(bn(draftTermId - 1)) // court is already at term one
       })
 
@@ -64,7 +65,7 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
 
         const itFailsToSettlePenalties = (roundId) => {
           it('fails to settle penalties', async () => {
-            await assertRevert(court.settlePenalties(disputeId, roundId, jurorsNumber), 'CT_INVALID_ADJUDICATION_STATE')
+            await assertRevert(court.settlePenalties(disputeId, roundId, firstRoundJurorsNumber), 'CT_INVALID_ADJUDICATION_STATE')
           })
         }
 

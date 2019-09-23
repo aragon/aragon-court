@@ -20,23 +20,24 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
     { address: juror3500, initialActiveBalance: bigExp(3500, 18) },
     { address: juror2500, initialActiveBalance: bigExp(2500, 18) },
   ]
+  const firstRoundJurorsNumber = 3
 
   beforeEach('create court', async () => {
     courtHelper = buildHelper()
-    court = await courtHelper.deploy()
+    court = await courtHelper.deploy({ firstRoundJurorsNumber })
     voting = courtHelper.voting
   })
 
   describe('appeal', () => {
     context('when the given dispute exists', () => {
       let disputeId
-      const draftTermId = 4, jurorsNumber = 3
+      const draftTermId = 4
 
       beforeEach('activate jurors and create dispute', async () => {
         await courtHelper.activate(jurors)
 
         await courtHelper.setTerm(1)
-        disputeId = await courtHelper.dispute({ jurorsNumber, draftTermId, disputer })
+        disputeId = await courtHelper.dispute({ draftTermId, disputer })
         await courtHelper.passTerms(bn(draftTermId - 1)) // court is already at term one
       })
 
@@ -162,9 +163,9 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
                     const { draftTerm, delayedTerms, roundJurorsNumber, selectedJurors, triggeredBy, jurorFees, settledPenalties, collectedTokens } = await courtHelper.getRound(disputeId, roundId)
                     assert.equal(draftTerm.toString(), draftTermId, 'current round draft term does not match')
                     assert.equal(delayedTerms.toString(), 0, 'current round delay term does not match')
-                    assert.equal(roundJurorsNumber.toString(), jurorsNumber, 'current round jurors number does not match')
-                    assert.equal(selectedJurors.toString(), jurorsNumber, 'current round selected jurors number does not match')
-                    assert.equal(jurorFees.toString(), courtHelper.jurorFee.mul(bn(jurorsNumber)).toString(), 'current round juror fees do not match')
+                    assert.equal(roundJurorsNumber.toString(), firstRoundJurorsNumber, 'current round jurors number does not match')
+                    assert.equal(selectedJurors.toString(), firstRoundJurorsNumber, 'current round selected jurors number does not match')
+                    assert.equal(jurorFees.toString(), courtHelper.jurorFee.mul(bn(firstRoundJurorsNumber)).toString(), 'current round juror fees do not match')
                     assert.equal(triggeredBy, disputer, 'current round trigger does not match')
                     assert.equal(settledPenalties, false, 'current round penalties should not be settled')
                     assert.equal(collectedTokens.toString(), 0, 'current round collected tokens should be zero')

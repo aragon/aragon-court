@@ -29,6 +29,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
     string private constant ERROR_BAD_FIRST_TERM_START_TIME = "CT_BAD_FIRST_TERM_START_TIME";
     string private constant ERROR_CONFIG_PERIOD_ZERO_TERMS = "CT_CONFIG_PERIOD_0";
     string private constant ERROR_INVALID_PENALTY_PCT = "CT_INVALID_PENALTY_PCT";
+    string private constant ERROR_BAD_INITIAL_JURORS = "CT_ERROR_BAD_INITIAL_JURORS";
     string private constant ERROR_INVALID_MAX_APPEAL_ROUNDS = "CT_INVALID_MAX_APPEAL_ROUNDS";
     string private constant ERROR_INVALID_PERIOD_DURATION = "CT_INVALID_PERIOD_DURATION";
     string private constant ERROR_INVALID_GOVERNANCE_SHARE = "CT_INVALID_GOVERNANCE_SHARE";
@@ -88,7 +89,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
     uint8 internal constant APPEAL_CONFIRMATION_COLLATERAL_FACTOR = 2;
 
     // Cap the max number of regular appeal rounds
-    uint256 internal constant MAX_REGULAR_APPEAL_ROUNDS_LIMIT = 10;
+    uint16 internal constant MAX_REGULAR_APPEAL_ROUNDS_LIMIT = 10;
 
     // Precision factor used to improve rounding when computing weights for the final round
     uint256 internal constant FINAL_ROUND_WEIGHT_PRECISION = 1000;
@@ -113,65 +114,66 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
     */
     struct CourtConfig {
         // Fee structure
-        ERC20 feeToken;             // ERC20 token to be used for the fees of the Court
-        uint256 jurorFee;           // per juror, total round juror fee = jurorFee * jurors drawn
-        uint256 heartbeatFee;       // per dispute, total heartbeat fee = heartbeatFee * disputes/appeals in term
-        uint256 draftFee;           // per juror, total round draft fee = draftFee * jurors drawn
-        uint256 settleFee;          // per juror, total round draft fee = settleFee * jurors drawn
+        ERC20 feeToken;                // ERC20 token to be used for the fees of the Court
+        uint256 jurorFee;              // Per juror, total round juror fee = jurorFee * jurors drawn
+        uint256 heartbeatFee;          // Per dispute, total heartbeat fee = heartbeatFee * disputes/appeals in term
+        uint256 draftFee;              // Per juror, total round draft fee = draftFee * jurors drawn
+        uint256 settleFee;             // Per juror, total round draft fee = settleFee * jurors drawn
         // Dispute config
-        uint64 commitTerms;         // committing period duration in terms
-        uint64 revealTerms;         // revealing period duration in terms
-        uint64 appealTerms;         // appealing period duration in terms
-        uint64 appealConfirmTerms;  // confirmation appeal period duration in terms
-        uint16 penaltyPct;          // per ten thousand that will be used to compute the tokens to be locked for a juror on a draft
-        uint16 finalRoundReduction; // ‱ of reduction applied for final appeal round (1/10,000)
-        uint64 appealStepFactor;    // factor in which the jurors number is increased on each appeal
-        uint32 maxRegularAppealRounds; // before the final appeal
+        uint64 commitTerms;            // Committing period duration in terms
+        uint64 revealTerms;            // Revealing period duration in terms
+        uint64 appealTerms;            // Appealing period duration in terms
+        uint64 appealConfirmTerms;     // Confirmation appeal period duration in terms
+        uint16 penaltyPct;             // Per ten thousand that will be used to compute the tokens to be locked for a juror on a draft
+        uint16 finalRoundReduction;    // ‱ of reduction applied for final appeal round (1/10,000)
+        uint16 firstRoundJurorsNumber; // Number of jurors drafted on first round
+        uint16 appealStepFactor;       // Factor in which the jurors number is increased on each appeal
+        uint16 maxRegularAppealRounds; // Before the final appeal
     }
 
     struct Term {
-        uint64 startTime;           // Timestamp when the term started
-        uint64 dependingDrafts;     // Adjudication rounds pegged to this term for randomness
-        uint64 courtConfigId;       // Fee structure for this term (index in courtConfigs array)
-        uint64 randomnessBN;        // Block number for entropy
-        bytes32 randomness;         // Entropy from randomnessBN block hash
+        uint64 startTime;              // Timestamp when the term started
+        uint64 dependingDrafts;        // Adjudication rounds pegged to this term for randomness
+        uint64 courtConfigId;          // Fee structure for this term (index in courtConfigs array)
+        uint64 randomnessBN;           // Block number for entropy
+        bytes32 randomness;            // Entropy from randomnessBN block hash
     }
 
     struct Dispute {
-        IArbitrable subject;        // Arbitrable associated to a dispute
-        uint8 possibleRulings;      // Number of possible rulings jurors can vote for each dispute
-        uint8 finalRuling;          // Winning ruling of a dispute
-        DisputeState state;         // State of a dispute: pre-draft, adjudicating, or executed
-        AdjudicationRound[] rounds; // List of rounds for each dispute
+        IArbitrable subject;           // Arbitrable associated to a dispute
+        uint8 possibleRulings;         // Number of possible rulings jurors can vote for each dispute
+        uint8 finalRuling;             // Winning ruling of a dispute
+        DisputeState state;            // State of a dispute: pre-draft, adjudicating, or executed
+        AdjudicationRound[] rounds;    // List of rounds for each dispute
     }
 
     struct AdjudicationRound {
-        uint64 draftTermId;         // Term from which the jurors of a round can be drafted
-        uint64 jurorsNumber;        // Number of jurors drafted for a round
-        address triggeredBy;        // Address that triggered a round
-        bool settledPenalties;      // Whether or not penalties have been settled for a round
-        uint256 jurorFees;          // Total amount of fees to be distributed between the winning jurors of a round
-        address[] jurors;           // List of jurors drafted for a round
+        uint64 draftTermId;            // Term from which the jurors of a round can be drafted
+        uint64 jurorsNumber;           // Number of jurors drafted for a round
+        address triggeredBy;           // Address that triggered a round
+        bool settledPenalties;         // Whether or not penalties have been settled for a round
+        uint256 jurorFees;             // Total amount of fees to be distributed between the winning jurors of a round
+        address[] jurors;              // List of jurors drafted for a round
         mapping (address => JurorState) jurorsStates; // List of states for each drafted juror indexed by address
-        uint64 delayedTerms;        // Number of terms a round was delayed based on its requested draft term id
-        uint64 selectedJurors;      // Number of jurors selected for a round, to allow drafts to be batched
-        uint64 coherentJurors;      // Number of drafted jurors that voted in favor of the dispute final ruling
-        uint64 settledJurors;       // Number of jurors whose rewards were already settled
-        uint256 collectedTokens;    // Total amount of tokens collected from losing jurors
-        Appeal appeal;              // Appeal-related information of a round
+        uint64 delayedTerms;           // Number of terms a round was delayed based on its requested draft term id
+        uint64 selectedJurors;         // Number of jurors selected for a round, to allow drafts to be batched
+        uint64 coherentJurors;         // Number of drafted jurors that voted in favor of the dispute final ruling
+        uint64 settledJurors;          // Number of jurors whose rewards were already settled
+        uint256 collectedTokens;       // Total amount of tokens collected from losing jurors
+        Appeal appeal;                 // Appeal-related information of a round
     }
 
     struct JurorState {
-        uint64 weight;              // Weight computed for a juror on a round
-        bool rewarded;              // Whether or not a drafted juror was rewarded
+        uint64 weight;                 // Weight computed for a juror on a round
+        bool rewarded;                 // Whether or not a drafted juror was rewarded
     }
 
     struct Appeal {
-        address maker;              // Address of the appealer
-        uint8 appealedRuling;       // Ruling appealing in favor of
-        address taker;              // Address of the one confirming an appeal
-        uint8 opposedRuling;        // Ruling opposed to an appeal
-        bool settled;               // Whether or not an appeal has been settled
+        address maker;                 // Address of the appealer
+        uint8 appealedRuling;          // Ruling appealing in favor of
+        address taker;                 // Address of the one confirming an appeal
+        uint8 opposedRuling;           // Ruling opposed to an appeal
+        bool settled;                  // Whether or not an appeal has been settled
     }
 
     // Duration in seconds for each term of the Court
@@ -275,6 +277,10 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
     * @param _pcts Array containing:
     *        _penaltyPct ‱ of minJurorsActiveBalance that can be slashed (1/10,000)
     *        _finalRoundReduction ‱ of fee reduction for the last appeal round (1/10,000)
+    * @param _roundParams Array containing params for rounds:
+    *        _firstRoundJurorsNumber Number of jurors to be drafted for the first round of disputes
+    *        _appealStepFactor Increasing factor for the number of jurors of each round of a dispute
+    *        _maxRegularAppealRounds Number of regular appeal rounds before the final round is triggered
     * @param _subscriptionParams Array containing params for Subscriptions:
     *        _periodDuration Length of Subscription periods
     *        _feeAmount Amount of periodic fees
@@ -295,8 +301,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
         uint256 _minJurorsActiveBalance,
         uint64[4] memory _roundStateDurations,
         uint16[2] memory _pcts, //_penaltyPct, _finalRoundReduction
-        uint64 _appealStepFactor,
-        uint32 _maxRegularAppealRounds,
+        uint16[3] memory _roundParams, // _firstRoundJurorsNumber, _appealStepFactor, _maxRegularAppealRounds
         uint256[5] memory _subscriptionParams // _periodDuration, _feeAmount, _prePaymentPeriods, _latePaymentPenaltyPct, _governorSharePct
     ) public {
         require(_firstTermStartTime >= getTimestamp64() + _termDuration, ERROR_BAD_FIRST_TERM_START_TIME);
@@ -323,8 +328,9 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
             _roundStateDurations,
             _pcts[0], // _penaltyPct
             _pcts[1],  // _finalRoundReduction
-            _appealStepFactor,
-            _maxRegularAppealRounds
+            _roundParams[0], // _firstRoundJurorsNumber
+            _roundParams[1], // _appealStepFactor
+            _roundParams[2]  // _maxRegularAppealRounds
         );
         terms[ZERO_TERM_ID].startTime = _firstTermStartTime - _termDuration;
     }
@@ -334,11 +340,10 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
     * @dev Create a dispute to be drafted in a future term
     * @param _subject Arbitrable subject being disputed
     * @param _possibleRulings Number of possible rulings allowed for the drafted jurors to vote on the dispute
-    * @param _jurorsNumber Requested number of jurors to be drafted for the dispute
     * @param _draftTermId Term from which the the jurors for the dispute will be drafted
     * @return Dispute identification number
     */
-    function createDispute(IArbitrable _subject, uint8 _possibleRulings, uint64 _jurorsNumber, uint64 _draftTermId) external ensureTerm
+    function createDispute(IArbitrable _subject, uint8 _possibleRulings, uint64 _draftTermId) external ensureTerm
         returns (uint256)
     {
         // TODO: Limit the min amount of terms before drafting (to allow for evidence submission)
@@ -355,11 +360,12 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
         Dispute storage dispute = disputes[disputeId];
         dispute.subject = _subject;
         dispute.possibleRulings = _possibleRulings;
-        emit NewDispute(disputeId, address(_subject), _draftTermId, _jurorsNumber);
+        uint64 jurorsNumber = _getFirstRoundJurorsNumber(_draftTermId);
+        emit NewDispute(disputeId, address(_subject), _draftTermId, jurorsNumber);
 
         // Create first adjudication round of the dispute
-        (ERC20 feeToken, uint256 jurorFees, uint256 totalFees) = _getRegularRoundFees(_draftTermId, _jurorsNumber);
-        _createRound(disputeId, DisputeState.PreDraft, _draftTermId, _jurorsNumber, jurorFees);
+        (ERC20 feeToken, uint256 jurorFees, uint256 totalFees) = _getRegularRoundFees(_draftTermId, jurorsNumber);
+        _createRound(disputeId, DisputeState.PreDraft, _draftTermId, jurorsNumber, jurorFees);
 
         // Pay round fees and return dispute id
         _depositSenderAmount(feeToken, totalFees);
@@ -821,16 +827,16 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
     /**
     * @dev Tell the amount of token fees required to create a dispute
     * @param _draftTermId Term id in which the dispute will be drafted
-    * @param _jurorsNumber Number of jurors to be drafted for the dispute
     * @return feeToken ERC20 token used for the fees
     * @return jurorFees Total amount of fees to be distributed between the winning jurors of a round
     * @return totalFees Total amount of fees for a regular round at the given term
     */
-    function getDisputeFees(uint64 _draftTermId, uint64 _jurorsNumber) external view
+    function getDisputeFees(uint64 _draftTermId) external view
         returns (ERC20 feeToken, uint256 jurorFees, uint256 totalFees)
     {
         require(_draftTermId > termId, ERROR_CANNOT_CREATE_DISPUTE);
-        return _getRegularRoundFees(_draftTermId, _jurorsNumber);
+        uint64 jurorsNumber = _getFirstRoundJurorsNumber(_draftTermId);
+        return _getRegularRoundFees(_draftTermId, jurorsNumber);
     }
 
     /**
@@ -1132,8 +1138,9 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
         uint64[4] memory _roundStateDurations,
         uint16 _penaltyPct,
         uint16 _finalRoundReduction,
-        uint64 _appealStepFactor,
-        uint32 _maxRegularAppealRounds
+        uint16 _firstRoundJurorsNumber,
+        uint16 _appealStepFactor,
+        uint16 _maxRegularAppealRounds
     )
         internal
     {
@@ -1144,8 +1151,11 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
         // Make sure the given penalty pct is not greater than 100%
         require(PctHelpers.isValid(_penaltyPct), ERROR_INVALID_PENALTY_PCT);
 
+        // A dispute with 0 jurors in the first round wouldn't make any sense
+        require(_firstRoundJurorsNumber > 0, ERROR_BAD_INITIAL_JURORS);
+
         // Make sure the max number of appeals allowed does not reach the limit
-        bool isMaxAppealRoundsValid = uint256(_maxRegularAppealRounds) > 0 && _maxRegularAppealRounds <= MAX_REGULAR_APPEAL_ROUNDS_LIMIT;
+        bool isMaxAppealRoundsValid = _maxRegularAppealRounds > 0 && _maxRegularAppealRounds <= MAX_REGULAR_APPEAL_ROUNDS_LIMIT;
         require(isMaxAppealRoundsValid, ERROR_INVALID_MAX_APPEAL_ROUNDS);
 
         // TODO: add reasonable limits for durations
@@ -1169,6 +1179,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
             appealConfirmTerms: _roundStateDurations[3],
             penaltyPct: _penaltyPct,
             finalRoundReduction: _finalRoundReduction,
+            firstRoundJurorsNumber: _firstRoundJurorsNumber,
             appealStepFactor: _appealStepFactor,
             maxRegularAppealRounds: _maxRegularAppealRounds
         });
@@ -1310,6 +1321,16 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
         // Calculate appeal collateral
         appealDeposit = totalFees * APPEAL_COLLATERAL_FACTOR;
         confirmAppealDeposit = totalFees * APPEAL_CONFIRMATION_COLLATERAL_FACTOR;
+    }
+
+    /**
+     * @dev Internal function to calculate the jurors number for the first regular round of a dispute.
+     * @param _draftTermId Term from which the the jurors for the dispute will be drafted
+     * @return Jurors number for the first regular round of a dispute
+     */
+    function _getFirstRoundJurorsNumber(uint64 _draftTermId) internal view returns (uint64 jurorsNumber) {
+        CourtConfig storage config = _getConfigAt(_draftTermId);
+        jurorsNumber = config.firstRoundJurorsNumber;
     }
 
     /**

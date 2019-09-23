@@ -96,7 +96,7 @@ contract('CourtSubscriptions', ([_, payer, subscriberPeriod0, subscriberPeriod1,
                 const expectedShareFees = collectedFeesPeriod0
 
                 it('estimates juror share correctly', async () => {
-                  const { tokenAddress, jurorShare } = await subscriptions.getJurorShare(juror, periodId)
+                  const { feeToken: tokenAddress, jurorShare } = await subscriptions.getJurorShare(juror, periodId)
 
                   assert.equal(tokenAddress, feeToken.address, 'fee token address does not match')
                   assert.equal(jurorShare.toString(), expectedShareFees.toString(), 'juror share fees does not match')
@@ -124,14 +124,14 @@ contract('CourtSubscriptions', ([_, payer, subscriberPeriod0, subscriberPeriod1,
                 const juror = jurorPeriod0Term3
 
                 it('estimates juror share correctly', async () => {
-                  const { tokenAddress, jurorShare } = await subscriptions.getJurorShare(juror, periodId)
+                  const { feeToken: tokenAddress, jurorShare } = await subscriptions.getJurorShare(juror, periodId)
 
                   assert.equal(tokenAddress, feeToken.address, 'fee token address does not match')
                   assert.equal(jurorShare.toString(), 0, 'juror share fees does not match')
                 })
 
                 it('reverts', async () => {
-                  await assertRevert(subscriptions.claimFees(periodId, { from: juror }), 'SUB_NOTHING_TO_CLAIM')
+                  await assertRevert(subscriptions.claimFees(periodId, { from: juror }), 'CS_JUROR_NOTHING_TO_CLAIM')
                 })
               })
             })
@@ -156,7 +156,7 @@ contract('CourtSubscriptions', ([_, payer, subscriberPeriod0, subscriberPeriod1,
                 const expectedShareFees = collectedFeesPeriod0.mul(jurorPeriod0Term0Balance).div(expectedTotalActiveBalance)
 
                 it('estimates juror share correctly', async () => {
-                  const { tokenAddress, jurorShare } = await subscriptions.getJurorShare(juror, periodId)
+                  const { feeToken: tokenAddress, jurorShare } = await subscriptions.getJurorShare(juror, periodId)
 
                   assert.equal(tokenAddress, feeToken.address, 'fee token address does not match')
                   assert.equal(jurorShare.toString(), expectedShareFees.toString(), 'juror share fees does not match')
@@ -185,7 +185,7 @@ contract('CourtSubscriptions', ([_, payer, subscriberPeriod0, subscriberPeriod1,
                 const expectedShareFees = collectedFeesPeriod0.mul(jurorPeriod0Term3Balance).div(expectedTotalActiveBalance)
 
                 it('estimates juror share correctly', async () => {
-                  const { tokenAddress, jurorShare } = await subscriptions.getJurorShare(juror, periodId)
+                  const { feeToken: tokenAddress, jurorShare } = await subscriptions.getJurorShare(juror, periodId)
 
                   assert.equal(tokenAddress, feeToken.address, 'fee token address does not match')
                   assert.equal(jurorShare.toString(), expectedShareFees.toString(), 'juror share fees does not match')
@@ -215,9 +215,9 @@ contract('CourtSubscriptions', ([_, payer, subscriberPeriod0, subscriberPeriod1,
             const periodId = 1
 
             it('reverts', async () => {
-              await assertRevert(subscriptions.claimFees(periodId, { from: jurorPeriod0Term1 }), 'SUB_INVALID_PERIOD')
-              await assertRevert(subscriptions.claimFees(periodId, { from: jurorPeriod0Term3 }), 'SUB_INVALID_PERIOD')
-              await assertRevert(subscriptions.claimFees(periodId, { from: jurorMidPeriod1 }), 'SUB_INVALID_PERIOD')
+              await assertRevert(subscriptions.claimFees(periodId, { from: jurorPeriod0Term1 }), 'CS_NON_PAST_PERIOD')
+              await assertRevert(subscriptions.claimFees(periodId, { from: jurorPeriod0Term3 }), 'CS_NON_PAST_PERIOD')
+              await assertRevert(subscriptions.claimFees(periodId, { from: jurorMidPeriod1 }), 'CS_NON_PAST_PERIOD')
             })
           })
 
@@ -225,9 +225,9 @@ contract('CourtSubscriptions', ([_, payer, subscriberPeriod0, subscriberPeriod1,
             const periodId = 2
 
             it('reverts', async () => {
-              await assertRevert(subscriptions.claimFees(periodId, { from: jurorPeriod0Term1 }), 'SUB_INVALID_PERIOD')
-              await assertRevert(subscriptions.claimFees(periodId, { from: jurorPeriod0Term3 }), 'SUB_INVALID_PERIOD')
-              await assertRevert(subscriptions.claimFees(periodId, { from: jurorMidPeriod1 }), 'SUB_INVALID_PERIOD')
+              await assertRevert(subscriptions.claimFees(periodId, { from: jurorPeriod0Term1 }), 'CS_NON_PAST_PERIOD')
+              await assertRevert(subscriptions.claimFees(periodId, { from: jurorPeriod0Term3 }), 'CS_NON_PAST_PERIOD')
+              await assertRevert(subscriptions.claimFees(periodId, { from: jurorMidPeriod1 }), 'CS_NON_PAST_PERIOD')
             })
           })
         })
@@ -237,7 +237,7 @@ contract('CourtSubscriptions', ([_, payer, subscriberPeriod0, subscriberPeriod1,
             const period = 0
 
             it('reverts', async () => {
-              await assertRevert(subscriptions.claimFees(period, { from: jurorPeriod0Term1 }), 'SUB_NOTHING_TO_CLAIM')
+              await assertRevert(subscriptions.claimFees(period, { from: jurorPeriod0Term1 }), 'CS_JUROR_NOTHING_TO_CLAIM')
             })
           })
 
@@ -245,7 +245,7 @@ contract('CourtSubscriptions', ([_, payer, subscriberPeriod0, subscriberPeriod1,
             const period = 1
 
             it('reverts', async () => {
-              await assertRevert(subscriptions.claimFees(period, { from: jurorPeriod0Term1 }), 'SUB_INVALID_PERIOD')
+              await assertRevert(subscriptions.claimFees(period, { from: jurorPeriod0Term1 }), 'CS_NON_PAST_PERIOD')
             })
           })
 
@@ -253,7 +253,7 @@ contract('CourtSubscriptions', ([_, payer, subscriberPeriod0, subscriberPeriod1,
             const period = 2
 
             it('reverts', async () => {
-              await assertRevert(subscriptions.claimFees(period, { from: jurorPeriod0Term1 }), 'SUB_INVALID_PERIOD')
+              await assertRevert(subscriptions.claimFees(period, { from: jurorPeriod0Term1 }), 'CS_NON_PAST_PERIOD')
             })
           })
         })

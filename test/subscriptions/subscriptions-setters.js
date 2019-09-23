@@ -41,20 +41,30 @@ contract('CourtSubscriptions', ([_, something, subscriber]) => {
 
             assert.equal((await subscriptions.currentFeeAmount()).toString(), newFeeAmount.toString(), 'subscription fee amount does not match')
           })
+
+          it('emits an event', async () => {
+            const previousFeeAmount = await subscriptions.currentFeeAmount()
+
+            const receipt = await subscriptionsOwner.setFeeAmount(newFeeAmount)
+
+            const logs = decodeEventsOfType(receipt, CourtSubscriptions.abi, 'FeeAmountChanged')
+            assertAmountOfEvents({ logs }, 'FeeAmountChanged')
+            assertEvent({ logs }, 'FeeAmountChanged', { previousFeeAmount, currentFeeAmount: newFeeAmount })
+          })
         })
 
         context('when the given value is zero', async () => {
           const newFeeAmount = bn(0)
 
           it('reverts', async () => {
-            await assertRevert(subscriptionsOwner.setFeeAmount(newFeeAmount), 'SUB_ZERO_FEE')
+            await assertRevert(subscriptionsOwner.setFeeAmount(newFeeAmount), 'CS_FEE_AMOUNT_ZERO')
           })
         })
       })
 
       context('when the sender is not the governor', async () => {
         it('reverts', async () => {
-          await assertRevert(subscriptions.setFeeAmount(FEE_AMOUNT), 'SUB_NOT_GOVERNOR')
+          await assertRevert(subscriptions.setFeeAmount(FEE_AMOUNT), 'CS_SENDER_NOT_GOVERNOR')
         })
       })
     })
@@ -89,6 +99,21 @@ contract('CourtSubscriptions', ([_, something, subscriber]) => {
 
                 assert.equal(await subscriptions.currentFeeToken(), newFeeToken.address, 'fee token does not match')
                 assert.equal((await subscriptions.currentFeeAmount()).toString(), newFeeAmount.toString(), 'fee amount does not match')
+              })
+
+              it('emits an event', async () => {
+                const previousFeeToken = await subscriptions.currentFeeToken()
+                const previousFeeAmount = await subscriptions.currentFeeAmount()
+
+                const receipt = await subscriptionsOwner.setFeeToken(newFeeToken.address, newFeeAmount)
+
+                const tokenLogs = decodeEventsOfType(receipt, CourtSubscriptions.abi, 'FeeTokenChanged')
+                assertAmountOfEvents({ logs: tokenLogs }, 'FeeTokenChanged')
+                assertEvent({ logs: tokenLogs }, 'FeeTokenChanged', { previousFeeToken, currentFeeToken: newFeeToken.address })
+
+                const amountLogs = decodeEventsOfType(receipt, CourtSubscriptions.abi, 'FeeAmountChanged')
+                assertAmountOfEvents({ logs: amountLogs }, 'FeeAmountChanged')
+                assertEvent({ logs: amountLogs }, 'FeeAmountChanged', { previousFeeAmount, currentFeeAmount: newFeeAmount })
               })
             }
 
@@ -133,7 +158,7 @@ contract('CourtSubscriptions', ([_, something, subscriber]) => {
             const newFeeAmount = bn(0)
 
             it('reverts', async () => {
-              await assertRevert(subscriptionsOwner.setFeeToken(newFeeToken.address, newFeeAmount), 'SUB_ZERO_FEE')
+              await assertRevert(subscriptionsOwner.setFeeToken(newFeeToken.address, newFeeAmount), 'CS_FEE_AMOUNT_ZERO')
             })
           })
         })
@@ -142,7 +167,7 @@ contract('CourtSubscriptions', ([_, something, subscriber]) => {
           const newFeeTokenAddress = something
 
           it('reverts', async () => {
-            await assertRevert(subscriptionsOwner.setFeeToken(newFeeTokenAddress, FEE_AMOUNT), 'SUB_NOT_CONTRACT')
+            await assertRevert(subscriptionsOwner.setFeeToken(newFeeTokenAddress, FEE_AMOUNT), 'CS_FEE_TOKEN_NOT_CONTRACT')
           })
         })
 
@@ -150,14 +175,14 @@ contract('CourtSubscriptions', ([_, something, subscriber]) => {
           const newFeeTokenAddress = ZERO_ADDRESS
 
           it('reverts', async () => {
-            await assertRevert(subscriptionsOwner.setFeeToken(newFeeTokenAddress, FEE_AMOUNT), 'SUB_NOT_CONTRACT')
+            await assertRevert(subscriptionsOwner.setFeeToken(newFeeTokenAddress, FEE_AMOUNT), 'CS_FEE_TOKEN_NOT_CONTRACT')
           })
         })
       })
 
       context('when the sender is not the governor', async () => {
         it('reverts', async () => {
-          await assertRevert(subscriptions.setFeeToken(feeToken.address, FEE_AMOUNT), 'SUB_NOT_GOVERNOR')
+          await assertRevert(subscriptions.setFeeToken(feeToken.address, FEE_AMOUNT), 'CS_SENDER_NOT_GOVERNOR')
         })
       })
     })
@@ -184,20 +209,31 @@ contract('CourtSubscriptions', ([_, something, subscriber]) => {
 
             assert.equal((await subscriptions.prePaymentPeriods()).toString(), newPrePaymentPeriods.toString(), 'pre payment periods does not match')
           })
+
+          it('emits an event', async () => {
+            const previousPrePaymentPeriods = await subscriptions.prePaymentPeriods()
+
+            const receipt = await subscriptionsOwner.setPrePaymentPeriods(newPrePaymentPeriods)
+            console.log()
+            const logs = decodeEventsOfType(receipt, CourtSubscriptions.abi, 'PrePaymentPeriodsChanged')
+
+            assertAmountOfEvents({ logs }, 'PrePaymentPeriodsChanged')
+            assertEvent({ logs }, 'PrePaymentPeriodsChanged', { previousPrePaymentPeriods, currentPrePaymentPeriods: newPrePaymentPeriods })
+          })
         })
 
         context('when the given value is zero', async () => {
           const newPrePaymentPeriods = bn(0)
 
           it('reverts', async () => {
-            await assertRevert(subscriptionsOwner.setPrePaymentPeriods(newPrePaymentPeriods), 'SUB_ZERO_PREPAYMENT_PERIODS')
+            await assertRevert(subscriptionsOwner.setPrePaymentPeriods(newPrePaymentPeriods), 'CS_PREPAYMENT_PERIODS_ZERO')
           })
         })
       })
 
       context('when the sender is not the governor', async () => {
         it('reverts', async () => {
-          await assertRevert(subscriptions.setPrePaymentPeriods(PREPAYMENT_PERIODS), 'SUB_NOT_GOVERNOR')
+          await assertRevert(subscriptions.setPrePaymentPeriods(PREPAYMENT_PERIODS), 'CS_SENDER_NOT_GOVERNOR')
         })
       })
     })
@@ -222,6 +258,16 @@ contract('CourtSubscriptions', ([_, something, subscriber]) => {
 
             assert.equal((await subscriptions.latePaymentPenaltyPct()).toString(), newLatePaymentPenaltyPct.toString(), 'late payments penalty does not match')
           })
+
+          it('emits an event', async () => {
+            const previousLatePaymentPenaltyPct = await subscriptions.latePaymentPenaltyPct()
+
+            const receipt = await subscriptionsOwner.setLatePaymentPenaltyPct(newLatePaymentPenaltyPct)
+            const logs = decodeEventsOfType(receipt, CourtSubscriptions.abi, 'LatePaymentPenaltyPctChanged')
+
+            assertAmountOfEvents({ logs }, 'LatePaymentPenaltyPctChanged')
+            assertEvent({ logs }, 'LatePaymentPenaltyPctChanged', { previousLatePaymentPenaltyPct, currentLatePaymentPenaltyPct: newLatePaymentPenaltyPct })
+          })
         }
 
         context('when the given value is zero', async () => {
@@ -245,7 +291,7 @@ contract('CourtSubscriptions', ([_, something, subscriber]) => {
 
       context('when the sender is not the governor', async () => {
         it('reverts', async () => {
-          await assertRevert(subscriptions.setLatePaymentPenaltyPct(LATE_PAYMENT_PENALTY_PCT), 'SUB_NOT_GOVERNOR')
+          await assertRevert(subscriptions.setLatePaymentPenaltyPct(LATE_PAYMENT_PENALTY_PCT), 'CS_SENDER_NOT_GOVERNOR')
         })
       })
     })
@@ -270,6 +316,16 @@ contract('CourtSubscriptions', ([_, something, subscriber]) => {
 
             assert.equal((await subscriptions.governorSharePct()).toString(), newGovernorSharePct.toString(), 'governor share pct does not match')
           })
+
+          it('emits an event', async () => {
+            const previousGovernorSharePct = await subscriptions.governorSharePct()
+
+            const receipt = await subscriptionsOwner.setGovernorSharePct(newGovernorSharePct)
+            const logs = decodeEventsOfType(receipt, CourtSubscriptions.abi, 'GovernorSharePctChanged')
+
+            assertAmountOfEvents({ logs }, 'GovernorSharePctChanged')
+            assertEvent({ logs }, 'GovernorSharePctChanged', { previousGovernorSharePct, currentGovernorSharePct: newGovernorSharePct })
+          })
         }
 
         context('when the given value is zero', async () => {
@@ -288,14 +344,14 @@ contract('CourtSubscriptions', ([_, something, subscriber]) => {
           const newGovernorSharePct = bn(10001)
 
           it('reverts', async () => {
-            await assertRevert(subscriptionsOwner.setGovernorSharePct(newGovernorSharePct), 'SUB_OVERFLOW')
+            await assertRevert(subscriptionsOwner.setGovernorSharePct(newGovernorSharePct), 'CS_OVERRATED_GOVERNOR_SHARE_PCT')
           })
         })
       })
 
       context('when the sender is not the governor', async () => {
         it('reverts', async () => {
-          await assertRevert(subscriptions.setGovernorSharePct(GOVERNOR_SHARE_PCT), 'SUB_NOT_GOVERNOR')
+          await assertRevert(subscriptions.setGovernorSharePct(GOVERNOR_SHARE_PCT), 'CS_SENDER_NOT_GOVERNOR')
         })
       })
     })

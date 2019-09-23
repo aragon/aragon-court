@@ -17,9 +17,6 @@ contract CourtSubscriptions is IsContract, ISubscriptions, TimeHelpers {
     using SafeMath for uint256;
     using PctHelpers for uint256;
 
-    // Term 0 is for jurors on-boarding
-    uint64 internal constant START_TERM_ID = 1;
-
     string internal constant ERROR_NOT_GOVERNOR = "SUB_NOT_GOVERNOR";
     string internal constant ERROR_OWNER_ALREADY_SET = "SUB_OWNER_ALREADY_SET";
     string internal constant ERROR_ZERO_TRANSFER = "SUB_ZERO_TRANSFER";
@@ -34,6 +31,9 @@ contract CourtSubscriptions is IsContract, ISubscriptions, TimeHelpers {
     string internal constant ERROR_NOTHING_TO_CLAIM = "SUB_NOTHING_TO_CLAIM";
     string internal constant ERROR_PAY_ZERO_PERIODS = "SUB_PAY_ZERO_PERIODS";
     string internal constant ERROR_TOO_MANY_PERIODS = "SUB_TOO_MANY_PERIODS";
+
+    // Term 0 is for jurors on-boarding
+    uint64 internal constant START_TERM_ID = 1;
 
     struct Subscriber {
         bool subscribed;                        // Whether or not a user has been subscribed to the Court, subscriptions cannot be rolled back
@@ -173,16 +173,6 @@ contract CourtSubscriptions is IsContract, ISubscriptions, TimeHelpers {
     }
 
     /**
-    * @dev Tell whether a certain subscriber has paid all the fees up to current period or not
-    * @param _subscriber Address of subscriber being checked
-    * @return True if subscriber has paid all the fees up to current period, false otherwise
-    */
-    function isUpToDate(address _subscriber) external view returns (bool) {
-        Subscriber storage subscriber = subscribers[_subscriber];
-        return subscriber.subscribed && subscriber.lastPaymentPeriodId >= _getCurrentPeriodId();
-    }
-
-    /**
     * @notice Claim proportional share fees for period `_periodId` owed to `msg.sender`
     * @param _periodId Identification number of the period which fees are claimed for
     */
@@ -201,6 +191,17 @@ contract CourtSubscriptions is IsContract, ISubscriptions, TimeHelpers {
         period.claimedFees[msg.sender] = true;
         emit FeesClaimed(msg.sender, _periodId, jurorShare);
         require(period.feeToken.safeTransfer(msg.sender, jurorShare), ERROR_TOKEN_TRANSFER_FAILED);
+    }
+
+    /**
+    * @notice Make sure that the balance details of a certain period have been computed
+    * @param _periodId Identification number of the period being ensured
+    * @return periodBalanceCheckpoint Court term id used to fetch the total active balance of the jurors registry
+    * @return totalActiveBalance Total amount of juror tokens active in the Court at the corresponding used checkpoint
+    */
+    function ensurePeriodBalanceDetails(uint256 _periodId) external returns (uint64 periodBalanceCheckpoint, uint256 totalActiveBalance) {
+        Period storage period = periods[_periodId];
+        return _ensurePeriodBalanceDetails(_periodId, period);
     }
 
     /**
@@ -248,22 +249,21 @@ contract CourtSubscriptions is IsContract, ISubscriptions, TimeHelpers {
     }
 
     /**
-    * @notice Make sure that the balance details of a certain period have been computed
-    * @param _periodId Identification number of the period being ensured
-    * @return periodBalanceCheckpoint Court term id used to fetch the total active balance of the jurors registry
-    * @return totalActiveBalance Total amount of juror tokens active in the Court at the corresponding used checkpoint
-    */
-    function ensurePeriodBalanceDetails(uint256 _periodId) external returns (uint64 periodBalanceCheckpoint, uint256 totalActiveBalance) {
-        Period storage period = periods[_periodId];
-        return _ensurePeriodBalanceDetails(_periodId, period);
-    }
-
-    /**
     * @dev Tell the address of the owner of the contract
     * @return Address of owner
     */
     function getOwner() external view returns (address) {
         return address(owner);
+    }
+
+    /**
+    * @dev Tell whether a certain subscriber has paid all the fees up to current period or not
+    * @param _subscriber Address of subscriber being checked
+    * @return True if subscriber has paid all the fees up to current period, false otherwise
+    */
+    function isUpToDate(address _subscriber) external view returns (bool) {
+        Subscriber storage subscriber = subscribers[_subscriber];
+        return subscriber.subscribed && subscriber.lastPaymentPeriodId >= _getCurrentPeriodId();
     }
 
     /**
@@ -293,12 +293,7 @@ contract CourtSubscriptions is IsContract, ISubscriptions, TimeHelpers {
     * @return amountToPay Amount of subscription fee tokens to be paid
     * @return newLastPeriodId Identification number of the resulting last paid period
     */
-    function getPayFeesDetails(
-        address _subscriber,
-        uint256 _periods
-    )
-        external
-        view
+    function getPayFeesDetails(address _subscriber, uint256 _periods) external view
         returns (address tokenAddress, uint256 amountToPay, uint256 newLastPeriodId)
     {
         Subscriber storage subscriber = subscribers[_subscriber];
@@ -360,6 +355,46 @@ contract CourtSubscriptions is IsContract, ISubscriptions, TimeHelpers {
     }
 
     /**
+    * @dev Internal function to make sure the fee token address and amount of a certain period have been cached
+    * @param _period Period being ensured to have cached its fee token address and amount
+    * @return feeToken ERC20 token to be used for the subscription fees during the given period
+    * @return feeAmount Amount of fees to be paid during the given period
+    */
+    function _ensurePeriodFeeTokenAndAmount(Period storage _period) internal returns (ERC20 feeToken, uint256 feeAmount) {
+        // Use current fee token address and amount for the given period if these haven't been set yet
+        feeToken = _period.feeToken;
+        if (feeToken == ERC20(0)) {
+            feeToken = currentFeeToken;
+            _period.feeToken = feeToken;
+            _period.feeAmount = currentFeeAmount;
+        }
+        feeAmount = _period.feeAmount;
+    }
+
+    /**
+    * @dev Internal function to make sure that the balance details of a certain period have been computed. This function assumes given ID and
+    *      period correspond to each other.
+    * @param _periodId Identification number of the period being ensured
+    * @param _period Period being ensured
+    * @return periodBalanceCheckpoint Court term id used to fetch the total active balance of the jurors registry
+    * @return totalActiveBalance Total amount of juror tokens active in the Court at the corresponding used checkpoint
+    */
+    function _ensurePeriodBalanceDetails(uint256 _periodId, Period storage _period) internal
+        returns (uint64 periodBalanceCheckpoint, uint256 totalActiveBalance)
+    {
+        totalActiveBalance = _period.totalActiveBalance;
+
+        // Set balance details for the given period if these haven't been set yet
+        if (totalActiveBalance == 0) {
+            (periodBalanceCheckpoint, totalActiveBalance) = _getPeriodBalanceDetails(_periodId);
+            _period.balanceCheckpoint = periodBalanceCheckpoint;
+            _period.totalActiveBalance = totalActiveBalance;
+        } else {
+            periodBalanceCheckpoint = _period.balanceCheckpoint;
+        }
+    }
+
+    /**
     * @dev Internal function to set a new amount for the subscription fees
     * @param _feeAmount New amount of fees to be paid for each subscription period
     */
@@ -398,50 +433,6 @@ contract CourtSubscriptions is IsContract, ISubscriptions, TimeHelpers {
         // Check governor share is not greater than 10,000‱
         require(PctHelpers.isValid(_governorSharePct), ERROR_OVERFLOW);
         governorSharePct = _governorSharePct;
-    }
-
-    /**
-    * @dev Internal function to make sure the fee token address and amount of a certain period have been cached
-    * @param _period Period being ensured to have cached its fee token address and amount
-    * @return feeToken ERC20 token to be used for the subscription fees during the given period
-    * @return feeAmount Amount of fees to be paid during the given period
-    */
-    function _ensurePeriodFeeTokenAndAmount(Period storage _period) internal returns (ERC20 feeToken, uint256 feeAmount) {
-        // Use current fee token address and amount for the given period if these haven't been set yet
-        feeToken = _period.feeToken;
-        if (feeToken == ERC20(0)) {
-            feeToken = currentFeeToken;
-            _period.feeToken = feeToken;
-            _period.feeAmount = currentFeeAmount;
-        }
-        feeAmount = _period.feeAmount;
-    }
-
-    /**
-    * @dev Internal function to make sure that the balance details of a certain period have been computed. This function assumes given ID and
-    *      period correspond to each other.
-    * @param _periodId Identification number of the period being ensured
-    * @param _period Period being ensured
-    * @return periodBalanceCheckpoint Court term id used to fetch the total active balance of the jurors registry
-    * @return totalActiveBalance Total amount of juror tokens active in the Court at the corresponding used checkpoint
-    */
-    function _ensurePeriodBalanceDetails(
-        uint256 _periodId,
-        Period storage _period
-    )
-        internal
-        returns (uint64 periodBalanceCheckpoint, uint256 totalActiveBalance)
-    {
-        totalActiveBalance = _period.totalActiveBalance;
-
-        // Set balance details for the given period if these haven't been set yet
-        if (totalActiveBalance == 0) {
-            (periodBalanceCheckpoint, totalActiveBalance) = _getPeriodBalanceDetails(_periodId);
-            _period.balanceCheckpoint = periodBalanceCheckpoint;
-            _period.totalActiveBalance = totalActiveBalance;
-        } else {
-            periodBalanceCheckpoint = _period.balanceCheckpoint;
-        }
     }
 
     /**
@@ -489,14 +480,7 @@ contract CourtSubscriptions is IsContract, ISubscriptions, TimeHelpers {
     * @return amountToPay Amount of subscription fee tokens to be paid
     * @return newLastPeriodId Identification number of the resulting last paid period
     */
-    function _getPayFeesDetails(
-        Subscriber storage _subscriber,
-        uint256 _periods,
-        uint256 _currentPeriodId,
-        uint256 _feeAmount
-    )
-        internal
-        view
+    function _getPayFeesDetails(Subscriber storage _subscriber, uint256 _periods, uint256 _currentPeriodId, uint256 _feeAmount) internal view
         returns (uint256 amountToPay, uint256 newLastPeriodId)
     {
         uint256 lastPaymentPeriodId = _subscriber.lastPaymentPeriodId;
@@ -573,14 +557,7 @@ contract CourtSubscriptions is IsContract, ISubscriptions, TimeHelpers {
     * @param _totalActiveBalance Total amount of juror tokens active in the Court at the corresponding used checkpoint
     * @return Amount of share fees owed to the given juror for the requested period
     */
-    function _getJurorShare(
-        address _juror,
-        Period storage _period,
-        uint64 _periodBalanceCheckpoint,
-        uint256 _totalActiveBalance
-    )
-        internal
-        view
+    function _getJurorShare(address _juror, Period storage _period, uint64 _periodBalanceCheckpoint, uint256 _totalActiveBalance) internal view
         returns (uint256)
     {
         // Fetch juror active balance at the checkpoint used for the requested period

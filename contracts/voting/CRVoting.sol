@@ -180,16 +180,6 @@ contract CRVoting is Initializable, ICRVoting {
     }
 
     /**
-    * @dev Get the tally of the winning outcome for a certain vote instance
-    * @param _voteId ID of the vote instance querying the tally of
-    * @return Tally of the winning outcome being queried for the given vote instance
-    */
-    function getWinningOutcomeTally(uint256 _voteId) external voteExists(_voteId) view returns (uint256) {
-        Vote storage vote = voteRecords[_voteId];
-        return vote.outcomesTally[vote.winningOutcome];
-    }
-
-    /**
     * @dev Get the tally of an outcome for a certain vote instance
     * @param _voteId ID of the vote instance querying the tally of
     * @param _outcome Outcome querying the tally of

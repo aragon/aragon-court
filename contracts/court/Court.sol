@@ -1338,7 +1338,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
     function _getFinalRoundJurorsNumber(uint64 _termId) internal view returns (uint64) {
         // The registry guarantees its total active balance will never be greater than
         // `2^64 * minJurorsActiveBalance / FINAL_ROUND_WEIGHT_PRECISION`. Thus, the
-        // jurors number for a final round will always fit in uint64
+        // jurors number for a final round will always fit in `uint64`
         uint256 totalActiveBalance = jurorsRegistry.totalActiveBalanceAt(_termId);
         uint256 minJurorsActiveBalance = jurorsRegistry.minJurorsActiveBalance();
         return (FINAL_ROUND_WEIGHT_PRECISION.mul(totalActiveBalance) / minJurorsActiveBalance).toUint64();
@@ -1623,7 +1623,9 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
 
     // TODO: move to a factory contract
     function _initJurorsRegistry(IJurorsRegistry _jurorsRegistry, ERC20 _jurorToken, uint256 _minJurorsActiveBalance) private {
-        _jurorsRegistry.init(IJurorsRegistryOwner(this), _jurorToken, _minJurorsActiveBalance);
+        uint256 maxUint64 = uint256(uint64(-1));
+        uint256 minActiveBalancesLimit = maxUint64.div(FINAL_ROUND_WEIGHT_PRECISION);
+        _jurorsRegistry.init(IJurorsRegistryOwner(this), _jurorToken, _minJurorsActiveBalance, minActiveBalancesLimit);
     }
 
     // TODO: move to a factory contract

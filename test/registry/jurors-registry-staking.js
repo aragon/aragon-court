@@ -14,6 +14,7 @@ contract('JurorsRegistry', ([_, juror, anotherJuror]) => {
   let registry, registryOwner, ANJ
 
   const MIN_ACTIVE_AMOUNT = bigExp(100, 18)
+  const MIN_ACTIVE_AMOUNTS_LIMIT = bn(1000)
   const ACTIVATE_DATA = sha3('activate(uint256)').slice(0, 10)
 
   beforeEach('create base contracts', async () => {
@@ -27,7 +28,7 @@ contract('JurorsRegistry', ([_, juror, anotherJuror]) => {
 
     context('when the registry is initialized', () => {
       beforeEach('initialize registry', async () => {
-        await registry.init(registryOwner.address, ANJ.address, MIN_ACTIVE_AMOUNT)
+        await registry.init(registryOwner.address, ANJ.address, MIN_ACTIVE_AMOUNT, MIN_ACTIVE_AMOUNTS_LIMIT)
       })
 
       context('when the juror does not request to activate the tokens', () => {
@@ -336,7 +337,7 @@ contract('JurorsRegistry', ([_, juror, anotherJuror]) => {
 
     context('when the registry is initialized', () => {
       beforeEach('initialize registry', async () => {
-        await registry.init(registryOwner.address, ANJ.address, MIN_ACTIVE_AMOUNT)
+        await registry.init(registryOwner.address, ANJ.address, MIN_ACTIVE_AMOUNT, MIN_ACTIVE_AMOUNTS_LIMIT)
       })
 
       const itHandlesStakesWithoutActivationProperlyFor = (recipient, amount, data) => {
@@ -749,7 +750,7 @@ contract('JurorsRegistry', ([_, juror, anotherJuror]) => {
 
     context('when the registry is initialized', () => {
       beforeEach('initialize registry', async () => {
-        await registry.init(registryOwner.address, ANJ.address, MIN_ACTIVE_AMOUNT)
+        await registry.init(registryOwner.address, ANJ.address, MIN_ACTIVE_AMOUNT, MIN_ACTIVE_AMOUNTS_LIMIT)
       })
 
       context('when the calling contract is ANJ', () => {
@@ -1061,7 +1062,7 @@ contract('JurorsRegistry', ([_, juror, anotherJuror]) => {
 
     context('when the registry is initialized', () => {
       beforeEach('initialize registry', async () => {
-        await registry.init(registryOwner.address, ANJ.address, MIN_ACTIVE_AMOUNT)
+        await registry.init(registryOwner.address, ANJ.address, MIN_ACTIVE_AMOUNT, MIN_ACTIVE_AMOUNTS_LIMIT)
       })
 
       const itRevertsForDifferentAmounts = () => {

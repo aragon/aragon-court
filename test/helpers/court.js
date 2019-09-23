@@ -5,8 +5,6 @@ const { NEXT_WEEK, ONE_DAY } = require('./time')
 const { getEvents, getEventArgument } = require('@aragon/os/test/helpers/events')
 const { getVoteId, encryptVote, oppositeOutcome, outcomeFor, SALT, OUTCOMES } = require('../helpers/crvoting')
 
-const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
-
 const PCT_BASE = bn(10000)
 const APPEAL_COLLATERAL_FACTOR = bn(3)
 const APPEAL_CONFIRMATION_COLLATERAL_FACTOR = bn(2)

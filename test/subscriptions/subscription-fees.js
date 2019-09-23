@@ -49,6 +49,7 @@ contract('CourtSubscriptions', ([ org1, org2, juror1, juror2, juror3 ]) => {
   const GOVERNOR_SHARE_PCT = bn(100) // 100‱ = 1%
   const LATE_PAYMENT_PENALTY_PCT = bn(1000) // 1000‱ = 10%
   const MIN_ACTIVE_TOKEN = bigExp(1, 18)
+  const MIN_ACTIVE_AMOUNTS_LIMIT = bn(1000)
   const ACTIVATE_DATA = sha3('activate(uint256)').slice(0, 10)
 
   const orgs = [org1, org2]
@@ -81,7 +82,7 @@ contract('CourtSubscriptions', ([ org1, org2, juror1, juror2, juror3 ]) => {
     beforeEach(async () => {
       this.subscriptionOwner = await SubscriptionsOwner.new(this.subscription.address)
       await this.subscriptionOwner.setCurrentTermId(START_TERM_ID)
-      await this.jurorsRegistry.init(this.subscriptionOwner.address, this.anj.address, MIN_ACTIVE_TOKEN)
+      await this.jurorsRegistry.init(this.subscriptionOwner.address, this.anj.address, MIN_ACTIVE_TOKEN, MIN_ACTIVE_AMOUNTS_LIMIT)
       await this.subscription.init(this.subscriptionOwner.address, this.jurorsRegistry.address, PERIOD_DURATION, token.address, FEE_AMOUNT.toString(), PREPAYMENT_PERIODS, LATE_PAYMENT_PENALTY_PCT, GOVERNOR_SHARE_PCT)
     })
 

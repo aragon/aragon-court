@@ -11,6 +11,7 @@ contract('JurorsRegistry', ([_, something]) => {
   let registry, registryOwner, ANJ
 
   const MIN_ACTIVE_AMOUNT = bigExp(100, 18)
+  const MIN_ACTIVE_AMOUNTS_LIMIT = bn(1000)
 
   beforeEach('create base contracts', async () => {
     registry = await JurorsRegistry.new()
@@ -25,7 +26,7 @@ contract('JurorsRegistry', ([_, something]) => {
           const token = ZERO_ADDRESS
 
           it('reverts', async () => {
-            await assertRevert(registry.init(registryOwner.address, token, MIN_ACTIVE_AMOUNT), 'JR_NOT_CONTRACT')
+            await assertRevert(registry.init(registryOwner.address, token, MIN_ACTIVE_AMOUNT, MIN_ACTIVE_AMOUNTS_LIMIT), 'JR_NOT_CONTRACT')
           })
         })
 
@@ -33,7 +34,23 @@ contract('JurorsRegistry', ([_, something]) => {
           const token = something
 
           it('reverts', async () => {
-            await assertRevert(registry.init(registryOwner.address, token, MIN_ACTIVE_AMOUNT), 'JR_NOT_CONTRACT')
+            await assertRevert(registry.init(registryOwner.address, token, MIN_ACTIVE_AMOUNT, MIN_ACTIVE_AMOUNTS_LIMIT), 'JR_NOT_CONTRACT')
+          })
+        })
+
+        context('when the given min active balances limit is zero', () => {
+          const minActiveBalancesLimit = 0
+
+          it('reverts', async () => {
+            await assertRevert(registry.init(registryOwner.address, ANJ.address, MIN_ACTIVE_AMOUNT, minActiveBalancesLimit), 'JR_BAD_MIN_ACTIVE_BALANCES_LIMIT')
+          })
+        })
+
+        context('when the minimum active amount is zero', () => {
+          const minActiveBalance = bn(0)
+
+          it('reverts', async () => {
+            await assertRevert(registry.init(registryOwner.address, ANJ.address, minActiveBalance, MIN_ACTIVE_AMOUNTS_LIMIT), 'JR_BAD_MIN_ACTIVE_BALANCES_LIMIT')
           })
         })
 
@@ -44,7 +61,7 @@ contract('JurorsRegistry', ([_, something]) => {
           const owner = ZERO_ADDRESS
 
           it('reverts', async () => {
-            await assertRevert(registry.init(owner, ANJ.address, MIN_ACTIVE_AMOUNT), 'JR_NOT_CONTRACT')
+            await assertRevert(registry.init(owner, ANJ.address, MIN_ACTIVE_AMOUNT, MIN_ACTIVE_AMOUNTS_LIMIT), 'JR_NOT_CONTRACT')
           })
         })
 
@@ -52,27 +69,17 @@ contract('JurorsRegistry', ([_, something]) => {
           const owner = something
 
           it('reverts', async () => {
-            await assertRevert(registry.init(owner, ANJ.address, MIN_ACTIVE_AMOUNT), 'JR_NOT_CONTRACT')
+            await assertRevert(registry.init(owner, ANJ.address, MIN_ACTIVE_AMOUNT, MIN_ACTIVE_AMOUNTS_LIMIT), 'JR_NOT_CONTRACT')
           })
         })
       })
 
       context('when the initialization succeeds', () => {
-        context('when the minimum active amount is zero', () => {
-          const minActiveBalance = bn(0)
-
-          it('is initialized', async () => {
-            await registry.init(registryOwner.address, ANJ.address, minActiveBalance)
-
-            assert.isTrue(await registry.hasInitialized(), 'registry is not initialized')
-          })
-        })
-
         context('when the minimum active amount is greater than zero', () => {
           const minActiveBalance = MIN_ACTIVE_AMOUNT
 
           it('is initialized', async () => {
-            await registry.init(registryOwner.address, ANJ.address, minActiveBalance)
+            await registry.init(registryOwner.address, ANJ.address, minActiveBalance, MIN_ACTIVE_AMOUNTS_LIMIT)
 
             assert.isTrue(await registry.hasInitialized(), 'registry is not initialized')
           })
@@ -82,11 +89,11 @@ contract('JurorsRegistry', ([_, something]) => {
 
     context('when it was already initialized', () => {
       beforeEach('initialize registry', async () => {
-        await registry.init(registryOwner.address, ANJ.address, MIN_ACTIVE_AMOUNT)
+        await registry.init(registryOwner.address, ANJ.address, MIN_ACTIVE_AMOUNT, MIN_ACTIVE_AMOUNTS_LIMIT)
       })
 
       it('reverts', async () => {
-        await assertRevert(registry.init(registryOwner.address, ANJ.address, MIN_ACTIVE_AMOUNT), 'INIT_ALREADY_INITIALIZED')
+        await assertRevert(registry.init(registryOwner.address, ANJ.address, MIN_ACTIVE_AMOUNT, MIN_ACTIVE_AMOUNTS_LIMIT), 'INIT_ALREADY_INITIALIZED')
       })
     })
   })
@@ -94,7 +101,7 @@ contract('JurorsRegistry', ([_, something]) => {
   describe('owner', () => {
     context('when the registry is initialized', () => {
       beforeEach('initialize registry', async () => {
-        await registry.init(registryOwner.address, ANJ.address, MIN_ACTIVE_AMOUNT)
+        await registry.init(registryOwner.address, ANJ.address, MIN_ACTIVE_AMOUNT, MIN_ACTIVE_AMOUNTS_LIMIT)
       })
 
       it('returns the owner address', async () => {
@@ -112,7 +119,7 @@ contract('JurorsRegistry', ([_, something]) => {
   describe('token', () => {
     context('when the registry is initialized', () => {
       beforeEach('initialize registry', async () => {
-        await registry.init(registryOwner.address, ANJ.address, MIN_ACTIVE_AMOUNT)
+        await registry.init(registryOwner.address, ANJ.address, MIN_ACTIVE_AMOUNT, MIN_ACTIVE_AMOUNTS_LIMIT)
       })
 
       it('returns the owner address', async () => {
@@ -130,7 +137,7 @@ contract('JurorsRegistry', ([_, something]) => {
   describe('minActiveBalance', () => {
     context('when the registry is initialized', () => {
       beforeEach('initialize registry', async () => {
-        await registry.init(registryOwner.address, ANJ.address, MIN_ACTIVE_AMOUNT)
+        await registry.init(registryOwner.address, ANJ.address, MIN_ACTIVE_AMOUNT, MIN_ACTIVE_AMOUNTS_LIMIT)
       })
 
       it('returns the min active token amount', async () => {
@@ -148,7 +155,7 @@ contract('JurorsRegistry', ([_, something]) => {
   describe('supportsHistory', () => {
     context('when the registry is initialized', () => {
       beforeEach('initialize registry', async () => {
-        await registry.init(registryOwner.address, ANJ.address, MIN_ACTIVE_AMOUNT)
+        await registry.init(registryOwner.address, ANJ.address, MIN_ACTIVE_AMOUNT, MIN_ACTIVE_AMOUNTS_LIMIT)
       })
 
       it('returns false', async () => {

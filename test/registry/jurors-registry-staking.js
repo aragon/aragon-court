@@ -1241,7 +1241,7 @@ contract('JurorsRegistry', ([_, juror, anotherJuror]) => {
 
             context('when the juror tokens are deactivated for the current term', () => {
               beforeEach('increment term', async () => {
-                await registryOwner.incrementTerm()
+                await registryOwner.mockIncreaseTerm()
               })
 
               context('when the given amount is zero', () => {

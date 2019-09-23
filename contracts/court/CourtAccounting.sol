@@ -1,18 +1,18 @@
 pragma solidity ^0.5.8;
 
 import "@aragon/os/contracts/lib/token/ERC20.sol";
-import "@aragon/os/contracts/common/SafeERC20.sol";
 import "@aragon/os/contracts/lib/math/SafeMath.sol";
+import "@aragon/os/contracts/common/SafeERC20.sol";
+import "@aragon/os/contracts/common/Initializable.sol";
 
 import "./IAccounting.sol";
 
 
-contract CourtAccounting is IAccounting {
+contract CourtAccounting is IAccounting, Initializable {
     using SafeERC20 for ERC20;
     using SafeMath for uint256;
 
     string internal constant ERROR_SENDER_NOT_OWNER = "ACCOUNTING_SENDER_NOT_OWNER";
-    string internal constant ERROR_ALREADY_INITIALIZED = "ACCOUNTING_ALREADY_INITIALIZED";
     string internal constant ERROR_DEPOSIT_AMOUNT_ZERO = "ACCOUNTING_DEPOSIT_AMOUNT_ZERO";
     string internal constant ERROR_WITHDRAW_FAILED = "ACCOUNTING_WITHDRAW_FAILED";
     string internal constant ERROR_WITHDRAW_AMOUNT_ZERO = "ACCOUNTING_WITHDRAW_AMOUNT_ZERO";
@@ -30,7 +30,10 @@ contract CourtAccounting is IAccounting {
     }
 
     function init(address _owner) external {
-        require(owner == address(0), ERROR_ALREADY_INITIALIZED);
+        // TODO: cannot check the given owner is a contract cause the Court set this up in the constructor, move to a factory
+        // require(isContract(_owner), ERROR_OWNER_NOT_CONTRACT);
+
+        initialized();
         owner = _owner;
     }
 

@@ -7,8 +7,6 @@ const { assertAmountOfEvents, assertEvent } = require('../helpers/assertEvent')
 const ERC20 = artifacts.require('ERC20Mock')
 const Arbitrable = artifacts.require('ArbitrableMock')
 
-const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
-
 contract('Court', ([_, sender]) => {
   let courtHelper, court, feeToken, arbitrable
 

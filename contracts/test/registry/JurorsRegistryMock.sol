@@ -24,14 +24,14 @@ contract JurorsRegistryMock is JurorsRegistry, TimeHelpersMock {
         }
     }
 
-    function _treeSearch(uint256[7] memory _params) internal view returns (uint256[] memory, uint256[] memory) {
+    function _treeSearch(DraftParams memory _params) internal view returns (uint256[] memory, uint256[] memory) {
         if (nextDraftMocked) {
             return _runMockedSearch(_params);
         }
         return super._treeSearch(_params);
     }
 
-    function _runMockedSearch(uint256[7] memory /* _params */) internal view returns (uint256[] memory ids, uint256[] memory activeBalances) {
+    function _runMockedSearch(DraftParams memory _params) internal view returns (uint256[] memory ids, uint256[] memory activeBalances) {
         uint256 totalLength = 0;
         for (uint256 k = 0; k < mockedWeights.length; k++) {
             totalLength += mockedWeights[k];
@@ -44,7 +44,7 @@ contract JurorsRegistryMock is JurorsRegistry, TimeHelpersMock {
         for (uint256 i = 0; i < mockedSelectedJurors.length; i++) {
             address juror = mockedSelectedJurors[i];
             uint256 id = jurorsByAddress[juror].id;
-            uint256 activeBalance = tree.getItem(id);
+            uint256 activeBalance = tree.getItemAt(id, _params.termId);
 
             for (uint256 j = 0; j < mockedWeights[i]; j++) {
                 ids[index] = id;

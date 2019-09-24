@@ -395,15 +395,15 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
         uint64 jurorsNumber = round.jurorsNumber;
         uint64 selectedJurors = round.selectedJurors;
         uint64 jurorsToBeDrafted = jurorsNumber - selectedJurors;
-        uint256 requestedJurors = uint256(jurorsToBeDrafted < _maxJurorsToBeDrafted ? jurorsToBeDrafted : _maxJurorsToBeDrafted);
+        uint64 requestedJurors = jurorsToBeDrafted < _maxJurorsToBeDrafted ? jurorsToBeDrafted : _maxJurorsToBeDrafted;
 
         // Draft jurors for the given dispute and reimburse fees
         CourtConfig storage config = _getConfigAtDraftTerm(round);
-        _draft(_disputeId, round, jurorsNumber, requestedJurors, draftTerm, config);
+        bool finishDrafting = _draft(_disputeId, round, jurorsNumber, selectedJurors, requestedJurors, draftTerm, config);
         accounting.assign(config.feeToken, msg.sender, config.draftFee * requestedJurors);
 
         // If the drafting is over, update its state
-        if (round.selectedJurors == jurorsNumber) {
+        if (finishDrafting) {
             // Note that we can avoid using SafeMath here since we already ensured `termId` is greater than or equal to `round.draftTermId`
             round.delayedTerms = currentTermId - requestedDraftTermId;
             dispute.state = DisputeState.Adjudicating;
@@ -1578,47 +1578,52 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
     * @param _disputeId Identification number of the dispute to be drafted
     * @param _round Round of the dispute to be drafted
     * @param _jurorsNumber Number of jurors requested for the dispute round
+    * @param _selectedJurors Number of jurors already selected for the dispute round
     * @param _requestedJurors Number of jurors to be drafted for the given dispute. Note that this number could be part of the jurors number.
     * @param _draftTerm Term in which the dispute was requested to be drafted
     * @param _config Config of the Court at the draft term
+    * @return True if all the requested jurors for the given round were drafted, false otherwise
     */
     function _draft(
         uint256  _disputeId,
         AdjudicationRound storage _round,
         uint64 _jurorsNumber,
-        uint256 _requestedJurors,
+        uint64 _selectedJurors,
+        uint64 _requestedJurors,
         Term storage _draftTerm,
         CourtConfig storage _config
     )
-        private
+        private returns(bool)
     {
-        // TODO: Could not pass selectedJurors due to a stack-too-deep issue here
         // Draft jurors for the requested round
         uint256[7] memory draftParams = [
             uint256(_draftTerm.randomness),
             _disputeId,
             uint256(termId),
-            _round.selectedJurors,
+            _selectedJurors,
             _requestedJurors,
             uint256(_jurorsNumber),
             uint256(_config.penaltyPct)
         ];
-        (address[] memory jurors, uint64[] memory weights, uint256 outputLength, uint64 selectedJurors) = jurorsRegistry.draft(draftParams);
+        (address[] memory jurors, uint64[] memory weights, uint256 outputLength) = jurorsRegistry.draft(draftParams);
 
-        // Update round with drafted jurors information
-        _round.selectedJurors = selectedJurors;
+        // Update round with drafted jurors information. We are safe to avoid SafeMath here since this cannot be greater than `jurorsNumber`.
+        uint64 newSelectedJurors = _selectedJurors + _requestedJurors;
+        _round.selectedJurors = newSelectedJurors;
+
+        // Store or update drafted jurors' weight
         for (uint256 i = 0; i < outputLength; i++) {
-            // If the juror was already registered in the list, then don't add it twice
             address juror = jurors[i];
             JurorState storage jurorState = _round.jurorsStates[juror];
-            if (jurorState.weight == uint64(0)) {
+            // If the juror was already registered in the list, then don't add it twice
+            if (uint256(jurorState.weight) == 0) {
                 _round.jurors.push(juror);
             }
             // We assume a juror cannot be drafted 2^64 times for a round
             jurorState.weight += weights[i];
         }
 
-        // TODO: return boolean to tell whether the draft has finished or not, cannot do it due to a stack-too-deep issue
+        return newSelectedJurors == _jurorsNumber;
     }
 
     // TODO: move to a factory contract

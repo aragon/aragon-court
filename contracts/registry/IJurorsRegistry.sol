@@ -12,8 +12,7 @@ interface IJurorsRegistry {
 
     function deactivate(uint256 _amount) external;
 
-    function draft(uint256[7] calldata _draftParams) external
-        returns (address[] memory jurors, uint64[] memory weights, uint256 jurorsLength, uint64 filledSeats);
+    function draft(uint256[7] calldata _draftParams) external returns (address[] memory jurors, uint64[] memory weights, uint256 outputLength);
 
     function slashOrUnlock(uint64 _termId, address[] calldata _jurors, uint256[] calldata _penalties, bool[] calldata _rewardedJurors) external
         returns (uint256 collectedTokens);

@@ -678,7 +678,7 @@ contract('HexSumTree', () => {
             await tree.insert(insertTime, value)
           })
 
-          context('when there is no value registered for the given time', async () => {
+          context('when there is a value registered for a future time', async () => {
             const searchTime = insertTime - 1
 
             it('reverts', async () => {
@@ -699,6 +699,39 @@ contract('HexSumTree', () => {
               assert.equal(values[0].toString(), value, 'result value does not match')
             })
           })
+
+          context('when there is a value registered for a past time', async () => {
+            const searchTime = insertTime + 1
+
+            it('returns the first item', async () => {
+              const { keys, values } = await tree.search(searchValues, searchTime)
+
+              assert.equal(keys.length, 1, 'result keys length does not match')
+              assert.equal(values.length, 1, 'result values length does not match')
+
+              assert.equal(keys[0].toString(), 0, 'result key does not match')
+              assert.equal(values[0].toString(), value, 'result value does not match')
+            })
+          })
+
+          context('when there past, current, and future registered values', async () => {
+            const searchTime = insertTime + 1
+
+            beforeEach('update item twice', async () => {
+              await tree.update(0, insertTime + 1, 1, true)
+              await tree.update(0, insertTime + 2, 1, true)
+            })
+
+            it('returns the item matching the searched time', async () => {
+              const { keys, values } = await tree.search(searchValues, searchTime)
+
+              assert.equal(keys.length, 1, 'result keys length does not match')
+              assert.equal(values.length, 1, 'result values length does not match')
+
+              assert.equal(keys[0].toString(), 0, 'result key does not match')
+              assert.equal(values[0].toString(), value + 1, 'result value does not match')
+            })
+          })
         })
 
         context('when there was a higher value', async () => {
@@ -706,7 +739,7 @@ contract('HexSumTree', () => {
             await tree.insert(insertTime, value + 1)
           })
 
-          context('when there is no value registered for the given time', async () => {
+          context('when there is a value registered for a future time', async () => {
             const searchTime = insertTime - 1
 
             it('reverts', async () => {
@@ -725,6 +758,20 @@ contract('HexSumTree', () => {
 
               assert.equal(keys[0].toString(), 0, 'result key does not match')
               assert.equal(values[0].toString(), value + 1, 'result value does not match')
+            })
+          })
+
+          context('when there is a value registered for a past time', async () => {
+            const searchTime = insertTime + 1
+
+            it('returns the first item', async () => {
+              const { keys, values } = await tree.search(searchValues, searchTime)
+
+              assert.equal(keys.length, 1, 'result keys length does not match')
+              assert.equal(values.length, 1, 'result values length does not match')
+
+              assert.equal(keys[0].toString(), 0, 'result key does not match')
+              assert.equal(values[0].toString(), value, 'result value does not match')
             })
           })
         })

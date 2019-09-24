@@ -10,7 +10,7 @@ contract JurorsRegistryOwnerMock is IJurorsRegistryOwner {
 
     event Slashed(uint256 collected);
     event Collected(bool collected);
-    event Drafted(address[] addresses, uint64[] weights, uint256 outputLength, uint64 selectedJurors);
+    event Drafted(address[] addresses, uint64[] weights, uint256 outputLength);
 
     constructor(IJurorsRegistry _registry) public {
         registry = _registry;
@@ -65,7 +65,7 @@ contract JurorsRegistryOwnerMock is IJurorsRegistryOwner {
             _roundRequestedJurors,
             _lockPct
         ];
-        (address[] memory jurors, uint64[] memory weights, uint256 outputLength, uint64 selectedJurors) = registry.draft(draftParams);
-        emit Drafted(jurors, weights, outputLength, selectedJurors);
+        (address[] memory jurors, uint64[] memory weights, uint256 outputLength) = registry.draft(draftParams);
+        emit Drafted(jurors, weights, outputLength);
     }
 }

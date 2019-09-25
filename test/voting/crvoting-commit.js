@@ -66,14 +66,14 @@ contract('CRVoting commit', ([_, voter]) => {
 
                 it('does not affect the winning outcome', async () => {
                   const previousWinningOutcome = await voting.getWinningOutcome(voteId)
-                  const previousWinningOutcomeTally = await voting.getWinningOutcomeTally(voteId)
+                  const previousWinningOutcomeTally = await voting.getOutcomeTally(voteId, previousWinningOutcome)
 
                   await voting.commit(voteId, commitment, { from: voter })
 
                   const currentWinningOutcome = await voting.getWinningOutcome(voteId)
                   assert.equal(previousWinningOutcome.toString(), currentWinningOutcome.toString(), 'winning outcomes do not match')
 
-                  const currentWinningOutcomeTally = await voting.getWinningOutcomeTally(voteId)
+                  const currentWinningOutcomeTally = await voting.getOutcomeTally(voteId, currentWinningOutcome)
                   assert.equal(previousWinningOutcomeTally.toString(), currentWinningOutcomeTally.toString(), 'winning outcome tallies do not match')
                 })
 

@@ -19,20 +19,20 @@ contract CourtSubscriptions is IsContract, ISubscriptions, TimeHelpers {
 
     uint64 internal constant START_TERM_ID = 1; // term 0 is for jurors onboarding
 
-    string internal constant ERROR_NOT_GOVERNOR = "SUB_NOT_GOVERNOR";
-    string internal constant ERROR_OWNER_ALREADY_SET = "SUB_OWNER_ALREADY_SET";
-    string internal constant ERROR_ZERO_TRANSFER = "SUB_ZERO_TRANSFER";
-    string internal constant ERROR_TOKEN_TRANSFER_FAILED = "SUB_TOKEN_TRANSFER_FAILED";
-    string internal constant ERROR_ZERO_PERIOD_DURATION = "SUB_ZERO_PERIOD_DURATION";
-    string internal constant ERROR_ZERO_FEE = "SUB_ZERO_FEE";
-    string internal constant ERROR_NOT_CONTRACT = "SUB_NOT_CONTRACT";
-    string internal constant ERROR_ZERO_PREPAYMENT_PERIODS = "SUB_ZERO_PREPAYMENT_PERIODS";
-    string internal constant ERROR_OVERFLOW = "SUB_OVERFLOW";
-    string internal constant ERROR_INVALID_PERIOD = "SUB_INVALID_PERIOD";
-    string internal constant ERROR_ALREADY_CLAIMED = "SUB_ALREADY_CLAIMED";
-    string internal constant ERROR_NOTHING_TO_CLAIM = "SUB_NOTHING_TO_CLAIM";
-    string internal constant ERROR_PAY_ZERO_PERIODS = "SUB_PAY_ZERO_PERIODS";
-    string internal constant ERROR_TOO_MANY_PERIODS = "SUB_TOO_MANY_PERIODS";
+    string private constant ERROR_NOT_GOVERNOR = "SUB_NOT_GOVERNOR";
+    string private constant ERROR_OWNER_ALREADY_SET = "SUB_OWNER_ALREADY_SET";
+    string private constant ERROR_ZERO_TRANSFER = "SUB_ZERO_TRANSFER";
+    string private constant ERROR_TOKEN_TRANSFER_FAILED = "SUB_TOKEN_TRANSFER_FAILED";
+    string private constant ERROR_ZERO_PERIOD_DURATION = "SUB_ZERO_PERIOD_DURATION";
+    string private constant ERROR_ZERO_FEE = "SUB_ZERO_FEE";
+    string private constant ERROR_NOT_CONTRACT = "SUB_NOT_CONTRACT";
+    string private constant ERROR_ZERO_PREPAYMENT_PERIODS = "SUB_ZERO_PREPAYMENT_PERIODS";
+    string private constant ERROR_OVERFLOW = "SUB_OVERFLOW";
+    string private constant ERROR_INVALID_PERIOD = "SUB_INVALID_PERIOD";
+    string private constant ERROR_ALREADY_CLAIMED = "SUB_ALREADY_CLAIMED";
+    string private constant ERROR_NOTHING_TO_CLAIM = "SUB_NOTHING_TO_CLAIM";
+    string private constant ERROR_PAY_ZERO_PERIODS = "SUB_PAY_ZERO_PERIODS";
+    string private constant ERROR_TOO_MANY_PERIODS = "SUB_TOO_MANY_PERIODS";
 
     struct Subscriber {
         bool subscribed;

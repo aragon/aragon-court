@@ -201,7 +201,7 @@ contract('JurorsRegistry', ([_, juror500, juror1000, juror1500, juror2000, juror
 
               context('when the juror is activated for the current term', () => {
                 beforeEach('increment term', async () => {
-                  await registryOwner.incrementTerm()
+                  await registryOwner.mockIncreaseTerm()
                 })
 
                 context('when juror has enough unlocked balance to be drafted', () => {
@@ -274,7 +274,7 @@ contract('JurorsRegistry', ([_, juror500, juror1000, juror1500, juror2000, juror
 
                 context('when the jurors are activated for the current term', () => {
                   beforeEach('increment term', async () => {
-                    await registryOwner.incrementTerm()
+                    await registryOwner.mockIncreaseTerm()
                   })
 
                   context('for the first batch', () => {
@@ -320,7 +320,7 @@ contract('JurorsRegistry', ([_, juror500, juror1000, juror1500, juror2000, juror
 
                 context('when the jurors are activated for the current term', () => {
                   beforeEach('increment term', async () => {
-                    await registryOwner.incrementTerm()
+                    await registryOwner.mockIncreaseTerm()
                   })
 
                   context('when jurors have not been selected for other drafts', () => {

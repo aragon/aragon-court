@@ -22,6 +22,8 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
     { address: juror2500, initialActiveBalance: bigExp(2500, 18) },
   ]
 
+  const BURN_ADDRESS = '0x000000000000000000000000000000000000dEaD'
+
   beforeEach('create court', async () => {
     courtHelper = buildHelper()
     court = await courtHelper.deploy()
@@ -129,25 +131,34 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
               const { active, available, locked } = await courtHelper.jurorsRegistry.balanceOf(address)
               previousBalances[address] = { active, available, locked }
             }
+
+            const { active, available, locked } = await courtHelper.jurorsRegistry.balanceOf(BURN_ADDRESS)
+            previousBalances[BURN_ADDRESS] = { active, available, locked }
+
+            const { feeToken, accounting } = courtHelper
+            previousBalances[disputer] = { feeAmount: await accounting.balanceOf(feeToken.address, disputer) }
+            previousBalances[appealMaker] = { feeAmount: await accounting.balanceOf(feeToken.address, appealMaker) }
+            previousBalances[appealTaker] = { feeAmount: await accounting.balanceOf(feeToken.address, appealTaker) }
           })
 
           beforeEach('load expected coherent jurors', async () => {
             // for final rounds compute voter's weight
             if (roundId >= courtHelper.maxRegularAppealRounds.toNumber()) {
-              for (const juror of expectedWinningJurors) {
+              for(const juror of expectedWinningJurors) {
                 juror.weight = (await courtHelper.getFinalRoundWeight(disputeId, roundId, juror.address)).toNumber()
               }
             }
-
             expectedCoherentJurors = expectedWinningJurors.reduce((total, { weight }) => total + weight, 0)
+          })
 
+          beforeEach('load expected collected tokens', async () => {
             expectedCollectedTokens = bn(0)
             for (const { address } of expectedLosingJurors) {
               const roundLockedBalance = await courtHelper.getRoundLockBalance(disputeId, roundId, address)
               expectedCollectedTokens = expectedCollectedTokens.add(roundLockedBalance)
             }
 
-            // for final rounds all voter's tokens are collected before hand, then, add the balances of the winning jurors as well
+            // for final rounds add winning jurors locked amounts since all voter's tokens are collected before hand
             if (roundId >= courtHelper.maxRegularAppealRounds.toNumber()) {
               for (const { address } of expectedWinningJurors) {
                 const roundLockedBalance = await courtHelper.getRoundLockBalance(disputeId, roundId, address)
@@ -179,7 +190,7 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
                   const roundLockedBalance = await courtHelper.getRoundLockBalance(disputeId, roundId, address)
 
                   const { locked: previousLockedBalance, active: previousActiveBalance } = previousBalances[address]
-                  const { active: currentActiveBalance, locked: currentLockedBalance } =await courtHelper.jurorsRegistry.balanceOf(address)
+                  const { active: currentActiveBalance, locked: currentLockedBalance } = await courtHelper.jurorsRegistry.balanceOf(address)
 
                   // for the final round tokens are slashed before hand, thus the active tokens for slashed jurors stays equal
                   const expectedActiveBalance = roundId < courtHelper.maxRegularAppealRounds
@@ -192,6 +203,46 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
                     ? previousLockedBalance.sub(roundLockedBalance)
                     : 0
                   assert.equal(currentLockedBalance.toString(), expectedLockedBalance.toString(), 'current locked balance does not match')
+                }
+              })
+
+              it('burns the collected tokens if necessary', async () => {
+                const { available: previousAvailableBalance } = previousBalances[BURN_ADDRESS]
+                const { available: currentAvailableBalance } = await courtHelper.jurorsRegistry.balanceOf(BURN_ADDRESS)
+
+                if (expectedCoherentJurors === 0) {
+                  assert.equal(currentAvailableBalance.toString(), previousAvailableBalance.add(expectedCollectedTokens).toString(), 'burned balance does not match')
+                } else {
+                  assert.equal(currentAvailableBalance.toString(), previousAvailableBalance.toString(), 'burned balance does not match')
+                }
+              })
+
+              it('refunds the jurors fees if necessary', async () => {
+                const { jurorFees } = await courtHelper.getRound(disputeId, roundId)
+                const { feeToken, accounting } = courtHelper
+
+                if (roundId === 0) {
+                  const { feeAmount: previousDisputerBalance } = previousBalances[disputer]
+                  const currentDisputerBalance = await accounting.balanceOf(feeToken.address, disputer)
+
+                  expectedCoherentJurors === 0
+                    ? assert.equal(currentDisputerBalance.toString(), previousDisputerBalance.add(jurorFees).toString(), 'disputer fee balance does not match')
+                    : assert.equal(currentDisputerBalance.toString(), previousDisputerBalance.toString(), 'disputer fee balance does not match')
+                } else {
+                  const { feeAmount: previousAppealMakerBalance } = previousBalances[appealMaker]
+                  const currentAppealMakerBalance = await accounting.balanceOf(feeToken.address, appealMaker)
+
+                  const { feeAmount: previousAppealTakerBalance } = previousBalances[appealTaker]
+                  const currentAppealTakerBalance = await accounting.balanceOf(feeToken.address, appealTaker)
+
+                  if (expectedCoherentJurors === 0) {
+                    const refundFees = jurorFees.div(bn(2))
+                    assert.equal(currentAppealMakerBalance.toString(), previousAppealMakerBalance.add(refundFees).toString(), 'disputer fee balance does not match')
+                    assert.equal(currentAppealTakerBalance.toString(), previousAppealTakerBalance.add(refundFees).toString(), 'disputer fee balance does not match')
+                  } else {
+                    assert.equal(currentAppealMakerBalance.toString(), previousAppealMakerBalance.toString(), 'disputer fee balance does not match')
+                    assert.equal(currentAppealTakerBalance.toString(), previousAppealTakerBalance.toString(), 'disputer fee balance does not match')
+                  }
                 }
               })
 
@@ -377,54 +428,94 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
         })
 
         context('during appeal period', () => {
-          beforeEach('commit and reveal votes', async () => {
-            await courtHelper.commit({ disputeId, roundId, voters })
-            await courtHelper.reveal({ disputeId, roundId, voters })
-          })
-
-          itIsAtState(roundId, ROUND_STATES.APPEALING)
-          itFailsToExecuteRuling()
-          itFailsToSettleAll(roundId)
-        })
-
-        context('during the appeal confirmation period', () => {
-          beforeEach('commit and reveal votes', async () => {
-            await courtHelper.commit({ disputeId, roundId, voters })
-            await courtHelper.reveal({ disputeId, roundId, voters })
-          })
-
-          context('when the round was not appealed', () => {
-            const expectedFinalRuling = OUTCOMES.LOW
-            const expectedWinningJurors = voters.filter(({ outcome }) => outcome === expectedFinalRuling)
-            const expectedLosingJurors = filterJurors(voters, expectedWinningJurors)
-
-            beforeEach('pass appeal period', async () => {
-              await courtHelper.passTerms(courtHelper.appealTerms)
+          context('when there were no votes', () => {
+            beforeEach('pass commit and reveal periods', async () => {
+              await courtHelper.passTerms(courtHelper.commitTerms.add(courtHelper.revealTerms))
             })
 
-            itIsAtState(roundId, ROUND_STATES.ENDED)
-            itExecutesFinalRulingProperly(expectedFinalRuling)
-            itSettlesPenaltiesAndRewardsProperly(roundId, expectedWinningJurors, expectedLosingJurors)
-            itCannotSettleAppealDeposits(roundId)
+            itIsAtState(roundId, ROUND_STATES.APPEALING)
+            itFailsToExecuteRuling()
+            itFailsToSettleAll(roundId)
           })
 
-          context('when the round was appealed', () => {
-            beforeEach('appeal', async () => {
-              await courtHelper.appeal({ disputeId, roundId, appealMaker })
+          context('when there were some votes', () => {
+            beforeEach('commit and reveal votes', async () => {
+              await courtHelper.commit({ disputeId, roundId, voters })
+              await courtHelper.reveal({ disputeId, roundId, voters })
             })
 
-            itIsAtState(roundId, ROUND_STATES.CONFIRMING_APPEAL)
+            itIsAtState(roundId, ROUND_STATES.APPEALING)
             itFailsToExecuteRuling()
             itFailsToSettleAll(roundId)
           })
         })
 
-        context('after the appeal confirmation period', () => {
-          beforeEach('commit and reveal votes', async () => {
-            await courtHelper.commit({ disputeId, roundId, voters })
-            await courtHelper.reveal({ disputeId, roundId, voters })
+        context('during the appeal confirmation period', () => {
+          context('when there were no votes', () => {
+            beforeEach('pass commit and reveal periods', async () => {
+              await courtHelper.passTerms(courtHelper.commitTerms.add(courtHelper.revealTerms))
+            })
+
+            context('when the round was not appealed', () => {
+              const expectedFinalRuling = OUTCOMES.REFUSED
+              const expectedWinningJurors = []
+              const expectedLosingJurors = voters
+
+              beforeEach('pass appeal period', async () => {
+                await courtHelper.passTerms(courtHelper.appealTerms)
+              })
+
+              itIsAtState(roundId, ROUND_STATES.ENDED)
+              itExecutesFinalRulingProperly(expectedFinalRuling)
+              itSettlesPenaltiesAndRewardsProperly(roundId, expectedWinningJurors, expectedLosingJurors)
+              itCannotSettleAppealDeposits(roundId)
+            })
+
+            context('when the round was appealed', () => {
+              beforeEach('appeal', async () => {
+                await courtHelper.appeal({ disputeId, roundId, appealMaker, ruling: OUTCOMES.LOW })
+              })
+
+              itIsAtState(roundId, ROUND_STATES.CONFIRMING_APPEAL)
+              itFailsToExecuteRuling()
+              itFailsToSettleAll(roundId)
+            })
           })
 
+          context('when there were some votes', () => {
+            beforeEach('commit and reveal votes', async () => {
+              await courtHelper.commit({ disputeId, roundId, voters })
+              await courtHelper.reveal({ disputeId, roundId, voters })
+            })
+
+            context('when the round was not appealed', () => {
+              const expectedFinalRuling = OUTCOMES.LOW
+              const expectedWinningJurors = voters.filter(({ outcome }) => outcome === expectedFinalRuling)
+              const expectedLosingJurors = filterJurors(voters, expectedWinningJurors)
+
+              beforeEach('pass appeal period', async () => {
+                await courtHelper.passTerms(courtHelper.appealTerms)
+              })
+
+              itIsAtState(roundId, ROUND_STATES.ENDED)
+              itExecutesFinalRulingProperly(expectedFinalRuling)
+              itSettlesPenaltiesAndRewardsProperly(roundId, expectedWinningJurors, expectedLosingJurors)
+              itCannotSettleAppealDeposits(roundId)
+            })
+
+            context('when the round was appealed', () => {
+              beforeEach('appeal', async () => {
+                await courtHelper.appeal({ disputeId, roundId, appealMaker })
+              })
+
+              itIsAtState(roundId, ROUND_STATES.CONFIRMING_APPEAL)
+              itFailsToExecuteRuling()
+              itFailsToSettleAll(roundId)
+            })
+          })
+        })
+
+        context('after the appeal confirmation period', () => {
           const itSettlesAppealDeposits = (roundId, itTransferAppealsDeposits) => {
             describe('settleAppealDeposit', () => {
               context('when penalties have been settled', () => {
@@ -498,7 +589,7 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
                 await court.settleAppealDeposit(disputeId, roundId)
 
                 const currentAppealTakerBalance = await accounting.balanceOf(feeToken.address, appealTaker)
-                assert.equal(previousAppealTakerBalance.add(expectedAppealReward).toString(), currentAppealTakerBalance.toString(), 'appeal maker balances do not match')
+                assert.equal(currentAppealTakerBalance.toString(), previousAppealTakerBalance.add(expectedAppealReward).toString(), 'appeal maker balances do not match')
               })
             })
           }
@@ -515,7 +606,7 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
                 await court.settleAppealDeposit(disputeId, roundId)
 
                 const currentAppealMakerBalance = await accounting.balanceOf(feeToken.address, appealMaker)
-                assert.equal(previousAppealMakerBalance.add(expectedAppealReward).toString(), currentAppealMakerBalance.toString(), 'appeal maker balances do not match')
+                assert.equal(currentAppealMakerBalance.toString(), previousAppealMakerBalance.add(expectedAppealReward).toString(), 'appeal maker balances do not match')
               })
             })
           }
@@ -535,222 +626,319 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
                 await court.settleAppealDeposit(disputeId, roundId)
 
                 const currentAppealMakerBalance = await accounting.balanceOf(feeToken.address, appealMaker)
-                assert.equal(previousAppealMakerBalance.add(expectedAppealMakerReward).toString(), currentAppealMakerBalance.toString(), 'appeal maker balances do not match')
+                assert.equal(currentAppealMakerBalance.toString(), previousAppealMakerBalance.add(expectedAppealMakerReward).toString(), 'appeal maker balances do not match')
 
                 const currentAppealTakerBalance = await accounting.balanceOf(feeToken.address, appealTaker)
-                assert.equal(previousAppealTakerBalance.add(expectedAppealTakerReward).toString(), currentAppealTakerBalance.toString(), 'appeal taker balances do not match')
+                assert.equal(currentAppealTakerBalance.toString(), previousAppealTakerBalance.add(expectedAppealTakerReward).toString(), 'appeal taker balances do not match')
               })
             })
           }
 
-          context('when the round was not appealed', () => {
-            const expectedFinalRuling = OUTCOMES.LOW
-            const expectedWinningJurors = voters.filter(({ outcome }) => outcome === expectedFinalRuling)
-            const expectedLosingJurors = filterJurors(voters, expectedWinningJurors)
-
-            beforeEach('pass appeal and confirmation periods', async () => {
-              await courtHelper.passTerms(courtHelper.appealTerms.add(courtHelper.appealConfirmTerms))
+          context('when there were no votes', () => {
+            beforeEach('pass commit and reveal periods', async () => {
+              await courtHelper.passTerms(courtHelper.commitTerms.add(courtHelper.revealTerms))
             })
 
-            itIsAtState(roundId, ROUND_STATES.ENDED)
-            itExecutesFinalRulingProperly(expectedFinalRuling)
-            itSettlesPenaltiesAndRewardsProperly(roundId, expectedWinningJurors, expectedLosingJurors)
-            itCannotSettleAppealDeposits(roundId)
-          })
+            context('when the round was not appealed', () => {
+              const expectedFinalRuling = OUTCOMES.REFUSED
+              const expectedWinningJurors = []
+              const expectedLosingJurors = voters
 
-          context('when the round was appealed', () => {
-            const appealedRuling = OUTCOMES.HIGH
-
-            beforeEach('appeal', async () => {
-              await courtHelper.appeal({ disputeId, roundId, appealMaker, ruling: appealedRuling })
-            })
-
-            context('when the appeal was not confirmed', () => {
-              const expectedFinalRuling = appealedRuling
-              const expectedWinningJurors = voters.filter(({ outcome }) => outcome === expectedFinalRuling)
-              const expectedLosingJurors = filterJurors(voters, expectedWinningJurors)
-
-              beforeEach('pass confirmation period', async () => {
-                await courtHelper.passTerms(courtHelper.appealConfirmTerms)
+              beforeEach('pass appeal and confirmation periods', async () => {
+                await courtHelper.passTerms(courtHelper.appealTerms.add(courtHelper.appealConfirmTerms))
               })
 
               itIsAtState(roundId, ROUND_STATES.ENDED)
               itExecutesFinalRulingProperly(expectedFinalRuling)
               itSettlesPenaltiesAndRewardsProperly(roundId, expectedWinningJurors, expectedLosingJurors)
-              itReturnsAppealDepositsToMaker(roundId)
+              itCannotSettleAppealDeposits(roundId)
             })
 
-            context('when the appeal was confirmed', () => {
-              beforeEach('confirm appeal', async () => {
-                await courtHelper.confirmAppeal({ disputeId, roundId, appealTaker })
+            context('when the round was appealed', () => {
+              const appealedRuling = OUTCOMES.HIGH
+
+              beforeEach('appeal', async () => {
+                await courtHelper.appeal({ disputeId, roundId, appealMaker, ruling: appealedRuling })
+              })
+
+              context('when the appeal was not confirmed', () => {
+                const expectedFinalRuling = appealedRuling
+                const expectedWinningJurors = []
+                const expectedLosingJurors = voters
+
+                beforeEach('pass confirmation period', async () => {
+                  await courtHelper.passTerms(courtHelper.appealConfirmTerms)
+                })
+
+                itIsAtState(roundId, ROUND_STATES.ENDED)
+                itExecutesFinalRulingProperly(expectedFinalRuling)
+                itSettlesPenaltiesAndRewardsProperly(roundId, expectedWinningJurors, expectedLosingJurors)
+                itReturnsAppealDepositsToMaker(roundId)
+              })
+
+              context('when the appeal was confirmed', () => {
+                beforeEach('confirm appeal', async () => {
+                  await courtHelper.confirmAppeal({ disputeId, roundId, appealTaker })
+                })
+
+                itIsAtState(roundId, ROUND_STATES.ENDED)
+                itFailsToExecuteRuling()
+                itFailsToSettleAll(roundId)
+              })
+            })
+          })
+
+          context('when there were some votes', () => {
+            beforeEach('commit and reveal votes', async () => {
+              await courtHelper.commit({ disputeId, roundId, voters })
+              await courtHelper.reveal({ disputeId, roundId, voters })
+            })
+
+            context('when the round was not appealed', () => {
+              const expectedFinalRuling = OUTCOMES.LOW
+              const expectedWinningJurors = voters.filter(({ outcome }) => outcome === expectedFinalRuling)
+              const expectedLosingJurors = filterJurors(voters, expectedWinningJurors)
+
+              beforeEach('pass appeal and confirmation periods', async () => {
+                await courtHelper.passTerms(courtHelper.appealTerms.add(courtHelper.appealConfirmTerms))
               })
 
               itIsAtState(roundId, ROUND_STATES.ENDED)
-              itFailsToExecuteRuling()
-              itFailsToSettleAll(roundId)
+              itExecutesFinalRulingProperly(expectedFinalRuling)
+              itSettlesPenaltiesAndRewardsProperly(roundId, expectedWinningJurors, expectedLosingJurors)
+              itCannotSettleAppealDeposits(roundId)
+            })
 
-              context('when the next round is a regular round', () => {
-                const newRoundId = roundId + 1
+            context('when the round was appealed', () => {
+              const appealedRuling = OUTCOMES.HIGH
 
-                const itHandlesRoundsSettlesProperly = (newRoundVoters, expectedFinalRuling) => {
-                  const [firstRoundWinners, firstRoundLosers] = filterWinningJurors(voters, expectedFinalRuling)
-                  const [secondRoundWinners, secondRoundLosers] = filterWinningJurors(newRoundVoters, expectedFinalRuling)
+              beforeEach('appeal', async () => {
+                await courtHelper.appeal({ disputeId, roundId, appealMaker, ruling: appealedRuling })
+              })
 
-                  beforeEach('draft and vote second round', async () => {
-                    const expectedNewRoundJurorsNumber = 9 // previous jurors * 3 + 1
-                    const { roundJurorsNumber } = await courtHelper.getRound(disputeId, newRoundId)
-                    assert.equal(roundJurorsNumber.toString(), expectedNewRoundJurorsNumber, 'new round jurors number does not match')
+              context('when the appeal was not confirmed', () => {
+                const expectedFinalRuling = appealedRuling
+                const expectedWinningJurors = voters.filter(({ outcome }) => outcome === expectedFinalRuling)
+                const expectedLosingJurors = filterJurors(voters, expectedWinningJurors)
 
-                    await courtHelper.draft({ disputeId, maxJurorsToBeDrafted: expectedNewRoundJurorsNumber, draftedJurors: newRoundVoters })
-                    await courtHelper.commit({ disputeId, roundId: newRoundId, voters: newRoundVoters })
-                    await courtHelper.reveal({ disputeId, roundId: newRoundId, voters: newRoundVoters })
-                    await courtHelper.passTerms(courtHelper.appealTerms.add(courtHelper.appealConfirmTerms))
+                beforeEach('pass confirmation period', async () => {
+                  await courtHelper.passTerms(courtHelper.appealConfirmTerms)
+                })
+
+                itIsAtState(roundId, ROUND_STATES.ENDED)
+                itExecutesFinalRulingProperly(expectedFinalRuling)
+                itSettlesPenaltiesAndRewardsProperly(roundId, expectedWinningJurors, expectedLosingJurors)
+                itReturnsAppealDepositsToMaker(roundId)
+              })
+
+              context('when the appeal was confirmed', () => {
+                beforeEach('confirm appeal', async () => {
+                  await courtHelper.confirmAppeal({ disputeId, roundId, appealTaker })
+                })
+
+                itIsAtState(roundId, ROUND_STATES.ENDED)
+                itFailsToExecuteRuling()
+                itFailsToSettleAll(roundId)
+
+                context('when the next round is a regular round', () => {
+                  const newRoundId = roundId + 1
+
+                  const itHandlesRoundsSettlesProperly = (newRoundVoters, expectedFinalRuling) => {
+                    const [firstRoundWinners, firstRoundLosers] = filterWinningJurors(voters, expectedFinalRuling)
+                    const [secondRoundWinners, secondRoundLosers] = filterWinningJurors(newRoundVoters, expectedFinalRuling)
+
+                    beforeEach('draft and vote second round', async () => {
+                      const expectedNewRoundJurorsNumber = 9 // previous jurors * 3 + 1
+                      const { roundJurorsNumber } = await courtHelper.getRound(disputeId, newRoundId)
+                      assert.equal(roundJurorsNumber.toString(), expectedNewRoundJurorsNumber, 'new round jurors number does not match')
+
+                      await courtHelper.draft({ disputeId, maxJurorsToBeDrafted: expectedNewRoundJurorsNumber, draftedJurors: newRoundVoters })
+                      await courtHelper.commit({ disputeId, roundId: newRoundId, voters: newRoundVoters })
+                      await courtHelper.reveal({ disputeId, roundId: newRoundId, voters: newRoundVoters })
+                      await courtHelper.passTerms(courtHelper.appealTerms.add(courtHelper.appealConfirmTerms))
+                    })
+
+                    itExecutesFinalRulingProperly(expectedFinalRuling)
+
+                    context('when settling first round', () => {
+                      itSettlesPenaltiesAndRewardsProperly(roundId, firstRoundWinners, firstRoundLosers)
+                    })
+
+                    context('when settling second round', () => {
+                      beforeEach('settle first round', async () => {
+                        await court.settlePenalties(disputeId, roundId, 0)
+                        for (const { address } of firstRoundWinners) {
+                          await court.settleReward(disputeId, roundId, address)
+                        }
+                      })
+
+                      itSettlesPenaltiesAndRewardsProperly(newRoundId, secondRoundWinners, secondRoundLosers)
+                    })
+                  }
+
+                  context('when the ruling is sustained', async () => {
+                    const expectedFinalRuling = OUTCOMES.LOW
+                    const newRoundVoters = [
+                      { address: juror500,  weight: 1, outcome: OUTCOMES.HIGH },
+                      { address: juror2000, weight: 4, outcome: OUTCOMES.LOW },
+                      { address: juror2500, weight: 1, outcome: OUTCOMES.HIGH },
+                      { address: juror4000, weight: 2, outcome: OUTCOMES.LOW },
+                      { address: juror3000, weight: 1, outcome: OUTCOMES.LOW },
+                    ]
+
+                    itHandlesRoundsSettlesProperly(newRoundVoters, expectedFinalRuling)
+                    itSettlesAppealDepositsToMaker(roundId)
                   })
 
-                  itExecutesFinalRulingProperly(expectedFinalRuling)
+                  context('when the ruling is flipped', async () => {
+                    const expectedFinalRuling = appealedRuling
+                    const newRoundVoters = [
+                      { address: juror500,  weight: 1, outcome: OUTCOMES.HIGH },
+                      { address: juror2000, weight: 4, outcome: OUTCOMES.HIGH },
+                      { address: juror2500, weight: 1, outcome: OUTCOMES.HIGH },
+                      { address: juror4000, weight: 2, outcome: OUTCOMES.HIGH },
+                      { address: juror3000, weight: 1, outcome: OUTCOMES.HIGH },
+                    ]
 
-                  context('when settling first round', () => {
-                    itSettlesPenaltiesAndRewardsProperly(roundId, firstRoundWinners, firstRoundLosers)
+                    itHandlesRoundsSettlesProperly(newRoundVoters, expectedFinalRuling)
+                    itSettlesAppealDepositsToTaker(roundId)
                   })
 
-                  context('when settling second round', () => {
-                    beforeEach('settle first round', async () => {
-                      await court.settlePenalties(disputeId, roundId, 0)
-                      for (const { address } of firstRoundWinners) {
-                        await court.settleReward(disputeId, roundId, address)
+                  context('when the ruling is refused', async () => {
+                    const expectedFinalRuling = OUTCOMES.REFUSED
+                    const newRoundVoters = [
+                      { address: juror500,  weight: 1, outcome: OUTCOMES.REFUSED },
+                      { address: juror2000, weight: 4, outcome: OUTCOMES.REFUSED },
+                      { address: juror2500, weight: 1, outcome: OUTCOMES.REFUSED },
+                      { address: juror4000, weight: 2, outcome: OUTCOMES.REFUSED },
+                      { address: juror3000, weight: 1, outcome: OUTCOMES.REFUSED },
+                    ]
+
+                    itHandlesRoundsSettlesProperly(newRoundVoters, expectedFinalRuling)
+                    itReturnsAppealDepositsToBoth(roundId)
+                  })
+
+                  context('when no one voted', async () => {
+                    const expectedFinalRuling = OUTCOMES.REFUSED
+                    const [firstRoundWinners, firstRoundLosers] = filterWinningJurors(voters, expectedFinalRuling)
+                    const newRoundDraftedJurors = [
+                      { address: juror500,  weight: 1 },
+                      { address: juror2000, weight: 4 },
+                      { address: juror2500, weight: 1 },
+                      { address: juror4000, weight: 2 },
+                      { address: juror3000, weight: 1 },
+                    ]
+
+                    beforeEach('pass second round', async () => {
+                      await courtHelper.draft({ disputeId, maxJurorsToBeDrafted: 0, draftedJurors: newRoundDraftedJurors })
+                      await courtHelper.passTerms(courtHelper.commitTerms.add(courtHelper.revealTerms).add(courtHelper.appealTerms).add(courtHelper.appealConfirmTerms))
+                    })
+
+                    itExecutesFinalRulingProperly(expectedFinalRuling)
+
+                    context('when settling first round', () => {
+                      itSettlesPenaltiesAndRewardsProperly(roundId, firstRoundWinners, firstRoundLosers)
+                    })
+
+                    context('when settling second round', () => {
+                      beforeEach('settle first round', async () => {
+                        await court.settlePenalties(disputeId, roundId, 0)
+                        for (const { address } of firstRoundWinners) {
+                          await court.settleReward(disputeId, roundId, address)
+                        }
+                      })
+
+                      itSettlesPenaltiesAndRewardsProperly(newRoundId, [], newRoundDraftedJurors)
+                    })
+
+                    itReturnsAppealDepositsToBoth(roundId)
+                  })
+                })
+
+                context('when the next round is a final round', () => {
+                  const finalRoundId = DEFAULTS.maxRegularAppealRounds.toNumber()
+
+                  const itHandlesRoundsSettlesProperly = (finalRoundVoters, expectedFinalRuling) => {
+                    const previousRoundsVoters = { [roundId]: voters }
+                    const [expectedWinners, expectedLosers] = filterWinningJurors(finalRoundVoters, expectedFinalRuling)
+
+                    beforeEach('move to final round', async () => {
+                      // appeal until we reach the final round, always flipping the previous round winning ruling
+                      let previousWinningRuling = await voting.getWinningOutcome(voteId)
+                      for (let nextRoundId = roundId + 1; nextRoundId < finalRoundId; nextRoundId++) {
+                        const roundWinningRuling = oppositeOutcome(previousWinningRuling)
+                        const roundVoters = await courtHelper.draft({ disputeId })
+                        roundVoters.forEach(voter => voter.outcome = roundWinningRuling)
+                        previousRoundsVoters[nextRoundId] = roundVoters
+
+                        await courtHelper.commit({ disputeId, roundId: nextRoundId, voters: roundVoters })
+                        await courtHelper.reveal({ disputeId, roundId: nextRoundId, voters: roundVoters })
+                        await courtHelper.appeal({ disputeId, roundId: nextRoundId, appealMaker, ruling: previousWinningRuling })
+                        await courtHelper.confirmAppeal({ disputeId, roundId: nextRoundId, appealTaker, ruling: roundWinningRuling })
+                        previousWinningRuling = roundWinningRuling
                       }
                     })
 
-                    itSettlesPenaltiesAndRewardsProperly(newRoundId, secondRoundWinners, secondRoundLosers)
-                  })
-                }
+                    beforeEach('end final round', async () => {
+                      // commit and reveal votes, and pass appeal and confirmation periods to end dispute
+                      await courtHelper.commit({ disputeId, roundId: finalRoundId, voters: finalRoundVoters })
+                      await courtHelper.reveal({ disputeId, roundId: finalRoundId, voters: finalRoundVoters })
+                      await courtHelper.passTerms(courtHelper.appealTerms.add(courtHelper.appealConfirmTerms))
+                    })
 
-                context('when the ruling is sustained', async () => {
-                  const expectedFinalRuling = OUTCOMES.LOW
-                  const newRoundVoters = [
-                    { address: juror500,  weight: 1, outcome: OUTCOMES.HIGH },
-                    { address: juror2000, weight: 4, outcome: OUTCOMES.LOW },
-                    { address: juror2500, weight: 1, outcome: OUTCOMES.HIGH },
-                    { address: juror4000, weight: 2, outcome: OUTCOMES.LOW },
-                    { address: juror3000, weight: 1, outcome: OUTCOMES.LOW },
-                  ]
-
-                  itHandlesRoundsSettlesProperly(newRoundVoters, expectedFinalRuling)
-                  itSettlesAppealDepositsToMaker(roundId)
-                })
-
-                context('when the ruling is flipped', async () => {
-                  const expectedFinalRuling = appealedRuling
-                  const newRoundVoters = [
-                    { address: juror500,  weight: 1, outcome: OUTCOMES.HIGH },
-                    { address: juror2000, weight: 4, outcome: OUTCOMES.HIGH },
-                    { address: juror2500, weight: 1, outcome: OUTCOMES.HIGH },
-                    { address: juror4000, weight: 2, outcome: OUTCOMES.HIGH },
-                    { address: juror3000, weight: 1, outcome: OUTCOMES.HIGH },
-                  ]
-
-                  itHandlesRoundsSettlesProperly(newRoundVoters, expectedFinalRuling)
-                  itSettlesAppealDepositsToTaker(roundId)
-                })
-
-                context('when the ruling is refused', async () => {
-                  const expectedFinalRuling = OUTCOMES.REFUSED
-                  const newRoundVoters = [
-                    { address: juror500,  weight: 1, outcome: OUTCOMES.REFUSED },
-                    { address: juror2000, weight: 4, outcome: OUTCOMES.REFUSED },
-                    { address: juror2500, weight: 1, outcome: OUTCOMES.REFUSED },
-                    { address: juror4000, weight: 2, outcome: OUTCOMES.REFUSED },
-                    { address: juror3000, weight: 1, outcome: OUTCOMES.REFUSED },
-                  ]
-
-                  itHandlesRoundsSettlesProperly(newRoundVoters, expectedFinalRuling)
-                  itReturnsAppealDepositsToBoth(roundId)
-                })
-              })
-
-              context('when the next round is a final round', () => {
-                const finalRoundId = DEFAULTS.maxRegularAppealRounds.toNumber()
-
-                const itHandlesRoundsSettlesProperly = (finalRoundVoters, expectedFinalRuling) => {
-                  const previousRoundsVoters = { [roundId]: voters }
-                  const [expectedWinners, expectedLosers] = filterWinningJurors(finalRoundVoters, expectedFinalRuling)
-
-                  beforeEach('move to final round', async () => {
-                    // appeal until we reach the final round, always flipping the previous round winning ruling
-                    let previousWinningRuling = await voting.getWinningOutcome(voteId)
-                    for (let nextRoundId = roundId + 1; nextRoundId < finalRoundId; nextRoundId++) {
-                      const roundWinningRuling = oppositeOutcome(previousWinningRuling)
-                      const roundVoters = await courtHelper.draft({ disputeId })
-                      roundVoters.forEach(voter => voter.outcome = roundWinningRuling)
-                      previousRoundsVoters[nextRoundId] = roundVoters
-
-                      await courtHelper.commit({ disputeId, roundId: nextRoundId, voters: roundVoters })
-                      await courtHelper.reveal({ disputeId, roundId: nextRoundId, voters: roundVoters })
-                      await courtHelper.appeal({ disputeId, roundId: nextRoundId, appealMaker, ruling: previousWinningRuling })
-                      await courtHelper.confirmAppeal({ disputeId, roundId: nextRoundId, appealTaker, ruling: roundWinningRuling })
-                      previousWinningRuling = roundWinningRuling
-                    }
-                  })
-
-                  beforeEach('end final round', async () => {
-                    // commit and reveal votes, and pass appeal and confirmation periods to end dispute
-                    await courtHelper.commit({ disputeId, roundId: finalRoundId, voters: finalRoundVoters })
-                    await courtHelper.reveal({ disputeId, roundId: finalRoundId, voters: finalRoundVoters })
-                    await courtHelper.passTerms(courtHelper.appealTerms.add(courtHelper.appealConfirmTerms))
-                  })
-
-                  beforeEach('settle previous rounds', async () => {
-                    for (let nextRoundId = 0; nextRoundId < finalRoundId; nextRoundId++) {
-                      await court.settlePenalties(disputeId, nextRoundId, 0)
-                      const [winners] = filterWinningJurors(previousRoundsVoters[nextRoundId], expectedFinalRuling)
-                      for (const { address } of winners) {
-                        await court.settleReward(disputeId, nextRoundId, address)
+                    beforeEach('settle previous rounds', async () => {
+                      for (let nextRoundId = 0; nextRoundId < finalRoundId; nextRoundId++) {
+                        await court.settlePenalties(disputeId, nextRoundId, 0)
+                        const [winners] = filterWinningJurors(previousRoundsVoters[nextRoundId], expectedFinalRuling)
+                        for (const { address } of winners) {
+                          await court.settleReward(disputeId, nextRoundId, address)
+                        }
                       }
-                    }
+                    })
+
+                    itExecutesFinalRulingProperly(expectedFinalRuling)
+                    itSettlesPenaltiesAndRewardsProperly(finalRoundId, expectedWinners, expectedLosers)
+                    itCannotSettleAppealDeposits(finalRoundId)
+                  }
+
+                  context('when the ruling is sustained', async () => {
+                    const expectedFinalRuling = OUTCOMES.LOW
+                    const finalRoundVoters = [
+                      { address: juror500,  outcome: OUTCOMES.HIGH },
+                      { address: juror2000, outcome: OUTCOMES.LOW },
+                      { address: juror2500, outcome: OUTCOMES.HIGH },
+                      { address: juror4000, outcome: OUTCOMES.LOW },
+                      { address: juror3000, outcome: OUTCOMES.LOW },
+                    ]
+
+                    itHandlesRoundsSettlesProperly(finalRoundVoters, expectedFinalRuling)
                   })
 
-                  itExecutesFinalRulingProperly(expectedFinalRuling)
-                  itSettlesPenaltiesAndRewardsProperly(finalRoundId, expectedWinners, expectedLosers)
-                  itCannotSettleAppealDeposits(finalRoundId)
-                }
+                  context('when the ruling is flipped', async () => {
+                    const expectedFinalRuling = appealedRuling
+                    const finalRoundVoters = [
+                      { address: juror500,  outcome: OUTCOMES.HIGH },
+                      { address: juror2000, outcome: OUTCOMES.HIGH },
+                      { address: juror2500, outcome: OUTCOMES.HIGH },
+                      { address: juror4000, outcome: OUTCOMES.HIGH },
+                      { address: juror3000, outcome: OUTCOMES.HIGH },
+                    ]
 
-                context('when the ruling is sustained', async () => {
-                  const expectedFinalRuling = OUTCOMES.LOW
-                  const finalRoundVoters = [
-                    { address: juror500,  outcome: OUTCOMES.HIGH },
-                    { address: juror2000, outcome: OUTCOMES.LOW },
-                    { address: juror2500, outcome: OUTCOMES.HIGH },
-                    { address: juror4000, outcome: OUTCOMES.LOW },
-                    { address: juror3000, outcome: OUTCOMES.LOW },
-                  ]
+                    itHandlesRoundsSettlesProperly(finalRoundVoters, expectedFinalRuling)
+                  })
 
-                  itHandlesRoundsSettlesProperly(finalRoundVoters, expectedFinalRuling)
-                })
+                  context('when the ruling is refused', async () => {
+                    const expectedFinalRuling = OUTCOMES.REFUSED
+                    const finalRoundVoters = [
+                      { address: juror500,  outcome: OUTCOMES.REFUSED },
+                      { address: juror2000, outcome: OUTCOMES.REFUSED },
+                      { address: juror2500, outcome: OUTCOMES.REFUSED },
+                      { address: juror4000, outcome: OUTCOMES.REFUSED },
+                      { address: juror3000, outcome: OUTCOMES.REFUSED },
+                    ]
 
-                context('when the ruling is flipped', async () => {
-                  const expectedFinalRuling = appealedRuling
-                  const finalRoundVoters = [
-                    { address: juror500,  outcome: OUTCOMES.HIGH },
-                    { address: juror2000, outcome: OUTCOMES.HIGH },
-                    { address: juror2500, outcome: OUTCOMES.HIGH },
-                    { address: juror4000, outcome: OUTCOMES.HIGH },
-                    { address: juror3000, outcome: OUTCOMES.HIGH },
-                  ]
-
-                  itHandlesRoundsSettlesProperly(finalRoundVoters, expectedFinalRuling)
-                })
-
-                context('when the ruling is refused', async () => {
-                  const expectedFinalRuling = OUTCOMES.REFUSED
-                  const finalRoundVoters = [
-                    { address: juror500,  outcome: OUTCOMES.REFUSED },
-                    { address: juror2000, outcome: OUTCOMES.REFUSED },
-                    { address: juror2500, outcome: OUTCOMES.REFUSED },
-                    { address: juror4000, outcome: OUTCOMES.REFUSED },
-                    { address: juror3000, outcome: OUTCOMES.REFUSED },
-                  ]
-
-                  itHandlesRoundsSettlesProperly(finalRoundVoters, expectedFinalRuling)
+                    itHandlesRoundsSettlesProperly(finalRoundVoters, expectedFinalRuling)
+                  })
                 })
               })
             })

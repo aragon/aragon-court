@@ -503,8 +503,9 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
         // TODO: ensure round exists
         // Enforce that rounds are settled in order to avoid one round without incentive to settle. Even if there is a settleFee
         // it may not be big enough and all jurors in the round could be slashed.
+        bool isFirstRound = _roundId == 0;
         Dispute storage dispute = disputes[_disputeId];
-        require(_roundId == 0 || dispute.rounds[_roundId - 1].settledPenalties, ERROR_PREV_ROUND_NOT_SETTLED);
+        require(isFirstRound || dispute.rounds[_roundId - 1].settledPenalties, ERROR_PREV_ROUND_NOT_SETTLED);
 
         // Ensure given round has not been settled yet
         AdjudicationRound storage round = dispute.rounds[_roundId];
@@ -539,15 +540,26 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
             uint256 collectedTokens = round.collectedTokens;
             emit PenaltiesSettled(_disputeId, _roundId, collectedTokens);
 
-            // If there wasn't at least one juror voting in favor of the winning ruling, we refund the creator of
-            // this round and burn the collected tokens of the jurors to be slashed. Note that this will happen
-            // only when there were no jurors voting in favor of the winning outcome. Otherwise, these tokens are
-            // re-distributed between the winning jurors in `settleReward` instead of being burned.
+            // Check if there wasn't at least one juror voting in favor of the winning ruling
             if (round.coherentJurors == 0) {
+                // Burn all the collected tokens of the jurors to be slashed. Note that this will happen only when there were no jurors voting
+                // in favor of the final winning outcome. Otherwise, these will be re-distributed between the winning jurors in `settleReward`
+                // instead of being burned.
                 if (collectedTokens > 0) {
                     jurorsRegistry.burnTokens(collectedTokens);
                 }
-                accounting.assign(config.feeToken, round.triggeredBy, round.jurorFees);
+
+                // Reimburse juror fees to the disputer for round 0 or to the previous appeal parties for other rounds. Note that if the
+                // given round is not the first round, we can ensure there was an appeal in the previous round.
+                if (isFirstRound) {
+                    accounting.assign(config.feeToken, round.triggeredBy, round.jurorFees);
+                } else {
+                    ERC20 feeToken = config.feeToken;
+                    uint256 refundFees = round.jurorFees / 2;
+                    Appeal storage triggeringAppeal = dispute.rounds[_roundId - 1].appeal;
+                    accounting.assign(feeToken, triggeringAppeal.maker, refundFees);
+                    accounting.assign(feeToken, triggeringAppeal.taker, refundFees);
+                }
             }
         }
     }
@@ -617,8 +629,9 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
             return;
         }
 
-        // If the appeal was confirmed pay the winner the total deposit or split it between both in case no one voted in favor
-        // of the winning outcome. Since we already ensured that round penalties were settled, we are safe to access the dispute final ruling
+        // If the appeal was confirmed and there is a winner, we transfer the total deposit to that party. Otherwise, if the final ruling wasn't
+        // selected by any of the appealing parties or no juror voted in the in favor of the possible outcomes, we split it between both parties.
+        // Note that we are safe to access the dispute final ruling, since we already ensured that round penalties were settled.
         uint8 finalRuling = dispute.finalRuling;
         uint256 totalDeposit = appealDeposit + confirmAppealDeposit;
         if (appeal.appealedRuling == finalRuling) {
@@ -626,10 +639,9 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
         } else if (appeal.opposedRuling == finalRuling) {
             accounting.assign(feeToken, appeal.taker, totalDeposit - totalFees);
         } else {
-            // If the final ruling wasn't selected by any of the appealing parties or no jurors voted in the
-            // final round, return their deposits minus half of the fees to each party
-            accounting.assign(feeToken, appeal.maker, appealDeposit - totalFees / 2);
-            accounting.assign(feeToken, appeal.taker, confirmAppealDeposit - totalFees / 2);
+            uint256 feesRefund = totalFees / 2;
+            accounting.assign(feeToken, appeal.maker, appealDeposit - feesRefund);
+            accounting.assign(feeToken, appeal.taker, confirmAppealDeposit - feesRefund);
         }
     }
 

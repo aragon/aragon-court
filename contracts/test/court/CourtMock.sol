@@ -45,8 +45,4 @@ contract CourtMock is Court, TimeHelpersMock {
     function collect(address _juror, uint256 _amount) external {
         jurorsRegistry.collectTokens(_juror, _amount, termId);
     }
-
-    function getAdjudicationState(uint256 _disputeId, uint256 _roundId, uint64 _termId) public view returns (AdjudicationState) {
-        return _adjudicationStateAt(disputes[_disputeId], _roundId, _termId);
-    }
 }

@@ -277,7 +277,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
     * @param _governor Address of the governor contract.
     * @param _firstTermStartTime Timestamp in seconds when the court will open (to give time for juror onboarding)
     * @param _minJurorsActiveBalance Minimum amount of juror tokens that can be activated
-    * @param _roundStateDurations Number of terms that the different states a dispute round last,
+    * @param _roundStateDurations Array containing the durations in terms of the different phases of a dispute,
     *        in this order: commit, reveal, appeal and appeal confirm
     * @param _pcts Array containing:
     *        _penaltyPct ‱ of minJurorsActiveBalance that can be slashed (1/10,000)
@@ -343,7 +343,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
     }
 
     /**
-    * @notice Create a dispute over `_subject` with `_possibleRulings` possible rulings, drafting `_jurorsNumber` jurors in term `_draftTermId`
+    * @notice Create a dispute over `_subject` with `_possibleRulings` possible rulings in term `_draftTermId`
     * @dev Create a dispute to be drafted in a future term
     * @param _subject Arbitrable subject being disputed
     * @param _possibleRulings Number of possible rulings allowed for the drafted jurors to vote on the dispute
@@ -742,21 +742,21 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
     }
 
     /**
-     * @dev Get Court configuration parameters
-     * @return token Address of the token used to pay for fees
-     * @return roundStateDurations Array containing number of terms that the different states a dispute round last,
-     *         in this order: commit, reveal, appeal and appeal confirm
-     * @return pcts Array containing:
-     *         penaltyPct ‱ of minJurorsActiveBalance that can be slashed (1/10,000)
-     *         finalRoundReduction ‱ of fee reduction for the last appeal round (1/10,000)
-     * @return roundParams Array containing params for rounds:
-     *         firstRoundJurorsNumber Number of jurors to be drafted for the first round of disputes
-     *         appealStepFactor Increasing factor for the number of jurors of each round of a dispute
-     *         maxRegularAppealRounds Number of regular appeal rounds before the final round is triggered
-     * @return appealCollateralParams Array containing params for appeal collateral:
-     *         appealCollateralFactor Multiple of juror fees required to appeal a preliminary ruling
-     *         appealConfirmCollateralFactor Multiple of juror fees required to confirm appeal
-     */
+    * @dev Get Court configuration parameters
+    * @return token Address of the token used to pay for fees
+    * @return roundStateDurations Array containing the durations in terms of the different phases a dispute goes through,
+    *         in this order: commit, reveal, appeal and appeal confirm
+    * @return pcts Array containing:
+    *         penaltyPct ‱ of minJurorsActiveBalance that can be slashed (1/10,000)
+    *         finalRoundReduction ‱ of fee reduction for the last appeal round (1/10,000)
+    * @return roundParams Array containing params for rounds:
+    *         firstRoundJurorsNumber Number of jurors to be drafted for the first round of disputes
+    *         appealStepFactor Increasing factor for the number of jurors of each round of a dispute
+    *         maxRegularAppealRounds Number of regular appeal rounds before the final round is triggered
+    * @return appealCollateralParams Array containing params for appeal collateral:
+    *         appealCollateralFactor Multiple of juror fees required to appeal a preliminary ruling
+    *         appealConfirmCollateralFactor Multiple of juror fees required to confirm appeal
+    */
     function getCourtConfig(uint64 _termId) external view
         returns (
             address feeToken,
@@ -1199,7 +1199,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
         uint16 _penaltyPct = _pcts[0];
         require(PctHelpers.isValid(_penaltyPct), ERROR_INVALID_PENALTY_PCT);
 
-        // A dispute with 0 jurors in the first round wouldn't make any sense
+        // Disputes must request at least one juror to be drafted initially
         uint16 _firstRoundJurorsNumber = _roundParams[0];
         require(_firstRoundJurorsNumber > 0, ERROR_BAD_INITIAL_JURORS);
 
@@ -1384,10 +1384,10 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
     }
 
     /**
-     * @dev Internal function to calculate the jurors number for the first regular round of a dispute.
-     * @param _draftTermId Term from which the the jurors for the dispute will be drafted
-     * @return Jurors number for the first regular round of a dispute
-     */
+    * @dev Internal function to calculate the jurors number for the first regular round of a dispute.
+    * @param _draftTermId Term from which the the jurors for the dispute will be drafted
+    * @return Jurors number for the first regular round of a dispute
+    */
     function _getFirstRoundJurorsNumber(uint64 _draftTermId) internal view returns (uint64 jurorsNumber) {
         CourtConfig storage config = _getConfigAt(_draftTermId);
         jurorsNumber = config.disputes.firstRoundJurorsNumber;

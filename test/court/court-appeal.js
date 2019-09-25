@@ -20,11 +20,9 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
     { address: juror3500, initialActiveBalance: bigExp(3500, 18) },
     { address: juror2500, initialActiveBalance: bigExp(2500, 18) },
   ]
-  const firstRoundJurorsNumber = 3
-
   beforeEach('create court', async () => {
     courtHelper = buildHelper()
-    court = await courtHelper.deploy({ firstRoundJurorsNumber })
+    court = await courtHelper.deploy()
     voting = courtHelper.voting
   })
 
@@ -163,9 +161,9 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
                     const { draftTerm, delayedTerms, roundJurorsNumber, selectedJurors, triggeredBy, jurorFees, settledPenalties, collectedTokens } = await courtHelper.getRound(disputeId, roundId)
                     assert.equal(draftTerm.toString(), draftTermId, 'current round draft term does not match')
                     assert.equal(delayedTerms.toString(), 0, 'current round delay term does not match')
-                    assert.equal(roundJurorsNumber.toString(), firstRoundJurorsNumber, 'current round jurors number does not match')
-                    assert.equal(selectedJurors.toString(), firstRoundJurorsNumber, 'current round selected jurors number does not match')
-                    assert.equal(jurorFees.toString(), courtHelper.jurorFee.mul(bn(firstRoundJurorsNumber)).toString(), 'current round juror fees do not match')
+                    assert.equal(roundJurorsNumber.toString(), DEFAULTS.firstRoundJurorsNumber, 'current round jurors number does not match')
+                    assert.equal(selectedJurors.toString(), DEFAULTS.firstRoundJurorsNumber, 'current round selected jurors number does not match')
+                    assert.equal(jurorFees.toString(), courtHelper.jurorFee.mul(bn(DEFAULTS.firstRoundJurorsNumber)).toString(), 'current round juror fees do not match')
                     assert.equal(triggeredBy, disputer, 'current round trigger does not match')
                     assert.equal(settledPenalties, false, 'current round penalties should not be settled')
                     assert.equal(collectedTokens.toString(), 0, 'current round collected tokens should be zero')

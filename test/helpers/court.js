@@ -61,6 +61,36 @@ module.exports = (web3, artifacts) => {
       this.artifacts = artifacts
     }
 
+    async getCourtConfig(termId) {
+      const {
+        feeToken,
+        fees,
+        roundStateDurations,
+        pcts,
+        roundParams,
+        appealCollateralParams
+      } = await this.court.getCourtConfig(termId)
+
+      return {
+        feeToken,
+        jurorFee: fees[0],
+        heartbeatFee: fees[1],
+        draftFee: fees[2],
+        settleFee: fees[3],
+        commitTerms: roundStateDurations[0],
+        revealTerms: roundStateDurations[1],
+        appealTerms: roundStateDurations[2],
+        appealConfirmTerms: roundStateDurations[3],
+        penaltyPct: pcts[0],
+        finalRoundReduction: pcts[1],
+        firstRoundJurorsNumber: roundParams[0],
+        appealStepFactor: roundParams[1],
+        maxRegularAppealRounds: roundParams[2],
+        appealCollateralFactor: appealCollateralParams[0],
+        appealConfirmCollateralFactor: appealCollateralParams[1],
+      }
+    }
+
     async getDispute(disputeId) {
       const { subject, possibleRulings, state, finalRuling, lastRoundId } = await this.court.getDispute(disputeId)
       return { subject, possibleRulings, state, finalRuling, lastRoundId }

@@ -27,14 +27,14 @@ contract('Court', () => {
       it('can be 0%', async () => {
         const court = await courtHelper.deploy({ penaltyPct: bn(0) })
         const termId = await court.getLastEnsuredTermId()
-        const penaltyPct = (await court.getCourtConfig(termId)).pcts[0]
+        const { penaltyPct } = await courtHelper.getCourtConfig(termId)
         assert.equal(penaltyPct.toString(), 0, 'penalty pct does not match')
       })
 
       it('can be 100%', async () => {
         const court = await courtHelper.deploy({ penaltyPct: bn(10000) })
         const termId = await court.getLastEnsuredTermId()
-        const penaltyPct = (await court.getCourtConfig(termId)).pcts[0]
+        const { penaltyPct } = await courtHelper.getCourtConfig(termId)
         assert.equal(penaltyPct.toString(), 10000, 'penalty pct does not match')
       })
     })

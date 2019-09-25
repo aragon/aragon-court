@@ -2,7 +2,7 @@ const { bn, bigExp, assertBn } = require('../helpers/numbers')
 const { buildHelper } = require('../helpers/court')(web3, artifacts)
 
 contract('Court config', () => {
-  let court
+  let courtHelper, court
   let feeToken
   let jurorFee, heartbeatFee, draftFee, settleFee
   let commitTerms, revealTerms, appealTerms, appealConfirmTerms
@@ -33,7 +33,7 @@ contract('Court config', () => {
     appealCollateralFactor = bn(4)
     appealConfirmCollateralFactor = bn(6)
 
-    const courtHelper = buildHelper()
+    courtHelper = buildHelper()
     court = await courtHelper.deploy({
       feeToken,
       jurorFee, heartbeatFee, draftFee, settleFee,
@@ -47,30 +47,40 @@ contract('Court config', () => {
   context('initialization', () => {
     it('config is properly set', async () => {
       const {
-        feeToken: token,
-        fees,
-        roundStateDurations,
-        pcts,
-        roundParams,
-        appealCollateralParams
-      } = await court.getCourtConfig(1)
+        feeToken: _feeToken,
+        jurorFee: _jurorFee,
+        heartbeatFee: _heartbeatFee,
+        draftFee: _draftFee,
+        settleFee: _settleFee,
+        commitTerms: _commitTerms,
+        revealTerms: _revealTerms,
+        appealTerms: _appealTerms,
+        appealConfirmTerms: _appealConfirmTerms,
+        penaltyPct: _penaltyPct,
+        finalRoundReduction: _finalRoundReduction,
+        firstRoundJurorsNumber: _firstRoundJurorsNumber,
+        appealStepFactor: _appealStepFactor,
+        maxRegularAppealRounds: _maxRegularAppealRounds,
+        appealCollateralFactor: _appealCollateralFactor,
+        appealConfirmCollateralFactor: _appealConfirmCollateralFactor,
+      } = await courtHelper.getCourtConfig(1)
 
-      assert.equal(token, feeToken.address, 'Fee token does not match')
-      assertBn(fees[0], jurorFee, 'Juror fee does not match')
-      assertBn(fees[1], heartbeatFee, 'Heartbeat fee does not match')
-      assertBn(fees[2], draftFee, 'Draft fee does not match')
-      assertBn(fees[3], settleFee, 'Settle fee does not match')
-      assertBn(roundStateDurations[0], commitTerms, 'Commit terms number does not match')
-      assertBn(roundStateDurations[1], revealTerms, 'Reveal terms number does not match')
-      assertBn(roundStateDurations[2], appealTerms, 'Appeal terms number does not match')
-      assertBn(roundStateDurations[3], appealConfirmTerms, 'Appeal confirmation terms number does not match')
-      assertBn(pcts[0], penaltyPct, 'Penalty permyriad does not match')
-      assertBn(pcts[1], finalRoundReduction, 'Final round reduction does not match')
-      assertBn(roundParams[0], firstRoundJurorsNumber, 'First round jurors number does not match')
-      assertBn(roundParams[1], appealStepFactor, 'Appeal step factor does not match')
-      assertBn(roundParams[2], maxRegularAppealRounds, 'Number af max regular appeal rounds does not match')
-      assertBn(appealCollateralParams[0], appealCollateralFactor, 'Appeal collateral factor does not match')
-      assertBn(appealCollateralParams[1], appealConfirmCollateralFactor, 'Appeal confirmation collateral factor does not match')
+      assert.equal(_feeToken, feeToken.address, 'Fee token does not match')
+      assertBn(_jurorFee, jurorFee, 'Juror fee does not match')
+      assertBn(_heartbeatFee, heartbeatFee, 'Heartbeat fee does not match')
+      assertBn(_draftFee, draftFee, 'Draft fee does not match')
+      assertBn(_settleFee, settleFee, 'Settle fee does not match')
+      assertBn(_commitTerms, commitTerms, 'Commit terms number does not match')
+      assertBn(_revealTerms, revealTerms, 'Reveal terms number does not match')
+      assertBn(_appealTerms, appealTerms, 'Appeal terms number does not match')
+      assertBn(_appealConfirmTerms, appealConfirmTerms, 'Appeal confirmation terms number does not match')
+      assertBn(_penaltyPct, penaltyPct, 'Penalty permyriad does not match')
+      assertBn(_finalRoundReduction, finalRoundReduction, 'Final round reduction does not match')
+      assertBn(_firstRoundJurorsNumber, firstRoundJurorsNumber, 'First round jurors number does not match')
+      assertBn(_appealStepFactor, appealStepFactor, 'Appeal step factor does not match')
+      assertBn(_maxRegularAppealRounds, maxRegularAppealRounds, 'Number af max regular appeal rounds does not match')
+      assertBn(_appealCollateralFactor, appealCollateralFactor, 'Appeal collateral factor does not match')
+      assertBn(_appealConfirmCollateralFactor, appealConfirmCollateralFactor, 'Appeal confirmation collateral factor does not match')
     })
   })
 })

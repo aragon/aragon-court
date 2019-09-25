@@ -341,7 +341,7 @@ contract CourtSubscriptions is IsContract, ISubscriptions, TimeHelpers {
     * @return feeToken Address of the token used for the subscription fees
     * @return jurorShare Amount of share fees owed to the given juror for the requested period
     */
-    function getJurorShare(address _juror, uint256 _periodId) external view returns (address feeToken, uint256 jurorShare) {
+    function getJurorShare(address _juror, uint256 _periodId) external view returns (ERC20 feeToken, uint256 jurorShare) {
         Period storage period = periods[_periodId];
         uint64 periodBalanceCheckpoint;
         uint256 totalActiveBalance = period.totalActiveBalance;
@@ -355,8 +355,7 @@ contract CourtSubscriptions is IsContract, ISubscriptions, TimeHelpers {
 
         // Compute juror share fees using the period balance details
         jurorShare = _getJurorShare(_juror, period, periodBalanceCheckpoint, totalActiveBalance);
-        (ERC20 token,) = _getPeriodFeeTokenAndAmount(period);
-        feeToken = address(token);
+        (feeToken,) = _getPeriodFeeTokenAndAmount(period);
     }
 
     /**
@@ -504,7 +503,7 @@ contract CourtSubscriptions is IsContract, ISubscriptions, TimeHelpers {
     */
     function _getPeriodStartTermId(uint256 _periodId) internal view returns (uint64) {
         // Periods are measured in Court terms. Since Court terms are represented in `uint64`, we are safe to use `uint64` for period ids too.
-        return START_TERM_ID + uint64(_periodId * periodDuration);
+        return START_TERM_ID + uint64(_periodId) * periodDuration;
     }
 
     /**

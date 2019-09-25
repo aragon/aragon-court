@@ -17,25 +17,25 @@ contract CourtSubscriptions is IsContract, ISubscriptions, TimeHelpers {
     using SafeMath for uint256;
     using PctHelpers for uint256;
 
-    string internal constant ERROR_OWNER_ALREADY_SET = "CS_OWNER_ALREADY_SET";
-    string internal constant ERROR_SENDER_NOT_GOVERNOR = "CS_SENDER_NOT_GOVERNOR";
-    string internal constant ERROR_GOVERNOR_SHARE_FEES_ZERO = "CS_GOVERNOR_SHARE_FEES_ZERO";
-    string internal constant ERROR_TOKEN_TRANSFER_FAILED = "CS_TOKEN_TRANSFER_FAILED";
-    string internal constant ERROR_PERIOD_DURATION_ZERO = "CS_PERIOD_DURATION_ZERO";
-    string internal constant ERROR_INVALID_FEE_AMOUNT = "CS_INVALID_FEE_AMOUNT";
-    string internal constant ERROR_FEE_AMOUNT_ZERO = "CS_FEE_AMOUNT_ZERO";
-    string internal constant ERROR_INVALID_FEE_TOKEN = "CS_INVALID_FEE_TOKEN";
-    string internal constant ERROR_FEE_TOKEN_NOT_CONTRACT = "CS_FEE_TOKEN_NOT_CONTRACT";
-    string internal constant ERROR_INVALID_PREPAYMENT_PERIODS = "CS_INVALID_PREPAYMENT_PERIODS";
-    string internal constant ERROR_PREPAYMENT_PERIODS_ZERO = "CS_PREPAYMENT_PERIODS_ZERO";
-    string internal constant ERROR_INVALID_GOVERNOR_SHARE_PCT = "CS_INVALID_GOVERNOR_SHARE_PCT";
-    string internal constant ERROR_OVERRATED_GOVERNOR_SHARE_PCT = "CS_OVERRATED_GOVERNOR_SHARE_PCT";
-    string internal constant ERROR_INVALID_LATE_PAYMENT_PENALTY_PCT = "CS_INVALID_LATE_PAYMENT_PENALTY";
-    string internal constant ERROR_NON_PAST_PERIOD = "CS_NON_PAST_PERIOD";
-    string internal constant ERROR_JUROR_FEES_ALREADY_CLAIMED = "CS_JUROR_FEES_ALREADY_CLAIMED";
-    string internal constant ERROR_JUROR_NOTHING_TO_CLAIM = "CS_JUROR_NOTHING_TO_CLAIM";
-    string internal constant ERROR_PAYING_ZERO_PERIODS = "CS_PAYING_ZERO_PERIODS";
-    string internal constant ERROR_PAYING_TOO_MANY_PERIODS = "CS_PAYING_TOO_MANY_PERIODS";
+    string private constant ERROR_OWNER_ALREADY_SET = "CS_OWNER_ALREADY_SET";
+    string private constant ERROR_SENDER_NOT_GOVERNOR = "CS_SENDER_NOT_GOVERNOR";
+    string private constant ERROR_GOVERNOR_SHARE_FEES_ZERO = "CS_GOVERNOR_SHARE_FEES_ZERO";
+    string private constant ERROR_TOKEN_TRANSFER_FAILED = "CS_TOKEN_TRANSFER_FAILED";
+    string private constant ERROR_PERIOD_DURATION_ZERO = "CS_PERIOD_DURATION_ZERO";
+    string private constant ERROR_INVALID_FEE_AMOUNT = "CS_INVALID_FEE_AMOUNT";
+    string private constant ERROR_FEE_AMOUNT_ZERO = "CS_FEE_AMOUNT_ZERO";
+    string private constant ERROR_INVALID_FEE_TOKEN = "CS_INVALID_FEE_TOKEN";
+    string private constant ERROR_FEE_TOKEN_NOT_CONTRACT = "CS_FEE_TOKEN_NOT_CONTRACT";
+    string private constant ERROR_INVALID_PREPAYMENT_PERIODS = "CS_INVALID_PREPAYMENT_PERIODS";
+    string private constant ERROR_PREPAYMENT_PERIODS_ZERO = "CS_PREPAYMENT_PERIODS_ZERO";
+    string private constant ERROR_INVALID_GOVERNOR_SHARE_PCT = "CS_INVALID_GOVERNOR_SHARE_PCT";
+    string private constant ERROR_OVERRATED_GOVERNOR_SHARE_PCT = "CS_OVERRATED_GOVERNOR_SHARE_PCT";
+    string private constant ERROR_INVALID_LATE_PAYMENT_PENALTY_PCT = "CS_INVALID_LATE_PAYMENT_PENALTY";
+    string private constant ERROR_NON_PAST_PERIOD = "CS_NON_PAST_PERIOD";
+    string private constant ERROR_JUROR_FEES_ALREADY_CLAIMED = "CS_JUROR_FEES_ALREADY_CLAIMED";
+    string private constant ERROR_JUROR_NOTHING_TO_CLAIM = "CS_JUROR_NOTHING_TO_CLAIM";
+    string private constant ERROR_PAYING_ZERO_PERIODS = "CS_PAYING_ZERO_PERIODS";
+    string private constant ERROR_PAYING_TOO_MANY_PERIODS = "CS_PAYING_TOO_MANY_PERIODS";
 
     // Term 0 is for jurors on-boarding
     uint64 internal constant START_TERM_ID = 1;

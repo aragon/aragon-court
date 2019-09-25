@@ -9,7 +9,7 @@ import "./HexSumTree.sol";
 library JurorsTreeSortition {
     using HexSumTree for HexSumTree.Tree;
 
-    string internal constant ERROR_SORTITION_LENGTHS_MISMATCH = "TREE_SORTITION_LENGTHS_MISMATCH";
+    string private constant ERROR_SORTITION_LENGTHS_MISMATCH = "TREE_SORTITION_LENGTHS_MISMATCH";
 
     /**
     * @dev Search random items in the tree based on certain restrictions

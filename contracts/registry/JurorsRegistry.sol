@@ -238,14 +238,14 @@ contract JurorsRegistry is Initializable, IsContract, IJurorsRegistry, ERC900, A
         weights = new uint64[](batchRequestedJurors);
 
         DraftParams memory draftParams = DraftParams({
-            termRandomness:         bytes32(_params[0]),
-            disputeId:              _params[1],
-            termId:                 uint64(_params[2]),
-            selectedJurors:         _params[3],
-            batchRequestedJurors:   batchRequestedJurors,
-            roundRequestedJurors:   _params[5],
-            draftLockAmount:        minActiveBalance.pct(uint16(_params[6])),
-            sortitionIteration:     0
+            termRandomness: bytes32(_params[0]),
+            disputeId: _params[1],
+            termId: uint64(_params[2]),
+            selectedJurors: _params[3],
+            batchRequestedJurors: batchRequestedJurors,
+            roundRequestedJurors: _params[5],
+            draftLockAmount: minActiveBalance.pct(uint16(_params[6])),
+            sortitionIteration: 0
         });
 
         length = _draft(draftParams, jurors, weights);

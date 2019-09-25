@@ -771,7 +771,7 @@ contract('HexSumTree', () => {
               assert.equal(values.length, 1, 'result values length does not match')
 
               assert.equal(keys[0].toString(), 0, 'result key does not match')
-              assert.equal(values[0].toString(), value, 'result value does not match')
+              assert.equal(values[0].toString(), value + 1, 'result value does not match')
             })
           })
         })

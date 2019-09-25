@@ -25,49 +25,49 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
     using Uint256Helpers for uint256;
 
     // Configs-related error messages
-    string internal constant ERROR_SENDER_NOT_VOTING = "CT_SENDER_NOT_VOTING";
-    string internal constant ERROR_BAD_FIRST_TERM_START_TIME = "CT_BAD_FIRST_TERM_START_TIME";
-    string internal constant ERROR_CONFIG_PERIOD_ZERO_TERMS = "CT_CONFIG_PERIOD_0";
-    string internal constant ERROR_INVALID_PENALTY_PCT = "CT_INVALID_PENALTY_PCT";
-    string internal constant ERROR_INVALID_MAX_APPEAL_ROUNDS = "CT_INVALID_MAX_APPEAL_ROUNDS";
-    string internal constant ERROR_INVALID_PERIOD_DURATION = "CT_INVALID_PERIOD_DURATION";
-    string internal constant ERROR_INVALID_GOVERNANCE_SHARE = "CT_INVALID_GOVERNANCE_SHARE";
-    string internal constant ERROR_INVALID_LATE_PAYMENT_PENALTY = "CT_INVALID_LATE_PAYMENT_PENALTY";
+    string private constant ERROR_SENDER_NOT_VOTING = "CT_SENDER_NOT_VOTING";
+    string private constant ERROR_BAD_FIRST_TERM_START_TIME = "CT_BAD_FIRST_TERM_START_TIME";
+    string private constant ERROR_CONFIG_PERIOD_ZERO_TERMS = "CT_CONFIG_PERIOD_0";
+    string private constant ERROR_INVALID_PENALTY_PCT = "CT_INVALID_PENALTY_PCT";
+    string private constant ERROR_INVALID_MAX_APPEAL_ROUNDS = "CT_INVALID_MAX_APPEAL_ROUNDS";
+    string private constant ERROR_INVALID_PERIOD_DURATION = "CT_INVALID_PERIOD_DURATION";
+    string private constant ERROR_INVALID_GOVERNANCE_SHARE = "CT_INVALID_GOVERNANCE_SHARE";
+    string private constant ERROR_INVALID_LATE_PAYMENT_PENALTY = "CT_INVALID_LATE_PAYMENT_PENALTY";
 
     // Terms-related error messages
-    string internal constant ERROR_TERM_OUTDATED = "CT_TERM_OUTDATED";
-    string internal constant ERROR_TOO_MANY_TRANSITIONS = "CT_TOO_MANY_TRANSITIONS";
-    string internal constant ERROR_INVALID_TRANSITION_TERMS = "CT_INVALID_TRANSITION_TERMS";
-    string internal constant ERROR_PAST_TERM_FEE_CHANGE = "CT_PAST_TERM_FEE_CHANGE";
-    string internal constant ERROR_TERM_RANDOMNESS_NOT_YET = "CT_TERM_RANDOMNESS_NOT_YET";
-    string internal constant ERROR_TERM_DOES_NOT_EXIST = "CT_TERM_DOES_NOT_EXIST";
-    string internal constant ERROR_TERM_RANDOMNESS_NOT_AVAILABLE = "CT_TERM_RANDOMNESS_NOT_AVAILABLE";
+    string private constant ERROR_TERM_OUTDATED = "CT_TERM_OUTDATED";
+    string private constant ERROR_TOO_MANY_TRANSITIONS = "CT_TOO_MANY_TRANSITIONS";
+    string private constant ERROR_INVALID_TRANSITION_TERMS = "CT_INVALID_TRANSITION_TERMS";
+    string private constant ERROR_PAST_TERM_FEE_CHANGE = "CT_PAST_TERM_FEE_CHANGE";
+    string private constant ERROR_TERM_RANDOMNESS_NOT_YET = "CT_TERM_RANDOMNESS_NOT_YET";
+    string private constant ERROR_TERM_DOES_NOT_EXIST = "CT_TERM_DOES_NOT_EXIST";
+    string private constant ERROR_TERM_RANDOMNESS_NOT_AVAILABLE = "CT_TERM_RANDOMNESS_NOT_AVAILABLE";
 
     // Disputes-related error messages
-    string internal constant ERROR_DISPUTE_DOES_NOT_EXIST = "CT_DISPUTE_DOES_NOT_EXIST";
-    string internal constant ERROR_CANNOT_CREATE_DISPUTE = "CT_CANNOT_CREATE_DISPUTE";
-    string internal constant ERROR_INVALID_DISPUTE_STATE = "CT_INVALID_DISPUTE_STATE";
-    string internal constant ERROR_INVALID_RULING_OPTIONS = "CT_INVALID_RULING_OPTIONS";
-    string internal constant ERROR_SUBSCRIPTION_NOT_PAID = "CT_SUBSCRIPTION_NOT_PAID";
-    string internal constant ERROR_DEPOSIT_FAILED = "CT_DEPOSIT_FAILED";
+    string private constant ERROR_DISPUTE_DOES_NOT_EXIST = "CT_DISPUTE_DOES_NOT_EXIST";
+    string private constant ERROR_CANNOT_CREATE_DISPUTE = "CT_CANNOT_CREATE_DISPUTE";
+    string private constant ERROR_INVALID_DISPUTE_STATE = "CT_INVALID_DISPUTE_STATE";
+    string private constant ERROR_INVALID_RULING_OPTIONS = "CT_INVALID_RULING_OPTIONS";
+    string private constant ERROR_SUBSCRIPTION_NOT_PAID = "CT_SUBSCRIPTION_NOT_PAID";
+    string private constant ERROR_DEPOSIT_FAILED = "CT_DEPOSIT_FAILED";
 
     // Rounds-related error messages
-    string internal constant ERROR_ROUND_IS_FINAL = "CT_ROUND_IS_FINAL";
-    string internal constant ERROR_ROUND_DOES_NOT_EXIST = "CT_ROUND_DOES_NOT_EXIST";
-    string internal constant ERROR_INVALID_ADJUDICATION_STATE = "CT_INVALID_ADJUDICATION_STATE";
-    string internal constant ERROR_ROUND_ALREADY_DRAFTED = "CT_ROUND_ALREADY_DRAFTED";
-    string internal constant ERROR_ROUND_NOT_DRAFT_TERM = "CT_ROUND_NOT_DRAFT_TERM";
-    string internal constant ERROR_ROUND_NOT_APPEALED = "CT_ROUND_NOT_APPEALED";
-    string internal constant ERROR_INVALID_APPEAL_RULING = "CT_INVALID_APPEAL_RULING";
+    string private constant ERROR_ROUND_IS_FINAL = "CT_ROUND_IS_FINAL";
+    string private constant ERROR_ROUND_DOES_NOT_EXIST = "CT_ROUND_DOES_NOT_EXIST";
+    string private constant ERROR_INVALID_ADJUDICATION_STATE = "CT_INVALID_ADJUDICATION_STATE";
+    string private constant ERROR_ROUND_ALREADY_DRAFTED = "CT_ROUND_ALREADY_DRAFTED";
+    string private constant ERROR_ROUND_NOT_DRAFT_TERM = "CT_ROUND_NOT_DRAFT_TERM";
+    string private constant ERROR_ROUND_NOT_APPEALED = "CT_ROUND_NOT_APPEALED";
+    string private constant ERROR_INVALID_APPEAL_RULING = "CT_INVALID_APPEAL_RULING";
 
     // Settlements-related error messages
-    string internal constant ERROR_PREV_ROUND_NOT_SETTLED = "CT_PREVIOUS_ROUND_NOT_SETTLED";
-    string internal constant ERROR_ROUND_ALREADY_SETTLED = "CT_ROUND_ALREADY_SETTLED";
-    string internal constant ERROR_ROUND_NOT_SETTLED = "CT_ROUND_PENALTIES_NOT_SETTLED";
-    string internal constant ERROR_JUROR_ALREADY_REWARDED = "CT_JUROR_ALREADY_REWARDED";
-    string internal constant ERROR_WONT_REWARD_NON_VOTER_JUROR = "CT_WONT_REWARD_NON_VOTER_JUROR";
-    string internal constant ERROR_WONT_REWARD_INCOHERENT_JUROR = "CT_WONT_REWARD_INCOHERENT_JUROR";
-    string internal constant ERROR_ROUND_APPEAL_ALREADY_SETTLED = "CT_APPEAL_ALREADY_SETTLED";
+    string private constant ERROR_PREV_ROUND_NOT_SETTLED = "CT_PREVIOUS_ROUND_NOT_SETTLED";
+    string private constant ERROR_ROUND_ALREADY_SETTLED = "CT_ROUND_ALREADY_SETTLED";
+    string private constant ERROR_ROUND_NOT_SETTLED = "CT_ROUND_PENALTIES_NOT_SETTLED";
+    string private constant ERROR_JUROR_ALREADY_REWARDED = "CT_JUROR_ALREADY_REWARDED";
+    string private constant ERROR_WONT_REWARD_NON_VOTER_JUROR = "CT_WONT_REWARD_NON_VOTER_JUROR";
+    string private constant ERROR_WONT_REWARD_INCOHERENT_JUROR = "CT_WONT_REWARD_INCOHERENT_JUROR";
+    string private constant ERROR_ROUND_APPEAL_ALREADY_SETTLED = "CT_APPEAL_ALREADY_SETTLED";
 
     // Initial term to start the Court, disputes are not allowed during this term. It can be used to active jurors
     uint64 internal constant ZERO_TERM_ID = 0;

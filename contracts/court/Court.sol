@@ -772,7 +772,12 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
         DisputesConfig storage disputesConfig = config.disputes;
         feeToken = address(feesConfig.token);
         fees = [ feesConfig.jurorFee, feesConfig.heartbeatFee, feesConfig.draftFee, feesConfig.settleFee ];
-        roundStateDurations = [ disputesConfig.commitTerms, disputesConfig.revealTerms, disputesConfig.appealTerms, disputesConfig.appealConfirmTerms ];
+        roundStateDurations = [
+            disputesConfig.commitTerms,
+            disputesConfig.revealTerms,
+            disputesConfig.appealTerms,
+            disputesConfig.appealConfirmTerms
+        ];
         pcts = [ disputesConfig.penaltyPct, disputesConfig.finalRoundReduction ];
         roundParams = [ disputesConfig.firstRoundJurorsNumber, disputesConfig.appealStepFactor, disputesConfig.maxRegularAppealRounds ];
         appealCollateralParams = [ disputesConfig.appealCollateralFactor, disputesConfig.appealConfirmCollateralFactor ];
@@ -1350,7 +1355,8 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
     {
         CourtConfig storage config = _getConfigAtDraftTerm(_round);
         // Court terms are assumed to always fit in uint64. Thus, the end term of a round is assumed to fit in uint64 too.
-        uint64 currentRoundAppealStartTerm = _round.draftTermId + _round.delayedTerms + config.disputes.commitTerms + config.disputes.revealTerms;
+        uint64 currentRoundAppealStartTerm = _round.draftTermId + _round.delayedTerms +
+            config.disputes.commitTerms + config.disputes.revealTerms;
         // Next round start term is current round end term
         nextRoundStartTerm = currentRoundAppealStartTerm + config.disputes.appealTerms + config.disputes.appealConfirmTerms;
 

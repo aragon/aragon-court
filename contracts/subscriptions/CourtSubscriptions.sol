@@ -227,6 +227,7 @@ contract CourtSubscriptions is IsContract, ISubscriptions, TimeHelpers {
     * @param _feeAmount New amount of fees to be paid for each subscription period
     */
     function setFeeAmount(uint256 _feeAmount) external onlyGovernor {
+        require(currentFeeAmount != _feeAmount, ERROR_INVALID_FEE_AMOUNT);
         _setFeeAmount(_feeAmount);
     }
 
@@ -237,8 +238,10 @@ contract CourtSubscriptions is IsContract, ISubscriptions, TimeHelpers {
     * @param _feeAmount New amount of fees to be paid for each subscription period
     */
     function setFeeToken(ERC20 _feeToken, uint256 _feeAmount) external onlyGovernor {
-        // `setFeeToken` transfers governor's accumulated fees, so must be executed first
+        require(currentFeeToken != _feeToken, ERROR_INVALID_FEE_TOKEN);
+
         _setFeeToken(_feeToken);
+        // `setFeeToken` transfers governor's accumulated fees, so must be executed first
         if (currentFeeAmount != _feeAmount) {
             _setFeeAmount(_feeAmount);
         }
@@ -249,6 +252,7 @@ contract CourtSubscriptions is IsContract, ISubscriptions, TimeHelpers {
     * @param _prePaymentPeriods New number of periods that can be paid in advance
     */
     function setPrePaymentPeriods(uint256 _prePaymentPeriods) external onlyGovernor {
+        require(prePaymentPeriods != _prePaymentPeriods, ERROR_INVALID_PREPAYMENT_PERIODS);
         _setPrePaymentPeriods(_prePaymentPeriods);
     }
 
@@ -257,6 +261,7 @@ contract CourtSubscriptions is IsContract, ISubscriptions, TimeHelpers {
     * @param _latePaymentPenaltyPct New per ten thousand of subscription fees that will be applied as penalty for not paying during proper period
     */
     function setLatePaymentPenaltyPct(uint16 _latePaymentPenaltyPct) external onlyGovernor {
+        require(latePaymentPenaltyPct != _latePaymentPenaltyPct, ERROR_INVALID_LATE_PAYMENT_PENALTY_PCT);
         _setLatePaymentPenaltyPct(_latePaymentPenaltyPct);
     }
 
@@ -265,6 +270,7 @@ contract CourtSubscriptions is IsContract, ISubscriptions, TimeHelpers {
     * @param _governorSharePct New per ten thousand of subscription fees that will be allocated to the governor of the Court (‱ - 1/10,000)
     */
     function setGovernorSharePct(uint16 _governorSharePct) external onlyGovernor {
+        require(governorSharePct != _governorSharePct, ERROR_INVALID_GOVERNOR_SHARE_PCT);
         _setGovernorSharePct(_governorSharePct);
     }
 
@@ -420,71 +426,60 @@ contract CourtSubscriptions is IsContract, ISubscriptions, TimeHelpers {
 
     /**
     * @dev Internal function to set a new amount for the subscription fees
-    * @param _newFeeAmount New amount of fees to be paid for each subscription period
+    * @param _feeAmount New amount of fees to be paid for each subscription period
     */
-    function _setFeeAmount(uint256 _newFeeAmount) internal {
-        uint256 previousFeeAmount = currentFeeAmount;
-        require(previousFeeAmount != _newFeeAmount, ERROR_INVALID_FEE_AMOUNT);
-        require(_newFeeAmount > 0, ERROR_FEE_AMOUNT_ZERO);
+    function _setFeeAmount(uint256 _feeAmount) internal {
+        require(_feeAmount > 0, ERROR_FEE_AMOUNT_ZERO);
 
-        currentFeeAmount = _newFeeAmount;
-        emit FeeAmountChanged(previousFeeAmount, _newFeeAmount);
+        emit FeeAmountChanged(currentFeeAmount, _feeAmount);
+        currentFeeAmount = _feeAmount;
     }
 
     /**
     * @dev Internal function to set a new ERC20 token for the subscription fees
-    * @param _newFeeToken New ERC20 token to be used for the subscription fees
+    * @param _feeToken New ERC20 token to be used for the subscription fees
     */
-    function _setFeeToken(ERC20 _newFeeToken) internal {
-        ERC20 previousFeeToken = currentFeeToken;
-        require(previousFeeToken != _newFeeToken, ERROR_INVALID_FEE_TOKEN);
-        require(isContract(address(_newFeeToken)), ERROR_FEE_TOKEN_NOT_CONTRACT);
+    function _setFeeToken(ERC20 _feeToken) internal {
+        require(isContract(address(_feeToken)), ERROR_FEE_TOKEN_NOT_CONTRACT);
 
         if (accumulatedGovernorFees > 0) {
             _transferFeesToGovernor();
         }
-        currentFeeToken = _newFeeToken;
-        emit FeeTokenChanged(address(previousFeeToken), address(_newFeeToken));
+        emit FeeTokenChanged(address(currentFeeToken), address(_feeToken));
+        currentFeeToken = _feeToken;
     }
 
     /**
     * @dev Internal function to set a new number of pre payment periods
-    * @param _newPrePaymentPeriods New number of periods that can be paid in advance including the current period
+    * @param _prePaymentPeriods New number of periods that can be paid in advance including the current period
     */
-    function _setPrePaymentPeriods(uint256 _newPrePaymentPeriods) internal {
-        uint256 previousPrePaymentPeriods = prePaymentPeriods;
-        require(previousPrePaymentPeriods != _newPrePaymentPeriods, ERROR_INVALID_PREPAYMENT_PERIODS);
+    function _setPrePaymentPeriods(uint256 _prePaymentPeriods) internal {
         // The pre payments period number must contemplate the current period. Thus, it must be greater than zero.
-        require(_newPrePaymentPeriods > 0, ERROR_PREPAYMENT_PERIODS_ZERO);
+        require(_prePaymentPeriods > 0, ERROR_PREPAYMENT_PERIODS_ZERO);
 
-        prePaymentPeriods = _newPrePaymentPeriods;
-        emit PrePaymentPeriodsChanged(previousPrePaymentPeriods, _newPrePaymentPeriods);
+        emit PrePaymentPeriodsChanged(prePaymentPeriods, _prePaymentPeriods);
+        prePaymentPeriods = _prePaymentPeriods;
     }
 
     /**
     * @dev Internal function to set a new governor share value
-    * @param _newGovernorSharePct New per ten thousand of subscription fees that will be allocated to the governor of the Court (‱ - 1/10,000)
+    * @param _governorSharePct New per ten thousand of subscription fees that will be allocated to the governor of the Court (‱ - 1/10,000)
     */
-    function _setGovernorSharePct(uint16 _newGovernorSharePct) internal {
-        uint16 previousGovernorSharePct = governorSharePct;
-        require(previousGovernorSharePct != _newGovernorSharePct, ERROR_INVALID_GOVERNOR_SHARE_PCT);
+    function _setGovernorSharePct(uint16 _governorSharePct) internal {
         // Check governor share is not greater than 10,000‱
-        require(PctHelpers.isValid(_newGovernorSharePct), ERROR_OVERRATED_GOVERNOR_SHARE_PCT);
+        require(PctHelpers.isValid(_governorSharePct), ERROR_OVERRATED_GOVERNOR_SHARE_PCT);
 
-        governorSharePct = _newGovernorSharePct;
-        emit GovernorSharePctChanged(previousGovernorSharePct, _newGovernorSharePct);
+        emit GovernorSharePctChanged(governorSharePct, _governorSharePct);
+        governorSharePct = _governorSharePct;
     }
 
     /**
     * @dev Internal function to set new late payment penalty `_latePaymentPenaltyPct`‱ (1/10,000)
-    * @param _newLatePaymentPenaltyPct New per ten thousand of subscription fees that will be applied as penalty for not paying during proper period
+    * @param _latePaymentPenaltyPct New per ten thousand of subscription fees that will be applied as penalty for not paying during proper period
     */
-    function _setLatePaymentPenaltyPct(uint16 _newLatePaymentPenaltyPct) internal {
-        uint16 previousLatePaymentPenaltyPct = latePaymentPenaltyPct;
-        require(previousLatePaymentPenaltyPct != _newLatePaymentPenaltyPct, ERROR_INVALID_LATE_PAYMENT_PENALTY_PCT);
-
-        latePaymentPenaltyPct = _newLatePaymentPenaltyPct;
-        emit LatePaymentPenaltyPctChanged(previousLatePaymentPenaltyPct, _newLatePaymentPenaltyPct);
+    function _setLatePaymentPenaltyPct(uint16 _latePaymentPenaltyPct) internal {
+        emit LatePaymentPenaltyPctChanged(latePaymentPenaltyPct, _latePaymentPenaltyPct);
+        latePaymentPenaltyPct = _latePaymentPenaltyPct;
     }
 
     /**

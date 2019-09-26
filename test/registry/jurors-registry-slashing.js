@@ -45,7 +45,7 @@ contract('JurorsRegistry', ([_, juror, secondJuror, thirdJuror, anyone]) => {
           await ANJ.generateTokens(thirdJuror, thirdJurorBalance)
           await ANJ.approveAndCall(registry.address, thirdJurorBalance, ACTIVATE_DATA, { from: thirdJuror })
 
-          await registryOwner.incrementTerm()
+          await registryOwner.mockIncreaseTerm()
         })
 
         context('when given input length does not match', () => {
@@ -428,7 +428,7 @@ contract('JurorsRegistry', ([_, juror, secondJuror, thirdJuror, anyone]) => {
 
               context('when the deactivation request is for the current term', () => {
                 beforeEach('increment term', async () => {
-                  await registryOwner.incrementTerm()
+                  await registryOwner.mockIncreaseTerm()
                 })
 
                 context('when the given amount is zero', () => {
@@ -458,8 +458,8 @@ contract('JurorsRegistry', ([_, juror, secondJuror, thirdJuror, anyone]) => {
 
               context('when the deactivation request is for the previous term', () => {
                 beforeEach('increment term twice', async () => {
-                  await registryOwner.incrementTerm()
-                  await registryOwner.incrementTerm()
+                  await registryOwner.mockIncreaseTerm()
+                  await registryOwner.mockIncreaseTerm()
                 })
 
                 context('when the given amount is zero', () => {

@@ -46,9 +46,7 @@ contract('JurorsRegistry', ([_, something]) => {
           })
         })
 
-        // TODO: skipping these tests since we are currently initializing all the court dependencies from the
-        //       court constructor. Will uncomment once we move that logic to a factory contract
-
+        // TODO: currently, we are currently initializing all the court dependencies from the court constructor
         context.skip('when the given owner is the zero address', () => {
           const owner = ZERO_ADDRESS
 
@@ -57,6 +55,7 @@ contract('JurorsRegistry', ([_, something]) => {
           })
         })
 
+        // TODO: currently, we are currently initializing all the court dependencies from the court constructor
         context.skip('when the given owner is not a contract address', () => {
           const owner = something
 

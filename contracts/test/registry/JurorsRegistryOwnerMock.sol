@@ -24,7 +24,7 @@ contract JurorsRegistryOwnerMock is IJurorsRegistryOwner {
         return termId;
     }
 
-    function incrementTerm() public {
+    function mockIncreaseTerm() public {
         termId += 1;
     }
 

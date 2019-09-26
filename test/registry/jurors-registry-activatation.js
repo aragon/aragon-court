@@ -307,7 +307,7 @@ contract('JurorsRegistry', ([_, juror]) => {
               const currentAvailableBalance = maxPossibleBalance.sub(activeBalance).add(deactivationAmount)
 
               beforeEach('increment term', async () => {
-                await registryOwner.incrementTerm()
+                await registryOwner.mockIncreaseTerm()
               })
 
               context('when the given amount is zero', () => {
@@ -343,8 +343,8 @@ contract('JurorsRegistry', ([_, juror]) => {
               const currentAvailableBalance = maxPossibleBalance.sub(activeBalance).add(deactivationAmount)
 
               beforeEach('increment term twice', async () => {
-                await registryOwner.incrementTerm()
-                await registryOwner.incrementTerm()
+                await registryOwner.mockIncreaseTerm()
+                await registryOwner.mockIncreaseTerm()
               })
 
               context('when the given amount is zero', () => {
@@ -596,7 +596,7 @@ contract('JurorsRegistry', ([_, juror]) => {
 
             context('when the deactivation request is for the current term', () => {
               beforeEach('increment term', async () => {
-                await registryOwner.incrementTerm()
+                await registryOwner.mockIncreaseTerm()
               })
 
               context('when the requested amount is zero', () => {
@@ -628,8 +628,8 @@ contract('JurorsRegistry', ([_, juror]) => {
 
             context('when the deactivation request is for the previous term', () => {
               beforeEach('increment term twice', async () => {
-                await registryOwner.incrementTerm()
-                await registryOwner.incrementTerm()
+                await registryOwner.mockIncreaseTerm()
+                await registryOwner.mockIncreaseTerm()
               })
 
               context('when the requested amount is zero', () => {

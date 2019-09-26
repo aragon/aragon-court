@@ -69,7 +69,7 @@ contract('CRVoting', ([_, voterWeighted1, voterWeighted2, voterWeighted3, voterW
       const winningOutcome = await voting.getWinningOutcome(voteId)
       assert.equal(winningOutcome.toString(), expectedWinningOutcome, 'winning outcome does not match')
 
-      const winningOutcomeTally = await voting.getWinningOutcomeTally(voteId)
+      const winningOutcomeTally = await voting.getOutcomeTally(voteId, winningOutcome)
       assert.equal(winningOutcomeTally.toString(), expectedTallies[expectedWinningOutcome], 'winning outcome tally does not match')
     })
   }
@@ -96,7 +96,7 @@ contract('CRVoting', ([_, voterWeighted1, voterWeighted2, voterWeighted3, voterW
       const winningOutcome = await voting.getWinningOutcome(voteId)
       assert.equal(winningOutcome.toString(), OUTCOMES.REFUSED.toString(), 'refused should be the winning outcome')
 
-      const winningOutcomeTally = await voting.getWinningOutcomeTally(voteId)
+      const winningOutcomeTally = await voting.getOutcomeTally(voteId, winningOutcome)
       assert.equal(winningOutcomeTally.toString(), 0, 'winning outcome tally should be zero')
     })
   }

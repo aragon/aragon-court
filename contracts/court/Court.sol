@@ -114,17 +114,17 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
     struct CourtConfig {
         // Fee structure
         ERC20 feeToken;             // ERC20 token to be used for the fees of the Court
-        uint256 jurorFee;           // per juror, total round juror fee = jurorFee * jurors drawn
-        uint256 heartbeatFee;       // per dispute, total heartbeat fee = heartbeatFee * disputes/appeals in term
-        uint256 draftFee;           // per juror, total round draft fee = draftFee * jurors drawn
-        uint256 settleFee;          // per juror, total round draft fee = settleFee * jurors drawn
+        uint256 jurorFee;           // amount of tokens paid to draft a juror to adjudicate a dispute
+        uint256 heartbeatFee;       // amount of tokens paid per dispute to cover the term transitions costs of the draft term
+        uint256 draftFee;           // amount of tokens paid per round to cover the costs of drafting jurors
+        uint256 settleFee;          // amount of tokens paid per round to cover the costs of slashing jurors
         // Dispute config
         uint64 commitTerms;         // committing period duration in terms
         uint64 revealTerms;         // revealing period duration in terms
         uint64 appealTerms;         // appealing period duration in terms
         uint64 appealConfirmTerms;  // confirmation appeal period duration in terms
-        uint16 penaltyPct;          // per ten thousand that will be used to compute the tokens to be locked for a juror on a draft
-        uint16 finalRoundReduction; // ‱ of reduction applied for final appeal round (1/10,000)
+        uint16 penaltyPct;          // per ten thousand that will be used to compute the tokens to be locked for drafted jurors (‱ - 1/10,000)
+        uint16 finalRoundReduction; // per ten thousand of reduction applied for final appeal round (‱ - 1/10,000)
         uint64 appealStepFactor;    // factor in which the jurors number is increased on each appeal
         uint32 maxRegularAppealRounds; // before the final appeal
     }
@@ -259,10 +259,10 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
     /**
     * @param _termDuration Duration in seconds per term (recommended 1 hour)
     * @param _tokens Array containing:
-    *        _jurorToken The address of the juror work token contract.
-    *        _feeToken The address of the token contract that is used to pay for fees.
-    * @param _jurorsRegistry The address of the JurorsRegistry component of the Court
-    * @param _voting The address of the Commit Reveal Voting contract.
+    *        _jurorToken Address of the juror work token contract.
+    *        _feeToken Address of the token contract that is used to pay for fees.
+    * @param _jurorsRegistry Address of the JurorsRegistry component of the Court
+    * @param _voting Address of the Commit Reveal Voting contract.
     * @param _fees Array containing:
     *        _jurorFee The amount of _feeToken that is paid per juror per dispute
     *        _heartbeatFee The amount of _feeToken per dispute to cover maintenance costs.
@@ -273,8 +273,8 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
     * @param _minJurorsActiveBalance Minimum amount of juror tokens that can be activated
     * @param _roundStateDurations Number of terms that the different states a dispute round last
     * @param _pcts Array containing:
-    *        _penaltyPct ‱ of minJurorsActiveBalance that can be slashed (1/10,000)
-    *        _finalRoundReduction ‱ of fee reduction for the last appeal round (1/10,000)
+    *        _penaltyPct per ten thousand that will be used to compute the tokens to be locked for drafted jurors (‱ - 1/10,000)
+    *        _finalRoundReduction per ten thousand of fee reduction for the last appeal round (‱ - 1/10,000)
     * @param _subscriptionParams Array containing params for Subscriptions:
     *        _periodDuration Length of Subscription periods
     *        _feeAmount Amount of periodic fees

@@ -568,8 +568,6 @@ contract CourtSubscriptions is IsContract, ISubscriptions, TimeHelpers {
     *   +----+----+----+----+----+----+----+----+
     *                  <---------><------------->
     *                    delayed      regular
-    *                  <------------------------>
-    *                          _periods
     */
     function _getDelayedPeriods(Subscriber storage _subscriber, uint256 _currentPeriodId) internal view returns (uint256) {
         uint256 lastPaymentPeriodId = _subscriber.lastPaymentPeriodId;

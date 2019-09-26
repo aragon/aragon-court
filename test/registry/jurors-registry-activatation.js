@@ -10,7 +10,7 @@ contract('JurorsRegistry', ([_, juror]) => {
   let registry, registryOwner, ANJ
 
   const MIN_ACTIVE_AMOUNT = bigExp(100, 18)
-  const MIN_ACTIVE_AMOUNTS_LIMIT = bn(1000)
+  const TOTAL_ACTIVE_BALANCE_LIMIT = bn(1000)
 
   beforeEach('create base contracts', async () => {
     registry = await JurorsRegistry.new()
@@ -23,7 +23,7 @@ contract('JurorsRegistry', ([_, juror]) => {
 
     context('when the registry is initialized', () => {
       beforeEach('initialize registry', async () => {
-        await registry.init(registryOwner.address, ANJ.address, MIN_ACTIVE_AMOUNT, MIN_ACTIVE_AMOUNTS_LIMIT)
+        await registry.init(registryOwner.address, ANJ.address, MIN_ACTIVE_AMOUNT, TOTAL_ACTIVE_BALANCE_LIMIT)
       })
 
       context('when the juror has not staked some tokens yet', () => {
@@ -53,7 +53,7 @@ contract('JurorsRegistry', ([_, juror]) => {
       })
 
       context('when the juror has already staked some tokens', () => {
-        const maxPossibleBalance = MIN_ACTIVE_AMOUNT.mul(MIN_ACTIVE_AMOUNTS_LIMIT)
+        const maxPossibleBalance = MIN_ACTIVE_AMOUNT.mul(TOTAL_ACTIVE_BALANCE_LIMIT)
 
         beforeEach('stake some tokens', async () => {
           await ANJ.generateTokens(from, maxPossibleBalance)
@@ -196,7 +196,7 @@ contract('JurorsRegistry', ([_, juror]) => {
               await ANJ.generateTokens(from, 1)
               await ANJ.approveAndCall(registry.address, 1, '0x', { from })
 
-              await assertRevert(registry.activate(amount, { from }), 'JR_MIN_ACTIVE_BALANCES_LIMIT_REACHED')
+              await assertRevert(registry.activate(amount, { from }), 'JR_TOTAL_ACTIVE_BALANCE_EXCEEDED')
             })
           })
         })
@@ -392,7 +392,7 @@ contract('JurorsRegistry', ([_, juror]) => {
 
     context('when the registry is initialized', () => {
       beforeEach('initialize registry', async () => {
-        await registry.init(registryOwner.address, ANJ.address, MIN_ACTIVE_AMOUNT, MIN_ACTIVE_AMOUNTS_LIMIT)
+        await registry.init(registryOwner.address, ANJ.address, MIN_ACTIVE_AMOUNT, TOTAL_ACTIVE_BALANCE_LIMIT)
       })
 
       const itRevertsForDifferentAmounts = () => {

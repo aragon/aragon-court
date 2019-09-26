@@ -6,7 +6,7 @@ import "./IJurorsRegistryOwner.sol";
 
 
 interface IJurorsRegistry {
-    function init(IJurorsRegistryOwner _owner, ERC20 _jurorToken, uint256 _minActiveBalance, uint256 _minActiveBalancesLimit) external;
+    function init(IJurorsRegistryOwner _owner, ERC20 _jurorToken, uint256 _minActiveBalance, uint256 _totalActiveBalanceLimit) external;
 
     function activate(uint256 _amount) external;
 

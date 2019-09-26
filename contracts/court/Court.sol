@@ -1624,8 +1624,9 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
     // TODO: move to a factory contract
     function _initJurorsRegistry(IJurorsRegistry _jurorsRegistry, ERC20 _jurorToken, uint256 _minJurorsActiveBalance) private {
         uint256 maxUint64 = uint256(uint64(-1));
-        uint256 minActiveBalancesLimit = maxUint64.div(FINAL_ROUND_WEIGHT_PRECISION);
-        _jurorsRegistry.init(IJurorsRegistryOwner(this), _jurorToken, _minJurorsActiveBalance, minActiveBalancesLimit);
+        uint256 minActiveBalancesLimit = maxUint64 / FINAL_ROUND_WEIGHT_PRECISION;
+        uint256 totalActiveBalanceLimit = _minJurorsActiveBalance.mul(minActiveBalancesLimit);
+        _jurorsRegistry.init(IJurorsRegistryOwner(this), _jurorToken, _minJurorsActiveBalance, totalActiveBalanceLimit);
     }
 
     // TODO: move to a factory contract

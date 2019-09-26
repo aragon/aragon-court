@@ -12,11 +12,11 @@ contract CourtAccounting is IAccounting, Initializable {
     using SafeERC20 for ERC20;
     using SafeMath for uint256;
 
-    string internal constant ERROR_SENDER_NOT_OWNER = "ACCOUNTING_SENDER_NOT_OWNER";
-    string internal constant ERROR_DEPOSIT_AMOUNT_ZERO = "ACCOUNTING_DEPOSIT_AMOUNT_ZERO";
-    string internal constant ERROR_WITHDRAW_FAILED = "ACCOUNTING_WITHDRAW_FAILED";
-    string internal constant ERROR_WITHDRAW_AMOUNT_ZERO = "ACCOUNTING_WITHDRAW_AMOUNT_ZERO";
-    string internal constant ERROR_WITHDRAW_INVALID_AMOUNT = "ACCOUNTING_WITHDRAW_INVALID_AMOUNT";
+    string private constant ERROR_SENDER_NOT_OWNER = "ACCOUNTING_SENDER_NOT_OWNER";
+    string private constant ERROR_DEPOSIT_AMOUNT_ZERO = "ACCOUNTING_DEPOSIT_AMOUNT_ZERO";
+    string private constant ERROR_WITHDRAW_FAILED = "ACCOUNTING_WITHDRAW_FAILED";
+    string private constant ERROR_WITHDRAW_AMOUNT_ZERO = "ACCOUNTING_WITHDRAW_AMOUNT_ZERO";
+    string private constant ERROR_WITHDRAW_INVALID_AMOUNT = "ACCOUNTING_WITHDRAW_INVALID_AMOUNT";
 
     address public owner;
     mapping (address => mapping (address => uint256)) internal balances;

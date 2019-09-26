@@ -11,7 +11,9 @@
     "coverage": "SOLIDITY_COVERAGE=true npm run ganache-cli:test",
     "ganache-cli:test": "./node_modules/@aragon/test-helpers/ganache-cli.sh"
   },
-  "pre-push": ["lint"],
+  "pre-push": [
+    "lint"
+  ],
   "dependencies": {
     "@aragon/os": "aragon/aragonOS#alpha_upgrade_solidity_5"
   },

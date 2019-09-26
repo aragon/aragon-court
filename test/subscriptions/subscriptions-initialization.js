@@ -96,7 +96,7 @@ contract('CourtSubscriptions', ([_, something]) => {
           const feeTokenAddress = ZERO_ADDRESS
 
           it('reverts', async () => {
-            await assertRevert(subscriptions.init(subscriptionsOwner.address, jurorsRegistry.address, PERIOD_DURATION, feeTokenAddress, FEE_AMOUNT, PREPAYMENT_PERIODS, LATE_PAYMENT_PENALTY_PCT, GOVERNOR_SHARE_PCT), 'CS_INVALID_FEE_TOKEN')
+            await assertRevert(subscriptions.init(subscriptionsOwner.address, jurorsRegistry.address, PERIOD_DURATION, feeTokenAddress, FEE_AMOUNT, PREPAYMENT_PERIODS, LATE_PAYMENT_PENALTY_PCT, GOVERNOR_SHARE_PCT), 'CS_FEE_TOKEN_NOT_CONTRACT')
           })
         })
 
@@ -112,7 +112,7 @@ contract('CourtSubscriptions', ([_, something]) => {
           const feeAmount = 0
 
           it('reverts', async () => {
-            await assertRevert(subscriptions.init(subscriptionsOwner.address, jurorsRegistry.address, PERIOD_DURATION, feeToken.address, feeAmount, PREPAYMENT_PERIODS, LATE_PAYMENT_PENALTY_PCT, GOVERNOR_SHARE_PCT), 'CS_INVALID_FEE_AMOUNT')
+            await assertRevert(subscriptions.init(subscriptionsOwner.address, jurorsRegistry.address, PERIOD_DURATION, feeToken.address, feeAmount, PREPAYMENT_PERIODS, LATE_PAYMENT_PENALTY_PCT, GOVERNOR_SHARE_PCT), 'CS_FEE_AMOUNT_ZERO')
           })
         })
 
@@ -120,7 +120,7 @@ contract('CourtSubscriptions', ([_, something]) => {
           const prePaymentPeriods = 0
 
           it('reverts', async () => {
-            await assertRevert(subscriptions.init(subscriptionsOwner.address, jurorsRegistry.address, PERIOD_DURATION, feeToken.address, FEE_AMOUNT, prePaymentPeriods, LATE_PAYMENT_PENALTY_PCT, GOVERNOR_SHARE_PCT), 'CS_INVALID_PREPAYMENT_PERIODS')
+            await assertRevert(subscriptions.init(subscriptionsOwner.address, jurorsRegistry.address, PERIOD_DURATION, feeToken.address, FEE_AMOUNT, prePaymentPeriods, LATE_PAYMENT_PENALTY_PCT, GOVERNOR_SHARE_PCT), 'CS_PREPAYMENT_PERIODS_ZERO')
           })
         })
 

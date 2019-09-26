@@ -10,17 +10,17 @@ import "./ICRVotingOwner.sol";
 contract CRVoting is Initializable, ICRVoting {
     using SafeMath for uint256;
 
-    string internal constant ERROR_NOT_OWNER = "CRV_SENDER_NOT_OWNER";
-    string internal constant ERROR_OWNER_NOT_CONTRACT = "CRV_OWNER_NOT_CONTRACT";
-    string internal constant ERROR_COMMIT_DENIED_BY_OWNER = "CRV_COMMIT_DENIED_BY_OWNER";
-    string internal constant ERROR_REVEAL_DENIED_BY_OWNER = "CRV_REVEAL_DENIED_BY_OWNER";
-    string internal constant ERROR_VOTE_ALREADY_EXISTS = "CRV_VOTE_ALREADY_EXISTS";
-    string internal constant ERROR_VOTE_DOES_NOT_EXIST = "CRV_VOTE_DOES_NOT_EXIST";
-    string internal constant ERROR_VOTE_ALREADY_COMMITTED = "CRV_VOTE_ALREADY_COMMITTED";
-    string internal constant ERROR_VOTE_ALREADY_REVEALED = "CRV_VOTE_ALREADY_REVEALED";
-    string internal constant ERROR_INVALID_OUTCOME = "CRV_INVALID_OUTCOME";
-    string internal constant ERROR_INVALID_OUTCOMES_AMOUNT = "CRV_INVALID_OUTCOMES_AMOUNT";
-    string internal constant ERROR_INVALID_COMMITMENT_SALT = "CRV_INVALID_COMMITMENT_SALT";
+    string private constant ERROR_NOT_OWNER = "CRV_SENDER_NOT_OWNER";
+    string private constant ERROR_OWNER_NOT_CONTRACT = "CRV_OWNER_NOT_CONTRACT";
+    string private constant ERROR_COMMIT_DENIED_BY_OWNER = "CRV_COMMIT_DENIED_BY_OWNER";
+    string private constant ERROR_REVEAL_DENIED_BY_OWNER = "CRV_REVEAL_DENIED_BY_OWNER";
+    string private constant ERROR_VOTE_ALREADY_EXISTS = "CRV_VOTE_ALREADY_EXISTS";
+    string private constant ERROR_VOTE_DOES_NOT_EXIST = "CRV_VOTE_DOES_NOT_EXIST";
+    string private constant ERROR_VOTE_ALREADY_COMMITTED = "CRV_VOTE_ALREADY_COMMITTED";
+    string private constant ERROR_VOTE_ALREADY_REVEALED = "CRV_VOTE_ALREADY_REVEALED";
+    string private constant ERROR_INVALID_OUTCOME = "CRV_INVALID_OUTCOME";
+    string private constant ERROR_INVALID_OUTCOMES_AMOUNT = "CRV_INVALID_OUTCOMES_AMOUNT";
+    string private constant ERROR_INVALID_COMMITMENT_SALT = "CRV_INVALID_COMMITMENT_SALT";
 
     // Outcome nr. 0 is used to denote a missing vote (default)
     uint8 internal constant OUTCOME_MISSING = uint8(0);
@@ -180,16 +180,6 @@ contract CRVoting is Initializable, ICRVoting {
     }
 
     /**
-    * @dev Get the tally of the winning outcome for a certain vote instance
-    * @param _voteId ID of the vote instance querying the tally of
-    * @return Tally of the winning outcome being queried for the given vote instance
-    */
-    function getWinningOutcomeTally(uint256 _voteId) external voteExists(_voteId) view returns (uint256) {
-        Vote storage vote = voteRecords[_voteId];
-        return vote.outcomesTally[vote.winningOutcome];
-    }
-
-    /**
     * @dev Get the tally of an outcome for a certain vote instance
     * @param _voteId ID of the vote instance querying the tally of
     * @param _outcome Outcome querying the tally of
@@ -248,7 +238,6 @@ contract CRVoting is Initializable, ICRVoting {
         returns (bool[] memory)
     {
         Vote storage vote = voteRecords[_voteId];
-        uint8 winningOutcome = vote.winningOutcome;
         bool[] memory votersInFavor = new bool[](_voters.length);
 
         // If there was a winning outcome, filter those voters that voted in favor of the given outcome.

@@ -109,10 +109,10 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
     struct FeesConfig {
         // Fee structure
         ERC20 token;                   // ERC20 token to be used for the fees of the Court
-        uint256 jurorFee;              // Per juror, total round juror fee = jurorFee * jurors drawn
-        uint256 heartbeatFee;          // Per dispute, total heartbeat fee = heartbeatFee * disputes/appeals in term
-        uint256 draftFee;              // Per juror, total round draft fee = draftFee * jurors drawn
-        uint256 settleFee;             // Per juror, total round draft fee = settleFee * jurors drawn
+        uint256 jurorFee;              // Amount of tokens paid to draft a juror to adjudicate a dispute
+        uint256 heartbeatFee;          // Amount of tokens paid per dispute to cover the term transitions costs of the draft term
+        uint256 draftFee;              // Amount of tokens paid per round to cover the costs of drafting jurors
+        uint256 settleFee;             // Amount of tokens paid per round to cover the costs of slashing jurors
     }
 
     // Dispute config
@@ -121,8 +121,8 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
         uint64 revealTerms;            // Revealing period duration in terms
         uint64 appealTerms;            // Appealing period duration in terms
         uint64 appealConfirmTerms;     // Confirmation appeal period duration in terms
-        uint16 penaltyPct;             // Per ten thousand that will be used to compute the tokens to be locked for a juror on a draft
-        uint16 finalRoundReduction;    // ‱ of reduction applied for final appeal round (1/10,000)
+        uint16 penaltyPct;             // Per ten thousand that will be used to compute the tokens to be locked for drafted jurors (‱ - 1/10,000)
+        uint16 finalRoundReduction;    // Per ten thousand of reduction applied for final appeal round (‱ - 1/10,000)
         uint64 firstRoundJurorsNumber; // Number of jurors drafted on first round
         uint64 appealStepFactor;       // Factor in which the jurors number is increased on each appeal
         uint256 maxRegularAppealRounds; // Before the final appeal
@@ -265,10 +265,10 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
     /**
     * @param _termDuration Duration in seconds per term (recommended 1 hour)
     * @param _tokens Array containing:
-    *        _jurorToken The address of the juror work token contract.
-    *        _feeToken The address of the token contract that is used to pay for fees.
-    * @param _jurorsRegistry The address of the JurorsRegistry component of the Court
-    * @param _voting The address of the Commit Reveal Voting contract.
+    *        _jurorToken Address of the juror work token contract.
+    *        _feeToken Address of the token contract that is used to pay for fees.
+    * @param _jurorsRegistry Address of the JurorsRegistry component of the Court
+    * @param _voting Address of the Commit Reveal Voting contract.
     * @param _fees Array containing:
     *        _jurorFee The amount of _feeToken that is paid per juror per dispute
     *        _heartbeatFee The amount of _feeToken per dispute to cover maintenance costs.

@@ -13,6 +13,7 @@ contract('CourtSubscriptions', ([_, payer, subscriber, anotherSubscriber]) => {
   const PCT_BASE = bn(10000)
   const FEE_AMOUNT = bigExp(10, 18)
   const PREPAYMENT_PERIODS = 5
+  const RESUME_PRE_PAID_PERIODS = 1
   const PERIOD_DURATION = 24 * 30           // 30 days, assuming terms are 1h
   const GOVERNOR_SHARE_PCT = bn(100)        // 100‱ = 1%
   const LATE_PAYMENT_PENALTY_PCT = bn(1000) // 1000‱ = 10%
@@ -27,7 +28,7 @@ contract('CourtSubscriptions', ([_, payer, subscriber, anotherSubscriber]) => {
   describe('payFees', () => {
     context('when the subscriptions was already initialized', () => {
       beforeEach('initialize subscriptions', async () => {
-        await subscriptions.init(subscriptionsOwner.address, jurorsRegistry.address, PERIOD_DURATION, feeToken.address, FEE_AMOUNT, PREPAYMENT_PERIODS, LATE_PAYMENT_PENALTY_PCT, GOVERNOR_SHARE_PCT)
+        await subscriptions.init(subscriptionsOwner.address, jurorsRegistry.address, PERIOD_DURATION, feeToken.address, FEE_AMOUNT, PREPAYMENT_PERIODS, RESUME_PRE_PAID_PERIODS, LATE_PAYMENT_PENALTY_PCT, GOVERNOR_SHARE_PCT)
       })
 
       context('when the number of periods is greater than zero', () => {
@@ -322,7 +323,7 @@ contract('CourtSubscriptions', ([_, payer, subscriber, anotherSubscriber]) => {
   describe('transferFeesToGovernor', () => {
     context('when the subscriptions was already initialized', () => {
       beforeEach('initialize subscriptions', async () => {
-        await subscriptions.init(subscriptionsOwner.address, jurorsRegistry.address, PERIOD_DURATION, feeToken.address, FEE_AMOUNT, PREPAYMENT_PERIODS, LATE_PAYMENT_PENALTY_PCT, GOVERNOR_SHARE_PCT)
+        await subscriptions.init(subscriptionsOwner.address, jurorsRegistry.address, PERIOD_DURATION, feeToken.address, FEE_AMOUNT, PREPAYMENT_PERIODS, RESUME_PRE_PAID_PERIODS, LATE_PAYMENT_PENALTY_PCT, GOVERNOR_SHARE_PCT)
       })
 
       context('when there are no accumulated fees', () => {
@@ -379,7 +380,7 @@ contract('CourtSubscriptions', ([_, payer, subscriber, anotherSubscriber]) => {
   describe('isUpToDate', () => {
     context('when the subscriptions was already initialized', () => {
       beforeEach('initialize subscriptions', async () => {
-        await subscriptions.init(subscriptionsOwner.address, jurorsRegistry.address, PERIOD_DURATION, feeToken.address, FEE_AMOUNT, PREPAYMENT_PERIODS, LATE_PAYMENT_PENALTY_PCT, GOVERNOR_SHARE_PCT)
+        await subscriptions.init(subscriptionsOwner.address, jurorsRegistry.address, PERIOD_DURATION, feeToken.address, FEE_AMOUNT, PREPAYMENT_PERIODS, RESUME_PRE_PAID_PERIODS, LATE_PAYMENT_PENALTY_PCT, GOVERNOR_SHARE_PCT)
       })
 
       context('when the subscriber was already subscribed', () => {

@@ -15,6 +15,7 @@ contract('CourtSubscriptions', ([_, something, subscriber]) => {
 
   const FEE_AMOUNT = bigExp(10, 18)
   const PREPAYMENT_PERIODS = 12
+  const RESUME_PRE_PAID_PERIODS = 10
   const PERIOD_DURATION = 24 * 30           // 30 days, assuming terms are 1h
   const GOVERNOR_SHARE_PCT = bn(100)        // 100‱ = 1%
   const LATE_PAYMENT_PENALTY_PCT = bn(1000) // 1000‱ = 10%
@@ -29,7 +30,7 @@ contract('CourtSubscriptions', ([_, something, subscriber]) => {
   describe('setFeeAmount', () => {
     context('when the subscriptions was already initialized', () => {
       beforeEach('initialize subscriptions', async () => {
-        await subscriptions.init(subscriptionsOwner.address, jurorsRegistry.address, PERIOD_DURATION, feeToken.address, FEE_AMOUNT, PREPAYMENT_PERIODS, LATE_PAYMENT_PENALTY_PCT, GOVERNOR_SHARE_PCT)
+        await subscriptions.init(subscriptionsOwner.address, jurorsRegistry.address, PERIOD_DURATION, feeToken.address, FEE_AMOUNT, PREPAYMENT_PERIODS, RESUME_PRE_PAID_PERIODS, LATE_PAYMENT_PENALTY_PCT, GOVERNOR_SHARE_PCT)
       })
 
       context('when the sender is the governor', async () => {
@@ -79,7 +80,7 @@ contract('CourtSubscriptions', ([_, something, subscriber]) => {
   describe('setFeeToken', () => {
     context('when the subscriptions was already initialized', () => {
       beforeEach('initialize subscriptions', async () => {
-        await subscriptions.init(subscriptionsOwner.address, jurorsRegistry.address, PERIOD_DURATION, feeToken.address, FEE_AMOUNT, PREPAYMENT_PERIODS, LATE_PAYMENT_PENALTY_PCT, GOVERNOR_SHARE_PCT)
+        await subscriptions.init(subscriptionsOwner.address, jurorsRegistry.address, PERIOD_DURATION, feeToken.address, FEE_AMOUNT, PREPAYMENT_PERIODS, RESUME_PRE_PAID_PERIODS, LATE_PAYMENT_PENALTY_PCT, GOVERNOR_SHARE_PCT)
       })
 
       context('when the sender is the governor', async () => {
@@ -197,13 +198,11 @@ contract('CourtSubscriptions', ([_, something, subscriber]) => {
   describe('setPrePaymentPeriods', () => {
     context('when the subscriptions was already initialized', () => {
       beforeEach('initialize subscriptions', async () => {
-        await subscriptions.init(subscriptionsOwner.address, jurorsRegistry.address, PERIOD_DURATION, feeToken.address, FEE_AMOUNT, PREPAYMENT_PERIODS, LATE_PAYMENT_PENALTY_PCT, GOVERNOR_SHARE_PCT)
+        await subscriptions.init(subscriptionsOwner.address, jurorsRegistry.address, PERIOD_DURATION, feeToken.address, FEE_AMOUNT, PREPAYMENT_PERIODS, RESUME_PRE_PAID_PERIODS, LATE_PAYMENT_PENALTY_PCT, GOVERNOR_SHARE_PCT)
       })
 
       context('when the sender is the governor', async () => {
-        context('when the given value is greater than zero', async () => {
-          const newPrePaymentPeriods = bn(10)
-
+        const itUpdatesThePrePaymentPeriods = newPrePaymentPeriods => {
           it('updates the pre payment periods number', async () => {
             await subscriptionsOwner.setPrePaymentPeriods(newPrePaymentPeriods)
 
@@ -214,12 +213,29 @@ contract('CourtSubscriptions', ([_, something, subscriber]) => {
             const previousPrePaymentPeriods = await subscriptions.prePaymentPeriods()
 
             const receipt = await subscriptionsOwner.setPrePaymentPeriods(newPrePaymentPeriods)
-            console.log()
             const logs = decodeEventsOfType(receipt, CourtSubscriptions.abi, 'PrePaymentPeriodsChanged')
 
             assertAmountOfEvents({ logs }, 'PrePaymentPeriodsChanged')
             assertEvent({ logs }, 'PrePaymentPeriodsChanged', { previousPrePaymentPeriods, currentPrePaymentPeriods: newPrePaymentPeriods })
           })
+        }
+
+        context('when the given value is greater than zero', async () => {
+          const newPrePaymentPeriods = bn(10)
+
+          itUpdatesThePrePaymentPeriods(newPrePaymentPeriods)
+        })
+
+        context('when the given value is equal to the resume pre-paid periods', async () => {
+          const newPrePaymentPeriods = RESUME_PRE_PAID_PERIODS
+
+          itUpdatesThePrePaymentPeriods(newPrePaymentPeriods)
+        })
+
+        context('when the given value is above the resume pre-paid periods', async () => {
+          const newPrePaymentPeriods = RESUME_PRE_PAID_PERIODS + 1
+
+          itUpdatesThePrePaymentPeriods(newPrePaymentPeriods)
         })
 
         context('when the given value is zero', async () => {
@@ -227,6 +243,14 @@ contract('CourtSubscriptions', ([_, something, subscriber]) => {
 
           it('reverts', async () => {
             await assertRevert(subscriptionsOwner.setPrePaymentPeriods(newPrePaymentPeriods), 'CS_PREPAYMENT_PERIODS_ZERO')
+          })
+        })
+
+        context('when the given value is above the resume pre-paid periods', async () => {
+          const newPrePaymentPeriods = RESUME_PRE_PAID_PERIODS - 1
+
+          it('reverts', async () => {
+            await assertRevert(subscriptionsOwner.setPrePaymentPeriods(newPrePaymentPeriods), 'CS_RESUME_PRE_PAID_PERIODS_BIG')
           })
         })
       })
@@ -248,7 +272,7 @@ contract('CourtSubscriptions', ([_, something, subscriber]) => {
   describe('setLatePaymentPenaltyPct', () => {
     context('when the subscriptions was already initialized', () => {
       beforeEach('initialize subscriptions', async () => {
-        await subscriptions.init(subscriptionsOwner.address, jurorsRegistry.address, PERIOD_DURATION, feeToken.address, FEE_AMOUNT, PREPAYMENT_PERIODS, LATE_PAYMENT_PENALTY_PCT, GOVERNOR_SHARE_PCT)
+        await subscriptions.init(subscriptionsOwner.address, jurorsRegistry.address, PERIOD_DURATION, feeToken.address, FEE_AMOUNT, PREPAYMENT_PERIODS, RESUME_PRE_PAID_PERIODS, LATE_PAYMENT_PENALTY_PCT, GOVERNOR_SHARE_PCT)
       })
 
       context('when the sender is the governor', async () => {
@@ -306,7 +330,7 @@ contract('CourtSubscriptions', ([_, something, subscriber]) => {
   describe('setGovernorSharePct', () => {
     context('when the subscriptions was already initialized', () => {
       beforeEach('initialize subscriptions', async () => {
-        await subscriptions.init(subscriptionsOwner.address, jurorsRegistry.address, PERIOD_DURATION, feeToken.address, FEE_AMOUNT, PREPAYMENT_PERIODS, LATE_PAYMENT_PENALTY_PCT, GOVERNOR_SHARE_PCT)
+        await subscriptions.init(subscriptionsOwner.address, jurorsRegistry.address, PERIOD_DURATION, feeToken.address, FEE_AMOUNT, PREPAYMENT_PERIODS, RESUME_PRE_PAID_PERIODS, LATE_PAYMENT_PENALTY_PCT, GOVERNOR_SHARE_PCT)
       })
 
       context('when the sender is the governor', async () => {
@@ -359,6 +383,72 @@ contract('CourtSubscriptions', ([_, something, subscriber]) => {
     context('when the subscriptions is not initialized', () => {
       it('reverts', async () => {
         await assertRevert(subscriptions.setGovernorSharePct(GOVERNOR_SHARE_PCT), '')
+      })
+    })
+  })
+
+  describe('setResumePrePaidPeriods', () => {
+    context('when the subscriptions was already initialized', () => {
+      beforeEach('initialize subscriptions', async () => {
+        await subscriptions.init(subscriptionsOwner.address, jurorsRegistry.address, PERIOD_DURATION, feeToken.address, FEE_AMOUNT, PREPAYMENT_PERIODS, RESUME_PRE_PAID_PERIODS, LATE_PAYMENT_PENALTY_PCT, GOVERNOR_SHARE_PCT)
+      })
+
+      context('when the sender is the governor', async () => {
+        const itUpdatesTheResumePenalties = (newResumePrePaidPeriods) => {
+          it('updates the resume penalties', async () => {
+            await subscriptionsOwner.setResumePrePaidPeriods(newResumePrePaidPeriods)
+
+            assert.equal((await subscriptions.resumePrePaidPeriods()).toString(), newResumePrePaidPeriods.toString(), 'resume pre-paid periods does not match')
+          })
+
+          it('emits an event', async () => {
+            const previousResumePrePaidPeriods = await subscriptions.resumePrePaidPeriods()
+
+            const receipt = await subscriptionsOwner.setResumePrePaidPeriods(newResumePrePaidPeriods)
+            const logs = decodeEventsOfType(receipt, CourtSubscriptions.abi, 'ResumePenaltiesChanged')
+
+            assertAmountOfEvents({ logs }, 'ResumePenaltiesChanged')
+            assertEvent({ logs }, 'ResumePenaltiesChanged', { previousResumePrePaidPeriods, currentResumePrePaidPeriods: newResumePrePaidPeriods })
+          })
+        }
+
+        context('when the given values is zero', async () => {
+          const newResumePrePaidPeriods = bn(0)
+
+          itUpdatesTheResumePenalties(newResumePrePaidPeriods)
+        })
+
+        context('when the given resume pre-paid periods is below the pre-payment periods', async () => {
+          const newResumePrePaidPeriods = PREPAYMENT_PERIODS - 1
+
+          itUpdatesTheResumePenalties(newResumePrePaidPeriods)
+        })
+
+        context('when the given resume pre-paid periods is equal to the pre-payment periods', async () => {
+          const newResumePrePaidPeriods = PREPAYMENT_PERIODS
+
+          itUpdatesTheResumePenalties(newResumePrePaidPeriods)
+        })
+
+        context('when the given pre-paid periods is greater than the pre-payment periods', async () => {
+          const newResumePrePaidPeriods = PREPAYMENT_PERIODS + 1
+
+          it('reverts', async () => {
+            await assertRevert(subscriptionsOwner.setResumePrePaidPeriods(newResumePrePaidPeriods), 'CS_RESUME_PRE_PAID_PERIODS_BIG')
+          })
+        })
+      })
+
+      context('when the sender is not the governor', async () => {
+        it('reverts', async () => {
+          await assertRevert(subscriptions.setResumePrePaidPeriods(RESUME_PRE_PAID_PERIODS), 'CS_SENDER_NOT_GOVERNOR')
+        })
+      })
+    })
+
+    context('when the subscriptions is not initialized', () => {
+      it('reverts', async () => {
+        await assertRevert(subscriptions.setResumePrePaidPeriods(RESUME_PRE_PAID_PERIODS), '')
       })
     })
   })

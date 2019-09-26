@@ -20,7 +20,7 @@ contract CourtMock is Court, TimeHelpersMock {
         uint16[2] memory _pcts,
         uint64 _appealStepFactor,
         uint32 _maxRegularAppealRounds,
-        uint256[5] memory _subscriptionParams // _periodDuration, _feeAmount, _prePaymentPeriods, _latePaymentPenaltyPct, _governorSharePct
+        uint256[6] memory _subscriptionParams // _periodDuration, _feeAmount, _prePaymentPeriods, _resumePrePaidPeriods, _latePaymentPenaltyPct, _governorSharePct
     )
         Court(
             _termDuration,

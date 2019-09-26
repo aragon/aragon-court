@@ -46,12 +46,14 @@ module.exports = (web3, artifacts) => {
     appealStepFactor:                   bn(3),           //  each time a new appeal occurs, the amount of jurors to be drafted will be incremented 3 times
     maxRegularAppealRounds:             bn(2),           //  there can be up to 2 appeals in total per dispute
     jurorsMinActiveBalance:             bigExp(100, 18), //  100 ANJ is the minimum balance jurors must activate to participate in the Court
-    subscriptionPeriodDuration:         bn(0),           //  none subscription period
-    subscriptionFeeAmount:              bn(0),           //  none subscription fee
-    subscriptionPrePaymentPeriods:      bn(0),           //  none subscription pre payment period
+    finalRoundWeightPrecision:          bn(1000),        //  use to improve division rounding for final round maths
+
+    subscriptionPeriodDuration:         bn(10),          //  each subscription period lasts 10 terms
+    subscriptionFeeAmount:              bigExp(100, 18), //  100 fee tokens per subscription period
+    subscriptionPrePaymentPeriods:      bn(15),          //  15 subscription pre payment period
+    subscriptionResumePrePaidPeriods:   bn(10),          //  10 pre-paid periods when resuming activity
     subscriptionLatePaymentPenaltyPct:  bn(0),           //  none subscription late payment penalties
     subscriptionGovernorSharePct:       bn(0),           //  none subscription governor shares
-    finalRoundWeightPrecision:          bn(1000),        //  use to improve division rounding for final round maths
   }
 
   class CourtHelper {
@@ -357,7 +359,7 @@ module.exports = (web3, artifacts) => {
         [ this.penaltyPct, this.finalRoundReduction ],
         this.appealStepFactor,
         this.maxRegularAppealRounds,
-        [ this.subscriptionPeriodDuration, this.subscriptionFeeAmount, this.subscriptionPrePaymentPeriods, this.subscriptionLatePaymentPenaltyPct, this.subscriptionGovernorSharePct ]
+        [ this.subscriptionPeriodDuration, this.subscriptionFeeAmount, this.subscriptionPrePaymentPeriods, this.subscriptionResumePrePaidPeriods, this.subscriptionLatePaymentPenaltyPct, this.subscriptionGovernorSharePct ]
       )
 
       const zeroTermStartTime = this.firstTermStartTime.sub(this.termDuration)

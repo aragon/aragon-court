@@ -17,20 +17,25 @@ contract CourtSubscriptions is IsContract, ISubscriptions, TimeHelpers {
     using SafeMath for uint256;
     using PctHelpers for uint256;
 
-    string private constant ERROR_NOT_GOVERNOR = "SUB_NOT_GOVERNOR";
-    string private constant ERROR_OWNER_ALREADY_SET = "SUB_OWNER_ALREADY_SET";
-    string private constant ERROR_ZERO_TRANSFER = "SUB_ZERO_TRANSFER";
-    string private constant ERROR_TOKEN_TRANSFER_FAILED = "SUB_TOKEN_TRANSFER_FAILED";
-    string private constant ERROR_ZERO_PERIOD_DURATION = "SUB_ZERO_PERIOD_DURATION";
-    string private constant ERROR_ZERO_FEE = "SUB_ZERO_FEE";
-    string private constant ERROR_NOT_CONTRACT = "SUB_NOT_CONTRACT";
-    string private constant ERROR_ZERO_PREPAYMENT_PERIODS = "SUB_ZERO_PREPAYMENT_PERIODS";
-    string private constant ERROR_OVERFLOW = "SUB_OVERFLOW";
-    string private constant ERROR_INVALID_PERIOD = "SUB_INVALID_PERIOD";
-    string private constant ERROR_ALREADY_CLAIMED = "SUB_ALREADY_CLAIMED";
-    string private constant ERROR_NOTHING_TO_CLAIM = "SUB_NOTHING_TO_CLAIM";
-    string private constant ERROR_PAY_ZERO_PERIODS = "SUB_PAY_ZERO_PERIODS";
-    string private constant ERROR_TOO_MANY_PERIODS = "SUB_TOO_MANY_PERIODS";
+    string private constant ERROR_OWNER_ALREADY_SET = "CS_OWNER_ALREADY_SET";
+    string private constant ERROR_SENDER_NOT_GOVERNOR = "CS_SENDER_NOT_GOVERNOR";
+    string private constant ERROR_GOVERNOR_SHARE_FEES_ZERO = "CS_GOVERNOR_SHARE_FEES_ZERO";
+    string private constant ERROR_TOKEN_TRANSFER_FAILED = "CS_TOKEN_TRANSFER_FAILED";
+    string private constant ERROR_PERIOD_DURATION_ZERO = "CS_PERIOD_DURATION_ZERO";
+    string private constant ERROR_INVALID_FEE_AMOUNT = "CS_INVALID_FEE_AMOUNT";
+    string private constant ERROR_FEE_AMOUNT_ZERO = "CS_FEE_AMOUNT_ZERO";
+    string private constant ERROR_INVALID_FEE_TOKEN = "CS_INVALID_FEE_TOKEN";
+    string private constant ERROR_FEE_TOKEN_NOT_CONTRACT = "CS_FEE_TOKEN_NOT_CONTRACT";
+    string private constant ERROR_INVALID_PREPAYMENT_PERIODS = "CS_INVALID_PREPAYMENT_PERIODS";
+    string private constant ERROR_PREPAYMENT_PERIODS_ZERO = "CS_PREPAYMENT_PERIODS_ZERO";
+    string private constant ERROR_INVALID_GOVERNOR_SHARE_PCT = "CS_INVALID_GOVERNOR_SHARE_PCT";
+    string private constant ERROR_OVERRATED_GOVERNOR_SHARE_PCT = "CS_OVERRATED_GOVERNOR_SHARE_PCT";
+    string private constant ERROR_INVALID_LATE_PAYMENT_PENALTY_PCT = "CS_INVALID_LATE_PAYMENT_PENALTY";
+    string private constant ERROR_NON_PAST_PERIOD = "CS_NON_PAST_PERIOD";
+    string private constant ERROR_JUROR_FEES_ALREADY_CLAIMED = "CS_JUROR_FEES_ALREADY_CLAIMED";
+    string private constant ERROR_JUROR_NOTHING_TO_CLAIM = "CS_JUROR_NOTHING_TO_CLAIM";
+    string private constant ERROR_PAYING_ZERO_PERIODS = "CS_PAYING_ZERO_PERIODS";
+    string private constant ERROR_PAYING_TOO_MANY_PERIODS = "CS_PAYING_TOO_MANY_PERIODS";
 
     // Term 0 is for jurors on-boarding
     uint64 internal constant START_TERM_ID = 1;
@@ -87,12 +92,17 @@ contract CourtSubscriptions is IsContract, ISubscriptions, TimeHelpers {
     event FeesPaid(address indexed subscriber, uint256 periods, uint256 newLastPeriodId, uint256 collectedFees, uint256 governorFee);
     event FeesClaimed(address indexed juror, uint256 indexed periodId, uint256 jurorShare);
     event GovernorFeesTransferred(uint256 amount);
+    event FeeTokenChanged(address previousFeeToken, address currentFeeToken);
+    event FeeAmountChanged(uint256 previousFeeAmount, uint256 currentFeeAmount);
+    event PrePaymentPeriodsChanged(uint256 previousPrePaymentPeriods, uint256 currentPrePaymentPeriods);
+    event GovernorSharePctChanged(uint16 previousGovernorSharePct, uint16 currentGovernorSharePct);
+    event LatePaymentPenaltyPctChanged(uint16 previousLatePaymentPenaltyPct, uint16 currentLatePaymentPenaltyPct);
 
     /**
     * @dev Ensure the msg.sender is the governor of the Court
     */
     modifier onlyGovernor {
-        require(msg.sender == owner.getGovernor(), ERROR_NOT_GOVERNOR);
+        require(msg.sender == owner.getGovernor(), ERROR_SENDER_NOT_GOVERNOR);
         _;
     }
 
@@ -121,7 +131,7 @@ contract CourtSubscriptions is IsContract, ISubscriptions, TimeHelpers {
     {
         // TODO: cannot check the given owner is a contract cause the Court set this up in the constructor, move to a factory
         require(address(owner) == address(0), ERROR_OWNER_ALREADY_SET);
-        require(_periodDuration > 0, ERROR_ZERO_PERIOD_DURATION);
+        require(_periodDuration > 0, ERROR_PERIOD_DURATION_ZERO);
 
         owner = _owner;
         jurorsRegistry = _jurorsRegistry;
@@ -129,7 +139,7 @@ contract CourtSubscriptions is IsContract, ISubscriptions, TimeHelpers {
         _setFeeToken(_feeToken);
         _setFeeAmount(_feeAmount);
         _setPrePaymentPeriods(_prePaymentPeriods);
-        latePaymentPenaltyPct = _latePaymentPenaltyPct;
+        _setLatePaymentPenaltyPct(_latePaymentPenaltyPct);
         _setGovernorSharePct(_governorSharePct);
     }
 
@@ -139,7 +149,7 @@ contract CourtSubscriptions is IsContract, ISubscriptions, TimeHelpers {
     * @param _periods Number of periods to be paid in total since the last paid period
     */
     function payFees(address _from, uint256 _periods) external {
-        require(_periods > 0, ERROR_PAY_ZERO_PERIODS);
+        require(_periods > 0, ERROR_PAYING_ZERO_PERIODS);
 
         Subscriber storage subscriber = subscribers[_from];
         uint256 currentPeriodId = _getCurrentPeriodId();
@@ -152,12 +162,12 @@ contract CourtSubscriptions is IsContract, ISubscriptions, TimeHelpers {
 
         // Compute the portion of the total amount to pay that will be allocated to the governor
         uint256 governorFee = amountToPay.pct(governorSharePct);
-        accumulatedGovernorFees += governorFee;
+        accumulatedGovernorFees = accumulatedGovernorFees.add(governorFee);
 
         // Note that it is safe to avoid SafeMath here since the governor share cannot be above 100%. Thus, the highest governor fees we
         // could have is equal to the amount to be paid.
         uint256 collectedFees = amountToPay - governorFee;
-        period.collectedFees += collectedFees;
+        period.collectedFees = period.collectedFees.add(collectedFees);
 
         // Initialize subscription for the requested subscriber if it is the first time paying fees
         if (!subscriber.subscribed) {
@@ -178,19 +188,27 @@ contract CourtSubscriptions is IsContract, ISubscriptions, TimeHelpers {
     */
     function claimFees(uint256 _periodId) external {
         // Juror share fees can only be claimed for past periods
-        require(_periodId < _getCurrentPeriodId(), ERROR_INVALID_PERIOD);
+        require(_periodId < _getCurrentPeriodId(), ERROR_NON_PAST_PERIOD);
         Period storage period = periods[_periodId];
-        require(!period.claimedFees[msg.sender], ERROR_ALREADY_CLAIMED);
+        require(!period.claimedFees[msg.sender], ERROR_JUROR_FEES_ALREADY_CLAIMED);
 
         // Check claiming juror has share fees to be transferred
         (uint64 periodBalanceCheckpoint, uint256 totalActiveBalance) = _ensurePeriodBalanceDetails(_periodId, period);
         uint256 jurorShare = _getJurorShare(msg.sender, period, periodBalanceCheckpoint, totalActiveBalance);
-        require(jurorShare > 0, ERROR_NOTHING_TO_CLAIM);
+        require(jurorShare > 0, ERROR_JUROR_NOTHING_TO_CLAIM);
 
         // Update juror state and transfer share fees
         period.claimedFees[msg.sender] = true;
         emit FeesClaimed(msg.sender, _periodId, jurorShare);
         require(period.feeToken.safeTransfer(msg.sender, jurorShare), ERROR_TOKEN_TRANSFER_FAILED);
+    }
+
+    /**
+    * @notice Transfer owed fees to the governor
+    */
+    function transferFeesToGovernor() external {
+        require(accumulatedGovernorFees > 0, ERROR_GOVERNOR_SHARE_FEES_ZERO);
+        _transferFeesToGovernor();
     }
 
     /**
@@ -219,8 +237,8 @@ contract CourtSubscriptions is IsContract, ISubscriptions, TimeHelpers {
     * @param _feeAmount New amount of fees to be paid for each subscription period
     */
     function setFeeToken(ERC20 _feeToken, uint256 _feeAmount) external onlyGovernor {
-        // `setFeeToken` transfers governor's accumulated fees, so must be executed first
         _setFeeToken(_feeToken);
+        // `setFeeToken` transfers governor's accumulated fees, so must be executed first
         _setFeeAmount(_feeAmount);
     }
 
@@ -237,7 +255,7 @@ contract CourtSubscriptions is IsContract, ISubscriptions, TimeHelpers {
     * @param _latePaymentPenaltyPct New per ten thousand of subscription fees that will be applied as penalty for not paying during proper period
     */
     function setLatePaymentPenaltyPct(uint16 _latePaymentPenaltyPct) external onlyGovernor {
-        latePaymentPenaltyPct = _latePaymentPenaltyPct;
+        _setLatePaymentPenaltyPct(_latePaymentPenaltyPct);
     }
 
     /**
@@ -292,15 +310,7 @@ contract CourtSubscriptions is IsContract, ISubscriptions, TimeHelpers {
     function getDelayedPeriods(address _subscriber) external view returns (uint256) {
         Subscriber storage subscriber = subscribers[_subscriber];
         uint256 currentPeriodId = _getCurrentPeriodId();
-        uint256 lastPaymentPeriodId = subscriber.lastPaymentPeriodId;
-
-        if (!subscriber.subscribed || lastPaymentPeriodId >= currentPeriodId) {
-            // If the given subscriber was not subscribed yet, there are no pending payments
-            return 0;
-        } else {
-            // If the given subscriber was already subscribed, then the current period is not considered delayed
-            return currentPeriodId - lastPaymentPeriodId - 1;
-        }
+        return _getDelayedPeriods(subscriber, currentPeriodId);
     }
 
     /**
@@ -319,8 +329,6 @@ contract CourtSubscriptions is IsContract, ISubscriptions, TimeHelpers {
 
         (ERC20 feeToken, uint256 feeAmount) = _getPeriodFeeTokenAndAmount(periods[currentPeriodId]);
         tokenAddress = address(feeToken);
-
-        // total amount to pay by sender (on behalf of org), including penalties for delayed periods
         (amountToPay, newLastPeriodId) = _getPayFeesDetails(subscriber, _periods, currentPeriodId, feeAmount);
     }
 
@@ -328,10 +336,10 @@ contract CourtSubscriptions is IsContract, ISubscriptions, TimeHelpers {
     * @dev Tell the share fees corresponding to a juror for a certain period
     * @param _juror Address of the juror querying the owed shared fees of
     * @param _periodId Identification number of the period being queried
-    * @return Address of the token used for the subscription fees
-    * @return Amount of share fees owed to the given juror for the requested period
+    * @return feeToken Address of the token used for the subscription fees
+    * @return jurorShare Amount of share fees owed to the given juror for the requested period
     */
-    function getJurorShare(address _juror, uint256 _periodId) external view returns (address tokenAddress, uint256 jurorShare) {
+    function getJurorShare(address _juror, uint256 _periodId) external view returns (ERC20 feeToken, uint256 jurorShare) {
         Period storage period = periods[_periodId];
         uint64 periodBalanceCheckpoint;
         uint256 totalActiveBalance = period.totalActiveBalance;
@@ -345,8 +353,7 @@ contract CourtSubscriptions is IsContract, ISubscriptions, TimeHelpers {
 
         // Compute juror share fees using the period balance details
         jurorShare = _getJurorShare(_juror, period, periodBalanceCheckpoint, totalActiveBalance);
-        (ERC20 feeToken,) = _getPeriodFeeTokenAndAmount(period);
-        tokenAddress = address(feeToken);
+        (feeToken,) = _getPeriodFeeTokenAndAmount(period);
     }
 
     /**
@@ -360,16 +367,13 @@ contract CourtSubscriptions is IsContract, ISubscriptions, TimeHelpers {
     }
 
     /**
-    * @notice Transfer owed fees to the governor
+    * @dev Internal function to transfer owed fees to the governor. This function assumes there are some accumulated fees to be transferred.
     */
-    function transferFeesToGovernor() public {
-        require(accumulatedGovernorFees > 0, ERROR_ZERO_TRANSFER);
-
+    function _transferFeesToGovernor() internal {
         uint256 amount = accumulatedGovernorFees;
         accumulatedGovernorFees = 0;
-        require(currentFeeToken.safeTransfer(owner.getGovernor(), amount), ERROR_TOKEN_TRANSFER_FAILED);
-
         emit GovernorFeesTransferred(amount);
+        require(currentFeeToken.safeTransfer(owner.getGovernor(), amount), ERROR_TOKEN_TRANSFER_FAILED);
     }
 
     /**
@@ -417,7 +421,9 @@ contract CourtSubscriptions is IsContract, ISubscriptions, TimeHelpers {
     * @param _feeAmount New amount of fees to be paid for each subscription period
     */
     function _setFeeAmount(uint256 _feeAmount) internal {
-        require(_feeAmount > 0, ERROR_ZERO_FEE);
+        require(_feeAmount > 0, ERROR_FEE_AMOUNT_ZERO);
+
+        emit FeeAmountChanged(currentFeeAmount, _feeAmount);
         currentFeeAmount = _feeAmount;
     }
 
@@ -426,10 +432,12 @@ contract CourtSubscriptions is IsContract, ISubscriptions, TimeHelpers {
     * @param _feeToken New ERC20 token to be used for the subscription fees
     */
     function _setFeeToken(ERC20 _feeToken) internal {
-        require(isContract(address(_feeToken)), ERROR_NOT_CONTRACT);
+        require(isContract(address(_feeToken)), ERROR_FEE_TOKEN_NOT_CONTRACT);
+
         if (accumulatedGovernorFees > 0) {
-            transferFeesToGovernor();
+            _transferFeesToGovernor();
         }
+        emit FeeTokenChanged(address(currentFeeToken), address(_feeToken));
         currentFeeToken = _feeToken;
     }
 
@@ -439,8 +447,19 @@ contract CourtSubscriptions is IsContract, ISubscriptions, TimeHelpers {
     */
     function _setPrePaymentPeriods(uint256 _prePaymentPeriods) internal {
         // The pre payments period number must contemplate the current period. Thus, it must be greater than zero.
-        require(_prePaymentPeriods > 0, ERROR_ZERO_PREPAYMENT_PERIODS);
+        require(_prePaymentPeriods > 0, ERROR_PREPAYMENT_PERIODS_ZERO);
+
+        emit PrePaymentPeriodsChanged(prePaymentPeriods, _prePaymentPeriods);
         prePaymentPeriods = _prePaymentPeriods;
+    }
+
+    /**
+    * @dev Internal function to set new late payment penalty `_latePaymentPenaltyPct`‱ (1/10,000)
+    * @param _latePaymentPenaltyPct New per ten thousand of subscription fees that will be applied as penalty for not paying during proper period
+    */
+    function _setLatePaymentPenaltyPct(uint16 _latePaymentPenaltyPct) internal {
+        emit LatePaymentPenaltyPctChanged(latePaymentPenaltyPct, _latePaymentPenaltyPct);
+        latePaymentPenaltyPct = _latePaymentPenaltyPct;
     }
 
     /**
@@ -449,7 +468,9 @@ contract CourtSubscriptions is IsContract, ISubscriptions, TimeHelpers {
     */
     function _setGovernorSharePct(uint16 _governorSharePct) internal {
         // Check governor share is not greater than 10,000‱
-        require(PctHelpers.isValid(_governorSharePct), ERROR_OVERFLOW);
+        require(PctHelpers.isValid(_governorSharePct), ERROR_OVERRATED_GOVERNOR_SHARE_PCT);
+
+        emit GovernorSharePctChanged(governorSharePct, _governorSharePct);
         governorSharePct = _governorSharePct;
     }
 
@@ -514,31 +535,51 @@ contract CourtSubscriptions is IsContract, ISubscriptions, TimeHelpers {
             newLastPeriodId = _currentPeriodId + _periods - 1;
         } else {
             // Compute number of delayed periods if there are some, current period is not considered as delayed
-            //
-            //   subs      last           cur       new
-            //  +----+----+----+----+----+----+----+----+
-            //                 <---------><------------->
-            //                   delayed      regular
-            //                 <------------------------>
-            //                         _periods
-            if (_currentPeriodId > lastPaymentPeriodId + 1) {
-                delayedPeriods = _currentPeriodId - lastPaymentPeriodId - 1;
-            }
-            // If the number of delayed periods is greater than the requested number of periods to be paid, cap the number of delayed periods,
-            // otherwise, compute the number of regular periods to be paid
-            if (delayedPeriods > _periods) {
+            uint256 totalDelayedPeriods = _getDelayedPeriods(_subscriber, _currentPeriodId);
+            // Compute the number of regular and delayed periods to be paid
+            if (totalDelayedPeriods > _periods) {
                 delayedPeriods = _periods;
             } else {
+                delayedPeriods = totalDelayedPeriods;
+                // Note that there is no need to use SafeMath here, we already checked the total number of delayed periods
                 regularPeriods = _periods - delayedPeriods;
             }
             newLastPeriodId = lastPaymentPeriodId + _periods;
         }
 
         // Check periods being paid in advance
-        require(newLastPeriodId <= _currentPeriodId || newLastPeriodId.sub(_currentPeriodId) < prePaymentPeriods, ERROR_TOO_MANY_PERIODS);
+        require(newLastPeriodId <= _currentPeriodId || newLastPeriodId.sub(_currentPeriodId) < prePaymentPeriods, ERROR_PAYING_TOO_MANY_PERIODS);
 
-        // Compute amount to be paid: delayedPeriods * _feeAmount * (1 + latePaymentPenaltyPct/PCT_BASE) + regularPeriods * _feeAmount
-        amountToPay = delayedPeriods.mul(_feeAmount).pctIncrease(latePaymentPenaltyPct).add(regularPeriods.mul(_feeAmount));
+        // Regular periods to be paid is equal to `regularPeriods * _feeAmount`
+        uint256 regularPayment = regularPeriods.mul(_feeAmount);
+        // Delayed periods to be paid is equal to `delayedPeriods * _feeAmount * (1 + latePaymentPenaltyPct/PCT_BASE)`
+        uint256 delayedPayment = delayedPeriods.mul(_feeAmount).pctIncrease(latePaymentPenaltyPct);
+        // Compute total amount to be paid
+        amountToPay = regularPayment.add(delayedPayment);
+    }
+
+    /**
+    * @dev Internal function to tell the number of overdue payments for a given subscriber
+    * @param _subscriber Subscriber querying the delayed periods of
+    * @param _currentPeriodId Identification number of the current period
+    * @return Number of overdue payments for the requested subscriber
+    *
+    *    subs      last           cur       new
+    *   +----+----+----+----+----+----+----+----+
+    *                  <---------><------------->
+    *                    delayed      regular
+    */
+    function _getDelayedPeriods(Subscriber storage _subscriber, uint256 _currentPeriodId) internal view returns (uint256) {
+        uint256 lastPaymentPeriodId = _subscriber.lastPaymentPeriodId;
+
+        if (!_subscriber.subscribed || lastPaymentPeriodId >= _currentPeriodId) {
+            // If the given subscriber was not subscribed yet, there are no pending payments
+            return 0;
+        } else {
+            // If the given subscriber was already subscribed, then the current period is not considered delayed
+            // Note that there is no need to use SafeMath here since we already know last payment period is before current period
+            return _currentPeriodId - lastPaymentPeriodId - 1;
+        }
     }
 
     /**
@@ -563,6 +604,7 @@ contract CourtSubscriptions is IsContract, ISubscriptions, TimeHelpers {
         }
 
         // Use randomness to choose a Court term of the requested period and query the total amount of juror tokens active at that term
+        // Note that there is no need to use SafeMath here since terms are represented in `uint64`
         periodBalanceCheckpoint = periodStartTermId + uint64(uint256(randomness) % periodDuration);
         totalActiveBalance = jurorsRegistry.totalActiveBalanceAt(periodBalanceCheckpoint);
     }

@@ -83,7 +83,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
     uint8 internal constant MAX_RULING_OPTIONS = MIN_RULING_OPTIONS;
 
     // Cap the max number of regular appeal rounds
-    uint16 internal constant MAX_REGULAR_APPEAL_ROUNDS_LIMIT = 10;
+    uint256 internal constant MAX_REGULAR_APPEAL_ROUNDS_LIMIT = 10;
 
     // Precision factor used to improve rounding when computing weights for the final round
     uint256 internal constant FINAL_ROUND_WEIGHT_PRECISION = 1000;

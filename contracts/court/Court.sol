@@ -123,11 +123,11 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
         uint64 appealConfirmTerms;     // Confirmation appeal period duration in terms
         uint16 penaltyPct;             // Per ten thousand that will be used to compute the tokens to be locked for a juror on a draft
         uint16 finalRoundReduction;    // ‱ of reduction applied for final appeal round (1/10,000)
-        uint16 firstRoundJurorsNumber; // Number of jurors drafted on first round
-        uint16 appealStepFactor;       // Factor in which the jurors number is increased on each appeal
-        uint16 maxRegularAppealRounds; // Before the final appeal
-        uint8 appealCollateralFactor;  // Multiple of juror fees required to appeal a preliminary ruling
-        uint8 appealConfirmCollateralFactor; // Multiple of juror fees required to confirm appeal
+        uint64 firstRoundJurorsNumber; // Number of jurors drafted on first round
+        uint64 appealStepFactor;       // Factor in which the jurors number is increased on each appeal
+        uint256 maxRegularAppealRounds; // Before the final appeal
+        uint256 appealCollateralFactor; // Multiple of juror fees required to appeal a preliminary ruling
+        uint256 appealConfirmCollateralFactor; // Multiple of juror fees required to confirm appeal
     }
 
     struct CourtConfig {
@@ -309,8 +309,8 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
         uint256 _minJurorsActiveBalance,
         uint64[4] memory _roundStateDurations,
         uint16[2] memory _pcts, //_penaltyPct, _finalRoundReduction
-        uint16[3] memory _roundParams, // _firstRoundJurorsNumber, _appealStepFactor, _maxRegularAppealRounds
-        uint8[2] memory _appealCollateralParams, // _appealCollateralFactor, _appealConfirmCollateralFactor
+        uint64[3] memory _roundParams, // _firstRoundJurorsNumber, _appealStepFactor, _maxRegularAppealRounds
+        uint256[2] memory _appealCollateralParams, // _appealCollateralFactor, _appealConfirmCollateralFactor
         uint256[5] memory _subscriptionParams // _periodDuration, _feeAmount, _prePaymentPeriods, _latePaymentPenaltyPct, _governorSharePct
     ) public {
         require(_firstTermStartTime >= getTimestamp64() + _termDuration, ERROR_BAD_FIRST_TERM_START_TIME);
@@ -763,8 +763,8 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
             uint256[4] memory fees, //jurorFee, heartbeatFee, draftFee, settleFee,
             uint64[4] memory roundStateDurations, //commitTerms, revealTerms, appealTerms, appealConfirmTerms,
             uint16[2] memory pcts, // penaltyPct, finalRoundReduction,
-            uint16[3] memory roundParams, // firstRoundJurorsNumber, appealStepFactor, maxRegularAppealRounds,
-            uint8[2] memory appealCollateralParams // appealCollateralFactor, appealConfirmCollateralFactor
+            uint64[3] memory roundParams, // firstRoundJurorsNumber, appealStepFactor, maxRegularAppealRounds,
+            uint256[2] memory appealCollateralParams // appealCollateralFactor, appealConfirmCollateralFactor
         )
     {
         CourtConfig storage config = _getConfigAt(_termId);
@@ -779,7 +779,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
             disputesConfig.appealConfirmTerms
         ];
         pcts = [ disputesConfig.penaltyPct, disputesConfig.finalRoundReduction ];
-        roundParams = [ disputesConfig.firstRoundJurorsNumber, disputesConfig.appealStepFactor, disputesConfig.maxRegularAppealRounds ];
+        roundParams = [ disputesConfig.firstRoundJurorsNumber, disputesConfig.appealStepFactor, uint64(disputesConfig.maxRegularAppealRounds) ];
         appealCollateralParams = [ disputesConfig.appealCollateralFactor, disputesConfig.appealConfirmCollateralFactor ];
     }
 
@@ -1186,8 +1186,8 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
         uint256[4] memory _fees, // _jurorFee, _heartbeatFee, _draftFee, _settleFee
         uint64[4] memory _roundStateDurations,
         uint16[2] memory _pcts, //_penaltyPct, _finalRoundReduction,
-        uint16[3] memory _roundParams, // _firstRoundJurorsNumber, _appealStepFactor, _maxRegularAppealRounds
-        uint8[2] memory _appealCollateralParams // _appealCollateralFactor, _appealConfirmCollateralFactor
+        uint64[3] memory _roundParams, // _firstRoundJurorsNumber, _appealStepFactor, _maxRegularAppealRounds
+        uint256[2] memory _appealCollateralParams // _appealCollateralFactor, _appealConfirmCollateralFactor
     )
         internal
     {
@@ -1200,11 +1200,11 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
         require(PctHelpers.isValid(_penaltyPct), ERROR_INVALID_PENALTY_PCT);
 
         // Disputes must request at least one juror to be drafted initially
-        uint16 _firstRoundJurorsNumber = _roundParams[0];
+        uint64 _firstRoundJurorsNumber = _roundParams[0];
         require(_firstRoundJurorsNumber > 0, ERROR_BAD_INITIAL_JURORS);
 
         // Make sure the max number of appeals allowed does not reach the limit
-        uint16 _maxRegularAppealRounds = _roundParams[2];
+        uint256 _maxRegularAppealRounds = _roundParams[2];
         bool isMaxAppealRoundsValid = _maxRegularAppealRounds > 0 && _maxRegularAppealRounds <= MAX_REGULAR_APPEAL_ROUNDS_LIMIT;
         require(isMaxAppealRoundsValid, ERROR_INVALID_MAX_APPEAL_ROUNDS);
 
@@ -1361,7 +1361,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
         nextRoundStartTerm = currentRoundAppealStartTerm + config.disputes.appealTerms + config.disputes.appealConfirmTerms;
 
         // Compute next round settings depending on if it will be the final round or not
-        if (_roundId >= uint256(config.disputes.maxRegularAppealRounds) - 1) {
+        if (_roundId >= config.disputes.maxRegularAppealRounds - 1) {
             // If the next round is the final round, no draft is needed.
             newDisputeState = DisputeState.Adjudicating;
             // The number of jurors will be the number of times the minimum stake is hold in the registry,
@@ -1388,9 +1388,9 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
     * @param _draftTermId Term from which the the jurors for the dispute will be drafted
     * @return Jurors number for the first regular round of a dispute
     */
-    function _getFirstRoundJurorsNumber(uint64 _draftTermId) internal view returns (uint64 jurorsNumber) {
+    function _getFirstRoundJurorsNumber(uint64 _draftTermId) internal view returns (uint64) {
         CourtConfig storage config = _getConfigAt(_draftTermId);
-        jurorsNumber = config.disputes.firstRoundJurorsNumber;
+        return config.disputes.firstRoundJurorsNumber;
     }
 
     /**
@@ -1512,7 +1512,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
         }
 
         // If the max number of appeals has been reached, then the last round is the final round and can be considered ended
-        bool maxAppealReached = numberOfRounds > uint256(config.disputes.maxRegularAppealRounds);
+        bool maxAppealReached = numberOfRounds > config.disputes.maxRegularAppealRounds;
         if (maxAppealReached) {
             return AdjudicationState.Ended;
         }
@@ -1611,7 +1611,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
     * @return True if the given round is regular, false in case its a final round
     */
     function _isRegularRound(uint256 _roundId, CourtConfig storage _config) internal view returns (bool) {
-        return _roundId < uint256(_config.disputes.maxRegularAppealRounds);
+        return _roundId < _config.disputes.maxRegularAppealRounds;
     }
 
     /**

@@ -27,9 +27,7 @@ contract('CourtSubscriptions', ([_, something]) => {
   describe('init', () => {
     context('when the subscriptions is not initialized', () => {
       context('when the initialization succeeds', () => {
-
-        // TODO: implement
-        it.skip('is initialized', async () => {
+        it('is initialized', async () => {
           await subscriptions.init(subscriptionsOwner.address, jurorsRegistry.address, PERIOD_DURATION, feeToken.address, FEE_AMOUNT, PREPAYMENT_PERIODS, LATE_PAYMENT_PENALTY_PCT, GOVERNOR_SHARE_PCT)
 
           assert.isTrue(await subscriptions.hasInitialized(), 'subscriptions is not initialized')
@@ -70,21 +68,19 @@ contract('CourtSubscriptions', ([_, something]) => {
           })
         })
 
-        // TODO: implement
-        context.skip('when the given jurors registry is the zero address', () => {
+        context('when the given jurors registry is the zero address', () => {
           const jurorsRegistryAddress = ZERO_ADDRESS
 
           it('reverts', async () => {
-            await assertRevert(subscriptions.init(subscriptionsOwner.address, jurorsRegistryAddress, PERIOD_DURATION, feeToken.address, FEE_AMOUNT, PREPAYMENT_PERIODS, LATE_PAYMENT_PENALTY_PCT, GOVERNOR_SHARE_PCT), 'CS_PERIOD_DURATION_ZERO')
+            await assertRevert(subscriptions.init(subscriptionsOwner.address, jurorsRegistryAddress, PERIOD_DURATION, feeToken.address, FEE_AMOUNT, PREPAYMENT_PERIODS, LATE_PAYMENT_PENALTY_PCT, GOVERNOR_SHARE_PCT), 'CS_REGISTRY_NOT_CONTRACT')
           })
         })
 
-        // TODO: implement
-        context.skip('when the given owner is not a contract address', () => {
+        context('when the given owner is not a contract address', () => {
           const jurorsRegistryAddress = something
 
           it('reverts', async () => {
-            await assertRevert(subscriptions.init(subscriptionsOwner.address, jurorsRegistryAddress, PERIOD_DURATION, feeToken.address, FEE_AMOUNT, PREPAYMENT_PERIODS, LATE_PAYMENT_PENALTY_PCT, GOVERNOR_SHARE_PCT), 'CS_FEE_TOKEN_NOT_CONTRACT')
+            await assertRevert(subscriptions.init(subscriptionsOwner.address, jurorsRegistryAddress, PERIOD_DURATION, feeToken.address, FEE_AMOUNT, PREPAYMENT_PERIODS, LATE_PAYMENT_PENALTY_PCT, GOVERNOR_SHARE_PCT), 'CS_REGISTRY_NOT_CONTRACT')
           })
         })
 
@@ -144,7 +140,7 @@ contract('CourtSubscriptions', ([_, something]) => {
       })
 
       it('reverts', async () => {
-        await assertRevert(subscriptions.init(subscriptionsOwner.address, jurorsRegistry.address, PERIOD_DURATION, feeToken.address, FEE_AMOUNT, PREPAYMENT_PERIODS, LATE_PAYMENT_PENALTY_PCT, GOVERNOR_SHARE_PCT), 'CS_OWNER_ALREADY_SET')
+        await assertRevert(subscriptions.init(subscriptionsOwner.address, jurorsRegistry.address, PERIOD_DURATION, feeToken.address, FEE_AMOUNT, PREPAYMENT_PERIODS, LATE_PAYMENT_PENALTY_PCT, GOVERNOR_SHARE_PCT), 'INIT_ALREADY_INITIALIZED')
       })
     })
   })

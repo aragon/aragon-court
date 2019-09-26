@@ -1,10 +1,11 @@
 pragma solidity ^0.5.8;
 
 import "@aragon/os/contracts/lib/token/ERC20.sol";
+import "@aragon/os/contracts/lib/math/SafeMath.sol";
 import "@aragon/os/contracts/common/SafeERC20.sol";
 import "@aragon/os/contracts/common/IsContract.sol";
-import "@aragon/os/contracts/lib/math/SafeMath.sol";
 import "@aragon/os/contracts/common/TimeHelpers.sol";
+import "@aragon/os/contracts/common/Initializable.sol";
 
 import "../lib/PctHelpers.sol";
 import "../registry/IJurorsRegistry.sol";
@@ -12,12 +13,13 @@ import "../subscriptions/ISubscriptions.sol";
 import "../subscriptions/ISubscriptionsOwner.sol";
 
 
-contract CourtSubscriptions is IsContract, ISubscriptions, TimeHelpers {
+contract CourtSubscriptions is TimeHelpers, Initializable, IsContract, ISubscriptions {
     using SafeERC20 for ERC20;
     using SafeMath for uint256;
     using PctHelpers for uint256;
 
     string private constant ERROR_OWNER_ALREADY_SET = "CS_OWNER_ALREADY_SET";
+    string private constant ERROR_REGISTRY_NOT_CONTRACT = "CS_REGISTRY_NOT_CONTRACT";
     string private constant ERROR_SENDER_NOT_GOVERNOR = "CS_SENDER_NOT_GOVERNOR";
     string private constant ERROR_GOVERNOR_SHARE_FEES_ZERO = "CS_GOVERNOR_SHARE_FEES_ZERO";
     string private constant ERROR_TOKEN_TRANSFER_FAILED = "CS_TOKEN_TRANSFER_FAILED";
@@ -130,8 +132,11 @@ contract CourtSubscriptions is IsContract, ISubscriptions, TimeHelpers {
         external
     {
         // TODO: cannot check the given owner is a contract cause the Court set this up in the constructor, move to a factory
-        require(address(owner) == address(0), ERROR_OWNER_ALREADY_SET);
+        // require(isContract(_owner), ERROR_OWNER_NOT_CONTRACT);
+        require(isContract(address(_jurorsRegistry)), ERROR_REGISTRY_NOT_CONTRACT);
         require(_periodDuration > 0, ERROR_PERIOD_DURATION_ZERO);
+
+        initialized();
 
         owner = _owner;
         jurorsRegistry = _jurorsRegistry;

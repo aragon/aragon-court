@@ -24,7 +24,7 @@ contract('CourtAccounting', ([_, owner, holder, someone]) => {
     })
 
     it('reverts when trying to initialize it again', async () => {
-      await assertRevert(accounting.init(owner), 'ACCOUNTING_ALREADY_INITIALIZED')
+      await assertRevert(accounting.init(owner), 'INIT_ALREADY_INITIALIZED')
     })
   })
 

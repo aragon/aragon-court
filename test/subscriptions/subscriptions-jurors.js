@@ -21,7 +21,7 @@ contract('CourtSubscriptions', ([_, payer, subscriberPeriod0, subscriberPeriod1,
   const LATE_PAYMENT_PENALTY_PCT = bn(1000) // 1000‱ = 10%
 
   const MIN_JURORS_ACTIVE_TOKENS = bigExp(100, 18)
-  const TOTAL_ACTIVE_BALANCE_LIMIT = bn(100000)
+  const TOTAL_ACTIVE_BALANCE_LIMIT = bigExp(100e6, 18)
 
   beforeEach('create base contracts', async () => {
     subscriptions = await CourtSubscriptions.new()

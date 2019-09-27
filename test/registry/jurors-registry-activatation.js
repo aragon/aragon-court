@@ -10,7 +10,7 @@ contract('JurorsRegistry', ([_, juror]) => {
   let registry, registryOwner, ANJ
 
   const MIN_ACTIVE_AMOUNT = bigExp(100, 18)
-  const TOTAL_ACTIVE_BALANCE_LIMIT = bn(1000)
+  const TOTAL_ACTIVE_BALANCE_LIMIT = bigExp(100e6, 18)
 
   beforeEach('create base contracts', async () => {
     registry = await JurorsRegistry.new()
@@ -53,7 +53,7 @@ contract('JurorsRegistry', ([_, juror]) => {
       })
 
       context('when the juror has already staked some tokens', () => {
-        const maxPossibleBalance = MIN_ACTIVE_AMOUNT.mul(TOTAL_ACTIVE_BALANCE_LIMIT)
+        const maxPossibleBalance = TOTAL_ACTIVE_BALANCE_LIMIT
 
         beforeEach('stake some tokens', async () => {
           await ANJ.generateTokens(from, maxPossibleBalance)

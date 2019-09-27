@@ -14,7 +14,7 @@ contract('JurorsRegistry', ([_, juror, secondJuror, thirdJuror, anyone]) => {
 
   const ACTIVATE_DATA = sha3('activate(uint256)').slice(0, 10)
   const MIN_ACTIVE_AMOUNT = bigExp(100, 18)
-  const TOTAL_ACTIVE_BALANCE_LIMIT = bn(1000)
+  const TOTAL_ACTIVE_BALANCE_LIMIT = bigExp(100e6, 18)
   const DRAFT_LOCK_PCT = bn(2000) // 20%
   const DRAFT_LOCK_AMOUNT = MIN_ACTIVE_AMOUNT.mul(DRAFT_LOCK_PCT).div(bn(10000))
   const EMPTY_RANDOMNESS = '0x0000000000000000000000000000000000000000000000000000000000000000'

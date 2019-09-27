@@ -16,6 +16,7 @@ contract('JurorsRegistry', ([_, juror500, juror1000, juror1500, juror2000, juror
 
   const DRAFT_LOCK_PCT = bn(2000) // 20%
   const MIN_ACTIVE_AMOUNT = bigExp(100, 18)
+  const TOTAL_ACTIVE_BALANCE_LIMIT = bigExp(100e6, 18)
   const ACTIVATE_DATA = sha3('activate(uint256)').slice(0, 10)
 
   const jurors = [
@@ -46,7 +47,7 @@ contract('JurorsRegistry', ([_, juror500, juror1000, juror1500, juror2000, juror
 
     context('when the registry is already initialized', () => {
       beforeEach('initialize registry and mint ANJ for jurors', async () => {
-        await registry.init(registryOwner.address, ANJ.address, MIN_ACTIVE_AMOUNT)
+        await registry.init(registryOwner.address, ANJ.address, MIN_ACTIVE_AMOUNT, TOTAL_ACTIVE_BALANCE_LIMIT)
         for (let i = 0; i < jurors.length; i++) {
           await ANJ.generateTokens(jurors[i].address, jurors[i].initialActiveBalance)
         }

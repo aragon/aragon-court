@@ -14,6 +14,7 @@ contract('JurorsRegistry', ([_, juror, secondJuror, thirdJuror, anyone]) => {
 
   const ACTIVATE_DATA = sha3('activate(uint256)').slice(0, 10)
   const MIN_ACTIVE_AMOUNT = bigExp(100, 18)
+  const TOTAL_ACTIVE_BALANCE_LIMIT = bigExp(100e6, 18)
   const DRAFT_LOCK_PCT = bn(2000) // 20%
   const DRAFT_LOCK_AMOUNT = MIN_ACTIVE_AMOUNT.mul(DRAFT_LOCK_PCT).div(bn(10000))
   const EMPTY_RANDOMNESS = '0x0000000000000000000000000000000000000000000000000000000000000000'
@@ -27,7 +28,7 @@ contract('JurorsRegistry', ([_, juror, secondJuror, thirdJuror, anyone]) => {
   describe('slashOrUnlock', () => {
     context('when the registry is initialized', () => {
       beforeEach('initialize registry', async () => {
-        await registry.init(registryOwner.address, ANJ.address, MIN_ACTIVE_AMOUNT)
+        await registry.init(registryOwner.address, ANJ.address, MIN_ACTIVE_AMOUNT, TOTAL_ACTIVE_BALANCE_LIMIT)
       })
 
       context('when the sender is the owner', () => {
@@ -207,7 +208,7 @@ contract('JurorsRegistry', ([_, juror, secondJuror, thirdJuror, anyone]) => {
   describe('collectTokens', () => {
     context('when the registry is initialized', () => {
       beforeEach('initialize registry', async () => {
-        await registry.init(registryOwner.address, ANJ.address, MIN_ACTIVE_AMOUNT)
+        await registry.init(registryOwner.address, ANJ.address, MIN_ACTIVE_AMOUNT, TOTAL_ACTIVE_BALANCE_LIMIT)
       })
 
       context('when the sender is the owner', () => {

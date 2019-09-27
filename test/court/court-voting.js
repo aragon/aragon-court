@@ -27,14 +27,14 @@ contract('Court', ([_, disputer, drafter, juror100, juror500, juror1000, juror15
   })
 
   describe('voting', () => {
-    const draftTermId = 4, jurorsNumber = 3
+    const draftTermId = 4
     let disputeId, voteId, voters, nonVoters
 
     beforeEach('activate jurors and create dispute', async () => {
       await courtHelper.activate(jurors)
 
       await courtHelper.setTerm(1)
-      disputeId = await courtHelper.dispute({ jurorsNumber, draftTermId, disputer })
+      disputeId = await courtHelper.dispute({ draftTermId, disputer })
       await courtHelper.passTerms(bn(draftTermId - 1)) // court is already at term one
     })
 

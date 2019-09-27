@@ -10,6 +10,7 @@ contract('JurorsRegistry', ([_, juror]) => {
   let registry, registryOwner, ANJ
 
   const MIN_ACTIVE_AMOUNT = bigExp(100, 18)
+  const TOTAL_ACTIVE_BALANCE_LIMIT = bigExp(100e6, 18)
 
   beforeEach('create base contracts', async () => {
     registry = await JurorsRegistry.new()
@@ -22,7 +23,7 @@ contract('JurorsRegistry', ([_, juror]) => {
 
     context('when the registry is initialized', () => {
       beforeEach('initialize registry', async () => {
-        await registry.init(registryOwner.address, ANJ.address, MIN_ACTIVE_AMOUNT)
+        await registry.init(registryOwner.address, ANJ.address, MIN_ACTIVE_AMOUNT, TOTAL_ACTIVE_BALANCE_LIMIT)
       })
 
       context('when the juror has not staked some tokens yet', () => {
@@ -52,11 +53,11 @@ contract('JurorsRegistry', ([_, juror]) => {
       })
 
       context('when the juror has already staked some tokens', () => {
-        const stakedBalance = MIN_ACTIVE_AMOUNT.mul(bn(3))
+        const maxPossibleBalance = TOTAL_ACTIVE_BALANCE_LIMIT
 
         beforeEach('stake some tokens', async () => {
-          await ANJ.generateTokens(from, stakedBalance)
-          await ANJ.approveAndCall(registry.address, stakedBalance, '0x', { from })
+          await ANJ.generateTokens(from, maxPossibleBalance)
+          await ANJ.approveAndCall(registry.address, maxPossibleBalance, '0x', { from })
         })
 
         const itHandlesActivationProperlyFor = (requestedAmount, expectedAmount = requestedAmount, deactivationAmount = bn(0)) => {
@@ -169,7 +170,7 @@ contract('JurorsRegistry', ([_, juror]) => {
             const amount = bn(0)
 
             itCreatesAnIdForTheJuror(amount)
-            itHandlesActivationProperlyFor(amount, stakedBalance)
+            itHandlesActivationProperlyFor(amount, maxPossibleBalance)
           })
 
           context('when the given amount is lower than the minimum active value', () => {
@@ -180,11 +181,23 @@ contract('JurorsRegistry', ([_, juror]) => {
             })
           })
 
-          context('when the given amount is greater than the minimum active value', () => {
+          context('when the given amount is greater than the minimum active value without exceeding the limit', () => {
             const amount = MIN_ACTIVE_AMOUNT.add(bn(1))
 
             itCreatesAnIdForTheJuror(amount)
             itHandlesActivationProperlyFor(amount)
+          })
+
+          context('when the given amount is greater than the minimum active value and exceeds the limit', () => {
+            const amount = maxPossibleBalance.add(bn(1))
+
+            it('reverts', async () => {
+              // max possible balance was already allowed, allowing one more token
+              await ANJ.generateTokens(from, 1)
+              await ANJ.approveAndCall(registry.address, 1, '0x', { from })
+
+              await assertRevert(registry.activate(amount, { from }), 'JR_TOTAL_ACTIVE_BALANCE_EXCEEDED')
+            })
           })
         })
 
@@ -198,7 +211,7 @@ contract('JurorsRegistry', ([_, juror]) => {
           context('when the juror does not have a deactivation request', () => {
             context('when the given amount is zero', () => {
               const amount = bn(0)
-              const expectedAmount = stakedBalance.sub(activeBalance)
+              const expectedAmount = maxPossibleBalance.sub(activeBalance)
 
               context('when the juror was not slash and reaches the minimum active amount of tokens', () => {
                 itHandlesActivationProperlyFor(amount, expectedAmount)
@@ -215,7 +228,7 @@ contract('JurorsRegistry', ([_, juror]) => {
               context('when the juror was slashed and does not reach the minimum active amount of tokens', () => {
                 beforeEach('slash juror', async () => {
                   await registryOwner.collect(juror, activeBalance)
-                  await registry.unstake(stakedBalance.sub(activeBalance).sub(bn(1)), '0x', { from })
+                  await registry.unstake(maxPossibleBalance.sub(activeBalance).sub(bn(1)), '0x', { from })
                 })
 
                 it('reverts', async () => {
@@ -259,7 +272,7 @@ contract('JurorsRegistry', ([_, juror]) => {
             })
 
             context('when the deactivation request is for the next term', () => {
-              const currentAvailableBalance = stakedBalance.sub(deactivationAmount)
+              const currentAvailableBalance = maxPossibleBalance.sub(deactivationAmount)
 
               context('when the given amount is zero', () => {
                 const amount = bn(0)
@@ -291,7 +304,7 @@ contract('JurorsRegistry', ([_, juror]) => {
             })
 
             context('when the deactivation request is for the current term', () => {
-              const currentAvailableBalance = stakedBalance.sub(activeBalance).add(deactivationAmount)
+              const currentAvailableBalance = maxPossibleBalance.sub(activeBalance).add(deactivationAmount)
 
               beforeEach('increment term', async () => {
                 await registryOwner.mockIncreaseTerm()
@@ -327,7 +340,7 @@ contract('JurorsRegistry', ([_, juror]) => {
             })
 
             context('when the deactivation request is for the previous term', () => {
-              const currentAvailableBalance = stakedBalance.sub(activeBalance).add(deactivationAmount)
+              const currentAvailableBalance = maxPossibleBalance.sub(activeBalance).add(deactivationAmount)
 
               beforeEach('increment term twice', async () => {
                 await registryOwner.mockIncreaseTerm()
@@ -379,7 +392,7 @@ contract('JurorsRegistry', ([_, juror]) => {
 
     context('when the registry is initialized', () => {
       beforeEach('initialize registry', async () => {
-        await registry.init(registryOwner.address, ANJ.address, MIN_ACTIVE_AMOUNT)
+        await registry.init(registryOwner.address, ANJ.address, MIN_ACTIVE_AMOUNT, TOTAL_ACTIVE_BALANCE_LIMIT)
       })
 
       const itRevertsForDifferentAmounts = () => {

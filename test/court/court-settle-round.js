@@ -31,7 +31,7 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
     voting = courtHelper.voting
   })
 
-  describe('settle', () => {
+  describe('settle round', () => {
     context('when the given dispute exists', () => {
       let disputeId, voteId
       const draftTermId = 4
@@ -77,16 +77,9 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
           })
         }
 
-        const itFailsToSettleAppealDeposits = (roundId) => {
-          it('fails to settle appeal deposits', async () => {
-            await assertRevert(court.settleAppealDeposit(disputeId, roundId), 'CT_ROUND_PENALTIES_NOT_SETTLED')
-          })
-        }
-
-        const itFailsToSettleAll = (roundId) => {
+        const itFailsToSettlePenaltiesAndRewards = (roundId) => {
           itFailsToSettlePenalties(roundId)
           itFailsToSettleRewards(roundId)
-          itFailsToSettleAppealDeposits(roundId)
         }
 
         const itExecutesFinalRulingProperly = expectedFinalRuling => {
@@ -387,26 +380,6 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
           })
         }
 
-        const itCannotSettleAppealDeposits = (roundId) => {
-          describe('settleAppealDeposit', () => {
-            context('when penalties have been settled', () => {
-              beforeEach('settle penalties', async () => {
-                await court.settlePenalties(disputeId, roundId, 0)
-              })
-
-              it('reverts', async () => {
-                await assertRevert(court.settleAppealDeposit(disputeId, roundId), 'CT_ROUND_NOT_APPEALED')
-              })
-            })
-
-            context('when penalties have not been settled yet', () => {
-              it('reverts', async () => {
-                await assertRevert(court.settleAppealDeposit(disputeId, roundId), 'CT_ROUND_PENALTIES_NOT_SETTLED')
-              })
-            })
-          })
-        }
-
         beforeEach('mock draft round', async () => {
           voteId = getVoteId(disputeId, roundId)
           await courtHelper.draft({ disputeId, drafter, draftedJurors: voters })
@@ -415,7 +388,7 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
         context('during commit period', () => {
           itIsAtState(roundId, ROUND_STATES.COMMITTING)
           itFailsToExecuteRuling()
-          itFailsToSettleAll(roundId)
+          itFailsToSettlePenaltiesAndRewards(roundId)
         })
 
         context('during reveal period', () => {
@@ -425,7 +398,7 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
 
           itIsAtState(roundId, ROUND_STATES.REVEALING)
           itFailsToExecuteRuling()
-          itFailsToSettleAll(roundId)
+          itFailsToSettlePenaltiesAndRewards(roundId)
         })
 
         context('during appeal period', () => {
@@ -436,7 +409,7 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
 
             itIsAtState(roundId, ROUND_STATES.APPEALING)
             itFailsToExecuteRuling()
-            itFailsToSettleAll(roundId)
+            itFailsToSettlePenaltiesAndRewards(roundId)
           })
 
           context('when there were some votes', () => {
@@ -447,7 +420,7 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
 
             itIsAtState(roundId, ROUND_STATES.APPEALING)
             itFailsToExecuteRuling()
-            itFailsToSettleAll(roundId)
+            itFailsToSettlePenaltiesAndRewards(roundId)
           })
         })
 
@@ -469,7 +442,6 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
               itIsAtState(roundId, ROUND_STATES.ENDED)
               itExecutesFinalRulingProperly(expectedFinalRuling)
               itSettlesPenaltiesAndRewardsProperly(roundId, expectedWinningJurors, expectedLosingJurors)
-              itCannotSettleAppealDeposits(roundId)
             })
 
             context('when the round was appealed', () => {
@@ -479,7 +451,7 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
 
               itIsAtState(roundId, ROUND_STATES.CONFIRMING_APPEAL)
               itFailsToExecuteRuling()
-              itFailsToSettleAll(roundId)
+              itFailsToSettlePenaltiesAndRewards(roundId)
             })
           })
 
@@ -501,7 +473,6 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
               itIsAtState(roundId, ROUND_STATES.ENDED)
               itExecutesFinalRulingProperly(expectedFinalRuling)
               itSettlesPenaltiesAndRewardsProperly(roundId, expectedWinningJurors, expectedLosingJurors)
-              itCannotSettleAppealDeposits(roundId)
             })
 
             context('when the round was appealed', () => {
@@ -511,130 +482,12 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
 
               itIsAtState(roundId, ROUND_STATES.CONFIRMING_APPEAL)
               itFailsToExecuteRuling()
-              itFailsToSettleAll(roundId)
+              itFailsToSettlePenaltiesAndRewards(roundId)
             })
           })
         })
 
         context('after the appeal confirmation period', () => {
-          const itSettlesAppealDeposits = (roundId, itTransferAppealsDeposits) => {
-            describe('settleAppealDeposit', () => {
-              context('when penalties have been settled', () => {
-                beforeEach('settle penalties', async () => {
-                  await court.settlePenalties(disputeId, roundId, 0)
-                })
-
-                itTransferAppealsDeposits()
-
-                it('emits an event', async () => {
-                  const receipt = await court.settleAppealDeposit(disputeId, roundId)
-
-                  assertAmountOfEvents(receipt, 'AppealDepositSettled')
-                  assertEvent(receipt, 'AppealDepositSettled', { disputeId, roundId })
-                })
-
-                it('does not affect the balances of the court', async () => {
-                  const { accounting, feeToken } = courtHelper
-                  const previousCourtBalance = await feeToken.balanceOf(court.address)
-                  const previousAccountingBalance = await feeToken.balanceOf(accounting.address)
-
-                  await court.settleAppealDeposit(disputeId, roundId)
-
-                  const currentCourtBalance = await feeToken.balanceOf(court.address)
-                  assert.equal(previousCourtBalance.toString(), currentCourtBalance.toString(), 'court balances do not match')
-
-                  const currentAccountingBalance = await feeToken.balanceOf(accounting.address)
-                  assert.equal(previousAccountingBalance.toString(), currentAccountingBalance.toString(), 'court accounting balances do not match')
-                })
-
-                it('cannot be settled twice', async () => {
-                  await court.settleAppealDeposit(disputeId, roundId)
-
-                  await assertRevert(court.settleAppealDeposit(disputeId, roundId), 'CT_APPEAL_ALREADY_SETTLED')
-                })
-              })
-
-              context('when penalties have not been settled yet', () => {
-                it('reverts', async () => {
-                  await assertRevert(court.settleAppealDeposit(disputeId, roundId), 'CT_ROUND_PENALTIES_NOT_SETTLED')
-                })
-              })
-            })
-          }
-
-          const itReturnsAppealDepositsToMaker = (roundId) => {
-            itSettlesAppealDeposits(roundId, () => {
-              it('returns the deposit to the appeal maker', async () => {
-                const { accounting, feeToken } = courtHelper
-                const { appealDeposit } = await courtHelper.getAppealFees(disputeId, roundId)
-
-                const previousBalance = await accounting.balanceOf(feeToken.address, appealMaker)
-
-                await court.settleAppealDeposit(disputeId, roundId)
-
-                const currentBalance = await accounting.balanceOf(feeToken.address, appealMaker)
-                assert.equal(previousBalance.add(appealDeposit).toString(), currentBalance.toString(), 'appeal maker balances do not match')
-              })
-            })
-          }
-
-          const itSettlesAppealDepositsToMaker = (roundId) => {
-            itSettlesAppealDeposits(roundId, () => {
-              it('settles the total deposit to the appeal taker', async () => {
-                const { accounting, feeToken } = courtHelper
-                const { appealFees, appealDeposit, confirmAppealDeposit } = await courtHelper.getAppealFees(disputeId, roundId)
-
-                const expectedAppealReward = appealDeposit.add(confirmAppealDeposit).sub(appealFees)
-                const previousAppealTakerBalance = await accounting.balanceOf(feeToken.address, appealTaker)
-
-                await court.settleAppealDeposit(disputeId, roundId)
-
-                const currentAppealTakerBalance = await accounting.balanceOf(feeToken.address, appealTaker)
-                assert.equal(currentAppealTakerBalance.toString(), previousAppealTakerBalance.add(expectedAppealReward).toString(), 'appeal maker balances do not match')
-              })
-            })
-          }
-
-          const itSettlesAppealDepositsToTaker = (roundId) => {
-            itSettlesAppealDeposits(roundId, () => {
-              it('settles the total deposit to the appeal maker', async () => {
-                const { accounting, feeToken } = courtHelper
-                const { appealFees, appealDeposit, confirmAppealDeposit } = await courtHelper.getAppealFees(disputeId, roundId)
-
-                const expectedAppealReward = appealDeposit.add(confirmAppealDeposit).sub(appealFees)
-                const previousAppealMakerBalance = await accounting.balanceOf(feeToken.address, appealMaker)
-
-                await court.settleAppealDeposit(disputeId, roundId)
-
-                const currentAppealMakerBalance = await accounting.balanceOf(feeToken.address, appealMaker)
-                assert.equal(currentAppealMakerBalance.toString(), previousAppealMakerBalance.add(expectedAppealReward).toString(), 'appeal maker balances do not match')
-              })
-            })
-          }
-
-          const itReturnsAppealDepositsToBoth = (roundId) => {
-            itSettlesAppealDeposits(roundId, () => {
-              it('splits the appeal deposit', async () => {
-                const { accounting, feeToken } = courtHelper
-                const { appealFees, appealDeposit, confirmAppealDeposit } = await courtHelper.getAppealFees(disputeId, roundId)
-
-                const expectedAppealMakerReward = appealDeposit.sub(appealFees.div(bn(2)))
-                const previousAppealMakerBalance = await accounting.balanceOf(feeToken.address, appealMaker)
-
-                const expectedAppealTakerReward = confirmAppealDeposit.sub(appealFees.div(bn(2)))
-                const previousAppealTakerBalance = await accounting.balanceOf(feeToken.address, appealTaker)
-
-                await court.settleAppealDeposit(disputeId, roundId)
-
-                const currentAppealMakerBalance = await accounting.balanceOf(feeToken.address, appealMaker)
-                assert.equal(currentAppealMakerBalance.toString(), previousAppealMakerBalance.add(expectedAppealMakerReward).toString(), 'appeal maker balances do not match')
-
-                const currentAppealTakerBalance = await accounting.balanceOf(feeToken.address, appealTaker)
-                assert.equal(currentAppealTakerBalance.toString(), previousAppealTakerBalance.add(expectedAppealTakerReward).toString(), 'appeal taker balances do not match')
-              })
-            })
-          }
-
           context('when there were no votes', () => {
             beforeEach('pass commit and reveal periods', async () => {
               await courtHelper.passTerms(courtHelper.commitTerms.add(courtHelper.revealTerms))
@@ -652,7 +505,6 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
               itIsAtState(roundId, ROUND_STATES.ENDED)
               itExecutesFinalRulingProperly(expectedFinalRuling)
               itSettlesPenaltiesAndRewardsProperly(roundId, expectedWinningJurors, expectedLosingJurors)
-              itCannotSettleAppealDeposits(roundId)
             })
 
             context('when the round was appealed', () => {
@@ -674,7 +526,6 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
                 itIsAtState(roundId, ROUND_STATES.ENDED)
                 itExecutesFinalRulingProperly(expectedFinalRuling)
                 itSettlesPenaltiesAndRewardsProperly(roundId, expectedWinningJurors, expectedLosingJurors)
-                itReturnsAppealDepositsToMaker(roundId)
               })
 
               context('when the appeal was confirmed', () => {
@@ -684,7 +535,7 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
 
                 itIsAtState(roundId, ROUND_STATES.ENDED)
                 itFailsToExecuteRuling()
-                itFailsToSettleAll(roundId)
+                itFailsToSettlePenaltiesAndRewards(roundId)
               })
             })
           })
@@ -707,7 +558,6 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
               itIsAtState(roundId, ROUND_STATES.ENDED)
               itExecutesFinalRulingProperly(expectedFinalRuling)
               itSettlesPenaltiesAndRewardsProperly(roundId, expectedWinningJurors, expectedLosingJurors)
-              itCannotSettleAppealDeposits(roundId)
             })
 
             context('when the round was appealed', () => {
@@ -729,7 +579,6 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
                 itIsAtState(roundId, ROUND_STATES.ENDED)
                 itExecutesFinalRulingProperly(expectedFinalRuling)
                 itSettlesPenaltiesAndRewardsProperly(roundId, expectedWinningJurors, expectedLosingJurors)
-                itReturnsAppealDepositsToMaker(roundId)
               })
 
               context('when the appeal was confirmed', () => {
@@ -739,7 +588,7 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
 
                 itIsAtState(roundId, ROUND_STATES.ENDED)
                 itFailsToExecuteRuling()
-                itFailsToSettleAll(roundId)
+                itFailsToSettlePenaltiesAndRewards(roundId)
 
                 context('when the next round is a regular round', () => {
                   const newRoundId = roundId + 1
@@ -788,7 +637,6 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
                     ]
 
                     itHandlesRoundsSettlesProperly(newRoundVoters, expectedFinalRuling)
-                    itSettlesAppealDepositsToMaker(roundId)
                   })
 
                   context('when the ruling is flipped', async () => {
@@ -802,7 +650,6 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
                     ]
 
                     itHandlesRoundsSettlesProperly(newRoundVoters, expectedFinalRuling)
-                    itSettlesAppealDepositsToTaker(roundId)
                   })
 
                   context('when the ruling is refused', async () => {
@@ -816,7 +663,6 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
                     ]
 
                     itHandlesRoundsSettlesProperly(newRoundVoters, expectedFinalRuling)
-                    itReturnsAppealDepositsToBoth(roundId)
                   })
 
                   context('when no one voted', async () => {
@@ -851,8 +697,6 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
 
                       itSettlesPenaltiesAndRewardsProperly(newRoundId, [], newRoundDraftedJurors)
                     })
-
-                    itReturnsAppealDepositsToBoth(roundId)
                   })
                 })
 
@@ -899,7 +743,6 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
 
                     itExecutesFinalRulingProperly(expectedFinalRuling)
                     itSettlesPenaltiesAndRewardsProperly(finalRoundId, expectedWinners, expectedLosers)
-                    itCannotSettleAppealDeposits(finalRoundId)
                   }
 
                   context('when the ruling is sustained', async () => {

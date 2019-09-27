@@ -36,6 +36,8 @@ contract JurorsRegistry is Initializable, IsContract, IJurorsRegistry, ERC900, A
     string private constant ERROR_CANNOT_REDUCE_DEACTIVATION_REQUEST = "JR_CANT_REDUCE_DEACTIVATION_REQ";
     string private constant ERROR_TOKEN_TRANSFER_FAILED = "JR_TOKEN_TRANSFER_FAILED";
     string private constant ERROR_TOKEN_APPROVE_NOT_ALLOWED = "JR_TOKEN_APPROVE_NOT_ALLOWED";
+    string private constant ERROR_BAD_TOTAL_ACTIVE_BALANCE_LIMIT = "JR_BAD_TOTAL_ACTIVE_BAL_LIMIT";
+    string private constant ERROR_TOTAL_ACTIVE_BALANCE_EXCEEDED = "JR_TOTAL_ACTIVE_BALANCE_EXCEEDED";
 
     // Address that will be used to burn juror tokens
     address internal constant BURN_ACCOUNT = address(0x000000000000000000000000000000000000dEaD);
@@ -75,10 +77,11 @@ contract JurorsRegistry is Initializable, IsContract, IJurorsRegistry, ERC900, A
     // Jurors registry owner address
     IJurorsRegistryOwner public owner;
 
-    // Minimum amount of tokens jurors have to activate to participate in the Court. Note that for final round the
-    // max of active tokens the tree can hold is: 2^64 * minActiveBalance / FINAL_ROUND_WEIGHT_PRECISION.
-    // Make sure not to set this value too low (as long as it's over the unit should be fine)
+    // Minimum amount of tokens jurors have to activate to participate in the Court
     uint256 internal minActiveBalance;
+
+    // Maximum amount of total active balance that can be hold in the registry
+    uint256 internal totalActiveBalanceLimit;
 
     // Juror ERC20 token
     ERC20 internal jurorsToken;
@@ -110,16 +113,19 @@ contract JurorsRegistry is Initializable, IsContract, IJurorsRegistry, ERC900, A
     * @param _owner Address to be set as the owner of the jurors registry
     * @param _jurorToken Address of the ERC20 token to be used as juror token for the registry
     * @param _minActiveBalance Minimum amount of juror tokens that can be activated
+    * @param _totalActiveBalanceLimit Maximum amount of total active balance that can be hold in the registry
     */
-    function init(IJurorsRegistryOwner _owner, ERC20 _jurorToken, uint256 _minActiveBalance) external {
+    function init(IJurorsRegistryOwner _owner, ERC20 _jurorToken, uint256 _minActiveBalance, uint256 _totalActiveBalanceLimit) external {
         // TODO: cannot check the given owner is a contract cause the Court set this up in the constructor, move to a factory
         // require(isContract(_owner), ERROR_NOT_CONTRACT);
         require(isContract(address(_jurorToken)), ERROR_NOT_CONTRACT);
+        require(_totalActiveBalanceLimit > 0, ERROR_BAD_TOTAL_ACTIVE_BALANCE_LIMIT);
 
         initialized();
         owner = _owner;
         jurorsToken = _jurorToken;
         minActiveBalance = _minActiveBalance;
+        totalActiveBalanceLimit = _totalActiveBalanceLimit;
 
         tree.init();
         assert(tree.insert(0, 0) == 0); // first tree item is an empty juror
@@ -394,12 +400,7 @@ contract JurorsRegistry is Initializable, IsContract, IJurorsRegistry, ERC900, A
     * @return Total amount of active juror tokens at the given term id
     */
     function totalActiveBalanceAt(uint64 _termId) external view returns (uint256) {
-        // This function will return always the same values, the only difference remains on gas costs. The
-        // function `totalSumAt` will perform a backwards linear search from the last checkpoint or a binary search
-        // depending on whether the given checkpoint is considered to be recent or not. In this case, we consider
-        // current or future terms as recent ones.
-        bool recent = _termId >= owner.getLastEnsuredTermId();
-        return recent ? tree.getRecentTotalAt(_termId) : tree.getTotalAt(_termId);
+        return _totalActiveBalanceAt(_termId);
     }
 
     /**
@@ -490,6 +491,7 @@ contract JurorsRegistry is Initializable, IsContract, IJurorsRegistry, ERC900, A
     */
     function _activateTokens(address _juror, uint64 _termId, uint256 _amount) internal {
         uint64 nextTermId = _termId + 1;
+        _checkTotalActiveBalance(nextTermId, _amount);
         Juror storage juror = jurorsByAddress[_juror];
 
         if (_existsJuror(juror)) {
@@ -698,6 +700,31 @@ contract JurorsRegistry is Initializable, IsContract, IJurorsRegistry, ERC900, A
     */
     function _draftLockAmount(uint16 _pct) internal view returns (uint256) {
         return minActiveBalance.pct(_pct);
+    }
+
+    /**
+    * @dev Internal function to tell the total amount of active juror tokens at the given term id
+    * @param _termId Term id querying the total active balance for
+    * @return Total amount of active juror tokens at the given term id
+    */
+    function _totalActiveBalanceAt(uint64 _termId) internal view returns (uint256) {
+        // This function will return always the same values, the only difference remains on gas costs. The
+        // function `totalSumAt` will perform a backwards linear search from the last checkpoint or a binary search
+        // depending on whether the given checkpoint is considered to be recent or not. In this case, we consider
+        // current or future terms as recent ones.
+        bool recent = _termId >= owner.getLastEnsuredTermId();
+        return recent ? tree.getRecentTotalAt(_termId) : tree.getTotalAt(_termId);
+    }
+
+    /**
+    * @dev Internal function to check if its possible to add a given new amount to the registry or not
+    * @param _termId Term id when the new amount will be added
+    * @param _amount Amount of tokens willing to be added to the registry
+    */
+    function _checkTotalActiveBalance(uint64 _termId, uint256 _amount) internal view {
+        uint256 currentTotalActiveBalance = _totalActiveBalanceAt(_termId);
+        uint256 newTotalActiveBalance = currentTotalActiveBalance.add(_amount);
+        require(newTotalActiveBalance <= totalActiveBalanceLimit, ERROR_TOTAL_ACTIVE_BALANCE_EXCEEDED);
     }
 
     /**

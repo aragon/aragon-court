@@ -11,6 +11,7 @@ contract('JurorsRegistry', ([_, juror, someone]) => {
   let registry, registryOwner, ANJ
 
   const MIN_ACTIVE_AMOUNT = bigExp(100, 18)
+  const TOTAL_ACTIVE_BALANCE_LIMIT = bigExp(100e6, 18)
   const BURN_ADDRESS = '0x000000000000000000000000000000000000dead'
 
   beforeEach('create base contracts', async () => {
@@ -131,7 +132,7 @@ contract('JurorsRegistry', ([_, juror, someone]) => {
   describe('assignTokens', () => {
     context('when the registry is initialized', () => {
       beforeEach('initialize registry', async () => {
-        await registry.init(registryOwner.address, ANJ.address, MIN_ACTIVE_AMOUNT)
+        await registry.init(registryOwner.address, ANJ.address, MIN_ACTIVE_AMOUNT, TOTAL_ACTIVE_BALANCE_LIMIT)
       })
 
       context('when the sender is the owner', () => {
@@ -191,7 +192,7 @@ contract('JurorsRegistry', ([_, juror, someone]) => {
   describe('burnTokens', () => {
     context('when the registry is initialized', () => {
       beforeEach('initialize registry', async () => {
-        await registry.init(registryOwner.address, ANJ.address, MIN_ACTIVE_AMOUNT)
+        await registry.init(registryOwner.address, ANJ.address, MIN_ACTIVE_AMOUNT, TOTAL_ACTIVE_BALANCE_LIMIT)
       })
 
       context('when the sender is the owner', () => {

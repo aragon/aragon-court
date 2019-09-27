@@ -28,13 +28,13 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
   describe('confirmAppeal', () => {
     context('when the given dispute exists', () => {
       let disputeId
-      const draftTermId = 4, jurorsNumber = 3
+      const draftTermId = 4
 
       beforeEach('activate jurors and create dispute', async () => {
         await courtHelper.activate(jurors)
 
         await courtHelper.setTerm(1)
-        disputeId = await courtHelper.dispute({ jurorsNumber, draftTermId, disputer })
+        disputeId = await courtHelper.dispute({ draftTermId, disputer })
         await courtHelper.passTerms(bn(draftTermId - 1)) // court is already at term one
       })
 
@@ -154,6 +154,23 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
                         assert.equal(totalFees.toString(), appealFees.toString(), 'appeal fees does not match')
                         assert.equal(appealDeposit.toString(), expectedAppealDeposit.toString(), 'appeal deposit does not match')
                         assert.equal(confirmAppealDeposit.toString(), expectedConfirmAppealDeposit.toString(), 'confirm appeal deposit does not match')
+                      })
+
+                      it('computes final jurors number nevertheless the court current term', async () => {
+                        const previousTermId = await court.getCurrentTermId()
+                        const previousActiveBalance = await courtHelper.jurorsRegistry.totalActiveBalanceAt(previousTermId)
+                        const previousJurorsNumber = await courtHelper.getNextRoundJurorsNumber(disputeId, roundId)
+
+                        await courtHelper.passTerms(bn(1))
+                        await courtHelper.activate(jurors)
+                        await courtHelper.passTerms(bn(1))
+
+                        const currentTermId = await court.getCurrentTermId()
+                        const currentActiveBalance = await courtHelper.jurorsRegistry.totalActiveBalanceAt(currentTermId)
+                        assert.equal(currentActiveBalance.toString(), previousActiveBalance.mul(bn(2)).toString(), 'new total active balance does not match')
+
+                        const currentJurorsNumber = await courtHelper.getNextRoundJurorsNumber(disputeId, roundId)
+                        assert.equal(previousJurorsNumber.toString(), currentJurorsNumber.toString(), 'next round jurors number does not match')
                       })
 
                       it('emits an event', async () => {

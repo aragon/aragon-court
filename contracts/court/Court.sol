@@ -29,7 +29,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
     string private constant ERROR_BAD_FIRST_TERM_START_TIME = "CT_BAD_FIRST_TERM_START_TIME";
     string private constant ERROR_CONFIG_PERIOD_ZERO_TERMS = "CT_CONFIG_PERIOD_0";
     string private constant ERROR_INVALID_PENALTY_PCT = "CT_INVALID_PENALTY_PCT";
-    string private constant ERROR_BAD_INITIAL_JURORS = "CT_ERROR_BAD_INITIAL_JURORS";
+    string private constant ERROR_BAD_INITIAL_JURORS = "CT_BAD_INITIAL_JURORS";
     string private constant ERROR_INVALID_MAX_APPEAL_ROUNDS = "CT_INVALID_MAX_APPEAL_ROUNDS";
     string private constant ERROR_INVALID_PERIOD_DURATION = "CT_INVALID_PERIOD_DURATION";
     string private constant ERROR_INVALID_GOVERNANCE_SHARE = "CT_INVALID_GOVERNANCE_SHARE";
@@ -759,7 +759,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
     */
     function getCourtConfig(uint64 _termId) external view
         returns (
-            address feeToken,
+            ERC20 feeToken,
             uint256[4] memory fees, //jurorFee, heartbeatFee, draftFee, settleFee,
             uint64[4] memory roundStateDurations, //commitTerms, revealTerms, appealTerms, appealConfirmTerms,
             uint16[2] memory pcts, // penaltyPct, finalRoundReduction,
@@ -770,7 +770,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
         CourtConfig storage config = _getConfigAt(_termId);
         FeesConfig storage feesConfig = config.fees;
         DisputesConfig storage disputesConfig = config.disputes;
-        feeToken = address(feesConfig.token);
+        feeToken = feesConfig.token;
         fees = [ feesConfig.jurorFee, feesConfig.heartbeatFee, feesConfig.draftFee, feesConfig.settleFee ];
         roundStateDurations = [
             disputesConfig.commitTerms,
@@ -1219,17 +1219,17 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
 
         uint64 courtConfigId = uint64(courtConfigs.length);
         courtConfigs.length++;
+        CourtConfig storage config = courtConfigs[courtConfigId];
 
-        FeesConfig memory feesConfig = FeesConfig({
+        config.fees = FeesConfig({
             token: _feeToken,
             jurorFee: _fees[0],
             heartbeatFee: _fees[1],
             draftFee: _fees[2],
             settleFee: _fees[3]
         });
-        courtConfigs[courtConfigId].fees = feesConfig;
 
-        DisputesConfig memory disputesConfig = DisputesConfig({
+        config.disputes = DisputesConfig({
             commitTerms: _roundStateDurations[0],
             revealTerms: _roundStateDurations[1],
             appealTerms: _roundStateDurations[2],
@@ -1242,7 +1242,6 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
             appealCollateralFactor: _appealCollateralParams[0],
             appealConfirmCollateralFactor: _appealCollateralParams[1]
         });
-        courtConfigs[courtConfigId].disputes = disputesConfig;
 
         terms[configChangeTermId].courtConfigId = courtConfigId;
         configChangeTermId = _fromTermId;
@@ -1379,8 +1378,8 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
         }
 
         // Calculate appeal collateral
-        appealDeposit = totalFees * config.disputes.appealCollateralFactor;
-        confirmAppealDeposit = totalFees * config.disputes.appealConfirmCollateralFactor;
+        appealDeposit = totalFees.mul(config.disputes.appealCollateralFactor);
+        confirmAppealDeposit = totalFees.mul(config.disputes.appealConfirmCollateralFactor);
     }
 
     /**

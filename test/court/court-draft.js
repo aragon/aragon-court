@@ -18,10 +18,11 @@ contract('Court', ([_, disputer, drafter, juror500, juror1000, juror1500, juror2
     { address: juror1500, initialActiveBalance: bigExp(1500, 18) },
     { address: juror2000, initialActiveBalance: bigExp(2000, 18) },
   ]
+  const firstRoundJurorsNumber = 5
 
   beforeEach('create court', async () => {
     courtHelper = buildHelper()
-    court = await courtHelper.deploy()
+    court = await courtHelper.deploy({ firstRoundJurorsNumber })
   })
 
   describe('draft', () => {
@@ -30,16 +31,15 @@ contract('Court', ([_, disputer, drafter, juror500, juror1000, juror1500, juror2
 
       const roundId = 0
       const draftTermId = 4
-      const jurorsNumber = 6
 
       beforeEach('create dispute', async () => {
         await courtHelper.activate(jurors)
         await courtHelper.setTerm(1)
-        disputeId = await courtHelper.dispute({ jurorsNumber, draftTermId, disputer })
+        disputeId = await courtHelper.dispute({ draftTermId, disputer })
       })
 
       const itDraftsRequestedRoundInOneBatch = (term, jurorsToBeDrafted) => {
-        const expectedDraftedJurors = jurorsToBeDrafted > jurorsNumber ? jurorsNumber : jurorsToBeDrafted
+        const expectedDraftedJurors = jurorsToBeDrafted > firstRoundJurorsNumber ? firstRoundJurorsNumber : jurorsToBeDrafted
 
         it('selects random jurors for the last round of the dispute', async () => {
           const receipt = await court.draft(disputeId, jurorsToBeDrafted, { from: drafter })
@@ -55,7 +55,7 @@ contract('Court', ([_, disputer, drafter, juror500, juror1000, juror1500, juror2
           }
         })
 
-        if (expectedDraftedJurors === jurorsNumber) {
+        if (expectedDraftedJurors === firstRoundJurorsNumber) {
           it('ends the dispute draft', async () => {
             const receipt = await court.draft(disputeId, jurorsToBeDrafted, { from: drafter })
 
@@ -73,9 +73,9 @@ contract('Court', ([_, disputer, drafter, juror500, juror1000, juror1500, juror2
             const { draftTerm, delayedTerms, roundJurorsNumber, selectedJurors, jurorFees, roundState } = await courtHelper.getRound(disputeId, roundId)
             assert.equal(draftTerm.toString(), draftTermId, 'round draft term does not match')
             assert.equal(delayedTerms.toString(), term - draftTermId, 'delayed terms do not match')
-            assert.equal(roundJurorsNumber.toString(), jurorsNumber, 'round jurors number does not match')
-            assert.equal(selectedJurors.toString(), jurorsNumber, 'selected jurors does not match')
-            assert.equal(jurorFees.toString(), courtHelper.jurorFee.mul(bn(jurorsNumber)).toString(), 'round juror fees do not match')
+            assert.equal(roundJurorsNumber.toString(), firstRoundJurorsNumber, 'round jurors number does not match')
+            assert.equal(selectedJurors.toString(), firstRoundJurorsNumber, 'selected jurors does not match')
+            assert.equal(jurorFees.toString(), courtHelper.jurorFee.mul(bn(firstRoundJurorsNumber)).toString(), 'round juror fees do not match')
             assert.equal(roundState.toString(), ROUND_STATES.COMMITTING.toString(), 'round state should be committing')
           })
         } else {
@@ -95,9 +95,9 @@ contract('Court', ([_, disputer, drafter, juror500, juror1000, juror1500, juror2
             const { draftTerm, delayedTerms, roundJurorsNumber, selectedJurors, jurorFees, roundState } = await courtHelper.getRound(disputeId, roundId)
             assert.equal(draftTerm.toString(), draftTermId, 'round draft term does not match')
             assert.equal(delayedTerms.toString(), 0, 'delayed terms do not match')
-            assert.equal(roundJurorsNumber.toString(), jurorsNumber, 'round jurors number does not match')
+            assert.equal(roundJurorsNumber.toString(), firstRoundJurorsNumber, 'round jurors number does not match')
             assert.equal(selectedJurors.toString(), expectedDraftedJurors, 'selected jurors does not match')
-            assert.equal(jurorFees.toString(), courtHelper.jurorFee.mul(bn(jurorsNumber)).toString(), 'round juror fees do not match')
+            assert.equal(jurorFees.toString(), courtHelper.jurorFee.mul(bn(firstRoundJurorsNumber)).toString(), 'round juror fees do not match')
             assert.equal(roundState.toString(), ROUND_STATES.INVALID.toString(), 'round state should be committing')
           })
         }
@@ -191,9 +191,9 @@ contract('Court', ([_, disputer, drafter, juror500, juror1000, juror1500, juror2
 
           assert.equal(draftTerm.toString(), draftTermId, 'round draft term does not match')
           assert.equal(delayedTerms.toString(), lastTerm - draftTermId, 'delayed terms do not match')
-          assert.equal(roundJurorsNumber.toString(), jurorsNumber, 'round jurors number does not match')
-          assert.equal(selectedJurors.toString(), jurorsNumber, 'selected jurors does not match')
-          assert.equal(jurorFees.toString(), courtHelper.jurorFee.mul(bn(jurorsNumber)).toString(), 'round juror fees do not match')
+          assert.equal(roundJurorsNumber.toString(), firstRoundJurorsNumber, 'round jurors number does not match')
+          assert.equal(selectedJurors.toString(), firstRoundJurorsNumber, 'selected jurors does not match')
+          assert.equal(jurorFees.toString(), courtHelper.jurorFee.mul(bn(firstRoundJurorsNumber)).toString(), 'round juror fees do not match')
           assert.equal(roundState.toString(), ROUND_STATES.COMMITTING.toString(), 'round state should be committing')
         })
 
@@ -253,7 +253,7 @@ contract('Court', ([_, disputer, drafter, juror500, juror1000, juror1500, juror2
 
       const itHandlesDraftsProperlyForDifferentRequestedJurorsNumber = term => {
         context('when drafting all the requested jurors', () => {
-          const jurorsToBeDrafted = jurorsNumber
+          const jurorsToBeDrafted = firstRoundJurorsNumber
 
           context('when drafting in one batch', () => {
             itDraftsRequestedRoundInOneBatch(term, jurorsToBeDrafted)
@@ -267,13 +267,13 @@ contract('Court', ([_, disputer, drafter, juror500, juror1000, juror1500, juror2
         })
 
         context('when half amount of the requested jurors', () => {
-          const jurorsToBeDrafted = jurorsNumber / 2
+          const jurorsToBeDrafted = Math.floor(firstRoundJurorsNumber / 2)
 
           itDraftsRequestedRoundInOneBatch(term, jurorsToBeDrafted)
         })
 
         context('when drafting more than the requested jurors', () => {
-          const jurorsToBeDrafted = jurorsNumber * 2
+          const jurorsToBeDrafted = firstRoundJurorsNumber * 2
 
           itDraftsRequestedRoundInOneBatch(term, jurorsToBeDrafted)
         })
@@ -284,7 +284,7 @@ contract('Court', ([_, disputer, drafter, juror500, juror1000, juror1500, juror2
 
         context('when the current block is the randomness block number', () => {
           it('reverts', async () => {
-            await assertRevert(court.draft(disputeId, jurorsNumber, { from: drafter }), 'CT_TERM_RANDOMNESS_NOT_YET')
+            await assertRevert(court.draft(disputeId, firstRoundJurorsNumber, { from: drafter }), 'CT_TERM_RANDOMNESS_NOT_YET')
           })
         })
 
@@ -318,7 +318,7 @@ contract('Court', ([_, disputer, drafter, juror500, juror1000, juror1500, juror2
           })
 
           it('reverts', async () => {
-            await assertRevert(court.draft(disputeId, jurorsNumber, { from: drafter }), 'CT_TERM_RANDOMNESS_NOT_AVAILABLE')
+            await assertRevert(court.draft(disputeId, firstRoundJurorsNumber, { from: drafter }), 'CT_TERM_RANDOMNESS_NOT_AVAILABLE')
           })
         })
       }
@@ -347,7 +347,7 @@ contract('Court', ([_, disputer, drafter, juror500, juror1000, juror1500, juror2
 
             context('when the heartbeat was not executed', async () => {
               it('reverts', async () => {
-                await assertRevert(court.draft(disputeId, jurorsNumber, { from: drafter }), 'CT_TERM_OUTDATED')
+                await assertRevert(court.draft(disputeId, firstRoundJurorsNumber, { from: drafter }), 'CT_TERM_OUTDATED')
               })
             })
 
@@ -382,7 +382,7 @@ contract('Court', ([_, disputer, drafter, juror500, juror1000, juror1500, juror2
             })
 
             it('reverts', async () => {
-              await assertRevert(court.draft(disputeId, jurorsNumber, { from: drafter }), 'CT_TERM_OUTDATED')
+              await assertRevert(court.draft(disputeId, firstRoundJurorsNumber, { from: drafter }), 'CT_TERM_OUTDATED')
             })
           })
         })
@@ -391,18 +391,18 @@ contract('Court', ([_, disputer, drafter, juror500, juror1000, juror1500, juror2
           beforeEach('draft dispute', async () => {
             await court.heartbeat(term)
             await advanceBlocks(10) // advance some blocks to ensure term randomness
-            await court.draft(disputeId, jurorsNumber, { from: drafter })
+            await court.draft(disputeId, firstRoundJurorsNumber, { from: drafter })
           })
 
           it('reverts', async () => {
-            await assertRevert(court.draft(disputeId, jurorsNumber, { from: drafter }), 'CT_ROUND_ALREADY_DRAFTED')
+            await assertRevert(court.draft(disputeId, firstRoundJurorsNumber, { from: drafter }), 'CT_ROUND_ALREADY_DRAFTED')
           })
         })
       }
 
       context('when the current term is previous the draft term', () => {
         it('reverts', async () => {
-          await assertRevert(court.draft(disputeId, jurorsNumber, { from: drafter }), 'CT_ROUND_NOT_DRAFT_TERM')
+          await assertRevert(court.draft(disputeId, firstRoundJurorsNumber, { from: drafter }), 'CT_ROUND_NOT_DRAFT_TERM')
         })
       })
 

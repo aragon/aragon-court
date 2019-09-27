@@ -18,8 +18,8 @@ contract CourtMock is Court, TimeHelpersMock {
         uint256 _jurorMinStake,
         uint64[4] memory _roundStateDurations,
         uint16[2] memory _pcts,
-        uint64 _appealStepFactor,
-        uint32 _maxRegularAppealRounds,
+        uint64[3] memory _roundParams, // _firstRoundJurorsNumber, _appealStepFactor, _maxRegularAppealRounds
+        uint256[2] memory _appealCollateralParams, // _appealCollateralFactor, _appealConfirmCollateralFactor
         uint256[5] memory _subscriptionParams // _periodDuration, _feeAmount, _prePaymentPeriods, _latePaymentPenaltyPct, _governorSharePct
     )
         Court(
@@ -35,8 +35,8 @@ contract CourtMock is Court, TimeHelpersMock {
             _jurorMinStake,
             _roundStateDurations,
             _pcts,
-            _appealStepFactor,
-            _maxRegularAppealRounds,
+            _roundParams,
+            _appealCollateralParams,
             _subscriptionParams
         )
         public

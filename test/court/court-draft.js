@@ -12,13 +12,13 @@ const JurorsRegistry = artifacts.require('JurorsRegistry')
 contract('Court', ([_, disputer, drafter, juror500, juror1000, juror1500, juror2000]) => {
   let courtHelper, court
 
+  const firstRoundJurorsNumber = 5
   const jurors = [
     { address: juror500,  initialActiveBalance: bigExp(500,  18) },
     { address: juror1000, initialActiveBalance: bigExp(1000, 18) },
     { address: juror1500, initialActiveBalance: bigExp(1500, 18) },
     { address: juror2000, initialActiveBalance: bigExp(2000, 18) },
   ]
-  const firstRoundJurorsNumber = 5
 
   beforeEach('create court', async () => {
     courtHelper = buildHelper()

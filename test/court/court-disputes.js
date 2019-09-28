@@ -9,7 +9,7 @@ const Arbitrable = artifacts.require('ArbitrableMock')
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
 
-contract('Court', ([_, sender]) => {
+contract('Court (disputes)', ([_, sender]) => {
   let courtHelper, court, feeToken, arbitrable
 
   const termDuration = bn(ONE_DAY)

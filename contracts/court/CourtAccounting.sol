@@ -21,8 +21,8 @@ contract CourtAccounting is IAccounting, Initializable {
     address public owner;
     mapping (address => mapping (address => uint256)) internal balances;
 
-    event Assign(address indexed token, address indexed from, address indexed to, uint256 amount);
-    event Withdraw(address indexed token, address indexed from, address indexed to, uint256 amount);
+    event Assign(ERC20 indexed token, address indexed from, address indexed to, uint256 amount);
+    event Withdraw(ERC20 indexed token, address indexed from, address indexed to, uint256 amount);
 
     modifier onlyOwner {
         require(msg.sender == owner, ERROR_SENDER_NOT_OWNER);
@@ -42,7 +42,7 @@ contract CourtAccounting is IAccounting, Initializable {
 
         address tokenAddress = address(_token);
         balances[tokenAddress][_to] = balances[tokenAddress][_to].add(_amount);
-        emit Assign(tokenAddress, msg.sender, _to, _amount);
+        emit Assign(_token, msg.sender, _to, _amount);
     }
 
     function withdraw(ERC20 _token, address _to, uint256 _amount) external {
@@ -52,7 +52,7 @@ contract CourtAccounting is IAccounting, Initializable {
 
         address tokenAddress = address(_token);
         balances[tokenAddress][msg.sender] = balance.sub(_amount);
-        emit Withdraw(tokenAddress, msg.sender, _to, _amount);
+        emit Withdraw(_token, msg.sender, _to, _amount);
 
         require(_token.safeTransfer(_to, _amount), ERROR_WITHDRAW_FAILED);
     }

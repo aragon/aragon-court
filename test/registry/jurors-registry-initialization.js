@@ -1,8 +1,8 @@
-const { bn, bigExp } = require('../helpers/numbers')
+const { bigExp } = require('../helpers/numbers')
 const { assertRevert } = require('../helpers/assertThrow')
 
-const JurorsRegistry = artifacts.require('JurorsRegistry')
 const ERC20 = artifacts.require('ERC20Mock')
+const JurorsRegistry = artifacts.require('JurorsRegistry')
 const JurorsRegistryOwnerMock = artifacts.require('JurorsRegistryOwnerMock')
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'

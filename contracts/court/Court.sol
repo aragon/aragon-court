@@ -665,7 +665,12 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
         emit AppealDepositSettled(_disputeId, _roundId);
 
         // If the appeal wasn't confirmed, return the entire deposit to appeal maker
-        (,,,ERC20 feeToken, uint256 totalFees,, uint256 appealDeposit, uint256 confirmAppealDeposit) = _getNextRoundDetails(dispute, round, _roundId);
+        (,,,
+        ERC20 feeToken,
+        uint256 totalFees,,
+        uint256 appealDeposit,
+        uint256 confirmAppealDeposit
+        ) = _getNextRoundDetails(dispute, round, _roundId);
         if (!_isAppealConfirmed(appeal)) {
             accounting.assign(feeToken, appeal.maker, appealDeposit);
             return;
@@ -1199,7 +1204,14 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
     * @param _juror Address of the juror to calculate the weight of
     * @return Weight of the requested juror for the final round of the given dispute
     */
-    function _computeJurorWeightForFinalRound(CourtConfig storage _config, AdjudicationRound storage _round, address _juror) internal returns (uint64) {
+    function _computeJurorWeightForFinalRound(
+        CourtConfig storage _config,
+        AdjudicationRound storage _round,
+        address _juror
+    )
+        internal
+        returns (uint64)
+    {
         // If the juror weight for the last round was already computed, return that value
         JurorState storage jurorState = _round.jurorsStates[_juror];
         if (jurorState.weight != uint64(0)) {

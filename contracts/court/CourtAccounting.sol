@@ -3,12 +3,14 @@ pragma solidity ^0.5.8;
 import "@aragon/os/contracts/lib/token/ERC20.sol";
 import "@aragon/os/contracts/lib/math/SafeMath.sol";
 import "@aragon/os/contracts/common/SafeERC20.sol";
-import "@aragon/os/contracts/common/Initializable.sol";
 
 import "./IAccounting.sol";
+import "../controller/Controlled.sol";
+import "../controller/Controller.sol";
+import "../controller/ERC20Recoverable.sol";
 
 
-contract CourtAccounting is IAccounting, Initializable {
+contract CourtAccounting is Controlled, ERC20Recoverable, IAccounting {
     using SafeERC20 for ERC20;
     using SafeMath for uint256;
 
@@ -18,23 +20,18 @@ contract CourtAccounting is IAccounting, Initializable {
     string private constant ERROR_WITHDRAW_AMOUNT_ZERO = "ACCOUNTING_WITHDRAW_AMOUNT_ZERO";
     string private constant ERROR_WITHDRAW_INVALID_AMOUNT = "ACCOUNTING_WITHDRAW_INVALID_AMOUNT";
 
-    address public owner;
     mapping (address => mapping (address => uint256)) internal balances;
 
     event Assign(ERC20 indexed token, address indexed from, address indexed to, uint256 amount);
     event Withdraw(ERC20 indexed token, address indexed from, address indexed to, uint256 amount);
 
     modifier onlyOwner {
-        require(msg.sender == owner, ERROR_SENDER_NOT_OWNER);
+        require(msg.sender == _accountingOwner(), ERROR_SENDER_NOT_OWNER);
         _;
     }
 
-    function init(address _owner) external {
-        // TODO: cannot check the given owner is a contract cause the Court set this up in the constructor, move to a factory
-        // require(isContract(_owner), ERROR_OWNER_NOT_CONTRACT);
-
-        initialized();
-        owner = _owner;
+    constructor(Controller _controller) ERC20Recoverable(_controller) public {
+        // solium-disable-previous-line no-empty-blocks
     }
 
     function assign(ERC20 _token, address _to, uint256 _amount) external onlyOwner {

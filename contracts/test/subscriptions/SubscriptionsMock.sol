@@ -8,9 +8,8 @@ import "../../subscriptions/ISubscriptionsOwner.sol";
 
 
 contract SubscriptionsMock is ISubscriptions {
-    bool upToDate;
+    bool internal upToDate;
 
-    function init(ISubscriptionsOwner, IJurorsRegistry, uint64, ERC20, uint256, uint256, uint256, uint16, uint16) external {}
     function setFeeAmount(uint256) external {}
     function setFeeToken(ERC20, uint256) external {}
     function setPrePaymentPeriods(uint256) external {}

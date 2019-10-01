@@ -1,13 +1,13 @@
 pragma solidity ^0.5.8;
 
 import "@aragon/os/contracts/lib/math/SafeMath.sol";
-import "@aragon/os/contracts/common/Initializable.sol";
 
 import "./ICRVoting.sol";
 import "./ICRVotingOwner.sol";
+import "../controller/Controlled.sol";
 
 
-contract CRVoting is Initializable, ICRVoting {
+contract CRVoting is Controlled, ICRVoting {
     using SafeMath for uint256;
 
     string private constant ERROR_NOT_OWNER = "CRV_SENDER_NOT_OWNER";
@@ -45,9 +45,6 @@ contract CRVoting is Initializable, ICRVoting {
         mapping (uint8 => uint256) outcomesTally;   // tally for each of the possible outcomes
     }
 
-    // CRVoting owner address
-    ICRVotingOwner private owner;
-
     // Vote records indexed by their ID
     mapping (uint256 => Vote) internal voteRecords;
 
@@ -57,7 +54,7 @@ contract CRVoting is Initializable, ICRVoting {
     event VoteLeaked(uint256 indexed voteId, address indexed voter, uint8 outcome, address leaker);
 
     modifier onlyOwner {
-        require(msg.sender == address(owner), ERROR_NOT_OWNER);
+        require(msg.sender == address(_votingOwner()), ERROR_NOT_OWNER);
         _;
     }
 
@@ -68,15 +65,11 @@ contract CRVoting is Initializable, ICRVoting {
     }
 
     /**
-    * @notice Initialize a CRVoting instance
-    * @param _owner Address to be set as the owner of the CRVoting instance
+    * @dev Constructor function
+    * @param _controller Address of the controller
     */
-    function init(ICRVotingOwner _owner) external {
-        // TODO: cannot check the given owner is a contract cause the Court set this up in the constructor, move to a factory
-        // require(isContract(_owner), ERROR_OWNER_NOT_CONTRACT);
-
-        initialized();
-        owner = _owner;
+    constructor(Controller _controller) Controlled(_controller) public {
+        // solium-disable-previous-line no-empty-blocks
     }
 
     /**
@@ -147,14 +140,6 @@ contract CRVoting is Initializable, ICRVoting {
         castVote.outcome = _outcome;
         _updateTally(vote, _outcome, weight);
         emit VoteRevealed(_voteId, msg.sender, _outcome);
-    }
-
-    /**
-    * @dev Get the address of the CRVoting owner
-    * @return Address of the CRVoting owner
-    */
-    function getOwner() external view returns (address) {
-        return address(owner);
     }
 
     /**
@@ -264,7 +249,7 @@ contract CRVoting is Initializable, ICRVoting {
     * @return Weight of the voter willing to commit a vote
     */
     function _ensureVoterWeightToCommit(uint256 _voteId, address _voter) internal returns (uint256) {
-        uint256 weight = uint256(owner.getVoterWeightToCommit(_voteId, _voter));
+        uint256 weight = uint256(_votingOwner().getVoterWeightToCommit(_voteId, _voter));
         require(weight > 0, ERROR_COMMIT_DENIED_BY_OWNER);
         return weight;
     }
@@ -276,7 +261,7 @@ contract CRVoting is Initializable, ICRVoting {
     * @return Weight of the voter willing to reveal a vote
     */
     function _ensureVoterWeightToReveal(uint256 _voteId, address _voter) internal returns (uint256) {
-        uint256 weight = uint256(owner.getVoterWeightToReveal(_voteId, _voter));
+        uint256 weight = uint256(_votingOwner().getVoterWeightToReveal(_voteId, _voter));
         require(weight > 0, ERROR_REVEAL_DENIED_BY_OWNER);
         return weight;
     }

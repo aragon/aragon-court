@@ -6,43 +6,31 @@ import "../lib/TimeHelpersMock.sol";
 
 contract CourtMock is Court, TimeHelpersMock {
     constructor(
+        Controller _controller,
         uint64 _termDuration,
-        ERC20[2] memory _tokens,
-        IJurorsRegistry _jurorsRegistry,
-        IAccounting _accounting,
-        ICRVoting _voting,
-        ISubscriptions _subscriptions,
-        uint256[4] memory _fees, // _jurorFee, _heartbeatFee, _draftFee, _settleFee
-        address _governor,
         uint64 _firstTermStartTime,
-        uint256 _jurorMinStake,
-        uint64[4] memory _roundStateDurations,
-        uint16[2] memory _pcts,
-        uint64[3] memory _roundParams, // _firstRoundJurorsNumber, _appealStepFactor, _maxRegularAppealRounds
-        uint256[2] memory _appealCollateralParams, // _appealCollateralFactor, _appealConfirmCollateralFactor
-        uint256[6] memory _subscriptionParams // _periodDuration, _feeAmount, _prePaymentPeriods, _resumePrePaidPeriods, _latePaymentPenaltyPct, _governorSharePct
+        ERC20 _feeToken,
+        uint256[4] memory _fees,                    // jurorFee, heartbeatFee, draftFee, settleFee
+        uint64[4] memory _roundStateDurations,      // commitTerms, revealTerms, appealTerms, appealConfirmationTerms
+        uint16[2] memory _pcts,                     // penaltyPct, finalRoundReduction
+        uint64[3] memory _roundParams,              // firstRoundJurorsNumber, appealStepFactor, maxRegularAppealRounds
+        uint256[2] memory _appealCollateralParams   // appealCollateralFactor, appealConfirmCollateralFactor
     )
+        public
         Court(
+            _controller,
             _termDuration,
-            _tokens,
-            _jurorsRegistry,
-            _accounting,
-            _voting,
-            _subscriptions,
-            _fees,
-            _governor,
             _firstTermStartTime,
-            _jurorMinStake,
+            _feeToken,
+            _fees,
             _roundStateDurations,
             _pcts,
             _roundParams,
-            _appealCollateralParams,
-            _subscriptionParams
+            _appealCollateralParams
         )
-        public
     {}
 
     function collect(address _juror, uint256 _amount) external {
-        jurorsRegistry.collectTokens(_juror, _amount, termId);
+        _jurorsRegistry().collectTokens(_juror, _amount, termId);
     }
 }

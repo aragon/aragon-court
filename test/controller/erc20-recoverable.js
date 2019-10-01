@@ -1,18 +1,15 @@
-const itBehavesLikeGoverned = require('./governed')
 const { assertRevert } = require('../helpers/assertThrow')
 const { assertBn, bigExp } = require('../helpers/numbers')
 const { assertAmountOfEvents, assertEvent } = require('../helpers/assertEvent')
 
 const ERC20 = artifacts.require('ERC20Mock')
-const ERC20Recoverable = artifacts.require('ERC20Recoverable')
+const Controller = artifacts.require('Controller')
+const ERC20Recoverable = artifacts.require('ERC20RecoverableMock')
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
 
-contract('ERC20Recoverable', accounts => {
-  let recoverable
-  const [_, governor, someone, recipient] = accounts
-
-  itBehavesLikeGoverned(ERC20Recoverable, accounts)
+contract('ERC20Recoverable', ([_, governor, someone, recipient]) => {
+  let recoverable, controller
 
   describe('recoverFunds', () => {
     let token
@@ -20,7 +17,8 @@ contract('ERC20Recoverable', accounts => {
 
     beforeEach('create token and recoverable instance', async () => {
       token = await ERC20.new('DAI', 'DAI', 18)
-      recoverable = await ERC20Recoverable.new(governor)
+      controller = await Controller.new(governor)
+      recoverable = await ERC20Recoverable.new(controller.address)
     })
 
     context('when the sender is the governor', () => {
@@ -58,7 +56,7 @@ contract('ERC20Recoverable', accounts => {
 
       context('when the governed does not have funds', () => {
         it('reverts', async () => {
-          await assertRevert(recoverable.recoverFunds(token.address, recipient, { from }), 'GVD_INSUFFICIENT_RECOVER_FUNDS')
+          await assertRevert(recoverable.recoverFunds(token.address, recipient, { from }), 'CTD_INSUFFICIENT_RECOVER_FUNDS')
         })
       })
     })
@@ -68,7 +66,7 @@ contract('ERC20Recoverable', accounts => {
     const from = someone
 
     it('reverts', async () => {
-      await assertRevert(recoverable.recoverFunds(ZERO_ADDRESS, recipient, { from }), 'GVD_SENDER_NOT_GOVERNOR')
+      await assertRevert(recoverable.recoverFunds(ZERO_ADDRESS, recipient, { from }), 'CTD_SENDER_NOT_GOVERNOR')
     })
   })
 })

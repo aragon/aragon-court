@@ -4,8 +4,6 @@ import "./ICRVotingOwner.sol";
 
 
 interface ICRVoting {
-    function init(ICRVotingOwner owner) external;
-    function getOwner() external view returns (address);
     function create(uint256 voteId, uint8 possibleOutcomes) external;
     function getWinningOutcome(uint256 voteId) external view returns (uint8);
     function getOutcomeTally(uint256 voteId, uint8 outcome) external view returns (uint256);

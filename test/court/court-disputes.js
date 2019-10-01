@@ -44,7 +44,9 @@ contract('Court', ([_, sender]) => {
           })
 
           it('creates a new dispute', async () => {
-            const receipt = await court.createDispute(arbitrable.address, possibleRulings, draftTermId, { from: sender })
+            // move forward to the term before the desired start one for the dispute
+            await courtHelper.setTerm(draftTermId - 1)
+            const receipt = await court.createDispute(arbitrable.address, possibleRulings, { from: sender })
 
             assertAmountOfEvents(receipt, 'NewDispute')
             assertEvent(receipt, 'NewDispute', { disputeId: 0, subject: arbitrable.address, draftTermId, jurorsNumber: firstRoundJurorsNumber })
@@ -57,7 +59,9 @@ contract('Court', ([_, sender]) => {
           })
 
           it('creates a new adjudication round', async () => {
-            await court.createDispute(arbitrable.address, possibleRulings, draftTermId, { from: sender })
+            // move forward to the term before the desired start one for the dispute
+            await courtHelper.setTerm(draftTermId - 1)
+            await court.createDispute(arbitrable.address, possibleRulings, { from: sender })
 
             const { draftTerm, delayedTerms, roundJurorsNumber, selectedJurors, jurorFees, triggeredBy, settledPenalties, collectedTokens } = await courtHelper.getRound(0, 0)
 
@@ -72,12 +76,14 @@ contract('Court', ([_, sender]) => {
           })
 
           it('transfers fees to the court', async () => {
+            // move forward to the term before the desired start one for the dispute
+            await courtHelper.setTerm(draftTermId - 1)
             const { disputeFees: expectedDisputeDeposit } = await courtHelper.getDisputeFees(draftTermId)
             const previousCourtBalance = await feeToken.balanceOf(court.address)
             const previousAccountingBalance = await feeToken.balanceOf(courtHelper.accounting.address)
             const previousSenderBalance = await feeToken.balanceOf(sender)
 
-            await court.createDispute(arbitrable.address, possibleRulings, draftTermId, { from: sender })
+            await court.createDispute(arbitrable.address, possibleRulings, { from: sender })
 
             const currentCourtBalance = await feeToken.balanceOf(court.address)
             assert.equal(previousCourtBalance.toString(), currentCourtBalance.toString(), 'court balances do not match')
@@ -92,7 +98,7 @@ contract('Court', ([_, sender]) => {
           it(`transitions ${expectedTermTransitions} terms`, async () => {
             const previousTermId = await court.getLastEnsuredTermId()
 
-            const receipt = await court.createDispute(arbitrable.address, possibleRulings, draftTermId, { from: sender })
+            const receipt = await court.createDispute(arbitrable.address, possibleRulings, { from: sender })
 
             assertAmountOfEvents(receipt, 'NewTerm', expectedTermTransitions)
 
@@ -103,17 +109,10 @@ contract('Court', ([_, sender]) => {
 
         context('when the creator doesn\'t have enough fee tokens approved', () => {
           it('reverts', async () => {
-            await assertRevert(court.createDispute(arbitrable.address, possibleRulings, draftTermId), 'CT_DEPOSIT_FAILED')
+            await assertRevert(court.createDispute(arbitrable.address, possibleRulings), 'CT_DEPOSIT_FAILED')
           })
         })
       }
-
-      context('when the given draft term is not after the current term', () => {
-        it('reverts', async () => {
-          await courtHelper.setTerm(draftTermId)
-          await assertRevert(court.createDispute(arbitrable.address, possibleRulings, draftTermId), 'CT_CANNOT_CREATE_DISPUTE')
-        })
-      })
 
       context('when the given draft term is after the current term', () => {
         beforeEach('set timestamp at the beginning of the first term', async () => {
@@ -142,7 +141,7 @@ contract('Court', ([_, sender]) => {
           })
 
           it('reverts', async () => {
-            await assertRevert(court.createDispute(arbitrable.address, possibleRulings, draftTermId), 'CT_TOO_MANY_TRANSITIONS')
+            await assertRevert(court.createDispute(arbitrable.address, possibleRulings), 'CT_TOO_MANY_TRANSITIONS')
           })
         })
       })
@@ -155,9 +154,9 @@ contract('Court', ([_, sender]) => {
 
       context('when the possible rulings are invalid', () => {
         it('reverts', async () => {
-          await assertRevert(court.createDispute(arbitrable.address, 0, 20), 'CT_INVALID_RULING_OPTIONS')
-          await assertRevert(court.createDispute(arbitrable.address, 1, 20), 'CT_INVALID_RULING_OPTIONS')
-          await assertRevert(court.createDispute(arbitrable.address, 3, 20), 'CT_INVALID_RULING_OPTIONS')
+          await assertRevert(court.createDispute(arbitrable.address, 0), 'CT_INVALID_RULING_OPTIONS')
+          await assertRevert(court.createDispute(arbitrable.address, 1), 'CT_INVALID_RULING_OPTIONS')
+          await assertRevert(court.createDispute(arbitrable.address, 3), 'CT_INVALID_RULING_OPTIONS')
         })
       })
 
@@ -165,16 +164,8 @@ contract('Court', ([_, sender]) => {
         it('reverts', async () => {
           await courtHelper.subscriptions.setUpToDate(false)
 
-          await assertRevert(court.createDispute(arbitrable.address, 2, 20), 'CT_SUBSCRIPTION_NOT_PAID')
+          await assertRevert(court.createDispute(arbitrable.address, 2), 'CT_SUBSCRIPTION_NOT_PAID')
         })
-      })
-
-      context('when the number of jurors is invalid', () => {
-        // TODO: implement
-      })
-
-      context('when the given term id is invalid', () => {
-        // TODO: implement
       })
 
       context('when the arbitrable is not valid', () => {
@@ -189,11 +180,12 @@ contract('Court', ([_, sender]) => {
       const possibleRulings = 2
 
       beforeEach('create dispute', async () => {
-        await courtHelper.setTimestamp(firstTermStartTime)
+        // move forward to the term before the desired start one for the dispute
+        await courtHelper.setTerm(draftTermId - 1)
         const { disputeFees } = await courtHelper.getDisputeFees(draftTermId)
         await courtHelper.mintAndApproveFeeTokens(sender, court.address, disputeFees)
 
-        await court.createDispute(arbitrable.address, possibleRulings, draftTermId, { from: sender })
+        await court.createDispute(arbitrable.address, possibleRulings, { from: sender })
       })
 
       it('returns the requested dispute', async () => {
@@ -219,11 +211,12 @@ contract('Court', ([_, sender]) => {
       const possibleRulings = 2
 
       beforeEach('create dispute', async () => {
-        await courtHelper.setTimestamp(firstTermStartTime)
+        // move forward to the term before the desired start one for the dispute
+        await courtHelper.setTerm(draftTermId - 1)
         const { disputeFees } = await courtHelper.getDisputeFees(draftTermId)
         await courtHelper.mintAndApproveFeeTokens(sender, court.address, disputeFees)
 
-        await court.createDispute(arbitrable.address, possibleRulings, draftTermId, { from: sender })
+        await court.createDispute(arbitrable.address, possibleRulings, { from: sender })
       })
 
       context('when the round exists', async () => {

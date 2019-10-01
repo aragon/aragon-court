@@ -47,7 +47,6 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
 
     // Disputes-related error messages
     string private constant ERROR_DISPUTE_DOES_NOT_EXIST = "CT_DISPUTE_DOES_NOT_EXIST";
-    string private constant ERROR_CANNOT_CREATE_DISPUTE = "CT_CANNOT_CREATE_DISPUTE";
     string private constant ERROR_INVALID_DISPUTE_STATE = "CT_INVALID_DISPUTE_STATE";
     string private constant ERROR_INVALID_RULING_OPTIONS = "CT_INVALID_RULING_OPTIONS";
     string private constant ERROR_SUBSCRIPTION_NOT_PAID = "CT_SUBSCRIPTION_NOT_PAID";
@@ -387,37 +386,34 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
     }
 
     /**
-    * @notice Create a dispute over `_subject` with `_possibleRulings` possible rulings in term `_draftTermId`
+    * @notice Create a dispute over `_subject` with `_possibleRulings` possible rulings in next term
     * @dev Create a dispute to be drafted in a future term
     * @param _subject Arbitrable subject being disputed
     * @param _possibleRulings Number of possible rulings allowed for the drafted jurors to vote on the dispute
-    * @param _draftTermId Term from which the the jurors for the dispute will be drafted
     * @return Dispute identification number
     */
-    function createDispute(IArbitrable _subject, uint8 _possibleRulings, uint64 _draftTermId) external ensureTerm
+    function createDispute(IArbitrable _subject, uint8 _possibleRulings) external ensureTerm
         returns (uint256)
     {
         // TODO: Limit the min amount of terms before drafting (to allow for evidence submission)
-        // TODO: Limit the max amount of terms into the future that a dispute can be drafted
-        // TODO: Limit the max number of initial jurors
         // TODO: ERC165 check that _subject conforms to the Arbitrable interface
         // TODO: require(address(_subject) == msg.sender, ERROR_INVALID_DISPUTE_CREATOR);
-        require(_draftTermId > termId, ERROR_CANNOT_CREATE_DISPUTE);
         require(subscriptions.isUpToDate(address(_subject)), ERROR_SUBSCRIPTION_NOT_PAID);
         require(_possibleRulings >= MIN_RULING_OPTIONS && _possibleRulings <= MAX_RULING_OPTIONS, ERROR_INVALID_RULING_OPTIONS);
 
         // Create the dispute
+        uint64 draftTermId = termId + 1;
         uint256 disputeId = disputes.length++;
         Dispute storage dispute = disputes[disputeId];
         dispute.subject = _subject;
         dispute.possibleRulings = _possibleRulings;
-        uint64 jurorsNumber = _getFirstRoundJurorsNumber(_draftTermId);
-        emit NewDispute(disputeId, address(_subject), _draftTermId, jurorsNumber);
+        CourtConfig storage config = _getConfigAt(draftTermId);
+        uint64 jurorsNumber = config.disputes.firstRoundJurorsNumber;
+        emit NewDispute(disputeId, address(_subject), draftTermId, jurorsNumber);
 
         // Create first adjudication round of the dispute
-        CourtConfig storage config = _getConfigAt(_draftTermId);
         (ERC20 feeToken, uint256 jurorFees, uint256 totalFees) = _getRegularRoundFees(config, jurorsNumber);
-        _createRound(disputeId, DisputeState.PreDraft, _draftTermId, jurorsNumber, jurorFees);
+        _createRound(disputeId, DisputeState.PreDraft, draftTermId, jurorsNumber, jurorFees);
 
         // Pay round fees and return dispute id
         _depositSenderAmount(feeToken, totalFees);
@@ -928,9 +924,9 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
     function getDisputeFees(uint64 _draftTermId) external view
         returns (ERC20 feeToken, uint256 jurorFees, uint256 totalFees)
     {
-        require(_draftTermId > termId, ERROR_CANNOT_CREATE_DISPUTE);
+        require(_draftTermId > termId, ERROR_PAST_TERM);
         CourtConfig storage config = _getConfigAt(_draftTermId);
-        uint64 jurorsNumber = _getFirstRoundJurorsNumber(_draftTermId);
+        uint64 jurorsNumber = config.disputes.firstRoundJurorsNumber;
         return _getRegularRoundFees(config, jurorsNumber);
     }
 
@@ -1423,16 +1419,6 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
         // Calculate appeal collateral
         appealDeposit = totalFees.mul(config.disputes.appealCollateralFactor);
         confirmAppealDeposit = totalFees.mul(config.disputes.appealConfirmCollateralFactor);
-    }
-
-    /**
-    * @dev Internal function to calculate the jurors number for the first regular round of a dispute.
-    * @param _draftTermId Term from which the the jurors for the dispute will be drafted
-    * @return Jurors number for the first regular round of a dispute
-    */
-    function _getFirstRoundJurorsNumber(uint64 _draftTermId) internal view returns (uint64) {
-        CourtConfig storage config = _getConfigAt(_draftTermId);
-        return config.disputes.firstRoundJurorsNumber;
     }
 
     /**

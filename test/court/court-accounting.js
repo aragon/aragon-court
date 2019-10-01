@@ -2,37 +2,50 @@ const { assertRevert } = require('../helpers/assertThrow')
 const { bn, bigExp, MAX_UINT256 } = require('../helpers/numbers')
 const { assertEvent, assertAmountOfEvents } = require('../helpers/assertEvent')
 
-const ERC20 = artifacts.require('ERC20Mock')
 const CourtAccounting = artifacts.require('CourtAccounting')
+const Controller = artifacts.require('ControllerMock')
+const ERC20 = artifacts.require('ERC20Mock')
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
 
-contract('CourtAccounting', ([_, owner, holder, someone]) => {
-  let accounting, DAI, ANT
+contract('CourtAccounting', ([_, accountingOwner, holder, someone]) => {
+  let controller, accounting, DAI, ANT
 
   beforeEach('create accounting', async () => {
-    accounting = await CourtAccounting.new()
+    controller = await Controller.new()
+    accounting = await CourtAccounting.new(controller.address)
+    await controller.setAccounting(accountingOwner, accounting.address)
   })
 
-  describe('init', () => {
-    beforeEach('initialize the accounting', async () => {
-      await accounting.init(owner)
+  describe('constructor', () => {
+    context('when the initialization succeeds', () => {
+      it('is initialized', async () => {
+        accounting = await CourtAccounting.new(controller.address)
+
+        assert.equal(await accounting.getController(), controller.address, 'accounting is not initialized')
+      })
     })
 
-    it('sets the owner of the contract', async () => {
-      assert.equal(await accounting.owner(), owner)
-    })
+    context('initialization fails', () => {
+      context('when the given controller is the zero address', () => {
+        const controllerAddress = ZERO_ADDRESS
 
-    it('reverts when trying to initialize it again', async () => {
-      await assertRevert(accounting.init(owner), 'INIT_ALREADY_INITIALIZED')
+        it('reverts', async () => {
+          await assertRevert(CourtAccounting.new(controllerAddress), 'CTD_CONTROLLER_NOT_CONTRACT')
+        })
+      })
+
+      context('when the given owner is not a contract address', () => {
+        const controllerAddress = someone
+
+        it('reverts', async () => {
+          await assertRevert(CourtAccounting.new(controllerAddress), 'CTD_CONTROLLER_NOT_CONTRACT')
+        })
+      })
     })
   })
 
   describe('assign', () => {
-    beforeEach('initialize the accounting', async () => {
-      await accounting.init(owner)
-    })
-
     beforeEach('create tokens', async () => {
       DAI = await ERC20.new('DAI Token', 'DAI', 18)
       ANT = await ERC20.new('AN Token', 'ANT', 18)
@@ -40,7 +53,7 @@ contract('CourtAccounting', ([_, owner, holder, someone]) => {
 
     const itHandlesDepositsProperly = account => {
       context('when the sender is the owner', () => {
-        const from = owner
+        const from = accountingOwner
 
         context('when the account did not have previous balance', () => {
 
@@ -65,15 +78,15 @@ contract('CourtAccounting', ([_, owner, holder, someone]) => {
               const receipt = await accounting.assign(DAI.address, account, amount, { from })
 
               assertAmountOfEvents(receipt, 'Assign')
-              assertEvent(receipt, 'Assign', { from: owner, to: account, token: DAI.address, amount })
+              assertEvent(receipt, 'Assign', { from: accountingOwner, to: account, token: DAI.address, amount })
             })
           })
         })
 
         context('when the account had previous balance', () => {
           beforeEach('deposit some tokens', async () => {
-            await accounting.assign(ANT.address, account, bigExp(100, 18), { from: owner })
-            await accounting.assign(DAI.address, account, bigExp(200, 18), { from: owner })
+            await accounting.assign(ANT.address, account, bigExp(100, 18), { from: accountingOwner })
+            await accounting.assign(DAI.address, account, bigExp(200, 18), { from: accountingOwner })
           })
 
           context('when the given amount is zero', () => {
@@ -101,7 +114,7 @@ contract('CourtAccounting', ([_, owner, holder, someone]) => {
                 const receipt = await accounting.assign(DAI.address, account, amount, { from })
 
                 assertAmountOfEvents(receipt, 'Assign')
-                assertEvent(receipt, 'Assign', { from: owner, to: account, token: DAI.address, amount })
+                assertEvent(receipt, 'Assign', { from: accountingOwner, to: account, token: DAI.address, amount })
               })
 
               it('does not affect other token balances', async () => {
@@ -144,10 +157,6 @@ contract('CourtAccounting', ([_, owner, holder, someone]) => {
   })
 
   describe('withdraw', () => {
-    beforeEach('initialize the accounting', async () => {
-      await accounting.init(owner)
-    })
-
     beforeEach('create tokens and mint to accounting', async () => {
       DAI = await ERC20.new('DAI Token', 'DAI', 18)
       ANT = await ERC20.new('AN Token', 'ANT', 18)
@@ -157,8 +166,8 @@ contract('CourtAccounting', ([_, owner, holder, someone]) => {
       const from = holder
 
       beforeEach('deposit some tokens', async () => {
-        await accounting.assign(ANT.address, holder, bigExp(100, 18), { from: owner })
-        await accounting.assign(DAI.address, holder, bigExp(200, 18), { from: owner })
+        await accounting.assign(ANT.address, holder, bigExp(100, 18), { from: accountingOwner })
+        await accounting.assign(DAI.address, holder, bigExp(200, 18), { from: accountingOwner })
       })
 
       context('when the given recipient is not the zero address', () => {

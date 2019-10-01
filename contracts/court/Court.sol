@@ -240,26 +240,6 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
     }
 
     /**
-    * @dev Ensure a dispute exists
-    * @param _id Identification number of the dispute to be ensured
-    */
-    modifier disputeExists(uint256 _id) {
-        require(_id < disputes.length, ERROR_DISPUTE_DOES_NOT_EXIST);
-        _;
-    }
-
-    /**
-    * @dev Ensure a dispute round exists
-    * @param _disputeId Identification number of the dispute to be ensured
-    * @param _roundId Identification number of the dispute round to be ensured
-    */
-    modifier roundExists(uint256 _disputeId, uint256 _roundId) {
-        require(_disputeId < disputes.length, ERROR_DISPUTE_DOES_NOT_EXIST);
-        require(_roundId < disputes[_disputeId].rounds.length, ERROR_ROUND_DOES_NOT_EXIST);
-        _;
-    }
-
-    /**
     * @param _termDuration Duration in seconds per term (recommended 1 hour)
     * @param _tokens Array containing:
     *        _jurorToken Address of the juror work token contract.
@@ -425,7 +405,8 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
      * @param _disputeId Identification number of the dispute to be drafted
      * @param _maxJurorsToBeDrafted Max number of jurors to be drafted, it will be capped to the requested number of jurors of the dispute
      */
-    function draft(uint256 _disputeId, uint64 _maxJurorsToBeDrafted) external disputeExists(_disputeId) {
+    function draft(uint256 _disputeId, uint64 _maxJurorsToBeDrafted) external {
+        disputeExists(_disputeId);
         // Drafts can only be computed when the Court is up-to-date. Note that forcing a term transition won't work since the term randomness
         // is always based on the next term which means it won't be available anyway.
         uint64 requiredTransitions = _neededTermTransitions();
@@ -471,7 +452,8 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
     * @param _roundId Identification number of the dispute round being appealed
     * @param _ruling Ruling appealing a dispute round in favor of
     */
-    function createAppeal(uint256 _disputeId, uint256 _roundId, uint8 _ruling) external disputeExists(_disputeId) ensureTerm {
+    function createAppeal(uint256 _disputeId, uint256 _roundId, uint8 _ruling) external ensureTerm {
+        disputeExists(_disputeId);
         // Ensure given round can be appealed. Note that if there was a final appeal the adjudication state will be 'Ended'.
         Dispute storage dispute = disputes[_disputeId];
         _checkAdjudicationState(dispute, _roundId, AdjudicationState.Appealing);
@@ -533,7 +515,8 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
     * @notice Execute the arbitrable associated to dispute #`_disputeId` based on its final ruling
     * @param _disputeId Identification number of the dispute to be executed
     */
-    function executeRuling(uint256 _disputeId) external disputeExists(_disputeId) ensureTerm {
+    function executeRuling(uint256 _disputeId) external ensureTerm {
+        disputeExists(_disputeId);
         Dispute storage dispute = disputes[_disputeId];
         require(dispute.state != DisputeState.Executed, ERROR_INVALID_DISPUTE_STATE);
 
@@ -838,9 +821,10 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
     * @return finalRuling The winning ruling in case the dispute is finished
     * @return lastRoundId Identification number of the last round created for the dispute
     */
-    function getDispute(uint256 _disputeId) external view disputeExists(_disputeId)
+    function getDispute(uint256 _disputeId) external view
         returns (IArbitrable subject, uint8 possibleRulings, DisputeState state, uint8 finalRuling, uint256 lastRoundId)
     {
+        disputeExists(_disputeId);
         Dispute storage dispute = disputes[_disputeId];
 
         subject = dispute.subject;
@@ -865,7 +849,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
     * @return coherentJurors Number of jurors that voted in favor of the final ruling in the requested round
     * @return state Adjudication state of the requested round
     */
-    function getRound(uint256 _disputeId, uint256 _roundId) external view roundExists(_disputeId, _roundId)
+    function getRound(uint256 _disputeId, uint256 _roundId) external view
         returns (
             uint64 draftTerm,
             uint64 delayedTerms,
@@ -879,7 +863,9 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
             AdjudicationState state
         )
     {
+        disputeExists(_disputeId);
         Dispute storage dispute = disputes[_disputeId];
+        roundExists(dispute, _roundId);
         state = _adjudicationStateAt(dispute, _roundId, _getCurrentTermId());
 
         AdjudicationRound storage round = dispute.rounds[_roundId];
@@ -948,7 +934,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
     * @return appealDeposit Amount to be deposit of fees for a regular round at the given term
     * @return confirmAppealDeposit Total amount of fees for a regular round at the given term
     */
-    function getNextRoundDetails(uint256 _disputeId, uint256 _roundId) external view roundExists(_disputeId, _roundId)
+    function getNextRoundDetails(uint256 _disputeId, uint256 _roundId) external view
         returns (
             uint64 nextRoundStartTerm,
             uint64 nextRoundJurorsNumber,
@@ -960,7 +946,9 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
             uint256 confirmAppealDeposit
         )
     {
+        disputeExists(_disputeId);
         Dispute storage dispute = disputes[_disputeId];
+        roundExists(dispute, _roundId);
         CourtConfig storage config = _getDisputeConfig(dispute);
         require(_isRegularRound(_roundId, config), ERROR_ROUND_IS_FINAL);
         return _getNextRoundDetails(dispute, dispute.rounds[_roundId], _roundId);
@@ -974,10 +962,12 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
     * @return weight Juror weight drafted for the requested round
     * @return rewarded Whether or not the given juror was rewarded based on the requested round
     */
-    function getJuror(uint256 _disputeId, uint256 _roundId, address _juror) external view roundExists(_disputeId, _roundId)
+    function getJuror(uint256 _disputeId, uint256 _roundId, address _juror) external view
         returns (uint64 weight, bool rewarded)
     {
+        disputeExists(_disputeId);
         Dispute storage dispute = disputes[_disputeId];
+        roundExists(dispute, _roundId);
         AdjudicationRound storage round = dispute.rounds[_roundId];
         CourtConfig storage config = _getDisputeConfig(dispute);
 
@@ -1324,6 +1314,23 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
         if (_amount > 0) {
             require(_token.safeTransferFrom(msg.sender, address(accounting), _amount), ERROR_DEPOSIT_FAILED);
         }
+    }
+
+    /**
+    * @dev Ensure a dispute exists
+    * @param _disputeId Identification number of the dispute to be ensured
+    */
+    function disputeExists(uint256 _disputeId) internal view {
+        require(_disputeId < disputes.length, ERROR_DISPUTE_DOES_NOT_EXIST);
+    }
+
+    /**
+    * @dev Ensure a dispute round exists
+    * @param dispute Dispute the round should belong to
+    * @param _roundId Identification number of the dispute round to be ensured
+    */
+    function roundExists(Dispute storage dispute, uint256 _roundId) internal view {
+        require(_roundId < dispute.rounds.length, ERROR_ROUND_DOES_NOT_EXIST);
     }
 
     /**

@@ -2,8 +2,9 @@ const { bn, bigExp, assertBn } = require('../helpers/numbers')
 const { buildHelper } = require('../helpers/court')(web3, artifacts)
 const { assertRevert } = require('../helpers/assertThrow')
 const { assertAmountOfEvents } = require('../helpers/assertEvent')
+const { outcomeFor } = require('../helpers/crvoting')
 
-contract('Court config', ([_, sender]) => {
+contract('Court config', ([_, sender, disputer, drafter, appealMaker, appealTaker, juror500, juror1000, juror3000]) => {
   let courtHelper, court
   let initialConfig
   let feeToken
@@ -251,9 +252,19 @@ contract('Court config', ([_, sender]) => {
     const configChangeTermId = draftTermId + 1
     const possibleRulings = 2
 
+    const jurors = [
+      { address: juror3000, initialActiveBalance: bigExp(3000, 18) },
+      { address: juror500,  initialActiveBalance: bigExp( 500, 18) },
+      { address: juror1000, initialActiveBalance: bigExp(1000, 18) },
+    ]
+
+    beforeEach('activate jurors', async () => {
+      await courtHelper.activate(jurors)
+    })
+
     it('dispute is not affected by config settings during its lifetime', async () => {
       // create dispute
-      disputeId = await courtHelper.dispute({ draftTermId })
+      disputeId = await courtHelper.dispute({ draftTermId, disputer })
 
       // change config
       await changeConfig(configChangeTermId)
@@ -265,6 +276,24 @@ contract('Court config', ([_, sender]) => {
       const { roundJurorsNumber, jurorFees } = await courtHelper.getRound(disputeId, 0)
       assertBn(roundJurorsNumber, firstRoundJurorsNumber, 'Jurors Number doesn\'t match')
       assertBn(jurorFees, firstRoundJurorsNumber.mul(jurorFee), 'Jurors Fees don\'t match')
+
+      // draft
+      await courtHelper.advanceBlocks(1)
+      const draftedJurors = await courtHelper.draft({ disputeId, drafter })
+      // commit and reveal
+      const voters = draftedJurors.slice(0, 3)
+      voters.forEach((voter, i) => voter.outcome = outcomeFor(i))
+      await courtHelper.commit({ disputeId, roundId: 0, voters })
+      await courtHelper.reveal({ disputeId, roundId: 0, voters })
+      // appeal
+      await courtHelper.appeal({ disputeId, roundId: 0, appealMaker })
+      // confirm appeal
+      await courtHelper.confirmAppeal({ disputeId, roundId: 0, appealTaker })
+
+      // check dispute config related info
+      const { roundJurorsNumber: appealJurorsNumber, jurorFees: appealJurorFees } = await courtHelper.getRound(disputeId, 1)
+      assertBn(appealJurorsNumber, firstRoundJurorsNumber.mul(appealStepFactor), 'Jurors Number doesn\'t match')
+      assertBn(appealJurorFees, appealJurorsNumber.mul(jurorFee), 'Jurors Fees don\'t match')
     })
   })
 })

@@ -33,9 +33,8 @@ contract('Court', ([_, disputer, drafter, juror100, juror500, juror1000, juror15
     beforeEach('activate jurors and create dispute', async () => {
       await courtHelper.activate(jurors)
 
-      await courtHelper.setTerm(1)
       disputeId = await courtHelper.dispute({ draftTermId, disputer })
-      await courtHelper.passTerms(bn(draftTermId - 1)) // court is already at term one
+      await courtHelper.passTerms(bn(1)) // court is already at term previous to dispute start
     })
 
     const itIsAtState = (roundId, state) => {

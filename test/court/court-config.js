@@ -15,7 +15,7 @@ contract('Court config', ([_, sender, disputer, drafter, appealMaker, appealTake
   let appealCollateralFactor, appealConfirmCollateralFactor
 
   const ERROR_BAD_SENDER = 'CT_BAD_SENDER'
-  const ERROR_PAST_TERM = 'CT_PAST_TERM'
+  const ERROR_TOO_OLD_TERM = 'CT_TOO_OLD_TERM'
 
   beforeEach('deploy court', async () => {
     feeToken = await artifacts.require('ERC20Mock').new('Court Fee Token', 'CFT', 18)
@@ -175,27 +175,42 @@ contract('Court config', ([_, sender, disputer, drafter, appealMaker, appealTake
   })
 
   context('changes after init', () => {
+    beforeEach('move forward', async () => {
+      // move away from term zero
+      await courtHelper.setTerm(1)
+    })
+
     it('fails setting config if no governor', async () => {
       const from = sender
+      const configChangeTermId = 3
 
       // make sure account used is not governor
       assert.notEqual(courtHelper.governor, from, 'it is actually governor!')
 
-      const { promise } = await changeConfigPromise(1, sender)
+      const { promise } = await changeConfigPromise(configChangeTermId, sender)
       await assertRevert(promise, ERROR_BAD_SENDER)
     })
 
     it('fails setting config in the past', async () => {
-      const configChangeTermId = 1
+      const configChangeTermId = 3
       // move forward
       await courtHelper.setTerm(configChangeTermId + 1)
 
       const { promise } = await changeConfigPromise(configChangeTermId, courtHelper.governor)
-      await assertRevert(promise, ERROR_PAST_TERM)
+      await assertRevert(promise, ERROR_TOO_OLD_TERM)
+    })
+
+    it('fails setting config with only one term in advance', async () => {
+      const configChangeTermId = 3
+      // move forward
+      await courtHelper.setTerm(configChangeTermId - 1)
+
+      const { promise } = await changeConfigPromise(configChangeTermId, courtHelper.governor)
+      await assertRevert(promise, ERROR_TOO_OLD_TERM)
     })
 
     context('governor can change config', () => {
-      const configChangeTermId = 1
+      const configChangeTermId = 3
       let newConfig
 
       beforeEach('ask for the change', async () => {
@@ -215,7 +230,7 @@ contract('Court config', ([_, sender, disputer, drafter, appealMaker, appealTake
     })
 
     context('overwriting changes', () => {
-      const configChangeTermId1 = 1, configChangeTermId2 = 2
+      const configChangeTermId1 = 3, configChangeTermId2 = 4
       let newConfig1, newConfig2
 
       beforeEach('ask for the changes', async () => {

@@ -24,10 +24,10 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
     using PctHelpers for uint256;
     using Uint256Helpers for uint256;
 
-    // Configs-related error messages
     string private constant ERROR_BAD_SENDER = "CT_BAD_SENDER";
+    // Configs-related error messages
     string private constant ERROR_BAD_FIRST_TERM_START_TIME = "CT_BAD_FIRST_TERM_START_TIME";
-    string private constant ERROR_PAST_TERM = "CT_PAST_TERM";
+    string private constant ERROR_TOO_OLD_TERM = "CT_TOO_OLD_TERM";
     string private constant ERROR_CONFIG_PERIOD_ZERO_TERMS = "CT_CONFIG_PERIOD_0";
     string private constant ERROR_INVALID_PENALTY_PCT = "CT_INVALID_PENALTY_PCT";
     string private constant ERROR_BAD_INITIAL_JURORS = "CT_BAD_INITIAL_JURORS";
@@ -40,7 +40,6 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
     string private constant ERROR_TERM_OUTDATED = "CT_TERM_OUTDATED";
     string private constant ERROR_TOO_MANY_TRANSITIONS = "CT_TOO_MANY_TRANSITIONS";
     string private constant ERROR_INVALID_TRANSITION_TERMS = "CT_INVALID_TRANSITION_TERMS";
-    string private constant ERROR_PAST_TERM_FEE_CHANGE = "CT_PAST_TERM_FEE_CHANGE";
     string private constant ERROR_TERM_RANDOMNESS_NOT_YET = "CT_TERM_RANDOMNESS_NOT_YET";
     string private constant ERROR_TERM_DOES_NOT_EXIST = "CT_TERM_DOES_NOT_EXIST";
     string private constant ERROR_TERM_RANDOMNESS_NOT_AVAILABLE = "CT_TERM_RANDOMNESS_NOT_AVAILABLE";
@@ -352,8 +351,6 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
         external
         only(governor)
     {
-        require(_termId > termId, ERROR_PAST_TERM);
-
         _setCourtConfig(
             _termId,
             _feeToken,
@@ -915,7 +912,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
     function getDisputeFees(uint64 _draftTermId) external view
         returns (ERC20 feeToken, uint256 jurorFees, uint256 totalFees)
     {
-        require(_draftTermId > termId, ERROR_PAST_TERM);
+        require(_draftTermId > termId, ERROR_TOO_OLD_TERM);
         CourtConfig storage config = _getConfigAt(_draftTermId);
         uint64 jurorsNumber = config.disputes.firstRoundJurorsNumber;
         return _getRegularRoundFees(config, jurorsNumber);
@@ -998,10 +995,8 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
             uint64 currentTermId = termId;
             Term storage currentTerm = terms[currentTermId];
 
-            // Check if it's time for a config change (only one can be scheduled)
-            if (currentTermId == configChangeTermId) {
-                currentTerm.courtConfigId = previousTerm.courtConfigId + 1;
-            } else {
+            // If the term had no change scheduled, keep the previous one
+            if (currentTerm.courtConfigId == 0) {
                 currentTerm.courtConfigId = previousTerm.courtConfigId;
             }
             // Set the start time of the new term. Note that we are using a constant term duration value to guarantee
@@ -1246,7 +1241,9 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
         ensureTerm
     {
         // if termId is not zero, change must be scheduled in the future
-        require(termId == 0 || _fromTermId > termId, ERROR_PAST_TERM_FEE_CHANGE);
+        // 2 terms in advance, to ensure that disputes scheduled for next term
+        // keep the known config
+        require(termId == 0 || _fromTermId > termId + 1, ERROR_TOO_OLD_TERM);
 
         // Make sure the given penalty pct is not greater than 100%
         uint16 _penaltyPct = _pcts[0];
@@ -1268,7 +1265,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
 
         // reset previously set fee structure future change
         // in that case we will overwrite last array item
-        if (configChangeTermId > termId && configChangeTermId != 0) {
+        if (configChangeTermId > termId) {
             terms[configChangeTermId].courtConfigId = 0;
         } else { // otherwise increase configs array for the new one
             courtConfigs.length++;

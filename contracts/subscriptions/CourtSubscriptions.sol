@@ -2,6 +2,7 @@ pragma solidity ^0.5.8;
 
 import "@aragon/os/contracts/lib/token/ERC20.sol";
 import "@aragon/os/contracts/lib/math/SafeMath.sol";
+import "@aragon/os/contracts/lib/math/SafeMath64.sol";
 import "@aragon/os/contracts/common/SafeERC20.sol";
 import "@aragon/os/contracts/common/IsContract.sol";
 import "@aragon/os/contracts/common/TimeHelpers.sol";
@@ -16,6 +17,7 @@ import "../subscriptions/ISubscriptionsOwner.sol";
 contract CourtSubscriptions is TimeHelpers, Initializable, IsContract, ISubscriptions {
     using SafeERC20 for ERC20;
     using SafeMath for uint256;
+    using SafeMath64 for uint64;
     using PctHelpers for uint256;
 
     string private constant ERROR_OWNER_ALREADY_SET = "CS_OWNER_ALREADY_SET";
@@ -565,7 +567,7 @@ contract CourtSubscriptions is TimeHelpers, Initializable, IsContract, ISubscrip
     */
     function _getPeriodStartTermId(uint256 _periodId) internal view returns (uint64) {
         // Periods are measured in Court terms. Since Court terms are represented in `uint64`, we are safe to use `uint64` for period ids too.
-        return START_TERM_ID + uint64(_periodId) * periodDuration;
+        return START_TERM_ID.add(uint64(_periodId).mul(periodDuration));
     }
 
     /**
@@ -638,8 +640,8 @@ contract CourtSubscriptions is TimeHelpers, Initializable, IsContract, ISubscrip
             delayedPeriods = 0;
             regularPeriods = _periods;
             // The number of periods to be paid includes the current period, thus we subtract one unit.
-            // Note that there is no need to use SafeMath here since the number of periods is at least one.
-            newLastPeriodId = _currentPeriodId + _periods - 1;
+            // Note that there is no need to use SafeMath for subtraction since the number of periods is at least one.
+            newLastPeriodId = _currentPeriodId.add(_periods) - 1;
         } else {
             uint256 totalDelayedPeriods = _getDelayedPeriods(_subscriber, _currentPeriodId);
             // Resume a subscription only if it was paused and the previous last period is overdue by more than one period
@@ -647,17 +649,17 @@ contract CourtSubscriptions is TimeHelpers, Initializable, IsContract, ISubscrip
                 // If the subscriber is resuming his activity he must pay the pre-paid periods penalty and the previous delayed periods
                 resumePeriods = resumePrePaidPeriods;
                 delayedPeriods = totalDelayedPeriods;
-                require(_periods >= resumePeriods + delayedPeriods, ERROR_LOW_RESUME_PERIODS_PAYMENT);
+                require(_periods >= resumePeriods.add(delayedPeriods), ERROR_LOW_RESUME_PERIODS_PAYMENT);
 
                 // Note that there is no need to use SafeMath here since we already checked the number of given and resume periods
                 regularPeriods = _periods - resumePeriods - delayedPeriods;
                 // The new last period is computed including the current period
-                // Note that there is no need to use SafeMath here since the number of periods is at least one
-                newLastPeriodId = _currentPeriodId + _periods - 1;
+                // Note that there is no need to use SafeMath for subtraction since the number of periods is at least one.
+                newLastPeriodId = _currentPeriodId.add(_periods) - 1;
             } else {
                 // If the subscriber does not need to resume his activity, there are no resume periods, last period is simply updated
                 resumePeriods = 0;
-                newLastPeriodId = lastPaymentPeriodId + _periods;
+                newLastPeriodId = lastPaymentPeriodId.add(_periods);
 
                 // Compute the number of regular and delayed periods to be paid
                 if (totalDelayedPeriods > _periods) {
@@ -714,7 +716,7 @@ contract CourtSubscriptions is TimeHelpers, Initializable, IsContract, ISubscrip
     */
     function _getPeriodBalanceDetails(uint256 _periodId) internal view returns (uint64 periodBalanceCheckpoint, uint256 totalActiveBalance) {
         uint64 periodStartTermId = _getPeriodStartTermId(_periodId);
-        uint64 nextPeriodStartTermId = _getPeriodStartTermId(_periodId + 1);
+        uint64 nextPeriodStartTermId = _getPeriodStartTermId(_periodId + 1); // no need for SafeMath, as it's actually an uint64
 
         // Pick a random Court term during the next period of the requested one to get the total amount of juror tokens active in the Court
         bytes32 randomness = owner.getTermRandomness(nextPeriodStartTermId);

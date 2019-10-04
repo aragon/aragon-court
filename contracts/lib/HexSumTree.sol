@@ -1,5 +1,7 @@
 pragma solidity ^0.5.8;
 
+import "@aragon/os/contracts/lib/math/SafeMath.sol";
+
 import "./Checkpointing.sol";
 
 
@@ -25,6 +27,7 @@ import "./Checkpointing.sol";
 *
 */
 library HexSumTree {
+    using SafeMath for uint256;
     using Checkpointing for Checkpointing.History;
 
     string private constant ERROR_UPDATE_OVERFLOW = "SUM_TREE_UPDATE_OVERFLOW";
@@ -33,6 +36,13 @@ library HexSumTree {
     string private constant ERROR_MISSING_SEARCH_VALUES = "SUM_TREE_MISSING_SEARCH_VALUES";
 
     // Constants used to perform tree computations
+    /* @dev
+    * To change any the following constants, the following relationship must be kept:
+    * 2^BITS_IN_NIBBLE = CHILDREN
+    * and the max depth of the tree will be given by:
+    * BITS_IN_NIBBLE * MAX_DEPTH = 256
+    * (so in this case it's 64)
+    */
     uint256 private constant CHILDREN = 16;
     uint256 private constant BITS_IN_NIBBLE = 4;
 
@@ -137,7 +147,8 @@ library HexSumTree {
 
         // Update the value of the requested leaf node based on the given delta
         uint256 lastValue = getItem(self, _key);
-        uint256 newValue = _positive ? lastValue + _delta : lastValue - _delta;
+        // No need for SafeMath for addition, it's checked on _updateSums
+        uint256 newValue = _positive ? lastValue + _delta : lastValue.sub(_delta);
         _add(self, ITEMS_LEVEL, _key, _time, newValue);
 
         // Update sums cached in the non-leaf nodes. Note that overflows is being checked at the end of the whole update.
@@ -160,10 +171,12 @@ library HexSumTree {
 
         // Throw out-of-bounds error if there are no items in the tree or the highest value being searched is greater than the total
         uint256 total = getRecentTotalAt(self, _time);
+        // No need for SafeMath: positive length of array already checked
         require(total > 0 && total > _values[_values.length - 1], ERROR_SEARCH_OUT_OF_BOUNDS);
 
         // Build search params for the first iteration
         uint256 rootLevel = getRecentHeightAt(self, _time);
+        // No need for SafeMath: rootLevel starts with 1 and it always goes up
         SearchParams memory searchParams = SearchParams(_time, rootLevel - 1, BASE_KEY, 0, 0);
 
         // These arrays will be used to fill in the results. We are passing them as parameters to avoid extra copies
@@ -292,8 +305,8 @@ library HexSumTree {
             // iteration, the key of the ancestor of the previous level is simply the key of the leaf being updated.
             ancestorKey = ancestorKey & mask;
 
-            // Note that we are safe to avoid SafeMath here since overflows will be caught by the checkpointing lib since
-            // it works with uint192 values, or at the end of the update when checking the the total stored at the root.
+            // No need for SafeMath: for addition, overflow it's checked at the end of the update for the root,
+            // while for subtraction is checked by set and update before calling this with positive = false
             uint256 lastValue = getNode(self, level, ancestorKey);
             uint256 newValue = _positive ? lastValue + _delta : lastValue - _delta;
             _add(self, level, ancestorKey, _time, newValue);
@@ -355,6 +368,7 @@ library HexSumTree {
     )
         private view
     {
+        // No need fo SafeMath: BITS_IN_NIBBLE * MAX_DEPTH = 256 (see explanation above BITS_IN_NIBBLE definition)
         uint256 levelKeyLessSignificantNibble = _params.level * BITS_IN_NIBBLE;
         for (uint256 childNumber = 0; childNumber < CHILDREN; childNumber++) {
             // Return if we already found enough values
@@ -364,20 +378,21 @@ library HexSumTree {
 
             // Build child node key shifting the child number to the position of the less significant nibble of
             // the keys for the level being analyzed, and adding it to the key of the parent node. For example,
-            // for a tree with height 5, if we are checking the children of the second node of the level 4, whose
-            // key is 0x0000000000000000000000000000000000000000000000000000000000001000, its children keys are:
+            // for a tree with height 5, if we are checking the children of the second node of the level 3, whose
+            // key is    0x0000000000000000000000000000000000000000000000000000000000001000, its children keys are:
             // Child  0: 0x0000000000000000000000000000000000000000000000000000000000001000
             // Child  1: 0x0000000000000000000000000000000000000000000000000000000000001100
             // Child  2: 0x0000000000000000000000000000000000000000000000000000000000001200
             // ...
             // Child 15: 0x0000000000000000000000000000000000000000000000000000000000001f00
             // Note that this cannot overflow since the root key of the highest tree is 0x0 and its highest child
-            // key is 16^64, which is 2^256
+            // key is 16^64, which is 2^256, assuming a max height of 64 levels.
             uint256 childNodeKey = _params.parentKey + (childNumber << levelKeyLessSignificantNibble);
             uint256 childNodeValue = getRecentNodeAt(self, _params.level, childNodeKey, _params.time);
 
             // Check how many values belong to the subtree of this node. As they are ordered, it will be a contiguous
             // subset starting from the beginning, so we only need to know the length of that subset.
+            // No need for SafeMath: as this is a sum tree, the sum in the parent node would have overflown on insert
             uint256 newVisitedTotal = _params.visitedTotal + childNodeValue;
             uint256 subtreeIncludedValues = _getValuesIncludedInSubtree(_values, _params.foundValues, newVisitedTotal);
 
@@ -388,10 +403,17 @@ library HexSumTree {
                 if (_params.level == ITEMS_LEVEL) {
                     _copyFoundNode(_params.foundValues, subtreeIncludedValues, childNodeKey, _resultKeys, childNodeValue, _resultValues);
                 } else {
-                    SearchParams memory nextLevelParams = SearchParams(_params.time, _params.level - 1, childNodeKey, _params.foundValues, _params.visitedTotal);
+                    SearchParams memory nextLevelParams = SearchParams(
+                        _params.time,
+                        _params.level - 1, // No need for SafeMath: ITEMS_LEVEL = 0 => _params.level > 0 here
+                        childNodeKey,
+                        _params.foundValues,
+                        _params.visitedTotal
+                    );
                     _search(self, _values, nextLevelParams, _resultKeys, _resultValues);
                 }
                 // Update the number of values that were already found
+                // No need for SafeMath: this is at most the length of the values input array
                 _params.foundValues += subtreeIncludedValues;
             }
             // Update the visited total for the next node in this level
@@ -411,6 +433,7 @@ library HexSumTree {
         // Height  2: 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff00 (up to 32 keys)
         // ...
         // Height 64: 0x0000000000000000000000000000000000000000000000000000000000000000 (up to 16^64 keys - tree max height)
+        // No need fo SafeMath: BITS_IN_NIBBLE * MAX_DEPTH = 256 (see explanation above BITS_IN_NIBBLE)
         uint256 shift = _currentHeight * BITS_IN_NIBBLE;
         uint256 mask = uint256(-1) << shift;
 

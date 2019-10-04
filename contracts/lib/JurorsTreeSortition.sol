@@ -71,18 +71,15 @@ library JurorsTreeSortition {
         view
         returns (uint256 low, uint256 high)
     {
-        // Note that the low bound will be always equal to the previous high bound incremented by one, or one for the
-        // first iteration. Thus, we can make sure we are not excluding any juror from the tree.
         uint256 totalActiveBalance = tree.getRecentTotalAt(_termId);
-        uint256 ratio = totalActiveBalance / _roundRequestedJurors;
-        low = _selectedJurors == 0 ? 1 : (_selectedJurors * ratio) + 1;
+        // TODO: SafeMath
+        low = _selectedJurors * totalActiveBalance / _roundRequestedJurors;
+
+        uint256 newSelectedJurors = _selectedJurors + _batchRequestedJurors;
 
         // This function assumes that `_roundRequestedJurors` is greater than or equal to `newSelectedJurors`
-        uint256 newSelectedJurors = _selectedJurors + _batchRequestedJurors;
-        bool lastBatch = newSelectedJurors == _roundRequestedJurors;
-
-        // If we are computing bounds for the last batch, make sure we include the last inserted juror
-        high = lastBatch ? totalActiveBalance : (newSelectedJurors * ratio);
+        // TODO: SafeMath
+        high = newSelectedJurors * totalActiveBalance / _roundRequestedJurors;
     }
 
     /**
@@ -103,16 +100,15 @@ library JurorsTreeSortition {
         pure
         returns (uint256[] memory)
     {
-        // Calculate the interval to be used to search the balances in the tree. Since we are using a modulo function
-        // to compute the random balances to be searched, we add one to the difference to make sure the last number
-        // of the range is also included. For example, to compute a range [1,10] we need to compute using modulo 10.
-        uint256 interval = _highBatchBound - _lowBatchBound + 1;
+        uint256 interval = _highBatchBound - _lowBatchBound;
         uint256[] memory balances = new uint256[](_batchRequestedJurors);
 
         // Compute an ordered list of random active balance to be searched in the jurors tree
         for (uint256 batchJurorNumber = 0; batchJurorNumber < _batchRequestedJurors; batchJurorNumber++) {
             balances[batchJurorNumber] = _computeRandomBalance(_randomnessHash, batchJurorNumber, _lowBatchBound, interval);
+            // Make sure it's ordered
             for (uint256 i = batchJurorNumber; i > 0 && balances[i] < balances[i - 1]; i--) {
+                // Flip values
                 uint256 tmp = balances[i - 1];
                 balances[i - 1] = balances[i];
                 balances[i] = tmp;

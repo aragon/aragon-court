@@ -10,24 +10,28 @@ contract('JurorsTreeSortition', () => {
     await tree.init()
   })
 
+  const expectedBounds = (selectedJurors, batchRequestedJurors, balances, totalRequestedJurors) => {
+    const totalBalance = balances.reduce((acc, x) => acc + x, 0)
+
+    const expectedLowBound = Math.floor(selectedJurors * totalBalance / totalRequestedJurors)
+    const expectedHighBound = Math.floor((selectedJurors + batchRequestedJurors) * totalBalance / totalRequestedJurors)
+    return { expectedLowBound, expectedHighBound }
+  }
+
   describe('getSearchBatchBounds', () => {
     const termId = 2
     const totalRequestedJurors = 5
+    const balances = [ 1, 2, 5, 3, 1 ]
 
     beforeEach('insert jurors active balances', async () => {
-      await tree.insert(termId, 1)
-      await tree.insert(termId, 2)
-      await tree.insert(termId, 5)
-      await tree.insert(termId, 3)
-      await tree.insert(termId, 1)
+      await Promise.all(balances.map(b => tree.insert(termId, b)))
     })
 
     context('when querying a first batch', async () => {
       const selectedJurors = 0
       const batchRequestedJurors = 2
 
-      const expectedLowBound = 1
-      const expectedHighBound = 4
+      const { expectedLowBound, expectedHighBound } = expectedBounds(selectedJurors, batchRequestedJurors, balances, totalRequestedJurors)
 
       it('includes the first juror', async () => {
         const { low, high } = await tree.getSearchBatchBounds(termId, selectedJurors, batchRequestedJurors, totalRequestedJurors)
@@ -41,8 +45,7 @@ contract('JurorsTreeSortition', () => {
       const selectedJurors = 2
       const batchRequestedJurors = 2
 
-      const expectedLowBound = 5
-      const expectedHighBound = 8
+      const { expectedLowBound, expectedHighBound } = expectedBounds(selectedJurors, batchRequestedJurors, balances, totalRequestedJurors)
 
       it('includes middle jurors', async () => {
         const { low, high } = await tree.getSearchBatchBounds(termId, selectedJurors, batchRequestedJurors, totalRequestedJurors)
@@ -56,8 +59,7 @@ contract('JurorsTreeSortition', () => {
       const selectedJurors = 4
       const batchRequestedJurors = 1
 
-      const expectedLowBound = 9
-      const expectedHighBound = 12
+      const { expectedLowBound, expectedHighBound } = expectedBounds(selectedJurors, batchRequestedJurors, balances, totalRequestedJurors)
 
       it('includes the last juror', async () => {
         const { low, high } = await tree.getSearchBatchBounds(termId, selectedJurors, batchRequestedJurors, totalRequestedJurors)

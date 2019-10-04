@@ -32,7 +32,9 @@ contract JurorsTreeSortitionMock is HexSumTreeMock {
     }
 
     function computeSearchRandomBalances(
-        bytes32 _randomnessHash,
+        bytes32 _termRandomness,
+        uint256 _disputeId,
+        uint256 _sortitionIteration,
         uint256 _batchRequestedJurors,
         uint256 _lowActiveBalanceBatchBound,
         uint256 _highActiveBalanceBatchBound
@@ -41,19 +43,6 @@ contract JurorsTreeSortitionMock is HexSumTreeMock {
         pure
         returns (uint256[] memory)
     {
-        return JurorsTreeSortition._computeSearchRandomBalances(_randomnessHash, _batchRequestedJurors, _lowActiveBalanceBatchBound, _highActiveBalanceBatchBound);
-    }
-
-    function computeRandomBalance(
-        bytes32 _randomnessHash,
-        uint256 _batchJurorNumber,
-        uint256 _lowActiveBalanceBatchBound,
-        uint256 _activeBalanceInterval
-    )
-        public
-        pure
-        returns (uint256)
-    {
-        return JurorsTreeSortition._computeRandomBalance(_randomnessHash, _batchJurorNumber, _lowActiveBalanceBatchBound, _activeBalanceInterval);
+        return JurorsTreeSortition._computeSearchRandomBalances(_termRandomness, _disputeId, _sortitionIteration, _batchRequestedJurors, _lowActiveBalanceBatchBound, _highActiveBalanceBatchBound);
     }
 }

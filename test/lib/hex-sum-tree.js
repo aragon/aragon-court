@@ -386,22 +386,24 @@ contract('HexSumTree', () => {
           })
 
           it('reverts', async () => {
-            await assertRevert(tree.update(key, time + 1, value + 1, false), 'CHECKPOINT_VALUE_TOO_BIG')
+            await assertRevert(tree.update(key, time + 1, MAX_UINT256, false), 'MATH_SUB_UNDERFLOW')
+            await assertRevert(tree.update(key, time + 1, value + 1, false), 'MATH_SUB_UNDERFLOW')
             await assertRevert(tree.update(key, time + 1, MAX_UINT192, true), 'CHECKPOINT_VALUE_TOO_BIG')
           })
         })
 
         context('when the first value is huge', () => {
-          const value = MAX_UINT192
+          const value = MAX_UINT192.sub(bn(1))
 
           beforeEach('insert value', async () => {
             await tree.insert(time, value)
           })
 
           it('reverts', async () => {
-            await assertRevert(tree.update(key, time + 1, 1, true), 'CHECKPOINT_VALUE_TOO_BIG')
+            await assertRevert(tree.update(key, time + 1, 2, true), 'CHECKPOINT_VALUE_TOO_BIG')
             await assertRevert(tree.update(key, time + 1, MAX_UINT256, true), 'SUM_TREE_UPDATE_OVERFLOW')
-            await assertRevert(tree.update(key, time + 1, MAX_UINT256, false), 'CHECKPOINT_VALUE_TOO_BIG')
+            await assertRevert(tree.update(key, time + 1, MAX_UINT256, false), 'MATH_SUB_UNDERFLOW')
+            await assertRevert(tree.update(key, time + 1, MAX_UINT256.sub(bn(1)), false), 'MATH_SUB_UNDERFLOW')
           })
         })
       })

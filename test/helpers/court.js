@@ -27,7 +27,7 @@ module.exports = (web3, artifacts) => {
 
   // TODO: update default to make sure we test using real values
   const DEFAULTS = {
-    termDuration:                       bn(ONE_DAY),     //  terms lasts one week
+    termDuration:                       bn(ONE_DAY),     //  terms lasts one day
     firstTermStartTime:                 bn(NEXT_WEEK),   //  first term starts one week after mocked timestamp
     commitTerms:                        bn(1),           //  vote commits last 1 term
     revealTerms:                        bn(1),           //  vote reveals last 1 term

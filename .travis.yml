@@ -20,8 +20,11 @@ jobs:
       script: npm test test/court/court-{disputes,voting,appeal,confirm-appeal}.js
       name: "Court Disputes"
     - stage: tests
-      script: npm test test/court/court-settle.js
-      name: "Court Settles"
+      script: npm test test/court/court-settle-round.js
+      name: "Court Settle Rounds"
+    - stage: tests
+      script: npm test test/court/court-settle-appeal.js
+      name: "Court Settle Appeals"
     - stage: tests
       script: npm test test/registry/*.js
       name: "Registry"

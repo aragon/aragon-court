@@ -9,8 +9,8 @@ contract TimeHelpersMock is TimeHelpers {
     using SafeMath for uint256;
     using SafeMath64 for uint64;
 
-    uint256 mockedTimestamp;
-    uint256 mockedBlockNumber;
+    uint256 private mockedTimestamp;
+    uint256 private mockedBlockNumber;
 
     /**
     * @dev Tells the mocked block number in uint256, or the real block number if it wasn't mocked

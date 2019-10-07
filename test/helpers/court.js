@@ -1,5 +1,5 @@
 const { sha3 } = require('web3-utils')
-const { bn, bigExp } = require('./numbers')
+const { bn, bigExp, assertBn } = require('./numbers')
 const { decodeEventsOfType } = require('./decodeEvent')
 const { NEXT_WEEK, ONE_DAY } = require('./time')
 const { getEvents, getEventArgument } = require('@aragon/os/test/helpers/events')
@@ -218,6 +218,114 @@ module.exports = (web3, artifacts) => {
       await this.court.heartbeat(terms)
       // advance 2 blocks to ensure we can compute term randomness
       await advanceBlocks(2)
+    }
+
+    async checkConfig(termId, newConfig) {
+      const {
+        newFeeTokenAddress,
+        newJurorFee, newHeartbeatFee, newDraftFee, newSettleFee,
+        newCommitTerms, newRevealTerms, newAppealTerms, newAppealConfirmTerms,
+        newPenaltyPct, newFinalRoundReduction,
+        newFirstRoundJurorsNumber, newAppealStepFactor, newMaxRegularAppealRounds,
+        newAppealCollateralFactor, newAppealConfirmCollateralFactor
+      } = newConfig
+      const {
+        feeToken,
+        jurorFee, heartbeatFee, draftFee, settleFee,
+        commitTerms, revealTerms, appealTerms, appealConfirmTerms,
+        penaltyPct, finalRoundReduction,
+        firstRoundJurorsNumber, appealStepFactor, maxRegularAppealRounds,
+        appealCollateralFactor, appealConfirmCollateralFactor,
+      } = await this.getCourtConfig(termId)
+
+      assert.equal(feeToken, newFeeTokenAddress, 'Fee token does not match')
+      assertBn(jurorFee, newJurorFee, 'Juror fee does not match')
+      assertBn(heartbeatFee, newHeartbeatFee, 'Heartbeat fee does not match')
+      assertBn(draftFee, newDraftFee, 'Draft fee does not match')
+      assertBn(settleFee, newSettleFee, 'Settle fee does not match')
+      assertBn(commitTerms, newCommitTerms, 'Commit terms number does not match')
+      assertBn(revealTerms, newRevealTerms, 'Reveal terms number does not match')
+      assertBn(appealTerms, newAppealTerms, 'Appeal terms number does not match')
+      assertBn(appealConfirmTerms, newAppealConfirmTerms, 'Appeal confirmation terms number does not match')
+      assertBn(penaltyPct, newPenaltyPct, 'Penalty permyriad does not match')
+      assertBn(finalRoundReduction, newFinalRoundReduction, 'Final round reduction does not match')
+      assertBn(firstRoundJurorsNumber, newFirstRoundJurorsNumber, 'First round jurors number does not match')
+      assertBn(appealStepFactor, newAppealStepFactor, 'Appeal step factor does not match')
+      assertBn(maxRegularAppealRounds, newMaxRegularAppealRounds, 'Number af max regular appeal rounds does not match')
+      assertBn(appealCollateralFactor, newAppealCollateralFactor, 'Appeal collateral factor does not match')
+      assertBn(appealConfirmCollateralFactor, newAppealConfirmCollateralFactor, 'Appeal confirmation collateral factor does not match')
+    }
+
+    async buildNewConfig (originalConfig, iteration = 1) {
+      const {
+        feeToken,
+        jurorFee, heartbeatFee, draftFee, settleFee,
+        commitTerms, revealTerms, appealTerms, appealConfirmTerms,
+        penaltyPct, finalRoundReduction,
+        firstRoundJurorsNumber, appealStepFactor, maxRegularAppealRounds,
+        appealCollateralFactor, appealConfirmCollateralFactor,
+      } = originalConfig
+
+      const newFeeToken = await artifacts.require('ERC20Mock').new('Court Fee Token', 'CFT', 18)
+      const newFeeTokenAddress = newFeeToken.address
+      const newJurorFee = jurorFee.add(bigExp(iteration * 10, 18))
+      const newHeartbeatFee = heartbeatFee.add(bigExp(iteration * 10, 18))
+      const newDraftFee = draftFee.add(bigExp(iteration * 10, 18))
+      const newSettleFee = settleFee.add(bigExp(iteration * 10, 18))
+      const newCommitTerms = commitTerms.add(bn(iteration))
+      const newRevealTerms = revealTerms.add(bn(iteration))
+      const newAppealTerms = appealTerms.add(bn(iteration))
+      const newAppealConfirmTerms = appealConfirmTerms.add(bn(iteration))
+      const newPenaltyPct = penaltyPct.add(bn(iteration * 100))
+      const newFinalRoundReduction = finalRoundReduction.add(bn(iteration * 100))
+      const newFirstRoundJurorsNumber = firstRoundJurorsNumber.add(bn(iteration))
+      const newAppealStepFactor = appealStepFactor.add(bn(iteration))
+      const newMaxRegularAppealRounds = maxRegularAppealRounds.add(bn(iteration))
+      const newAppealCollateralFactor = appealCollateralFactor.add(bn(iteration))
+      const newAppealConfirmCollateralFactor = appealConfirmCollateralFactor.add(bn(iteration))
+
+      return {
+        newFeeTokenAddress,
+        newJurorFee, newHeartbeatFee, newDraftFee, newSettleFee,
+        newCommitTerms, newRevealTerms, newAppealTerms, newAppealConfirmTerms,
+        newPenaltyPct, newFinalRoundReduction,
+        newFirstRoundJurorsNumber, newAppealStepFactor, newMaxRegularAppealRounds,
+        newAppealCollateralFactor,
+        newAppealConfirmCollateralFactor,
+      }
+    }
+
+    async changeConfigPromise(originalConfig, termId, from, iteration = 1) {
+      const newConfig = await this.buildNewConfig(originalConfig, )
+      const {
+        newFeeTokenAddress,
+        newJurorFee, newHeartbeatFee, newDraftFee, newSettleFee,
+        newCommitTerms, newRevealTerms, newAppealTerms, newAppealConfirmTerms,
+        newPenaltyPct, newFinalRoundReduction,
+        newFirstRoundJurorsNumber, newAppealStepFactor, newMaxRegularAppealRounds,
+        newAppealCollateralFactor,
+        newAppealConfirmCollateralFactor,
+      } = newConfig
+
+      const promise = this.court.setCourtConfig(
+        termId,
+        newFeeTokenAddress,
+        [ newJurorFee, newHeartbeatFee, newDraftFee, newSettleFee ],
+        [ newCommitTerms, newRevealTerms, newAppealTerms, newAppealConfirmTerms ],
+        [ newPenaltyPct, newFinalRoundReduction ],
+        [ newFirstRoundJurorsNumber, newAppealStepFactor, newMaxRegularAppealRounds ],
+        [ newAppealCollateralFactor, newAppealConfirmCollateralFactor ],
+        { from }
+      )
+
+      return { promise, newConfig }
+    }
+
+    async changeConfig(originalConfig, termId, iteration = 1) {
+      const { promise, newConfig } = await this.changeConfigPromise(originalConfig, termId, this.governor)
+      await promise
+
+      return newConfig
     }
 
     async mintAndApproveFeeTokens(from, to, amount) {

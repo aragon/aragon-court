@@ -505,6 +505,9 @@ contract CourtSubscriptions is TimeHelpers, Initializable, IsContract, ISubscrip
     function _setPrePaymentPeriods(uint256 _prePaymentPeriods) internal {
         // The pre payments period number must contemplate the current period. Thus, it must be greater than zero.
         require(_prePaymentPeriods > 0, ERROR_PREPAYMENT_PERIODS_ZERO);
+        // It must be also greater than or equal to the number of resume pre-paid periods since these are always paid in advance, and we must
+        // make sure there won't be users covering too many periods in the future to avoid skipping fee changes or excluding many jurors from
+        // their corresponding rewards.
         require(_prePaymentPeriods >= resumePrePaidPeriods, ERROR_RESUME_PRE_PAID_PERIODS_TOO_BIG);
 
         emit PrePaymentPeriodsChanged(prePaymentPeriods, _prePaymentPeriods);
@@ -537,7 +540,9 @@ contract CourtSubscriptions is TimeHelpers, Initializable, IsContract, ISubscrip
     * @param _resumePrePaidPeriods New number of periods a subscriber must pre-pay in order to resume his activity after pausing
     */
     function _setResumePrePaidPeriods(uint256 _resumePrePaidPeriods) internal {
-        // Check resume resume pre-paid periods it not above the number of allowed pre payment periods
+        // Check resume resume pre-paid periods it not above the number of allowed pre payment periods. Since these periods are always paid in
+        // advance, we must make sure there won't be users covering too many periods in the future to avoid skipping fee changes or
+        // excluding many jurors from their corresponding rewards
         require(_resumePrePaidPeriods <= prePaymentPeriods, ERROR_RESUME_PRE_PAID_PERIODS_TOO_BIG);
 
         emit ResumePenaltiesChanged(resumePrePaidPeriods, _resumePrePaidPeriods);
@@ -597,18 +602,22 @@ contract CourtSubscriptions is TimeHelpers, Initializable, IsContract, ISubscrip
         uint256 resumePeriods = 0;
         (newLastPeriodId, regularPeriods, delayedPeriods, resumePeriods) = _getPayingPeriodsDetails(_subscriber, _periods, _currentPeriodId);
 
-        // Regular periods to be paid is equal to `regularPeriods * _feeAmount`
-        uint256 regularPayment = regularPeriods.mul(_feeAmount);
+        // Regular periods to be paid is equal to `(regularPeriods + resumePeriods) * _feeAmount`
+        uint256 regularPayment = (regularPeriods.add(resumePeriods)).mul(_feeAmount);
         // Delayed periods to be paid is equal to `delayedPeriods * _feeAmount * (1 + latePaymentPenaltyPct) / PCT_BASE`
         uint256 delayedPayment = delayedPeriods.mul(_feeAmount).pctIncrease(latePaymentPenaltyPct);
-        // Resume periods to be paid is equal to `resumePeriods * _feeAmount`
-        uint256 resumePayment = resumePeriods.mul(_feeAmount);
         // Compute total amount to be paid
-        amountToPay = regularPayment.add(delayedPayment).add(resumePayment);
+        amountToPay = regularPayment.add(delayedPayment);
     }
 
     /**
     * @dev Internal function to compute the total number of different periods a subscriber has to pay based on a requested number of periods
+    *
+    *    subs      last           paused           current                new last
+    *   +----+----+----+----+----+------+----+----+-------+----+----+----+--------+
+    *                  <--------->                <-----------------><------------>
+    *                    delayed                       regular       resumed
+    *
     * @param _subscriber Subscriber willing to pay
     * @param _periods Number of periods that would be paid
     * @param _currentPeriodId Identification number of the current period
@@ -624,7 +633,7 @@ contract CourtSubscriptions is TimeHelpers, Initializable, IsContract, ISubscrip
 
         // Check if the subscriber has already been subscribed
         if (!_subscriber.subscribed) {
-            // If the subscriber was not subscribed before, there are no delayed periods
+            // If the subscriber was not subscribed before, there are no delayed nor resumed periods
             resumePeriods = 0;
             delayedPeriods = 0;
             regularPeriods = _periods;
@@ -663,8 +672,10 @@ contract CourtSubscriptions is TimeHelpers, Initializable, IsContract, ISubscrip
             }
         }
 
-        // Check periods being paid in advance
-        require(newLastPeriodId <= _currentPeriodId || newLastPeriodId.sub(_currentPeriodId) < prePaymentPeriods, ERROR_PAYING_TOO_MANY_PERIODS);
+        // If the subscriber is paying some periods in advance, check it doesn't reach the pre-payment limit
+        if (newLastPeriodId > _currentPeriodId) {
+            require(newLastPeriodId.sub(_currentPeriodId) < prePaymentPeriods, ERROR_PAYING_TOO_MANY_PERIODS);
+        }
     }
 
     /**
@@ -672,15 +683,8 @@ contract CourtSubscriptions is TimeHelpers, Initializable, IsContract, ISubscrip
     * @param _subscriber Subscriber querying the delayed periods of
     * @param _currentPeriodId Identification number of the current period
     * @return Number of overdue payments for the requested subscriber
-    *
-    *    subs      last           paused           cur       new
-    *   +----+----+----+----+----+------+----+----+----+----+----+
-    *                  <--------->                <-------------->
-    *                    delayed                      regular
     */
     function _getDelayedPeriods(Subscriber storage _subscriber, uint256 _currentPeriodId) internal view returns (uint256) {
-        uint256 lastPaymentPeriodId = _subscriber.lastPaymentPeriodId;
-
         // If the given subscriber was not subscribed yet, there are no pending payments
         if (!_subscriber.subscribed) {
             return 0;
@@ -692,6 +696,7 @@ contract CourtSubscriptions is TimeHelpers, Initializable, IsContract, ISubscrip
         }
 
         // If the given subscriber is subscribed and not paused but is up-to-date, return 0
+        uint256 lastPaymentPeriodId = _subscriber.lastPaymentPeriodId;
         if (lastPaymentPeriodId >= _currentPeriodId) {
             return 0;
         }

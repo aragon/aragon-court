@@ -293,6 +293,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
     *        _periodDuration Length of Subscription periods
     *        _feeAmount Amount of periodic fees
     *        _prePaymentPeriods Max number of payments that can be done in advance
+    *        _resumePrePaidPeriods Number of periods to be paid in advance when resuming a subscription activity
     *        _latePaymentPenaltyPct Penalty for not paying on time
     *        _governorSharePct Share of paid fees that goes to governor
     */
@@ -311,7 +312,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
         uint16[2] memory _pcts, //_penaltyPct, _finalRoundReduction
         uint64[3] memory _roundParams, // _firstRoundJurorsNumber, _appealStepFactor, _maxRegularAppealRounds
         uint256[2] memory _appealCollateralParams, // _appealCollateralFactor, _appealConfirmCollateralFactor
-        uint256[5] memory _subscriptionParams // _periodDuration, _feeAmount, _prePaymentPeriods, _latePaymentPenaltyPct, _governorSharePct
+        uint256[6] memory _subscriptionParams // _periodDuration, _feeAmount, _prePaymentPeriods, _resumePrePaidPeriods, _latePaymentPenaltyPct, _governorSharePct
     ) public {
         require(_firstTermStartTime >= getTimestamp64() + _termDuration, ERROR_BAD_FIRST_TERM_START_TIME);
 
@@ -1722,7 +1723,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
     }
 
     // TODO: move to a factory contract
-    function _initSubscriptions(ERC20 _feeToken, uint256[5] memory _subscriptionParams) private {
+    function _initSubscriptions(ERC20 _feeToken, uint256[6] memory _subscriptionParams) private {
         uint64 maxUint64 = uint64(-1);
         uint256 maxUint16 = uint16(-1);
 
@@ -1736,8 +1737,9 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
             _feeToken,
             _subscriptionParams[1],         // _feeAmount
             _subscriptionParams[2],         // _prePaymentPeriods
-            uint16(_subscriptionParams[3]), // _latePaymentPenaltyPct
-            uint16(_subscriptionParams[4])  // _governorSharePct
+            _subscriptionParams[3],         // _resumePrePaidPeriods
+            uint16(_subscriptionParams[4]), // _latePaymentPenaltyPct
+            uint16(_subscriptionParams[5])  // _governorSharePct
         );
     }
 }

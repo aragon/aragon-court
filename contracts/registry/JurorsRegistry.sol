@@ -242,18 +242,7 @@ contract JurorsRegistry is Initializable, IsContract, IJurorsRegistry, ERC900, A
         uint256 batchRequestedJurors = _params[4];
         jurors = new address[](batchRequestedJurors);
         weights = new uint64[](batchRequestedJurors);
-
-        DraftParams memory draftParams = DraftParams({
-            termRandomness: bytes32(_params[0]),
-            disputeId: _params[1],
-            termId: uint64(_params[2]),
-            selectedJurors: _params[3],
-            batchRequestedJurors: batchRequestedJurors,
-            roundRequestedJurors: _params[5],
-            draftLockAmount: minActiveBalance.pct(uint16(_params[6])),
-            sortitionIteration: 0
-        });
-
+        DraftParams memory draftParams = _buildDraftParams(_params);
         length = _draft(draftParams, jurors, weights);
     }
 
@@ -320,8 +309,8 @@ contract JurorsRegistry is Initializable, IsContract, IJurorsRegistry, ERC900, A
         }
 
         // Check if the amount of active tokens is enough to collect the requested amount, otherwise reduce the requested deactivation amount of
-        // the next term. Note that this behaviour is different to the one when drafting jurors since this function is called deliberately by
-        // each juror, while drafts occur randomly.
+        // the next term. Note that this behaviour is different to the one when drafting jurors since this function is called as a side effect
+        // of a juror deliberately voting in a final round, while drafts occur randomly.
         if (_amount > unlockedActiveBalance) {
             // Note there's no need to use SafeMath here, amounts were already checked above
             uint256 amountToReduce = _amount - unlockedActiveBalance;
@@ -758,5 +747,31 @@ contract JurorsRegistry is Initializable, IsContract, IJurorsRegistry, ERC900, A
             _params.roundRequestedJurors,
             _params.sortitionIteration
         );
+    }
+
+    /**
+    * @dev Private function to parse a certain set given of draft params
+    * @param _params Array containing draft requirements:
+    *        0. bytes32 Term randomness
+    *        1. uint256 Dispute id
+    *        2. uint64  Current term id
+    *        3. uint256 Number of seats already filled
+    *        4. uint256 Number of seats left to be filled
+    *        5. uint64  Number of jurors required for the draft
+    *        6. uint16  Per ten thousand of the minimum active balance to be locked for the draft
+    *
+    * @return Draft params object parsed
+    */
+    function _buildDraftParams(uint256[7] memory _params) private view returns (DraftParams memory) {
+        return DraftParams({
+            termRandomness: bytes32(_params[0]),
+            disputeId: _params[1],
+            termId: uint64(_params[2]),
+            selectedJurors: _params[3],
+            batchRequestedJurors: _params[4],
+            roundRequestedJurors: _params[5],
+            draftLockAmount: minActiveBalance.pct(uint16(_params[6])),
+            sortitionIteration: 0
+        });
     }
 }

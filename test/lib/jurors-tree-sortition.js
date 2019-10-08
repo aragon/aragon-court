@@ -1,5 +1,6 @@
 const { assertBn, bn } = require('../helpers/numbers')
 const { soliditySha3 } = require("web3-utils");
+const { expectedBounds, simulateComputeSearchRandomBalances, simulateBachedRandomSearch } = require('../helpers/registry')
 
 const JurorsTreeSortition = artifacts.require('JurorsTreeSortitionMock')
 
@@ -11,18 +12,10 @@ contract('JurorsTreeSortition', () => {
     await tree.init()
   })
 
-  const expectedBounds = (selectedJurors, batchRequestedJurors, balances, totalRequestedJurors) => {
-    const totalBalance = balances.reduce((acc, x) => acc + x, 0)
-
-    const expectedLowBound = Math.floor(selectedJurors * totalBalance / totalRequestedJurors)
-    const expectedHighBound = Math.floor((selectedJurors + batchRequestedJurors) * totalBalance / totalRequestedJurors)
-    return { expectedLowBound, expectedHighBound }
-  }
-
   describe('getSearchBatchBounds', () => {
     const termId = 2
     const totalRequestedJurors = 5
-    const balances = [ 1, 2, 5, 3, 1 ]
+    const balances = [ 1, 2, 5, 3, 1 ].map(x => bn(x))
 
     beforeEach('insert jurors active balances', async () => {
       await Promise.all(balances.map(b => tree.insert(termId, b)))
@@ -32,7 +25,12 @@ contract('JurorsTreeSortition', () => {
       const selectedJurors = 0
       const batchRequestedJurors = 2
 
-      const { expectedLowBound, expectedHighBound } = expectedBounds(selectedJurors, batchRequestedJurors, balances, totalRequestedJurors)
+      const { expectedLowBound, expectedHighBound } = expectedBounds({
+        selectedJurors,
+        batchRequestedJurors,
+        balances,
+        totalRequestedJurors
+      })
 
       it('includes the first juror', async () => {
         const { low, high } = await tree.getSearchBatchBounds(termId, selectedJurors, batchRequestedJurors, totalRequestedJurors)
@@ -46,7 +44,7 @@ contract('JurorsTreeSortition', () => {
       const selectedJurors = 2
       const batchRequestedJurors = 2
 
-      const { expectedLowBound, expectedHighBound } = expectedBounds(selectedJurors, batchRequestedJurors, balances, totalRequestedJurors)
+      const { expectedLowBound, expectedHighBound } = expectedBounds({ selectedJurors, batchRequestedJurors, balances, totalRequestedJurors })
 
       it('includes middle jurors', async () => {
         const { low, high } = await tree.getSearchBatchBounds(termId, selectedJurors, batchRequestedJurors, totalRequestedJurors)
@@ -60,7 +58,12 @@ contract('JurorsTreeSortition', () => {
       const selectedJurors = 4
       const batchRequestedJurors = 1
 
-      const { expectedLowBound, expectedHighBound } = expectedBounds(selectedJurors, batchRequestedJurors, balances, totalRequestedJurors)
+      const { expectedLowBound, expectedHighBound } = expectedBounds({
+        selectedJurors,
+        batchRequestedJurors,
+        balances,
+        totalRequestedJurors
+      })
 
       it('includes the last juror', async () => {
         const { low, high } = await tree.getSearchBatchBounds(termId, selectedJurors, batchRequestedJurors, totalRequestedJurors)
@@ -72,45 +75,8 @@ contract('JurorsTreeSortition', () => {
   })
 
   // as jurors balances are sequential 0 to n, tree sum at position k is k(k+1)/2
-  const getKey = (balance) => {
-    return Math.ceil((Math.sqrt(1 + 8 * balance) - 1) / 2)
-  }
-
-  const simulateBachedRandomSearch = (
-    termRandomness,
-    disputeId,
-    termId,
-    selectedJurors,
-    batchRequestedJurors,
-    roundRequestedJurors,
-    sortitionIteration,
-    balances
-  ) => {
-    const { expectedLowBound, expectedHighBound } = expectedBounds(selectedJurors, batchRequestedJurors, balances, roundRequestedJurors)
-
-    const expectedSumTreeBalances = simulateComputeSearchRandomBalances(termRandomness, disputeId, sortitionIteration, batchRequestedJurors, expectedLowBound, expectedHighBound)
-
-    // as jurors balances are sequential 0 to n, ids and values are the same
-    return expectedSumTreeBalances.map(b => b.toNumber()).map(b => getKey(b))
-  }
-
-  const simulateComputeSearchRandomBalances = (
-    termRandomness,
-    disputeId,
-    sortitionIteration,
-    batchRequestedJurors,
-    lowActiveBalanceBatchBound,
-    highActiveBalanceBatchBound
-  ) => {
-    let expectedSumTreeBalances = []
-    const interval = bn(lowActiveBalanceBatchBound - highActiveBalanceBatchBound)
-    for(let i = 0; i < batchRequestedJurors; i++) {
-      const seed = soliditySha3(termRandomness, disputeId, sortitionIteration, i)
-      const balance = bn(lowActiveBalanceBatchBound).add(web3.utils.toBN(seed).mod(interval))
-      expectedSumTreeBalances.push(balance)
-    }
-
-    return expectedSumTreeBalances.sort((x, y) => x.sub(y).toNumber())
+  const getTreeKey = (balances, soughtBalance) => {
+    return Math.ceil((Math.sqrt(1 + 8 * soughtBalance.toNumber()) - 1) / 2)
   }
 
   describe('computeSearchRandomBalances', () => {
@@ -118,8 +84,8 @@ contract('JurorsTreeSortition', () => {
     const disputeId = 0
     const sortitionIteration = 0
     const batchRequestedJurors = 200
-    const lowActiveBalanceBatchBound = 0
-    const highActiveBalanceBatchBound = 10
+    const lowActiveBalanceBatchBound = bn(0)
+    const highActiveBalanceBatchBound = bn(10)
 
     it('returns a ordered list of random balances', async () => {
       const balances = await tree.computeSearchRandomBalances(termRandomness, disputeId, sortitionIteration, batchRequestedJurors, lowActiveBalanceBatchBound, highActiveBalanceBatchBound)
@@ -127,10 +93,17 @@ contract('JurorsTreeSortition', () => {
       assert.equal(balances.length, batchRequestedJurors, 'list length does not match')
       for (let i = 0; i < batchRequestedJurors - 1; i++) {
         assert.isAtLeast(balances[i + 1].toNumber(), balances[i].toNumber(), `item ${i} is not ordered`)
-        assert.isAtMost(balances[i].toNumber(), highActiveBalanceBatchBound, `item ${i} is not included in the requested interval`)
+        assert.isAtMost(balances[i].toNumber(), highActiveBalanceBatchBound.toNumber(), `item ${i} is not included in the requested interval`)
       }
 
-      const expectedSumTreeBalances = simulateComputeSearchRandomBalances(termRandomness, disputeId, sortitionIteration, batchRequestedJurors, lowActiveBalanceBatchBound, highActiveBalanceBatchBound)
+      const expectedSumTreeBalances = simulateComputeSearchRandomBalances({
+        termRandomness,
+        disputeId,
+        sortitionIteration,
+        batchRequestedJurors,
+        lowActiveBalanceBatchBound,
+        highActiveBalanceBatchBound
+      })
       for (let i = 0; i < batchRequestedJurors; i++) {
         assertBn(balances[i], expectedSumTreeBalances[i], `balance ${i} doesn't match`)
       }
@@ -142,7 +115,7 @@ contract('JurorsTreeSortition', () => {
     const disputeId = 0
     const sortitionIteration = 0
     const termRandomness = '0x0000000000000000000000000000000000000000000000000000000000000000'
-    const balances = Array.from(Array(100).keys())
+    const balances = Array.from(Array(100).keys()).map(x => bn(x))
 
     beforeEach('insert values', async () => {
       for(let i = 0; i < 100; i++) await tree.insert(termId, balances[i])
@@ -159,8 +132,17 @@ contract('JurorsTreeSortition', () => {
         assert.equal(jurorsIds.length, batchRequestedJurors, 'result keys length does not match')
         assert.equal(activeBalances.length, batchRequestedJurors, 'result values length does not match')
 
-        const expectedJurorIds = simulateBachedRandomSearch(termRandomness, disputeId, termId, selectedJurors, batchRequestedJurors, roundRequestedJurors, sortitionIteration, balances)
-
+        const expectedJurorIds = simulateBachedRandomSearch({
+          termRandomness,
+          disputeId,
+          termId,
+          selectedJurors,
+          batchRequestedJurors,
+          roundRequestedJurors,
+          sortitionIteration,
+          balances,
+          getTreeKey
+        })
         for (let i = 0; i < batchRequestedJurors; i++) {
           assert.equal(jurorsIds[i].toString(), expectedJurorIds[i], `result key ${i} does not match`)
           assert.equal(activeBalances[i].toString(), expectedJurorIds[i], `result value ${i} does not match`)
@@ -179,8 +161,17 @@ contract('JurorsTreeSortition', () => {
         assert.equal(jurorsIds.length, batchRequestedJurors, 'result keys length does not match')
         assert.equal(activeBalances.length, batchRequestedJurors, 'result values length does not match')
 
-        const expectedJurorIds = simulateBachedRandomSearch(termRandomness, disputeId, termId, selectedJurors, batchRequestedJurors, roundRequestedJurors, sortitionIteration, balances)
-
+        const expectedJurorIds = simulateBachedRandomSearch({
+          termRandomness,
+          disputeId,
+          termId,
+          selectedJurors,
+          batchRequestedJurors,
+          roundRequestedJurors,
+          sortitionIteration,
+          balances,
+          getTreeKey
+        })
         for (let i = 0; i < batchRequestedJurors; i++) {
           assert.equal(jurorsIds[i].toString(), expectedJurorIds[i], `result key ${i} does not match`)
           assert.equal(activeBalances[i].toString(), expectedJurorIds[i], `result value ${i} does not match`)

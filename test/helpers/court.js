@@ -5,8 +5,6 @@ const { NEXT_WEEK, ONE_DAY } = require('./time')
 const { getEvents, getEventArgument } = require('@aragon/os/test/helpers/events')
 const { getVoteId, encryptVote, oppositeOutcome, outcomeFor, SALT, OUTCOMES } = require('../helpers/crvoting')
 
-const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
-
 const PCT_BASE = bn(10000)
 
 const DISPUTE_STATES = {
@@ -47,12 +45,14 @@ module.exports = (web3, artifacts) => {
     appealCollateralFactor:             bn(2),           //  multiple of juror fees required to appeal a preliminary ruling
     appealConfirmCollateralFactor:      bn(3),           //  multiple of juror fees required to confirm appeal
     jurorsMinActiveBalance:             bigExp(100, 18), //  100 ANJ is the minimum balance jurors must activate to participate in the Court
-    subscriptionPeriodDuration:         bn(0),           //  none subscription period
-    subscriptionFeeAmount:              bn(0),           //  none subscription fee
-    subscriptionPrePaymentPeriods:      bn(0),           //  none subscription pre payment period
+    finalRoundWeightPrecision:          bn(1000),        //  use to improve division rounding for final round maths
+
+    subscriptionPeriodDuration:         bn(10),          //  each subscription period lasts 10 terms
+    subscriptionFeeAmount:              bigExp(100, 18), //  100 fee tokens per subscription period
+    subscriptionPrePaymentPeriods:      bn(15),          //  15 subscription pre payment period
+    subscriptionResumePrePaidPeriods:   bn(10),          //  10 pre-paid periods when resuming activity
     subscriptionLatePaymentPenaltyPct:  bn(0),           //  none subscription late payment penalties
     subscriptionGovernorSharePct:       bn(0),           //  none subscription governor shares
-    finalRoundWeightPrecision:          bn(1000),        //  use to improve division rounding for final round maths
   }
 
   class CourtHelper {
@@ -461,7 +461,7 @@ module.exports = (web3, artifacts) => {
         [ this.penaltyPct, this.finalRoundReduction ],
         [ this.firstRoundJurorsNumber, this.appealStepFactor, this.maxRegularAppealRounds, ],
         [ this.appealCollateralFactor, this.appealConfirmCollateralFactor ],
-        [ this.subscriptionPeriodDuration, this.subscriptionFeeAmount, this.subscriptionPrePaymentPeriods, this.subscriptionLatePaymentPenaltyPct, this.subscriptionGovernorSharePct ]
+        [ this.subscriptionPeriodDuration, this.subscriptionFeeAmount, this.subscriptionPrePaymentPeriods, this.subscriptionResumePrePaidPeriods, this.subscriptionLatePaymentPenaltyPct, this.subscriptionGovernorSharePct ]
       )
 
       const zeroTermStartTime = this.firstTermStartTime.sub(this.termDuration)

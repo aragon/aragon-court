@@ -6,14 +6,13 @@ import "./IJurorsRegistryOwner.sol";
 
 
 interface IJurorsRegistry {
-    function init(IJurorsRegistryOwner _owner, ERC20 _jurorToken, uint256 _jurorMinStake) external;
+    function init(IJurorsRegistryOwner _owner, ERC20 _jurorToken, uint256 _minActiveBalance, uint256 _totalActiveBalanceLimit) external;
 
     function activate(uint256 _amount) external;
 
     function deactivate(uint256 _amount) external;
 
-    function draft(uint256[7] calldata _draftParams) external
-        returns (address[] memory jurors, uint64[] memory weights, uint256 jurorsLength, uint64 filledSeats);
+    function draft(uint256[7] calldata _draftParams) external returns (address[] memory jurors, uint64[] memory weights, uint256 outputLength);
 
     function slashOrUnlock(uint64 _termId, address[] calldata _jurors, uint256[] calldata _penalties, bool[] calldata _rewardedJurors) external
         returns (uint256 collectedTokens);

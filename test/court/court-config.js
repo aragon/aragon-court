@@ -17,6 +17,42 @@ contract('Court config', ([_, sender, disputer, drafter, appealMaker, appealTake
   const ERROR_BAD_SENDER = 'CT_BAD_SENDER'
   const ERROR_TOO_OLD_TERM = 'CT_TOO_OLD_TERM'
 
+  const checkConfig = async (termId, newConfig) => {
+    const {
+      newFeeTokenAddress,
+      newJurorFee, newHeartbeatFee, newDraftFee, newSettleFee,
+      newCommitTerms, newRevealTerms, newAppealTerms, newAppealConfirmTerms,
+      newPenaltyPct, newFinalRoundReduction,
+      newFirstRoundJurorsNumber, newAppealStepFactor, newMaxRegularAppealRounds,
+      newAppealCollateralFactor, newAppealConfirmCollateralFactor
+    } = newConfig
+    const {
+      feeToken,
+      jurorFee, heartbeatFee, draftFee, settleFee,
+      commitTerms, revealTerms, appealTerms, appealConfirmTerms,
+      penaltyPct, finalRoundReduction,
+      firstRoundJurorsNumber, appealStepFactor, maxRegularAppealRounds,
+      appealCollateralFactor, appealConfirmCollateralFactor,
+    } = await courtHelper.getCourtConfig(termId)
+
+    assert.equal(feeToken, newFeeTokenAddress, 'Fee token does not match')
+    assertBn(jurorFee, newJurorFee, 'Juror fee does not match')
+    assertBn(heartbeatFee, newHeartbeatFee, 'Heartbeat fee does not match')
+    assertBn(draftFee, newDraftFee, 'Draft fee does not match')
+    assertBn(settleFee, newSettleFee, 'Settle fee does not match')
+    assertBn(commitTerms, newCommitTerms, 'Commit terms number does not match')
+    assertBn(revealTerms, newRevealTerms, 'Reveal terms number does not match')
+    assertBn(appealTerms, newAppealTerms, 'Appeal terms number does not match')
+    assertBn(appealConfirmTerms, newAppealConfirmTerms, 'Appeal confirmation terms number does not match')
+    assertBn(penaltyPct, newPenaltyPct, 'Penalty permyriad does not match')
+    assertBn(finalRoundReduction, newFinalRoundReduction, 'Final round reduction does not match')
+    assertBn(firstRoundJurorsNumber, newFirstRoundJurorsNumber, 'First round jurors number does not match')
+    assertBn(appealStepFactor, newAppealStepFactor, 'Appeal step factor does not match')
+    assertBn(maxRegularAppealRounds, newMaxRegularAppealRounds, 'Number af max regular appeal rounds does not match')
+    assertBn(appealCollateralFactor, newAppealCollateralFactor, 'Appeal collateral factor does not match')
+    assertBn(appealConfirmCollateralFactor, newAppealConfirmCollateralFactor, 'Appeal confirmation collateral factor does not match')
+  }
+
   beforeEach('deploy court', async () => {
     feeToken = await artifacts.require('ERC20Mock').new('Court Fee Token', 'CFT', 18)
 
@@ -81,7 +117,7 @@ contract('Court config', ([_, sender, disputer, drafter, appealMaker, appealTake
 
   context('initialization', () => {
     it('config is properly set', async () => {
-      await courtHelper.checkConfig(0, initialConfig)
+      await checkConfig(0, initialConfig)
     })
   })
 
@@ -91,52 +127,53 @@ contract('Court config', ([_, sender, disputer, drafter, appealMaker, appealTake
       await courtHelper.setTerm(1)
     })
 
-    it('fails setting config if no governor', async () => {
-      const from = sender
-      const configChangeTermId = 3
+    context('when the config change fails', () => {
+      it('fails setting config if no governor', async () => {
+        const from = sender
+        const configChangeTermId = 3
 
-      // make sure account used is not governor
-      assert.notEqual(courtHelper.governor, from, 'it is actually governor!')
+        // make sure account used is not governor
+        assert.notEqual(courtHelper.governor, from, 'it is actually governor!')
 
-      const { promise } = await courtHelper.changeConfigPromise(originalConfig, configChangeTermId, sender)
-      await assertRevert(promise, ERROR_BAD_SENDER)
+        const { promise } = await courtHelper.changeConfigPromise(originalConfig, configChangeTermId, sender)
+        await assertRevert(promise, ERROR_BAD_SENDER)
+      })
+
+      it('fails setting config in the past', async () => {
+        const configChangeTermId = 3
+        // move forward
+        await courtHelper.setTerm(configChangeTermId + 1)
+
+        const { promise } = await courtHelper.changeConfigPromise(originalConfig, configChangeTermId, courtHelper.governor)
+        await assertRevert(promise, ERROR_TOO_OLD_TERM)
+      })
+
+      it('fails setting config with only one term in advance', async () => {
+        const configChangeTermId = 3
+        // move forward
+        await courtHelper.setTerm(configChangeTermId - 1)
+
+        const { promise } = await courtHelper.changeConfigPromise(originalConfig, configChangeTermId, courtHelper.governor)
+        await assertRevert(promise, ERROR_TOO_OLD_TERM)
+      })
     })
-
-    it('fails setting config in the past', async () => {
-      const configChangeTermId = 3
-      // move forward
-      await courtHelper.setTerm(configChangeTermId + 1)
-
-      const { promise } = await courtHelper.changeConfigPromise(originalConfig, configChangeTermId, courtHelper.governor)
-      await assertRevert(promise, ERROR_TOO_OLD_TERM)
-    })
-
-    it('fails setting config with only one term in advance', async () => {
-      const configChangeTermId = 3
-      // move forward
-      await courtHelper.setTerm(configChangeTermId - 1)
-
-      const { promise } = await courtHelper.changeConfigPromise(originalConfig, configChangeTermId, courtHelper.governor)
-      await assertRevert(promise, ERROR_TOO_OLD_TERM)
-    })
-
-    context('governor can change config', () => {
+    context('when the config change succeeds', () => {
       const configChangeTermId = 3
       let newConfig
 
-      beforeEach('ask for the change', async () => {
+      beforeEach('schedule court config', async () => {
         newConfig = await courtHelper.changeConfig(originalConfig, configChangeTermId)
       })
 
       it('check it from the past', async () => {
-        await courtHelper.checkConfig(configChangeTermId, newConfig)
+        await checkConfig(configChangeTermId, newConfig)
       })
 
       it('check once the change term id has been reached', async () => {
         // move forward
         await courtHelper.setTerm(configChangeTermId)
 
-        await courtHelper.checkConfig(configChangeTermId, newConfig)
+        await checkConfig(configChangeTermId, newConfig)
       })
     })
 
@@ -150,24 +187,24 @@ contract('Court config', ([_, sender, disputer, drafter, appealMaker, appealTake
       })
 
       it('check it from the past', async () => {
-        await courtHelper.checkConfig(configChangeTermId1, initialConfig)
-        await courtHelper.checkConfig(configChangeTermId2, newConfig2)
+        await checkConfig(configChangeTermId1, initialConfig)
+        await checkConfig(configChangeTermId2, newConfig2)
       })
 
       it('check once the change term id for the first change has been reached', async () => {
         // move forward
         await courtHelper.setTerm(configChangeTermId1)
 
-        await courtHelper.checkConfig(configChangeTermId1, initialConfig)
-        await courtHelper.checkConfig(configChangeTermId2, newConfig2)
+        await checkConfig(configChangeTermId1, initialConfig)
+        await checkConfig(configChangeTermId2, newConfig2)
       })
 
       it('check once the change term id for the second change has been reached', async () => {
         // move forward
         await courtHelper.setTerm(configChangeTermId2)
 
-        await courtHelper.checkConfig(configChangeTermId1, initialConfig)
-        await courtHelper.checkConfig(configChangeTermId2, newConfig2)
+        await checkConfig(configChangeTermId1, initialConfig)
+        await checkConfig(configChangeTermId2, newConfig2)
       })
     })
 
@@ -181,24 +218,24 @@ contract('Court config', ([_, sender, disputer, drafter, appealMaker, appealTake
       })
 
       it('check it from the past', async () => {
-        await courtHelper.checkConfig(configChangeTermId1, newConfig2)
-        await courtHelper.checkConfig(configChangeTermId2, newConfig2)
+        await checkConfig(configChangeTermId1, newConfig2)
+        await checkConfig(configChangeTermId2, newConfig2)
       })
 
       it('check once the change term id for the first change has been reached', async () => {
         // move forward
         await courtHelper.setTerm(configChangeTermId1)
 
-        await courtHelper.checkConfig(configChangeTermId1, newConfig2)
-        await courtHelper.checkConfig(configChangeTermId2, newConfig2)
+        await checkConfig(configChangeTermId1, newConfig2)
+        await checkConfig(configChangeTermId2, newConfig2)
       })
 
       it('check once the change term id for the second change has been reached', async () => {
         // move forward
         await courtHelper.setTerm(configChangeTermId2)
 
-        await courtHelper.checkConfig(configChangeTermId1, newConfig2)
-        await courtHelper.checkConfig(configChangeTermId2, newConfig2)
+        await checkConfig(configChangeTermId1, newConfig2)
+        await checkConfig(configChangeTermId2, newConfig2)
       })
     })
   })
@@ -219,7 +256,7 @@ contract('Court config', ([_, sender, disputer, drafter, appealMaker, appealTake
       await courtHelper.activate(jurors)
     })
 
-    it('dispute is not affected by config settings during its lifetime', async () => {
+    it('does not affect a dispute during its lifetime', async () => {
       // create dispute
       disputeId = await courtHelper.dispute({ draftTermId, disputer })
 

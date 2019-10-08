@@ -220,42 +220,6 @@ module.exports = (web3, artifacts) => {
       await advanceBlocks(2)
     }
 
-    async checkConfig(termId, newConfig) {
-      const {
-        newFeeTokenAddress,
-        newJurorFee, newHeartbeatFee, newDraftFee, newSettleFee,
-        newCommitTerms, newRevealTerms, newAppealTerms, newAppealConfirmTerms,
-        newPenaltyPct, newFinalRoundReduction,
-        newFirstRoundJurorsNumber, newAppealStepFactor, newMaxRegularAppealRounds,
-        newAppealCollateralFactor, newAppealConfirmCollateralFactor
-      } = newConfig
-      const {
-        feeToken,
-        jurorFee, heartbeatFee, draftFee, settleFee,
-        commitTerms, revealTerms, appealTerms, appealConfirmTerms,
-        penaltyPct, finalRoundReduction,
-        firstRoundJurorsNumber, appealStepFactor, maxRegularAppealRounds,
-        appealCollateralFactor, appealConfirmCollateralFactor,
-      } = await this.getCourtConfig(termId)
-
-      assert.equal(feeToken, newFeeTokenAddress, 'Fee token does not match')
-      assertBn(jurorFee, newJurorFee, 'Juror fee does not match')
-      assertBn(heartbeatFee, newHeartbeatFee, 'Heartbeat fee does not match')
-      assertBn(draftFee, newDraftFee, 'Draft fee does not match')
-      assertBn(settleFee, newSettleFee, 'Settle fee does not match')
-      assertBn(commitTerms, newCommitTerms, 'Commit terms number does not match')
-      assertBn(revealTerms, newRevealTerms, 'Reveal terms number does not match')
-      assertBn(appealTerms, newAppealTerms, 'Appeal terms number does not match')
-      assertBn(appealConfirmTerms, newAppealConfirmTerms, 'Appeal confirmation terms number does not match')
-      assertBn(penaltyPct, newPenaltyPct, 'Penalty permyriad does not match')
-      assertBn(finalRoundReduction, newFinalRoundReduction, 'Final round reduction does not match')
-      assertBn(firstRoundJurorsNumber, newFirstRoundJurorsNumber, 'First round jurors number does not match')
-      assertBn(appealStepFactor, newAppealStepFactor, 'Appeal step factor does not match')
-      assertBn(maxRegularAppealRounds, newMaxRegularAppealRounds, 'Number af max regular appeal rounds does not match')
-      assertBn(appealCollateralFactor, newAppealCollateralFactor, 'Appeal collateral factor does not match')
-      assertBn(appealConfirmCollateralFactor, newAppealConfirmCollateralFactor, 'Appeal confirmation collateral factor does not match')
-    }
-
     async buildNewConfig (originalConfig, iteration = 1) {
       const {
         feeToken,
@@ -296,7 +260,7 @@ module.exports = (web3, artifacts) => {
     }
 
     async changeConfigPromise(originalConfig, termId, from, iteration = 1) {
-      const newConfig = await this.buildNewConfig(originalConfig, )
+      const newConfig = await this.buildNewConfig(originalConfig, iteration)
       const {
         newFeeTokenAddress,
         newJurorFee, newHeartbeatFee, newDraftFee, newSettleFee,
@@ -322,7 +286,7 @@ module.exports = (web3, artifacts) => {
     }
 
     async changeConfig(originalConfig, termId, iteration = 1) {
-      const { promise, newConfig } = await this.changeConfigPromise(originalConfig, termId, this.governor)
+      const { promise, newConfig } = await this.changeConfigPromise(originalConfig, termId, this.governor, iteration)
       await promise
 
       return newConfig

@@ -319,6 +319,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
     }
 
     /**
+    * @notice Change Court configuration params
     * @param _termId Term which the config will be effective at
     * @param _feeToken Address of the token contract that is used to pay for fees.
     * @param _fees Array containing:
@@ -351,15 +352,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
         external
         only(governor)
     {
-        _setCourtConfig(
-            _termId,
-            _feeToken,
-            _fees,
-            _roundStateDurations,
-            _pcts,
-            _roundParams,
-            _appealCollateralParams
-        );
+        _setCourtConfig(_termId, _feeToken, _fees, _roundStateDurations, _pcts, _roundParams, _appealCollateralParams);
     }
 
     /**
@@ -369,9 +362,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
     * @param _possibleRulings Number of possible rulings allowed for the drafted jurors to vote on the dispute
     * @return Dispute identification number
     */
-    function createDispute(IArbitrable _subject, uint8 _possibleRulings) external ensureTerm
-        returns (uint256)
-    {
+    function createDispute(IArbitrable _subject, uint8 _possibleRulings) external ensureTerm returns (uint256) {
         // TODO: Limit the min amount of terms before drafting (to allow for evidence submission)
         // TODO: ERC165 check that _subject conforms to the Arbitrable interface
         // TODO: require(address(_subject) == msg.sender, ERROR_INVALID_DISPUTE_CREATOR);
@@ -1184,18 +1175,13 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
     * @dev Internal function to compute the juror weight for the final round. Note that for a final round the weight of
     *      each juror is equal to the number of times the min active balance the juror has. This function will try to
     *      collect said amount from the active balance of a juror, acting as a lock to allow them to vote.
-    * @param _config Court config to use in order to compute weight
-    * @param _round Dispute round to calculate the juror's weight of
+    * @param _config Court config to calculate the juror's weight
+    * @param _round Dispute round to calculate the juror's weight for
     * @param _juror Address of the juror to calculate the weight of
     * @return Weight of the requested juror for the final round of the given dispute
     */
-    function _computeJurorWeightForFinalRound(
-        CourtConfig storage _config,
-        AdjudicationRound storage _round,
-        address _juror
-    )
-        internal
-        returns (uint64)
+    function _computeJurorWeightForFinalRound(CourtConfig storage _config, AdjudicationRound storage _round, address _juror)
+        internal returns (uint64)
     {
         // If the juror weight for the last round was already computed, return that value
         JurorState storage jurorState = _round.jurorsStates[_juror];
@@ -1227,7 +1213,25 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
 
     /**
     * @dev Assumes that sender it's allowed (either it's from governor or it's on init)
-    */
+    * @param _fromTermId Term which the config will be effective at
+    * @param _feeToken Address of the token contract that is used to pay for fees.
+    * @param _fees Array containing:
+    *        _jurorFee The amount of _feeToken that is paid per juror per dispute
+    *        _heartbeatFee The amount of _feeToken per dispute to cover maintenance costs.
+    *        _draftFee The amount of _feeToken per juror to cover the drafting cost.
+    *        _settleFee The amount of _feeToken per juror to cover round settlement cost.
+    * @param _roundStateDurations Array containing the durations in terms of the different phases of a dispute,
+    *        in this order: commit, reveal, appeal and appeal confirm
+    * @param _pcts Array containing:
+    *        _penaltyPct ‱ of minJurorsActiveBalance that can be slashed (1/10,000)
+    *        _finalRoundReduction ‱ of fee reduction for the last appeal round (1/10,000)
+    * @param _roundParams Array containing params for rounds:
+    *        _firstRoundJurorsNumber Number of jurors to be drafted for the first round of disputes
+    *        _appealStepFactor Increasing factor for the number of jurors of each round of a dispute
+    *        _maxRegularAppealRounds Number of regular appeal rounds before the final round is triggered
+    * @param _appealCollateralParams Array containing params for appeal collateral:
+    *        _appealCollateralFactor Multiple of juror fees required to appeal a preliminary ruling
+    *        _appealConfirmCollateralFactor Multiple of juror fees required to confirm a    */
     function _setCourtConfig(
         uint64 _fromTermId,
         ERC20 _feeToken,
@@ -1263,11 +1267,11 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
             require(_roundStateDurations[i] > 0, ERROR_CONFIG_PERIOD_ZERO_TERMS);
         }
 
-        // reset previously set fee structure future change
-        // in that case we will overwrite last array item
+        // If there was a config change already scheduled, reset it (in that case we will overwrite last array item).
+        // Otherwise, schedule a new config.
         if (configChangeTermId > termId) {
             terms[configChangeTermId].courtConfigId = 0;
-        } else { // otherwise increase configs array for the new one
+        } else {
             courtConfigs.length++;
         }
 
@@ -1606,8 +1610,9 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
         }
 
         // If the given term is in the future but there is a config change scheduled before it, use the incoming config
-        if (configChangeTermId <= _termId) {
-            return _getConfigSafeAt(configChangeTermId);
+        uint64 configChangeTermId_ = configChangeTermId;
+        if (configChangeTermId_ <= _termId) {
+            return _getConfigSafeAt(configChangeTermId_);
         }
 
         // If no changes are scheduled, use the Court config of the last ensured term

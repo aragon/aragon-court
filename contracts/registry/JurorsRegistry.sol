@@ -651,14 +651,15 @@ contract JurorsRegistry is Initializable, IsContract, IJurorsRegistry, ERC900, A
     */
     function _draft(DraftParams memory _draftParams, address[] memory _jurors, uint64[] memory _weights) internal returns (uint256) {
         uint256 outputLength = 0;
+        uint256 requestedJurors = _draftParams.batchRequestedJurors;
         // Jurors returned by the tree multi-sortition may not have enough unlocked active balance to be drafted. Thus,
         // we compute several sortitions until all the requested jurors are selected. To guarantee a different set of
         // jurors on each sortition, the iteration number will be part of the random seed to be used in the sortition.
         // Note that this loop could end with an OOG error.
-        for (_draftParams.sortitionIteration = 0; _draftParams.batchRequestedJurors > 0; _draftParams.sortitionIteration++) {
+        for (_draftParams.sortitionIteration = 0; requestedJurors > 0; _draftParams.sortitionIteration++) {
             (uint256[] memory jurorIds, uint256[] memory activeBalances) = _treeSearch(_draftParams);
 
-            for (uint256 i = 0; i < jurorIds.length; i++) {
+            for (uint256 i = 0; i < jurorIds.length && requestedJurors > 0; i++) {
                 // We assume the selected jurors are registered in the registry, we are not checking their addresses exist
                 address juror = jurorsAddressById[jurorIds[i]];
                 Juror storage _juror = jurorsByAddress[juror];
@@ -684,8 +685,7 @@ contract JurorsRegistry is Initializable, IsContract, IJurorsRegistry, ERC900, A
                         _weights[outputLength]++;
                         outputLength++;
                     }
-                    _draftParams.selectedJurors++;
-                    _draftParams.batchRequestedJurors--;
+                    requestedJurors--;
                     emit JurorDrafted(_draftParams.disputeId, juror);
                 }
             }

@@ -275,11 +275,23 @@ contract('JurorsRegistry', ([_, juror500, juror1000, juror1500, juror2000, juror
             })
 
             assert.equal(outputLength.toNumber(), expectedJurors.length, 'output length does not match')
-            for (let i = 0; i < outputLength.toNumber(); i++) {
-              const currentLockedBalance = (await registry.balanceOf(expectedJurors[i].address))[2]
-              const previousLockedBalance = previousLockedBalances[expectedJurors[i].address]
-              const expectedLockedBalance = expectedJurors[i].weight * (MIN_ACTIVE_AMOUNT.mul(DRAFT_LOCK_PCT).div(bn(10000)))
-              assert.equal(currentLockedBalance.sub(previousLockedBalance).toString(), expectedLockedBalance, `locked balance for juror #${i} does not match`)
+            // merge possible duplicates
+            const mergedExpectedJurors = expectedJurors.reduce((acc, juror) => {
+              if (acc[juror.key]) {
+                acc[juror.key].weight += juror.weight
+              } else {
+                acc[juror.key] = {
+                  address: juror.address,
+                  weight: juror.weight
+                }
+              }
+              return acc
+            }, {})
+            for (let key in mergedExpectedJurors) {
+              const currentLockedBalance = (await registry.balanceOf(mergedExpectedJurors[key].address))[2]
+              const previousLockedBalance = previousLockedBalances[mergedExpectedJurors[key].address]
+              const expectedLockedBalance = mergedExpectedJurors[key].weight * (MIN_ACTIVE_AMOUNT.mul(DRAFT_LOCK_PCT).div(bn(10000)))
+              assert.equal(currentLockedBalance.sub(previousLockedBalance).toString(), expectedLockedBalance, `locked balance for juror #${mergedExpectedJurors[key]} does not match`)
             }
           })
         }

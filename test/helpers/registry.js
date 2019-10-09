@@ -77,14 +77,13 @@ const simulateDraft = ({
   let draftedKeys = []
   let iteration = sortitionIteration
   let jurorsLeft = batchRequestedJurors
-  let accumulatedSelectedJurors = selectedJurors
   while(jurorsLeft > 0 && iteration < MAX_ITERATIONS) {
     const iterationDraftedKeys = simulateBachedRandomSearch({
       termRandomness,
       disputeId,
       termId,
-      selectedJurors: accumulatedSelectedJurors,
-      batchRequestedJurors: jurorsLeft,
+      selectedJurors,
+      batchRequestedJurors,
       roundRequestedJurors,
       sortitionIteration: iteration,
       balances,
@@ -95,14 +94,11 @@ const simulateDraft = ({
       key => jurors[key].unlockedActiveBalance.sub(jurors[key].pendingDeactivation).gte(minUnlockedAmount)).slice(0, jurorsLeft)
     iteration++
     jurorsLeft -= filteredIterationDraftedKeys.length
-    accumulatedSelectedJurors += filteredIterationDraftedKeys.length
     draftedKeys = draftedKeys.concat(filteredIterationDraftedKeys)
   }
 
   // we allow the simulation to "run out of gas" because we also want to test that
   // assert.notEqual(iteration, MAX_ITERATIONS, 'Out of gas reached')
-
-  draftedKeys.sort()
 
   const draftedJurors = draftedKeys.reduce(
     (acc, key) => {

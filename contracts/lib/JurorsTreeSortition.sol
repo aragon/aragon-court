@@ -106,6 +106,9 @@ library JurorsTreeSortition {
         pure
         returns (uint256[] memory)
     {
+        // Calculate the interval to be used to search the balances in the tree. Since we are using a modulo function
+        // to compute the random balances to be searched, intervals will be closed on the left and open on the right,
+        // like for instance [0,10)
         uint256 interval = _highBatchBound - _lowBatchBound;
         uint256[] memory balances = new uint256[](_batchRequestedJurors);
 

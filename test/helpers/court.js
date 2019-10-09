@@ -1,5 +1,5 @@
 const { sha3 } = require('web3-utils')
-const { bn, bigExp } = require('./numbers')
+const { bn, bigExp, assertBn } = require('./numbers')
 const { decodeEventsOfType } = require('./decodeEvent')
 const { NEXT_WEEK, ONE_DAY } = require('./time')
 const { getEvents, getEventArgument } = require('@aragon/os/test/helpers/events')
@@ -45,12 +45,14 @@ module.exports = (web3, artifacts) => {
     appealCollateralFactor:             bn(2),           //  multiple of juror fees required to appeal a preliminary ruling
     appealConfirmCollateralFactor:      bn(3),           //  multiple of juror fees required to confirm appeal
     jurorsMinActiveBalance:             bigExp(100, 18), //  100 ANJ is the minimum balance jurors must activate to participate in the Court
-    subscriptionPeriodDuration:         bn(0),           //  none subscription period
-    subscriptionFeeAmount:              bn(0),           //  none subscription fee
-    subscriptionPrePaymentPeriods:      bn(0),           //  none subscription pre payment period
+    finalRoundWeightPrecision:          bn(1000),        //  use to improve division rounding for final round maths
+
+    subscriptionPeriodDuration:         bn(10),          //  each subscription period lasts 10 terms
+    subscriptionFeeAmount:              bigExp(100, 18), //  100 fee tokens per subscription period
+    subscriptionPrePaymentPeriods:      bn(15),          //  15 subscription pre payment period
+    subscriptionResumePrePaidPeriods:   bn(10),          //  10 pre-paid periods when resuming activity
     subscriptionLatePaymentPenaltyPct:  bn(0),           //  none subscription late payment penalties
     subscriptionGovernorSharePct:       bn(0),           //  none subscription governor shares
-    finalRoundWeightPrecision:          bn(1000),        //  use to improve division rounding for final round maths
   }
 
   class CourtHelper {
@@ -218,6 +220,78 @@ module.exports = (web3, artifacts) => {
       await advanceBlocks(2)
     }
 
+    async buildNewConfig (originalConfig, iteration = 1) {
+      const {
+        feeToken,
+        jurorFee, heartbeatFee, draftFee, settleFee,
+        commitTerms, revealTerms, appealTerms, appealConfirmTerms,
+        penaltyPct, finalRoundReduction,
+        firstRoundJurorsNumber, appealStepFactor, maxRegularAppealRounds,
+        appealCollateralFactor, appealConfirmCollateralFactor,
+      } = originalConfig
+
+      const newFeeToken = await artifacts.require('ERC20Mock').new('Court Fee Token', 'CFT', 18)
+      const newFeeTokenAddress = newFeeToken.address
+      const newJurorFee = jurorFee.add(bigExp(iteration * 10, 18))
+      const newHeartbeatFee = heartbeatFee.add(bigExp(iteration * 10, 18))
+      const newDraftFee = draftFee.add(bigExp(iteration * 10, 18))
+      const newSettleFee = settleFee.add(bigExp(iteration * 10, 18))
+      const newCommitTerms = commitTerms.add(bn(iteration))
+      const newRevealTerms = revealTerms.add(bn(iteration))
+      const newAppealTerms = appealTerms.add(bn(iteration))
+      const newAppealConfirmTerms = appealConfirmTerms.add(bn(iteration))
+      const newPenaltyPct = penaltyPct.add(bn(iteration * 100))
+      const newFinalRoundReduction = finalRoundReduction.add(bn(iteration * 100))
+      const newFirstRoundJurorsNumber = firstRoundJurorsNumber.add(bn(iteration))
+      const newAppealStepFactor = appealStepFactor.add(bn(iteration))
+      const newMaxRegularAppealRounds = maxRegularAppealRounds.add(bn(iteration))
+      const newAppealCollateralFactor = appealCollateralFactor.add(bn(iteration))
+      const newAppealConfirmCollateralFactor = appealConfirmCollateralFactor.add(bn(iteration))
+
+      return {
+        newFeeTokenAddress,
+        newJurorFee, newHeartbeatFee, newDraftFee, newSettleFee,
+        newCommitTerms, newRevealTerms, newAppealTerms, newAppealConfirmTerms,
+        newPenaltyPct, newFinalRoundReduction,
+        newFirstRoundJurorsNumber, newAppealStepFactor, newMaxRegularAppealRounds,
+        newAppealCollateralFactor,
+        newAppealConfirmCollateralFactor,
+      }
+    }
+
+    async changeConfigPromise(originalConfig, termId, from, iteration = 1) {
+      const newConfig = await this.buildNewConfig(originalConfig, iteration)
+      const {
+        newFeeTokenAddress,
+        newJurorFee, newHeartbeatFee, newDraftFee, newSettleFee,
+        newCommitTerms, newRevealTerms, newAppealTerms, newAppealConfirmTerms,
+        newPenaltyPct, newFinalRoundReduction,
+        newFirstRoundJurorsNumber, newAppealStepFactor, newMaxRegularAppealRounds,
+        newAppealCollateralFactor,
+        newAppealConfirmCollateralFactor,
+      } = newConfig
+
+      const promise = this.court.setCourtConfig(
+        termId,
+        newFeeTokenAddress,
+        [ newJurorFee, newHeartbeatFee, newDraftFee, newSettleFee ],
+        [ newCommitTerms, newRevealTerms, newAppealTerms, newAppealConfirmTerms ],
+        [ newPenaltyPct, newFinalRoundReduction ],
+        [ newFirstRoundJurorsNumber, newAppealStepFactor, newMaxRegularAppealRounds ],
+        [ newAppealCollateralFactor, newAppealConfirmCollateralFactor ],
+        { from }
+      )
+
+      return { promise, newConfig }
+    }
+
+    async changeConfig(originalConfig, termId, iteration = 1) {
+      const { promise, newConfig } = await this.changeConfigPromise(originalConfig, termId, this.governor, iteration)
+      await promise
+
+      return newConfig
+    }
+
     async mintAndApproveFeeTokens(from, to, amount) {
       // reset allowance in case allowed address has already been approved some balance
       const allowance = await this.feeToken.allowance(from, to)
@@ -240,6 +314,7 @@ module.exports = (web3, artifacts) => {
     async dispute({ draftTermId, possibleRulings = bn(2), arbitrable = undefined, disputer = undefined }) {
       // mint enough fee tokens for the disputer, if no disputer was given pick the second account
       if (!disputer) disputer = await this._getAccount(1)
+      await this.setTerm(draftTermId - 1)
       const { disputeFees } = await this.getDisputeFees(draftTermId)
       await this.mintAndApproveFeeTokens(disputer, this.court.address, disputeFees)
 
@@ -248,7 +323,7 @@ module.exports = (web3, artifacts) => {
       await this.subscriptions.setUpToDate(true)
 
       // create dispute and return id
-      const receipt = await this.court.createDispute(arbitrable.address, possibleRulings, draftTermId, { from: disputer })
+      const receipt = await this.court.createDispute(arbitrable.address, possibleRulings, { from: disputer })
       return getEventArgument(receipt, 'NewDispute', 'disputeId')
     }
 
@@ -386,7 +461,7 @@ module.exports = (web3, artifacts) => {
         [ this.penaltyPct, this.finalRoundReduction ],
         [ this.firstRoundJurorsNumber, this.appealStepFactor, this.maxRegularAppealRounds, ],
         [ this.appealCollateralFactor, this.appealConfirmCollateralFactor ],
-        [ this.subscriptionPeriodDuration, this.subscriptionFeeAmount, this.subscriptionPrePaymentPeriods, this.subscriptionLatePaymentPenaltyPct, this.subscriptionGovernorSharePct ]
+        [ this.subscriptionPeriodDuration, this.subscriptionFeeAmount, this.subscriptionPrePaymentPeriods, this.subscriptionResumePrePaidPeriods, this.subscriptionLatePaymentPenaltyPct, this.subscriptionGovernorSharePct ]
       )
 
       const zeroTermStartTime = this.firstTermStartTime.sub(this.termDuration)

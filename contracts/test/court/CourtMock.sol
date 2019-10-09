@@ -20,7 +20,7 @@ contract CourtMock is Court, TimeHelpersMock {
         uint16[2] memory _pcts,
         uint64[3] memory _roundParams, // _firstRoundJurorsNumber, _appealStepFactor, _maxRegularAppealRounds
         uint256[2] memory _appealCollateralParams, // _appealCollateralFactor, _appealConfirmCollateralFactor
-        uint256[5] memory _subscriptionParams // _periodDuration, _feeAmount, _prePaymentPeriods, _latePaymentPenaltyPct, _governorSharePct
+        uint256[6] memory _subscriptionParams // _periodDuration, _feeAmount, _prePaymentPeriods, _resumePrePaidPeriods, _latePaymentPenaltyPct, _governorSharePct
     )
         Court(
             _termDuration,
@@ -44,9 +44,5 @@ contract CourtMock is Court, TimeHelpersMock {
 
     function collect(address _juror, uint256 _amount) external {
         jurorsRegistry.collectTokens(_juror, _amount, termId);
-    }
-
-    function getAdjudicationState(uint256 _disputeId, uint256 _roundId, uint64 _termId) public view returns (AdjudicationState) {
-        return _adjudicationStateAt(disputes[_disputeId], _roundId, _termId);
     }
 }

@@ -12,13 +12,13 @@ const JurorsRegistry = artifacts.require('JurorsRegistry')
 contract('Court', ([_, disputer, drafter, juror500, juror1000, juror1500, juror2000]) => {
   let courtHelper, court
 
+  const firstRoundJurorsNumber = 5
   const jurors = [
     { address: juror500,  initialActiveBalance: bigExp(500,  18) },
     { address: juror1000, initialActiveBalance: bigExp(1000, 18) },
     { address: juror1500, initialActiveBalance: bigExp(1500, 18) },
     { address: juror2000, initialActiveBalance: bigExp(2000, 18) },
   ]
-  const firstRoundJurorsNumber = 5
 
   beforeEach('create court', async () => {
     courtHelper = buildHelper()
@@ -34,7 +34,6 @@ contract('Court', ([_, disputer, drafter, juror500, juror1000, juror1500, juror2
 
       beforeEach('create dispute', async () => {
         await courtHelper.activate(jurors)
-        await courtHelper.setTerm(1)
         disputeId = await courtHelper.dispute({ draftTermId, disputer })
       })
 
@@ -325,15 +324,17 @@ contract('Court', ([_, disputer, drafter, juror500, juror1000, juror1500, juror2
 
       const itHandlesDraftsProperlyForTerm = (term, expectsHeartbeatFees) => {
         beforeEach('move to requested term', async () => {
-          // the first term was already ensured when creating the dispute
-          await courtHelper.increaseTime(courtHelper.termDuration.mul(bn(term - 1)))
+          // the previous term was already ensured when creating the dispute
+          await courtHelper.increaseTime(courtHelper.termDuration.mul(bn(term - draftTermId + 1)))
         })
 
         context('when the given dispute was not drafted', () => {
           context('when the court term is up-to-date', () => {
             beforeEach('ensure previous term of the draft term', async () => {
               const neededTransitions = await court.neededTermTransitions()
-              await court.heartbeat(neededTransitions)
+              if (neededTransitions.toNumber() > 0) {
+                await court.heartbeat(neededTransitions)
+              }
             })
 
             itHandlesDraftsProperly(term)
@@ -342,7 +343,9 @@ contract('Court', ([_, disputer, drafter, juror500, juror1000, juror1500, juror2
           context('when the court term is outdated by one term', () => {
             beforeEach('ensure previous term of the draft term', async () => {
               const neededTransitions = await court.neededTermTransitions()
-              await court.heartbeat(neededTransitions.sub(bn(1)))
+              if (neededTransitions.toNumber() > 1) {
+                await court.heartbeat(neededTransitions.sub(bn(1)))
+              }
             })
 
             context('when the heartbeat was not executed', async () => {

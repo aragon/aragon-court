@@ -37,6 +37,10 @@ contract SubscriptionsOwnerMock is ISubscriptionsOwner, IJurorsRegistryOwner {
         subscription.setGovernorSharePct(_governorSharePct);
     }
 
+    function setResumePrePaidPeriods(uint256 _resumePrePaidPeriods) external {
+        subscription.setResumePrePaidPeriods(_resumePrePaidPeriods);
+    }
+
     function mockSetTerm(uint64 _termId) external {
         termId = _termId;
     }

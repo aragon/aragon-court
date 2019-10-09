@@ -74,6 +74,17 @@ contract JurorsRegistry is Initializable, IsContract, IJurorsRegistry, ERC900, A
         uint64 availableTermId;     // id of the term when jurors can withdraw their requested deactivation tokens
     }
 
+    struct DraftParams {
+        bytes32 termRandomness;
+        uint256 disputeId;
+        uint64 termId;
+        uint256 selectedJurors;
+        uint256 batchRequestedJurors;
+        uint256 roundRequestedJurors;
+        uint256 draftLockAmount;
+        uint256 sortitionIteration;
+    }
+
     // Jurors registry owner address
     IJurorsRegistryOwner public owner;
 
@@ -225,64 +236,14 @@ contract JurorsRegistry is Initializable, IsContract, IJurorsRegistry, ERC900, A
     *
     * @return jurors List of jurors selected for the draft
     * @return weights List of weights corresponding to each juror
-    * @return outputLength Size of the list of the draft result
-    * @return selectedJurors Number of seats selected for the draft
+    * @return length Size of the list of the draft result
     */
-    function draft(uint256[7] calldata _params) external onlyOwner
-        returns (address[] memory jurors, uint64[] memory weights, uint256 outputLength, uint64 selectedJurors)
-    {
+    function draft(uint256[7] calldata _params) external onlyOwner returns (address[] memory jurors, uint64[] memory weights, uint256 length) {
         uint256 batchRequestedJurors = _params[4];
         jurors = new address[](batchRequestedJurors);
         weights = new uint64[](batchRequestedJurors);
-        selectedJurors = uint64(_params[3]);
-
-        // Jurors returned by the tree multi-sortition may not have enough unlocked active balance to be drafted. Thus,
-        // we compute several sortitions until all the requested jurors are selected. To guarantee a different set of
-        // jurors on each sortition, the iteration number will be part of the random seed to be used in the sortition.
-        // Note that this loop could end with an OOG error.
-        for (uint256 sortitionIteration = 0; batchRequestedJurors > 0; sortitionIteration++) {
-            uint256[7] memory treeSearchParams = [
-                _params[0],           // _termRandomness
-                _params[1],           // _disputeId
-                _params[2],           // _termId
-                selectedJurors,
-                batchRequestedJurors,
-                _params[5],           // _roundRequestedJurors
-                sortitionIteration
-            ];
-
-            (uint256[] memory jurorIds, uint256[] memory activeBalances) = _treeSearch(treeSearchParams);
-            for (uint256 i = 0; i < jurorIds.length; i++) {
-                // We assume the selected jurors are registered in the registry, we are not checking their addresses exist
-                address juror = jurorsAddressById[jurorIds[i]];
-                Juror storage _juror = jurorsByAddress[juror];
-                uint256 newLockedBalance = _juror.lockedBalance.add(_draftLockAmount(uint16(_params[6]))); // _penaltyPct
-
-                // Check if juror has enough active tokens to lock the requested amount for the draft, skip it
-                // otherwise. Note that there's no need to check deactivation requests since these always apply
-                // for the next term, while drafts are always computed for the current term with the active balances
-                // which always remain constant for the current term.
-                if (activeBalances[i] >= newLockedBalance) {
-                    _juror.lockedBalance = newLockedBalance;
-
-                    // Check repeated juror, we assume jurors come ordered from tree search. Note that since the tree
-                    // search can be called more than once, if some juror doesn't have enough balance, the final
-                    // result of this function may not be ordered and contain repeated entries.
-                    if (outputLength > 0 && jurors[outputLength - 1] == juror) {
-                        weights[outputLength - 1]++;
-                    } else {
-                        jurors[outputLength] = juror;
-                        weights[outputLength]++;
-                        outputLength++;
-                    }
-                    selectedJurors++;
-
-                    //                _disputeId
-                    emit JurorDrafted(_params[1], juror);
-                    batchRequestedJurors--;
-                }
-            }
-        }
+        DraftParams memory draftParams = _buildDraftParams(_params);
+        length = _draft(draftParams, jurors, weights);
     }
 
     /**
@@ -347,8 +308,9 @@ contract JurorsRegistry is Initializable, IsContract, IJurorsRegistry, ERC900, A
             return false;
         }
 
-        // Check if the amount of active tokens is enough to collect the requested amount,
-        // otherwise reduce the requested deactivation amount of the next term
+        // Check if the amount of active tokens is enough to collect the requested amount, otherwise reduce the requested deactivation amount of
+        // the next term. Note that this behaviour is different to the one when drafting jurors since this function is called as a side effect
+        // of a juror deliberately voting in a final round, while drafts occur randomly.
         if (_amount > unlockedActiveBalance) {
             // Note there's no need to use SafeMath here, amounts were already checked above
             uint256 amountToReduce = _amount - unlockedActiveBalance;
@@ -665,6 +627,57 @@ contract JurorsRegistry is Initializable, IsContract, IJurorsRegistry, ERC900, A
     }
 
     /**
+    * @dev Internal function to draft a set of jurors based on a given set of params
+    * @param _draftParams Params to be used for the jurors draft
+    * @param _jurors List of unique jurors selected for the draft
+    * @param _weights List of weights corresponding to each juror selected for the draft
+    * @return Number of unique jurors selected for the draft. Note that this value may differ from the number of requested jurors
+    */
+    function _draft(DraftParams memory _draftParams, address[] memory _jurors, uint64[] memory _weights) internal returns (uint256) {
+        uint256 outputLength = 0;
+        // Jurors returned by the tree multi-sortition may not have enough unlocked active balance to be drafted. Thus,
+        // we compute several sortitions until all the requested jurors are selected. To guarantee a different set of
+        // jurors on each sortition, the iteration number will be part of the random seed to be used in the sortition.
+        // Note that this loop could end with an OOG error.
+        for (_draftParams.sortitionIteration = 0; _draftParams.batchRequestedJurors > 0; _draftParams.sortitionIteration++) {
+            (uint256[] memory jurorIds, uint256[] memory activeBalances) = _treeSearch(_draftParams);
+
+            for (uint256 i = 0; i < jurorIds.length; i++) {
+                // We assume the selected jurors are registered in the registry, we are not checking their addresses exist
+                address juror = jurorsAddressById[jurorIds[i]];
+                Juror storage _juror = jurorsByAddress[juror];
+
+                // Compute new locked balance for a juror based on the penalty applied when being drafted
+                uint256 newLockedBalance = _juror.lockedBalance.add(_draftParams.draftLockAmount);
+
+                // Check if there is any deactivation requests for the next term. Drafts are always computed for the current term
+                // but we have to make sure we are locking an amount that will exist in the next term.
+                uint256 nextTermDeactivationRequestAmount = _deactivationRequestedAmountForTerm(_juror, _draftParams.termId + 1);
+
+                // Check if juror has enough active tokens to lock the requested amount for the draft, skip it otherwise.
+                if (activeBalances[i].sub(nextTermDeactivationRequestAmount) >= newLockedBalance) {
+                    _juror.lockedBalance = newLockedBalance;
+
+                    // Check repeated juror, we assume jurors come ordered from tree search. Note that since the tree
+                    // search can be called more than once, if some juror doesn't have enough balance, the final
+                    // result of this function may not be ordered and contain repeated entries.
+                    if (outputLength > 0 && _jurors[outputLength - 1] == juror) {
+                        _weights[outputLength - 1]++;
+                    } else {
+                        _jurors[outputLength] = juror;
+                        _weights[outputLength]++;
+                        outputLength++;
+                    }
+                    _draftParams.selectedJurors++;
+                    _draftParams.batchRequestedJurors--;
+                    emit JurorDrafted(_draftParams.disputeId, juror);
+                }
+            }
+        }
+        return outputLength;
+    }
+
+    /**
     * @dev Internal function to get the amount of active tokens of a juror that are not locked due to ongoing disputes
     * @param _juror Juror querying the unlocked active balance of
     * @return Amount of active tokens of a juror that are not locked due to ongoing disputes
@@ -694,15 +707,6 @@ contract JurorsRegistry is Initializable, IsContract, IJurorsRegistry, ERC900, A
     }
 
     /**
-    * @dev Internal function to tell the fraction of minimum active tokens that must be locked for a draft
-    * @param _pct Per ten thousand of the minimum active balance to be locked for a draft
-    * @return The fraction of minimum active tokens that must be locked for a draft
-    */
-    function _draftLockAmount(uint16 _pct) internal view returns (uint256) {
-        return minActiveBalance.pct(_pct);
-    }
-
-    /**
     * @dev Internal function to tell the total amount of active juror tokens at the given term id
     * @param _termId Term id querying the total active balance for
     * @return Total amount of active juror tokens at the given term id
@@ -729,27 +733,45 @@ contract JurorsRegistry is Initializable, IsContract, IJurorsRegistry, ERC900, A
 
     /**
     * @dev Internal function to search jurors in the tree based on certain search restrictions
-    * @param _treeSearchParams Array containing the search restrictions:
-    *        0. bytes32 Term randomness
-    *        1. uint256 Dispute id
-    *        2. uint64  Current term when the draft is being computed
-    *        3. uint256 Number of jurors already selected for the draft
-    *        4. uint256 Number of jurors to be selected in the given batch of the draft
-    *        5. uint256 Total number of jurors requested to be drafted
-    *        6. uint256 Number of sortitions already performed for the given draft
-    *
+    * @param _params Draft params to be used for the jurors search
     * @return ids List of juror ids obtained based on the requested search
     * @return activeBalances List of active balances for each juror obtained based on the requested search
     */
-    function _treeSearch(uint256[7] memory _treeSearchParams) internal view returns (uint256[] memory ids, uint256[] memory activeBalances) {
+    function _treeSearch(DraftParams memory _params) internal view returns (uint256[] memory ids, uint256[] memory activeBalances) {
         (ids, activeBalances) = tree.batchedRandomSearch(
-            bytes32(_treeSearchParams[0]),  // _termRandomness,
-            _treeSearchParams[1],           // _disputeId
-            uint64(_treeSearchParams[2]),   // _termId
-            _treeSearchParams[3],           // _selectedJurors
-            _treeSearchParams[4],           // _batchRequestedJurors
-            _treeSearchParams[5],           // _roundRequestedJurors
-            _treeSearchParams[6]            // _sortitionIteration
+            _params.termRandomness,
+            _params.disputeId,
+            _params.termId,
+            _params.selectedJurors,
+            _params.batchRequestedJurors,
+            _params.roundRequestedJurors,
+            _params.sortitionIteration
         );
+    }
+
+    /**
+    * @dev Private function to parse a certain set given of draft params
+    * @param _params Array containing draft requirements:
+    *        0. bytes32 Term randomness
+    *        1. uint256 Dispute id
+    *        2. uint64  Current term id
+    *        3. uint256 Number of seats already filled
+    *        4. uint256 Number of seats left to be filled
+    *        5. uint64  Number of jurors required for the draft
+    *        6. uint16  Per ten thousand of the minimum active balance to be locked for the draft
+    *
+    * @return Draft params object parsed
+    */
+    function _buildDraftParams(uint256[7] memory _params) private view returns (DraftParams memory) {
+        return DraftParams({
+            termRandomness: bytes32(_params[0]),
+            disputeId: _params[1],
+            termId: uint64(_params[2]),
+            selectedJurors: _params[3],
+            batchRequestedJurors: _params[4],
+            roundRequestedJurors: _params[5],
+            draftLockAmount: minActiveBalance.pct(uint16(_params[6])),
+            sortitionIteration: 0
+        });
     }
 }

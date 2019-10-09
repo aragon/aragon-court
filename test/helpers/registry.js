@@ -91,7 +91,8 @@ const simulateDraft = ({
       getTreeKey
     })
     // remove locked jurors
-    const filteredIterationDraftedKeys = iterationDraftedKeys.filter(key => jurors[key].unlockedActiveBalance.gte(minUnlockedAmount)).slice(0, jurorsLeft)
+    const filteredIterationDraftedKeys = iterationDraftedKeys.filter(
+      key => jurors[key].unlockedActiveBalance.sub(jurors[key].pendingDeactivation).gte(minUnlockedAmount)).slice(0, jurorsLeft)
     iteration++
     jurorsLeft -= filteredIterationDraftedKeys.length
     accumulatedSelectedJurors += filteredIterationDraftedKeys.length

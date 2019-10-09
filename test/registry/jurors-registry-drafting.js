@@ -19,7 +19,7 @@ contract('JurorsRegistry', ([_, juror500, juror1000, juror1500, juror2000, juror
   const MIN_ACTIVE_AMOUNT = bigExp(100, 18)
   const TOTAL_ACTIVE_BALANCE_LIMIT = bigExp(100e6, 18)
   const ACTIVATE_DATA = sha3('activate(uint256)').slice(0, 10)
-  const termId = 0
+  const termId = 1
   const sortitionIteration = 0
 
   const balances = [
@@ -95,12 +95,14 @@ contract('JurorsRegistry', ([_, juror500, juror1000, juror1500, juror2000, juror
 
       await Promise.all(
         jurors.map(async (juror) => {
-          const activeBalance = (await registry.balanceOf(juror.address))[0]
-          juror.activeBalance = activeBalance
+          const { active, pendingDeactivation } = (await registry.balanceOfAt(juror.address, termId))
+          juror.activeBalance = active
+          juror.pendingDeactivation = pendingDeactivation
         })
       )
 
       const activeJurors = jurors.filter(juror => juror.activeBalance.gte(MIN_ACTIVE_AMOUNT))
+
       const expectedJurors = simulateDraft({
         termRandomness,
         disputeId,
@@ -150,7 +152,7 @@ contract('JurorsRegistry', ([_, juror500, juror1000, juror1500, juror2000, juror
       }
     }
 
-    const lockFirstExpectedJuror = async (batchRequestedJurors, roundRequestedJurors) => {
+    const getFirstExpectedJuror  = async (batchRequestedJurors, roundRequestedJurors) => {
       const expectedJurors = await updateJurorsAndSimulateDraft({
         termRandomness: EMPTY_RANDOMNESS,
         disputeId: 0,
@@ -158,10 +160,14 @@ contract('JurorsRegistry', ([_, juror500, juror1000, juror1500, juror2000, juror
         batchRequestedJurors,
         roundRequestedJurors
       })
-      const firstExpectedJuror = expectedJurors[0].address
+      return expectedJurors[0].address
+    }
+
+    const lockFirstExpectedJuror = async (batchRequestedJurors, roundRequestedJurors) => {
+      const firstExpectedJuror = await getFirstExpectedJuror(batchRequestedJurors, roundRequestedJurors)
       await registry.lockAll(firstExpectedJuror)
 
-      const { active, locked } = await registry.balanceOf(firstExpectedJuror)
+      const { active, locked } = await registry.balanceOfAt(firstExpectedJuror, termId)
       assert.equal(active.toString(), locked.toString(), 'juror locked balance does not match')
     }
 
@@ -502,13 +508,13 @@ contract('JurorsRegistry', ([_, juror500, juror1000, juror1500, juror2000, juror
 
                     context('when some jurors do not have been enough balance to be drafted again', () => {
                       context('when it is due to other drafts', () => {
-                        beforeEach('lock first expected juror', async () => {
-                          await lockFirstExpectedJuror(batchRequestedJurors, roundRequestedJurors)
-                        })
-
                         context('for the first batch', () => {
                           const batchRequestedJurors = 3
                           const previousSelectedJurors = 0
+
+                          beforeEach('lock first expected juror', async () => {
+                            await lockFirstExpectedJuror(batchRequestedJurors, roundRequestedJurors)
+                          })
 
                           itReturnsExpectedJurors({ previousSelectedJurors, batchRequestedJurors, roundRequestedJurors })
                         })
@@ -516,24 +522,26 @@ contract('JurorsRegistry', ([_, juror500, juror1000, juror1500, juror2000, juror
                         context('for the second batch', () => {
                           const batchRequestedJurors = 7
                           const previousSelectedJurors = 3
+
+                          beforeEach('lock first expected juror', async () => {
+                            await lockFirstExpectedJuror(batchRequestedJurors, roundRequestedJurors)
+                          })
 
                           itReturnsExpectedJurors({ previousSelectedJurors, batchRequestedJurors, roundRequestedJurors })
                         })
                       })
 
                       context('when it is due to deactivation requests', () => {
-                        beforeEach('deactivate', async () => {
-                          await registry.deactivate(0, { from: juror1000 })
-                          const { active } = await registry.balanceOf(juror1000)
-                          assert.equal(active.toString(), 0, 'juror1000 active balance does not match')
-                        })
-
-                        beforeEach('lock first expected juror', async () => {
-                          await lockFirstExpectedJuror(batchRequestedJurors, roundRequestedJurors)
-                        })
                         context('for the first batch', () => {
                           const batchRequestedJurors = 3
                           const previousSelectedJurors = 0
+
+                          beforeEach('deactivate', async () => {
+                            const firstExpectedJuror = await getFirstExpectedJuror(batchRequestedJurors, roundRequestedJurors)
+                            await registry.deactivate(0, { from: firstExpectedJuror })
+                            const { active } = await registry.balanceOf(firstExpectedJuror)
+                            assert.equal(active.toString(), 0, 'first expected juror active balance does not match')
+                          })
 
                           itReturnsExpectedJurors({ previousSelectedJurors, batchRequestedJurors, roundRequestedJurors })
                         })
@@ -541,6 +549,13 @@ contract('JurorsRegistry', ([_, juror500, juror1000, juror1500, juror2000, juror
                         context('for the second batch', () => {
                           const batchRequestedJurors = 7
                           const previousSelectedJurors = 3
+
+                          beforeEach('deactivate', async () => {
+                            const firstExpectedJuror = await getFirstExpectedJuror(batchRequestedJurors, roundRequestedJurors)
+                            await registry.deactivate(0, { from: firstExpectedJuror })
+                            const { active } = await registry.balanceOf(firstExpectedJuror)
+                            assert.equal(active.toString(), 0, 'first expected juror active balance does not match')
+                          })
 
                           itReturnsExpectedJurors({ previousSelectedJurors, batchRequestedJurors, roundRequestedJurors })
                         })

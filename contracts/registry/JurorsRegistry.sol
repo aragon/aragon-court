@@ -417,9 +417,25 @@ contract JurorsRegistry is Initializable, IsContract, IJurorsRegistry, ERC900, A
         Juror storage juror = jurorsByAddress[_juror];
 
         active = _existsJuror(juror) ? tree.getItem(juror.id) : 0;
-        available = juror.availableBalance;
-        locked = juror.lockedBalance;
-        pendingDeactivation = juror.deactivationRequest.amount;
+        (available, locked, pendingDeactivation) = _getBalances(juror);
+    }
+
+    /**
+    * @dev Tell the balance information of a juror, fecthing tree one at a given term
+    * @param _juror Address of the juror querying the balance information of
+    * @param _termId Term id querying the active balance for
+    * @return active Amount of active tokens of a juror
+    * @return available Amount of available tokens of a juror
+    * @return locked Amount of active tokens that are locked due to ongoing disputes
+    * @return pendingDeactivation Amount of active tokens that were requested for deactivation
+    */
+    function balanceOfAt(address _juror, uint64 _termId)
+        public view returns (uint256 active, uint256 available, uint256 locked, uint256 pendingDeactivation)
+    {
+        Juror storage juror = jurorsByAddress[_juror];
+
+        active = _existsJuror(juror) ? tree.getItemAt(juror.id, _termId) : 0;
+        (available, locked, pendingDeactivation) = _getBalances(juror);
     }
 
     /**
@@ -729,6 +745,19 @@ contract JurorsRegistry is Initializable, IsContract, IJurorsRegistry, ERC900, A
         uint256 currentTotalActiveBalance = _totalActiveBalanceAt(_termId);
         uint256 newTotalActiveBalance = currentTotalActiveBalance.add(_amount);
         require(newTotalActiveBalance <= totalActiveBalanceLimit, ERROR_TOTAL_ACTIVE_BALANCE_EXCEEDED);
+    }
+
+    /**
+    * @dev Tell the local balance information of a juror (that is not on the tree)
+    * @param _juror Address of the juror querying the balance information of
+    * @return available Amount of available tokens of a juror
+    * @return locked Amount of active tokens that are locked due to ongoing disputes
+    * @return pendingDeactivation Amount of active tokens that were requested for deactivation
+    */
+    function _getBalances(Juror storage _juror) internal view returns (uint256 available, uint256 locked, uint256 pendingDeactivation) {
+        available = _juror.availableBalance;
+        locked = _juror.lockedBalance;
+        pendingDeactivation = _juror.deactivationRequest.amount;
     }
 
     /**

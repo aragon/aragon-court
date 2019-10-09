@@ -9,6 +9,7 @@
     "lint": "solium --dir ./contracts",
     "test": "npm run ganache-cli:test",
     "test:gas": "GAS_REPORTER=true npm test",
+    "test:gas:ci": "npm run test:gas && npx codechecks",
     "coverage": "SOLIDITY_COVERAGE=true npm run ganache-cli:test",
     "ganache-cli:test": "./node_modules/@aragon/test-helpers/ganache-cli.sh"
   },
@@ -20,6 +21,7 @@
   },
   "devDependencies": {
     "@aragon/test-helpers": "^2.1.0",
+    "@codechecks/client": "^0.1.5",
     "eth-gas-reporter": "^0.2.9",
     "ganache-cli": "^6.4.5",
     "pre-push": "^0.1.1",

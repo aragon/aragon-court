@@ -37,3 +37,6 @@ jobs:
     - stage: tests
       script: npm test test/subscriptions/*.js
       name: "Subscriptions"
+    - stage: tests
+      script: npm run test:gas:ci
+      name: "Gas measurements"

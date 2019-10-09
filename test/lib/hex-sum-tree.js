@@ -642,7 +642,7 @@ contract('HexSumTree', () => {
 
     context('when searching one value', async () => {
       const value = 15
-      const searchValues = [value]
+      const searchValues = [value - 1]
 
       context('when there was no value inserted in the tree', async () => {
         it('reverts', async () => {
@@ -879,8 +879,8 @@ contract('HexSumTree', () => {
     context('when searching many values', () => {
       context('without checkpointing', async () => {
         context('when all values are included in the tree', () => {
-          const searchValues = [1, 5, 8, 18, 22]
-          const insertedItems = [2, 1, 4, 1, 8, 6, 7, 1]
+          const searchValues = [0, 4, 7, 17, 21]
+          const insertedItems = [2, 1, 4, 1, 8, 6, 7, 1] // total 30
 
           beforeEach('insert values', async () => {
             for (let i = 0; i < insertedItems.length; i++) {
@@ -977,7 +977,7 @@ contract('HexSumTree', () => {
             const expectedValue = initialValue.add(bn(time))
             assert.equal(value.toString(), expectedValue.toString(), `Value at time ${time} does not match`)
 
-            const searchedValue = initialValue.mul(bn(key)).add(value)
+            const searchedValue = initialValue.mul(bn(key)).add(value).sub(bn(1))
             const { keys, values } = await tree.search([searchedValue], time)
             assert.equal(keys.length, 1, 'result keys length does not match')
             assert.equal(values.length, 1, 'result values length does not match')

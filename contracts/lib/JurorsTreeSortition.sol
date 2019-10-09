@@ -39,7 +39,9 @@ library JurorsTreeSortition {
     {
         (uint256 low, uint256 high) = getSearchBatchBounds(tree, _termId, _selectedJurors, _batchRequestedJurors, _roundRequestedJurors);
         uint256[] memory balances = _computeSearchRandomBalances(
-            _randomnessHash(_termRandomness, _disputeId, _sortitionIteration),
+            _termRandomness,
+            _disputeId,
+            _sortitionIteration,
             _batchRequestedJurors,
             low,
             high
@@ -71,30 +73,31 @@ library JurorsTreeSortition {
         view
         returns (uint256 low, uint256 high)
     {
-        // Note that the low bound will be always equal to the previous high bound incremented by one, or one for the
-        // first iteration. Thus, we can make sure we are not excluding any juror from the tree.
         uint256 totalActiveBalance = tree.getRecentTotalAt(_termId);
-        uint256 ratio = totalActiveBalance / _roundRequestedJurors;
-        low = _selectedJurors == 0 ? 1 : (_selectedJurors * ratio) + 1;
+        // TODO: SafeMath
+        low = _selectedJurors * totalActiveBalance / _roundRequestedJurors;
+
+        uint256 newSelectedJurors = _selectedJurors + _batchRequestedJurors;
 
         // This function assumes that `_roundRequestedJurors` is greater than or equal to `newSelectedJurors`
-        uint256 newSelectedJurors = _selectedJurors + _batchRequestedJurors;
-        bool lastBatch = newSelectedJurors == _roundRequestedJurors;
-
-        // If we are computing bounds for the last batch, make sure we include the last inserted juror
-        high = lastBatch ? totalActiveBalance : (newSelectedJurors * ratio);
+        // TODO: SafeMath
+        high = newSelectedJurors * totalActiveBalance / _roundRequestedJurors;
     }
 
     /**
     * @dev Get a random list of active balances to be searched in the jurors tree for a given draft batch
-    * @param _randomnessHash Hash to be used as random seed
+    * @param _termRandomness Randomness to compute the seed for the draft
+    * @param _disputeId Identification number of the dispute to draft jurors for (for randomness)
+    * @param _sortitionIteration Number of sortitions already performed for the given draft (for randomness)
     * @param _batchRequestedJurors Number of jurors to be selected in the given batch of the draft
     * @param _lowBatchBound Low bound to be used for the sortition batch to draft the requested number of jurors
     * @param _highBatchBound High bound to be used for the sortition batch to draft the requested number of jurors
     * @return Random list of active balances to be searched in the jurors tree for the given draft batch
     */
     function _computeSearchRandomBalances(
-        bytes32 _randomnessHash,
+        bytes32 _termRandomness,
+        uint256 _disputeId,
+        uint256 _sortitionIteration,
         uint256 _batchRequestedJurors,
         uint256 _lowBatchBound,
         uint256 _highBatchBound
@@ -104,61 +107,32 @@ library JurorsTreeSortition {
         returns (uint256[] memory)
     {
         // Calculate the interval to be used to search the balances in the tree. Since we are using a modulo function
-        // to compute the random balances to be searched, we add one to the difference to make sure the last number
-        // of the range is also included. For example, to compute a range [1,10] we need to compute using modulo 10.
-        uint256 interval = _highBatchBound - _lowBatchBound + 1;
+        // to compute the random balances to be searched, intervals will be closed on the left and open on the right,
+        // like for instance [0,10)
+        uint256 interval = _highBatchBound - _lowBatchBound;
         uint256[] memory balances = new uint256[](_batchRequestedJurors);
 
         // Compute an ordered list of random active balance to be searched in the jurors tree
         for (uint256 batchJurorNumber = 0; batchJurorNumber < _batchRequestedJurors; batchJurorNumber++) {
-            balances[batchJurorNumber] = _computeRandomBalance(_randomnessHash, batchJurorNumber, _lowBatchBound, interval);
+            // Compute a random seed using:
+            // - the inherent randomness associated to the term from blockhash
+            // - the disputeId, so 2 disputes in the same term will have different outcomes
+            // - the sortition iteration, to avoid getting stuck if resulting jurors are dismissed due to locked balance
+            // - the juror number in this batch
+            bytes32 seed = keccak256(abi.encodePacked(_termRandomness, _disputeId, _sortitionIteration, batchJurorNumber));
+
+            // Compute a random active balance to be searched in the jurors tree using the generated seed within the
+            // boundaries computed for the current batch.
+            balances[batchJurorNumber] = _lowBatchBound + uint256(seed) % interval;
+
+            // Make sure it's ordered
             for (uint256 i = batchJurorNumber; i > 0 && balances[i] < balances[i - 1]; i--) {
+                // Flip values
                 uint256 tmp = balances[i - 1];
                 balances[i - 1] = balances[i];
                 balances[i] = tmp;
             }
         }
         return balances;
-    }
-
-    /**
-    * @dev Get a random active balance to be searched in the jurors tree for a given juror number of the draft batch
-    * @param _randomnessHash Hash to be used as random seed
-    * @param _batchJurorNumber Number of the juror to be selected in the given batch of the draft
-    * @param _lowBatchBound Low bound to be used for the sortition batch to draft the requested juror number
-    * @param _interval Bounds interval to be used for the sortition batch to draft the requested juror number
-    * @return Random active balance to be searched in the jurors tree for the given juror number of the draft batch
-    */
-    function _computeRandomBalance(
-        bytes32 _randomnessHash,
-        uint256 _batchJurorNumber,
-        uint256 _lowBatchBound,
-        uint256 _interval
-    )
-        internal
-        pure
-        returns (uint256)
-    {
-        // Compute a random seed using the given randomness hash and the juror number
-        bytes32 seed = keccak256(abi.encodePacked(_randomnessHash, _batchJurorNumber));
-
-        // Compute a random active balance to be searched in the jurors tree using the generated seed within the
-        // boundaries computed for the current batch.
-        return _lowBatchBound + uint256(seed) % _interval;
-    }
-
-    /**
-    * @dev Get the randomness hash to be used as the random seed for the jurors sortition for a given term and dispute
-    * @param _termRandomness Randomness hash of a certain term to draft jurors
-    * @param _disputeId Identification number of the dispute to draft jurors for
-    * @param _sortitionIteration Number of sortitions already performed for the given draft
-    * @return Randomness hash to be used as the random seed for jurors sortition
-    */
-    function _randomnessHash(bytes32 _termRandomness, uint256 _disputeId, uint256 _sortitionIteration)
-        internal
-        pure
-        returns (bytes32)
-    {
-        return keccak256(abi.encodePacked(_termRandomness, _disputeId, _sortitionIteration));
     }
 }

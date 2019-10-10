@@ -6,19 +6,23 @@ import "../../controller/Controller.sol";
 contract ControllerMock is Controller {
     constructor() Controller(msg.sender) public {}
 
-    function setAccounting(address _owner, address _implementation) external {
-        _setImplementation(ACCOUNTING, _owner, _implementation);
+    function setCourt(address _addr) external {
+        _setModule(COURT, _addr);
     }
 
-    function setVoting(address _owner, address _implementation) external {
-        _setImplementation(CR_VOTING, _owner, _implementation);
+    function setAccounting(address _addr) external {
+        _setModule(ACCOUNTING, _addr);
     }
 
-    function setJurorsRegistry(address _owner, address _implementation) external {
-        _setImplementation(JURORS_REGISTRY, _owner, _implementation);
+    function setVoting(address _addr) external {
+        _setModule(VOTING, _addr);
     }
 
-    function setSubscriptions(address _owner, address _implementation) external {
-        _setImplementation(SUBSCRIPTIONS, _owner, _implementation);
+    function setJurorsRegistry(address _addr) external {
+        _setModule(JURORS_REGISTRY, _addr);
+    }
+
+    function setSubscriptions(address _addr) external {
+        _setModule(SUBSCRIPTIONS, _addr);
     }
 }

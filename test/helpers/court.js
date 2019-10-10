@@ -23,8 +23,9 @@ const ROUND_STATES = {
 }
 
 const MODULE_IDS = {
+  court: '0x26f3b895987e349a46d6d91132234924c6d45cfdc564b33427f53e3f9284955c',
   accounting: '0x3ec26b85a7d49ed13a920deeaceb063fa458eb25266fa7b504696047900a5b0f',
-  voting: '0xa334dcfd63312f27d3bdd4b12fef158515746c4bdb2f54bd1312f28b269bf207',
+  voting: '0x7cbb12e82a6d63ff16fe43977f43e3e2b247ecd4e62c0e340da8800a48c67346',
   registry: '0x3b21d36b36308c830e6c4053fb40a3b6d79dde78947fbf6b0accd30720ab5370',
   subscriptions: '0x2bfa3327fe52344390da94c32a346eeb1b65a8b583e4335a419b9471e88c1365'
 }
@@ -483,9 +484,8 @@ module.exports = (web3, artifacts) => {
       )
 
       const ids = Object.values(MODULE_IDS)
-      const owners = [this.court.address, this.court.address, this.court.address, this.court.address]
-      const implementations = [this.accounting.address, this.voting.address, this.jurorsRegistry.address, this.subscriptions.address]
-      await this.controller.setModules(ids, owners, implementations, { from: this.governor })
+      const implementations = [this.court, this.accounting, this.voting, this.jurorsRegistry, this.subscriptions].map(i => i.address)
+      await this.controller.setModules(ids, implementations, { from: this.governor })
 
       const zeroTermStartTime = this.firstTermStartTime.sub(this.termDuration)
       await this.setTimestamp(zeroTermStartTime)

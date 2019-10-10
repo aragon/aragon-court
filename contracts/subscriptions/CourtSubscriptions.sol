@@ -126,6 +126,7 @@ contract CourtSubscriptions is Controlled, ERC20Recoverable, TimeHelpers, ISubsc
         ERC20Recoverable(_controller)
         public
     {
+        // No need to explicitly call `Controlled` constructor since `ERC20Recoverable` is already doing it
         require(_periodDuration > 0, ERROR_PERIOD_DURATION_ZERO);
 
         periodDuration = _periodDuration;
@@ -524,7 +525,9 @@ contract CourtSubscriptions is Controlled, ERC20Recoverable, TimeHelpers, ISubsc
     */
     function _getCurrentPeriodId() internal view returns (uint256) {
         // Since the Court starts at term #1, and the first subscription period is #0, then subtract one unit to the current term of the Court
-        return uint256(_subscriptionsOwner().getCurrentTermId()).sub(START_TERM_ID) / periodDuration;
+        ISubscriptionsOwner owner = _subscriptionsOwner();
+        uint64 termId = owner.getCurrentTermId();
+        return uint256(termId).sub(START_TERM_ID) / periodDuration;
     }
 
     /**
@@ -686,7 +689,8 @@ contract CourtSubscriptions is Controlled, ERC20Recoverable, TimeHelpers, ISubsc
         uint64 nextPeriodStartTermId = _getPeriodStartTermId(_periodId + 1);
 
         // Pick a random Court term during the next period of the requested one to get the total amount of juror tokens active in the Court
-        bytes32 randomness = _subscriptionsOwner().getTermRandomness(nextPeriodStartTermId);
+        ISubscriptionsOwner owner = _subscriptionsOwner();
+        bytes32 randomness = owner.getTermRandomness(nextPeriodStartTermId);
 
         // The randomness factor for each Court term is computed using the the hash of a block number set during the initialization of the
         // term, to ensure it cannot be known beforehand. Note that the hash function being used only works for the 256 most recent block
@@ -698,8 +702,9 @@ contract CourtSubscriptions is Controlled, ERC20Recoverable, TimeHelpers, ISubsc
 
         // Use randomness to choose a Court term of the requested period and query the total amount of juror tokens active at that term
         // Note that there is no need to use SafeMath here since terms are represented in `uint64`
+        IJurorsRegistry jurorsRegistry = _jurorsRegistry();
         periodBalanceCheckpoint = periodStartTermId + uint64(uint256(randomness) % periodDuration);
-        totalActiveBalance = _jurorsRegistry().totalActiveBalanceAt(periodBalanceCheckpoint);
+        totalActiveBalance = jurorsRegistry.totalActiveBalanceAt(periodBalanceCheckpoint);
     }
 
     /**
@@ -714,7 +719,8 @@ contract CourtSubscriptions is Controlled, ERC20Recoverable, TimeHelpers, ISubsc
         returns (uint256)
     {
         // Fetch juror active balance at the checkpoint used for the requested period
-        uint256 jurorActiveBalance = _jurorsRegistry().activeBalanceOfAt(_juror, _periodBalanceCheckpoint);
+        IJurorsRegistry jurorsRegistry = _jurorsRegistry();
+        uint256 jurorActiveBalance = jurorsRegistry.activeBalanceOfAt(_juror, _periodBalanceCheckpoint);
         if (jurorActiveBalance == 0) {
             return 0;
         }

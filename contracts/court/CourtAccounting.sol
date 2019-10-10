@@ -26,11 +26,13 @@ contract CourtAccounting is Controlled, ERC20Recoverable, IAccounting {
     event Withdraw(ERC20 indexed token, address indexed from, address indexed to, uint256 amount);
 
     modifier onlyOwner {
-        require(msg.sender == _accountingOwner(), ERROR_SENDER_NOT_OWNER);
+        address owner = _accountingOwner();
+        require(msg.sender == owner, ERROR_SENDER_NOT_OWNER);
         _;
     }
 
     constructor(Controller _controller) ERC20Recoverable(_controller) public {
+        // No need to explicitly call `Controlled` constructor since `ERC20Recoverable` is already doing it
         // solium-disable-previous-line no-empty-blocks
     }
 

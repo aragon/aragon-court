@@ -6,7 +6,7 @@ const Controller = artifacts.require('Controller')
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
 
-contract('Controller', ([_, governor, someone, anotherone]) => {
+contract('Controller', ([_, governor, someone]) => {
   let controller
 
   beforeEach('create controller', async () => {
@@ -90,127 +90,106 @@ contract('Controller', ([_, governor, someone, anotherone]) => {
       const from = governor
 
       context('when the given address is a contract', () => {
-        let implementation
+        let module
         
-        beforeEach('deploy implementation', async () => {
-          implementation = await Controlled.new(controller.address)
+        beforeEach('deploy module', async () => {
+          module = await Controlled.new(controller.address)
         })
-        
-        context('when the given owner is valid', () => {
-          const owner = someone
 
-          context('when the given id is an unknown ID', () => {
-            const id = '0x0000000000000000000000000000000000000000000000000000000000000001'
+        context('when the given id is an unknown ID', () => {
+          const id = '0x0000000000000000000000000000000000000000000000000000000000000001'
 
-            context('when the implementation was not set yet', () => {
-              it('sets given implementation', async () => {
-                const receipt = await controller.setModule(id, owner, implementation.address, { from })
+          context('when the module was not set yet', () => {
+            it('sets given module', async () => {
+              const receipt = await controller.setModule(id, module.address, { from })
 
-                const module = await controller.getModule(id)
-                assert.equal(module.owner, owner, 'module owner does not match')
-                assert.equal(module.implementation, implementation.address, 'module implementation does not match')
+              assert.equal(await controller.getModule(id), module.address, 'module address does not match')
 
-                assertAmountOfEvents(receipt, 'ModuleSet')
-                assertEvent(receipt, 'ModuleSet', { id, owner, implementation: implementation.address })
-              })
-            })
-
-            context('when the implementation was already set', () => {
-              let previousImplementation
-              
-              beforeEach('set implementation', async () => {
-                previousImplementation = await Controlled.new(controller.address)
-                await controller.setModule(id, anotherone, previousImplementation.address, { from })
-
-                const module = await controller.getModule(id)
-                assert.equal(module.owner, anotherone, 'module owner does not match')
-                assert.equal(module.implementation, previousImplementation.address, 'module implementation does not match')
-              })
-
-              it('overwrites the previous implementation', async () => {
-                const receipt = await controller.setModule(id, owner, implementation.address, { from })
-
-                const module = await controller.getModule(id)
-                assert.equal(module.owner, owner, 'module owner does not match')
-                assert.equal(module.implementation, implementation.address, 'module implementation does not match')
-  
-                assertAmountOfEvents(receipt, 'ModuleSet')
-                assertEvent(receipt, 'ModuleSet', { id, owner, implementation: implementation.address })
-              })
+              assertAmountOfEvents(receipt, 'ModuleSet')
+              assertEvent(receipt, 'ModuleSet', { id, addr: module.address })
             })
           })
 
-          context('when the given id is one of the known IDs', () => {
-            const implementations = [
-              { id: '0x3ec26b85a7d49ed13a920deeaceb063fa458eb25266fa7b504696047900a5b0f', getter: 'getAccounting' },
-              { id: '0xa334dcfd63312f27d3bdd4b12fef158515746c4bdb2f54bd1312f28b269bf207', getter: 'getCRVoting' },
-              { id: '0x3b21d36b36308c830e6c4053fb40a3b6d79dde78947fbf6b0accd30720ab5370', getter: 'getJurorsRegistry' },
-              { id: '0x2bfa3327fe52344390da94c32a346eeb1b65a8b583e4335a419b9471e88c1365', getter: 'getSubscriptions' },
-            ]
+          context('when the module was already set', () => {
+            let previousModule
 
-            for (const { id, getter } of implementations) {
-              describe(getter, () => {
-                context('when the implementation was not set yet', () => {
-                  it('sets given implementation', async () => {
-                    const receipt = await controller.setModule(id, owner, implementation.address, { from })
+            beforeEach('set module', async () => {
+              previousModule = await Controlled.new(controller.address)
+              await controller.setModule(id, previousModule.address, { from })
 
-                    assert.equal(await controller[getter](), implementation.address, 'module implementation does not match')
-                    assert.equal(await controller[`${getter}Owner`](), owner, 'module owner does not match')
+              assert.equal(await controller.getModule(id), previousModule.address, 'module address does not match')
+            })
 
-                    assertAmountOfEvents(receipt, 'ModuleSet')
-                    assertEvent(receipt, 'ModuleSet', { id, owner, implementation: implementation.address })
-                  })
-                })
+            it('overwrites the previous address', async () => {
+              const receipt = await controller.setModule(id, module.address, { from })
 
-                context('when the implementation was already set', () => {
-                  let previousImplementation
+              assert.equal(await controller.getModule(id), module.address, 'module address does not match')
 
-                  beforeEach('set implementation', async () => {
-                    previousImplementation = await Controlled.new(controller.address)
-                    await controller.setModule(id, anotherone, previousImplementation.address, { from })
-
-                    const module = await controller.getModule(id)
-                    assert.equal(module.owner, anotherone, 'module owner does not match')
-                    assert.equal(module.implementation, previousImplementation.address, 'module implementation does not match')
-                  })
-
-                  it('overwrites the previous implementation', async () => {
-                    const receipt = await controller.setModule(id, owner, implementation.address, { from })
-
-                    assert.equal(await controller[getter](), implementation.address, 'module implementation does not match')
-                    assert.equal(await controller[`${getter}Owner`](), owner, 'module owner does not match')
-
-                    assertAmountOfEvents(receipt, 'ModuleSet')
-                    assertEvent(receipt, 'ModuleSet', { id, owner, implementation: implementation.address })
-                  })
-                })
-              })
-            }
+              assertAmountOfEvents(receipt, 'ModuleSet')
+              assertEvent(receipt, 'ModuleSet', { id, addr: module.address })
+            })
           })
         })
 
-        context('when the given owner is not valid', () => {
-          const owner = ZERO_ADDRESS
+        context('when the given id is one of the known IDs', () => {
+          const modules = [
+            { id: '0x26f3b895987e349a46d6d91132234924c6d45cfdc564b33427f53e3f9284955c', getter: 'getCourt' },
+            { id: '0x7cbb12e82a6d63ff16fe43977f43e3e2b247ecd4e62c0e340da8800a48c67346', getter: 'getVoting' },
+            { id: '0x3ec26b85a7d49ed13a920deeaceb063fa458eb25266fa7b504696047900a5b0f', getter: 'getAccounting' },
+            { id: '0x3b21d36b36308c830e6c4053fb40a3b6d79dde78947fbf6b0accd30720ab5370', getter: 'getJurorsRegistry' },
+            { id: '0x2bfa3327fe52344390da94c32a346eeb1b65a8b583e4335a419b9471e88c1365', getter: 'getSubscriptions' },
+          ]
 
-          it('reverts', async () => {
-            await assertRevert(controller.setModule('0x0', owner, ZERO_ADDRESS, { from }), 'CTR_ZERO_MODULE_OWNER')
-          })
+          for (const { id, getter } of modules) {
+            describe(getter, () => {
+              context('when the module was not set yet', () => {
+                it('sets given module', async () => {
+                  const receipt = await controller.setModule(id, module.address, { from })
+
+                  assert.equal(await controller[getter](), module.address, 'module address does not match')
+
+                  assertAmountOfEvents(receipt, 'ModuleSet')
+                  assertEvent(receipt, 'ModuleSet', { id, addr: module.address })
+                })
+              })
+
+              context('when the module was already set', () => {
+                let module
+
+                beforeEach('set module', async () => {
+                  module = await Controlled.new(controller.address)
+                  await controller.setModule(id, module.address, { from })
+
+                  assert.equal(await controller.getModule(id), module.address, 'module address does not match')
+                })
+
+                it('overwrites the previous implementation', async () => {
+                  const receipt = await controller.setModule(id, module.address, { from })
+
+                  assert.equal(await controller[getter](), module.address, 'module implementation does not match')
+
+                  assertAmountOfEvents(receipt, 'ModuleSet')
+                  assertEvent(receipt, 'ModuleSet', { id, addr: module.address })
+                })
+              })
+            })
+          }
         })
       })
 
       context('when the given address is not a contract', () => {
-        const implementation = someone
+        const module = someone
 
         it('reverts', async () => {
-          await assertRevert(controller.setModule('0x0', someone, implementation, { from }), 'CTR_IMPLEMENTATION_NOT_CONTRACT')
+          await assertRevert(controller.setModule('0x0', module, { from }), 'CTR_IMPLEMENTATION_NOT_CONTRACT')
         })
       })
 
       context('when the given address is the zero address', () => {
-        const implementation = ZERO_ADDRESS
+        const module = ZERO_ADDRESS
 
         it('reverts', async () => {
-          await assertRevert(controller.setModule('0x0', someone, implementation, { from }), 'CTR_IMPLEMENTATION_NOT_CONTRACT')
+          await assertRevert(controller.setModule('0x0', module, { from }), 'CTR_IMPLEMENTATION_NOT_CONTRACT')
         })
       })
     })
@@ -219,7 +198,7 @@ contract('Controller', ([_, governor, someone, anotherone]) => {
       const from = someone
 
       it('reverts', async () => {
-        await assertRevert(controller.setModule('0x0', someone, ZERO_ADDRESS, { from }), 'CTR_SENDER_NOT_GOVERNOR')
+        await assertRevert(controller.setModule('0x0', ZERO_ADDRESS, { from }), 'CTR_SENDER_NOT_GOVERNOR')
       })
     })
   })

@@ -31,6 +31,7 @@ contract CourtMock is Court, TimeHelpersMock {
     {}
 
     function collect(address _juror, uint256 _amount) external {
-        _jurorsRegistry().collectTokens(_juror, _amount, termId);
+        IJurorsRegistry jurorsRegistry = _jurorsRegistry();
+        jurorsRegistry.collectTokens(_juror, _amount, termId);
     }
 }

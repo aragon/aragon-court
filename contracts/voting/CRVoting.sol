@@ -54,7 +54,8 @@ contract CRVoting is Controlled, ICRVoting {
     event VoteLeaked(uint256 indexed voteId, address indexed voter, uint8 outcome, address leaker);
 
     modifier onlyOwner {
-        require(msg.sender == address(_votingOwner()), ERROR_NOT_OWNER);
+        ICRVotingOwner owner = _votingOwner();
+        require(msg.sender == address(owner), ERROR_NOT_OWNER);
         _;
     }
 
@@ -249,7 +250,8 @@ contract CRVoting is Controlled, ICRVoting {
     * @return Weight of the voter willing to commit a vote
     */
     function _ensureVoterWeightToCommit(uint256 _voteId, address _voter) internal returns (uint256) {
-        uint256 weight = uint256(_votingOwner().getVoterWeightToCommit(_voteId, _voter));
+        ICRVotingOwner owner = _votingOwner();
+        uint256 weight = uint256(owner.getVoterWeightToCommit(_voteId, _voter));
         require(weight > 0, ERROR_COMMIT_DENIED_BY_OWNER);
         return weight;
     }
@@ -261,7 +263,8 @@ contract CRVoting is Controlled, ICRVoting {
     * @return Weight of the voter willing to reveal a vote
     */
     function _ensureVoterWeightToReveal(uint256 _voteId, address _voter) internal returns (uint256) {
-        uint256 weight = uint256(_votingOwner().getVoterWeightToReveal(_voteId, _voter));
+        ICRVotingOwner owner = _votingOwner();
+        uint256 weight = uint256(owner.getVoterWeightToReveal(_voteId, _voter));
         require(weight > 0, ERROR_REVEAL_DENIED_BY_OWNER);
         return weight;
     }

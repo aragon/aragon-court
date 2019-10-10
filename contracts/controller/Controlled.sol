@@ -1,6 +1,10 @@
 pragma solidity ^0.5.8;
 
 import "./Controller.sol";
+import "../court/IAccounting.sol";
+import "../voting/ICRVoting.sol";
+import "../registry/IJurorsRegistry.sol";
+import "../subscriptions/ISubscriptions.sol";
 import "@aragon/os/contracts/common/IsContract.sol";
 
 
@@ -49,7 +53,7 @@ contract Controlled is IsContract {
     * @return Address of the Accounting module implementation
     */
     function _accounting() internal view returns (IAccounting) {
-        return controller.getAccounting();
+        return IAccounting(controller.getAccounting());
     }
 
     /**
@@ -57,7 +61,7 @@ contract Controlled is IsContract {
     * @return Address of the Accounting module owner
     */
     function _accountingOwner() internal view returns (address) {
-        return controller.getAccountingOwner();
+        return _court();
     }
 
     /**
@@ -65,7 +69,7 @@ contract Controlled is IsContract {
     * @return Address of the Voting module implementation
     */
     function _voting() internal view returns (ICRVoting) {
-        return controller.getCRVoting();
+        return ICRVoting(controller.getVoting());
     }
 
     /**
@@ -73,7 +77,7 @@ contract Controlled is IsContract {
     * @return Address of the Voting module owner
     */
     function _votingOwner() internal view returns (ICRVotingOwner) {
-        return controller.getCRVotingOwner();
+        return ICRVotingOwner(_court());
     }
 
     /**
@@ -81,7 +85,7 @@ contract Controlled is IsContract {
     * @return Address of the JurorRegistry module implementation
     */
     function _jurorsRegistry() internal view returns (IJurorsRegistry) {
-        return controller.getJurorsRegistry();
+        return IJurorsRegistry(controller.getJurorsRegistry());
     }
 
     /**
@@ -89,7 +93,7 @@ contract Controlled is IsContract {
     * @return Address of the JurorRegistry module owner
     */
     function _jurorsRegistryOwner() internal view returns (IJurorsRegistryOwner) {
-        return controller.getJurorsRegistryOwner();
+        return IJurorsRegistryOwner(_court());
     }
 
     /**
@@ -97,7 +101,7 @@ contract Controlled is IsContract {
     * @return Address of the Subscriptions module implementation
     */
     function _subscriptions() internal view returns (ISubscriptions) {
-        return controller.getSubscriptions();
+        return ISubscriptions(controller.getSubscriptions());
     }
 
     /**
@@ -105,6 +109,14 @@ contract Controlled is IsContract {
     * @return Address of the Subscriptions module owner
     */
     function _subscriptionsOwner() internal view returns (ISubscriptionsOwner) {
-        return controller.getSubscriptionsOwner();
+        return ISubscriptionsOwner(_court());
+    }
+
+    /**
+    * @dev Internal function to fetch the address of the Court module from the controller
+    * @return Address of the Court module owner
+    */
+    function _court() internal view returns (address) {
+        return controller.getCourt();
     }
 }

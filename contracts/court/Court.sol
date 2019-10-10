@@ -16,10 +16,10 @@ import "../registry/IJurorsRegistry.sol";
 import "../registry/IJurorsRegistryOwner.sol";
 import "../subscriptions/ISubscriptions.sol";
 import "../subscriptions/ISubscriptionsOwner.sol";
-import "../controller/Controlled.sol";
+import "../controller/ERC20Recoverable.sol";
 
 
-contract Court is TimeHelpers, Controlled, IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner {
+contract Court is TimeHelpers, ERC20Recoverable, IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner {
     using SafeERC20 for ERC20;
     using SafeMath for uint256;
     using PctHelpers for uint256;
@@ -189,7 +189,7 @@ contract Court is TimeHelpers, Controlled, IJurorsRegistryOwner, ICRVotingOwner,
     uint64 internal termId;
 
     // Future term id in which a config change has been scheduled
-    uint64 public configChangeTermId;
+    uint64 internal configChangeTermId;
 
     // List of Court terms indexed by id
     mapping (uint64 => Term) internal terms;
@@ -215,7 +215,8 @@ contract Court is TimeHelpers, Controlled, IJurorsRegistryOwner, ICRVotingOwner,
     * @dev Ensure the msg.sender is the CR Voting module
     */
     modifier onlyVoting() {
-        require(msg.sender == address(_voting()), ERROR_SENDER_NOT_VOTING);
+        ICRVoting voting = _voting();
+        require(msg.sender == address(voting), ERROR_SENDER_NOT_VOTING);
         _;
     }
 
@@ -266,9 +267,10 @@ contract Court is TimeHelpers, Controlled, IJurorsRegistryOwner, ICRVotingOwner,
         uint64[3] memory _roundParams,
         uint256[2] memory _appealCollateralParams
     )
-        Controlled(_controller)
+        ERC20Recoverable(_controller)
         public
     {
+        // No need to explicitly call `Controlled` constructor since `ERC20Recoverable` is already doing it
         require(_firstTermStartTime >= getTimestamp64() + _termDuration, ERROR_BAD_FIRST_TERM_START_TIME);
 
         termDuration = _termDuration;
@@ -335,7 +337,8 @@ contract Court is TimeHelpers, Controlled, IJurorsRegistryOwner, ICRVotingOwner,
         // TODO: Limit the min amount of terms before drafting (to allow for evidence submission)
         // TODO: ERC165 check that _subject conforms to the Arbitrable interface
         // TODO: require(address(_subject) == msg.sender, ERROR_INVALID_DISPUTE_CREATOR);
-        require(_subscriptions().isUpToDate(address(_subject)), ERROR_SUBSCRIPTION_NOT_PAID);
+        ISubscriptions subscriptions = _subscriptions();
+        require(subscriptions.isUpToDate(address(_subject)), ERROR_SUBSCRIPTION_NOT_PAID);
         require(_possibleRulings >= MIN_RULING_OPTIONS && _possibleRulings <= MAX_RULING_OPTIONS, ERROR_INVALID_RULING_OPTIONS);
 
         // Create the dispute
@@ -392,7 +395,8 @@ contract Court is TimeHelpers, Controlled, IJurorsRegistryOwner, ICRVotingOwner,
         // Draft jurors for the given dispute and reimburse fees
         CourtConfig storage config = _getDisputeConfig(dispute);
         bool draftEnded = _draft(_disputeId, round, jurorsNumber, selectedJurors, requestedJurors, draftTerm, config);
-        _accounting().assign(config.fees.token, msg.sender, config.fees.draftFee * requestedJurors);
+        IAccounting accounting = _accounting();
+        accounting.assign(config.fees.token, msg.sender, config.fees.draftFee * requestedJurors);
 
         // If the drafting is over, update its state
         if (draftEnded) {
@@ -416,9 +420,10 @@ contract Court is TimeHelpers, Controlled, IJurorsRegistryOwner, ICRVotingOwner,
         _checkAdjudicationState(dispute, _roundId, AdjudicationState.Appealing);
 
         // Ensure that the ruling being appealed in favor of is valid and different from the current winning ruling
+        ICRVoting voting = _voting();
         uint256 voteId = _getVoteId(_disputeId, _roundId);
-        uint8 roundWinningRuling = _voting().getWinningOutcome(voteId);
-        require(roundWinningRuling != _ruling && _voting().isValidOutcome(voteId, _ruling), ERROR_INVALID_APPEAL_RULING);
+        uint8 roundWinningRuling = voting.getWinningOutcome(voteId);
+        require(roundWinningRuling != _ruling && voting.isValidOutcome(voteId, _ruling), ERROR_INVALID_APPEAL_RULING);
 
         // Update round appeal state
         AdjudicationRound storage round = dispute.rounds[_roundId];
@@ -511,7 +516,8 @@ contract Court is TimeHelpers, Controlled, IJurorsRegistryOwner, ICRVotingOwner,
             // Note that we are safe to cast the tally of a ruling to uint64 since the highest value a ruling can have is
             // `jurorsNumbers` for regular rounds or total active balance of the registry for final rounds, and both are
             // ensured to fit in uint64
-            round.coherentJurors = uint64(_voting().getOutcomeTally(voteId, finalRuling));
+            ICRVoting voting = _voting();
+            round.coherentJurors = uint64(voting.getOutcomeTally(voteId, finalRuling));
         }
 
         CourtConfig storage config = _getDisputeConfig(dispute);
@@ -519,7 +525,8 @@ contract Court is TimeHelpers, Controlled, IJurorsRegistryOwner, ICRVotingOwner,
             // For regular appeal rounds we compute the amount of locked tokens that needs to get burned in batches.
             // The callers of this function will get rewarded in this case.
             uint256 jurorsSettled = _settleRegularRoundPenalties(round, voteId, finalRuling, config.disputes.penaltyPct, _jurorsToSettle);
-            _accounting().assign(config.fees.token, msg.sender, config.fees.settleFee * jurorsSettled);
+            IAccounting accounting = _accounting();
+            accounting.assign(config.fees.token, msg.sender, config.fees.settleFee * jurorsSettled);
         } else {
             // For the final appeal round, there is no need to settle in batches since, to guarantee scalability,
             // all the tokens collected from jurors participating in the final round are burned, and those jurors who
@@ -539,19 +546,21 @@ contract Court is TimeHelpers, Controlled, IJurorsRegistryOwner, ICRVotingOwner,
                 // in favor of the final winning outcome. Otherwise, these will be re-distributed between the winning jurors in `settleReward`
                 // instead of being burned.
                 if (collectedTokens > 0) {
-                    _jurorsRegistry().burnTokens(collectedTokens);
+                    IJurorsRegistry jurorsRegistry = _jurorsRegistry();
+                    jurorsRegistry.burnTokens(collectedTokens);
                 }
 
                 // Reimburse juror fees to the disputer for round 0 or to the previous appeal parties for other rounds. Note that if the
                 // given round is not the first round, we can ensure there was an appeal in the previous round.
+                IAccounting accounting = _accounting();
                 if (isFirstRound) {
-                    _accounting().assign(config.fees.token, round.triggeredBy, round.jurorFees);
+                    accounting.assign(config.fees.token, round.triggeredBy, round.jurorFees);
                 } else {
                     ERC20 feeToken = config.fees.token;
                     uint256 refundFees = round.jurorFees / 2;
                     Appeal storage triggeringAppeal = dispute.rounds[_roundId - 1].appeal;
-                    _accounting().assign(feeToken, triggeringAppeal.maker, refundFees);
-                    _accounting().assign(feeToken, triggeringAppeal.taker, refundFees);
+                    accounting.assign(feeToken, triggeringAppeal.maker, refundFees);
+                    accounting.assign(feeToken, triggeringAppeal.taker, refundFees);
                 }
             }
         }
@@ -578,21 +587,24 @@ contract Court is TimeHelpers, Controlled, IJurorsRegistryOwner, ICRVotingOwner,
         jurorState.rewarded = true;
 
         // Check if the given juror has voted in favor of the final ruling of the dispute in this round
+        ICRVoting voting = _voting();
         uint256 voteId = _getVoteId(_disputeId, _roundId);
-        require(_voting().hasVotedInFavorOf(voteId, dispute.finalRuling, _juror), ERROR_WONT_REWARD_INCOHERENT_JUROR);
+        require(voting.hasVotedInFavorOf(voteId, dispute.finalRuling, _juror), ERROR_WONT_REWARD_INCOHERENT_JUROR);
 
         // Distribute the collected tokens of the jurors that were slashed weighted by the winning jurors. Note that
         // we are penalizing jurors that refused intentionally their vote for the final round.
         uint256 coherentJurors = round.coherentJurors;
         uint256 collectedTokens = round.collectedTokens;
         if (collectedTokens > 0) {
-            _jurorsRegistry().assignTokens(_juror, jurorState.weight * collectedTokens / coherentJurors);
+            IJurorsRegistry jurorsRegistry = _jurorsRegistry();
+            jurorsRegistry.assignTokens(_juror, jurorState.weight * collectedTokens / coherentJurors);
         }
 
         // Reward the winning juror
         uint256 jurorFee = round.jurorFees * jurorState.weight / coherentJurors;
         CourtConfig storage config = _getDisputeConfig(dispute);
-        _accounting().assign(config.fees.token, _juror, jurorFee);
+        IAccounting accounting = _accounting();
+        accounting.assign(config.fees.token, _juror, jurorFee);
         emit RewardSettled(_disputeId, _roundId, _juror);
     }
 
@@ -623,8 +635,9 @@ contract Court is TimeHelpers, Controlled, IJurorsRegistryOwner, ICRVotingOwner,
         uint256 confirmAppealDeposit = nextRound.confirmAppealDeposit;
 
         // If the appeal wasn't confirmed, return the entire deposit to appeal maker
+        IAccounting accounting = _accounting();
         if (!_isAppealConfirmed(appeal)) {
-            _accounting().assign(feeToken, appeal.maker, appealDeposit);
+            accounting.assign(feeToken, appeal.maker, appealDeposit);
             return;
         }
 
@@ -634,13 +647,13 @@ contract Court is TimeHelpers, Controlled, IJurorsRegistryOwner, ICRVotingOwner,
         uint8 finalRuling = dispute.finalRuling;
         uint256 totalDeposit = appealDeposit + confirmAppealDeposit;
         if (appeal.appealedRuling == finalRuling) {
-            _accounting().assign(feeToken, appeal.maker, totalDeposit - totalFees);
+            accounting.assign(feeToken, appeal.maker, totalDeposit - totalFees);
         } else if (appeal.opposedRuling == finalRuling) {
-            _accounting().assign(feeToken, appeal.taker, totalDeposit - totalFees);
+            accounting.assign(feeToken, appeal.taker, totalDeposit - totalFees);
         } else {
             uint256 feesRefund = totalFees / 2;
-            _accounting().assign(feeToken, appeal.maker, appealDeposit - feesRefund);
-            _accounting().assign(feeToken, appeal.taker, confirmAppealDeposit - feesRefund);
+            accounting.assign(feeToken, appeal.maker, appealDeposit - feesRefund);
+            accounting.assign(feeToken, appeal.taker, confirmAppealDeposit - feesRefund);
         }
     }
 
@@ -986,7 +999,8 @@ contract Court is TimeHelpers, Controlled, IJurorsRegistryOwner, ICRVotingOwner,
 
         // Pay heartbeat fees to the caller of this function
         if (totalFee > 0) {
-            _accounting().assign(config.fees.token, msg.sender, totalFee);
+            IAccounting accounting = _accounting();
+            accounting.assign(config.fees.token, msg.sender, totalFee);
         }
     }
 
@@ -1045,8 +1059,9 @@ contract Court is TimeHelpers, Controlled, IJurorsRegistryOwner, ICRVotingOwner,
         terms[_draftTermId].dependingDrafts += 1;
 
         // Create new vote for the new round
+        ICRVoting voting = _voting();
         uint256 voteId = _getVoteId(_disputeId, roundId);
-        _voting().create(voteId, dispute.possibleRulings);
+        voting.create(voteId, dispute.possibleRulings);
         return roundId;
     }
 
@@ -1120,7 +1135,8 @@ contract Court is TimeHelpers, Controlled, IJurorsRegistryOwner, ICRVotingOwner,
         _round.settledJurors = uint64(roundSettledJurors + batchSettledJurors);
 
         // Prepare the list of jurors and penalties to either be slashed or returned based on their votes for the given round
-        uint256 minActiveBalance = _jurorsRegistry().minJurorsActiveBalance();
+        IJurorsRegistry jurorsRegistry = _jurorsRegistry();
+        uint256 minActiveBalance = jurorsRegistry.minJurorsActiveBalance();
         address[] memory jurors = new address[](batchSettledJurors);
         uint256[] memory penalties = new uint256[](batchSettledJurors);
         for (uint256 i = 0; i < batchSettledJurors; i++) {
@@ -1131,8 +1147,9 @@ contract Court is TimeHelpers, Controlled, IJurorsRegistryOwner, ICRVotingOwner,
 
         // Check which of the jurors voted in favor of the final ruling of the dispute in this round. Ask the registry to slash or unlocked the
         // locked active tokens of each juror depending on their vote, and finally store the total amount of slashed tokens.
-        bool[] memory jurorsInFavor = _voting().getVotersInFavorOf(_voteId, _finalRuling, jurors);
-        _round.collectedTokens = _round.collectedTokens.add(_jurorsRegistry().slashOrUnlock(termId, jurors, penalties, jurorsInFavor));
+        ICRVoting voting = _voting();
+        bool[] memory jurorsInFavor = voting.getVotersInFavorOf(_voteId, _finalRuling, jurors);
+        _round.collectedTokens = _round.collectedTokens.add(jurorsRegistry.slashOrUnlock(termId, jurors, penalties, jurorsInFavor));
         return batchSettledJurors;
     }
 
@@ -1178,11 +1195,12 @@ contract Court is TimeHelpers, Controlled, IJurorsRegistryOwner, ICRVotingOwner,
 
         // To guarantee scalability of the final round, since all jurors may vote, we try to collect the amount of
         // active tokens that needs to be locked for each juror when they try to commit their vote.
-        uint256 activeBalance = _jurorsRegistry().activeBalanceOfAt(_juror, _round.draftTermId);
+        IJurorsRegistry jurorsRegistry = _jurorsRegistry();
+        uint256 activeBalance = jurorsRegistry.activeBalanceOfAt(_juror, _round.draftTermId);
         uint256 weightedPenalty = activeBalance.pct(_config.disputes.penaltyPct);
 
         // If it was not possible to collect the amount to be locked, return 0 to prevent juror from voting
-        if (!_jurorsRegistry().collectTokens(_juror, weightedPenalty, termId)) {
+        if (!jurorsRegistry.collectTokens(_juror, weightedPenalty, termId)) {
             return uint64(0);
         }
 
@@ -1294,7 +1312,8 @@ contract Court is TimeHelpers, Controlled, IJurorsRegistryOwner, ICRVotingOwner,
     */
     function _depositSenderAmount(ERC20 _token, uint256 _amount) internal {
         if (_amount > 0) {
-            require(_token.safeTransferFrom(msg.sender, address(_accounting()), _amount), ERROR_DEPOSIT_FAILED);
+            IAccounting accounting = _accounting();
+            require(_token.safeTransferFrom(msg.sender, address(accounting), _amount), ERROR_DEPOSIT_FAILED);
         }
     }
 
@@ -1351,8 +1370,9 @@ contract Court is TimeHelpers, Controlled, IJurorsRegistryOwner, ICRVotingOwner,
     * @return Weight of the requested juror for the final round of the given dispute
     */
     function _getJurorWeightForFinalRound(AdjudicationRound storage _round, address _juror) internal view returns (uint64) {
-        uint256 activeBalance = _jurorsRegistry().activeBalanceOfAt(_juror, _round.draftTermId);
-        uint256 minJurorsActiveBalance = _jurorsRegistry().minJurorsActiveBalance();
+        IJurorsRegistry jurorsRegistry = _jurorsRegistry();
+        uint256 activeBalance = jurorsRegistry.activeBalanceOfAt(_juror, _round.draftTermId);
+        uint256 minJurorsActiveBalance = jurorsRegistry.minJurorsActiveBalance();
 
         // Note that jurors may not reach the minimum active balance since some might have been slashed. If that occurs,
         // these jurors cannot vote in the final round.
@@ -1436,8 +1456,9 @@ contract Court is TimeHelpers, Controlled, IJurorsRegistryOwner, ICRVotingOwner,
         // The registry guarantees its total active balance will never be greater than
         // `2^64 * minJurorsActiveBalance / FINAL_ROUND_WEIGHT_PRECISION`. Thus, the
         // jurors number for a final round will always fit in `uint64`
-        uint256 totalActiveBalance = _jurorsRegistry().totalActiveBalanceAt(_termId);
-        uint256 minJurorsActiveBalance = _jurorsRegistry().minJurorsActiveBalance();
+        IJurorsRegistry jurorsRegistry = _jurorsRegistry();
+        uint256 totalActiveBalance = jurorsRegistry.totalActiveBalanceAt(_termId);
+        uint256 minJurorsActiveBalance = jurorsRegistry.minJurorsActiveBalance();
         return (FINAL_ROUND_WEIGHT_PRECISION.mul(totalActiveBalance) / minJurorsActiveBalance).toUint64();
     }
 
@@ -1691,7 +1712,7 @@ contract Court is TimeHelpers, Controlled, IJurorsRegistryOwner, ICRVotingOwner,
     )
         private returns(bool)
     {
-        // Draft jurors for the requested round
+        // Pack draft params
         uint256[7] memory draftParams = [
             uint256(_draftTerm.randomness),
             _disputeId,
@@ -1701,7 +1722,10 @@ contract Court is TimeHelpers, Controlled, IJurorsRegistryOwner, ICRVotingOwner,
             uint256(_jurorsNumber),
             uint256(_config.disputes.penaltyPct)
         ];
-        (address[] memory jurors, uint64[] memory weights, uint256 outputLength) = _jurorsRegistry().draft(draftParams);
+
+        // Draft jurors for the requested round
+        IJurorsRegistry jurorsRegistry = _jurorsRegistry();
+        (address[] memory jurors, uint64[] memory weights, uint256 outputLength) = jurorsRegistry.draft(draftParams);
 
         // Update round with drafted jurors information. We are safe to avoid SafeMath here since this cannot be greater than `jurorsNumber`.
         uint64 newSelectedJurors = _selectedJurors + _requestedJurors;

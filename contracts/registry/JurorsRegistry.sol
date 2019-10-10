@@ -88,9 +88,6 @@ contract JurorsRegistry is Controlled, ERC20Recoverable, IJurorsRegistry, ERC900
         uint256 sortitionIteration;
     }
 
-    // Jurors registry owner address
-    IJurorsRegistryOwner public owner;
-
     // Minimum amount of tokens jurors have to activate to participate in the Court
     uint256 internal minActiveBalance;
 
@@ -121,7 +118,8 @@ contract JurorsRegistry is Controlled, ERC20Recoverable, IJurorsRegistry, ERC900
     * @dev Ensure the msg.sender is the jurors registry's owner
     */
     modifier onlyOwner() {
-        require(msg.sender == address(_jurorsRegistryOwner()), ERROR_SENDER_NOT_OWNER);
+        IJurorsRegistryOwner owner = _jurorsRegistryOwner();
+        require(msg.sender == address(owner), ERROR_SENDER_NOT_OWNER);
         _;
     }
 
@@ -136,6 +134,7 @@ contract JurorsRegistry is Controlled, ERC20Recoverable, IJurorsRegistry, ERC900
         ERC20Recoverable(_controller)
         public
     {
+        // No need to explicitly call `Controlled` constructor since `ERC20Recoverable` is already doing it
         require(isContract(address(_jurorToken)), ERROR_NOT_CONTRACT);
         require(_totalActiveBalanceLimit > 0, ERROR_BAD_TOTAL_ACTIVE_BALANCE_LIMIT);
 
@@ -152,7 +151,8 @@ contract JurorsRegistry is Controlled, ERC20Recoverable, IJurorsRegistry, ERC900
     * @param _amount Amount of juror tokens to be activated for the next term
     */
     function activate(uint256 _amount) external {
-        uint64 termId = _jurorsRegistryOwner().ensureAndGetTermId();
+        IJurorsRegistryOwner owner = _jurorsRegistryOwner();
+        uint64 termId = owner.ensureAndGetTermId();
 
         _processDeactivationRequest(msg.sender, termId);
 
@@ -169,7 +169,8 @@ contract JurorsRegistry is Controlled, ERC20Recoverable, IJurorsRegistry, ERC900
     * @param _amount Amount of juror tokens to be deactivated for the next term
     */
     function deactivate(uint256 _amount) external {
-        uint64 termId = _jurorsRegistryOwner().ensureAndGetTermId();
+        IJurorsRegistryOwner owner = _jurorsRegistryOwner();
+        uint64 termId = owner.ensureAndGetTermId();
 
         uint256 unlockedActiveBalance = unlockedActiveBalanceOf(msg.sender);
         uint256 amountToDeactivate = _amount == 0 ? unlockedActiveBalance : _amount;
@@ -589,7 +590,8 @@ contract JurorsRegistry is Controlled, ERC20Recoverable, IJurorsRegistry, ERC900
         // Activate tokens if it was requested and the address depositing tokens is the juror. Note that there's
         // no need to check the activation amount since we have just added it to the available balance of the juror
         if (_from == _juror && _data.toBytes4() == JurorsRegistry(this).activate.selector) {
-            uint64 termId = _jurorsRegistryOwner().ensureAndGetTermId();
+            IJurorsRegistryOwner owner = _jurorsRegistryOwner();
+            uint64 termId = owner.ensureAndGetTermId();
             _activateTokens(_juror, termId, _amount);
         }
 
@@ -608,7 +610,8 @@ contract JurorsRegistry is Controlled, ERC20Recoverable, IJurorsRegistry, ERC900
         // the current term this time since deactivation requests always work with future terms, which means that if
         // the current term is outdated, it will never match the deactivation term id. We avoid ensuring the term here
         // to avoid forcing jurors to do that in order to withdraw their available balance.
-        _processDeactivationRequest(_juror, _jurorsRegistryOwner().getLastEnsuredTermId());
+        IJurorsRegistryOwner owner = _jurorsRegistryOwner();
+        _processDeactivationRequest(_juror, owner.getLastEnsuredTermId());
 
         _updateAvailableBalanceOf(_juror, _amount, false);
         require(jurorsToken.safeTransfer(_juror, _amount), ERROR_TOKEN_TRANSFER_FAILED);
@@ -729,7 +732,8 @@ contract JurorsRegistry is Controlled, ERC20Recoverable, IJurorsRegistry, ERC900
         // function `totalSumAt` will perform a backwards linear search from the last checkpoint or a binary search
         // depending on whether the given checkpoint is considered to be recent or not. In this case, we consider
         // current or future terms as recent ones.
-        bool recent = _termId >= _jurorsRegistryOwner().getLastEnsuredTermId();
+        IJurorsRegistryOwner owner = _jurorsRegistryOwner();
+        bool recent = _termId >= owner.getLastEnsuredTermId();
         return recent ? tree.getRecentTotalAt(_termId) : tree.getTotalAt(_termId);
     }
 

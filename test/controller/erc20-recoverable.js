@@ -8,7 +8,7 @@ const ERC20Recoverable = artifacts.require('ERC20RecoverableMock')
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
 
-contract('ERC20Recoverable', ([_, governor, someone, recipient]) => {
+contract('ERC20Recoverable', ([_, fundsGovernor, configGovernor, modulesGovernor, someone, recipient]) => {
   let recoverable, controller
 
   describe('recoverFunds', () => {
@@ -17,12 +17,12 @@ contract('ERC20Recoverable', ([_, governor, someone, recipient]) => {
 
     beforeEach('create token and recoverable instance', async () => {
       token = await ERC20.new('DAI', 'DAI', 18)
-      controller = await Controller.new(governor)
+      controller = await Controller.new(fundsGovernor, configGovernor, modulesGovernor)
       recoverable = await ERC20Recoverable.new(controller.address)
     })
 
     context('when the sender is the governor', () => {
-      const from = governor
+      const from = fundsGovernor
 
       context('when the governed has some funds', () => {
         beforeEach('mint some tokens', async () => {
@@ -30,13 +30,13 @@ contract('ERC20Recoverable', ([_, governor, someone, recipient]) => {
         })
 
         it('transfers the requested amount to the given recipient', async () => {
-          const previousGovernorBalance = await token.balanceOf(governor)
+          const previousGovernorBalance = await token.balanceOf(configGovernor)
           const previousGovernedBalance = await token.balanceOf(recoverable.address)
           const previousRecipientBalance = await token.balanceOf(recipient)
 
           await recoverable.recoverFunds(token.address, recipient, { from })
 
-          const currentGovernorBalance = await token.balanceOf(governor)
+          const currentGovernorBalance = await token.balanceOf(configGovernor)
           assertBn(previousGovernorBalance, currentGovernorBalance, 'governor balances do not match')
 
           const currentGovernedBalance = await token.balanceOf(recoverable.address)
@@ -66,7 +66,7 @@ contract('ERC20Recoverable', ([_, governor, someone, recipient]) => {
     const from = someone
 
     it('reverts', async () => {
-      await assertRevert(recoverable.recoverFunds(ZERO_ADDRESS, recipient, { from }), 'CTD_SENDER_NOT_GOVERNOR')
+      await assertRevert(recoverable.recoverFunds(ZERO_ADDRESS, recipient, { from }), 'CTD_SENDER_NOT_FUNDS_GOVERNOR')
     })
   })
 })

@@ -6,88 +6,205 @@ const Controller = artifacts.require('Controller')
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
 
-contract('Controller', ([_, governor, someone]) => {
+contract('Controller', ([_, fundsGovernor, configGovernor, modulesGovernor, someone]) => {
   let controller
 
   beforeEach('create controller', async () => {
-    controller = await Controller.new(governor)
+    controller = await Controller.new(fundsGovernor, configGovernor, modulesGovernor)
   })
 
-  describe('getGovernor', () => {
+  describe('getFundsGovernor', () => {
     it('tells the expected governor', async () => {
-      assert.equal(await controller.getGovernor(), governor, 'governor does not match')
+      assert.equal(await controller.getFundsGovernor(), fundsGovernor, 'funds governor does not match')
     })
   })
 
-  describe('changeGovernor', () => {
-    context('when the sender is the governor', () => {
-      const from = governor
+  describe('getConfigGovernor', () => {
+    it('tells the expected governor', async () => {
+      assert.equal(await controller.getConfigGovernor(), configGovernor, 'config governor does not match')
+    })
+  })
+
+  describe('getModulesGovernor', () => {
+    it('tells the expected governor', async () => {
+      assert.equal(await controller.getModulesGovernor(), modulesGovernor, 'modules governor does not match')
+    })
+  })
+
+  describe('fundsConfigGovernor', () => {
+    context('when the sender is the funds governor', () => {
+      const from = fundsGovernor
 
       context('when the given address is not the zero address', () => {
-        const newGovernor = someone
+        const newFundsGovernor = someone
 
-        it('changes the governor', async () => {
-          await controller.changeGovernor(newGovernor, { from })
+        it('changes the funds governor', async () => {
+          await controller.changeFundsGovernor(newFundsGovernor, { from })
 
-          assert.equal(await controller.getGovernor(), newGovernor, 'governor does not match')
+          assert.equal(await controller.getFundsGovernor(), newFundsGovernor, 'funds governor does not match')
         })
 
         it('emits an event', async () => {
-          const receipt = await controller.changeGovernor(newGovernor, { from })
+          const receipt = await controller.changeFundsGovernor(newFundsGovernor, { from })
 
-          assertAmountOfEvents(receipt, 'GovernorChanged')
-          assertEvent(receipt, 'GovernorChanged', { previousGovernor: governor, currentGovernor: newGovernor })
+          assertAmountOfEvents(receipt, 'FundsGovernorChanged')
+          assertEvent(receipt, 'FundsGovernorChanged', { previousGovernor: fundsGovernor, currentGovernor: newFundsGovernor })
         })
       })
 
-      context('when the given address is not the zero address', () => {
-        const newGovernor = ZERO_ADDRESS
+      context('when the given address is the zero address', () => {
+        const newFundsGovernor = ZERO_ADDRESS
 
         it('reverts', async () => {
-          await assertRevert(controller.changeGovernor(newGovernor, { from }), 'CTR_INVALID_GOVERNOR_ADDRESS')
+          await assertRevert(controller.changeFundsGovernor(newFundsGovernor, { from }), 'CTR_INVALID_GOVERNOR_ADDRESS')
         })
       })
     })
 
-    context('when the sender is not the governor', () => {
-      const from = someone
+    context('when the sender is not the funds governor', () => {
+      const from = modulesGovernor
 
       it('reverts', async () => {
-        await assertRevert(controller.changeGovernor(someone, { from }), 'CTR_SENDER_NOT_GOVERNOR')
+        await assertRevert(controller.changeFundsGovernor(someone, { from }), 'CTR_SENDER_NOT_GOVERNOR')
       })
     })
   })
 
-  describe('eject', () => {
-    context('when the sender is the governor', () => {
-      const from = governor
+  describe('changeConfigGovernor', () => {
+    context('when the sender is the config governor', () => {
+      const from = configGovernor
 
-      it('removes the governor', async () => {
-        await controller.eject({ from })
+      context('when the given address is not the zero address', () => {
+        const newConfigGovernor = someone
 
-        assert.equal(await controller.getGovernor(), ZERO_ADDRESS, 'governor does not match')
+        it('changes the config governor', async () => {
+          await controller.changeConfigGovernor(newConfigGovernor, { from })
+
+          assert.equal(await controller.getConfigGovernor(), newConfigGovernor, 'config governor does not match')
+        })
+
+        it('emits an event', async () => {
+          const receipt = await controller.changeConfigGovernor(newConfigGovernor, { from })
+
+          assertAmountOfEvents(receipt, 'ConfigGovernorChanged')
+          assertEvent(receipt, 'ConfigGovernorChanged', { previousGovernor: configGovernor, currentGovernor: newConfigGovernor })
+        })
       })
 
-      it('emits an event', async () => {
-        const receipt = await controller.eject({ from })
+      context('when the given address is the zero address', () => {
+        const newConfigGovernor = ZERO_ADDRESS
 
-        assertAmountOfEvents(receipt, 'GovernorChanged')
-        assertEvent(receipt, 'GovernorChanged', { previousGovernor: governor, currentGovernor: ZERO_ADDRESS })
+        it('reverts', async () => {
+          await assertRevert(controller.changeConfigGovernor(newConfigGovernor, { from }), 'CTR_INVALID_GOVERNOR_ADDRESS')
+        })
+      })
+    })
+
+    context('when the sender is not the config governor', () => {
+      const from = modulesGovernor
+
+      it('reverts', async () => {
+        await assertRevert(controller.changeConfigGovernor(someone, { from }), 'CTR_SENDER_NOT_GOVERNOR')
+      })
+    })
+  })
+
+  describe('changeModulesGovernor', () => {
+    context('when the sender is the modules governor', () => {
+      const from = modulesGovernor
+
+      context('when the given address is not the zero address', () => {
+        const newModulesGovernor = someone
+
+        it('changes the modules governor', async () => {
+          await controller.changeModulesGovernor(newModulesGovernor, { from })
+
+          assert.equal(await controller.getModulesGovernor(), newModulesGovernor, 'modules governor does not match')
+        })
+
+        it('emits an event', async () => {
+          const receipt = await controller.changeModulesGovernor(newModulesGovernor, { from })
+
+          assertAmountOfEvents(receipt, 'ModulesGovernorChanged')
+          assertEvent(receipt, 'ModulesGovernorChanged', { previousGovernor: modulesGovernor, currentGovernor: newModulesGovernor })
+        })
+      })
+
+      context('when the given address is the zero address', () => {
+        const newModulesGovernor = ZERO_ADDRESS
+
+        it('reverts', async () => {
+          await assertRevert(controller.changeModulesGovernor(newModulesGovernor, { from }), 'CTR_INVALID_GOVERNOR_ADDRESS')
+        })
       })
     })
 
     context('when the sender is not the governor', () => {
-      const from = someone
+      const from = configGovernor
 
       it('reverts', async () => {
-        await assertRevert(controller.eject({ from }), 'CTR_SENDER_NOT_GOVERNOR')
+        await assertRevert(controller.changeModulesGovernor(someone, { from }), 'CTR_SENDER_NOT_GOVERNOR')
+      })
+    })
+  })
+
+  describe('ejectFundsGovernor', () => {
+    context('when the sender is the funds governor', () => {
+      const from = fundsGovernor
+
+      it('removes the funds governor', async () => {
+        await controller.ejectFundsGovernor({ from })
+
+        assert.equal(await controller.getFundsGovernor(), ZERO_ADDRESS, 'funds governor does not match')
+      })
+
+      it('emits an event', async () => {
+        const receipt = await controller.ejectFundsGovernor({ from })
+
+        assertAmountOfEvents(receipt, 'FundsGovernorChanged')
+        assertEvent(receipt, 'FundsGovernorChanged', { previousGovernor: fundsGovernor, currentGovernor: ZERO_ADDRESS })
+      })
+    })
+
+    context('when the sender is not the funds governor', () => {
+      const from = configGovernor
+
+      it('reverts', async () => {
+        await assertRevert(controller.ejectModulesGovernor({ from }), 'CTR_SENDER_NOT_GOVERNOR')
+      })
+    })
+  })
+
+  describe('ejectModulesGovernor', () => {
+    context('when the sender is the modules governor', () => {
+      const from = modulesGovernor
+
+      it('removes the modules governor', async () => {
+        await controller.ejectModulesGovernor({ from })
+
+        assert.equal(await controller.getModulesGovernor(), ZERO_ADDRESS, 'modules governor does not match')
+      })
+
+      it('emits an event', async () => {
+        const receipt = await controller.ejectModulesGovernor({ from })
+
+        assertAmountOfEvents(receipt, 'ModulesGovernorChanged')
+        assertEvent(receipt, 'ModulesGovernorChanged', { previousGovernor: modulesGovernor, currentGovernor: ZERO_ADDRESS })
+      })
+    })
+
+    context('when the sender is not the modules governor', () => {
+      const from = configGovernor
+
+      it('reverts', async () => {
+        await assertRevert(controller.ejectModulesGovernor({ from }), 'CTR_SENDER_NOT_GOVERNOR')
       })
     })
   })
 
   describe('setModule', () => {
     context('when the sender is the governor', () => {
-      const from = governor
+      const from = modulesGovernor
 
       context('when the given address is a contract', () => {
         let module

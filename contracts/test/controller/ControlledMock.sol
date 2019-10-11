@@ -4,11 +4,11 @@ import "../../controller/Controlled.sol";
 
 
 contract ControlledMock is Controlled {
-    event OnlyGovernorCalled();
+    event OnlyConfigGovernorCalled();
 
     constructor(Controller _controller) Controlled(_controller) public {}
 
-    function onlyGovernorFn() external onlyGovernor {
-        emit OnlyGovernorCalled();
+    function onlyConfigGovernorFn() external onlyConfigGovernor {
+        emit OnlyConfigGovernorCalled();
     }
 }

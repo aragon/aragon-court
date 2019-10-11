@@ -27,47 +27,103 @@ contract Controller is IsContract {
     // Subscriptions module ID - keccak256(abi.encodePacked("SUBSCRIPTIONS"))
     bytes32 internal constant SUBSCRIPTIONS = 0x2bfa3327fe52344390da94c32a346eeb1b65a8b583e4335a419b9471e88c1365;
 
-    // Governor of the whole system. This address can be unset at any time. While set, this address is the only one allowed
-    // to plug/unplug system modules. Some modules are also ERC20-funds recoverable, which can only be executed by the governor.
-    address private governor;
+    /**
+    * @dev Governor of the whole system. Set of three addresses to recover funds, change configuration settings and setup modules
+    */
+    struct Governor {
+        address funds;      // This address can be unset at any time. It is allowed to recover funds from the ERC20-Recoverable modules
+        address config;     // This address cannot be unset. It is allowed to change the different configurations of the whole system
+        address modules;    // This address can be unset at any time. It is allowed to plug/unplug modules from the system
+    }
+
+    // Governor addresses of the system
+    Governor private governor;
 
     // List of modules registered for the system indexed by ID
     mapping (bytes32 => address) private modules;
 
     event ModuleSet(bytes32 id, address addr);
-    event GovernorChanged(address previousGovernor, address currentGovernor);
+    event FundsGovernorChanged(address previousGovernor, address currentGovernor);
+    event ConfigGovernorChanged(address previousGovernor, address currentGovernor);
+    event ModulesGovernorChanged(address previousGovernor, address currentGovernor);
 
     /**
-    * @dev Ensure the msg.sender is the controller's governor
+    * @dev Ensure the msg.sender is the funds governor
     */
-    modifier onlyGovernor {
-        require(msg.sender == governor, ERROR_SENDER_NOT_GOVERNOR);
+    modifier  onlyFundsGovernor {
+        require(msg.sender == governor.funds, ERROR_SENDER_NOT_GOVERNOR);
+        _;
+    }
+
+    /**
+    * @dev Ensure the msg.sender is the modules governor
+    */
+    modifier onlyConfigGovernor {
+        require(msg.sender == governor.config, ERROR_SENDER_NOT_GOVERNOR);
+        _;
+    }
+
+    /**
+    * @dev Ensure the msg.sender is the modules governor
+    */
+    modifier onlyModulesGovernor {
+        require(msg.sender == governor.modules, ERROR_SENDER_NOT_GOVERNOR);
         _;
     }
 
     /**
     * @dev Constructor function
-    * @param _governor Address of the governor
+    * @param _fundsGovernor Address of the funds governor
+    * @param _configGovernor Address of the config governor
+    * @param _modulesGovernor Address of the modules governor
     */
-    constructor(address _governor) public {
-        _setGovernor(_governor);
+    constructor(address _fundsGovernor, address _configGovernor, address _modulesGovernor) public {
+        _setFundsGovernor(_fundsGovernor);
+        _setConfigGovernor(_configGovernor);
+        _setModulesGovernor(_modulesGovernor);
     }
 
     /**
-    * @notice Change governor address to `_newGovernor`
-    * @param _newGovernor Address of the new governor to be set
+    * @notice Change funds governor address to `_newFundsGovernor`
+    * @param _newFundsGovernor Address of the new funds governor to be set
     */
-    function changeGovernor(address _newGovernor) external onlyGovernor {
-        require(_newGovernor != ZERO_ADDRESS, ERROR_INVALID_GOVERNOR_ADDRESS);
-        _setGovernor(_newGovernor);
+    function changeFundsGovernor(address _newFundsGovernor) external onlyFundsGovernor {
+        require(_newFundsGovernor != ZERO_ADDRESS, ERROR_INVALID_GOVERNOR_ADDRESS);
+        _setFundsGovernor(_newFundsGovernor);
     }
 
     /**
-    * @notice Remove the governor. Set governor to the zero address.
-    * @dev This action cannot be rolled back, once the governor has been unset the system modules cannot be changed
+    * @notice Change config governor address to `_newConfigGovernor`
+    * @param _newConfigGovernor Address of the new config governor to be set
     */
-    function eject() external onlyGovernor {
-        _setGovernor(ZERO_ADDRESS);
+    function changeConfigGovernor(address _newConfigGovernor) external onlyConfigGovernor {
+        require(_newConfigGovernor != ZERO_ADDRESS, ERROR_INVALID_GOVERNOR_ADDRESS);
+        _setConfigGovernor(_newConfigGovernor);
+    }
+
+    /**
+    * @notice Change modules governor address to `_newModulesGovernor`
+    * @param _newModulesGovernor Address of the new governor to be set
+    */
+    function changeModulesGovernor(address _newModulesGovernor) external onlyModulesGovernor {
+        require(_newModulesGovernor != ZERO_ADDRESS, ERROR_INVALID_GOVERNOR_ADDRESS);
+        _setModulesGovernor(_newModulesGovernor);
+    }
+
+    /**
+    * @notice Remove the funds governor. Set the funds governor to the zero address.
+    * @dev This action cannot be rolled back, once the funds governor has been unset, funds cannot be recovered from ERC20-recoverable modules
+    */
+    function ejectFundsGovernor() external onlyFundsGovernor {
+        _setFundsGovernor(ZERO_ADDRESS);
+    }
+
+    /**
+    * @notice Remove the modules governor. Set the modules governor to the zero address.
+    * @dev This action cannot be rolled back, once the modules governor has been unset, system modules cannot be changed
+    */
+    function ejectModulesGovernor() external onlyModulesGovernor {
+        _setModulesGovernor(ZERO_ADDRESS);
     }
 
     /**
@@ -75,7 +131,7 @@ contract Controller is IsContract {
     * @param _id ID of the module to be set
     * @param _addr Address of the module to be set
     */
-    function setModule(bytes32 _id, address _addr) external onlyGovernor {
+    function setModule(bytes32 _id, address _addr) external onlyModulesGovernor {
         _setModule(_id, _addr);
     }
 
@@ -84,7 +140,7 @@ contract Controller is IsContract {
     * @param _ids List of ids of each module to be set
     * @param _addresses List of addressed of each the module to be set
     */
-    function setModules(bytes32[] calldata _ids, address[] calldata _addresses) external onlyGovernor {
+    function setModules(bytes32[] calldata _ids, address[] calldata _addresses) external onlyModulesGovernor {
         require(_ids.length == _addresses.length, ERROR_INVALID_IMPLS_INPUT_LENGTH);
 
         for (uint256 i = 0; i < _ids.length; i++) {
@@ -93,11 +149,27 @@ contract Controller is IsContract {
     }
 
     /**
-    * @dev Tell the address of the governor
-    * @return Address of the governor
+    * @dev Tell the address of the funds governor
+    * @return Address of the funds governor
     */
-    function getGovernor() external view returns (address) {
-        return governor;
+    function getFundsGovernor() external view returns (address) {
+        return governor.funds;
+    }
+
+    /**
+    * @dev Tell the address of the config governor
+    * @return Address of the config governor
+    */
+    function getConfigGovernor() external view returns (address) {
+        return governor.config;
+    }
+
+    /**
+    * @dev Tell the address of the modules governor
+    * @return Address of the modules governor
+    */
+    function getModulesGovernor() external view returns (address) {
+        return governor.modules;
     }
 
     /**
@@ -150,12 +222,30 @@ contract Controller is IsContract {
     }
 
     /**
-    * @dev Internal function to set the governor address
-    * @param _newGovernor Address of the new governor to be set
+    * @dev Internal function to set the address of the funds governor
+    * @param _newFundsGovernor Address of the new config governor to be set
     */
-    function _setGovernor(address _newGovernor) internal {
-        emit GovernorChanged(governor, _newGovernor);
-        governor = _newGovernor;
+    function _setFundsGovernor(address _newFundsGovernor) internal {
+        emit FundsGovernorChanged(governor.funds, _newFundsGovernor);
+        governor.funds = _newFundsGovernor;
+    }
+
+    /**
+    * @dev Internal function to set the address of the config governor
+    * @param _newConfigGovernor Address of the new config governor to be set
+    */
+    function _setConfigGovernor(address _newConfigGovernor) internal {
+        emit ConfigGovernorChanged(governor.config, _newConfigGovernor);
+        governor.config = _newConfigGovernor;
+    }
+
+    /**
+    * @dev Internal function to set the address of the modules governor
+    * @param _newModulesGovernor Address of the new modules governor to be set
+    */
+    function _setModulesGovernor(address _newModulesGovernor) internal {
+        emit ModulesGovernorChanged(governor.modules, _newModulesGovernor);
+        governor.modules = _newModulesGovernor;
     }
 
     /**

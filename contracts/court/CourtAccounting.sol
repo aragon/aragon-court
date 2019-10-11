@@ -32,8 +32,8 @@ contract CourtAccounting is Controlled, ERC20Recoverable, IAccounting {
     }
 
     constructor(Controller _controller) ERC20Recoverable(_controller) public {
-        // No need to explicitly call `Controlled` constructor since `ERC20Recoverable` is already doing it
         // solium-disable-previous-line no-empty-blocks
+        // No need to explicitly call `Controlled` constructor since `ERC20Recoverable` is already doing it
     }
 
     function assign(ERC20 _token, address _to, uint256 _amount) external onlyOwner {

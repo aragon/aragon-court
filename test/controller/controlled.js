@@ -6,11 +6,11 @@ const Controlled = artifacts.require('ControlledMock')
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
 
-contract('Controlled', ([_, governor, someone]) => {
+contract('Controlled', ([_, fundsGovernor, configGovernor, modulesGovernor, someone]) => {
   let controller, controlled
 
   beforeEach('create controlled', async () => {
-    controller = await Controller.new(governor)
+    controller = await Controller.new(fundsGovernor, configGovernor, modulesGovernor)
     controlled = await Controlled.new(controller.address)
   })
 
@@ -42,14 +42,14 @@ contract('Controlled', ([_, governor, someone]) => {
     })
   })
 
-  describe('onlyGovernor', () => {
+  describe('onlyConfigGovernor', () => {
     context('when the sender is the governor', () => {
-      const from = governor
+      const from = configGovernor
 
       it('executes call', async () => {
-        const receipt = await controlled.onlyGovernorFn({ from })
+        const receipt = await controlled.onlyConfigGovernorFn({ from })
 
-        assertAmountOfEvents(receipt, 'OnlyGovernorCalled')
+        assertAmountOfEvents(receipt, 'OnlyConfigGovernorCalled')
       })
     })
 
@@ -57,7 +57,7 @@ contract('Controlled', ([_, governor, someone]) => {
       const from = someone
 
       it('reverts', async () => {
-        await assertRevert(controlled.onlyGovernorFn({ from }), 'CTD_SENDER_NOT_GOVERNOR')
+        await assertRevert(controlled.onlyConfigGovernorFn({ from }), 'CTD_SENDER_NOT_CONFIG_GOVERNOR')
       })
     })
   })

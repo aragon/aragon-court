@@ -321,7 +321,7 @@ contract Court is TimeHelpers, ERC20Recoverable, IJurorsRegistryOwner, ICRVoting
         uint256[2] calldata _appealCollateralParams
     )
         external
-        onlyGovernor
+        onlyConfigGovernor
     {
         _setCourtConfig(_termId, _feeToken, _fees, _roundStateDurations, _pcts, _roundParams, _appealCollateralParams);
     }

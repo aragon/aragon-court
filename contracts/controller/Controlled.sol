@@ -9,17 +9,17 @@ import "@aragon/os/contracts/common/IsContract.sol";
 
 
 contract Controlled is IsContract {
-    string private constant ERROR_SENDER_NOT_GOVERNOR = "CTD_SENDER_NOT_GOVERNOR";
     string private constant ERROR_CONTROLLER_NOT_CONTRACT = "CTD_CONTROLLER_NOT_CONTRACT";
+    string private constant ERROR_SENDER_NOT_CONFIG_GOVERNOR = "CTD_SENDER_NOT_CONFIG_GOVERNOR";
 
     // Address of the controller
     Controller internal controller;
 
     /**
-    * @dev Ensure the msg.sender is the controller's governor
+    * @dev Ensure the msg.sender is the controller's config governor
     */
-    modifier onlyGovernor {
-        require(msg.sender == _governor(), ERROR_SENDER_NOT_GOVERNOR);
+    modifier onlyConfigGovernor {
+        require(msg.sender == _configGovernor(), ERROR_SENDER_NOT_CONFIG_GOVERNOR);
         _;
     }
 
@@ -41,11 +41,11 @@ contract Controlled is IsContract {
     }
 
     /**
-    * @dev Internal function to fetch the controller's governor
+    * @dev Internal function to fetch the controller's config governor
     * @return Address of the controller's governor
     */
-    function _governor() internal view returns (address) {
-        return controller.getGovernor();
+    function _configGovernor() internal view returns (address) {
+        return controller.getConfigGovernor();
     }
 
     /**

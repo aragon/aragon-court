@@ -4,7 +4,7 @@ import "../../controller/Controller.sol";
 
 
 contract ControllerMock is Controller {
-    constructor() Controller(msg.sender) public {}
+    constructor() Controller(msg.sender, msg.sender, msg.sender) public {}
 
     function setCourt(address _addr) external {
         _setModule(COURT, _addr);

@@ -1030,9 +1030,12 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
         AdjudicationRound storage round = dispute.rounds[_roundId];
         CourtConfig storage config = _getDisputeConfig(dispute);
 
-        weight = (_isRegularRound(_roundId, config))
-            ? _getStoredJurorWeight(round, _juror)
-            : _getJurorWeightForFinalRound(round, _juror);
+        if (_isRegularRound(_roundId, config)) {
+            weight = _getStoredJurorWeight(round, _juror);
+        } else {
+            (, uint256 shares) = jurorsRegistry.getActiveBalanceInfo(_juror, round.draftTermId, FINAL_ROUND_WEIGHT_PRECISION);
+            weight = shares.toUint64();
+        }
 
         rewarded = round.jurorsStates[_juror].rewarded;
     }
@@ -1258,14 +1261,13 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
         internal returns (uint64)
     {
         // If the juror weight for the last round is zero, return zero
-        uint64 weight = _getJurorWeightForFinalRound(_round, _juror);
-        if (weight == uint64(0)) {
+        (uint256 activeBalance, uint256 shares) = jurorsRegistry.getActiveBalanceInfo(_juror, _round.draftTermId, FINAL_ROUND_WEIGHT_PRECISION);
+        if (shares == 0) {
             return uint64(0);
         }
 
         // To guarantee scalability of the final round, since all jurors may vote, we try to collect the amount of
         // active tokens that needs to be locked for each juror when they try to commit their vote.
-        uint256 activeBalance = jurorsRegistry.activeBalanceOfAt(_juror, _round.draftTermId);
         uint256 weightedPenalty = activeBalance.pct(_config.disputes.penaltyPct);
 
         // If it was not possible to collect the amount to be locked, return 0 to prevent juror from voting
@@ -1274,6 +1276,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
         }
 
         // If it was possible to collect the amount of active tokens to be locked, update the final round state
+        uint64 weight = shares.toUint64();
         _round.jurorsStates[_juror].weight = weight;
         _round.collectedTokens = _round.collectedTokens.add(weightedPenalty);
         return weight;
@@ -1433,29 +1436,6 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
     }
 
     /**
-    * @dev Internal function to get the juror weight for the final round. Note that for the final round the weight of
-    *      each juror is equal to the number of times the min active balance the juror has, multiplied by a precision
-    *      factor to deal with division rounding. This function assumes Court term is up-to-date.
-    * @param _round Dispute round to calculate the juror's weight of
-    * @param _juror Address of the juror to calculate the weight of
-    * @return Weight of the requested juror for the final round of the given dispute
-    */
-    function _getJurorWeightForFinalRound(AdjudicationRound storage _round, address _juror) internal view returns (uint64) {
-        uint256 activeBalance = jurorsRegistry.activeBalanceOfAt(_juror, _round.draftTermId);
-        uint256 minJurorsActiveBalance = jurorsRegistry.minJurorsActiveBalance();
-
-        // Note that jurors may not reach the minimum active balance since some might have been slashed. If that occurs,
-        // these jurors cannot vote in the final round.
-        if (activeBalance < minJurorsActiveBalance) {
-            return uint64(0);
-        }
-
-        // Otherwise, return the times the active balance of the juror fits in the min active balance, multiplying
-        // it by a round factor to ensure a better precision rounding.
-        return (FINAL_ROUND_WEIGHT_PRECISION.mul(activeBalance) / minJurorsActiveBalance).toUint64();
-    }
-
-    /**
     * @dev Internal function to tell information related to the next round due to an appeal of a certain round given. This function assumes
     *      given round can be appealed and that the given round ID corresponds to the given round pointer.
     * @param _dispute Round's dispute requesting the appeal details of
@@ -1483,7 +1463,10 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
             nextRound.newDisputeState = DisputeState.Adjudicating;
             // The number of jurors will be the number of times the minimum stake is hold in the registry,
             // multiplied by a precision factor to help with division rounding.
-            nextRound.nextRoundJurorsNumber = _getFinalRoundJurorsNumber(nextRound.nextRoundStartTerm);
+            nextRound.nextRoundJurorsNumber = jurorsRegistry.getTotalMinActiveBalanceShares(
+                nextRound.nextRoundStartTerm,
+                FINAL_ROUND_WEIGHT_PRECISION
+            ).toUint64();
             // Calculate fees for the final round using the appeal start term of the current round
             (nextRound.feeToken, nextRound.jurorFees, nextRound.totalFees) = _getFinalRoundFees(config, nextRound.nextRoundJurorsNumber);
         } else {
@@ -1516,21 +1499,6 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
             jurorsNumber++;
         }
         return jurorsNumber;
-    }
-
-    /**
-    * @dev Internal function to calculate the jurors number for final rounds at the current term. The number of jurors of a final round does not
-    *      depend on its previous rounds, only on the current Court term. This function assumes Court term is up-to-date.
-    * @param _termId Term querying the final round jurors number of
-    * @return Jurors number for final rounds for the given term
-    */
-    function _getFinalRoundJurorsNumber(uint64 _termId) internal view returns (uint64) {
-        // The registry guarantees its total active balance will never be greater than
-        // `2^64 * minJurorsActiveBalance / FINAL_ROUND_WEIGHT_PRECISION`. Thus, the
-        // jurors number for a final round will always fit in `uint64`
-        uint256 totalActiveBalance = jurorsRegistry.totalActiveBalanceAt(_termId);
-        uint256 minJurorsActiveBalance = jurorsRegistry.minJurorsActiveBalance();
-        return (FINAL_ROUND_WEIGHT_PRECISION.mul(totalActiveBalance) / minJurorsActiveBalance).toUint64();
     }
 
     /**

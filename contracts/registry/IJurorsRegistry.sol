@@ -30,4 +30,9 @@ interface IJurorsRegistry {
     function activeBalanceOfAt(address _juror, uint64 _termId) external view returns (uint256);
 
     function totalActiveBalanceAt(uint64 _termId) external view returns (uint256);
+
+    function getTotalMinActiveBalanceShares(uint64 _termId, uint256 _precision) external view returns (uint256);
+
+    function getActiveBalanceInfo(address _juror, uint64 _termId, uint256 _precision) external view
+        returns (uint256 activeBalance, uint256 shares);
 }

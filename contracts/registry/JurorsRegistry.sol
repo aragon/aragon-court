@@ -372,8 +372,7 @@ contract JurorsRegistry is Initializable, IsContract, IJurorsRegistry, ERC900, A
     * @return Amount of active tokens for juror in the requested past term id
     */
     function activeBalanceOfAt(address _juror, uint64 _termId) external view returns (uint256) {
-        Juror storage juror = jurorsByAddress[_juror];
-        return _existsJuror(juror) ? tree.getItemAt(juror.id, _termId) : 0;
+        return _activeBalanceOfAt(_juror, _termId);
     }
 
     /**
@@ -391,6 +390,47 @@ contract JurorsRegistry is Initializable, IsContract, IJurorsRegistry, ERC900, A
     */
     function getJurorId(address _juror) external view returns (uint256) {
         return jurorsByAddress[_juror].id;
+    }
+
+    /**
+    * @dev Calculate the number of times that the total active balance contains the min active balance.
+    *      Used to calculate the jurors number for final rounds at the current term.
+    * @param _termId Term querying that multiple
+    * @param _precision Multiplier to mitigate division rounding errors
+    * @return The number of times that the total active balance contains the min active balance.
+    *         Equals Jurors number for final rounds for the given term.
+    */
+    function getTotalMinActiveBalanceShares(uint64 _termId, uint256 _precision) external view returns (uint256) {
+        // Total active balance is guaranteed to never be greater than
+        // `2^64 * minActiveBalance / FINAL_ROUND_WEIGHT_PRECISION`. Thus, the
+        // jurors number for a final round will always fit in `uint64`
+        return _precision.mul(_totalActiveBalanceAt(_termId)) / minActiveBalance;
+    }
+
+    /**
+    * @dev Calculate a juror's active balance and the number of times that it contains the min active balance.
+    *      Used to get the juror weight for the final round. Note that for the final round the weight of
+    *      each juror is equal to the number of times the min active balance the juror has, multiplied by a precision
+    *      factor to deal with division rounding.
+    * @param _juror Address of the juror to calculate the balance info
+    * @param _termId Term querying the balance info
+    * @param _precision Multiplier to mitigate division rounding errors
+    * @return Weight of the requested juror for the final round of the given dispute
+    */
+    function getActiveBalanceInfo(address _juror, uint64 _termId, uint256 _precision)
+        external view returns (uint256 activeBalance, uint256 shares)
+    {
+        activeBalance = _activeBalanceOfAt(_juror, _termId);
+
+        // Note that jurors may not reach the minimum active balance since some might have been slashed. If that occurs,
+        // these jurors cannot vote in the final round.
+        if (activeBalance < minActiveBalance) {
+            return (activeBalance, 0);
+        }
+
+        // Otherwise, return the times the active balance of the juror fits in the min active balance, multiplying
+        // it by a round factor to ensure a better precision rounding.
+        shares = _precision.mul(activeBalance) / minActiveBalance;
     }
 
     /**
@@ -691,6 +731,17 @@ contract JurorsRegistry is Initializable, IsContract, IJurorsRegistry, ERC900, A
             }
         }
         return outputLength;
+    }
+
+    /**
+    * @dev Tell the active balance of a juror for a given term id
+    * @param _juror Address of the juror querying the active balance of
+    * @param _termId Term id querying the active balance for
+    * @return Amount of active tokens for juror in the requested past term id
+    */
+    function _activeBalanceOfAt(address _juror, uint64 _termId) internal view returns (uint256) {
+        Juror storage juror = jurorsByAddress[_juror];
+        return _existsJuror(juror) ? tree.getItemAt(juror.id, _termId) : 0;
     }
 
     /**

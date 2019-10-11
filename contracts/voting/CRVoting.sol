@@ -102,10 +102,10 @@ contract CRVoting is Initializable, ICRVoting {
     * @param _commitment Encrypted outcome to be stored for future reveal
     */
     function commit(uint256 _voteId, bytes32 _commitment) external voteExists(_voteId) {
-        _ensureVoterWeightToCommit(_voteId, msg.sender);
-
         CastVote storage castVote = voteRecords[_voteId].votes[msg.sender];
         require(castVote.commitment == bytes32(0), ERROR_VOTE_ALREADY_COMMITTED);
+
+        _ensureVoterWeightToCommit(_voteId, msg.sender);
 
         castVote.commitment = _commitment;
         emit VoteCommitted(_voteId, msg.sender, _commitment);
@@ -119,10 +119,10 @@ contract CRVoting is Initializable, ICRVoting {
     * @param _salt Salt to decrypt and validate the committed vote of the voter
     */
     function leak(uint256 _voteId, address _voter, uint8 _outcome, bytes32 _salt) external voteExists(_voteId) {
-        _ensureVoterWeightToCommit(_voteId, _voter);
-
         CastVote storage castVote = voteRecords[_voteId].votes[_voter];
         _ensureCanReveal(castVote, _outcome, _salt);
+
+        _ensureVoterWeightToLeak(_voteId, _voter);
 
         // There is no need to check if an outcome is valid if it was leaked.
         // Additionally, leaked votes are not considered for the tally.
@@ -137,12 +137,12 @@ contract CRVoting is Initializable, ICRVoting {
     * @param _salt Salt to decrypt and validate the committed vote of the voter
     */
     function reveal(uint256 _voteId, uint8 _outcome, bytes32 _salt) external voteExists(_voteId) {
-        uint256 weight = _ensureVoterWeightToReveal(_voteId, msg.sender);
-
         Vote storage vote = voteRecords[_voteId];
         CastVote storage castVote = vote.votes[msg.sender];
         _ensureCanReveal(castVote, _outcome, _salt);
         require(_isValidOutcome(vote, _outcome), ERROR_INVALID_OUTCOME);
+
+        uint256 weight = _ensureVoterWeightToReveal(_voteId, msg.sender);
 
         castVote.outcome = _outcome;
         _updateTally(vote, _outcome, weight);
@@ -266,6 +266,18 @@ contract CRVoting is Initializable, ICRVoting {
     function _ensureVoterWeightToCommit(uint256 _voteId, address _voter) internal returns (uint256) {
         uint256 weight = uint256(owner.getVoterWeightToCommit(_voteId, _voter));
         require(weight > 0, ERROR_COMMIT_DENIED_BY_OWNER);
+        return weight;
+    }
+
+    /**
+    * @dev Internal function to fetch and ensure the weight of a voter whose vote is being leaked a vote for a given vote instance
+    * @param _voteId ID of the vote instance to check the voter's weight of
+    * @param _voter Address of the voter whose vote is being leaked
+    * @return Weight of the voter whose vote is being leaked
+    */
+    function _ensureVoterWeightToLeak(uint256 _voteId, address _voter) internal returns (uint256) {
+        uint256 weight = uint256(owner.getVoterWeightToLeak(_voteId, _voter));
+        require(weight > 0, ERROR_REVEAL_DENIED_BY_OWNER);
         return weight;
     }
 

@@ -315,7 +315,10 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
     ) public {
         // This seems reasonable enough, and this way we avoid using SafeMath for termDurarion
         require(_termDuration < ONE_YEAR, ERROR_TERM_DURATION_TOO_LONG);
-        require(_firstTermStartTime >= getTimestamp64() + _termDuration, ERROR_BAD_FIRST_TERM_START_TIME);
+        require(
+            _firstTermStartTime >= getTimestamp64() + _termDuration && _firstTermStartTime <= getTimestamp64() + 2 * ONE_YEAR,
+            ERROR_BAD_FIRST_TERM_START_TIME
+        );
 
         termDuration = _termDuration;
         jurorsRegistry = _jurorsRegistry;
@@ -642,8 +645,9 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
 
         // Distribute the collected tokens of the jurors that were slashed weighted by the winning jurors. Note that
         // we are penalizing jurors that refused intentionally their vote for the final round.
+        // Note that coherentJurors has to be > 0 because above it's required that _juror voted in favour (so at the very least there is one),
+        // therefore divisions below are safe.
         uint256 coherentJurors = round.coherentJurors;
-        require(coherentJurors > 0, ERROR_NO_COHERENT_JURORS);
         uint256 collectedTokens = round.collectedTokens;
         if (collectedTokens > 0) {
             jurorsRegistry.assignTokens(_juror, uint256(jurorState.weight).mul(collectedTokens) / coherentJurors);
@@ -693,13 +697,15 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
         // Note that we are safe to access the dispute final ruling, since we already ensured that round penalties were settled.
         uint8 finalRuling = dispute.finalRuling;
         uint256 totalDeposit = appealDeposit.add(confirmAppealDeposit);
-        // No need for SafeMath in these subtractions: as collateral factors > 0 => deposits > totalFees
         if (appeal.appealedRuling == finalRuling) {
+            // No need for SafeMath: collateral factors > 0 => both appeal deposits > totalFees
             accounting.assign(feeToken, appeal.maker, totalDeposit - totalFees);
         } else if (appeal.opposedRuling == finalRuling) {
+            // No need for SafeMath: collateral factors > 0 => both appeal deposits > totalFees
             accounting.assign(feeToken, appeal.taker, totalDeposit - totalFees);
         } else {
             uint256 feesRefund = totalFees / 2;
+            // No need for SafeMath: collateral factors > 0 => both appeal deposits > totalFees
             accounting.assign(feeToken, appeal.maker, appealDeposit - feesRefund);
             accounting.assign(feeToken, appeal.taker, confirmAppealDeposit - feesRefund);
         }
@@ -1042,7 +1048,8 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
             }
             // Set the start time of the new term. Note that we are using a constant term duration value to guarantee
             // equally long terms, regardless of heartbeats.
-            // No need for SafeMath: termDuration is capped at ONE_YEAR
+            // No need for SafeMath: termDuration is capped at ONE_YEAR, _firstTermStartTime by 2 * ONE_YEAR,
+            // and we assume that timestamps (and its derivatives like termId) won't reach MAX_UINT64, which would be ~5.8e11 years
             currentTerm.startTime = previousTerm.startTime + termDuration;
             // In order to draft a random number of jurors in a term, we use a randomness factor for each term based on a
             // block number that is set once the term has started. Note that this information could not be known beforehand.
@@ -1186,8 +1193,8 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
             _round.settledPenalties = true;
         }
 
-        // Update the number of round settled jurors. Note that we don't need to use SafeMath here since the highest number of jurors to be
-        // settled for a round could be the `jurorsNumber` itself, which is a uint64 value.
+        // Update the number of round settled jurors.
+        // No need for SafeMath: the highest number of jurors to be settled for a round could be the `jurorsNumber` itself, which is a uint64.
         _round.settledJurors = uint64(roundSettledJurors + batchSettledJurors);
 
         // Prepare the list of jurors and penalties to either be slashed or returned based on their votes for the given round
@@ -1400,7 +1407,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
             return uint64(0);
         }
 
-        // We already know that the start time of the current term is in the past, we are safe to avoid SafeMath here
+        // No need for SafeMath: we already know that the start time of the current term is in the past
         return (getTimestamp64() - currentTermStartTime) / termDuration;
     }
 
@@ -1454,6 +1461,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
         DisputesConfig storage disputesConfig = config.disputes;
 
         // No need for SafeMath: round state durations are safely capped at config
+        // and we assume that timestamps (and its derivatives like termId) won't reach MAX_UINT64, which would be ~5.8e11 years
         uint64 currentRoundAppealStartTerm = _round.draftTermId + _round.delayedTerms + disputesConfig.commitTerms + disputesConfig.revealTerms;
         // Next round start term is current round end term
         nextRound.nextRoundStartTerm = currentRoundAppealStartTerm + disputesConfig.appealTerms + disputesConfig.appealConfirmTerms;
@@ -1783,7 +1791,8 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
         ];
         (address[] memory jurors, uint64[] memory weights, uint256 outputLength) = jurorsRegistry.draft(draftParams);
 
-        // Update round with drafted jurors information. We are safe to avoid SafeMath here since this cannot be greater than `jurorsNumber`.
+        // Update round with drafted jurors information.
+        // No need for SafeMath: this cannot be greater than `jurorsNumber`.
         uint64 newSelectedJurors = _selectedJurors + _requestedJurors;
         _round.selectedJurors = newSelectedJurors;
 

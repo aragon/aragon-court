@@ -91,7 +91,7 @@ contract CRVoting is Initializable, ICRVoting {
         Vote storage vote = voteRecords[_voteId];
         require(!_existsVote(vote), ERROR_VOTE_ALREADY_EXISTS);
 
-        // Note that there is no need to use SafeMath here, we already checked the number of outcomes above
+        // No need for SafeMath: we already checked the number of outcomes above
         vote.maxAllowedOutcome = OUTCOME_REFUSED + _possibleOutcomes;
         emit VotingCreated(_voteId, _possibleOutcomes);
     }

@@ -159,7 +159,7 @@ library Checkpointing {
         uint256 high = lastIndex;
 
         while (high > low) {
-            // no need for SafeMath: for this to overflow array size should be ~2^255
+            // No need for SafeMath: for this to overflow array size should be ~2^255
             uint256 mid = (high + low + 1) / 2;
             Checkpoint storage checkpoint = self.history[mid];
             uint64 midTime = checkpoint.time;

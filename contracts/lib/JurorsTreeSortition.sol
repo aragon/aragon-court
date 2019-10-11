@@ -79,7 +79,7 @@ library JurorsTreeSortition {
         uint256 totalActiveBalance = tree.getRecentTotalAt(_termId);
         low = _selectedJurors.mul(totalActiveBalance) / _roundRequestedJurors;
 
-        // These are originally uint64, so no need for SafeMath
+        // No need for SafeMath: these are originally uint64
         uint256 newSelectedJurors = _selectedJurors + _batchRequestedJurors;
 
         // This function assumes that `_roundRequestedJurors` is greater than or equal to `newSelectedJurors`

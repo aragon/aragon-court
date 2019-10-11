@@ -171,7 +171,7 @@ contract JurorsRegistry is Initializable, IsContract, IJurorsRegistry, ERC900, A
         require(amountToDeactivate > 0, ERROR_INVALID_ZERO_AMOUNT);
         require(amountToDeactivate <= unlockedActiveBalance, ERROR_INVALID_DEACTIVATION_AMOUNT);
 
-        // No need to use SafeMath here, we already checked values above
+        // No need for SafeMath: we already checked values above
         uint256 futureActiveBalance = unlockedActiveBalance - amountToDeactivate;
         require(futureActiveBalance == 0 || futureActiveBalance >= minActiveBalance, ERROR_INVALID_DEACTIVATION_AMOUNT);
 
@@ -312,7 +312,7 @@ contract JurorsRegistry is Initializable, IsContract, IJurorsRegistry, ERC900, A
         // the next term. Note that this behaviour is different to the one when drafting jurors since this function is called as a side effect
         // of a juror deliberately voting in a final round, while drafts occur randomly.
         if (_amount > unlockedActiveBalance) {
-            // Note there's no need to use SafeMath here, amounts were already checked above
+            // No need for SafeMath: amounts were already checked above
             uint256 amountToReduce = _amount - unlockedActiveBalance;
             _reduceDeactivationRequest(_juror, amountToReduce, _termId);
             tree.set(juror.id, nextTermId, 0);
@@ -549,7 +549,7 @@ contract JurorsRegistry is Initializable, IsContract, IJurorsRegistry, ERC900, A
         uint256 currentRequestAmount = request.amount;
         require(currentRequestAmount >= _amount, ERROR_CANNOT_REDUCE_DEACTIVATION_REQUEST);
 
-        // No need to use SafeMath here, we already checked values above
+        // No need for SafeMath: we already checked values above
         uint256 newRequestAmount = currentRequestAmount - _amount;
         request.amount = newRequestAmount;
         emit JurorDeactivationUpdated(_juror, request.availableTermId, newRequestAmount, _termId);
@@ -636,7 +636,7 @@ contract JurorsRegistry is Initializable, IsContract, IJurorsRegistry, ERC900, A
             juror.availableBalance = juror.availableBalance.add(_amount);
         } else {
             require(_amount <= juror.availableBalance, ERROR_NOT_ENOUGH_AVAILABLE_BALANCE);
-            // No need to use SafeMath here, we already checked values right above
+            // No need for SafeMath: we already checked values right above
             juror.availableBalance -= _amount;
         }
         emit JurorAvailableBalanceChanged(_juror, _amount, _positive);

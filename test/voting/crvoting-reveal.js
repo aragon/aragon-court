@@ -6,6 +6,8 @@ const { assertEvent, assertAmountOfEvents } = require('../helpers/assertEvent')
 const CRVoting = artifacts.require('CRVoting')
 const CRVotingOwner = artifacts.require('CRVotingOwnerMock')
 
+const ERROR_INVALID_OUTCOME = "CRV_INVALID_OUTCOME"
+
 contract('CRVoting reveal', ([_, voter]) => {
   let voting, votingOwner
 
@@ -30,40 +32,8 @@ contract('CRVoting reveal', ([_, voter]) => {
         })
 
         context('when the given voter has not voted before', () => {
-          context('when the owner does not revert when checking the weight of the voter', () => {
-            context('when the owner tells a weight greater than zero', () => {
-              const weight = 10
-
-              beforeEach('mock voter weight', async () => {
-                await votingOwner.mockVoterWeight(voter, weight)
-              })
-
-              it('reverts', async () => {
-                await assertRevert(voting.reveal(voteId, OUTCOMES.LOW, SALT, { from: voter }), 'CRV_INVALID_COMMITMENT_SALT')
-              })
-            })
-
-            context('when the owner tells a zeroed weight', () => {
-              const weight = 0
-
-              beforeEach('mock voter weight', async () => {
-                await votingOwner.mockVoterWeight(voter, weight)
-              })
-
-              it('reverts', async () => {
-                await assertRevert(voting.reveal(voteId, OUTCOMES.LOW, SALT, { from: voter }), 'CRV_REVEAL_DENIED_BY_OWNER')
-              })
-            })
-          })
-
-          context('when the owner reverts when checking the weight of the voter', () => {
-            beforeEach('mock the owner to revert', async () => {
-              await votingOwner.mockChecksFailing(true)
-            })
-
-            it('reverts', async () => {
-              await assertRevert(voting.reveal(voteId, OUTCOMES.LOW, SALT, { from: voter }), 'CRV_OWNER_MOCK_REVEAL_CHECK_REVERTED')
-            })
+          it('reverts', async () => {
+            await assertRevert(voting.reveal(voteId, OUTCOMES.LOW, SALT, { from: voter }), 'CRV_INVALID_COMMITMENT_SALT')
           })
         })
 
@@ -165,7 +135,7 @@ contract('CRVoting reveal', ([_, voter]) => {
                 })
 
                 it('reverts', async () => {
-                  await assertRevert(voting.reveal(voteId, OUTCOMES.LOW, SALT, { from: voter }), 'CRV_REVEAL_DENIED_BY_OWNER')
+                  await assertRevert(voting.reveal(voteId, committedOutcome, SALT, { from: voter }), 'CRV_REVEAL_DENIED_BY_OWNER')
                 })
               })
             })
@@ -262,6 +232,19 @@ contract('CRVoting reveal', ([_, voter]) => {
             })
           }
 
+          const itHandlesInvalidOutcomeRevealedVotesFor = committedOutcome => {
+            const commitment = encryptVote(committedOutcome)
+
+            beforeEach('commit a vote', async () => {
+              await votingOwner.mockVoterWeight(voter, 10)
+              await voting.commit(voteId, commitment, { from: voter })
+            })
+
+            it('reverts', async () => {
+              await assertRevert(voting.reveal(voteId, committedOutcome, SALT, { from: voter }), ERROR_INVALID_OUTCOME)
+            })
+          }
+
           context('when the given voter committed a valid outcome', async () => {
             itHandlesValidRevealedVotesFor(OUTCOMES.LOW)
           })
@@ -271,15 +254,15 @@ contract('CRVoting reveal', ([_, voter]) => {
           })
 
           context('when the given voter committed a missing outcome', async () => {
-            itHandlesInvalidRevealedVotesFor(OUTCOMES.MISSING)
+            itHandlesInvalidOutcomeRevealedVotesFor(OUTCOMES.MISSING)
           })
 
           context('when the given voter committed a leaked outcome', async () => {
-            itHandlesInvalidRevealedVotesFor(OUTCOMES.LEAKED)
+            itHandlesInvalidOutcomeRevealedVotesFor(OUTCOMES.LEAKED)
           })
 
           context('when the given voter committed an out-of-bounds outcome', async () => {
-            itHandlesInvalidRevealedVotesFor(OUTCOMES.HIGH.add(bn(1)))
+            itHandlesInvalidOutcomeRevealedVotesFor(OUTCOMES.HIGH.add(bn(1)))
           })
         })
       })

@@ -77,12 +77,16 @@ library JurorsTreeSortition {
         returns (uint256 low, uint256 high)
     {
         uint256 totalActiveBalance = tree.getRecentTotalAt(_termId);
+        // _roundRequestedJurors can't be zero because firstRoundJurorsNumber and appealStepFactor are checked in Court config,
+        // although this would crash anyway
         low = _selectedJurors.mul(totalActiveBalance) / _roundRequestedJurors;
 
         // No need for SafeMath: these are originally uint64
         uint256 newSelectedJurors = _selectedJurors + _batchRequestedJurors;
 
         // This function assumes that `_roundRequestedJurors` is greater than or equal to `newSelectedJurors`
+        // Besides, _roundRequestedJurors can't be zero because firstRoundJurorsNumber and appealStepFactor are checked in Court config,
+        // although this would crash anyway
         high = newSelectedJurors.mul(totalActiveBalance) / _roundRequestedJurors;
     }
 

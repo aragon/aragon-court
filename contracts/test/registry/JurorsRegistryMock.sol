@@ -58,4 +58,11 @@ contract JurorsRegistryMock is JurorsRegistry, TimeHelpersMock {
             }
         }
     }
+
+    function lockAll(address _juror) external {
+        Juror storage juror = jurorsByAddress[_juror];
+
+        uint256 active = _existsJuror(juror) ? tree.getItem(juror.id) : 0;
+        juror.lockedBalance = active;
+    }
 }

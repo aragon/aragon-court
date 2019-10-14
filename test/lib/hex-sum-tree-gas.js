@@ -180,6 +180,7 @@ contract('HexSumTree', () => {
       }
 
       const value = 10
+      const searchedValue = [value - 1]
 
       const updateMany = async (key, updateTimes) => {
         for (let time = 1; time <= updateTimes; time++) {
@@ -195,7 +196,7 @@ contract('HexSumTree', () => {
             itCostsAtMost(expectedCost, async () => {
               await tree.insert(0, value)
 
-              return tree.search([value], 0)
+              return tree.search(searchedValue, 0)
             })
           })
 
@@ -207,7 +208,7 @@ contract('HexSumTree', () => {
               await tree.insert(0, value)
               await updateMany(0, updateTimes)
 
-              return tree.search([value], updateTimes - 10)
+              return tree.search(searchedValue, updateTimes - 10)
             })
           })
         })
@@ -222,7 +223,7 @@ contract('HexSumTree', () => {
               await tree.mockNextKey(0, nextKey)
               await tree.insert(0, value)
 
-              return tree.search([value], 0)
+              return tree.search(searchedValue, 0)
             })
           })
 
@@ -236,7 +237,7 @@ contract('HexSumTree', () => {
               await tree.insert(0, value)
               await updateMany(0, updateTimes)
 
-              return tree.search([value], updateTimes - 10)
+              return tree.search(searchedValue, updateTimes - 10)
             })
           })
         })

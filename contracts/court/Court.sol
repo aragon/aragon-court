@@ -720,11 +720,21 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
     * @param _voter Address of the voter querying the weight of
     * @return Weight of the requested juror for the requested dispute's round
     */
-    function getVoterWeightToCommit(uint256 _voteId, address _voter) external only(address(voting)) ensureTerm returns (uint64) {
+    function ensureTermAndGetVoterWeightToCommit(uint256 _voteId, address _voter) external only(address(voting)) ensureTerm returns (uint64) {
         (uint256 disputeId, uint256 roundId) = _decodeVoteId(_voteId);
         Dispute storage dispute = disputes[disputeId];
         _checkAdjudicationState(dispute, roundId, AdjudicationState.Committing);
         return _computeJurorWeight(dispute, roundId, _voter);
+    }
+
+    /**
+    * @notice Check if votes can be leaked
+    * @param _voteId ID of the vote instance to be checked
+    */
+    function ensureTermToLeak(uint256 _voteId) external only(address(voting)) ensureTerm {
+        (uint256 disputeId, uint256 roundId) = _decodeVoteId(_voteId);
+        Dispute storage dispute = disputes[disputeId];
+        _checkAdjudicationState(dispute, roundId, AdjudicationState.Committing);
     }
 
     /**
@@ -733,11 +743,12 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
     * @param _voter Address of the voter querying the weight of
     * @return Weight of the requested juror for the requested dispute's round
     */
-    function getVoterWeightToReveal(uint256 _voteId, address _voter) external only(address(voting)) ensureTerm returns (uint64) {
+    function ensureTermAndGetVoterWeightToReveal(uint256 _voteId, address _voter) external only(address(voting)) ensureTerm returns (uint64) {
         (uint256 disputeId, uint256 roundId) = _decodeVoteId(_voteId);
         Dispute storage dispute = disputes[disputeId];
         _checkAdjudicationState(dispute, roundId, AdjudicationState.Revealing);
-        return _computeJurorWeight(dispute, roundId, _voter);
+        AdjudicationRound storage round = dispute.rounds[roundId];
+        return _getStoredJurorWeight(round, _voter);
     }
 
     /**
@@ -1019,7 +1030,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
         CourtConfig storage config = _getDisputeConfig(dispute);
 
         weight = (_isRegularRound(_roundId, config))
-            ? _getJurorWeightForRegularRound(round, _juror)
+            ? _getStoredJurorWeight(round, _juror)
             : _getJurorWeightForFinalRound(round, _juror);
 
         rewarded = round.jurorsStates[_juror].rewarded;
@@ -1229,7 +1240,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
         CourtConfig storage config = _getDisputeConfig(_dispute);
 
         return _isRegularRound(_roundId, config)
-            ? _getJurorWeightForRegularRound(round, _juror)
+            ? _getStoredJurorWeight(round, _juror)
             : _computeJurorWeightForFinalRound(config, round, _juror);
     }
 
@@ -1245,12 +1256,6 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
     function _computeJurorWeightForFinalRound(CourtConfig storage _config, AdjudicationRound storage _round, address _juror)
         internal returns (uint64)
     {
-        // If the juror weight for the last round was already computed, return that value
-        JurorState storage jurorState = _round.jurorsStates[_juror];
-        if (jurorState.weight != uint64(0)) {
-            return jurorState.weight;
-        }
-
         // If the juror weight for the last round is zero, return zero
         uint64 weight = _getJurorWeightForFinalRound(_round, _juror);
         if (weight == uint64(0)) {
@@ -1268,7 +1273,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
         }
 
         // If it was possible to collect the amount of active tokens to be locked, update the final round state
-        jurorState.weight = weight;
+        _round.jurorsStates[_juror].weight = weight;
         _round.collectedTokens = _round.collectedTokens.add(weightedPenalty);
         return weight;
     }
@@ -1418,13 +1423,14 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
     }
 
     /**
-    * @dev Internal function to get the juror weight for a regular round. Note that the weight of a juror for a regular
-    *      round is the number of times a juror was picked for the round round.
+    * @dev Internal function to get the stored juror weight for a round. Note that the weight of a juror is:
+    *      - For a regular round: the number of times a juror was picked for the round round.
+    *      - For a final round: the relative active stake of a juror's state over the total active tokens, only set after the juror has voted.
     * @param _round Dispute round to calculate the juror's weight of
     * @param _juror Address of the juror to calculate the weight of
-    * @return Weight of the requested juror for the final round of the given dispute
+    * @return Weight of the requested juror for the given round
     */
-    function _getJurorWeightForRegularRound(AdjudicationRound storage _round, address _juror) internal view returns (uint64) {
+    function _getStoredJurorWeight(AdjudicationRound storage _round, address _juror) internal view returns (uint64) {
         return _round.jurorsStates[_juror].weight;
     }
 

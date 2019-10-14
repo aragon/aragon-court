@@ -31,10 +31,10 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
     string private constant ERROR_TERM_DURATION_TOO_LONG = "CT_TERM_DURATION_TOO_LONG";
     string private constant ERROR_BAD_FIRST_TERM_START_TIME = "CT_BAD_FIRST_TERM_START_TIME";
     string private constant ERROR_TOO_OLD_TERM = "CT_TOO_OLD_TERM";
-    string private constant ERROR_CONFIG_PERIOD_ZERO_TERMS = "CT_CONFIG_PERIOD_0";
-    string private constant ERROR_CONFIG_PERIOD_MAX_TERMS = "CT_CONFIG_PERIOD_MAX";
+    string private constant ERROR_CONFIG_PERIOD = "CT_CONFIG_PERIOD";
     string private constant ERROR_INVALID_PENALTY_PCT = "CT_INVALID_PENALTY_PCT";
     string private constant ERROR_BAD_INITIAL_JURORS = "CT_BAD_INITIAL_JURORS";
+    string private constant ERROR_BAD_APEAL_STEP_FACTOR = "CT_BAD_APEAL_STEP_FACTOR";
     string private constant ERROR_INVALID_MAX_APPEAL_ROUNDS = "CT_INVALID_MAX_APPEAL_ROUNDS";
     string private constant ERROR_INVALID_PERIOD_DURATION = "CT_INVALID_PERIOD_DURATION";
     string private constant ERROR_INVALID_GOVERNANCE_SHARE = "CT_INVALID_GOVERNANCE_SHARE";
@@ -90,11 +90,14 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
     // Precision factor used to improve rounding when computing weights for the final round
     uint256 internal constant FINAL_ROUND_WEIGHT_PRECISION = 1000;
 
-    // Max for termDuration (in seconds)
-    uint64 internal constant ONE_YEAR = 31536000;
+    // Max for termDuration
+    uint64 internal constant MAX_TERM_DURATION = 365 days;
 
-    // Max number of terms for rond state durations (if terms were 1h, this would be a year)
-    uint64 internal constant MAX_STATE_DURATION = 8670;
+    // Max time until first term starts since contract is deployed
+    uint64 internal constant MAX_FIRST_TERM_DELAY_PERIOD = 2 * MAX_TERM_DURATION;
+
+    // Max number of terms that each of the different adjudication states can last (if lasted 1h, this would be a year)
+    uint64 internal constant MAX_ADJ_STATE_DURATION = 8670;
 
     enum DisputeState {
         PreDraft,
@@ -314,9 +317,9 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
         uint256[6] memory _subscriptionParams // _periodDuration, _feeAmount, _prePaymentPeriods, _resumePrePaidPeriods, _latePaymentPenaltyPct, _governorSharePct
     ) public {
         // This seems reasonable enough, and this way we avoid using SafeMath for termDurarion
-        require(_termDuration < ONE_YEAR, ERROR_TERM_DURATION_TOO_LONG);
+        require(_termDuration < MAX_TERM_DURATION, ERROR_TERM_DURATION_TOO_LONG);
         require(
-            _firstTermStartTime >= getTimestamp64() + _termDuration && _firstTermStartTime <= getTimestamp64() + 2 * ONE_YEAR,
+            _firstTermStartTime >= getTimestamp64() + _termDuration && _firstTermStartTime <= getTimestamp64() + MAX_FIRST_TERM_DELAY_PERIOD,
             ERROR_BAD_FIRST_TERM_START_TIME
         );
 
@@ -1059,7 +1062,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
             }
             // Set the start time of the new term. Note that we are using a constant term duration value to guarantee
             // equally long terms, regardless of heartbeats.
-            // No need for SafeMath: termDuration is capped at ONE_YEAR, _firstTermStartTime by 2 * ONE_YEAR,
+            // No need for SafeMath: termDuration is capped at MAX_TERM_DURATION, _firstTermStartTime by MAX_FIRST_TERM_DELAY_PERIOD,
             // and we assume that timestamps (and its derivatives like termId) won't reach MAX_UINT64, which would be ~5.8e11 years
             currentTerm.startTime = previousTerm.startTime + termDuration;
             // In order to draft a random number of jurors in a term, we use a randomness factor for each term based on a
@@ -1322,6 +1325,10 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
         uint64 _firstRoundJurorsNumber = _roundParams[0];
         require(_firstRoundJurorsNumber > 0, ERROR_BAD_INITIAL_JURORS);
 
+        // Prevent that further rounds have zero jurors
+        // TODO: stack too deep: uint64 _appealStepFactor = _roundParams[1];
+        require(_roundParams[1] > 0, ERROR_BAD_APEAL_STEP_FACTOR);
+
         // Make sure the max number of appeals allowed does not reach the limit
         uint256 _maxRegularAppealRounds = _roundParams[2];
         bool isMaxAppealRoundsValid = _maxRegularAppealRounds > 0 && _maxRegularAppealRounds <= MAX_REGULAR_APPEAL_ROUNDS_LIMIT;
@@ -1329,8 +1336,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
 
         // TODO: add reasonable limits for durations
         for (uint i = 0; i < _roundStateDurations.length; i++) {
-            require(_roundStateDurations[i] > 0, ERROR_CONFIG_PERIOD_ZERO_TERMS);
-            require(_roundStateDurations[i] < MAX_STATE_DURATION, ERROR_CONFIG_PERIOD_MAX_TERMS);
+            require(_roundStateDurations[i] > 0 && _roundStateDurations[i] < MAX_ADJ_STATE_DURATION, ERROR_CONFIG_PERIOD);
         }
 
         // If there was a config change already scheduled, reset it (in that case we will overwrite last array item).

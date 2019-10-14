@@ -393,19 +393,19 @@ contract JurorsRegistry is Initializable, IsContract, IJurorsRegistry, ERC900, A
     }
 
     /**
-    * @dev Calculate the number of times that the total active balance contains the min active balance.
+    * @dev Calculate the number of times that the total active balance contains the min active balance (multiplied by inputted precision).
     *      Used to calculate the jurors number for final rounds at the current term.
     * @param _termId Term querying that multiple
     * @param _precision Multiplier to mitigate division rounding errors
     * @return The number of times that the total active balance contains the min active balance.
     *         Equals Jurors number for final rounds for the given term.
     */
-    function getTotalMinActiveBalanceShares(uint64 _termId, uint256 _precision) external view returns (uint256) {
+    function getTotalMinActiveBalanceMultiple(uint64 _termId, uint256 _precision) external view returns (uint256) {
         return _precision.mul(_totalActiveBalanceAt(_termId)) / minActiveBalance;
     }
 
     /**
-    * @dev Calculate a juror's active balance and the number of times that it contains the min active balance.
+    * @dev Calculate a juror's active balance and the number of times that it contains the min active balance (multiplied by precision).
     *      Used to get the juror weight for the final round. Note that for the final round the weight of
     *      each juror is equal to the number of times the min active balance the juror has, multiplied by a precision
     *      factor to deal with division rounding.
@@ -415,7 +415,7 @@ contract JurorsRegistry is Initializable, IsContract, IJurorsRegistry, ERC900, A
     * @return Weight of the requested juror for the final round of the given dispute
     */
     function getActiveBalanceInfoOfAt(address _juror, uint64 _termId, uint256 _precision)
-        external view returns (uint256 activeBalance, uint256 shares)
+        external view returns (uint256 activeBalance, uint256 minActiveBalanceMultiple)
     {
         activeBalance = _activeBalanceOfAt(_juror, _termId);
 
@@ -427,7 +427,7 @@ contract JurorsRegistry is Initializable, IsContract, IJurorsRegistry, ERC900, A
 
         // Otherwise, return the times the active balance of the juror fits in the min active balance, multiplying
         // it by a round factor to ensure a better precision rounding.
-        shares = _precision.mul(activeBalance) / minActiveBalance;
+        minActiveBalanceMultiple = _precision.mul(activeBalance) / minActiveBalance;
     }
 
     /**

@@ -1033,7 +1033,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
         if (_isRegularRound(_roundId, config)) {
             weight = _getStoredJurorWeight(round, _juror);
         } else {
-            (, uint256 shares) = jurorsRegistry.getActiveBalanceInfo(_juror, round.draftTermId, FINAL_ROUND_WEIGHT_PRECISION);
+            (, uint256 shares) = jurorsRegistry.getActiveBalanceInfoOfAt(_juror, round.draftTermId, FINAL_ROUND_WEIGHT_PRECISION);
             weight = shares.toUint64();
         }
 
@@ -1261,7 +1261,11 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
         internal returns (uint64)
     {
         // If the juror weight for the last round is zero, return zero
-        (uint256 activeBalance, uint256 shares) = jurorsRegistry.getActiveBalanceInfo(_juror, _round.draftTermId, FINAL_ROUND_WEIGHT_PRECISION);
+        (uint256 activeBalance, uint256 shares) = jurorsRegistry.getActiveBalanceInfoOfAt(
+            _juror,
+            _round.draftTermId,
+            FINAL_ROUND_WEIGHT_PRECISION
+        );
         if (shares == 0) {
             return uint64(0);
         }
@@ -1463,6 +1467,9 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
             nextRound.newDisputeState = DisputeState.Adjudicating;
             // The number of jurors will be the number of times the minimum stake is hold in the registry,
             // multiplied by a precision factor to help with division rounding.
+            // Total active balance is guaranteed to never be greater than
+            // `2^64 * minActiveBalance / FINAL_ROUND_WEIGHT_PRECISION`. Thus, the
+            // jurors number for a final round will always fit in `uint64`
             nextRound.nextRoundJurorsNumber = jurorsRegistry.getTotalMinActiveBalanceShares(
                 nextRound.nextRoundStartTerm,
                 FINAL_ROUND_WEIGHT_PRECISION

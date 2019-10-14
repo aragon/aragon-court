@@ -1033,8 +1033,8 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
         if (_isRegularRound(_roundId, config)) {
             weight = _getStoredJurorWeight(round, _juror);
         } else {
-            (, uint256 shares) = jurorsRegistry.getActiveBalanceInfoOfAt(_juror, round.draftTermId, FINAL_ROUND_WEIGHT_PRECISION);
-            weight = shares.toUint64();
+            (, uint256 minActiveBalanceMultiple) = jurorsRegistry.getActiveBalanceInfoOfAt(_juror, round.draftTermId, FINAL_ROUND_WEIGHT_PRECISION);
+            weight = minActiveBalanceMultiple.toUint64();
         }
 
         rewarded = round.jurorsStates[_juror].rewarded;
@@ -1261,12 +1261,12 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
         internal returns (uint64)
     {
         // If the juror weight for the last round is zero, return zero
-        (uint256 activeBalance, uint256 shares) = jurorsRegistry.getActiveBalanceInfoOfAt(
+        (uint256 activeBalance, uint256 minActiveBalanceMultiple) = jurorsRegistry.getActiveBalanceInfoOfAt(
             _juror,
             _round.draftTermId,
             FINAL_ROUND_WEIGHT_PRECISION
         );
-        if (shares == 0) {
+        if (minActiveBalanceMultiple == 0) {
             return uint64(0);
         }
 
@@ -1280,7 +1280,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
         }
 
         // If it was possible to collect the amount of active tokens to be locked, update the final round state
-        uint64 weight = shares.toUint64();
+        uint64 weight = minActiveBalanceMultiple.toUint64();
         _round.jurorsStates[_juror].weight = weight;
         _round.collectedTokens = _round.collectedTokens.add(weightedPenalty);
         return weight;
@@ -1470,7 +1470,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
             // Total active balance is guaranteed to never be greater than
             // `2^64 * minActiveBalance / FINAL_ROUND_WEIGHT_PRECISION`. Thus, the
             // jurors number for a final round will always fit in `uint64`
-            nextRound.nextRoundJurorsNumber = jurorsRegistry.getTotalMinActiveBalanceShares(
+            nextRound.nextRoundJurorsNumber = jurorsRegistry.getTotalMinActiveBalanceMultiple(
                 nextRound.nextRoundStartTerm,
                 FINAL_ROUND_WEIGHT_PRECISION
             ).toUint64();

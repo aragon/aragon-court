@@ -717,7 +717,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
     * @param _voter Address of the voter querying the weight of
     * @return Weight of the requested juror for the requested dispute's round
     */
-    function getVoterWeightToCommit(uint256 _voteId, address _voter) external only(address(voting)) ensureTerm returns (uint64) {
+    function ensureTermAndGetVoterWeightToCommit(uint256 _voteId, address _voter) external only(address(voting)) ensureTerm returns (uint64) {
         (uint256 disputeId, uint256 roundId) = _decodeVoteId(_voteId);
         Dispute storage dispute = disputes[disputeId];
         _checkAdjudicationState(dispute, roundId, AdjudicationState.Committing);
@@ -725,17 +725,13 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
     }
 
     /**
-    * @notice Get the weight of `_voter` for vote #`_voteId` and check if votes can be leaked
-    * @param _voteId ID of the vote instance to request the weight of a voter for
-    * @param _voter Address of the voter querying the weight of
-    * @return Weight of the requested juror for the requested dispute's round
+    * @notice Check if votes can be leaked
+    * @param _voteId ID of the vote instance to be checked
     */
-    function getVoterWeightToLeak(uint256 _voteId, address _voter) external only(address(voting)) ensureTerm returns (uint64) {
+    function ensureTermToLeak(uint256 _voteId) external only(address(voting)) ensureTerm {
         (uint256 disputeId, uint256 roundId) = _decodeVoteId(_voteId);
         Dispute storage dispute = disputes[disputeId];
         _checkAdjudicationState(dispute, roundId, AdjudicationState.Committing);
-        AdjudicationRound storage round = dispute.rounds[roundId];
-        return _getStoredJurorWeight(round, _voter);
     }
 
     /**
@@ -744,7 +740,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
     * @param _voter Address of the voter querying the weight of
     * @return Weight of the requested juror for the requested dispute's round
     */
-    function getVoterWeightToReveal(uint256 _voteId, address _voter) external only(address(voting)) ensureTerm returns (uint64) {
+    function ensureTermAndGetVoterWeightToReveal(uint256 _voteId, address _voter) external only(address(voting)) ensureTerm returns (uint64) {
         (uint256 disputeId, uint256 roundId) = _decodeVoteId(_voteId);
         Dispute storage dispute = disputes[disputeId];
         _checkAdjudicationState(dispute, roundId, AdjudicationState.Revealing);

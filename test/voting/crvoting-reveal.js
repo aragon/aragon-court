@@ -126,18 +126,6 @@ contract('CRVoting reveal', ([_, voter]) => {
                   })
                 })
               })
-
-              context('when the owner tells a zeroed weight', () => {
-                const weight = 0
-
-                beforeEach('mock voter weight', async () => {
-                  await votingOwner.mockVoterWeight(voter, weight)
-                })
-
-                it('reverts', async () => {
-                  await assertRevert(voting.reveal(voteId, committedOutcome, SALT, { from: voter }), 'CRV_REVEAL_DENIED_BY_OWNER')
-                })
-              })
             })
 
             context('when the owner reverts when checking the weight of the voter', () => {
@@ -205,18 +193,6 @@ contract('CRVoting reveal', ([_, voter]) => {
                       await assertRevert(voting.reveal(voteId, outcome, salt, { from: voter }), 'CRV_INVALID_COMMITMENT_SALT')
                     })
                   })
-                })
-              })
-
-              context('when the owner tells a zeroed weight', () => {
-                const weight = 0
-
-                beforeEach('mock voter weight', async () => {
-                  await votingOwner.mockVoterWeight(voter, weight)
-                })
-
-                it('reverts', async () => {
-                  await assertRevert(voting.reveal(voteId, OUTCOMES.LOW, SALT, { from: voter }), 'CRV_REVEAL_DENIED_BY_OWNER')
                 })
               })
             })

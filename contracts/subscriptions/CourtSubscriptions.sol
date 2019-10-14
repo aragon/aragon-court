@@ -567,6 +567,8 @@ contract CourtSubscriptions is TimeHelpers, Initializable, IsContract, ISubscrip
     */
     function _getPeriodStartTermId(uint256 _periodId) internal view returns (uint64) {
         // Periods are measured in Court terms. Since Court terms are represented in `uint64`, we are safe to use `uint64` for period ids too.
+        // We are using SafeMath here because if any user calls getPeriodBalanceDetails with a too high _periodId param,
+        // it would overflow and therefore return wrong information.
         return START_TERM_ID.add(uint64(_periodId).mul(periodDuration));
     }
 
@@ -654,7 +656,7 @@ contract CourtSubscriptions is TimeHelpers, Initializable, IsContract, ISubscrip
                 // No need for SafeMath: we already checked the number of given and resume periods
                 regularPeriods = _periods - resumePeriods - delayedPeriods;
                 // The new last period is computed including the current period
-                // No need for SafeMath: (for subtraction since) the number of periods is at least one.
+                // No need for SafeMath: (for subtraction) the number of periods is at least one.
                 newLastPeriodId = _currentPeriodId.add(_periods) - 1;
             } else {
                 // If the subscriber does not need to resume his activity, there are no resume periods, last period is simply updated

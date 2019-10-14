@@ -29,7 +29,7 @@ contract CRVotingOwnerMock is ICRVotingOwner {
         voting.create(_voteId, _ruling);
     }
 
-    function getVoterWeightToCommit(uint256 /* _voteId */, address _voter) external returns (uint64) {
+    function ensureTermAndGetVoterWeightToCommit(uint256 /* _voteId */, address _voter) external returns (uint64) {
         if (failing) {
             revert(ERROR_OWNER_MOCK_COMMIT_CHECK_REVERTED);
         }
@@ -37,15 +37,13 @@ contract CRVotingOwnerMock is ICRVotingOwner {
         return weights[_voter];
     }
 
-    function getVoterWeightToLeak(uint256 /* _voteId */, address _voter) external returns (uint64) {
+    function ensureTermToLeak(uint256 /* _voteId */) external {
         if (failing) {
             revert(ERROR_OWNER_MOCK_LEAK_CHECK_REVERTED);
         }
-
-        return weights[_voter];
     }
 
-    function getVoterWeightToReveal(uint256 /* _voteId */, address _voter) external returns (uint64) {
+    function ensureTermAndGetVoterWeightToReveal(uint256 /* _voteId */, address _voter) external returns (uint64) {
         if (failing) {
             revert(ERROR_OWNER_MOCK_REVEAL_CHECK_REVERTED);
         }

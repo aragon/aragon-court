@@ -401,9 +401,6 @@ contract JurorsRegistry is Initializable, IsContract, IJurorsRegistry, ERC900, A
     *         Equals Jurors number for final rounds for the given term.
     */
     function getTotalMinActiveBalanceShares(uint64 _termId, uint256 _precision) external view returns (uint256) {
-        // Total active balance is guaranteed to never be greater than
-        // `2^64 * minActiveBalance / FINAL_ROUND_WEIGHT_PRECISION`. Thus, the
-        // jurors number for a final round will always fit in `uint64`
         return _precision.mul(_totalActiveBalanceAt(_termId)) / minActiveBalance;
     }
 
@@ -417,7 +414,7 @@ contract JurorsRegistry is Initializable, IsContract, IJurorsRegistry, ERC900, A
     * @param _precision Multiplier to mitigate division rounding errors
     * @return Weight of the requested juror for the final round of the given dispute
     */
-    function getActiveBalanceInfo(address _juror, uint64 _termId, uint256 _precision)
+    function getActiveBalanceInfoOfAt(address _juror, uint64 _termId, uint256 _precision)
         external view returns (uint256 activeBalance, uint256 shares)
     {
         activeBalance = _activeBalanceOfAt(_juror, _termId);

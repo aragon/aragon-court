@@ -1,10 +1,14 @@
 pragma solidity ^0.5.8;
 
-import "./Controlled.sol";
 import "@aragon/os/contracts/lib/token/ERC20.sol";
+import "@aragon/os/contracts/common/SafeERC20.sol";
+
+import "./Controlled.sol";
 
 
 contract ERC20Recoverable is Controlled {
+    using SafeERC20 for ERC20;
+
     string private constant ERROR_SENDER_NOT_FUNDS_GOVERNOR = "CTD_SENDER_NOT_FUNDS_GOVERNOR";
     string private constant ERROR_INSUFFICIENT_RECOVER_FUNDS = "CTD_INSUFFICIENT_RECOVER_FUNDS";
     string private constant ERROR_RECOVER_TOKEN_FUNDS_FAILED = "CTD_RECOVER_TOKEN_FUNDS_FAILED";
@@ -35,7 +39,7 @@ contract ERC20Recoverable is Controlled {
     function recoverFunds(ERC20 _token, address _to) external onlyFundsGovernor {
         uint256 balance = _token.balanceOf(address(this));
         require(balance > 0, ERROR_INSUFFICIENT_RECOVER_FUNDS);
-        require(_token.transfer(_to, balance), ERROR_RECOVER_TOKEN_FUNDS_FAILED);
+        require(_token.safeTransfer(_to, balance), ERROR_RECOVER_TOKEN_FUNDS_FAILED);
         emit RecoverFunds(_token, _to, balance);
     }
 }

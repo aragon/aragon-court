@@ -23,8 +23,10 @@ contract('CourtSubscriptions', ([_, governor, payer, subscriber, anotherSubscrib
     feeToken = await ERC20.new('Subscriptions Fee Token', 'SFT', 18)
 
     subscriptions = await CourtSubscriptions.new(controller.address, PERIOD_DURATION, feeToken.address, FEE_AMOUNT, PREPAYMENT_PERIODS, RESUME_PRE_PAID_PERIODS, LATE_PAYMENT_PENALTY_PCT, GOVERNOR_SHARE_PCT)
+    await controller.setSubscriptions(subscriptions.address)
+
     subscriptionsOwner = await SubscriptionsOwner.new(subscriptions.address)
-    await controller.setSubscriptions(subscriptionsOwner.address, subscriptions.address)
+    await controller.setCourt(subscriptionsOwner.address)
   })
 
   describe('payFees', () => {

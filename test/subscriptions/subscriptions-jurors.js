@@ -31,11 +31,13 @@ contract('CourtSubscriptions', ([_, payer, subscriberPeriod0, subscriberPeriod1,
     jurorToken = await ERC20.new('AN Jurors Token', 'ANJ', 18)
 
     subscriptions = await CourtSubscriptions.new(controller.address, PERIOD_DURATION, feeToken.address, FEE_AMOUNT, PREPAYMENT_PERIODS, RESUME_PRE_PAID_PERIODS, LATE_PAYMENT_PENALTY_PCT, GOVERNOR_SHARE_PCT)
+    await controller.setSubscriptions(subscriptions.address)
+
     jurorsRegistry = await JurorsRegistry.new(controller.address, jurorToken.address, MIN_JURORS_ACTIVE_TOKENS, TOTAL_ACTIVE_BALANCE_LIMIT)
+    await controller.setJurorsRegistry(jurorsRegistry.address)
 
     subscriptionsOwner = await SubscriptionsOwner.new(subscriptions.address)
-    await controller.setSubscriptions(subscriptionsOwner.address, subscriptions.address)
-    await controller.setJurorsRegistry(subscriptionsOwner.address, jurorsRegistry.address)
+    await controller.setCourt(subscriptionsOwner.address)
   })
 
   describe('claimFees', () => {

@@ -11,10 +11,12 @@ contract('CRVoting', ([_, voterWeighted1, voterWeighted2, voterWeighted3, voterW
 
   beforeEach('create voting', async () => {
     controller = await Controller.new()
-    voting = await CRVoting.new(controller.address)
-    votingOwner = await CRVotingOwner.new(voting.address)
-    await controller.setVoting(votingOwner.address, voting.address)
 
+    voting = await CRVoting.new(controller.address)
+    await controller.setVoting(voting.address)
+
+    votingOwner = await CRVotingOwner.new(voting.address)
+    await controller.setCourt(votingOwner.address)
     await votingOwner.create(voteId, POSSIBLE_OUTCOMES)
   })
 

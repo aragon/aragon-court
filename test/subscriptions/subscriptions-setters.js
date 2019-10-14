@@ -25,8 +25,10 @@ contract('CourtSubscriptions', ([_, governor, someone, something, subscriber]) =
     feeToken = await ERC20.new('Subscriptions Fee Token', 'SFT', 18)
 
     subscriptions = await CourtSubscriptions.new(controller.address, PERIOD_DURATION, feeToken.address, FEE_AMOUNT, PREPAYMENT_PERIODS, RESUME_PRE_PAID_PERIODS, LATE_PAYMENT_PENALTY_PCT, GOVERNOR_SHARE_PCT)
+    await controller.setSubscriptions(subscriptions.address)
+
     subscriptionsOwner = await SubscriptionsOwner.new(subscriptions.address)
-    await controller.setSubscriptions(subscriptionsOwner.address, subscriptions.address)
+    await controller.setCourt(subscriptionsOwner.address)
   })
 
   describe('setFeeAmount', () => {
@@ -66,7 +68,7 @@ contract('CourtSubscriptions', ([_, governor, someone, something, subscriber]) =
       const from = someone
 
       it('reverts', async () => {
-        await assertRevert(subscriptions.setFeeAmount(FEE_AMOUNT, { from }), 'CTD_SENDER_NOT_GOVERNOR')
+        await assertRevert(subscriptions.setFeeAmount(FEE_AMOUNT, { from }), 'CTD_SENDER_NOT_CONFIG_GOVERNOR')
       })
     })
   })
@@ -176,7 +178,7 @@ contract('CourtSubscriptions', ([_, governor, someone, something, subscriber]) =
       const from = someone
 
       it('reverts', async () => {
-        await assertRevert(subscriptions.setFeeToken(feeToken.address, FEE_AMOUNT, { from }), 'CTD_SENDER_NOT_GOVERNOR')
+        await assertRevert(subscriptions.setFeeToken(feeToken.address, FEE_AMOUNT, { from }), 'CTD_SENDER_NOT_CONFIG_GOVERNOR')
       })
     })
   })
@@ -243,7 +245,7 @@ contract('CourtSubscriptions', ([_, governor, someone, something, subscriber]) =
       const from = someone
 
       it('reverts', async () => {
-        await assertRevert(subscriptions.setPrePaymentPeriods(PREPAYMENT_PERIODS, { from }), 'CTD_SENDER_NOT_GOVERNOR')
+        await assertRevert(subscriptions.setPrePaymentPeriods(PREPAYMENT_PERIODS, { from }), 'CTD_SENDER_NOT_CONFIG_GOVERNOR')
       })
     })
   })
@@ -293,7 +295,7 @@ contract('CourtSubscriptions', ([_, governor, someone, something, subscriber]) =
       const from = someone
 
       it('reverts', async () => {
-        await assertRevert(subscriptions.setLatePaymentPenaltyPct(LATE_PAYMENT_PENALTY_PCT, { from }), 'CTD_SENDER_NOT_GOVERNOR')
+        await assertRevert(subscriptions.setLatePaymentPenaltyPct(LATE_PAYMENT_PENALTY_PCT, { from }), 'CTD_SENDER_NOT_CONFIG_GOVERNOR')
       })
     })
   })
@@ -345,7 +347,7 @@ contract('CourtSubscriptions', ([_, governor, someone, something, subscriber]) =
       const from = someone
 
       it('reverts', async () => {
-        await assertRevert(subscriptions.setGovernorSharePct(GOVERNOR_SHARE_PCT, { from }), 'CTD_SENDER_NOT_GOVERNOR')
+        await assertRevert(subscriptions.setGovernorSharePct(GOVERNOR_SHARE_PCT, { from }), 'CTD_SENDER_NOT_CONFIG_GOVERNOR')
       })
     })
   })
@@ -403,7 +405,7 @@ contract('CourtSubscriptions', ([_, governor, someone, something, subscriber]) =
       const from = someone
 
       it('reverts', async () => {
-        await assertRevert(subscriptions.setResumePrePaidPeriods(RESUME_PRE_PAID_PERIODS, { from }), 'CTD_SENDER_NOT_GOVERNOR')
+        await assertRevert(subscriptions.setResumePrePaidPeriods(RESUME_PRE_PAID_PERIODS, { from }), 'CTD_SENDER_NOT_CONFIG_GOVERNOR')
       })
     })
   })

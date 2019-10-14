@@ -14,9 +14,12 @@ contract('CRVoting leak', ([_, voter, someone]) => {
 
   beforeEach('create base contracts', async () => {
     controller = await Controller.new()
+
     voting = await CRVoting.new(controller.address)
+    await controller.setVoting(voting.address)
+
     votingOwner = await CRVotingOwner.new(voting.address)
-    await controller.setVoting(votingOwner.address, voting.address)
+    await controller.setCourt(votingOwner.address)
   })
 
   describe('leak', () => {

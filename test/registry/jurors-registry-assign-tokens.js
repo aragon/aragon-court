@@ -20,8 +20,10 @@ contract('JurorsRegistry', ([_, juror, someone]) => {
     ANJ = await ERC20.new('ANJ Token', 'ANJ', 18)
 
     registry = await JurorsRegistry.new(controller.address, ANJ.address, MIN_ACTIVE_AMOUNT, TOTAL_ACTIVE_BALANCE_LIMIT)
+    await controller.setJurorsRegistry(registry.address)
+
     registryOwner = await JurorsRegistryOwner.new(registry.address)
-    await controller.setJurorsRegistry(registryOwner.address, registry.address)
+    await controller.setCourt(registryOwner.address)
   })
 
   const itHandlesZeroTokenAssignmentsProperly = (assignmentCall, recipient) => {

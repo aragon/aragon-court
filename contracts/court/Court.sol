@@ -1419,7 +1419,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
     /**
     * @dev Internal function to get the stored juror weight for a round. Note that the weight of a juror is:
     *      - For a regular round: the number of times a juror was picked for the round round.
-    *      - For a final round: the proportion of juror's active state over the total, only set after the juror has voted.
+    *      - For a final round: the relative active stake of a juror's state over the total active tokens, only set after the juror has voted.
     * @param _round Dispute round to calculate the juror's weight of
     * @param _juror Address of the juror to calculate the weight of
     * @return Weight of the requested juror for the given round

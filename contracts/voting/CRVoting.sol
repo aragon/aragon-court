@@ -117,6 +117,7 @@ contract CRVoting is Controlled, ICRVoting {
         _ensureCanReveal(castVote, _outcome, _salt);
 
         // There's no need to check voter weight, as this was done on commit
+        ICRVotingOwner owner = _votingOwner();
         owner.ensureTermToLeak(_voteId);
 
         // There is no need to check if an outcome is valid if it was leaked.

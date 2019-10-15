@@ -14,7 +14,8 @@ contract('CourtAccounting', ([_, accountingOwner, holder, someone]) => {
   beforeEach('create accounting', async () => {
     controller = await Controller.new()
     accounting = await CourtAccounting.new(controller.address)
-    await controller.setAccounting(accountingOwner, accounting.address)
+    await controller.setCourtMock(accountingOwner)
+    await controller.setAccounting(accounting.address)
   })
 
   describe('constructor', () => {

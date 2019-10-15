@@ -702,7 +702,7 @@ contract Court is TimeHelpers, Controlled, ControlledRecoverable, IJurorsRegistr
     * @notice Check if votes can be leaked
     * @param _voteId ID of the vote instance to be checked
     */
-    function ensureTermToLeak(uint256 _voteId) external only(address(voting)) ensureTerm {
+    function ensureTermToLeak(uint256 _voteId) external onlyVoting ensureTerm {
         (uint256 disputeId, uint256 roundId) = _decodeVoteId(_voteId);
         Dispute storage dispute = disputes[disputeId];
         _checkAdjudicationState(dispute, roundId, AdjudicationState.Committing);
@@ -995,6 +995,7 @@ contract Court is TimeHelpers, Controlled, ControlledRecoverable, IJurorsRegistr
         if (_isRegularRound(_roundId, config)) {
             weight = _getStoredJurorWeight(round, _juror);
         } else {
+            IJurorsRegistry jurorsRegistry = _jurorsRegistry();
             (, uint256 minActiveBalanceMultiple) = jurorsRegistry.getActiveBalanceInfoOfAt(_juror, round.draftTermId, FINAL_ROUND_WEIGHT_PRECISION);
             weight = minActiveBalanceMultiple.toUint64();
         }
@@ -1441,6 +1442,7 @@ contract Court is TimeHelpers, Controlled, ControlledRecoverable, IJurorsRegistr
             // Total active balance is guaranteed to never be greater than
             // `2^64 * minActiveBalance / FINAL_ROUND_WEIGHT_PRECISION`. Thus, the
             // jurors number for a final round will always fit in `uint64`
+            IJurorsRegistry jurorsRegistry = _jurorsRegistry();
             nextRound.nextRoundJurorsNumber = jurorsRegistry.getTotalMinActiveBalanceMultiple(
                 nextRound.nextRoundStartTerm,
                 FINAL_ROUND_WEIGHT_PRECISION

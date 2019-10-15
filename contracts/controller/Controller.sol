@@ -40,7 +40,7 @@ contract Controller is IsContract {
     Governor private governor;
 
     // List of modules registered for the system indexed by ID
-    mapping (bytes32 => address) private modules;
+    mapping (bytes32 => address) internal modules;
 
     event ModuleSet(bytes32 id, address addr);
     event FundsGovernorChanged(address previousGovernor, address currentGovernor);

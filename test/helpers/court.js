@@ -446,7 +446,7 @@ module.exports = (web3, artifacts) => {
     async deploy(params) {
       Object.assign(this, { ...DEFAULTS, ...params })
       if (!this.governor) this.governor = await this._getAccount(0)
-      if (!this.controller) this.controller = await this.artifacts.require('Controller').new(this.governor)
+      if (!this.controller) this.controller = await this.artifacts.require('Controller').new(this.governor, this.governor, this.governor)
 
       if (!this.feeToken) this.feeToken = await this.artifacts.require('ERC20Mock').new('Court Fee Token', 'CFT', 18)
       if (!this.jurorToken) this.jurorToken = await this.artifacts.require('ERC20Mock').new('Aragon Network Juror Token', 'ANJ', 18)

@@ -10,6 +10,18 @@ contract JurorsRegistryMock is JurorsRegistry, TimeHelpersMock {
     address[] public mockedSelectedJurors;
     uint256[] public mockedWeights;
 
+    constructor (Controller _controller, ERC20 _jurorToken, uint256 _minActiveBalance, uint256 _totalActiveBalanceLimit)
+        public
+        JurorsRegistry(_controller, _jurorToken, _minActiveBalance, _totalActiveBalanceLimit)
+    {}
+
+    function lockAll(address _juror) external {
+        Juror storage juror = jurorsByAddress[_juror];
+
+        uint256 active = _existsJuror(juror) ? tree.getItem(juror.id) : 0;
+        juror.lockedBalance = active;
+    }
+
     function mockNextDraft(address[] calldata _selectedJurors, uint256[] calldata _weights) external {
         nextDraftMocked = true;
 
@@ -52,12 +64,5 @@ contract JurorsRegistryMock is JurorsRegistry, TimeHelpersMock {
                 index++;
             }
         }
-    }
-
-    function lockAll(address _juror) external {
-        Juror storage juror = jurorsByAddress[_juror];
-
-        uint256 active = _existsJuror(juror) ? tree.getItem(juror.id) : 0;
-        juror.lockedBalance = active;
     }
 }

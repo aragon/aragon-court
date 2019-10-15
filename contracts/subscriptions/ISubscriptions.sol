@@ -7,17 +7,6 @@ import "../registry/IJurorsRegistry.sol";
 
 
 interface ISubscriptions {
-    function init(
-        ISubscriptionsOwner _owner,
-        IJurorsRegistry _jurorsRegistry,
-        uint64 _periodDuration,
-        ERC20 _feeToken,
-        uint256 _feeAmount,
-        uint256 _prePaymentPeriods,
-        uint256 _resumePrePaidPeriods,
-        uint16 _latePaymentPenaltyPct,
-        uint16 _governorSharePct
-    ) external;
     function setFeeAmount(uint256 _feeAmount) external;
     function setFeeToken(ERC20 _feeToken, uint256 _feeAmount) external;
     function setPrePaymentPeriods(uint256 _prePaymentPeriods) external;

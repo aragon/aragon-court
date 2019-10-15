@@ -4,17 +4,17 @@ import "@aragon/os/contracts/lib/token/ERC20.sol";
 import "@aragon/os/contracts/lib/math/SafeMath.sol";
 import "@aragon/os/contracts/lib/math/SafeMath64.sol";
 import "@aragon/os/contracts/common/SafeERC20.sol";
-import "@aragon/os/contracts/common/IsContract.sol";
 import "@aragon/os/contracts/common/TimeHelpers.sol";
-import "@aragon/os/contracts/common/Initializable.sol";
 
 import "../lib/PctHelpers.sol";
+import "../controller/Controlled.sol";
+import "../controller/ControlledRecoverable.sol";
 import "../registry/IJurorsRegistry.sol";
 import "../subscriptions/ISubscriptions.sol";
 import "../subscriptions/ISubscriptionsOwner.sol";
 
 
-contract CourtSubscriptions is TimeHelpers, Initializable, IsContract, ISubscriptions {
+contract CourtSubscriptions is Controlled, ControlledRecoverable, TimeHelpers, ISubscriptions {
     using SafeERC20 for ERC20;
     using SafeMath for uint256;
     using SafeMath64 for uint64;
@@ -22,7 +22,6 @@ contract CourtSubscriptions is TimeHelpers, Initializable, IsContract, ISubscrip
 
     string private constant ERROR_OWNER_ALREADY_SET = "CS_OWNER_ALREADY_SET";
     string private constant ERROR_REGISTRY_NOT_CONTRACT = "CS_REGISTRY_NOT_CONTRACT";
-    string private constant ERROR_SENDER_NOT_GOVERNOR = "CS_SENDER_NOT_GOVERNOR";
     string private constant ERROR_SENDER_NOT_SUBSCRIBED = "CS_SENDER_NOT_SUBSCRIBED";
     string private constant ERROR_GOVERNOR_SHARE_FEES_ZERO = "CS_GOVERNOR_SHARE_FEES_ZERO";
     string private constant ERROR_TOKEN_TRANSFER_FAILED = "CS_TOKEN_TRANSFER_FAILED";
@@ -63,14 +62,8 @@ contract CourtSubscriptions is TimeHelpers, Initializable, IsContract, ISubscrip
         mapping (address => bool) claimedFees;  // List of jurors that have claimed fees during a period, indexed by juror address
     }
 
-    // Subscriptions owner address
-    ISubscriptionsOwner internal owner;
-
-    // Registry of jurors
-    IJurorsRegistry internal jurorsRegistry;
-
     // Duration of a subscription period in Court terms
-    uint64 internal periodDuration;
+    uint64 public periodDuration;
 
     // Per ten thousand of subscription fees that will be applied as penalty for not paying during proper period (‱ - 1/10,000)
     uint16 public latePaymentPenaltyPct;
@@ -112,17 +105,8 @@ contract CourtSubscriptions is TimeHelpers, Initializable, IsContract, ISubscrip
     event ResumePenaltiesChanged(uint256 previousResumePrePaidPeriods, uint256 currentResumePrePaidPeriods);
 
     /**
-    * @dev Ensure the msg.sender is the governor of the Court
-    */
-    modifier onlyGovernor {
-        require(msg.sender == owner.getGovernor(), ERROR_SENDER_NOT_GOVERNOR);
-        _;
-    }
-
-    /**
     * @dev Initialize court subscriptions
-    * @param _owner Address to be set as the owner of the court subscriptions
-    * @param _jurorsRegistry Address of the JurorsRegistry component of the Court
+    * @param _controller Address of the controller
     * @param _periodDuration Initial duration of a subscription period in Court terms
     * @param _feeToken Initial ERC20 token used for the subscription fees
     * @param _feeAmount Initial amount of fees to be paid for each subscription period
@@ -131,9 +115,8 @@ contract CourtSubscriptions is TimeHelpers, Initializable, IsContract, ISubscrip
     * @param _latePaymentPenaltyPct Initial per ten thousand of subscription fees that will be applied as penalty for not paying during proper period (‱ - 1/10,000)
     * @param _governorSharePct Initial per ten thousand of subscription fees that will be allocated to the governor of the Court (‱ - 1/10,000)
     */
-    function init(
-        ISubscriptionsOwner _owner,
-        IJurorsRegistry _jurorsRegistry,
+    constructor(
+        Controller _controller,
         uint64 _periodDuration,
         ERC20 _feeToken,
         uint256 _feeAmount,
@@ -142,17 +125,12 @@ contract CourtSubscriptions is TimeHelpers, Initializable, IsContract, ISubscrip
         uint16 _latePaymentPenaltyPct,
         uint16 _governorSharePct
     )
-        external
+        ControlledRecoverable(_controller)
+        public
     {
-        // TODO: cannot check the given owner is a contract cause the Court set this up in the constructor, move to a factory
-        // require(isContract(_owner), ERROR_OWNER_NOT_CONTRACT);
-        require(isContract(address(_jurorsRegistry)), ERROR_REGISTRY_NOT_CONTRACT);
+        // No need to explicitly call `Controlled` constructor since `ControlledRecoverable` is already doing it
         require(_periodDuration > 0, ERROR_PERIOD_DURATION_ZERO);
 
-        initialized();
-
-        owner = _owner;
-        jurorsRegistry = _jurorsRegistry;
         periodDuration = _periodDuration;
         _setFeeToken(_feeToken);
         _setFeeAmount(_feeAmount);
@@ -259,7 +237,7 @@ contract CourtSubscriptions is TimeHelpers, Initializable, IsContract, ISubscrip
     * @notice Set new subscriptions fee amount to `_feeAmount`
     * @param _feeAmount New amount of fees to be paid for each subscription period
     */
-    function setFeeAmount(uint256 _feeAmount) external onlyGovernor {
+    function setFeeAmount(uint256 _feeAmount) external onlyConfigGovernor {
         _setFeeAmount(_feeAmount);
     }
 
@@ -269,7 +247,7 @@ contract CourtSubscriptions is TimeHelpers, Initializable, IsContract, ISubscrip
     * @param _feeToken New ERC20 token to be used for the subscription fees
     * @param _feeAmount New amount of fees to be paid for each subscription period
     */
-    function setFeeToken(ERC20 _feeToken, uint256 _feeAmount) external onlyGovernor {
+    function setFeeToken(ERC20 _feeToken, uint256 _feeAmount) external onlyConfigGovernor {
         _setFeeToken(_feeToken);
         // `setFeeToken` transfers governor's accumulated fees, so must be executed first
         _setFeeAmount(_feeAmount);
@@ -279,7 +257,7 @@ contract CourtSubscriptions is TimeHelpers, Initializable, IsContract, ISubscrip
     * @notice Set new number of pre payment to `_prePaymentPeriods` periods
     * @param _prePaymentPeriods New number of periods that can be paid in advance
     */
-    function setPrePaymentPeriods(uint256 _prePaymentPeriods) external onlyGovernor {
+    function setPrePaymentPeriods(uint256 _prePaymentPeriods) external onlyConfigGovernor {
         _setPrePaymentPeriods(_prePaymentPeriods);
     }
 
@@ -287,7 +265,7 @@ contract CourtSubscriptions is TimeHelpers, Initializable, IsContract, ISubscrip
     * @notice Set new late payment penalty `_latePaymentPenaltyPct`‱ (1/10,000)
     * @param _latePaymentPenaltyPct New per ten thousand of subscription fees that will be applied as penalty for not paying during proper period
     */
-    function setLatePaymentPenaltyPct(uint16 _latePaymentPenaltyPct) external onlyGovernor {
+    function setLatePaymentPenaltyPct(uint16 _latePaymentPenaltyPct) external onlyConfigGovernor {
         _setLatePaymentPenaltyPct(_latePaymentPenaltyPct);
     }
 
@@ -295,7 +273,7 @@ contract CourtSubscriptions is TimeHelpers, Initializable, IsContract, ISubscrip
     * @notice Set new governor share to `_governorSharePct`‱ (1/10,000)
     * @param _governorSharePct New per ten thousand of subscription fees that will be allocated to the governor of the Court (‱ - 1/10,000)
     */
-    function setGovernorSharePct(uint16 _governorSharePct) external onlyGovernor {
+    function setGovernorSharePct(uint16 _governorSharePct) external onlyConfigGovernor {
         _setGovernorSharePct(_governorSharePct);
     }
 
@@ -303,16 +281,8 @@ contract CourtSubscriptions is TimeHelpers, Initializable, IsContract, ISubscrip
     * @notice Set new resume pre-paid periods to `_resumePrePaidPeriods`
     * @param _resumePrePaidPeriods New number of periods a subscriber must pre-pay in order to resume his activity after pausing
     */
-    function setResumePrePaidPeriods(uint256 _resumePrePaidPeriods) external onlyGovernor {
+    function setResumePrePaidPeriods(uint256 _resumePrePaidPeriods) external onlyConfigGovernor {
         _setResumePrePaidPeriods(_resumePrePaidPeriods);
-    }
-
-    /**
-    * @dev Tell the address of the owner of the contract
-    * @return Address of owner
-    */
-    function getOwner() external view returns (address) {
-        return address(owner);
     }
 
     /**
@@ -432,7 +402,7 @@ contract CourtSubscriptions is TimeHelpers, Initializable, IsContract, ISubscrip
         uint256 amount = accumulatedGovernorFees;
         accumulatedGovernorFees = 0;
         emit GovernorFeesTransferred(amount);
-        require(currentFeeToken.safeTransfer(owner.getGovernor(), amount), ERROR_TOKEN_TRANSFER_FAILED);
+        require(currentFeeToken.safeTransfer(_configGovernor(), amount), ERROR_TOKEN_TRANSFER_FAILED);
     }
 
     /**
@@ -557,7 +527,9 @@ contract CourtSubscriptions is TimeHelpers, Initializable, IsContract, ISubscrip
     */
     function _getCurrentPeriodId() internal view returns (uint256) {
         // Since the Court starts at term #1, and the first subscription period is #0, then subtract one unit to the current term of the Court
-        return uint256(owner.getCurrentTermId()).sub(START_TERM_ID) / periodDuration;
+        ISubscriptionsOwner owner = _subscriptionsOwner();
+        uint64 termId = owner.getCurrentTermId();
+        return uint256(termId).sub(START_TERM_ID) / periodDuration;
     }
 
     /**
@@ -721,6 +693,7 @@ contract CourtSubscriptions is TimeHelpers, Initializable, IsContract, ISubscrip
         uint64 nextPeriodStartTermId = _getPeriodStartTermId(_periodId + 1); // No need for SafeMath: it's actually an uint64
 
         // Pick a random Court term during the next period of the requested one to get the total amount of juror tokens active in the Court
+        ISubscriptionsOwner owner = _subscriptionsOwner();
         bytes32 randomness = owner.getTermRandomness(nextPeriodStartTermId);
 
         // The randomness factor for each Court term is computed using the the hash of a block number set during the initialization of the
@@ -732,6 +705,7 @@ contract CourtSubscriptions is TimeHelpers, Initializable, IsContract, ISubscrip
         }
 
         // Use randomness to choose a Court term of the requested period and query the total amount of juror tokens active at that term
+        IJurorsRegistry jurorsRegistry = _jurorsRegistry();
         // No need for SafeMath: terms are represented in `uint64`
         periodBalanceCheckpoint = periodStartTermId + uint64(uint256(randomness) % periodDuration);
         totalActiveBalance = jurorsRegistry.totalActiveBalanceAt(periodBalanceCheckpoint);
@@ -749,6 +723,7 @@ contract CourtSubscriptions is TimeHelpers, Initializable, IsContract, ISubscrip
         returns (uint256)
     {
         // Fetch juror active balance at the checkpoint used for the requested period
+        IJurorsRegistry jurorsRegistry = _jurorsRegistry();
         uint256 jurorActiveBalance = jurorsRegistry.activeBalanceOfAt(_juror, _periodBalanceCheckpoint);
         if (jurorActiveBalance == 0) {
             return 0;

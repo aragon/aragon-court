@@ -3,12 +3,14 @@ pragma solidity ^0.5.8;
 import "@aragon/os/contracts/lib/token/ERC20.sol";
 import "@aragon/os/contracts/lib/math/SafeMath.sol";
 import "@aragon/os/contracts/common/SafeERC20.sol";
-import "@aragon/os/contracts/common/Initializable.sol";
 
 import "./IAccounting.sol";
+import "../controller/Controlled.sol";
+import "../controller/Controller.sol";
+import "../controller/ControlledRecoverable.sol";
 
 
-contract CourtAccounting is IAccounting, Initializable {
+contract CourtAccounting is Controlled, ControlledRecoverable, IAccounting {
     using SafeERC20 for ERC20;
     using SafeMath for uint256;
 
@@ -18,23 +20,20 @@ contract CourtAccounting is IAccounting, Initializable {
     string private constant ERROR_WITHDRAW_AMOUNT_ZERO = "ACCOUNTING_WITHDRAW_AMOUNT_ZERO";
     string private constant ERROR_WITHDRAW_INVALID_AMOUNT = "ACCOUNTING_WITHDRAW_INVALID_AMOUNT";
 
-    address public owner;
     mapping (address => mapping (address => uint256)) internal balances;
 
-    event Assign(address indexed token, address indexed from, address indexed to, uint256 amount);
-    event Withdraw(address indexed token, address indexed from, address indexed to, uint256 amount);
+    event Assign(ERC20 indexed token, address indexed from, address indexed to, uint256 amount);
+    event Withdraw(ERC20 indexed token, address indexed from, address indexed to, uint256 amount);
 
     modifier onlyOwner {
+        address owner = _accountingOwner();
         require(msg.sender == owner, ERROR_SENDER_NOT_OWNER);
         _;
     }
 
-    function init(address _owner) external {
-        // TODO: cannot check the given owner is a contract cause the Court set this up in the constructor, move to a factory
-        // require(isContract(_owner), ERROR_OWNER_NOT_CONTRACT);
-
-        initialized();
-        owner = _owner;
+    constructor(Controller _controller) ControlledRecoverable(_controller) public {
+        // solium-disable-previous-line no-empty-blocks
+        // No need to explicitly call `Controlled` constructor since `ControlledRecoverable` is already doing it
     }
 
     function assign(ERC20 _token, address _to, uint256 _amount) external onlyOwner {
@@ -42,7 +41,7 @@ contract CourtAccounting is IAccounting, Initializable {
 
         address tokenAddress = address(_token);
         balances[tokenAddress][_to] = balances[tokenAddress][_to].add(_amount);
-        emit Assign(tokenAddress, msg.sender, _to, _amount);
+        emit Assign(_token, msg.sender, _to, _amount);
     }
 
     function withdraw(ERC20 _token, address _to, uint256 _amount) external {
@@ -52,7 +51,7 @@ contract CourtAccounting is IAccounting, Initializable {
 
         address tokenAddress = address(_token);
         balances[tokenAddress][msg.sender] = balance.sub(_amount);
-        emit Withdraw(tokenAddress, msg.sender, _to, _amount);
+        emit Withdraw(_token, msg.sender, _to, _amount);
 
         require(_token.safeTransfer(_to, _amount), ERROR_WITHDRAW_FAILED);
     }

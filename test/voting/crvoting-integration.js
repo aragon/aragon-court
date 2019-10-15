@@ -2,16 +2,21 @@ const { SALT, OUTCOMES, encryptVote } = require('../helpers/crvoting')
 
 const CRVoting = artifacts.require('CRVoting')
 const CRVotingOwner = artifacts.require('CRVotingOwnerMock')
+const Controller = artifacts.require('ControllerMock')
 
 const POSSIBLE_OUTCOMES = 2
 
 contract('CRVoting', ([_, voterWeighted1, voterWeighted2, voterWeighted3, voterWeighted10, voterWeighted12, voterWeighted13, someone]) => {
-  let voting, votingOwner, voteId = 0
+  let controller, voting, votingOwner, voteId = 0
 
   beforeEach('create voting', async () => {
-    voting = await CRVoting.new()
+    controller = await Controller.new()
+
+    voting = await CRVoting.new(controller.address)
+    await controller.setVoting(voting.address)
+
     votingOwner = await CRVotingOwner.new(voting.address)
-    await voting.init(votingOwner.address)
+    await controller.setCourt(votingOwner.address)
     await votingOwner.create(voteId, POSSIBLE_OUTCOMES)
   })
 

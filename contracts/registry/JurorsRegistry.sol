@@ -1,7 +1,5 @@
 pragma solidity ^0.5.8;
 
-import "@aragon/os/contracts/common/IsContract.sol";
-import "@aragon/os/contracts/common/Initializable.sol";
 import "@aragon/os/contracts/common/SafeERC20.sol";
 import "@aragon/os/contracts/lib/token/ERC20.sol";
 import "@aragon/os/contracts/lib/math/SafeMath.sol";
@@ -14,9 +12,11 @@ import "../lib/PctHelpers.sol";
 import "../lib/JurorsTreeSortition.sol";
 import "../standards/ERC900.sol";
 import "../standards/ApproveAndCall.sol";
+import "../controller/Controlled.sol";
+import "../controller/ControlledRecoverable.sol";
 
 
-contract JurorsRegistry is Initializable, IsContract, IJurorsRegistry, ERC900, ApproveAndCallFallBack {
+contract JurorsRegistry is Controlled, ControlledRecoverable, IJurorsRegistry, ERC900, ApproveAndCallFallBack {
     using SafeERC20 for ERC20;
     using SafeMath for uint256;
     using PctHelpers for uint256;
@@ -74,6 +74,9 @@ contract JurorsRegistry is Initializable, IsContract, IJurorsRegistry, ERC900, A
         uint64 availableTermId;     // id of the term when jurors can withdraw their requested deactivation tokens
     }
 
+    /**
+    * @dev Internal struct to wrap all the params required to perform jurors drafting
+    */
     struct DraftParams {
         bytes32 termRandomness;
         uint256 disputeId;
@@ -84,9 +87,6 @@ contract JurorsRegistry is Initializable, IsContract, IJurorsRegistry, ERC900, A
         uint256 draftLockAmount;
         uint256 sortitionIteration;
     }
-
-    // Jurors registry owner address
-    IJurorsRegistryOwner public owner;
 
     // Minimum amount of tokens jurors have to activate to participate in the Court
     uint256 internal minActiveBalance;
@@ -114,26 +114,30 @@ contract JurorsRegistry is Initializable, IsContract, IJurorsRegistry, ERC900, A
     event JurorAvailableBalanceChanged(address indexed juror, uint256 amount, bool positive);
     event JurorTokensCollected(address indexed juror, uint256 amount, uint64 termId);
 
+    /**
+    * @dev Ensure the msg.sender is the jurors registry's owner
+    */
     modifier onlyOwner() {
+        IJurorsRegistryOwner owner = _jurorsRegistryOwner();
         require(msg.sender == address(owner), ERROR_SENDER_NOT_OWNER);
         _;
     }
 
     /**
-    * @notice Initialize jurors registry with a minimum active amount of `@tokenAmount(_token, _minActiveBalance)`.
-    * @param _owner Address to be set as the owner of the jurors registry
+    * @dev Constructor function
+    * @param _controller Address of the controller
     * @param _jurorToken Address of the ERC20 token to be used as juror token for the registry
     * @param _minActiveBalance Minimum amount of juror tokens that can be activated
     * @param _totalActiveBalanceLimit Maximum amount of total active balance that can be hold in the registry
     */
-    function init(IJurorsRegistryOwner _owner, ERC20 _jurorToken, uint256 _minActiveBalance, uint256 _totalActiveBalanceLimit) external {
-        // TODO: cannot check the given owner is a contract cause the Court set this up in the constructor, move to a factory
-        // require(isContract(_owner), ERROR_NOT_CONTRACT);
+    constructor(Controller _controller, ERC20 _jurorToken, uint256 _minActiveBalance, uint256 _totalActiveBalanceLimit)
+        ControlledRecoverable(_controller)
+        public
+    {
+        // No need to explicitly call `Controlled` constructor since `ControlledRecoverable` is already doing it
         require(isContract(address(_jurorToken)), ERROR_NOT_CONTRACT);
         require(_totalActiveBalanceLimit > 0, ERROR_BAD_TOTAL_ACTIVE_BALANCE_LIMIT);
 
-        initialized();
-        owner = _owner;
         jurorsToken = _jurorToken;
         minActiveBalance = _minActiveBalance;
         totalActiveBalanceLimit = _totalActiveBalanceLimit;
@@ -146,7 +150,8 @@ contract JurorsRegistry is Initializable, IsContract, IJurorsRegistry, ERC900, A
     * @notice Activate `_amount == 0 ? 'all available tokens' : @tokenAmount(self.token(), _amount)` for the next term
     * @param _amount Amount of juror tokens to be activated for the next term
     */
-    function activate(uint256 _amount) external isInitialized {
+    function activate(uint256 _amount) external {
+        IJurorsRegistryOwner owner = _jurorsRegistryOwner();
         uint64 termId = owner.ensureAndGetTermId();
 
         _processDeactivationRequest(msg.sender, termId);
@@ -163,7 +168,8 @@ contract JurorsRegistry is Initializable, IsContract, IJurorsRegistry, ERC900, A
     * @notice Deactivate `_amount == 0 ? 'all unlocked tokens' : @tokenAmount(self.token(), _amount)` for the next term
     * @param _amount Amount of juror tokens to be deactivated for the next term
     */
-    function deactivate(uint256 _amount) external isInitialized {
+    function deactivate(uint256 _amount) external {
+        IJurorsRegistryOwner owner = _jurorsRegistryOwner();
         uint64 termId = owner.ensureAndGetTermId();
 
         uint256 unlockedActiveBalance = unlockedActiveBalanceOf(msg.sender);
@@ -183,7 +189,7 @@ contract JurorsRegistry is Initializable, IsContract, IJurorsRegistry, ERC900, A
     * @param _amount Amount of tokens to be staked
     * @param _data Optional data that can be used to request the activation of the transferred tokens
     */
-    function stake(uint256 _amount, bytes calldata _data) external isInitialized {
+    function stake(uint256 _amount, bytes calldata _data) external {
         _stake(msg.sender, msg.sender, _amount, _data);
     }
 
@@ -193,7 +199,7 @@ contract JurorsRegistry is Initializable, IsContract, IJurorsRegistry, ERC900, A
     * @param _amount Amount of tokens to be staked
     * @param _data Optional data that can be used to request the activation of the transferred tokens
     */
-    function stakeFor(address _to, uint256 _amount, bytes calldata _data) external isInitialized {
+    function stakeFor(address _to, uint256 _amount, bytes calldata _data) external {
         _stake(msg.sender, _to, _amount, _data);
     }
 
@@ -202,7 +208,7 @@ contract JurorsRegistry is Initializable, IsContract, IJurorsRegistry, ERC900, A
     * @param _amount Amount of tokens to be unstaked
     * @param _data Optional data is never used by this function, only logged
     */
-    function unstake(uint256 _amount, bytes calldata _data) external isInitialized {
+    function unstake(uint256 _amount, bytes calldata _data) external {
         _unstake(msg.sender, _amount, _data);
     }
 
@@ -381,6 +387,14 @@ contract JurorsRegistry is Initializable, IsContract, IJurorsRegistry, ERC900, A
     */
     function minJurorsActiveBalance() external view returns (uint256) {
         return minActiveBalance;
+    }
+
+    /**
+    * @dev Tell the maximum amount of total active balance that can be hold in the registry
+    * @return Maximum amount of total active balance that can be hold in the registry
+    */
+    function totalJurorsActiveBalanceLimit() external view returns (uint256) {
+        return totalActiveBalanceLimit;
     }
 
     /**
@@ -629,6 +643,7 @@ contract JurorsRegistry is Initializable, IsContract, IJurorsRegistry, ERC900, A
         // Activate tokens if it was requested and the address depositing tokens is the juror. Note that there's
         // no need to check the activation amount since we have just added it to the available balance of the juror
         if (_from == _juror && _data.toBytes4() == JurorsRegistry(this).activate.selector) {
+            IJurorsRegistryOwner owner = _jurorsRegistryOwner();
             uint64 termId = owner.ensureAndGetTermId();
             _activateTokens(_juror, termId, _amount);
         }
@@ -648,6 +663,7 @@ contract JurorsRegistry is Initializable, IsContract, IJurorsRegistry, ERC900, A
         // the current term this time since deactivation requests always work with future terms, which means that if
         // the current term is outdated, it will never match the deactivation term id. We avoid ensuring the term here
         // to avoid forcing jurors to do that in order to withdraw their available balance.
+        IJurorsRegistryOwner owner = _jurorsRegistryOwner();
         _processDeactivationRequest(_juror, owner.getLastEnsuredTermId());
 
         _updateAvailableBalanceOf(_juror, _amount, false);
@@ -780,6 +796,7 @@ contract JurorsRegistry is Initializable, IsContract, IJurorsRegistry, ERC900, A
         // function `totalSumAt` will perform a backwards linear search from the last checkpoint or a binary search
         // depending on whether the given checkpoint is considered to be recent or not. In this case, we consider
         // current or future terms as recent ones.
+        IJurorsRegistryOwner owner = _jurorsRegistryOwner();
         bool recent = _termId >= owner.getLastEnsuredTermId();
         return recent ? tree.getRecentTotalAt(_termId) : tree.getTotalAt(_termId);
     }

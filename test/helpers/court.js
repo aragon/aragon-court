@@ -1,9 +1,9 @@
 const { sha3 } = require('web3-utils')
-const { bn, bigExp, assertBn } = require('./numbers')
 const { decodeEventsOfType } = require('./decodeEvent')
 const { NEXT_WEEK, ONE_DAY } = require('./time')
+const { MAX_UINT64, bn, bigExp } = require('./numbers')
 const { getEvents, getEventArgument } = require('@aragon/os/test/helpers/events')
-const { getVoteId, encryptVote, oppositeOutcome, outcomeFor, SALT, OUTCOMES } = require('../helpers/crvoting')
+const { SALT, OUTCOMES, getVoteId, encryptVote, oppositeOutcome, outcomeFor } = require('../helpers/crvoting')
 
 const PCT_BASE = bn(10000)
 
@@ -22,10 +22,17 @@ const ROUND_STATES = {
   ENDED: bn(5)
 }
 
+const MODULE_IDS = {
+  court: '0x26f3b895987e349a46d6d91132234924c6d45cfdc564b33427f53e3f9284955c',
+  accounting: '0x3ec26b85a7d49ed13a920deeaceb063fa458eb25266fa7b504696047900a5b0f',
+  voting: '0x7cbb12e82a6d63ff16fe43977f43e3e2b247ecd4e62c0e340da8800a48c67346',
+  registry: '0x3b21d36b36308c830e6c4053fb40a3b6d79dde78947fbf6b0accd30720ab5370',
+  subscriptions: '0x2bfa3327fe52344390da94c32a346eeb1b65a8b583e4335a419b9471e88c1365'
+}
+
 module.exports = (web3, artifacts) => {
   const { advanceBlocks } = require('../helpers/blocks')(web3)
 
-  // TODO: update default to make sure we test using real values
   const DEFAULTS = {
     termDuration:                       bn(ONE_DAY),     //  terms lasts one day
     firstTermStartTime:                 bn(NEXT_WEEK),   //  first term starts one week after mocked timestamp
@@ -439,30 +446,46 @@ module.exports = (web3, artifacts) => {
     async deploy(params) {
       Object.assign(this, { ...DEFAULTS, ...params })
       if (!this.governor) this.governor = await this._getAccount(0)
-      if (!this.voting) this.voting = await this.artifacts.require('CRVoting').new()
-      if (!this.accounting) this.accounting = await this.artifacts.require('CourtAccounting').new()
+      if (!this.controller) this.controller = await this.artifacts.require('Controller').new(this.governor, this.governor, this.governor)
+
       if (!this.feeToken) this.feeToken = await this.artifacts.require('ERC20Mock').new('Court Fee Token', 'CFT', 18)
       if (!this.jurorToken) this.jurorToken = await this.artifacts.require('ERC20Mock').new('Aragon Network Juror Token', 'ANJ', 18)
-      if (!this.jurorsRegistry) this.jurorsRegistry =  await this.artifacts.require('JurorsRegistryMock').new()
-      if (!this.subscriptions) this.subscriptions = await this.artifacts.require('SubscriptionsMock').new()
 
-      this.court = await artifacts.require('CourtMock').new(
+      if (!this.voting) this.voting = await this.artifacts.require('CRVoting').new(this.controller.address)
+      if (!this.accounting) this.accounting = await this.artifacts.require('CourtAccounting').new(this.controller.address)
+
+      if (!this.court) this.court = await this.artifacts.require('CourtMock').new(
+        this.controller.address,
         this.termDuration,
-        [ this.jurorToken.address, this.feeToken.address ],
-        this.jurorsRegistry.address,
-        this.accounting.address,
-        this.voting.address,
-        this.subscriptions.address,
-        [ this.jurorFee, this.heartbeatFee, this.draftFee, this.settleFee ],
-        this.governor,
         this.firstTermStartTime,
-        this.jurorsMinActiveBalance,
-        [ this.commitTerms, this.revealTerms, this.appealTerms, this.appealConfirmTerms ],
-        [ this.penaltyPct, this.finalRoundReduction ],
-        [ this.firstRoundJurorsNumber, this.appealStepFactor, this.maxRegularAppealRounds, ],
-        [ this.appealCollateralFactor, this.appealConfirmCollateralFactor ],
-        [ this.subscriptionPeriodDuration, this.subscriptionFeeAmount, this.subscriptionPrePaymentPeriods, this.subscriptionResumePrePaidPeriods, this.subscriptionLatePaymentPenaltyPct, this.subscriptionGovernorSharePct ]
+        this.feeToken.address,
+        [this.jurorFee, this.heartbeatFee, this.draftFee, this.settleFee],
+        [this.commitTerms, this.revealTerms, this.appealTerms, this.appealConfirmTerms],
+        [this.penaltyPct, this.finalRoundReduction],
+        [this.firstRoundJurorsNumber, this.appealStepFactor, this.maxRegularAppealRounds],
+        [this.appealCollateralFactor, this.appealConfirmCollateralFactor],
       )
+
+      if (!this.jurorsRegistry) this.jurorsRegistry = await this.artifacts.require('JurorsRegistryMock').new(
+        this.controller.address,
+        this.jurorToken.address,
+        this.jurorsMinActiveBalance,
+        this.jurorsMinActiveBalance.mul(MAX_UINT64.div(this.finalRoundWeightPrecision)),
+      )
+
+      if (!this.subscriptions) this.subscriptions = await this.artifacts.require('SubscriptionsMock').new(
+        this.controller.address,
+        this.subscriptionPeriodDuration,
+        this.feeToken.address,
+        this.subscriptionFeeAmount,
+        this.subscriptionPrePaymentPeriods,
+        this.subscriptionLatePaymentPenaltyPct,
+        this.subscriptionGovernorSharePct,
+      )
+
+      const ids = Object.values(MODULE_IDS)
+      const implementations = [this.court, this.accounting, this.voting, this.jurorsRegistry, this.subscriptions].map(i => i.address)
+      await this.controller.setModules(ids, implementations, { from: this.governor })
 
       const zeroTermStartTime = this.firstTermStartTime.sub(this.termDuration)
       await this.setTimestamp(zeroTermStartTime)

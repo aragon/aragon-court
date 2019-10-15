@@ -20,6 +20,7 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
     { address: juror3500, initialActiveBalance: bigExp(3500, 18) },
     { address: juror2500, initialActiveBalance: bigExp(2500, 18) },
   ]
+
   beforeEach('create court', async () => {
     courtHelper = buildHelper()
     court = await courtHelper.deploy()

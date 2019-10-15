@@ -17,16 +17,19 @@ import "../registry/IJurorsRegistry.sol";
 import "../registry/IJurorsRegistryOwner.sol";
 import "../subscriptions/ISubscriptions.sol";
 import "../subscriptions/ISubscriptionsOwner.sol";
+import "../controller/ControlledRecoverable.sol";
 
 
-contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, TimeHelpers {
+contract Court is TimeHelpers, Controlled, ControlledRecoverable, IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner {
     using SafeERC20 for ERC20;
     using SafeMath for uint256;
     using SafeMath64 for uint64;
     using PctHelpers for uint256;
     using Uint256Helpers for uint256;
 
-    string private constant ERROR_BAD_SENDER = "CT_BAD_SENDER";
+    // Authorization-related error messages
+    string private constant ERROR_SENDER_NOT_VOTING = "CT_SENDER_NOT_VOTING";
+
     // Configs-related error messages
     string private constant ERROR_TERM_DURATION_TOO_LONG = "CT_TERM_DURATION_TOO_LONG";
     string private constant ERROR_BAD_FIRST_TERM_START_TIME = "CT_BAD_FIRST_TERM_START_TIME";
@@ -36,9 +39,6 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
     string private constant ERROR_BAD_INITIAL_JURORS = "CT_BAD_INITIAL_JURORS";
     string private constant ERROR_BAD_APEAL_STEP_FACTOR = "CT_BAD_APEAL_STEP_FACTOR";
     string private constant ERROR_INVALID_MAX_APPEAL_ROUNDS = "CT_INVALID_MAX_APPEAL_ROUNDS";
-    string private constant ERROR_INVALID_PERIOD_DURATION = "CT_INVALID_PERIOD_DURATION";
-    string private constant ERROR_INVALID_GOVERNANCE_SHARE = "CT_INVALID_GOVERNANCE_SHARE";
-    string private constant ERROR_INVALID_LATE_PAYMENT_PENALTY = "CT_INVALID_LATE_PAYMENT_PENALTY";
     string private constant ERROR_ZERO_COLLATERAL_FACTOR = "CT_0_COLLATERAL_FACTOR";
 
     // Terms-related error messages
@@ -114,11 +114,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
         Ended
     }
 
-    /**
-    * TODO: document
-    */
     struct FeesConfig {
-        // Fee structure
         ERC20 token;                   // ERC20 token to be used for the fees of the Court
         uint256 jurorFee;              // Amount of tokens paid to draft a juror to adjudicate a dispute
         uint256 heartbeatFee;          // Amount of tokens paid per dispute to cover the term transitions costs of the draft term
@@ -126,7 +122,6 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
         uint256 settleFee;             // Amount of tokens paid per round to cover the costs of slashing jurors
     }
 
-    // Dispute config
     struct DisputesConfig {
         uint64 commitTerms;            // Committing period duration in terms
         uint64 revealTerms;            // Revealing period duration in terms
@@ -205,36 +200,20 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
     // Duration in seconds for each term of the Court
     uint64 public termDuration;
 
-    // Registry of jurors participating in the Court
-    IJurorsRegistry internal jurorsRegistry;
-
-    // Accounting contract handling the assets of the Court
-    IAccounting internal accounting;
-
-    // Commit-Reveal voting instance to be used by jurors to vote for the disputes handled by the Court
-    ICRVoting internal voting;
-
-    // Court subscriptions registry
-    ISubscriptions internal subscriptions;
-
-    // Governor of the court, address allowed to change the Court configs
-    // TODO: consider using aOS' ACL
-    address internal governor;
-
-    // List of all the configs used in the Court
-    CourtConfig[] internal courtConfigs;
-
-    // Future term id in which a config change has been scheduled
-    uint64 public configChangeTermId;
-
     // Last ensured term id
     uint64 internal termId;
+
+    // Future term id in which a config change has been scheduled
+    uint64 internal configChangeTermId;
 
     // List of Court terms indexed by id
     mapping (uint64 => Term) internal terms;
 
     // List of all the disputes created in the Court
     Dispute[] internal disputes;
+
+    // List of all the configs used in the Court
+    CourtConfig[] internal courtConfigs;
 
     event NewTerm(uint64 termId, address indexed heartbeatSender);
     event NewCourtConfig(uint64 fromTermId, uint64 courtConfigId);
@@ -250,8 +229,9 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
     /**
     * @dev Ensure the msg.sender is the CR Voting module
     */
-    modifier only(address _allowed) {
-        require(msg.sender == _allowed, ERROR_BAD_SENDER);
+    modifier onlyVoting() {
+        ICRVoting voting = _voting();
+        require(msg.sender == address(voting), ERROR_SENDER_NOT_VOTING);
         _;
     }
 
@@ -265,57 +245,47 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
     }
 
     /**
+    * @dev Constructor function
+    * @param _controller Address of the controller
     * @param _termDuration Duration in seconds per term (recommended 1 hour)
-    * @param _tokens Array containing:
-    *        _jurorToken Address of the juror work token contract.
-    *        _feeToken Address of the token contract that is used to pay for fees.
-    * @param _jurorsRegistry Address of the JurorsRegistry component of the Court
-    * @param _voting Address of the Commit Reveal Voting contract.
+    * @param _firstTermStartTime Timestamp in seconds when the court will open (to give time for juror on-boarding)
+    * @param _feeToken Address of the token contract that is used to pay for fees
     * @param _fees Array containing:
-    *        _jurorFee The amount of _feeToken that is paid per juror per dispute
-    *        _heartbeatFee The amount of _feeToken per dispute to cover maintenance costs.
-    *        _draftFee The amount of _feeToken per juror to cover the drafting cost.
-    *        _settleFee The amount of _feeToken per juror to cover round settlement cost.
-    * @param _governor Address of the governor contract.
-    * @param _firstTermStartTime Timestamp in seconds when the court will open (to give time for juror onboarding)
-    * @param _minJurorsActiveBalance Minimum amount of juror tokens that can be activated
-    * @param _roundStateDurations Array containing the durations in terms of the different phases of a dispute,
-    *        in this order: commit, reveal, appeal and appeal confirm
+    *        0. jurorFee The amount of _feeToken that is paid per juror per dispute
+    *        1. heartbeatFee The amount of _feeToken per dispute to cover maintenance costs
+    *        2. draftFee The amount of _feeToken per juror to cover the drafting cost
+    *        3. settleFee The amount of _feeToken per juror to cover round settlement cost
+    * @param _roundStateDurations Array containing the durations in terms of the different phases of a dispute:
+    *        0. commitTerms Commit period duration in terms
+    *        1. revealTerms Reveal period duration in terms
+    *        2. appealTerms Appeal period duration in terms
+    *        3. appealConfirmationTerms Appeal confirmation period duration in terms
     * @param _pcts Array containing:
-    *        _penaltyPct ‱ of minJurorsActiveBalance that can be slashed (1/10,000)
-    *        _finalRoundReduction ‱ of fee reduction for the last appeal round (1/10,000)
+    *        0. penaltyPct ‱ of minJurorsActiveBalance that can be slashed (1/10,000)
+    *        1. finalRoundReduction ‱ of fee reduction for the last appeal round (1/10,000)
     * @param _roundParams Array containing params for rounds:
-    *        _firstRoundJurorsNumber Number of jurors to be drafted for the first round of disputes
-    *        _appealStepFactor Increasing factor for the number of jurors of each round of a dispute
-    *        _maxRegularAppealRounds Number of regular appeal rounds before the final round is triggered
+    *        0. firstRoundJurorsNumber Number of jurors to be drafted for the first round of disputes
+    *        1. appealStepFactor Increasing factor for the number of jurors of each round of a dispute
+    *        2. maxRegularAppealRounds Number of regular appeal rounds before the final round is triggered
     * @param _appealCollateralParams Array containing params for appeal collateral:
-    *        _appealCollateralFactor Multiple of juror fees required to appeal a preliminary ruling
-    *        _appealConfirmCollateralFactor Multiple of juror fees required to confirm appeal
-    * @param _subscriptionParams Array containing params for Subscriptions:
-    *        _periodDuration Length of Subscription periods
-    *        _feeAmount Amount of periodic fees
-    *        _prePaymentPeriods Max number of payments that can be done in advance
-    *        _resumePrePaidPeriods Number of periods to be paid in advance when resuming a subscription activity
-    *        _latePaymentPenaltyPct Penalty for not paying on time
-    *        _governorSharePct Share of paid fees that goes to governor
+    *        0. appealCollateralFactor Multiple of juror fees required to appeal a preliminary ruling
+    *        1. appealConfirmCollateralFactor Multiple of juror fees required to confirm appeal
     */
     constructor(
+        Controller _controller,
         uint64 _termDuration,
-        ERC20[2] memory _tokens, // _jurorToken, _feeToken
-        IJurorsRegistry _jurorsRegistry,
-        IAccounting _accounting,
-        ICRVoting _voting,
-        ISubscriptions _subscriptions,
-        uint256[4] memory _fees, // _jurorFee, _heartbeatFee, _draftFee, _settleFee
-        address _governor,
         uint64 _firstTermStartTime,
-        uint256 _minJurorsActiveBalance,
+        ERC20 _feeToken,
+        uint256[4] memory _fees,
         uint64[4] memory _roundStateDurations,
-        uint16[2] memory _pcts, //_penaltyPct, _finalRoundReduction
-        uint64[3] memory _roundParams, // _firstRoundJurorsNumber, _appealStepFactor, _maxRegularAppealRounds
-        uint256[2] memory _appealCollateralParams, // _appealCollateralFactor, _appealConfirmCollateralFactor
-        uint256[6] memory _subscriptionParams // _periodDuration, _feeAmount, _prePaymentPeriods, _resumePrePaidPeriods, _latePaymentPenaltyPct, _governorSharePct
-    ) public {
+        uint16[2] memory _pcts,
+        uint64[3] memory _roundParams,
+        uint256[2] memory _appealCollateralParams
+    )
+        ControlledRecoverable(_controller)
+        public
+    {
+        // No need to explicitly call `Controlled` constructor since `ControlledRecoverable` is already doing it
         // This seems reasonable enough, and this way we avoid using SafeMath for termDurarion
         require(_termDuration < MAX_TERM_DURATION, ERROR_TERM_DURATION_TOO_LONG);
         require(
@@ -324,25 +294,15 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
         );
 
         termDuration = _termDuration;
-        jurorsRegistry = _jurorsRegistry;
-        accounting = _accounting;
-        voting = _voting;
-        subscriptions = _subscriptions;
-        governor = _governor;
-
-        //                                  _jurorToken
-        _initJurorsRegistry(_jurorsRegistry, _tokens[0], _minJurorsActiveBalance);
-        accounting.init(address(this));
-        voting.init(ICRVotingOwner(this));
-        //                 _jurorToken
-        _initSubscriptions(_tokens[0], _subscriptionParams);
 
         // No need for SafeMath: checked above
         terms[0].startTime = _firstTermStartTime - _termDuration;
-        courtConfigs.length = 1; // leave index 0 empty
+
+        // Leave config at index 0 empty for non-scheduled config changes
+        courtConfigs.length = 1;
         _setCourtConfig(
             0, // term id zero
-            _tokens[1], // _feeToken
+            _feeToken,
             _fees,
             _roundStateDurations,
             _pcts,
@@ -376,14 +336,14 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
     function setCourtConfig(
         uint64 _termId,
         ERC20 _feeToken,
-        uint256[4] calldata _fees, // _jurorFee, _heartbeatFee, _draftFee, _settleFee
+        uint256[4] calldata _fees,
         uint64[4] calldata _roundStateDurations,
-        uint16[2] calldata _pcts, //_penaltyPct, _finalRoundReduction
-        uint64[3] calldata _roundParams, // _firstRoundJurorsNumber, _appealStepFactor, _maxRegularAppealRounds
-        uint256[2] calldata _appealCollateralParams // _appealCollateralFactor, _appealConfirmCollateralFactor
+        uint16[2] calldata _pcts,
+        uint64[3] calldata _roundParams,
+        uint256[2] calldata _appealCollateralParams
     )
         external
-        only(governor)
+        onlyConfigGovernor
     {
         _setCourtConfig(_termId, _feeToken, _fees, _roundStateDurations, _pcts, _roundParams, _appealCollateralParams);
     }
@@ -399,6 +359,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
         // TODO: Limit the min amount of terms before drafting (to allow for evidence submission)
         // TODO: ERC165 check that _subject conforms to the Arbitrable interface
         // TODO: require(address(_subject) == msg.sender, ERROR_INVALID_DISPUTE_CREATOR);
+        ISubscriptions subscriptions = _subscriptions();
         require(subscriptions.isUpToDate(address(_subject)), ERROR_SUBSCRIPTION_NOT_PAID);
         require(_possibleRulings >= MIN_RULING_OPTIONS && _possibleRulings <= MAX_RULING_OPTIONS, ERROR_INVALID_RULING_OPTIONS);
 
@@ -457,6 +418,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
         // Draft jurors for the given dispute and reimburse fees
         CourtConfig storage config = _getDisputeConfig(dispute);
         bool draftEnded = _draft(_disputeId, round, jurorsNumber, selectedJurors, requestedJurors, draftTerm, config);
+        IAccounting accounting = _accounting();
         accounting.assign(config.fees.token, msg.sender, config.fees.draftFee.mul(requestedJurors));
 
         // If the drafting is over, update its state
@@ -481,6 +443,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
         _checkAdjudicationState(dispute, _roundId, AdjudicationState.Appealing);
 
         // Ensure that the ruling being appealed in favor of is valid and different from the current winning ruling
+        ICRVoting voting = _voting();
         uint256 voteId = _getVoteId(_disputeId, _roundId);
         uint8 roundWinningRuling = voting.getWinningOutcome(voteId);
         require(roundWinningRuling != _ruling && voting.isValidOutcome(voteId, _ruling), ERROR_INVALID_APPEAL_RULING);
@@ -513,7 +476,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
         AdjudicationRound storage round = dispute.rounds[_roundId];
         Appeal storage appeal = round.appeal;
         uint256 voteId = _getVoteId(_disputeId, _roundId);
-        require(appeal.appealedRuling != _ruling && voting.isValidOutcome(voteId, _ruling), ERROR_INVALID_APPEAL_RULING);
+        require(appeal.appealedRuling != _ruling && _voting().isValidOutcome(voteId, _ruling), ERROR_INVALID_APPEAL_RULING);
 
         // Create a new adjudication round for the dispute
         NextRoundDetails memory nextRound = _getNextRoundDetails(dispute, round, _roundId);
@@ -576,6 +539,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
             // Note that we are safe to cast the tally of a ruling to uint64 since the highest value a ruling can have is
             // `jurorsNumbers` for regular rounds or total active balance of the registry for final rounds, and both are
             // ensured to fit in uint64
+            ICRVoting voting = _voting();
             round.coherentJurors = uint64(voting.getOutcomeTally(voteId, finalRuling));
         }
 
@@ -584,6 +548,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
             // For regular appeal rounds we compute the amount of locked tokens that needs to get burned in batches.
             // The callers of this function will get rewarded in this case.
             uint256 jurorsSettled = _settleRegularRoundPenalties(round, voteId, finalRuling, config.disputes.penaltyPct, _jurorsToSettle);
+            IAccounting accounting = _accounting();
             accounting.assign(config.fees.token, msg.sender, config.fees.settleFee.mul(jurorsSettled));
         } else {
             // For the final appeal round, there is no need to settle in batches since, to guarantee scalability,
@@ -604,11 +569,13 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
                 // in favor of the final winning outcome. Otherwise, these will be re-distributed between the winning jurors in `settleReward`
                 // instead of being burned.
                 if (collectedTokens > 0) {
+                    IJurorsRegistry jurorsRegistry = _jurorsRegistry();
                     jurorsRegistry.burnTokens(collectedTokens);
                 }
 
                 // Reimburse juror fees to the disputer for round 0 or to the previous appeal parties for other rounds. Note that if the
                 // given round is not the first round, we can ensure there was an appeal in the previous round.
+                IAccounting accounting = _accounting();
                 if (isFirstRound) {
                     accounting.assign(config.fees.token, round.triggeredBy, round.jurorFees);
                 } else {
@@ -643,6 +610,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
         jurorState.rewarded = true;
 
         // Check if the given juror has voted in favor of the final ruling of the dispute in this round
+        ICRVoting voting = _voting();
         uint256 voteId = _getVoteId(_disputeId, _roundId);
         require(voting.hasVotedInFavorOf(voteId, dispute.finalRuling, _juror), ERROR_WONT_REWARD_INCOHERENT_JUROR);
 
@@ -653,12 +621,14 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
         uint256 coherentJurors = round.coherentJurors;
         uint256 collectedTokens = round.collectedTokens;
         if (collectedTokens > 0) {
+            IJurorsRegistry jurorsRegistry = _jurorsRegistry();
             jurorsRegistry.assignTokens(_juror, uint256(jurorState.weight).mul(collectedTokens) / coherentJurors);
         }
 
         // Reward the winning juror
         uint256 jurorFee = round.jurorFees.mul(jurorState.weight) / coherentJurors;
         CourtConfig storage config = _getDisputeConfig(dispute);
+        IAccounting accounting = _accounting();
         accounting.assign(config.fees.token, _juror, jurorFee);
         emit RewardSettled(_disputeId, _roundId, _juror);
     }
@@ -690,6 +660,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
         uint256 confirmAppealDeposit = nextRound.confirmAppealDeposit;
 
         // If the appeal wasn't confirmed, return the entire deposit to appeal maker
+        IAccounting accounting = _accounting();
         if (!_isAppealConfirmed(appeal)) {
             accounting.assign(feeToken, appeal.maker, appealDeposit);
             return;
@@ -720,7 +691,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
     * @param _voter Address of the voter querying the weight of
     * @return Weight of the requested juror for the requested dispute's round
     */
-    function ensureTermAndGetVoterWeightToCommit(uint256 _voteId, address _voter) external only(address(voting)) ensureTerm returns (uint64) {
+    function ensureTermAndGetVoterWeightToCommit(uint256 _voteId, address _voter) external onlyVoting ensureTerm returns (uint64) {
         (uint256 disputeId, uint256 roundId) = _decodeVoteId(_voteId);
         Dispute storage dispute = disputes[disputeId];
         _checkAdjudicationState(dispute, roundId, AdjudicationState.Committing);
@@ -731,7 +702,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
     * @notice Check if votes can be leaked
     * @param _voteId ID of the vote instance to be checked
     */
-    function ensureTermToLeak(uint256 _voteId) external only(address(voting)) ensureTerm {
+    function ensureTermToLeak(uint256 _voteId) external onlyVoting ensureTerm {
         (uint256 disputeId, uint256 roundId) = _decodeVoteId(_voteId);
         Dispute storage dispute = disputes[disputeId];
         _checkAdjudicationState(dispute, roundId, AdjudicationState.Committing);
@@ -743,7 +714,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
     * @param _voter Address of the voter querying the weight of
     * @return Weight of the requested juror for the requested dispute's round
     */
-    function ensureTermAndGetVoterWeightToReveal(uint256 _voteId, address _voter) external only(address(voting)) ensureTerm returns (uint64) {
+    function ensureTermAndGetVoterWeightToReveal(uint256 _voteId, address _voter) external onlyVoting ensureTerm returns (uint64) {
         (uint256 disputeId, uint256 roundId) = _decodeVoteId(_voteId);
         Dispute storage dispute = disputes[disputeId];
         _checkAdjudicationState(dispute, roundId, AdjudicationState.Revealing);
@@ -810,14 +781,6 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
         require(_termId <= termId, ERROR_TERM_DOES_NOT_EXIST);
         Term storage term = terms[_termId];
         return _getTermRandomness(term);
-    }
-
-    /**
-    * @dev Tell the address of the Court governor
-    * @return Address of the Court governor
-    */
-    function getGovernor() external view returns (address) {
-        return governor;
     }
 
     /**
@@ -1032,6 +995,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
         if (_isRegularRound(_roundId, config)) {
             weight = _getStoredJurorWeight(round, _juror);
         } else {
+            IJurorsRegistry jurorsRegistry = _jurorsRegistry();
             (, uint256 minActiveBalanceMultiple) = jurorsRegistry.getActiveBalanceInfoOfAt(_juror, round.draftTermId, FINAL_ROUND_WEIGHT_PRECISION);
             weight = minActiveBalanceMultiple.toUint64();
         }
@@ -1080,6 +1044,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
 
         // Pay heartbeat fees to the caller of this function
         if (totalFee > 0) {
+            IAccounting accounting = _accounting();
             accounting.assign(config.fees.token, msg.sender, totalFee);
         }
     }
@@ -1139,6 +1104,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
         terms[_draftTermId].dependingDrafts += 1;
 
         // Create new vote for the new round
+        ICRVoting voting = _voting();
         uint256 voteId = _getVoteId(_disputeId, roundId);
         voting.create(voteId, dispute.possibleRulings);
         return roundId;
@@ -1167,7 +1133,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
         bool isRoundAppealedAndNotConfirmed = _existsAppeal(lastAppeal) && !_isAppealConfirmed(lastAppeal);
         uint8 finalRuling = isRoundAppealedAndNotConfirmed
             ? lastAppeal.appealedRuling
-            : voting.getWinningOutcome(_getVoteId(_disputeId, lastRoundId));
+            : _voting().getWinningOutcome(_getVoteId(_disputeId, lastRoundId));
 
         // Store the winning ruling as the final decision for the given dispute
         dispute.finalRuling = finalRuling;
@@ -1215,6 +1181,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
         _round.settledJurors = uint64(roundSettledJurors + batchSettledJurors);
 
         // Prepare the list of jurors and penalties to either be slashed or returned based on their votes for the given round
+        IJurorsRegistry jurorsRegistry = _jurorsRegistry();
         uint256 minActiveBalance = jurorsRegistry.minJurorsActiveBalance();
         address[] memory jurors = new address[](batchSettledJurors);
         uint256[] memory penalties = new uint256[](batchSettledJurors);
@@ -1226,6 +1193,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
 
         // Check which of the jurors voted in favor of the final ruling of the dispute in this round. Ask the registry to slash or unlocked the
         // locked active tokens of each juror depending on their vote, and finally store the total amount of slashed tokens.
+        ICRVoting voting = _voting();
         bool[] memory jurorsInFavor = voting.getVotersInFavorOf(_voteId, _finalRuling, jurors);
         _round.collectedTokens = _round.collectedTokens.add(jurorsRegistry.slashOrUnlock(termId, jurors, penalties, jurorsInFavor));
         return batchSettledJurors;
@@ -1260,6 +1228,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
         internal returns (uint64)
     {
         // If the juror weight for the last round is zero, return zero
+        IJurorsRegistry jurorsRegistry = _jurorsRegistry();
         (uint256 activeBalance, uint256 minActiveBalanceMultiple) = jurorsRegistry.getActiveBalanceInfoOfAt(
             _juror,
             _round.draftTermId,
@@ -1392,6 +1361,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
     */
     function _depositSenderAmount(ERC20 _token, uint256 _amount) internal {
         if (_amount > 0) {
+            IAccounting accounting = _accounting();
             require(_token.safeTransferFrom(msg.sender, address(accounting), _amount), ERROR_DEPOSIT_FAILED);
         }
     }
@@ -1472,6 +1442,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
             // Total active balance is guaranteed to never be greater than
             // `2^64 * minActiveBalance / FINAL_ROUND_WEIGHT_PRECISION`. Thus, the
             // jurors number for a final round will always fit in `uint64`
+            IJurorsRegistry jurorsRegistry = _jurorsRegistry();
             nextRound.nextRoundJurorsNumber = jurorsRegistry.getTotalMinActiveBalanceMultiple(
                 nextRound.nextRoundStartTerm,
                 FINAL_ROUND_WEIGHT_PRECISION
@@ -1766,7 +1737,7 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
     )
         private returns(bool)
     {
-        // Draft jurors for the requested round
+        // Pack draft params
         uint256[7] memory draftParams = [
             uint256(_draftTerm.randomness),
             _disputeId,
@@ -1776,6 +1747,9 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
             uint256(_jurorsNumber),
             uint256(_config.disputes.penaltyPct)
         ];
+
+        // Draft jurors for the requested round
+        IJurorsRegistry jurorsRegistry = _jurorsRegistry();
         (address[] memory jurors, uint64[] memory weights, uint256 outputLength) = jurorsRegistry.draft(draftParams);
 
         // Update round with drafted jurors information.
@@ -1796,34 +1770,5 @@ contract Court is IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner, Tim
         }
 
         return newSelectedJurors == _jurorsNumber;
-    }
-
-    // TODO: move to a factory contract
-    function _initJurorsRegistry(IJurorsRegistry _jurorsRegistry, ERC20 _jurorToken, uint256 _minJurorsActiveBalance) private {
-        uint256 maxUint64 = uint256(uint64(-1));
-        uint256 minActiveBalancesLimit = maxUint64 / FINAL_ROUND_WEIGHT_PRECISION;
-        uint256 totalActiveBalanceLimit = _minJurorsActiveBalance.mul(minActiveBalancesLimit);
-        _jurorsRegistry.init(IJurorsRegistryOwner(this), _jurorToken, _minJurorsActiveBalance, totalActiveBalanceLimit);
-    }
-
-    // TODO: move to a factory contract
-    function _initSubscriptions(ERC20 _feeToken, uint256[6] memory _subscriptionParams) private {
-        uint64 maxUint64 = uint64(-1);
-        uint256 maxUint16 = uint16(-1);
-
-        require(_subscriptionParams[0] <= maxUint64, ERROR_INVALID_PERIOD_DURATION); // _periodDuration
-        require(_subscriptionParams[3] <= maxUint16, ERROR_INVALID_LATE_PAYMENT_PENALTY); // _latePaymentPenaltyPct
-        require(_subscriptionParams[4] <= maxUint16, ERROR_INVALID_GOVERNANCE_SHARE); // _governorSharePct
-        subscriptions.init(
-            ISubscriptionsOwner(this),
-            jurorsRegistry,
-            uint64(_subscriptionParams[0]), // _periodDuration
-            _feeToken,
-            _subscriptionParams[1],         // _feeAmount
-            _subscriptionParams[2],         // _prePaymentPeriods
-            _subscriptionParams[3],         // _resumePrePaidPeriods
-            uint16(_subscriptionParams[4]), // _latePaymentPenaltyPct
-            uint16(_subscriptionParams[5])  // _governorSharePct
-        );
     }
 }

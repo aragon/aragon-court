@@ -4,11 +4,11 @@ const { assertAmountOfEvents, assertEvent } = require('../helpers/assertEvent')
 
 const CourtSubscriptions = artifacts.require('CourtSubscriptions')
 const SubscriptionsOwner = artifacts.require('SubscriptionsOwnerMock')
-const JurorsRegistry = artifacts.require('JurorsRegistry')
+const Controller = artifacts.require('ControllerMock')
 const ERC20 = artifacts.require('ERC20Mock')
 
 contract('CourtSubscriptions', ([_, payer, subscriber]) => {
-  let subscriptions, subscriptionsOwner, jurorsRegistry, feeToken
+  let controller, subscriptions, subscriptionsOwner, feeToken
 
   const PCT_BASE = bn(10000)
   const FEE_AMOUNT = bigExp(10, 18)
@@ -21,18 +21,18 @@ contract('CourtSubscriptions', ([_, payer, subscriber]) => {
   const penaltyFees = (n, pct) => n.mul(pct.add(PCT_BASE)).div(PCT_BASE)
 
   beforeEach('create base contracts', async () => {
-    subscriptions = await CourtSubscriptions.new()
-    subscriptionsOwner = await SubscriptionsOwner.new(subscriptions.address)
-    jurorsRegistry = await JurorsRegistry.new()
+    controller = await Controller.new()
     feeToken = await ERC20.new('Subscriptions Fee Token', 'SFT', 18)
+
+    subscriptions = await CourtSubscriptions.new(controller.address, PERIOD_DURATION, feeToken.address, FEE_AMOUNT, PREPAYMENT_PERIODS, RESUME_PRE_PAID_PERIODS, LATE_PAYMENT_PENALTY_PCT, GOVERNOR_SHARE_PCT)
+    await controller.setSubscriptions(subscriptions.address)
+
+    subscriptionsOwner = await SubscriptionsOwner.new(subscriptions.address)
+    await controller.setCourt(subscriptionsOwner.address)
+    await subscriptionsOwner.mockSetTerm(PERIOD_DURATION)
   })
 
   describe('pause/resume', () => {
-    beforeEach('initialize subscriptions', async () => {
-      await subscriptions.init(subscriptionsOwner.address, jurorsRegistry.address, PERIOD_DURATION, feeToken.address, FEE_AMOUNT, PREPAYMENT_PERIODS, RESUME_PRE_PAID_PERIODS, LATE_PAYMENT_PENALTY_PCT, GOVERNOR_SHARE_PCT)
-      await subscriptionsOwner.mockSetTerm(PERIOD_DURATION)
-    })
-
     beforeEach('mint fee tokens and subscribe', async () => {
       const balance = FEE_AMOUNT.mul(bn(10000))
       await feeToken.generateTokens(payer, balance)

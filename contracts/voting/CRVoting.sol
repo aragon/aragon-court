@@ -85,7 +85,7 @@ contract CRVoting is Controlled, ICRVoting {
         Vote storage vote = voteRecords[_voteId];
         require(!_existsVote(vote), ERROR_VOTE_ALREADY_EXISTS);
 
-        // Note that there is no need to use SafeMath here, we already checked the number of outcomes above
+        // No need for SafeMath: we already checked the number of outcomes above
         vote.maxAllowedOutcome = OUTCOME_REFUSED + _possibleOutcomes;
         emit VotingCreated(_voteId, _possibleOutcomes);
     }
@@ -96,10 +96,10 @@ contract CRVoting is Controlled, ICRVoting {
     * @param _commitment Encrypted outcome to be stored for future reveal
     */
     function commit(uint256 _voteId, bytes32 _commitment) external voteExists(_voteId) {
-        _ensureVoterWeightToCommit(_voteId, msg.sender);
-
         CastVote storage castVote = voteRecords[_voteId].votes[msg.sender];
         require(castVote.commitment == bytes32(0), ERROR_VOTE_ALREADY_COMMITTED);
+
+        _ensureTermAndVoterWeightToCommit(_voteId, msg.sender);
 
         castVote.commitment = _commitment;
         emit VoteCommitted(_voteId, msg.sender, _commitment);
@@ -113,10 +113,11 @@ contract CRVoting is Controlled, ICRVoting {
     * @param _salt Salt to decrypt and validate the committed vote of the voter
     */
     function leak(uint256 _voteId, address _voter, uint8 _outcome, bytes32 _salt) external voteExists(_voteId) {
-        _ensureVoterWeightToCommit(_voteId, _voter);
-
         CastVote storage castVote = voteRecords[_voteId].votes[_voter];
         _ensureCanReveal(castVote, _outcome, _salt);
+
+        // There's no need to check voter weight, as this was done on commit
+        owner.ensureTermToLeak(_voteId);
 
         // There is no need to check if an outcome is valid if it was leaked.
         // Additionally, leaked votes are not considered for the tally.
@@ -131,12 +132,12 @@ contract CRVoting is Controlled, ICRVoting {
     * @param _salt Salt to decrypt and validate the committed vote of the voter
     */
     function reveal(uint256 _voteId, uint8 _outcome, bytes32 _salt) external voteExists(_voteId) {
-        uint256 weight = _ensureVoterWeightToReveal(_voteId, msg.sender);
-
         Vote storage vote = voteRecords[_voteId];
         CastVote storage castVote = vote.votes[msg.sender];
         _ensureCanReveal(castVote, _outcome, _salt);
         require(_isValidOutcome(vote, _outcome), ERROR_INVALID_OUTCOME);
+
+        uint256 weight = _ensureTermAndGetVoterWeightToReveal(_voteId, msg.sender);
 
         castVote.outcome = _outcome;
         _updateTally(vote, _outcome, weight);
@@ -249,24 +250,23 @@ contract CRVoting is Controlled, ICRVoting {
     * @param _voter Address of the voter willing to commit a vote
     * @return Weight of the voter willing to commit a vote
     */
-    function _ensureVoterWeightToCommit(uint256 _voteId, address _voter) internal returns (uint256) {
+    function _ensureTermAndVoterWeightToCommit(uint256 _voteId, address _voter) internal returns (uint256) {
         ICRVotingOwner owner = _votingOwner();
-        uint256 weight = uint256(owner.getVoterWeightToCommit(_voteId, _voter));
+        uint256 weight = uint256(owner.ensureTermAndGetVoterWeightToCommit(_voteId, _voter));
         require(weight > 0, ERROR_COMMIT_DENIED_BY_OWNER);
         return weight;
     }
 
     /**
-    * @dev Internal function to fetch and ensure the weight of voter willing to reveal a vote for a given vote instance
+    * @dev Internal function to fetch the weight of voter willing to reveal a vote for a given vote instance and ensure its term
     * @param _voteId ID of the vote instance to check the voter's weight of
     * @param _voter Address of the voter willing to reveal a vote
     * @return Weight of the voter willing to reveal a vote
     */
-    function _ensureVoterWeightToReveal(uint256 _voteId, address _voter) internal returns (uint256) {
+    function _ensureTermAndGetVoterWeightToReveal(uint256 _voteId, address _voter) internal returns (uint256) {
+        // There's no need to check voter weight, as this was done on commit
         ICRVotingOwner owner = _votingOwner();
-        uint256 weight = uint256(owner.getVoterWeightToReveal(_voteId, _voter));
-        require(weight > 0, ERROR_REVEAL_DENIED_BY_OWNER);
-        return weight;
+        return uint256(owner.ensureTermAndGetVoterWeightToReveal(_voteId, _voter));
     }
 
     /**

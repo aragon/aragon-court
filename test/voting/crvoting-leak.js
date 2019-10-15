@@ -7,6 +7,8 @@ const CRVoting = artifacts.require('CRVoting')
 const CRVotingOwner = artifacts.require('CRVotingOwnerMock')
 const Controller = artifacts.require('ControllerMock')
 
+const ERROR_OWNER_MOCK_LEAK_CHECK_REVERTED = 'CRV_OWNER_MOCK_LEAK_CHECK_REVERTED'
+
 contract('CRVoting leak', ([_, voter, someone]) => {
   let controller, voting, votingOwner
 
@@ -30,30 +32,9 @@ contract('CRVoting leak', ([_, voter, someone]) => {
         await votingOwner.create(voteId, POSSIBLE_OUTCOMES)
       })
 
-      context('when the given voter has not voted before', () => {
-        context('when the owner does not revert when checking the weight of the voter', () => {
-          context('when the owner tells a weight greater than zero', () => {
-            const weight = 10
-
-            beforeEach('mock voter weight', async () => {
-              await votingOwner.mockVoterWeight(voter, weight)
-            })
-
-            it('reverts', async () => {
-              await assertRevert(voting.leak(voteId, voter, OUTCOMES.LOW, SALT, { from: someone }), 'CRV_INVALID_COMMITMENT_SALT')
-            })
-          })
-
-          context('when the owner tells a zeroed weight', () => {
-            const weight = 0
-
-            beforeEach('mock voter weight', async () => {
-              await votingOwner.mockVoterWeight(voter, weight)
-            })
-
-            it('reverts', async () => {
-              await assertRevert(voting.leak(voteId, voter, OUTCOMES.LOW, SALT, { from: someone }), 'CRV_COMMIT_DENIED_BY_OWNER')
-            })
+        context('when the given voter has not voted before', () => {
+          it('reverts', async () => {
+            await assertRevert(voting.leak(voteId, voter, OUTCOMES.LOW, SALT, { from: someone }), 'CRV_INVALID_COMMITMENT_SALT')
           })
         })
 
@@ -173,7 +154,7 @@ contract('CRVoting leak', ([_, voter, someone]) => {
               })
 
               it('reverts', async () => {
-                await assertRevert(voting.leak(voteId, voter, OUTCOMES.LOW, SALT, { from: someone }), 'CRV_COMMIT_DENIED_BY_OWNER')
+                await assertRevert(voting.leak(voteId, voter, committedOutcome, SALT, { from: someone }), ERROR_OWNER_MOCK_LEAK_CHECK_REVERTED)
               })
             })
           })

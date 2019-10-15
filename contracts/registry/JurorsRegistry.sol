@@ -13,10 +13,10 @@ import "../lib/JurorsTreeSortition.sol";
 import "../standards/ERC900.sol";
 import "../standards/ApproveAndCall.sol";
 import "../controller/Controlled.sol";
-import "../controller/ERC20Recoverable.sol";
+import "../controller/ControlledRecoverable.sol";
 
 
-contract JurorsRegistry is Controlled, ERC20Recoverable, IJurorsRegistry, ERC900, ApproveAndCallFallBack {
+contract JurorsRegistry is Controlled, ControlledRecoverable, IJurorsRegistry, ERC900, ApproveAndCallFallBack {
     using SafeERC20 for ERC20;
     using SafeMath for uint256;
     using PctHelpers for uint256;
@@ -131,10 +131,10 @@ contract JurorsRegistry is Controlled, ERC20Recoverable, IJurorsRegistry, ERC900
     * @param _totalActiveBalanceLimit Maximum amount of total active balance that can be hold in the registry
     */
     constructor(Controller _controller, ERC20 _jurorToken, uint256 _minActiveBalance, uint256 _totalActiveBalanceLimit)
-        ERC20Recoverable(_controller)
+        ControlledRecoverable(_controller)
         public
     {
-        // No need to explicitly call `Controlled` constructor since `ERC20Recoverable` is already doing it
+        // No need to explicitly call `Controlled` constructor since `ControlledRecoverable` is already doing it
         require(isContract(address(_jurorToken)), ERROR_NOT_CONTRACT);
         require(_totalActiveBalanceLimit > 0, ERROR_BAD_TOTAL_ACTIVE_BALANCE_LIMIT);
 

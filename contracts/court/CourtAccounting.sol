@@ -7,10 +7,10 @@ import "@aragon/os/contracts/common/SafeERC20.sol";
 import "./IAccounting.sol";
 import "../controller/Controlled.sol";
 import "../controller/Controller.sol";
-import "../controller/ERC20Recoverable.sol";
+import "../controller/ControlledRecoverable.sol";
 
 
-contract CourtAccounting is Controlled, ERC20Recoverable, IAccounting {
+contract CourtAccounting is Controlled, ControlledRecoverable, IAccounting {
     using SafeERC20 for ERC20;
     using SafeMath for uint256;
 
@@ -31,9 +31,9 @@ contract CourtAccounting is Controlled, ERC20Recoverable, IAccounting {
         _;
     }
 
-    constructor(Controller _controller) ERC20Recoverable(_controller) public {
+    constructor(Controller _controller) ControlledRecoverable(_controller) public {
         // solium-disable-previous-line no-empty-blocks
-        // No need to explicitly call `Controlled` constructor since `ERC20Recoverable` is already doing it
+        // No need to explicitly call `Controlled` constructor since `ControlledRecoverable` is already doing it
     }
 
     function assign(ERC20 _token, address _to, uint256 _amount) external onlyOwner {

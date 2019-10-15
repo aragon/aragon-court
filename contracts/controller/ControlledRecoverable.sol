@@ -6,7 +6,7 @@ import "@aragon/os/contracts/common/SafeERC20.sol";
 import "./Controlled.sol";
 
 
-contract ERC20Recoverable is Controlled {
+contract ControlledRecoverable is Controlled {
     using SafeERC20 for ERC20;
 
     string private constant ERROR_SENDER_NOT_FUNDS_GOVERNOR = "CTD_SENDER_NOT_FUNDS_GOVERNOR";

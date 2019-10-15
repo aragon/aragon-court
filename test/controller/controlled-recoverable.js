@@ -4,11 +4,11 @@ const { assertAmountOfEvents, assertEvent } = require('../helpers/assertEvent')
 
 const ERC20 = artifacts.require('ERC20Mock')
 const Controller = artifacts.require('Controller')
-const ERC20Recoverable = artifacts.require('ERC20RecoverableMock')
+const ControlledRecoverable = artifacts.require('ControlledRecoverableMock')
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
 
-contract('ERC20Recoverable', ([_, fundsGovernor, configGovernor, modulesGovernor, someone, recipient]) => {
+contract('ControlledRecoverable', ([_, fundsGovernor, configGovernor, modulesGovernor, someone, recipient]) => {
   let recoverable, controller
 
   describe('recoverFunds', () => {
@@ -18,7 +18,7 @@ contract('ERC20Recoverable', ([_, fundsGovernor, configGovernor, modulesGovernor
     beforeEach('create token and recoverable instance', async () => {
       token = await ERC20.new('DAI', 'DAI', 18)
       controller = await Controller.new(fundsGovernor, configGovernor, modulesGovernor)
-      recoverable = await ERC20Recoverable.new(controller.address)
+      recoverable = await ControlledRecoverable.new(controller.address)
     })
 
     context('when the sender is the governor', () => {

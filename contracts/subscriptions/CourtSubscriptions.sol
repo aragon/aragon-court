@@ -7,13 +7,13 @@ import "@aragon/os/contracts/common/TimeHelpers.sol";
 
 import "../lib/PctHelpers.sol";
 import "../controller/Controlled.sol";
-import "../controller/ERC20Recoverable.sol";
+import "../controller/ControlledRecoverable.sol";
 import "../registry/IJurorsRegistry.sol";
 import "../subscriptions/ISubscriptions.sol";
 import "../subscriptions/ISubscriptionsOwner.sol";
 
 
-contract CourtSubscriptions is Controlled, ERC20Recoverable, TimeHelpers, ISubscriptions {
+contract CourtSubscriptions is Controlled, ControlledRecoverable, TimeHelpers, ISubscriptions {
     using SafeERC20 for ERC20;
     using SafeMath for uint256;
     using PctHelpers for uint256;
@@ -123,10 +123,10 @@ contract CourtSubscriptions is Controlled, ERC20Recoverable, TimeHelpers, ISubsc
         uint16 _latePaymentPenaltyPct,
         uint16 _governorSharePct
     )
-        ERC20Recoverable(_controller)
+        ControlledRecoverable(_controller)
         public
     {
-        // No need to explicitly call `Controlled` constructor since `ERC20Recoverable` is already doing it
+        // No need to explicitly call `Controlled` constructor since `ControlledRecoverable` is already doing it
         require(_periodDuration > 0, ERROR_PERIOD_DURATION_ZERO);
 
         periodDuration = _periodDuration;

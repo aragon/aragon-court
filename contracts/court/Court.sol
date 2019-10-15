@@ -16,10 +16,10 @@ import "../registry/IJurorsRegistry.sol";
 import "../registry/IJurorsRegistryOwner.sol";
 import "../subscriptions/ISubscriptions.sol";
 import "../subscriptions/ISubscriptionsOwner.sol";
-import "../controller/ERC20Recoverable.sol";
+import "../controller/ControlledRecoverable.sol";
 
 
-contract Court is TimeHelpers, ERC20Recoverable, IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner {
+contract Court is TimeHelpers, Controlled, ControlledRecoverable, IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner {
     using SafeERC20 for ERC20;
     using SafeMath for uint256;
     using PctHelpers for uint256;
@@ -267,10 +267,10 @@ contract Court is TimeHelpers, ERC20Recoverable, IJurorsRegistryOwner, ICRVoting
         uint64[3] memory _roundParams,
         uint256[2] memory _appealCollateralParams
     )
-        ERC20Recoverable(_controller)
+        ControlledRecoverable(_controller)
         public
     {
-        // No need to explicitly call `Controlled` constructor since `ERC20Recoverable` is already doing it
+        // No need to explicitly call `Controlled` constructor since `ControlledRecoverable` is already doing it
         require(_firstTermStartTime >= getTimestamp64() + _termDuration, ERROR_BAD_FIRST_TERM_START_TIME);
 
         termDuration = _termDuration;

@@ -32,7 +32,7 @@ contract Controller is IsContract {
     */
     struct Governor {
         address funds;      // This address can be unset at any time. It is allowed to recover funds from the ERC20-Recoverable modules
-        address config;     // This address cannot be unset. It is allowed to change the different configurations of the whole system
+        address config;     // This address is meant not to be unset. It is allowed to change the different configurations of the whole system
         address modules;    // This address can be unset at any time. It is allowed to plug/unplug modules from the system
     }
 
@@ -40,7 +40,7 @@ contract Controller is IsContract {
     Governor private governor;
 
     // List of modules registered for the system indexed by ID
-    mapping (bytes32 => address) private modules;
+    mapping (bytes32 => address) internal modules;
 
     event ModuleSet(bytes32 id, address addr);
     event FundsGovernorChanged(address previousGovernor, address currentGovernor);
@@ -50,7 +50,7 @@ contract Controller is IsContract {
     /**
     * @dev Ensure the msg.sender is the funds governor
     */
-    modifier  onlyFundsGovernor {
+    modifier onlyFundsGovernor {
         require(msg.sender == governor.funds, ERROR_SENDER_NOT_GOVERNOR);
         _;
     }

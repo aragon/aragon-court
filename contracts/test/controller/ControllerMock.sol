@@ -10,6 +10,11 @@ contract ControllerMock is Controller {
         _setModule(COURT, _addr);
     }
 
+    function setCourtMock(address _addr) external {
+        modules[COURT] = _addr;
+        emit ModuleSet(COURT, _addr);
+    }
+
     function setAccounting(address _addr) external {
         _setModule(ACCOUNTING, _addr);
     }

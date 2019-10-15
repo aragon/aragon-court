@@ -14,7 +14,7 @@ contract('Court config', ([_, sender, disputer, drafter, appealMaker, appealTake
   let firstRoundJurorsNumber, appealStepFactor, maxRegularAppealRounds
   let appealCollateralFactor, appealConfirmCollateralFactor
 
-  const ERROR_BAD_SENDER = 'CT_BAD_SENDER'
+  const ERROR_SENDER_NOT_CONFIG_GOVERNOR = 'CTD_SENDER_NOT_CONFIG_GOVERNOR'
   const ERROR_TOO_OLD_TERM = 'CT_TOO_OLD_TERM'
 
   const checkConfig = async (termId, newConfig) => {
@@ -136,7 +136,7 @@ contract('Court config', ([_, sender, disputer, drafter, appealMaker, appealTake
         assert.notEqual(courtHelper.governor, from, 'it is actually governor!')
 
         const { promise } = await courtHelper.changeConfigPromise(originalConfig, configChangeTermId, sender)
-        await assertRevert(promise, ERROR_BAD_SENDER)
+        await assertRevert(promise, ERROR_SENDER_NOT_CONFIG_GOVERNOR)
       })
 
       it('fails setting config in the past', async () => {

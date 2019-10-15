@@ -5,6 +5,11 @@ const { buildHelper, DEFAULTS, ROUND_STATES } = require('../helpers/court')(web3
 const { assertAmountOfEvents, assertEvent } = require('../helpers/assertEvent')
 const { getVoteId, encryptVote, outcomeFor, SALT, OUTCOMES } = require('../helpers/crvoting')
 
+const ERROR_INVALID_ADJUDICATION_STATE = 'CT_INVALID_ADJUDICATION_STATE'
+const ERROR_VOTE_ALREADY_COMMITTED = 'CRV_VOTE_ALREADY_COMMITTED'
+const ERROR_VOTE_ALREADY_REVEALED = 'CRV_VOTE_ALREADY_REVEALED'
+const ERROR_INVALID_COMMITMENT_SALT = 'CRV_INVALID_COMMITMENT_SALT'
+
 contract('Court', ([_, disputer, drafter, juror100, juror500, juror1000, juror1500, juror2000, juror2500, juror3000, juror3500, juror4000]) => {
   let courtHelper, court, voting
 
@@ -44,18 +49,32 @@ contract('Court', ([_, disputer, drafter, juror100, juror500, juror1000, juror15
       })
     }
 
-    const itFailsToCommitVotes = () => {
+    const itFailsToCommitVotes = (commited = true) => {
       it('fails to commit votes', async () => {
+        const voterAddresses = voters.map(v => v.address.toLowerCase())
         for (const { address } of jurors) {
-          await assertRevert(voting.commit(voteId, encryptVote(OUTCOMES.LOW), { from: address }), 'CT_INVALID_ADJUDICATION_STATE')
+          let error_msg = ERROR_INVALID_ADJUDICATION_STATE
+          if (commited && voterAddresses.includes(address.toLowerCase())) {
+            error_msg = ERROR_VOTE_ALREADY_COMMITTED
+          }
+          await assertRevert(voting.commit(voteId, encryptVote(OUTCOMES.LOW), { from: address }), error_msg)
         }
       })
     }
 
-    const itFailsToRevealVotes = () => {
+    const itFailsToRevealVotes = (commited = true, revealed = true) => {
       it('fails to reveal votes', async () => {
+        const voterAddresses = voters.map(v => v.address.toLowerCase())
         for (const { outcome, address } of voters) {
-          await assertRevert(voting.reveal(voteId, outcome, SALT, { from: address }), 'CT_INVALID_ADJUDICATION_STATE')
+          let error_msg = ERROR_INVALID_COMMITMENT_SALT
+          if (commited && voterAddresses.includes(address.toLowerCase())) {
+            if (revealed) {
+              error_msg = ERROR_VOTE_ALREADY_REVEALED
+            } else {
+              error_msg = ERROR_INVALID_ADJUDICATION_STATE
+            }
+          }
+          await assertRevert(voting.reveal(voteId, outcome, SALT, { from: address }), error_msg)
         }
       })
     }
@@ -82,7 +101,7 @@ contract('Court', ([_, disputer, drafter, juror100, juror500, juror1000, juror15
         const vote = encryptVote(outcome)
 
         itIsAtState(roundId, ROUND_STATES.COMMITTING)
-        itFailsToRevealVotes()
+        itFailsToRevealVotes(false, false)
 
         context('when the sender was drafted', () => {
           it('allows to commit a vote', async () => {
@@ -150,14 +169,6 @@ contract('Court', ([_, disputer, drafter, juror100, juror500, juror1000, juror15
                 await assertRevert(voting.reveal(voteId, OUTCOMES.LOW, SALT, { from: address }), 'CRV_INVALID_COMMITMENT_SALT')
               }
             })
-          })
-        })
-
-        context('when the sender was not drafted', () => {
-          it('disallows every non-voter to reveal votes', async () => {
-            for (const { address } of nonDraftedJurors) {
-              await assertRevert(voting.reveal(voteId, OUTCOMES.LOW, SALT, { from: address }), 'CRV_REVEAL_DENIED_BY_OWNER')
-            }
           })
         })
       })
@@ -272,7 +283,7 @@ contract('Court', ([_, disputer, drafter, juror100, juror500, juror1000, juror15
 
       context('during commit period', () => {
         itIsAtState(roundId, ROUND_STATES.COMMITTING)
-        itFailsToRevealVotes()
+        itFailsToRevealVotes(false, false)
 
         context('when the sender has enough active balance', () => {
           it('allows to commit a vote', async () => {
@@ -335,8 +346,7 @@ contract('Court', ([_, disputer, drafter, juror100, juror500, juror1000, juror15
         context('when the sender did not vote', () => {
           it('reverts', async () => {
             for (const { address } of nonVoters) {
-              const expectedReason = address === poorJuror ? 'CRV_REVEAL_DENIED_BY_OWNER' : 'CRV_INVALID_COMMITMENT_SALT'
-              await assertRevert(voting.reveal(voteId, OUTCOMES.LOW, SALT, { from: address }), expectedReason)
+              await assertRevert(voting.reveal(voteId, OUTCOMES.LOW, SALT, { from: address }), ERROR_INVALID_COMMITMENT_SALT)
             }
           })
         })

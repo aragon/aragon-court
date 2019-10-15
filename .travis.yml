@@ -40,3 +40,6 @@ jobs:
     - stage: tests
       script: npm test test/controller/*.js
       name: "Controller"
+    - stage: tests
+      script: npm test test/accounting/*.js
+      name: "Accounting"

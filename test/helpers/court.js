@@ -345,7 +345,7 @@ module.exports = (web3, artifacts) => {
         maxJurorsToBeDrafted = roundJurorsNumber.toNumber()
       }
 
-      // mock draft if there was a jurors set to be drafted
+      // mock draft if there was a juror set to be drafted
       if (draftedJurors) {
         const totalWeight = draftedJurors.reduce((total, { weight }) => total + weight, 0)
         if (totalWeight !== maxJurorsToBeDrafted) throw Error('Given jurors to be drafted do not fit the round jurors number')
@@ -429,8 +429,10 @@ module.exports = (web3, artifacts) => {
       }
 
       // confirm appeal and move to end of confirm appeal period
-      await this.court.confirmAppeal(disputeId, roundId, ruling, { from: appealTaker })
+      const receipt = await this.court.confirmAppeal(disputeId, roundId, ruling, { from: appealTaker })
       await this.passTerms(this.appealConfirmTerms)
+
+      return getEventArgument(receipt, 'RulingAppealConfirmed', 'roundId')
     }
 
     async moveToFinalRound({ disputeId }) {
@@ -500,6 +502,7 @@ module.exports = (web3, artifacts) => {
   }
 
   return {
+    PCT_BASE,
     DEFAULTS,
     DISPUTE_STATES,
     ROUND_STATES,

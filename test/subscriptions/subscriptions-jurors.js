@@ -1,18 +1,19 @@
-const { sha3 } = require('web3-utils')
 const { bn, bigExp } = require('../helpers/numbers')
 const { assertRevert } = require('../helpers/assertThrow')
+const { ONE_DAY, NEXT_WEEK } = require('../helpers/time')
+const { sha3, padLeft, toHex } = require('web3-utils')
 const { assertAmountOfEvents, assertEvent } = require('../helpers/assertEvent')
 
 const CourtSubscriptions = artifacts.require('CourtSubscriptions')
-const SubscriptionsOwner = artifacts.require('SubscriptionsOwnerMock')
 const JurorsRegistry = artifacts.require('JurorsRegistry')
+const CourtClock = artifacts.require('CourtClockMock')
 const Controller = artifacts.require('ControllerMock')
 const ERC20 = artifacts.require('ERC20Mock')
 
 const ACTIVATE_DATA = sha3('activate(uint256)').slice(0, 10)
 
 contract('CourtSubscriptions', ([_, payer, subscriberPeriod0, subscriberPeriod1, jurorPeriod0Term1, jurorPeriod0Term3, jurorMidPeriod1]) => {
-  let controller, subscriptions, subscriptionsOwner, jurorsRegistry, feeToken, jurorToken
+  let controller, clock, subscriptions, jurorsRegistry, feeToken, jurorToken
 
   const PCT_BASE = bn(10000)
   const FEE_AMOUNT = bigExp(10, 18)
@@ -33,11 +34,11 @@ contract('CourtSubscriptions', ([_, payer, subscriberPeriod0, subscriberPeriod1,
     subscriptions = await CourtSubscriptions.new(controller.address, PERIOD_DURATION, feeToken.address, FEE_AMOUNT, PREPAYMENT_PERIODS, RESUME_PRE_PAID_PERIODS, LATE_PAYMENT_PENALTY_PCT, GOVERNOR_SHARE_PCT)
     await controller.setSubscriptions(subscriptions.address)
 
+    clock = await CourtClock.new(controller.address, ONE_DAY, NEXT_WEEK)
+    await controller.setClock(clock.address)
+
     jurorsRegistry = await JurorsRegistry.new(controller.address, jurorToken.address, MIN_JURORS_ACTIVE_TOKENS, TOTAL_ACTIVE_BALANCE_LIMIT)
     await controller.setJurorsRegistry(jurorsRegistry.address)
-
-    subscriptionsOwner = await SubscriptionsOwner.new(subscriptions.address)
-    await controller.setCourt(subscriptionsOwner.address)
   })
 
   describe('claimFees', () => {
@@ -47,15 +48,15 @@ contract('CourtSubscriptions', ([_, payer, subscriberPeriod0, subscriberPeriod1,
       const jurorMidPeriod1Balance = MIN_JURORS_ACTIVE_TOKENS.mul(bn(3))
 
       beforeEach('activate jurors', async () => {
-        await subscriptionsOwner.mockSetTerm(0) // tokens are activated for the next term
+        await clock.mockSetTerm(0) // tokens are activated for the next term
         await jurorToken.generateTokens(jurorPeriod0Term1, jurorPeriod0Term0Balance)
         await jurorToken.approveAndCall(jurorsRegistry.address, jurorPeriod0Term0Balance, ACTIVATE_DATA, { from: jurorPeriod0Term1 })
 
-        await subscriptionsOwner.mockSetTerm(2) // tokens are activated for the next term
+        await clock.mockSetTerm(2) // tokens are activated for the next term
         await jurorToken.generateTokens(jurorPeriod0Term3, jurorPeriod0Term3Balance)
         await jurorToken.approveAndCall(jurorsRegistry.address, jurorPeriod0Term3Balance, ACTIVATE_DATA, { from: jurorPeriod0Term3 })
 
-        await subscriptionsOwner.mockSetTerm(PERIOD_DURATION * 1.5 - 1)
+        await clock.mockSetTerm(PERIOD_DURATION * 1.5 - 1)
         await jurorToken.generateTokens(jurorMidPeriod1, jurorMidPeriod1Balance)
         await jurorToken.approveAndCall(jurorsRegistry.address, jurorMidPeriod1Balance, ACTIVATE_DATA, { from: jurorMidPeriod1 })
       })
@@ -71,10 +72,10 @@ contract('CourtSubscriptions', ([_, payer, subscriberPeriod0, subscriberPeriod1,
           await feeToken.generateTokens(payer, totalFees)
           await feeToken.approve(subscriptions.address, totalFees, { from: payer })
 
-          await subscriptionsOwner.mockSetTerm(PERIOD_DURATION)
+          await clock.mockSetTerm(PERIOD_DURATION)
           await subscriptions.payFees(subscriberPeriod0, 1, { from: payer })
 
-          await subscriptionsOwner.mockIncreaseTerms(PERIOD_DURATION)
+          await clock.mockIncreaseTerms(PERIOD_DURATION)
           await subscriptions.payFees(subscriberPeriod1, 1, { from: payer })
         })
 
@@ -85,8 +86,8 @@ contract('CourtSubscriptions', ([_, payer, subscriberPeriod0, subscriberPeriod1,
             const expectedTotalActiveBalance = jurorPeriod0Term0Balance
 
             beforeEach('mock term randomness', async () => {
-              const randomness = web3.utils.padLeft(web3.utils.toHex(PERIOD_DURATION), 64)
-              await subscriptionsOwner.mockSetTermRandomness(randomness)
+              const randomness = padLeft(toHex(PERIOD_DURATION), 64)
+              await clock.mockSetTermRandomness(randomness)
             })
 
             it('computes total active balance correctly', async () => {
@@ -145,8 +146,8 @@ contract('CourtSubscriptions', ([_, payer, subscriberPeriod0, subscriberPeriod1,
             const expectedTotalActiveBalance = jurorPeriod0Term0Balance.add(jurorPeriod0Term3Balance)
 
             beforeEach('mock term randomness', async () => {
-              const randomness = web3.utils.padLeft(web3.utils.toHex(PERIOD_DURATION + 2), 64)
-              await subscriptionsOwner.mockSetTermRandomness(randomness)
+              const randomness = padLeft(toHex(PERIOD_DURATION + 2), 64)
+              await clock.mockSetTermRandomness(randomness)
             })
 
             it('computes total active balance correctly', async () => {

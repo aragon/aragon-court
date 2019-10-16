@@ -250,6 +250,7 @@ contract('Controller', ([_, fundsGovernor, configGovernor, modulesGovernor, some
 
         context('when the given id is one of the known IDs', () => {
           const modules = [
+            { id: '0x63e93c672e6c8e1ca35b86391d0d39606b98e2b328db48b135a69bedad6d3cff', getter: 'getClock' },
             { id: '0x26f3b895987e349a46d6d91132234924c6d45cfdc564b33427f53e3f9284955c', getter: 'getCourt' },
             { id: '0x7cbb12e82a6d63ff16fe43977f43e3e2b247ecd4e62c0e340da8800a48c67346', getter: 'getVoting' },
             { id: '0x3ec26b85a7d49ed13a920deeaceb063fa458eb25266fa7b504696047900a5b0f', getter: 'getAccounting' },

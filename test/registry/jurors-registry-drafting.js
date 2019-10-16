@@ -2,19 +2,21 @@ const { sha3 } = require('web3-utils')
 const { bn, bigExp } = require('../helpers/numbers')
 const { getEventAt } = require('@aragon/test-helpers/events')
 const { assertRevert } = require('../helpers/assertThrow')
+const { simulateDraft } = require('../helpers/registry')
+const { ONE_DAY, NEXT_WEEK } = require('../helpers/time')
 const { decodeEventsOfType } = require('../helpers/decodeEvent')
 const { assertAmountOfEvents, assertEvent } = require('../helpers/assertEvent')
-const { simulateDraft } = require('../helpers/registry')
 
 const JurorsRegistry = artifacts.require('JurorsRegistryMock')
-const JurorsRegistryOwner = artifacts.require('JurorsRegistryOwnerMock')
 const Controller = artifacts.require('ControllerMock')
+const CourtClock = artifacts.require('CourtClockMock')
+const Court = artifacts.require('CourtMockForRegistry')
 const ERC20 = artifacts.require('ERC20Mock')
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
 
 contract('JurorsRegistry', ([_, juror500, juror1000, juror1500, juror2000, juror2500, juror3000, juror3500, juror4000]) => {
-  let controller, registry, registryOwner, ANJ
+  let controller, clock, registry, court, ANJ
 
   const DRAFT_LOCK_PCT = bn(2000) // 20%
   const MIN_ACTIVE_AMOUNT = bigExp(100, 18)
@@ -67,11 +69,15 @@ contract('JurorsRegistry', ([_, juror500, juror1000, juror1500, juror2000, juror
   beforeEach('create base contracts', async () => {
     controller = await Controller.new()
     ANJ = await ERC20.new('ANJ Token', 'ANJ', 18)
+
     registry = await JurorsRegistry.new(controller.address, ANJ.address, MIN_ACTIVE_AMOUNT, TOTAL_ACTIVE_BALANCE_LIMIT)
     await controller.setJurorsRegistry(registry.address)
 
-    registryOwner = await JurorsRegistryOwner.new(registry.address)
-    await controller.setCourt(registryOwner.address)
+    clock = await CourtClock.new(controller.address, ONE_DAY, NEXT_WEEK)
+    await controller.setClock(clock.address)
+
+    court = await Court.new(registry.address)
+    await controller.setCourt(court.address)
   })
 
   describe('draft', () => {
@@ -82,7 +88,7 @@ contract('JurorsRegistry', ([_, juror500, juror1000, juror1500, juror2000, juror
       batchRequestedJurors,
       roundRequestedJurors
     }) => {
-      return registryOwner.draft(termRandomness, disputeId, selectedJurors, batchRequestedJurors, roundRequestedJurors, DRAFT_LOCK_PCT)
+      return court.draft(termRandomness, disputeId, selectedJurors, batchRequestedJurors, roundRequestedJurors, DRAFT_LOCK_PCT)
     }
 
     const updateJurorsAndSimulateDraft = async ({
@@ -183,9 +189,8 @@ contract('JurorsRegistry', ([_, juror500, juror1000, juror1500, juror2000, juror
       }
     })
 
-    context('when the sender is the registry owner', () => {
+    context('when the sender is the court', () => {
       const itReverts = (previousSelectedJurors, batchRequestedJurors, roundRequestedJurors) => {
-        // NOTE: this scenario is not being handled, the registry trusts the input from the owner and the tree
         it('reverts', async () => {
           await assertRevert(draftPromise({ selectedJurors: previousSelectedJurors, batchRequestedJurors, roundRequestedJurors }))
         })
@@ -361,7 +366,7 @@ contract('JurorsRegistry', ([_, juror500, juror1000, juror1500, juror2000, juror
 
             context('when the juror is activated for the current term', () => {
               beforeEach('increment term', async () => {
-                await registryOwner.mockIncreaseTerm()
+                await clock.mockIncreaseTerm()
               })
 
               context('when juror has enough unlocked balance to be drafted', () => {
@@ -429,7 +434,7 @@ contract('JurorsRegistry', ([_, juror500, juror1000, juror1500, juror2000, juror
 
               context('when the jurors are activated for the current term', () => {
                 beforeEach('increment term', async () => {
-                  await registryOwner.mockIncreaseTerm()
+                  await clock.mockIncreaseTerm()
                 })
 
                 context('for the first batch', () => {
@@ -469,7 +474,7 @@ contract('JurorsRegistry', ([_, juror500, juror1000, juror1500, juror2000, juror
 
               context('when the jurors are activated for the current term', () => {
                 beforeEach('increment term', async () => {
-                  await registryOwner.mockIncreaseTerm()
+                  await clock.mockIncreaseTerm()
                 })
 
                 context('when jurors have not been selected for other drafts', () => {
@@ -585,9 +590,9 @@ contract('JurorsRegistry', ([_, juror500, juror1000, juror1500, juror2000, juror
       })
     })
 
-    context('when the sender is not the registry owner', () => {
+    context('when the sender is not the court', () => {
       it('reverts', async () => {
-        await assertRevert(registry.draft([0, 0, 0, 0, 0, 0, 0]), 'JR_SENDER_NOT_OWNER')
+        await assertRevert(registry.draft([0, 0, 0, 0, 0, 0, 0]), 'CTD_SENDER_NOT_COURT_MODULE')
       })
     })
   })

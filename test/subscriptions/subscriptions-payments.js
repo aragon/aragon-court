@@ -1,14 +1,15 @@
 const { bn, bigExp } = require('../helpers/numbers')
 const { assertRevert } = require('../helpers/assertThrow')
+const { ONE_DAY, NEXT_WEEK } = require('../helpers/time')
 const { assertAmountOfEvents, assertEvent } = require('../helpers/assertEvent')
 
 const CourtSubscriptions = artifacts.require('CourtSubscriptions')
-const SubscriptionsOwner = artifacts.require('SubscriptionsOwnerMock')
+const CourtClock = artifacts.require('CourtClockMock')
 const Controller = artifacts.require('ControllerMock')
 const ERC20 = artifacts.require('ERC20Mock')
 
 contract('CourtSubscriptions', ([_, governor, payer, subscriber, anotherSubscriber]) => {
-  let controller, subscriptions, subscriptionsOwner, feeToken
+  let controller, subscriptions, clock, feeToken
 
   const PCT_BASE = bn(10000)
   const FEE_AMOUNT = bigExp(10, 18)
@@ -25,8 +26,8 @@ contract('CourtSubscriptions', ([_, governor, payer, subscriber, anotherSubscrib
     subscriptions = await CourtSubscriptions.new(controller.address, PERIOD_DURATION, feeToken.address, FEE_AMOUNT, PREPAYMENT_PERIODS, RESUME_PRE_PAID_PERIODS, LATE_PAYMENT_PENALTY_PCT, GOVERNOR_SHARE_PCT)
     await controller.setSubscriptions(subscriptions.address)
 
-    subscriptionsOwner = await SubscriptionsOwner.new(subscriptions.address)
-    await controller.setCourt(subscriptionsOwner.address)
+    clock = await CourtClock.new(controller.address, ONE_DAY, NEXT_WEEK)
+    await controller.setClock(clock.address)
   })
 
   describe('payFees', () => {
@@ -41,7 +42,7 @@ contract('CourtSubscriptions', ([_, governor, payer, subscriber, anotherSubscrib
 
       context('when the court has already started', () => {
         beforeEach('move terms to reach period #0', async () => {
-          await subscriptionsOwner.mockSetTerm(PERIOD_DURATION)
+          await clock.mockSetTerm(PERIOD_DURATION)
         })
 
         context('when the sender has enough balance', () => {
@@ -232,7 +233,7 @@ contract('CourtSubscriptions', ([_, governor, payer, subscriber, anotherSubscrib
                 const expectedDelayedPeriods = periods
 
                 beforeEach('advance periods', async () => {
-                  await subscriptionsOwner.mockIncreaseTerms(PERIOD_DURATION * overduePeriods)
+                  await clock.mockIncreaseTerms(PERIOD_DURATION * overduePeriods)
                 })
 
                 itHandleSubscriptionsSuccessfully(expectedMovedPeriods, expectedRegularPeriods, expectedDelayedPeriods)
@@ -246,7 +247,7 @@ contract('CourtSubscriptions', ([_, governor, payer, subscriber, anotherSubscrib
                 const expectedDelayedPeriods = periods - 1
 
                 beforeEach('advance periods', async () => {
-                  await subscriptionsOwner.mockIncreaseTerms(PERIOD_DURATION * overduePeriods)
+                  await clock.mockIncreaseTerms(PERIOD_DURATION * overduePeriods)
                 })
 
                 itHandleSubscriptionsSuccessfully(expectedMovedPeriods, expectedRegularPeriods, expectedDelayedPeriods)
@@ -260,7 +261,7 @@ contract('CourtSubscriptions', ([_, governor, payer, subscriber, anotherSubscrib
                 const expectedDelayedPeriods = periods - 3
 
                 beforeEach('advance periods', async () => {
-                  await subscriptionsOwner.mockIncreaseTerms(PERIOD_DURATION * overduePeriods)
+                  await clock.mockIncreaseTerms(PERIOD_DURATION * overduePeriods)
                 })
 
                 context('when the number of pre-payment periods is not reached', () => {
@@ -323,11 +324,11 @@ contract('CourtSubscriptions', ([_, governor, payer, subscriber, anotherSubscrib
         await feeToken.generateTokens(payer, balance)
         await feeToken.approve(subscriptions.address, balance, { from: payer })
 
-        await subscriptionsOwner.mockSetTerm(PERIOD_DURATION)
+        await clock.mockSetTerm(PERIOD_DURATION)
         await subscriptions.payFees(subscriber, 5, { from: payer })
         await subscriptions.payFees(anotherSubscriber, 2, { from: payer })
 
-        await subscriptionsOwner.mockIncreaseTerms(PERIOD_DURATION * 3)
+        await clock.mockIncreaseTerms(PERIOD_DURATION * 3)
         await subscriptions.payFees(subscriber, 1, { from: payer })
         await subscriptions.payFees(anotherSubscriber, 4, { from: payer })
       })
@@ -361,7 +362,7 @@ contract('CourtSubscriptions', ([_, governor, payer, subscriber, anotherSubscrib
       const paidAmount = FEE_AMOUNT
 
       beforeEach('subscribe', async () => {
-        await subscriptionsOwner.mockSetTerm(PERIOD_DURATION)
+        await clock.mockSetTerm(PERIOD_DURATION)
         await feeToken.generateTokens(subscriber, paidAmount)
         await feeToken.approve(subscriptions.address, paidAmount, { from: subscriber })
         await subscriptions.payFees(subscriber, paidPeriods, { from: subscriber })
@@ -375,7 +376,7 @@ contract('CourtSubscriptions', ([_, governor, payer, subscriber, anotherSubscrib
 
       context('when the subscriber has not paid the current period', () => {
         beforeEach('advance one period', async () => {
-          await subscriptionsOwner.mockIncreaseTerms(PERIOD_DURATION)
+          await clock.mockIncreaseTerms(PERIOD_DURATION)
         })
 
         it('returns false', async () => {

@@ -1,17 +1,18 @@
 const { bn, bigExp } = require('../helpers/numbers')
 const { assertRevert } = require('../helpers/assertThrow')
+const { ONE_DAY, NEXT_WEEK } = require('../helpers/time')
 const { decodeEventsOfType } = require('../helpers/decodeEvent')
 const { assertEvent, assertAmountOfEvents } = require('../helpers/assertEvent')
 
 const CourtSubscriptions = artifacts.require('CourtSubscriptions')
-const SubscriptionsOwner = artifacts.require('SubscriptionsOwnerMock')
+const CourtClock = artifacts.require('CourtClockMock')
 const Controller = artifacts.require('ControllerMock')
 const ERC20 = artifacts.require('ERC20Mock')
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
 
 contract('CourtSubscriptions', ([_, governor, someone, something, subscriber]) => {
-  let controller, subscriptions, subscriptionsOwner, feeToken
+  let controller, subscriptions, clock, feeToken
 
   const FEE_AMOUNT = bigExp(10, 18)
   const PREPAYMENT_PERIODS = 12
@@ -27,8 +28,8 @@ contract('CourtSubscriptions', ([_, governor, someone, something, subscriber]) =
     subscriptions = await CourtSubscriptions.new(controller.address, PERIOD_DURATION, feeToken.address, FEE_AMOUNT, PREPAYMENT_PERIODS, RESUME_PRE_PAID_PERIODS, LATE_PAYMENT_PENALTY_PCT, GOVERNOR_SHARE_PCT)
     await controller.setSubscriptions(subscriptions.address)
 
-    subscriptionsOwner = await SubscriptionsOwner.new(subscriptions.address)
-    await controller.setCourt(subscriptionsOwner.address)
+    clock = await CourtClock.new(controller.address, ONE_DAY, NEXT_WEEK)
+    await controller.setClock(clock.address)
   })
 
   describe('setFeeAmount', () => {
@@ -121,7 +122,7 @@ contract('CourtSubscriptions', ([_, governor, someone, something, subscriber]) =
             const governorFees = GOVERNOR_SHARE_PCT.mul(paidAmount).div(bn(10000))
 
             beforeEach('pay some subscriptions', async () => {
-              await subscriptionsOwner.mockSetTerm(PERIOD_DURATION)
+              await clock.mockSetTerm(PERIOD_DURATION)
               await feeToken.generateTokens(subscriber, paidAmount)
               await feeToken.approve(subscriptions.address, paidAmount, { from: subscriber })
               await subscriptions.payFees(subscriber, paidPeriods, { from: subscriber })

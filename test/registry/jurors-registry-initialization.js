@@ -64,7 +64,7 @@ contract('JurorsRegistry', ([_, something]) => {
         })
       })
 
-      context('when the given owner is not a contract address', () => {
+      context('when the given controller is not a contract address', () => {
         const controllerAddress = something
 
         it('reverts', async () => {

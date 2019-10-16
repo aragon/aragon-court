@@ -28,7 +28,7 @@ contract('CourtSubscriptions', ([_, someone]) => {
         const subscriptions = await CourtSubscriptions.new(controller.address, PERIOD_DURATION, feeToken.address, FEE_AMOUNT, PREPAYMENT_PERIODS, RESUME_PRE_PAID_PERIODS, LATE_PAYMENT_PENALTY_PCT, GOVERNOR_SHARE_PCT)
 
         assert.equal(await subscriptions.getController(), controller.address, 'subscriptions controller does not match')
-        assert.equal(await subscriptions.periodDuration(), PERIOD_DURATION, 'subscriptions owner does not match')
+        assert.equal(await subscriptions.periodDuration(), PERIOD_DURATION, 'subscriptions duration does not match')
         assert.equal(await subscriptions.currentFeeToken(), feeToken.address, 'fee token does not match')
         assert.equal((await subscriptions.currentFeeAmount()).toString(), FEE_AMOUNT.toString(), 'fee amount does not match')
         assert.equal((await subscriptions.prePaymentPeriods()).toString(), PREPAYMENT_PERIODS.toString(), 'pre payment periods does not match')

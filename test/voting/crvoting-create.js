@@ -95,7 +95,7 @@ contract('CRVoting create', ([_, someone]) => {
       const from = someone
 
       it('reverts', async () => {
-        await assertRevert(voting.create(1, 2, { from }), 'CRV_SENDER_NOT_OWNER')
+        await assertRevert(voting.create(1, 2, { from }), 'CTD_SENDER_NOT_COURT_MODULE')
       })
     })
   })

@@ -1,19 +1,30 @@
 pragma solidity ^0.5.8;
 
+import "@aragon/os/contracts/common/IsContract.sol";
+
 import "./Controller.sol";
-import "../court/IAccounting.sol";
+import "../court/IClock.sol";
 import "../voting/ICRVoting.sol";
+import "../accounting/IAccounting.sol";
 import "../registry/IJurorsRegistry.sol";
 import "../subscriptions/ISubscriptions.sol";
-import "@aragon/os/contracts/common/IsContract.sol";
 
 
 contract Controlled is IsContract {
     string private constant ERROR_CONTROLLER_NOT_CONTRACT = "CTD_CONTROLLER_NOT_CONTRACT";
+    string private constant ERROR_SENDER_NOT_COURT_MODULE = "CTD_SENDER_NOT_COURT_MODULE";
     string private constant ERROR_SENDER_NOT_CONFIG_GOVERNOR = "CTD_SENDER_NOT_CONFIG_GOVERNOR";
 
     // Address of the controller
     Controller internal controller;
+
+    /**
+    * @dev Ensure the msg.sender is the court module
+    */
+    modifier onlyCourt() {
+        require(msg.sender == _court(), ERROR_SENDER_NOT_COURT_MODULE);
+        _;
+    }
 
     /**
     * @dev Ensure the msg.sender is the controller's config governor
@@ -41,6 +52,38 @@ contract Controlled is IsContract {
     }
 
     /**
+    * @dev Internal function to ensure the current term of the Court
+    * @return Identification number of the last ensured term
+    */
+    function _ensureTermId() internal returns (uint64) {
+        return _clock().ensureTermId();
+    }
+
+    /**
+    * @dev Internal function to fetch the last ensured term id of the Court
+    * @return Identification number of the last ensured term
+    */
+    function _getLastEnsuredTermId() internal view returns (uint64) {
+        return _clock().getLastEnsuredTermId();
+    }
+
+    /**
+    * @dev Internal function to tell the current term identification number
+    * @return Identification number of the current term
+    */
+    function _getCurrentTermId() internal view returns (uint64) {
+        return _clock().getCurrentTermId();
+    }
+
+    /**
+    * @dev Internal function to tell the number of terms the Court should transition to be up-to-date
+    * @return Number of terms the Court should transition to be up-to-date
+    */
+    function _getNeededTermTransitions() internal view returns (uint64) {
+        return _clock().getNeededTermTransitions();
+    }
+
+    /**
     * @dev Internal function to fetch the controller's config governor
     * @return Address of the controller's governor
     */
@@ -54,14 +97,6 @@ contract Controlled is IsContract {
     */
     function _accounting() internal view returns (IAccounting) {
         return IAccounting(controller.getAccounting());
-    }
-
-    /**
-    * @dev Internal function to fetch the address of the Accounting module owner from the controller
-    * @return Address of the Accounting module owner
-    */
-    function _accountingOwner() internal view returns (address) {
-        return _court();
     }
 
     /**
@@ -89,14 +124,6 @@ contract Controlled is IsContract {
     }
 
     /**
-    * @dev Internal function to fetch the address of the JurorRegistry module owner from the controller
-    * @return Address of the JurorRegistry module owner
-    */
-    function _jurorsRegistryOwner() internal view returns (IJurorsRegistryOwner) {
-        return IJurorsRegistryOwner(_court());
-    }
-
-    /**
     * @dev Internal function to fetch the address of the Subscriptions module implementation from the controller
     * @return Address of the Subscriptions module implementation
     */
@@ -105,16 +132,16 @@ contract Controlled is IsContract {
     }
 
     /**
-    * @dev Internal function to fetch the address of the Subscriptions module owner from the controller
-    * @return Address of the Subscriptions module owner
+    * @dev Internal function to fetch the address of the Clock module from the controller
+    * @return Address of the Clock module
     */
-    function _subscriptionsOwner() internal view returns (ISubscriptionsOwner) {
-        return ISubscriptionsOwner(_court());
+    function _clock() internal view returns (IClock) {
+        return IClock(controller.getClock());
     }
 
     /**
     * @dev Internal function to fetch the address of the Court module from the controller
-    * @return Address of the Court module owner
+    * @return Address of the Court module
     */
     function _court() internal view returns (address) {
         return controller.getCourt();

@@ -2,8 +2,6 @@ pragma solidity ^0.5.8;
 
 import "@aragon/os/contracts/lib/token/ERC20.sol";
 
-import "./IJurorsRegistryOwner.sol";
-
 
 interface IJurorsRegistry {
     function burnTokens(uint256 _amount) external;
@@ -15,9 +13,7 @@ interface IJurorsRegistry {
     function minJurorsActiveBalance() external view returns (uint256);
     function activeBalanceOfAt(address _juror, uint64 _termId) external view returns (uint256);
     function totalActiveBalanceAt(uint64 _termId) external view returns (uint256);
-
     function getTotalMinActiveBalanceMultiple(uint64 _termId, uint256 _precision) external view returns (uint256);
-
     function getActiveBalanceInfoOfAt(address _juror, uint64 _termId, uint256 _precision) external view
         returns (uint256 activeBalance, uint256 shares);
 }

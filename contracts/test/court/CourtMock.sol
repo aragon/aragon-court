@@ -1,14 +1,11 @@
 pragma solidity ^0.5.8;
 
 import "../../court/Court.sol";
-import "../lib/TimeHelpersMock.sol";
 
 
-contract CourtMock is Court, TimeHelpersMock {
+contract CourtMock is Court {
     constructor(
         Controller _controller,
-        uint64 _termDuration,
-        uint64 _firstTermStartTime,
         ERC20 _feeToken,
         uint256[4] memory _fees,                    // jurorFee, heartbeatFee, draftFee, settleFee
         uint64[4] memory _roundStateDurations,      // commitTerms, revealTerms, appealTerms, appealConfirmationTerms
@@ -19,8 +16,6 @@ contract CourtMock is Court, TimeHelpersMock {
         public
         Court(
             _controller,
-            _termDuration,
-            _firstTermStartTime,
             _feeToken,
             _fees,
             _roundStateDurations,
@@ -32,6 +27,6 @@ contract CourtMock is Court, TimeHelpersMock {
 
     function collect(address _juror, uint256 _amount) external {
         IJurorsRegistry jurorsRegistry = _jurorsRegistry();
-        jurorsRegistry.collectTokens(_juror, _amount, termId);
+        jurorsRegistry.collectTokens(_juror, _amount, _getLastEnsuredTermId());
     }
 }

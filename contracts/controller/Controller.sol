@@ -12,6 +12,9 @@ contract Controller is IsContract {
 
     address private constant ZERO_ADDRESS = address(0);
 
+    // Clock module ID - keccak256(abi.encodePacked("CLOCK"))
+    bytes32 internal constant CLOCK = 0x63e93c672e6c8e1ca35b86391d0d39606b98e2b328db48b135a69bedad6d3cff;
+
     // Court module ID - keccak256(abi.encodePacked("COURT"))
     bytes32 internal constant COURT = 0x26f3b895987e349a46d6d91132234924c6d45cfdc564b33427f53e3f9284955c;
 
@@ -112,7 +115,7 @@ contract Controller is IsContract {
 
     /**
     * @notice Remove the funds governor. Set the funds governor to the zero address.
-    * @dev This action cannot be rolled back, once the funds governor has been unset, funds cannot be recovered from ERC20-recoverable modules
+    * @dev This action cannot be rolled back, once the funds governor has been unset, funds cannot be recovered from recoverable modules anymore
     */
     function ejectFundsGovernor() external onlyFundsGovernor {
         _setFundsGovernor(ZERO_ADDRESS);
@@ -120,7 +123,7 @@ contract Controller is IsContract {
 
     /**
     * @notice Remove the modules governor. Set the modules governor to the zero address.
-    * @dev This action cannot be rolled back, once the modules governor has been unset, system modules cannot be changed
+    * @dev This action cannot be rolled back, once the modules governor has been unset, system modules cannot be changed anymore
     */
     function ejectModulesGovernor() external onlyModulesGovernor {
         _setModulesGovernor(ZERO_ADDRESS);
@@ -182,8 +185,16 @@ contract Controller is IsContract {
     }
 
     /**
-    * @dev Tell the address of the Accounting module
-    * @return Address of the Accounting module
+    * @dev Tell the address of the Clock module
+    * @return Address of the Clock module
+    */
+    function getClock() external view returns (address) {
+        return _getModule(CLOCK);
+    }
+
+    /**
+    * @dev Tell the address of the Court module
+    * @return Address of the Court module
     */
     function getCourt() external view returns (address) {
         return _getModule(COURT);

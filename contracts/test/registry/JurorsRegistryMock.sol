@@ -1,14 +1,12 @@
 pragma solidity ^0.5.8;
 
-import "../lib/TimeHelpersMock.sol";
 import "../../registry/JurorsRegistry.sol";
 
 
-contract JurorsRegistryMock is JurorsRegistry, TimeHelpersMock {
-    bool internal treeSearchHijacked;
+contract JurorsRegistryMock is JurorsRegistry {
     bool internal nextDraftMocked;
-    address[] public mockedSelectedJurors;
-    uint256[] public mockedWeights;
+    uint256[] internal mockedWeights;
+    address[] internal mockedSelectedJurors;
 
     constructor (Controller _controller, ERC20 _jurorToken, uint256 _minActiveBalance, uint256 _totalActiveBalanceLimit)
         public

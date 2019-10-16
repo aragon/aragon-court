@@ -11,8 +11,13 @@ contract ControllerMock is Controller {
     }
 
     function setCourtMock(address _addr) external {
+        // This function allows setting any address as the court module
         modules[COURT] = _addr;
         emit ModuleSet(COURT, _addr);
+    }
+
+    function setClock(address _addr) external {
+        _setModule(CLOCK, _addr);
     }
 
     function setAccounting(address _addr) external {

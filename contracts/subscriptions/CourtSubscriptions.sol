@@ -11,10 +11,9 @@ import "../controller/Controlled.sol";
 import "../controller/ControlledRecoverable.sol";
 import "../registry/IJurorsRegistry.sol";
 import "../subscriptions/ISubscriptions.sol";
-import "../subscriptions/ISubscriptionsOwner.sol";
 
 
-contract CourtSubscriptions is Controlled, ControlledRecoverable, TimeHelpers, ISubscriptions {
+contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscriptions {
     using SafeERC20 for ERC20;
     using SafeMath for uint256;
     using SafeMath64 for uint64;
@@ -527,8 +526,7 @@ contract CourtSubscriptions is Controlled, ControlledRecoverable, TimeHelpers, I
     */
     function _getCurrentPeriodId() internal view returns (uint256) {
         // Since the Court starts at term #1, and the first subscription period is #0, then subtract one unit to the current term of the Court
-        ISubscriptionsOwner owner = _subscriptionsOwner();
-        uint64 termId = owner.getCurrentTermId();
+        uint64 termId = _getCurrentTermId();
         return uint256(termId).sub(START_TERM_ID) / periodDuration;
     }
 
@@ -693,8 +691,8 @@ contract CourtSubscriptions is Controlled, ControlledRecoverable, TimeHelpers, I
         uint64 nextPeriodStartTermId = _getPeriodStartTermId(_periodId + 1); // No need for SafeMath: it's actually an uint64
 
         // Pick a random Court term during the next period of the requested one to get the total amount of juror tokens active in the Court
-        ISubscriptionsOwner owner = _subscriptionsOwner();
-        bytes32 randomness = owner.getTermRandomness(nextPeriodStartTermId);
+        IClock clock = _clock();
+        bytes32 randomness = clock.getTermRandomness(nextPeriodStartTermId);
 
         // The randomness factor for each Court term is computed using the the hash of a block number set during the initialization of the
         // term, to ensure it cannot be known beforehand. Note that the hash function being used only works for the 256 most recent block

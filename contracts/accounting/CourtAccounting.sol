@@ -10,11 +10,10 @@ import "../controller/Controller.sol";
 import "../controller/ControlledRecoverable.sol";
 
 
-contract CourtAccounting is Controlled, ControlledRecoverable, IAccounting {
+contract CourtAccounting is ControlledRecoverable, IAccounting {
     using SafeERC20 for ERC20;
     using SafeMath for uint256;
 
-    string private constant ERROR_SENDER_NOT_OWNER = "ACCOUNTING_SENDER_NOT_OWNER";
     string private constant ERROR_DEPOSIT_AMOUNT_ZERO = "ACCOUNTING_DEPOSIT_AMOUNT_ZERO";
     string private constant ERROR_WITHDRAW_FAILED = "ACCOUNTING_WITHDRAW_FAILED";
     string private constant ERROR_WITHDRAW_AMOUNT_ZERO = "ACCOUNTING_WITHDRAW_AMOUNT_ZERO";
@@ -25,18 +24,12 @@ contract CourtAccounting is Controlled, ControlledRecoverable, IAccounting {
     event Assign(ERC20 indexed token, address indexed from, address indexed to, uint256 amount);
     event Withdraw(ERC20 indexed token, address indexed from, address indexed to, uint256 amount);
 
-    modifier onlyOwner {
-        address owner = _accountingOwner();
-        require(msg.sender == owner, ERROR_SENDER_NOT_OWNER);
-        _;
-    }
-
     constructor(Controller _controller) ControlledRecoverable(_controller) public {
         // solium-disable-previous-line no-empty-blocks
         // No need to explicitly call `Controlled` constructor since `ControlledRecoverable` is already doing it
     }
 
-    function assign(ERC20 _token, address _to, uint256 _amount) external onlyOwner {
+    function assign(ERC20 _token, address _to, uint256 _amount) external onlyCourt {
         require(_amount > 0, ERROR_DEPOSIT_AMOUNT_ZERO);
 
         address tokenAddress = address(_token);

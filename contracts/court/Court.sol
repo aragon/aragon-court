@@ -6,21 +6,18 @@ import "@aragon/os/contracts/common/SafeERC20.sol";
 import "@aragon/os/contracts/lib/math/SafeMath.sol";
 import "@aragon/os/contracts/lib/math/SafeMath64.sol";
 import "@aragon/os/contracts/common/Uint256Helpers.sol";
-import "@aragon/os/contracts/common/TimeHelpers.sol";
 
-import "./IAccounting.sol";
 import "../lib/PctHelpers.sol";
 import "../voting/ICRVoting.sol";
 import "../voting/ICRVotingOwner.sol";
+import "../accounting/IAccounting.sol";
 import "../arbitration/IArbitrable.sol";
 import "../registry/IJurorsRegistry.sol";
-import "../registry/IJurorsRegistryOwner.sol";
 import "../subscriptions/ISubscriptions.sol";
-import "../subscriptions/ISubscriptionsOwner.sol";
 import "../controller/ControlledRecoverable.sol";
 
 
-contract Court is TimeHelpers, Controlled, ControlledRecoverable, IJurorsRegistryOwner, ICRVotingOwner, ISubscriptionsOwner {
+contract Court is ControlledRecoverable, ICRVotingOwner {
     using SafeERC20 for ERC20;
     using SafeMath for uint256;
     using SafeMath64 for uint64;
@@ -31,8 +28,6 @@ contract Court is TimeHelpers, Controlled, ControlledRecoverable, IJurorsRegistr
     string private constant ERROR_SENDER_NOT_VOTING = "CT_SENDER_NOT_VOTING";
 
     // Configs-related error messages
-    string private constant ERROR_TERM_DURATION_TOO_LONG = "CT_TERM_DURATION_TOO_LONG";
-    string private constant ERROR_BAD_FIRST_TERM_START_TIME = "CT_BAD_FIRST_TERM_START_TIME";
     string private constant ERROR_TOO_OLD_TERM = "CT_TOO_OLD_TERM";
     string private constant ERROR_CONFIG_PERIOD = "CT_CONFIG_PERIOD";
     string private constant ERROR_INVALID_PENALTY_PCT = "CT_INVALID_PENALTY_PCT";
@@ -41,15 +36,8 @@ contract Court is TimeHelpers, Controlled, ControlledRecoverable, IJurorsRegistr
     string private constant ERROR_INVALID_MAX_APPEAL_ROUNDS = "CT_INVALID_MAX_APPEAL_ROUNDS";
     string private constant ERROR_ZERO_COLLATERAL_FACTOR = "CT_0_COLLATERAL_FACTOR";
 
-    // Terms-related error messages
-    string private constant ERROR_TERM_OUTDATED = "CT_TERM_OUTDATED";
-    string private constant ERROR_TOO_MANY_TRANSITIONS = "CT_TOO_MANY_TRANSITIONS";
-    string private constant ERROR_INVALID_TRANSITION_TERMS = "CT_INVALID_TRANSITION_TERMS";
-    string private constant ERROR_TERM_RANDOMNESS_NOT_YET = "CT_TERM_RANDOMNESS_NOT_YET";
-    string private constant ERROR_TERM_DOES_NOT_EXIST = "CT_TERM_DOES_NOT_EXIST";
-    string private constant ERROR_TERM_RANDOMNESS_NOT_AVAILABLE = "CT_TERM_RANDOMNESS_NOT_AVAILABLE";
-
     // Disputes-related error messages
+    string private constant ERROR_TERM_OUTDATED = "CT_TERM_OUTDATED";
     string private constant ERROR_DISPUTE_DOES_NOT_EXIST = "CT_DISPUTE_DOES_NOT_EXIST";
     string private constant ERROR_INVALID_DISPUTE_STATE = "CT_INVALID_DISPUTE_STATE";
     string private constant ERROR_INVALID_RULING_OPTIONS = "CT_INVALID_RULING_OPTIONS";
@@ -61,7 +49,6 @@ contract Court is TimeHelpers, Controlled, ControlledRecoverable, IJurorsRegistr
     string private constant ERROR_ROUND_DOES_NOT_EXIST = "CT_ROUND_DOES_NOT_EXIST";
     string private constant ERROR_INVALID_ADJUDICATION_STATE = "CT_INVALID_ADJUDICATION_STATE";
     string private constant ERROR_ROUND_ALREADY_DRAFTED = "CT_ROUND_ALREADY_DRAFTED";
-    string private constant ERROR_ROUND_NOT_DRAFT_TERM = "CT_ROUND_NOT_DRAFT_TERM";
     string private constant ERROR_ROUND_NOT_APPEALED = "CT_ROUND_NOT_APPEALED";
     string private constant ERROR_INVALID_APPEAL_RULING = "CT_INVALID_APPEAL_RULING";
 
@@ -74,6 +61,9 @@ contract Court is TimeHelpers, Controlled, ControlledRecoverable, IJurorsRegistr
     string private constant ERROR_WONT_REWARD_INCOHERENT_JUROR = "CT_WONT_REWARD_INCOHERENT_JUROR";
     string private constant ERROR_NO_COHERENT_JURORS = "CT_NO_COHERENT_JURORS";
     string private constant ERROR_ROUND_APPEAL_ALREADY_SETTLED = "CT_APPEAL_ALREADY_SETTLED";
+
+    // Initial term to start the Court, disputes are not allowed during this term. It can be used to active jurors
+    uint64 internal constant ZERO_TERM_ID = 0;
 
     // Maximum number of term transitions a callee may have to assume in order to call certain functions that require the Court being up-to-date
     uint64 internal constant MAX_AUTO_TERM_TRANSITIONS_ALLOWED = 1;
@@ -89,12 +79,6 @@ contract Court is TimeHelpers, Controlled, ControlledRecoverable, IJurorsRegistr
 
     // Precision factor used to improve rounding when computing weights for the final round
     uint256 internal constant FINAL_ROUND_WEIGHT_PRECISION = 1000;
-
-    // Max for termDuration
-    uint64 internal constant MAX_TERM_DURATION = 365 days;
-
-    // Max time until first term starts since contract is deployed
-    uint64 internal constant MAX_FIRST_TERM_DELAY_PERIOD = 2 * MAX_TERM_DURATION;
 
     // Max number of terms that each of the different adjudication states can last (if lasted 1h, this would be a year)
     uint64 internal constant MAX_ADJ_STATE_DURATION = 8670;
@@ -139,14 +123,6 @@ contract Court is TimeHelpers, Controlled, ControlledRecoverable, IJurorsRegistr
     struct CourtConfig {
         FeesConfig fees;
         DisputesConfig disputes;
-    }
-
-    struct Term {
-        uint64 startTime;              // Timestamp when the term started
-        uint64 dependingDrafts;        // Adjudication rounds pegged to this term for randomness
-        uint64 courtConfigId;          // Fee structure for this term (index in courtConfigs array)
-        uint64 randomnessBN;           // Block number for entropy
-        bytes32 randomness;            // Entropy from randomnessBN block hash
     }
 
     struct Dispute {
@@ -197,17 +173,8 @@ contract Court is TimeHelpers, Controlled, ControlledRecoverable, IJurorsRegistr
         uint256 confirmAppealDeposit;  // Total amount of fees for a regular round at the given term
     }
 
-    // Duration in seconds for each term of the Court
-    uint64 public termDuration;
-
-    // Last ensured term id
-    uint64 internal termId;
-
     // Future term id in which a config change has been scheduled
     uint64 internal configChangeTermId;
-
-    // List of Court terms indexed by id
-    mapping (uint64 => Term) internal terms;
 
     // List of all the disputes created in the Court
     Dispute[] internal disputes;
@@ -215,7 +182,12 @@ contract Court is TimeHelpers, Controlled, ControlledRecoverable, IJurorsRegistr
     // List of all the configs used in the Court
     CourtConfig[] internal courtConfigs;
 
-    event NewTerm(uint64 termId, address indexed heartbeatSender);
+    // List of configs indexed by id
+    mapping (uint256 => uint256) internal configIdByTerm;
+
+    // List of number of disputes per term id
+    mapping (uint256 => uint256) internal dependingDraftsByTerm;
+
     event NewCourtConfig(uint64 fromTermId, uint64 courtConfigId);
     event DisputeStateChanged(uint256 indexed disputeId, DisputeState indexed state);
     event NewDispute(uint256 indexed disputeId, address indexed subject, uint64 indexed draftTermId, uint64 jurorsNumber);
@@ -225,6 +197,7 @@ contract Court is TimeHelpers, Controlled, ControlledRecoverable, IJurorsRegistr
     event PenaltiesSettled(uint256 indexed disputeId, uint256 indexed roundId, uint256 collectedTokens);
     event RewardSettled(uint256 indexed disputeId, uint256 indexed roundId, address juror);
     event AppealDepositSettled(uint256 indexed disputeId, uint256 indexed roundId);
+    event Heartbeat(uint64 previousTermId, uint64 currentTermId, address indexed sender);
 
     /**
     * @dev Ensure the msg.sender is the CR Voting module
@@ -236,19 +209,8 @@ contract Court is TimeHelpers, Controlled, ControlledRecoverable, IJurorsRegistr
     }
 
     /**
-    * @dev Ensure the current term of the Court. If the Court term is outdated by one term it will be updated. Note that this function only
-    *      allows updating the Court by one term, if more terms are required, users will have to call the heartbeat function manually.
-    */
-    modifier ensureTerm {
-        _ensureTerm();
-        _;
-    }
-
-    /**
     * @dev Constructor function
     * @param _controller Address of the controller
-    * @param _termDuration Duration in seconds per term (recommended 1 hour)
-    * @param _firstTermStartTime Timestamp in seconds when the court will open (to give time for juror on-boarding)
     * @param _feeToken Address of the token contract that is used to pay for fees
     * @param _fees Array containing:
     *        0. jurorFee The amount of _feeToken that is paid per juror per dispute
@@ -273,8 +235,6 @@ contract Court is TimeHelpers, Controlled, ControlledRecoverable, IJurorsRegistr
     */
     constructor(
         Controller _controller,
-        uint64 _termDuration,
-        uint64 _firstTermStartTime,
         ERC20 _feeToken,
         uint256[4] memory _fees,
         uint64[4] memory _roundStateDurations,
@@ -286,34 +246,14 @@ contract Court is TimeHelpers, Controlled, ControlledRecoverable, IJurorsRegistr
         public
     {
         // No need to explicitly call `Controlled` constructor since `ControlledRecoverable` is already doing it
-        // This seems reasonable enough, and this way we avoid using SafeMath for termDurarion
-        require(_termDuration < MAX_TERM_DURATION, ERROR_TERM_DURATION_TOO_LONG);
-        require(
-            _firstTermStartTime >= getTimestamp64() + _termDuration && _firstTermStartTime <= getTimestamp64() + MAX_FIRST_TERM_DELAY_PERIOD,
-            ERROR_BAD_FIRST_TERM_START_TIME
-        );
-
-        termDuration = _termDuration;
-
-        // No need for SafeMath: checked above
-        terms[0].startTime = _firstTermStartTime - _termDuration;
-
         // Leave config at index 0 empty for non-scheduled config changes
         courtConfigs.length = 1;
-        _setCourtConfig(
-            0, // term id zero
-            _feeToken,
-            _fees,
-            _roundStateDurations,
-            _pcts,
-            _roundParams,
-            _appealCollateralParams
-        );
+        _setCourtConfig(ZERO_TERM_ID, ZERO_TERM_ID, _feeToken, _fees, _roundStateDurations, _pcts, _roundParams, _appealCollateralParams);
     }
 
     /**
     * @notice Change Court configuration params
-    * @param _termId Term which the config will be effective at
+    * @param _fromTermId Identification number of the term in which the config will be effective at
     * @param _feeToken Address of the token contract that is used to pay for fees.
     * @param _fees Array containing:
     *        _jurorFee The amount of _feeToken that is paid per juror per dispute
@@ -334,7 +274,7 @@ contract Court is TimeHelpers, Controlled, ControlledRecoverable, IJurorsRegistr
     *        _appealConfirmCollateralFactor Multiple of juror fees required to confirm appeal
     */
     function setCourtConfig(
-        uint64 _termId,
+        uint64 _fromTermId,
         ERC20 _feeToken,
         uint256[4] calldata _fees,
         uint64[4] calldata _roundStateDurations,
@@ -345,7 +285,8 @@ contract Court is TimeHelpers, Controlled, ControlledRecoverable, IJurorsRegistr
         external
         onlyConfigGovernor
     {
-        _setCourtConfig(_termId, _feeToken, _fees, _roundStateDurations, _pcts, _roundParams, _appealCollateralParams);
+        uint64 termId = _ensureTermId();
+        _setCourtConfig(termId, _fromTermId, _feeToken, _fees, _roundStateDurations, _pcts, _roundParams, _appealCollateralParams);
     }
 
     /**
@@ -355,10 +296,11 @@ contract Court is TimeHelpers, Controlled, ControlledRecoverable, IJurorsRegistr
     * @param _possibleRulings Number of possible rulings allowed for the drafted jurors to vote on the dispute
     * @return Dispute identification number
     */
-    function createDispute(IArbitrable _subject, uint8 _possibleRulings) external ensureTerm returns (uint256) {
+    function createDispute(IArbitrable _subject, uint8 _possibleRulings) external returns (uint256) {
         // TODO: Limit the min amount of terms before drafting (to allow for evidence submission)
         // TODO: ERC165 check that _subject conforms to the Arbitrable interface
         // TODO: require(address(_subject) == msg.sender, ERROR_INVALID_DISPUTE_CREATOR);
+        uint64 termId = _ensureTermId();
         ISubscriptions subscriptions = _subscriptions();
         require(subscriptions.isUpToDate(address(_subject)), ERROR_SUBSCRIPTION_NOT_PAID);
         require(_possibleRulings >= MIN_RULING_OPTIONS && _possibleRulings <= MAX_RULING_OPTIONS, ERROR_INVALID_RULING_OPTIONS);
@@ -391,22 +333,18 @@ contract Court is TimeHelpers, Controlled, ControlledRecoverable, IJurorsRegistr
         disputeExists(_disputeId);
         // Drafts can only be computed when the Court is up-to-date. Note that forcing a term transition won't work since the term randomness
         // is always based on the next term which means it won't be available anyway.
-        uint64 requiredTransitions = _neededTermTransitions();
+        IClock clock = _clock();
+        uint64 requiredTransitions = _clock().getNeededTermTransitions();
         require(uint256(requiredTransitions) == 0, ERROR_TERM_OUTDATED);
+        uint64 currentTermId = clock.getLastEnsuredTermId();
 
         // Ensure dispute has not been drafted yet
         Dispute storage dispute = disputes[_disputeId];
         require(dispute.state == DisputeState.PreDraft, ERROR_ROUND_ALREADY_DRAFTED);
 
-        // Ensure round can be drafted in the current term
+        // Ensure draft term randomness can be computed for the current block number
         AdjudicationRound storage round = dispute.rounds[dispute.rounds.length - 1];
-        uint64 requestedDraftTermId = round.draftTermId;
-        uint64 currentTermId = termId;
-        require(requestedDraftTermId <= currentTermId, ERROR_ROUND_NOT_DRAFT_TERM);
-
-        // Ensure current term randomness can be ensured for the current block number
-        Term storage draftTerm = terms[currentTermId];
-        _ensureTermRandomness(draftTerm);
+        bytes32 draftTermRandomness = clock.ensureTermRandomness(round.draftTermId);
 
         // Draft the min number of jurors between the one requested by the sender and the one requested by the disputer
         uint64 jurorsNumber = round.jurorsNumber;
@@ -417,16 +355,15 @@ contract Court is TimeHelpers, Controlled, ControlledRecoverable, IJurorsRegistr
 
         // Draft jurors for the given dispute and reimburse fees
         CourtConfig storage config = _getDisputeConfig(dispute);
-        bool draftEnded = _draft(_disputeId, round, jurorsNumber, selectedJurors, requestedJurors, draftTerm, config);
-        IAccounting accounting = _accounting();
-        accounting.assign(config.fees.token, msg.sender, config.fees.draftFee.mul(requestedJurors));
+        bool draftEnded = _draft(_disputeId, round, jurorsNumber, selectedJurors, requestedJurors, currentTermId, draftTermRandomness, config);
+        _accounting().assign(config.fees.token, msg.sender, config.fees.draftFee.mul(requestedJurors));
 
         // If the drafting is over, update its state
         if (draftEnded) {
             // Note that we can avoid using SafeMath here since we already ensured `termId` is greater than or equal to `round.draftTermId`
-            round.delayedTerms = currentTermId - requestedDraftTermId;
+            round.delayedTerms = currentTermId - round.draftTermId;
             dispute.state = DisputeState.Adjudicating;
-            emit DisputeStateChanged(_disputeId, dispute.state);
+            emit DisputeStateChanged(_disputeId, DisputeState.Adjudicating);
         }
     }
 
@@ -436,7 +373,7 @@ contract Court is TimeHelpers, Controlled, ControlledRecoverable, IJurorsRegistr
     * @param _roundId Identification number of the dispute round being appealed
     * @param _ruling Ruling appealing a dispute round in favor of
     */
-    function createAppeal(uint256 _disputeId, uint256 _roundId, uint8 _ruling) external ensureTerm {
+    function createAppeal(uint256 _disputeId, uint256 _roundId, uint8 _ruling) external {
         disputeExists(_disputeId);
         // Ensure given round can be appealed. Note that if there was a final appeal the adjudication state will be 'Ended'.
         Dispute storage dispute = disputes[_disputeId];
@@ -466,7 +403,7 @@ contract Court is TimeHelpers, Controlled, ControlledRecoverable, IJurorsRegistr
     * @param _roundId Identification number of the dispute round confirming an appeal of
     * @param _ruling Ruling being confirmed against a dispute round appeal
     */
-    function confirmAppeal(uint256 _disputeId, uint256 _roundId, uint8 _ruling) external ensureTerm {
+    function confirmAppeal(uint256 _disputeId, uint256 _roundId, uint8 _ruling) external {
         // TODO: ensure dispute exists
         // Ensure given round is appealed and can be confirmed. Note that if there was a final appeal the adjudication state will be 'Ended'.
         Dispute storage dispute = disputes[_disputeId];
@@ -499,7 +436,7 @@ contract Court is TimeHelpers, Controlled, ControlledRecoverable, IJurorsRegistr
     * @notice Execute the arbitrable associated to dispute #`_disputeId` based on its final ruling
     * @param _disputeId Identification number of the dispute to be executed
     */
-    function executeRuling(uint256 _disputeId) external ensureTerm {
+    function executeRuling(uint256 _disputeId) external {
         disputeExists(_disputeId);
         Dispute storage dispute = disputes[_disputeId];
         require(dispute.state != DisputeState.Executed, ERROR_INVALID_DISPUTE_STATE);
@@ -520,7 +457,7 @@ contract Court is TimeHelpers, Controlled, ControlledRecoverable, IJurorsRegistr
     * @param _jurorsToSettle Maximum number of jurors to be slashed in this call. It can be set to zero to slash all the losing jurors of the
     *        given round. This argument is only used when settling regular rounds.
     */
-    function settlePenalties(uint256 _disputeId, uint256 _roundId, uint256 _jurorsToSettle) external ensureTerm {
+    function settlePenalties(uint256 _disputeId, uint256 _roundId, uint256 _jurorsToSettle) external {
         // TODO: ensure round exists
         // Enforce that rounds are settled in order to avoid one round without incentive to settle. Even if there is a settleFee
         // it may not be big enough and all jurors in the round could be slashed.
@@ -596,7 +533,7 @@ contract Court is TimeHelpers, Controlled, ControlledRecoverable, IJurorsRegistr
     * @param _roundId Identification number of the dispute round to settle penalties for
     * @param _juror Identification number of the dispute round to settle penalties for
     */
-    function settleReward(uint256 _disputeId, uint256 _roundId, address _juror) external ensureTerm {
+    function settleReward(uint256 _disputeId, uint256 _roundId, address _juror) external {
         // TODO: ensure round exists
         // Ensure dispute round penalties are settled first
         Dispute storage dispute = disputes[_disputeId];
@@ -638,7 +575,7 @@ contract Court is TimeHelpers, Controlled, ControlledRecoverable, IJurorsRegistr
     * @param _disputeId Identification number of the dispute to settle appeal deposits for
     * @param _roundId Identification number of the dispute round to settle appeal deposits for
     */
-    function settleAppealDeposit(uint256 _disputeId, uint256 _roundId) external ensureTerm {
+    function settleAppealDeposit(uint256 _disputeId, uint256 _roundId) external {
         // TODO: ensure round exists
         // Ensure dispute round penalties are settled first
         Dispute storage dispute = disputes[_disputeId];
@@ -691,7 +628,7 @@ contract Court is TimeHelpers, Controlled, ControlledRecoverable, IJurorsRegistr
     * @param _voter Address of the voter querying the weight of
     * @return Weight of the requested juror for the requested dispute's round
     */
-    function ensureTermAndGetVoterWeightToCommit(uint256 _voteId, address _voter) external onlyVoting ensureTerm returns (uint64) {
+    function ensureTermAndGetVoterWeightToCommit(uint256 _voteId, address _voter) external onlyVoting returns (uint64) {
         (uint256 disputeId, uint256 roundId) = _decodeVoteId(_voteId);
         Dispute storage dispute = disputes[disputeId];
         _checkAdjudicationState(dispute, roundId, AdjudicationState.Committing);
@@ -702,7 +639,7 @@ contract Court is TimeHelpers, Controlled, ControlledRecoverable, IJurorsRegistr
     * @notice Check if votes can be leaked
     * @param _voteId ID of the vote instance to be checked
     */
-    function ensureTermToLeak(uint256 _voteId) external onlyVoting ensureTerm {
+    function ensureTermToLeak(uint256 _voteId) external onlyVoting {
         (uint256 disputeId, uint256 roundId) = _decodeVoteId(_voteId);
         Dispute storage dispute = disputes[disputeId];
         _checkAdjudicationState(dispute, roundId, AdjudicationState.Committing);
@@ -714,7 +651,7 @@ contract Court is TimeHelpers, Controlled, ControlledRecoverable, IJurorsRegistr
     * @param _voter Address of the voter querying the weight of
     * @return Weight of the requested juror for the requested dispute's round
     */
-    function ensureTermAndGetVoterWeightToReveal(uint256 _voteId, address _voter) external onlyVoting ensureTerm returns (uint64) {
+    function ensureTermAndGetVoterWeightToReveal(uint256 _voteId, address _voter) external onlyVoting returns (uint64) {
         (uint256 disputeId, uint256 roundId) = _decodeVoteId(_voteId);
         Dispute storage dispute = disputes[disputeId];
         _checkAdjudicationState(dispute, roundId, AdjudicationState.Revealing);
@@ -723,64 +660,36 @@ contract Court is TimeHelpers, Controlled, ControlledRecoverable, IJurorsRegistr
     }
 
     /**
-    * @dev Tell and ensure the current term of the court.
-    * @return Identification number of the last ensured term
+    * @notice Send a heartbeat to the Court to transition up to `_maxRequestedTransitions` terms
+    * @param _maxRequestedTransitions Max number of term transitions allowed by the sender
     */
-    function ensureAndGetTermId() external ensureTerm returns (uint64) {
-        return termId;
-    }
+    function heartbeat(uint64 _maxRequestedTransitions) external {
+        IClock clock = _clock();
+        (uint64 previousTermId, uint64 currentTermId) = clock.heartbeat(_maxRequestedTransitions);
+        uint256 previousConfigId = configIdByTerm[previousTermId];
+        emit Heartbeat(previousTermId, currentTermId, msg.sender);
 
-    /**
-    * @dev Tell the last ensured term identification number
-    * @return Identification number of the last ensured term
-    */
-    function getLastEnsuredTermId() external view returns (uint64) {
-        return termId;
-    }
+        // Transition the minimum number of terms between the amount requested and the amount actually needed
+        for (uint256 termId = previousTermId + 1; termId <= currentTermId; termId++) {
+            // If the term being processed had no config change scheduled, keep the previous one
+            uint256 configId = configIdByTerm[termId];
+            if (configId == 0) {
+                configId = previousConfigId;
+                configIdByTerm[termId] = configId;
+            }
+            previousConfigId = configId;
 
-    /**
-    * @dev Tell the current term identification number. Note that there may be pending term transitions.
-    * @return Identification number of the current term
-    */
-    function getCurrentTermId() external view returns (uint64) {
-        return _getCurrentTermId();
-    }
+            // Add amount of fees to be paid for the transitioned term
+            FeesConfig storage config = _getConfigSafeAt(uint64(termId)).fees;
+            uint256 dependingDrafts = dependingDraftsByTerm[termId];
+            uint256 totalFee = config.heartbeatFee.mul(dependingDrafts);
 
-    /**
-    * @dev Tell the number of terms the Court should transition to be up-to-date
-    * @return Number of terms the Court should transition to be up-to-date
-    */
-    function neededTermTransitions() external view returns (uint64) {
-        return _neededTermTransitions();
-    }
-
-    /**
-    * @dev Tell the information related to a term based on its ID. Note that if the term has not been reached, the
-    *      information returned won't be computed yet.
-    * @param _termId ID of the term being queried
-    * @return Term start time
-    * @return Number of drafts depending on the requested term
-    * @return ID of the court configuration associated to the requested term
-    * @return Block number used for randomness in the requested term
-    * @return Randomness computed for the requested term
-    */
-    function getTerm(uint64 _termId) external view
-        returns (uint64 startTime, uint64 dependingDrafts, uint64 courtConfigId, uint64 randomnessBN, bytes32 randomness)
-    {
-        // We allow querying future terms that were not computed yet
-        Term storage term = terms[_termId];
-        return (term.startTime, term.dependingDrafts, term.courtConfigId, term.randomnessBN, term.randomness);
-    }
-
-    /**
-    * @dev Tell the randomness of a term even if it wasn't computed yet
-    * @param _termId ID of the term being queried
-    * @return Randomness of the requested term
-    */
-    function getTermRandomness(uint64 _termId) external view returns (bytes32) {
-        require(_termId <= termId, ERROR_TERM_DOES_NOT_EXIST);
-        Term storage term = terms[_termId];
-        return _getTermRandomness(term);
+            // Pay heartbeat fees to the caller of this function
+            if (totalFee > 0) {
+                IAccounting accounting = _accounting();
+                accounting.assign(config.token, msg.sender, totalFee);
+            }
+        }
     }
 
     /**
@@ -926,7 +835,6 @@ contract Court is TimeHelpers, Controlled, ControlledRecoverable, IJurorsRegistr
     * @return totalFees Total amount of fees for a regular round at the given term
     */
     function getDisputeFees(uint64 _draftTermId) external view returns (ERC20 feeToken, uint256 jurorFees, uint256 totalFees) {
-        require(_draftTermId > termId, ERROR_TOO_OLD_TERM);
         CourtConfig storage config = _getConfigAt(_draftTermId);
         uint64 jurorsNumber = config.disputes.firstRoundJurorsNumber;
         return _getRegularRoundFees(config, jurorsNumber);
@@ -1004,79 +912,6 @@ contract Court is TimeHelpers, Controlled, ControlledRecoverable, IJurorsRegistr
     }
 
     /**
-    * @notice Send a heartbeat to the Court to transition up to `_maxRequestedTransitions` terms
-    * @param _maxRequestedTransitions Max number of term transitions allowed by the sender
-    */
-    function heartbeat(uint64 _maxRequestedTransitions) public {
-        uint64 neededTransitions = _neededTermTransitions();
-        uint256 transitions = uint256(_maxRequestedTransitions < neededTransitions ? _maxRequestedTransitions : neededTransitions);
-        require(transitions > 0, ERROR_INVALID_TRANSITION_TERMS);
-
-        // Transition the minimum number of terms between the amount requested and the amount actually needed
-        uint256 totalFee;
-        CourtConfig storage config = _getConfigSafeAt(termId);
-        for (uint256 transition = 1; transition <= transitions; transition++) {
-            // Term IDs are incremented by one based on the number of time periods since the Court started. Since time is represented in uint64,
-            // even if we chose the minimum duration possible for a term (1 second), we can ensure terms will never reach 2^64 since time is
-            // already assumed to fit in uint64.
-            Term storage previousTerm = terms[termId++];
-            uint64 currentTermId = termId;
-            Term storage currentTerm = terms[currentTermId];
-
-            // If the term had no change scheduled, keep the previous one
-            if (currentTerm.courtConfigId == 0) {
-                currentTerm.courtConfigId = previousTerm.courtConfigId;
-            }
-            // Set the start time of the new term. Note that we are using a constant term duration value to guarantee
-            // equally long terms, regardless of heartbeats.
-            // No need for SafeMath: termDuration is capped at MAX_TERM_DURATION, _firstTermStartTime by MAX_FIRST_TERM_DELAY_PERIOD,
-            // and we assume that timestamps (and its derivatives like termId) won't reach MAX_UINT64, which would be ~5.8e11 years
-            currentTerm.startTime = previousTerm.startTime + termDuration;
-            // In order to draft a random number of jurors in a term, we use a randomness factor for each term based on a
-            // block number that is set once the term has started. Note that this information could not be known beforehand.
-            currentTerm.randomnessBN = getBlockNumber64() + 1;
-            emit NewTerm(currentTermId, msg.sender);
-
-            // Add amount of fees to be paid for the transitioned term
-            config = _getConfigSafeAt(currentTermId);
-            totalFee = totalFee.add(config.fees.heartbeatFee.mul(uint256(currentTerm.dependingDrafts)));
-        }
-
-        // Pay heartbeat fees to the caller of this function
-        if (totalFee > 0) {
-            IAccounting accounting = _accounting();
-            accounting.assign(config.fees.token, msg.sender, totalFee);
-        }
-    }
-
-    /**
-    * @dev Internal function to ensure the current term. If the Court term is outdated it will update it. Note that this function
-    *      only allows updating the Court by one term, if more terms are required, users will have to call the heartbeat function manually.
-    */
-    function _ensureTerm() internal {
-        uint64 requiredTransitions = _neededTermTransitions();
-        require(requiredTransitions <= MAX_AUTO_TERM_TRANSITIONS_ALLOWED, ERROR_TOO_MANY_TRANSITIONS);
-
-        if (uint256(requiredTransitions) > 0) {
-            heartbeat(requiredTransitions);
-        }
-    }
-
-    /**
-    * @dev Internal function to ensure a certain term has its randomness set. As we allow to draft disputes requested for previous terms,
-    *      if there were mined more than 256 blocks for the current term, the blockhash of its randomness BN is no longer available, given
-    *      round will be able to be drafted in the following term.
-    * @param _term Term to be checked
-    */
-    function _ensureTermRandomness(Term storage _term) internal {
-        if (_term.randomness == bytes32(0)) {
-            bytes32 newRandomness = _getTermRandomness(_term);
-            require(newRandomness != bytes32(0), ERROR_TERM_RANDOMNESS_NOT_AVAILABLE);
-            _term.randomness = newRandomness;
-        }
-    }
-
-    /**
     * @dev Internal function to create a new round for a given dispute
     * @param _disputeId Identification number of the dispute to create a new round for
     * @param _disputeState New state for the dispute to be changed
@@ -1101,13 +936,25 @@ contract Court is TimeHelpers, Controlled, ControlledRecoverable, IJurorsRegistr
         round.triggeredBy = msg.sender;
 
         // Register new draft for the requested term
-        terms[_draftTermId].dependingDrafts += 1;
+        dependingDraftsByTerm[_draftTermId] += 1;
 
         // Create new vote for the new round
         ICRVoting voting = _voting();
         uint256 voteId = _getVoteId(_disputeId, roundId);
         voting.create(voteId, dispute.possibleRulings);
         return roundId;
+    }
+
+    /**
+    * @dev Internal function to check the adjudication state of a certain dispute round. This function also ensures the court terms are updated.
+    * @param _dispute Dispute to be checked
+    * @param _roundId Identification number of the dispute round to be checked
+    * @param _state Expected adjudication state for the given dispute round
+    */
+    function _checkAdjudicationState(Dispute storage _dispute, uint256 _roundId, AdjudicationState _state) internal {
+        uint64 termId = _ensureTermId();
+        require(_roundId < _dispute.rounds.length, ERROR_ROUND_DOES_NOT_EXIST);
+        require(_adjudicationStateAt(_dispute, _roundId, termId) == _state, ERROR_INVALID_ADJUDICATION_STATE);
     }
 
     /**
@@ -1160,6 +1007,7 @@ contract Court is TimeHelpers, Controlled, ControlledRecoverable, IJurorsRegistr
         internal
         returns (uint256)
     {
+        uint64 termId = _ensureTermId();
         // The batch starts where the previous one ended, stored in _round.settledJurors
         uint256 roundSettledJurors = _round.settledJurors;
         // Compute the amount of jurors that are going to be settled in this batch, which is returned by the function for fees calculation
@@ -1193,8 +1041,7 @@ contract Court is TimeHelpers, Controlled, ControlledRecoverable, IJurorsRegistr
 
         // Check which of the jurors voted in favor of the final ruling of the dispute in this round. Ask the registry to slash or unlocked the
         // locked active tokens of each juror depending on their vote, and finally store the total amount of slashed tokens.
-        ICRVoting voting = _voting();
-        bool[] memory jurorsInFavor = voting.getVotersInFavorOf(_voteId, _finalRuling, jurors);
+        bool[] memory jurorsInFavor = _voting().getVotersInFavorOf(_voteId, _finalRuling, jurors);
         _round.collectedTokens = _round.collectedTokens.add(jurorsRegistry.slashOrUnlock(termId, jurors, penalties, jurorsInFavor));
         return batchSettledJurors;
     }
@@ -1227,13 +1074,14 @@ contract Court is TimeHelpers, Controlled, ControlledRecoverable, IJurorsRegistr
     function _computeJurorWeightForFinalRound(CourtConfig storage _config, AdjudicationRound storage _round, address _juror)
         internal returns (uint64)
     {
-        // If the juror weight for the last round is zero, return zero
         IJurorsRegistry jurorsRegistry = _jurorsRegistry();
         (uint256 activeBalance, uint256 minActiveBalanceMultiple) = jurorsRegistry.getActiveBalanceInfoOfAt(
             _juror,
             _round.draftTermId,
             FINAL_ROUND_WEIGHT_PRECISION
         );
+
+        // If the juror weight for the last round is zero, return zero
         if (minActiveBalanceMultiple == 0) {
             return uint64(0);
         }
@@ -1243,7 +1091,7 @@ contract Court is TimeHelpers, Controlled, ControlledRecoverable, IJurorsRegistr
         uint256 weightedPenalty = activeBalance.pct(_config.disputes.penaltyPct);
 
         // If it was not possible to collect the amount to be locked, return 0 to prevent juror from voting
-        if (!jurorsRegistry.collectTokens(_juror, weightedPenalty, termId)) {
+        if (!jurorsRegistry.collectTokens(_juror, weightedPenalty, _getLastEnsuredTermId())) {
             return uint64(0);
         }
 
@@ -1256,7 +1104,8 @@ contract Court is TimeHelpers, Controlled, ControlledRecoverable, IJurorsRegistr
 
     /**
     * @dev Assumes that sender it's allowed (either it's from governor or it's on init)
-    * @param _fromTermId Term which the config will be effective at
+    * @param _currentTermId Identification number of the current Court term
+    * @param _fromTermId Identification number of the term in which the config will be effective at
     * @param _feeToken Address of the token contract that is used to pay for fees.
     * @param _fees Array containing:
     *        _jurorFee The amount of _feeToken that is paid per juror per dispute
@@ -1276,6 +1125,7 @@ contract Court is TimeHelpers, Controlled, ControlledRecoverable, IJurorsRegistr
     *        _appealCollateralFactor Multiple of juror fees required to appeal a preliminary ruling
     *        _appealConfirmCollateralFactor Multiple of juror fees required to confirm a    */
     function _setCourtConfig(
+        uint64 _currentTermId,
         uint64 _fromTermId,
         ERC20 _feeToken,
         uint256[4] memory _fees, // _jurorFee, _heartbeatFee, _draftFee, _settleFee
@@ -1285,17 +1135,15 @@ contract Court is TimeHelpers, Controlled, ControlledRecoverable, IJurorsRegistr
         uint256[2] memory _appealCollateralParams // _appealCollateralFactor, _appealConfirmCollateralFactor
     )
         internal
-        ensureTerm
     {
-        // if termId is not zero, change must be scheduled in the future
-        // 2 terms in advance, to ensure that disputes scheduled for next term
-        // keep the known config
-        require(termId == 0 || _fromTermId > termId + 1, ERROR_TOO_OLD_TERM);
+        // If the current term is not zero, changes must be scheduled at least 2 terms in the future.
+        // This way we can ensure that disputes scheduled for the next term won't have their config changed.
+        require(_currentTermId == ZERO_TERM_ID || _fromTermId > _currentTermId + 1, ERROR_TOO_OLD_TERM);
 
         require(_appealCollateralParams[0] > 0 && _appealCollateralParams[1] > 0, ERROR_ZERO_COLLATERAL_FACTOR);
+
         // Make sure the given penalty pct is not greater than 100%
-        uint16 _penaltyPct = _pcts[0];
-        require(PctHelpers.isValid(_penaltyPct), ERROR_INVALID_PENALTY_PCT);
+        require(PctHelpers.isValid(_pcts[0]), ERROR_INVALID_PENALTY_PCT);
 
         // Disputes must request at least one juror to be drafted initially
         uint64 _firstRoundJurorsNumber = _roundParams[0];
@@ -1317,8 +1165,8 @@ contract Court is TimeHelpers, Controlled, ControlledRecoverable, IJurorsRegistr
 
         // If there was a config change already scheduled, reset it (in that case we will overwrite last array item).
         // Otherwise, schedule a new config.
-        if (configChangeTermId > termId) {
-            terms[configChangeTermId].courtConfigId = 0;
+        if (configChangeTermId > _currentTermId) {
+            configIdByTerm[configChangeTermId] = 0;
         } else {
             courtConfigs.length++;
         }
@@ -1339,7 +1187,7 @@ contract Court is TimeHelpers, Controlled, ControlledRecoverable, IJurorsRegistr
             revealTerms: _roundStateDurations[1],
             appealTerms: _roundStateDurations[2],
             appealConfirmTerms: _roundStateDurations[3],
-            penaltyPct: _penaltyPct,
+            penaltyPct: _pcts[0],
             finalRoundReduction: _pcts[1],
             firstRoundJurorsNumber: _firstRoundJurorsNumber,
             appealStepFactor: _roundParams[1],
@@ -1348,7 +1196,7 @@ contract Court is TimeHelpers, Controlled, ControlledRecoverable, IJurorsRegistr
             appealConfirmCollateralFactor: _appealCollateralParams[1]
         });
 
-        terms[_fromTermId].courtConfigId = courtConfigId;
+        configIdByTerm[_fromTermId] = courtConfigId;
         configChangeTermId = _fromTermId;
 
         emit NewCourtConfig(_fromTermId, courtConfigId);
@@ -1381,22 +1229,6 @@ contract Court is TimeHelpers, Controlled, ControlledRecoverable, IJurorsRegistr
     */
     function roundExists(Dispute storage dispute, uint256 _roundId) internal view {
         require(_roundId < dispute.rounds.length, ERROR_ROUND_DOES_NOT_EXIST);
-    }
-
-    /**
-    * @dev Internal function to tell the number of terms the Court should transition to be up-to-date
-    * @return Number of terms the Court should transition to be up-to-date
-    */
-    function _neededTermTransitions() internal view returns (uint64) {
-        // Note that the Court is always initialized providing a start time for the first-term in the future. If that's the case,
-        // no term transitions are required.
-        uint64 currentTermStartTime = terms[termId].startTime;
-        if (getTimestamp64() < currentTermStartTime) {
-            return uint64(0);
-        }
-
-        // No need for SafeMath: we already know that the start time of the current term is in the past
-        return (getTimestamp64() - currentTermStartTime) / termDuration;
     }
 
     /**
@@ -1520,21 +1352,10 @@ contract Court is TimeHelpers, Controlled, ControlledRecoverable, IJurorsRegistr
     }
 
     /**
-    * @dev Internal function to check the adjudication state of a certain dispute round. This function assumes Court term is up-to-date.
-    * @param _dispute Dispute to be checked
-    * @param _roundId Identification number of the dispute round to be checked
-    * @param _state Expected adjudication state for the given dispute round
-    */
-    function _checkAdjudicationState(Dispute storage _dispute, uint256 _roundId, AdjudicationState _state) internal view {
-        require(_roundId < _dispute.rounds.length, ERROR_ROUND_DOES_NOT_EXIST);
-        require(_adjudicationStateAt(_dispute, _roundId, termId) == _state, ERROR_INVALID_ADJUDICATION_STATE);
-    }
-
-    /**
     * @dev Internal function to tell adjudication state of a round at a certain term. This function assumes the given round exists.
     * @param _dispute Dispute querying the adjudication round of
     * @param _roundId Identification number of the dispute round querying the adjudication round of
-    * @param _termId Identification number of the dispute round querying the adjudication round of
+    * @param _termId Identification number of the term to be used for the different round phases durations
     * @return Adjudication state of the requested dispute round for the given term
     */
     function _adjudicationStateAt(Dispute storage _dispute, uint256 _roundId, uint64 _termId) internal view returns (AdjudicationState) {
@@ -1608,7 +1429,8 @@ contract Court is TimeHelpers, Controlled, ControlledRecoverable, IJurorsRegistr
     */
     function _getDisputeConfig(Dispute storage _dispute) internal view returns (CourtConfig storage) {
         // Note that it is safe to access a court config directly for a past term, no need to use `_getConfigAt`
-        return _getConfigSafeAt(_dispute.rounds[0].draftTermId);
+        AdjudicationRound storage round = _dispute.rounds[0];
+        return _getConfigSafeAt(round.draftTermId);
     }
 
     /**
@@ -1618,7 +1440,7 @@ contract Court is TimeHelpers, Controlled, ControlledRecoverable, IJurorsRegistr
     */
     function _getConfigAt(uint64 _termId) internal view returns (CourtConfig storage) {
         // If the given term is lower or equal to the last ensured Court term, it is safe to use a past Court config
-        uint64 lastEnsuredTermId = termId;
+        uint64 lastEnsuredTermId = _getLastEnsuredTermId();
         if (_termId <= lastEnsuredTermId) {
             return _getConfigSafeAt(_termId);
         }
@@ -1639,30 +1461,8 @@ contract Court is TimeHelpers, Controlled, ControlledRecoverable, IJurorsRegistr
     * @return Court config for the given term
     */
     function _getConfigSafeAt(uint64 _termId) internal view returns (CourtConfig storage) {
-        uint64 configId = terms[_termId].courtConfigId;
-        return courtConfigs[uint256(configId)];
-    }
-
-    /**
-    * @dev Internal function to tell the current term of the Court. Note that the current term may not be ensured yet.
-    * @return Identification number of the Court current term
-    */
-    function _getCurrentTermId() internal view returns (uint64) {
-        // No need for SafeMath: Court terms are assumed to always fit in uint64.
-        return termId + _neededTermTransitions();
-    }
-
-    /**
-    * @dev Internal function to compute the randomness that will be used to draft jurors for the given term. This
-    *      function assumes the given term exists. To determine the randomness factor for a term we use the hash of a
-    *      block number that is set once the term has started to ensure it cannot be known beforehand. Note that the
-    *      hash function being used only works for the 256 most recent block numbers.
-    * @param _term Term to compute the randomness of
-    * @return Randomness computed for the given term
-    */
-    function _getTermRandomness(Term storage _term) internal view returns (bytes32) {
-        require(getBlockNumber64() > _term.randomnessBN, ERROR_TERM_RANDOMNESS_NOT_YET);
-        return blockhash(_term.randomnessBN);
+        uint256 configId = configIdByTerm[uint256(_termId)];
+        return courtConfigs[configId];
     }
 
     /**
@@ -1722,7 +1522,8 @@ contract Court is TimeHelpers, Controlled, ControlledRecoverable, IJurorsRegistr
     * @param _jurorsNumber Number of jurors requested for the dispute round
     * @param _selectedJurors Number of jurors already selected for the dispute round
     * @param _requestedJurors Number of jurors to be drafted for the given dispute. Note that this number could be part of the jurors number.
-    * @param _draftTerm Term in which the dispute was requested to be drafted
+    * @param _currentTermId Identification number of the current term of the Court
+    * @param _draftTermRandomness Randomness of the term in which the dispute was requested to be drafted
     * @param _config Config of the Court at the draft term
     * @return True if all the requested jurors for the given round were drafted, false otherwise
     */
@@ -1732,16 +1533,17 @@ contract Court is TimeHelpers, Controlled, ControlledRecoverable, IJurorsRegistr
         uint64 _jurorsNumber,
         uint64 _selectedJurors,
         uint64 _requestedJurors,
-        Term storage _draftTerm,
+        uint64 _currentTermId,
+        bytes32 _draftTermRandomness,
         CourtConfig storage _config
     )
         private returns(bool)
     {
         // Pack draft params
         uint256[7] memory draftParams = [
-            uint256(_draftTerm.randomness),
+            uint256(_draftTermRandomness),
             _disputeId,
-            uint256(termId),
+            uint256(_currentTermId),
             _selectedJurors,
             _requestedJurors,
             uint256(_jurorsNumber),
@@ -1759,11 +1561,10 @@ contract Court is TimeHelpers, Controlled, ControlledRecoverable, IJurorsRegistr
 
         // Store or update drafted jurors' weight
         for (uint256 i = 0; i < outputLength; i++) {
-            address juror = jurors[i];
-            JurorState storage jurorState = _round.jurorsStates[juror];
+            JurorState storage jurorState = _round.jurorsStates[jurors[i]];
             // If the juror was already registered in the list, then don't add it twice
             if (uint256(jurorState.weight) == 0) {
-                _round.jurors.push(juror);
+                _round.jurors.push(jurors[i]);
             }
             // No need for SafeMath: We assume a juror cannot be drafted 2^64 times for a round
             jurorState.weight += weights[i];

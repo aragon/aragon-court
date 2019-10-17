@@ -76,14 +76,6 @@ contract Controlled is IsContract {
     }
 
     /**
-    * @dev Internal function to tell the number of terms the Court should transition to be up-to-date
-    * @return Number of terms the Court should transition to be up-to-date
-    */
-    function _getNeededTermTransitions() internal view returns (uint64) {
-        return _clock().getNeededTermTransitions();
-    }
-
-    /**
     * @dev Internal function to fetch the controller's config governor
     * @return Address of the controller's governor
     */

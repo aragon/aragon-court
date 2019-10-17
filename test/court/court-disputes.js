@@ -187,7 +187,7 @@ contract('Court', ([_, sender]) => {
       })
     })
 
-    context('when the dispute does not exist', () => {
+    context('when the given dispute does not exist', () => {
       it('reverts', async () => {
         await assertRevert(court.getDispute(0), 'CT_DISPUTE_DOES_NOT_EXIST')
       })
@@ -208,7 +208,7 @@ contract('Court', ([_, sender]) => {
         await court.createDispute(arbitrable.address, possibleRulings, { from: sender })
       })
 
-      context('when the round exists', async () => {
+      context('when the given round is valid', async () => {
         it('returns the requested round', async () => {
           const { draftTerm, delayedTerms, roundJurorsNumber, selectedJurors, jurorFees, triggeredBy, settledPenalties, collectedTokens } = await courtHelper.getRound(0, 0)
 
@@ -223,14 +223,14 @@ contract('Court', ([_, sender]) => {
         })
       })
 
-      context('when the round does not exist', async () => {
+      context('when the given round is not valid', async () => {
         it('reverts', async () => {
           await assertRevert(court.getRound(0, 1), 'CT_ROUND_DOES_NOT_EXIST')
         })
       })
     })
 
-    context('when the dispute does not exist', () => {
+    context('when the given dispute does not exist', () => {
       it('reverts', async () => {
         await assertRevert(court.getRound(0, 0), 'CT_DISPUTE_DOES_NOT_EXIST')
       })

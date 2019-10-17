@@ -48,8 +48,6 @@ contract('Court', ([_, sender]) => {
           })
 
           it('creates a new dispute', async () => {
-            // move forward to the term before the desired start one for the dispute
-            await courtHelper.setTerm(draftTermId - 1)
             const receipt = await court.createDispute(arbitrable.address, possibleRulings, { from: sender })
 
             assertAmountOfEvents(receipt, 'NewDispute')
@@ -63,8 +61,6 @@ contract('Court', ([_, sender]) => {
           })
 
           it('creates a new adjudication round', async () => {
-            // move forward to the term before the desired start one for the dispute
-            await courtHelper.setTerm(draftTermId - 1)
             await court.createDispute(arbitrable.address, possibleRulings, { from: sender })
 
             const { draftTerm, delayedTerms, roundJurorsNumber, selectedJurors, jurorFees, triggeredBy, settledPenalties, collectedTokens } = await courtHelper.getRound(0, 0)
@@ -80,8 +76,6 @@ contract('Court', ([_, sender]) => {
           })
 
           it('transfers fees to the court', async () => {
-            // move forward to the term before the desired start one for the dispute
-            await courtHelper.setTerm(draftTermId - 1)
             const { disputeFees: expectedDisputeDeposit } = await courtHelper.getDisputeFees(draftTermId)
             const previousCourtBalance = await feeToken.balanceOf(court.address)
             const previousAccountingBalance = await feeToken.balanceOf(courtHelper.accounting.address)
@@ -122,7 +116,7 @@ contract('Court', ([_, sender]) => {
       context('when the term is up-to-date', () => {
         const expectedTermTransitions = 0
 
-        beforeEach('move right before the desired draft term', async () => {
+        beforeEach('send heartbeat for the first term', async () => {
           await court.heartbeat(1)
         })
 

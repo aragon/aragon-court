@@ -20,8 +20,8 @@ contract ControllerMock is Controller {
         _setModule(CLOCK, _addr);
     }
 
-    function setAccounting(address _addr) external {
-        _setModule(ACCOUNTING, _addr);
+    function setTreasury(address _addr) external {
+        _setModule(TREASURY, _addr);
     }
 
     function setVoting(address _addr) external {

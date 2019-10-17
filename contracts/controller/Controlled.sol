@@ -5,7 +5,7 @@ import "@aragon/os/contracts/common/IsContract.sol";
 import "./Controller.sol";
 import "../court/IClock.sol";
 import "../voting/ICRVoting.sol";
-import "../accounting/IAccounting.sol";
+import "../treasury/ITreasury.sol";
 import "../registry/IJurorsRegistry.sol";
 import "../subscriptions/ISubscriptions.sol";
 
@@ -84,11 +84,11 @@ contract Controlled is IsContract {
     }
 
     /**
-    * @dev Internal function to fetch the address of the Accounting module implementation from the controller
-    * @return Address of the Accounting module implementation
+    * @dev Internal function to fetch the address of the Treasury module implementation from the controller
+    * @return Address of the Treasury module implementation
     */
-    function _accounting() internal view returns (IAccounting) {
-        return IAccounting(controller.getAccounting());
+    function _treasury() internal view returns (ITreasury) {
+        return ITreasury(controller.getTreasury());
     }
 
     /**

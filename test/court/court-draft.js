@@ -117,23 +117,23 @@ contract('Court', ([_, disputer, drafter, juror500, juror1000, juror1500, juror2
           }
         })
 
-        it('deposits the draft fee to the accounting for the caller', async () => {
-          const { draftFee, accounting, feeToken } = courtHelper
+        it('deposits the draft fee to the treasury for the caller', async () => {
+          const { draftFee, treasury, feeToken } = courtHelper
           const expectedFee = draftFee.mul(bn(expectedDraftedJurors))
 
           const previousCourtAmount = await feeToken.balanceOf(court.address)
-          const previousAccountingAmount = await feeToken.balanceOf(accounting.address)
-          const previousDrafterAmount = await accounting.balanceOf(feeToken.address, drafter)
+          const previousTreasuryAmount = await feeToken.balanceOf(treasury.address)
+          const previousDrafterAmount = await treasury.balanceOf(feeToken.address, drafter)
 
           await court.draft(disputeId, jurorsToBeDrafted, { from: drafter })
 
           const currentCourtAmount = await feeToken.balanceOf(court.address)
           assert.equal(previousCourtAmount.toString(), currentCourtAmount.toString(), 'court balances should remain the same')
 
-          const currentAccountingAmount = await feeToken.balanceOf(accounting.address)
-          assert.equal(previousAccountingAmount.toString(), currentAccountingAmount.toString(), 'accounting balances should remain the same')
+          const currentTreasuryAmount = await feeToken.balanceOf(treasury.address)
+          assert.equal(previousTreasuryAmount.toString(), currentTreasuryAmount.toString(), 'treasury balances should remain the same')
 
-          const currentDrafterAmount = await accounting.balanceOf(feeToken.address, drafter)
+          const currentDrafterAmount = await treasury.balanceOf(feeToken.address, drafter)
           assert.equal(previousDrafterAmount.add(expectedFee).toString(), currentDrafterAmount.toString(), 'drafter amount does not match')
         })
       }
@@ -227,26 +227,26 @@ contract('Court', ([_, disputer, drafter, juror500, juror1000, juror1500, juror2
           }
         })
 
-        it('deposits the draft fee to the accounting for the caller', async () => {
-          const { draftFee, accounting, feeToken } = courtHelper
+        it('deposits the draft fee to the treasury for the caller', async () => {
+          const { draftFee, treasury, feeToken } = courtHelper
 
           for (let batch = 0, selectedJurors = 0; batch < batches; batch++, selectedJurors += jurorsPerBatch) {
             const previousCourtAmount = await feeToken.balanceOf(court.address)
-            const previousAccountingAmount = await feeToken.balanceOf(accounting.address)
-            const previousDrafterAmount = await accounting.balanceOf(feeToken.address, drafter)
+            const previousTreasuryAmount = await feeToken.balanceOf(treasury.address)
+            const previousDrafterAmount = await treasury.balanceOf(feeToken.address, drafter)
 
             await court.draft(disputeId, jurorsPerBatch, { from: drafter })
 
             const currentCourtAmount = await feeToken.balanceOf(court.address)
             assert.equal(previousCourtAmount.toString(), currentCourtAmount.toString(), 'court balances should remain the same')
 
-            const currentAccountingAmount = await feeToken.balanceOf(accounting.address)
-            assert.equal(previousAccountingAmount.toString(), currentAccountingAmount.toString(), 'accounting balances should remain the same')
+            const currentTreasuryAmount = await feeToken.balanceOf(treasury.address)
+            assert.equal(previousTreasuryAmount.toString(), currentTreasuryAmount.toString(), 'treasury balances should remain the same')
 
             const pendingJurorsToBeDrafted = jurorsToBeDrafted - selectedJurors
             const expectedDraftedJurors = pendingJurorsToBeDrafted < jurorsPerBatch ? pendingJurorsToBeDrafted : jurorsPerBatch
             const expectedFee = draftFee.mul(bn(expectedDraftedJurors))
-            const currentDrafterAmount = await accounting.balanceOf(feeToken.address, drafter)
+            const currentDrafterAmount = await treasury.balanceOf(feeToken.address, drafter)
             assert.equal(previousDrafterAmount.add(expectedFee).toString(), currentDrafterAmount.toString(), 'drafter amount does not match')
 
             // advance one term to avoid drafting all the batches in the same term
@@ -373,7 +373,7 @@ contract('Court', ([_, disputer, drafter, juror500, juror1000, juror1500, juror2
 
               beforeEach('call heartbeat', async () => {
                 lastEnsuredTermId = await courtHelper.clock.getLastEnsuredTermId()
-                previousBalance = await courtHelper.accounting.balanceOf(courtHelper.feeToken.address, drafter)
+                previousBalance = await courtHelper.treasury.balanceOf(courtHelper.feeToken.address, drafter)
                 receipt = await court.heartbeat(1, { from: drafter })
               })
 
@@ -384,7 +384,7 @@ contract('Court', ([_, disputer, drafter, juror500, juror1000, juror1500, juror2
 
               it(`${expectsHeartbeatFees ? 'refunds' : 'does not refund'} heartbeat fees to the caller`, async () => {
                 const { feeToken, heartbeatFee } = courtHelper
-                const currentBalance = await courtHelper.accounting.balanceOf(feeToken.address, drafter)
+                const currentBalance = await courtHelper.treasury.balanceOf(feeToken.address, drafter)
                 const expectedBalance = expectsHeartbeatFees ? previousBalance.add(heartbeatFee) : previousBalance
                 assert.equal(currentBalance.toString(), expectedBalance.toString(), 'fee token balances does not match')
               })

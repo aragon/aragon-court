@@ -4,20 +4,20 @@ import "@aragon/os/contracts/lib/token/ERC20.sol";
 import "@aragon/os/contracts/lib/math/SafeMath.sol";
 import "@aragon/os/contracts/common/SafeERC20.sol";
 
-import "./IAccounting.sol";
+import "./ITreasury.sol";
 import "../controller/Controlled.sol";
 import "../controller/Controller.sol";
 import "../controller/ControlledRecoverable.sol";
 
 
-contract CourtAccounting is ControlledRecoverable, IAccounting {
+contract CourtTreasury is ControlledRecoverable, ITreasury {
     using SafeERC20 for ERC20;
     using SafeMath for uint256;
 
-    string private constant ERROR_DEPOSIT_AMOUNT_ZERO = "ACCOUNTING_DEPOSIT_AMOUNT_ZERO";
-    string private constant ERROR_WITHDRAW_FAILED = "ACCOUNTING_WITHDRAW_FAILED";
-    string private constant ERROR_WITHDRAW_AMOUNT_ZERO = "ACCOUNTING_WITHDRAW_AMOUNT_ZERO";
-    string private constant ERROR_WITHDRAW_INVALID_AMOUNT = "ACCOUNTING_WITHDRAW_INVALID_AMOUNT";
+    string private constant ERROR_DEPOSIT_AMOUNT_ZERO = "TREASURY_DEPOSIT_AMOUNT_ZERO";
+    string private constant ERROR_WITHDRAW_FAILED = "TREASURY_WITHDRAW_FAILED";
+    string private constant ERROR_WITHDRAW_AMOUNT_ZERO = "TREASURY_WITHDRAW_AMOUNT_ZERO";
+    string private constant ERROR_WITHDRAW_INVALID_AMOUNT = "TREASURY_WITHDRAW_INVALID_AMOUNT";
 
     // List of balances indexed by token and holder address
     mapping (address => mapping (address => uint256)) internal balances;

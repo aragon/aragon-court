@@ -678,7 +678,7 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
     * @param _positive True if the given amount should be added, or false to remove it from the available balance
     */
     function _updateAvailableBalanceOf(address _juror, uint256 _amount, bool _positive) internal {
-        // We are not using a require here to avoid reverting in case any of the accounting maths reaches this point
+        // We are not using a require here to avoid reverting in case any of the treasury maths reaches this point
         // with a zeroed amount value. Instead, we are doing this validation in the external entry points such as
         // stake, unstake, activate, deactivate, among others.
         if (_amount == 0) {

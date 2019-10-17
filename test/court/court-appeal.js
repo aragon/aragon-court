@@ -130,11 +130,11 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
                   })
 
                   it('transfers the appeal deposit to the court', async () => {
-                    const { accounting, feeToken } = courtHelper
+                    const { treasury, feeToken } = courtHelper
                     const { appealDeposit } = await courtHelper.getAppealFees(disputeId, roundId)
 
                     const previousCourtBalance = await feeToken.balanceOf(court.address)
-                    const previousAccountingBalance = await feeToken.balanceOf(accounting.address)
+                    const previoustreasuryBalance = await feeToken.balanceOf(treasury.address)
                     const previousAppealerBalance = await feeToken.balanceOf(appealMaker)
 
                     await court.createAppeal(disputeId, roundId, appealMakerRuling, { from: appealMaker })
@@ -142,8 +142,8 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
                     const currentCourtBalance = await feeToken.balanceOf(court.address)
                     assert.equal(previousCourtBalance.toString(), currentCourtBalance.toString(), 'court balances do not match')
 
-                    const currentAccountingBalance = await feeToken.balanceOf(accounting.address)
-                    assert.equal(previousAccountingBalance.add(appealDeposit).toString(), currentAccountingBalance.toString(), 'court accounting balances do not match')
+                    const currenttreasuryBalance = await feeToken.balanceOf(treasury.address)
+                    assert.equal(previoustreasuryBalance.add(appealDeposit).toString(), currenttreasuryBalance.toString(), 'court treasury balances do not match')
 
                     const currentAppealerBalance = await feeToken.balanceOf(appealMaker)
                     assert.equal(previousAppealerBalance.sub(appealDeposit).toString(), currentAppealerBalance.toString(), 'sender balances do not match')

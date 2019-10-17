@@ -85,7 +85,7 @@ contract('Court', ([_, sender]) => {
           it('transfers fees to the court', async () => {
             const { disputeFees: expectedDisputeDeposit } = await courtHelper.getDisputeFees(draftTermId)
             const previousCourtBalance = await feeToken.balanceOf(court.address)
-            const previousAccountingBalance = await feeToken.balanceOf(courtHelper.accounting.address)
+            const previousTreasuryBalance = await feeToken.balanceOf(courtHelper.treasury.address)
             const previousSenderBalance = await feeToken.balanceOf(sender)
 
             await court.createDispute(arbitrable.address, possibleRulings, { from: sender })
@@ -93,8 +93,8 @@ contract('Court', ([_, sender]) => {
             const currentCourtBalance = await feeToken.balanceOf(court.address)
             assert.equal(previousCourtBalance.toString(), currentCourtBalance.toString(), 'court balances do not match')
 
-            const currentAccountingBalance = await feeToken.balanceOf(courtHelper.accounting.address)
-            assert.equal(previousAccountingBalance.add(expectedDisputeDeposit).toString(), currentAccountingBalance.toString(), 'court accounting balances do not match')
+            const currentTreasuryBalance = await feeToken.balanceOf(courtHelper.treasury.address)
+            assert.equal(previousTreasuryBalance.add(expectedDisputeDeposit).toString(), currentTreasuryBalance.toString(), 'court treasury balances do not match')
 
             const currentSenderBalance = await feeToken.balanceOf(sender)
             assert.equal(previousSenderBalance.sub(expectedDisputeDeposit).toString(), currentSenderBalance.toString(), 'sender balances do not match')

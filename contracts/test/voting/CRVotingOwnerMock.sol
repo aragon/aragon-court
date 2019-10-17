@@ -7,7 +7,6 @@ import "../../voting/ICRVotingOwner.sol";
 contract CRVotingOwnerMock is ICRVotingOwner {
     string private constant ERROR_OWNER_MOCK_COMMIT_CHECK_REVERTED = "CRV_OWNER_MOCK_COMMIT_CHECK_REVERTED";
     string private constant ERROR_OWNER_MOCK_REVEAL_CHECK_REVERTED = "CRV_OWNER_MOCK_REVEAL_CHECK_REVERTED";
-    string private constant ERROR_OWNER_MOCK_LEAK_CHECK_REVERTED = "CRV_OWNER_MOCK_LEAK_CHECK_REVERTED";
 
     ICRVoting internal voting;
     bool internal failing;
@@ -29,7 +28,7 @@ contract CRVotingOwnerMock is ICRVotingOwner {
         voting.create(_voteId, _ruling);
     }
 
-    function ensureTermAndGetVoterWeightToCommit(uint256 /* _voteId */, address _voter) external returns (uint64) {
+    function ensureVoterWeightToCommit(uint256 /* _voteId */, address _voter) external returns (uint64) {
         if (failing) {
             revert(ERROR_OWNER_MOCK_COMMIT_CHECK_REVERTED);
         }
@@ -37,13 +36,7 @@ contract CRVotingOwnerMock is ICRVotingOwner {
         return weights[_voter];
     }
 
-    function ensureTermToLeak(uint256 /* _voteId */) external {
-        if (failing) {
-            revert(ERROR_OWNER_MOCK_LEAK_CHECK_REVERTED);
-        }
-    }
-
-    function ensureTermAndGetVoterWeightToReveal(uint256 /* _voteId */, address _voter) external returns (uint64) {
+    function ensureVoterWeightToReveal(uint256 /* _voteId */, address _voter) external returns (uint64) {
         if (failing) {
             revert(ERROR_OWNER_MOCK_REVEAL_CHECK_REVERTED);
         }

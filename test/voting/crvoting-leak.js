@@ -7,7 +7,7 @@ const CRVoting = artifacts.require('CRVoting')
 const CRVotingOwner = artifacts.require('CRVotingOwnerMock')
 const Controller = artifacts.require('ControllerMock')
 
-const ERROR_OWNER_MOCK_LEAK_CHECK_REVERTED = 'CRV_OWNER_MOCK_LEAK_CHECK_REVERTED'
+const ERROR_OWNER_MOCK_COMMIT_CHECK_REVERTED = 'CRV_OWNER_MOCK_COMMIT_CHECK_REVERTED'
 
 contract('CRVoting leak', ([_, voter, someone]) => {
   let controller, voting, votingOwner
@@ -142,7 +142,7 @@ contract('CRVoting leak', ([_, voter, someone]) => {
             })
 
             it('reverts', async () => {
-              await assertRevert(voting.leak(voteId, voter, committedOutcome, SALT, { from: someone }), ERROR_OWNER_MOCK_LEAK_CHECK_REVERTED)
+              await assertRevert(voting.leak(voteId, voter, committedOutcome, SALT, { from: someone }), ERROR_OWNER_MOCK_COMMIT_CHECK_REVERTED)
             })
           })
         }

@@ -614,19 +614,10 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
     * @param _voter Address of the voter querying the weight of
     * @return Weight of the requested juror for the requested dispute's round
     */
-    function ensureTermAndGetVoterWeightToCommit(uint256 _voteId, address _voter) external onlyVoting returns (uint64) {
+    function ensureVoterWeightToCommit(uint256 _voteId, address _voter) external onlyVoting returns (uint64) {
         (Dispute storage dispute, uint256 roundId) = _decodeVoteId(_voteId);
         _checkAdjudicationState(dispute, roundId, AdjudicationState.Committing);
         return _computeJurorWeight(dispute, roundId, _voter);
-    }
-
-    /**
-    * @notice Check if votes can be leaked
-    * @param _voteId ID of the vote instance to be checked
-    */
-    function ensureTermToLeak(uint256 _voteId) external onlyVoting {
-        (Dispute storage dispute, uint256 roundId) = _decodeVoteId(_voteId);
-        _checkAdjudicationState(dispute, roundId, AdjudicationState.Committing);
     }
 
     /**
@@ -635,11 +626,11 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
     * @param _voter Address of the voter querying the weight of
     * @return Weight of the requested juror for the requested dispute's round
     */
-    function ensureTermAndGetVoterWeightToReveal(uint256 _voteId, address _voter) external onlyVoting returns (uint64) {
+    function ensureVoterWeightToReveal(uint256 _voteId, address _voter) external onlyVoting returns (uint64) {
         (Dispute storage dispute, uint256 roundId) = _decodeVoteId(_voteId);
         _checkAdjudicationState(dispute, roundId, AdjudicationState.Revealing);
         AdjudicationRound storage round = dispute.rounds[roundId];
-        return _getStoredJurorWeight(round, _voter);
+        return _getJurorWeight(round, _voter);
     }
 
     /**
@@ -885,7 +876,7 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
         CourtConfig storage config = _getDisputeConfig(dispute);
 
         if (_isRegularRound(_roundId, config)) {
-            weight = _getStoredJurorWeight(round, _juror);
+            weight = _getJurorWeight(round, _juror);
         } else {
             IJurorsRegistry jurorsRegistry = _jurorsRegistry();
             (, uint256 minActiveBalanceMultiple) = jurorsRegistry.getActiveBalanceInfoOfAt(_juror, round.draftTermId, FINAL_ROUND_WEIGHT_PRECISION);
@@ -1041,7 +1032,7 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
         CourtConfig storage config = _getDisputeConfig(_dispute);
 
         return _isRegularRound(_roundId, config)
-            ? _getStoredJurorWeight(round, _juror)
+            ? _getJurorWeight(round, _juror)
             : _computeJurorWeightForFinalRound(config, round, _juror);
     }
 
@@ -1057,6 +1048,14 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
     function _computeJurorWeightForFinalRound(CourtConfig storage _config, AdjudicationRound storage _round, address _juror)
         internal returns (uint64)
     {
+        // If there was a weight already computed, return it
+        JurorState storage jurorState = _round.jurorsStates[_juror];
+        uint64 currentWeight = jurorState.weight;
+        if (currentWeight != 0) {
+            return currentWeight;
+        }
+
+        // Fetch active balance and multiples of the min active balance from the registry
         IJurorsRegistry jurorsRegistry = _jurorsRegistry();
         (uint256 activeBalance, uint256 minActiveBalanceMultiple) = jurorsRegistry.getActiveBalanceInfoOfAt(
             _juror,
@@ -1080,7 +1079,7 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
 
         // If it was possible to collect the amount of active tokens to be locked, update the final round state
         uint64 weight = minActiveBalanceMultiple.toUint64();
-        _round.jurorsStates[_juror].weight = weight;
+        jurorState.weight = weight;
         _round.collectedTokens = _round.collectedTokens.add(weightedPenalty);
         return weight;
     }
@@ -1205,7 +1204,7 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
     * @param _juror Address of the juror to calculate the weight of
     * @return Weight of the requested juror for the given round
     */
-    function _getStoredJurorWeight(AdjudicationRound storage _round, address _juror) internal view returns (uint64) {
+    function _getJurorWeight(AdjudicationRound storage _round, address _juror) internal view returns (uint64) {
         return _round.jurorsStates[_juror].weight;
     }
 
@@ -1520,7 +1519,8 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
         bytes32 _draftTermRandomness,
         CourtConfig storage _config
     )
-        private returns(bool)
+        private
+        returns (bool)
     {
         // Pack draft params
         uint256[7] memory draftParams = [

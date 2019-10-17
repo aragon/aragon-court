@@ -1,8 +1,7 @@
-const { bn, bigExp, assertBn } = require('../helpers/numbers')
+const { outcomeFor } = require('../helpers/crvoting')
 const { buildHelper } = require('../helpers/court')(web3, artifacts)
 const { assertRevert } = require('../helpers/assertThrow')
-const { assertAmountOfEvents } = require('../helpers/assertEvent')
-const { outcomeFor } = require('../helpers/crvoting')
+const { bn, bigExp, assertBn } = require('../helpers/numbers')
 
 contract('Court config', ([_, sender, disputer, drafter, appealMaker, appealTaker, juror500, juror1000, juror3000]) => {
   let courtHelper, court
@@ -157,6 +156,7 @@ contract('Court config', ([_, sender, disputer, drafter, appealMaker, appealTake
         await assertRevert(promise, ERROR_TOO_OLD_TERM)
       })
     })
+
     context('when the config change succeeds', () => {
       const configChangeTermId = 3
       let newConfig
@@ -167,6 +167,11 @@ contract('Court config', ([_, sender, disputer, drafter, appealMaker, appealTake
 
       it('check it from the past', async () => {
         await checkConfig(configChangeTermId, newConfig)
+      })
+
+      it('schedules the new config properly', async () => {
+        const scheduledTermId = await court.configChangeTermId()
+        assertBn(scheduledTermId, configChangeTermId, 'config change term id does not match')
       })
 
       it('check once the change term id has been reached', async () => {
@@ -244,7 +249,6 @@ contract('Court config', ([_, sender, disputer, drafter, appealMaker, appealTake
     let disputeId
     const draftTermId = 2
     const configChangeTermId = draftTermId + 1
-    const possibleRulings = 2
 
     const jurors = [
       { address: juror3000, initialActiveBalance: bigExp(3000, 18) },

@@ -174,7 +174,7 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
     }
 
     // Future term id in which a config change has been scheduled
-    uint64 internal configChangeTermId;
+    uint64 public configChangeTermId;
 
     // List of all the disputes created in the Court
     Dispute[] internal disputes;
@@ -728,6 +728,15 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
         CourtConfig storage config = _getConfigAt(_draftTermId);
         uint64 jurorsNumber = config.disputes.firstRoundJurorsNumber;
         return _getRegularRoundFees(config, jurorsNumber);
+    }
+
+    /**
+    * @dev Tell the number of drafts scheduled for a certain term
+    * @param _draftTermId Identification number of the term querying the drafts scheduled for
+    * @return Number of drafts scheduled for the requested term
+    */
+    function getDependingDraftsAt(uint64 _draftTermId) external view returns (uint256) {
+        return dependingDraftsByTerm[_draftTermId];
     }
 
     /**

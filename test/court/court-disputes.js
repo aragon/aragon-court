@@ -60,6 +60,13 @@ contract('Court', ([_, sender]) => {
             assert.equal(finalRuling.toString(), 0, 'dispute final ruling does not match')
           })
 
+          it('schedules one draft for the corresponding draft term', async () => {
+            await court.createDispute(arbitrable.address, possibleRulings, { from: sender })
+
+            const dependingDrafts = await court.getDependingDraftsAt(draftTermId)
+            assert.equal(dependingDrafts.toString(), 1, 'depending drafts does not match')
+          })
+
           it('creates a new adjudication round', async () => {
             await court.createDispute(arbitrable.address, possibleRulings, { from: sender })
 
@@ -169,11 +176,11 @@ contract('Court', ([_, sender]) => {
       const possibleRulings = 2
 
       beforeEach('create dispute', async () => {
-        // move forward to the term before the desired start one for the dispute
-        await courtHelper.setTerm(draftTermId - 1)
         const { disputeFees } = await courtHelper.getDisputeFees(draftTermId)
         await courtHelper.mintAndApproveFeeTokens(sender, court.address, disputeFees)
 
+        // move forward to the term before the desired start one for the dispute
+        await courtHelper.setTerm(draftTermId - 1)
         await court.createDispute(arbitrable.address, possibleRulings, { from: sender })
       })
 
@@ -200,11 +207,11 @@ contract('Court', ([_, sender]) => {
       const possibleRulings = 2
 
       beforeEach('create dispute', async () => {
-        // move forward to the term before the desired start one for the dispute
-        await courtHelper.setTerm(draftTermId - 1)
         const { disputeFees } = await courtHelper.getDisputeFees(draftTermId)
         await courtHelper.mintAndApproveFeeTokens(sender, court.address, disputeFees)
 
+        // move forward to the term before the desired start one for the dispute
+        await courtHelper.setTerm(draftTermId - 1)
         await court.createDispute(arbitrable.address, possibleRulings, { from: sender })
       })
 

@@ -59,11 +59,22 @@ contract CourtAccounting is ControlledRecoverable, IAccounting {
         require(_amount > 0, ERROR_WITHDRAW_AMOUNT_ZERO);
         require(balance >= _amount, ERROR_WITHDRAW_INVALID_AMOUNT);
 
-        address tokenAddress = address(_token);
-        balances[tokenAddress][msg.sender] = balance.sub(_amount);
-        emit Withdraw(_token, msg.sender, _to, _amount);
+        // No need for SafeMath: checked above
+        uint256 newBalance = balance - _amount;
+        _withdraw(_token, msg.sender, _to, _amount, newBalance);
+    }
 
-        require(_token.safeTransfer(_to, _amount), ERROR_WITHDRAW_FAILED);
+    /**
+    * @notice Withdraw all the tokens from `_to` to themself
+    * @param _token ERC20 token to be withdrawn
+    * @param _to Address of the recipient that will receive their tokens
+    */
+    function withdrawAll(ERC20 _token, address _to) external {
+        uint256 balance = balanceOf(_token, _to);
+        require(balance > 0, ERROR_WITHDRAW_AMOUNT_ZERO);
+
+        uint256 newBalance = 0;
+        _withdraw(_token, _to, _to, balance, newBalance);
     }
 
     /**
@@ -74,5 +85,21 @@ contract CourtAccounting is ControlledRecoverable, IAccounting {
     */
     function balanceOf(ERC20 _token, address _holder) public view returns (uint256) {
         return balances[address(_token)][_holder];
+    }
+
+    /**
+    * @dev Internal function to withdraw tokens from an account
+    * @param _token ERC20 token to be withdrawn
+    * @param _from Address where the tokens will be removed from
+    * @param _to Address of the recipient that will receive the corresponding tokens
+    * @param _amount Amount of tokens to be withdrawn from the sender
+    * @param _newBalance Resultant amount of tokens for the sender after the withdrawal
+    */
+    function _withdraw(ERC20 _token, address _from, address _to, uint256 _amount, uint256 _newBalance) internal {
+        address tokenAddress = address(_token);
+        balances[tokenAddress][_from] = _newBalance;
+        emit Withdraw(_token, _from, _to, _amount);
+
+        require(_token.safeTransfer(_to, _amount), ERROR_WITHDRAW_FAILED);
     }
 }

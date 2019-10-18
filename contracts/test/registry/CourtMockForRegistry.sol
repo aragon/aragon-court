@@ -9,7 +9,7 @@ contract CourtMockForRegistry {
 
     event Slashed(uint256 collected);
     event Collected(bool collected);
-    event Drafted(address[] addresses, uint64[] weights, uint256 outputLength);
+    event Drafted(address[] addresses, uint256 length);
 
     constructor(JurorsRegistry _registry) public {
         registry = _registry;
@@ -52,8 +52,9 @@ contract CourtMockForRegistry {
             _roundRequestedJurors,
             _lockPct
         ];
-        (address[] memory jurors, uint64[] memory weights, uint256 outputLength) = registry.draft(draftParams);
-        emit Drafted(jurors, weights, outputLength);
+
+        (address[] memory jurors, uint256 length) = registry.draft(draftParams);
+        emit Drafted(jurors, length);
     }
 
     function _termId() internal view returns (uint64) {

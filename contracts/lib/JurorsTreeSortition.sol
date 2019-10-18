@@ -77,16 +77,14 @@ library JurorsTreeSortition {
         returns (uint256 low, uint256 high)
     {
         uint256 totalActiveBalance = tree.getRecentTotalAt(_termId);
-        // _roundRequestedJurors can't be zero because firstRoundJurorsNumber and appealStepFactor are checked in Court config,
-        // although this would crash anyway
+        // _roundRequestedJurors can't be zero because firstRoundJurorsNumber and appealStepFactor are checked in Court config
         low = _selectedJurors.mul(totalActiveBalance) / _roundRequestedJurors;
 
         // No need for SafeMath: these are originally uint64
         uint256 newSelectedJurors = _selectedJurors + _batchRequestedJurors;
 
         // This function assumes that `_roundRequestedJurors` is greater than or equal to `newSelectedJurors`
-        // Besides, _roundRequestedJurors can't be zero because firstRoundJurorsNumber and appealStepFactor are checked in Court config,
-        // although this would crash anyway
+        // Besides, _roundRequestedJurors can't be zero because firstRoundJurorsNumber and appealStepFactor are checked in Court config
         high = newSelectedJurors.mul(totalActiveBalance) / _roundRequestedJurors;
     }
 
@@ -118,6 +116,14 @@ library JurorsTreeSortition {
         // No need for SafeMath: see function getSearchBatchBounds to check that this is always >= 0
         uint256 interval = _highBatchBound - _lowBatchBound;
         uint256[] memory balances = new uint256[](_batchRequestedJurors);
+
+        // If the given interval is zero, we don't need to compute a random search, simply fill the resulting array with the unique bound
+        if (interval == 0) {
+            for (uint256 batchJurorNumber = 0; batchJurorNumber < _batchRequestedJurors; batchJurorNumber++) {
+                balances[batchJurorNumber] = _lowBatchBound;
+            }
+            return balances;
+        }
 
         // Compute an ordered list of random active balance to be searched in the jurors tree
         for (uint256 batchJurorNumber = 0; batchJurorNumber < _batchRequestedJurors; batchJurorNumber++) {

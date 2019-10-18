@@ -1535,22 +1535,23 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
 
         // Draft jurors for the requested round
         IJurorsRegistry jurorsRegistry = _jurorsRegistry();
-        (address[] memory jurors, uint64[] memory weights, uint256 outputLength) = jurorsRegistry.draft(draftParams);
+        (address[] memory jurors, uint256 length) = jurorsRegistry.draft(draftParams);
 
-        // Update round with drafted jurors information.
+        // Update round with drafted jurors information
         // No need for SafeMath: this cannot be greater than `jurorsNumber`.
-        uint64 newSelectedJurors = _selectedJurors + _requestedJurors;
+        uint64 newSelectedJurors = _selectedJurors + uint64(length);
         _round.selectedJurors = newSelectedJurors;
 
         // Store or update drafted jurors' weight
-        for (uint256 i = 0; i < outputLength; i++) {
-            JurorState storage jurorState = _round.jurorsStates[jurors[i]];
+        for (uint256 i = 0; i < length; i++) {
+            address juror = jurors[i];
+            JurorState storage jurorState = _round.jurorsStates[juror];
             // If the juror was already registered in the list, then don't add it twice
             if (uint256(jurorState.weight) == 0) {
-                _round.jurors.push(jurors[i]);
+                _round.jurors.push(juror);
             }
-            // No need for SafeMath: We assume a juror cannot be drafted 2^64 times for a round
-            jurorState.weight += weights[i];
+            // No need for SafeMath: we assume a juror cannot be drafted 2^64 times for a round
+            jurorState.weight++;
         }
 
         return newSelectedJurors == _jurorsNumber;

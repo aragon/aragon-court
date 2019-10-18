@@ -11,7 +11,23 @@ const filterWinningJurors = (votersList, winningRuling) => {
   return [winners, losers]
 }
 
+const countJuror = (list, jurorAddress) => {
+  const equalJurors = list.filter(address => address === jurorAddress)
+  return equalJurors.length
+}
+
+const countEqualJurors = addresses => {
+  return addresses.reduce((totals, address) => {
+    const index = totals.map(juror => juror.address).indexOf(address)
+    if (index >= 0) totals[index].count++
+    else totals.push({ address, count: 1 })
+    return totals
+  }, [])
+}
+
 module.exports = {
+  countJuror,
+  countEqualJurors,
   filterJurors,
-  filterWinningJurors
+  filterWinningJurors,
 }

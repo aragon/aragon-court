@@ -1,4 +1,5 @@
 const { sha3 } = require('web3-utils')
+const { countJuror } = require('../helpers/jurors')
 const { bn, bigExp } = require('../helpers/numbers')
 const { getEventAt } = require('@aragon/test-helpers/events')
 const { assertRevert } = require('../helpers/assertThrow')
@@ -118,14 +119,11 @@ contract('JurorsRegistry', ([_, juror, secondJuror, thirdJuror, anyone]) => {
 
             // Draft and make sure mock worked as expected
             const receipt = await court.draft(EMPTY_RANDOMNESS, 1, 0, 10, 10, DRAFT_LOCK_PCT)
-            const { addresses, weights } = getEventAt(receipt, 'Drafted').args
+            const { addresses } = getEventAt(receipt, 'Drafted').args
 
-            assert.equal(addresses[0], juror, 'first drafted address does not match')
-            assert.equal(addresses[1], secondJuror, 'second drafted address does not match')
-            assert.equal(addresses[2], thirdJuror, 'third drafted address does not match')
-            assert.equal(weights[0].toString(), 3, 'first drafted weight does not match')
-            assert.equal(weights[1].toString(), 1, 'second drafted weight does not match')
-            assert.equal(weights[2].toString(), 6, 'third drafted weight does not match')
+            assert.equal(countJuror(addresses, juror), 3, 'first drafted juror weight does not match')
+            assert.equal(countJuror(addresses, secondJuror), 1, 'second drafted juror weight does not match')
+            assert.equal(countJuror(addresses, thirdJuror), 6, 'third drafted juror weight does not match')
           })
 
           context('when given lock amounts are valid', () => {

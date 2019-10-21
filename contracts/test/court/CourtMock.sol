@@ -9,7 +9,7 @@ contract CourtMock is Court, TimeHelpersMock {
         Controller _controller,
         uint64 _termDuration,
         uint64 _firstTermStartTime,
-        uint64 _maxJurorsToBeDraftedPerBatch,
+        uint64 _maxJurorsPerDraftBatch,
         ERC20 _feeToken,
         uint256[4] memory _fees,                    // jurorFee, heartbeatFee, draftFee, settleFee
         uint64[4] memory _roundStateDurations,      // commitTerms, revealTerms, appealTerms, appealConfirmationTerms
@@ -22,7 +22,7 @@ contract CourtMock is Court, TimeHelpersMock {
             _controller,
             _termDuration,
             _firstTermStartTime,
-            _maxJurorsToBeDraftedPerBatch,
+            _maxJurorsPerDraftBatch,
             _feeToken,
             _fees,
             _roundStateDurations,

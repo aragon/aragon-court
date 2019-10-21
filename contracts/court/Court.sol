@@ -208,7 +208,8 @@ contract Court is TimeHelpers, Controlled, ControlledRecoverable, IJurorsRegistr
     uint64 internal configChangeTermId;
 
     // Max jurors to be drafted in each batch. To prevent running out of gas. We allow to change it because max gas per tx can vary
-    uint64 public maxJurorsToBeDraftedPerBatch;
+    // As a reference, drafting 100 jurors from a small tree of 4 would cost ~2.4M. Drafting 500, ~7.75M.
+    uint64 public maxJurorsPerDraftBatch;
 
     // List of Court terms indexed by id
     mapping (uint64 => Term) internal terms;
@@ -221,7 +222,7 @@ contract Court is TimeHelpers, Controlled, ControlledRecoverable, IJurorsRegistr
 
     event NewTerm(uint64 termId, address indexed heartbeatSender);
     event NewCourtConfig(uint64 fromTermId, uint64 courtConfigId);
-    event MaxJurorsToBeDraftedPerBatchSet(uint64 oldMaxJurorsToBeDraftedPerBatch, uint64 newMaxJurorsToBeDraftedPerBatch);
+    event MaxJurorsPerDraftBatchSet(uint64 previousMaxJurorsPerDraftBatch, uint64 currentMaxJurorsPerDraftBatch);
     event DisputeStateChanged(uint256 indexed disputeId, DisputeState indexed state);
     event NewDispute(uint256 indexed disputeId, address indexed subject, uint64 indexed draftTermId, uint64 jurorsNumber);
     event RulingAppealed(uint256 indexed disputeId, uint256 indexed roundId, uint8 ruling);
@@ -254,7 +255,7 @@ contract Court is TimeHelpers, Controlled, ControlledRecoverable, IJurorsRegistr
     * @param _controller Address of the controller
     * @param _termDuration Duration in seconds per term (recommended 1 hour)
     * @param _firstTermStartTime Timestamp in seconds when the court will open (to give time for juror on-boarding)
-    * @param _maxJurorsToBeDraftedPerBatch Max number of jurors to be drafted per batch
+    * @param _maxJurorsPerDraftBatch Max number of jurors to be drafted per batch
     * @param _feeToken Address of the token contract that is used to pay for fees
     * @param _fees Array containing:
     *        0. jurorFee The amount of _feeToken that is paid per juror per dispute
@@ -281,7 +282,7 @@ contract Court is TimeHelpers, Controlled, ControlledRecoverable, IJurorsRegistr
         Controller _controller,
         uint64 _termDuration,
         uint64 _firstTermStartTime,
-        uint64 _maxJurorsToBeDraftedPerBatch,
+        uint64 _maxJurorsPerDraftBatch,
         ERC20 _feeToken,
         uint256[4] memory _fees,
         uint64[4] memory _roundStateDurations,
@@ -305,7 +306,7 @@ contract Court is TimeHelpers, Controlled, ControlledRecoverable, IJurorsRegistr
         // No need for SafeMath: checked above
         terms[0].startTime = _firstTermStartTime - _termDuration;
 
-        _setMaxJurorsToBeDraftedPerBatch(_maxJurorsToBeDraftedPerBatch);
+        _setMaxJurorsPerDraftBatch(_maxJurorsPerDraftBatch);
 
         // Leave config at index 0 empty for non-scheduled config changes
         courtConfigs.length = 1;
@@ -321,11 +322,11 @@ contract Court is TimeHelpers, Controlled, ControlledRecoverable, IJurorsRegistr
     }
 
     /**
-    * @notice Sets the global configuration for the max number of jurors to be drafted per batch to `_maxJurorsToBeDraftedPerBatch`
-    * @param _maxJurorsToBeDraftedPerBatch Max number of jurors to be drafted per batch
+    * @notice Sets the global configuration for the max number of jurors to be drafted per batch to `_maxJurorsPerDraftBatch`
+    * @param _maxJurorsPerDraftBatch Max number of jurors to be drafted per batch
     */
-    function setMaxJurorsToBeDraftedPerBatch(uint64 _maxJurorsToBeDraftedPerBatch) external onlyConfigGovernor {
-        _setMaxJurorsToBeDraftedPerBatch(_maxJurorsToBeDraftedPerBatch);
+    function setMaxJurorsPerDraftBatch(uint64 _maxJurorsPerDraftBatch) external onlyConfigGovernor {
+        _setMaxJurorsPerDraftBatch(_maxJurorsPerDraftBatch);
     }
 
     /**
@@ -427,10 +428,10 @@ contract Court is TimeHelpers, Controlled, ControlledRecoverable, IJurorsRegistr
         // Draft the min number of jurors between the one requested by the sender and the one requested by the disputer
         uint64 jurorsNumber = round.jurorsNumber;
         uint64 selectedJurors = round.selectedJurors;
-        uint64 maxJurorsToBeDraftedPerBatch_ = maxJurorsToBeDraftedPerBatch;
+        uint64 maxJurorsPerDraftBatch_ = maxJurorsPerDraftBatch;
         // No need for SafeMath: selectedJurors is set in `_draft` function, by adding to it `requestedJurors`. The line below prevents underflow
         uint64 jurorsToBeDrafted = jurorsNumber - selectedJurors;
-        uint64 requestedJurors = jurorsToBeDrafted < maxJurorsToBeDraftedPerBatch_ ? jurorsToBeDrafted : maxJurorsToBeDraftedPerBatch_;
+        uint64 requestedJurors = jurorsToBeDrafted < maxJurorsPerDraftBatch_ ? jurorsToBeDrafted : maxJurorsPerDraftBatch_;
 
         // Draft jurors for the given dispute and reimburse fees
         CourtConfig storage config = _getDisputeConfig(dispute);
@@ -1273,12 +1274,12 @@ contract Court is TimeHelpers, Controlled, ControlledRecoverable, IJurorsRegistr
 
     /**
     * @dev Sets the global configuration for the max number of jurors to be drafted per batch
-    * @param _maxJurorsToBeDraftedPerBatch Max number of jurors to be drafted per batch
+    * @param _maxJurorsPerDraftBatch Max number of jurors to be drafted per batch
     */
-    function _setMaxJurorsToBeDraftedPerBatch(uint64 _maxJurorsToBeDraftedPerBatch) internal {
-        require(_maxJurorsToBeDraftedPerBatch > 0, ERROR_BAD_MAX_DRAFT_BATCH_SIZE);
-        emit MaxJurorsToBeDraftedPerBatchSet(maxJurorsToBeDraftedPerBatch, _maxJurorsToBeDraftedPerBatch);
-        maxJurorsToBeDraftedPerBatch = _maxJurorsToBeDraftedPerBatch;
+    function _setMaxJurorsPerDraftBatch(uint64 _maxJurorsPerDraftBatch) internal {
+        require(_maxJurorsPerDraftBatch > 0, ERROR_BAD_MAX_DRAFT_BATCH_SIZE);
+        emit MaxJurorsPerDraftBatchSet(maxJurorsPerDraftBatch, _maxJurorsPerDraftBatch);
+        maxJurorsPerDraftBatch = _maxJurorsPerDraftBatch;
     }
 
     /**

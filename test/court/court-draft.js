@@ -253,44 +253,44 @@ contract('Court', ([_, disputer, drafter, juror500, juror1000, juror1500, juror2
       const itHandlesDraftsProperlyForDifferentRequestedJurorsNumber = term => {
         context('when drafting all the requested jurors', () => {
           context('when drafting in one batch', () => {
-            const maxJurorsToBeDraftedPerBatch = firstRoundJurorsNumber
+            const maxJurorsPerDraftBatch = firstRoundJurorsNumber
 
-            beforeEach('create court and dispute', async () => {
-              await court.setMaxJurorsToBeDraftedPerBatch(maxJurorsToBeDraftedPerBatch)
+            beforeEach('set max number of jurors to be drafted per batch', async () => {
+              await court.setMaxJurorsPerDraftBatch(maxJurorsPerDraftBatch)
             })
 
-            itDraftsRequestedRoundInOneBatch(term, maxJurorsToBeDraftedPerBatch)
+            itDraftsRequestedRoundInOneBatch(term, maxJurorsPerDraftBatch)
           })
 
           context('when drafting in multiple batches', () => {
-            const batches = 2, maxJurorsToBeDraftedPerBatch = 4
+            const batches = 2, maxJurorsPerDraftBatch = 4
 
-            beforeEach('create court and dispute', async () => {
-              await court.setMaxJurorsToBeDraftedPerBatch(maxJurorsToBeDraftedPerBatch)
+            beforeEach('set max number of jurors to be drafted per batch', async () => {
+              await court.setMaxJurorsPerDraftBatch(maxJurorsPerDraftBatch)
             })
 
-            itDraftsRequestedRoundInMultipleBatches(term, firstRoundJurorsNumber, batches, maxJurorsToBeDraftedPerBatch)
+            itDraftsRequestedRoundInMultipleBatches(term, firstRoundJurorsNumber, batches, maxJurorsPerDraftBatch)
           })
         })
 
         context('when half amount of the requested jurors', () => {
-          const maxJurorsToBeDraftedPerBatch = Math.floor(firstRoundJurorsNumber / 2)
+          const maxJurorsPerDraftBatch = Math.floor(firstRoundJurorsNumber / 2)
 
-          beforeEach('create court and dispute', async () => {
-            await court.setMaxJurorsToBeDraftedPerBatch(maxJurorsToBeDraftedPerBatch)
+          beforeEach('set max number of jurors to be drafted per batch', async () => {
+            await court.setMaxJurorsPerDraftBatch(maxJurorsPerDraftBatch)
           })
 
-          itDraftsRequestedRoundInOneBatch(term, maxJurorsToBeDraftedPerBatch)
+          itDraftsRequestedRoundInOneBatch(term, maxJurorsPerDraftBatch)
         })
 
         context('when drafting more than the requested jurors', () => {
-          const maxJurorsToBeDraftedPerBatch = firstRoundJurorsNumber * 2
+          const maxJurorsPerDraftBatch = firstRoundJurorsNumber * 2
 
-          beforeEach('create court and dispute', async () => {
-            await court.setMaxJurorsToBeDraftedPerBatch(maxJurorsToBeDraftedPerBatch)
+          beforeEach('set max number of jurors to be drafted per batch', async () => {
+            await court.setMaxJurorsPerDraftBatch(maxJurorsPerDraftBatch)
           })
 
-          itDraftsRequestedRoundInOneBatch(term, maxJurorsToBeDraftedPerBatch)
+          itDraftsRequestedRoundInOneBatch(term, maxJurorsPerDraftBatch)
         })
       }
 
@@ -304,14 +304,14 @@ contract('Court', ([_, disputer, drafter, juror500, juror1000, juror1500, juror2
         })
 
         context('when the current block is the following block of the randomness block number', () => {
-          // no need to advance the block here because setting the maxJurorsToBeDraftedPerBatch will do the job
+          // no need to advance the block here because setting the maxJurorsPerDraftBatch will do the job
 
           itHandlesDraftsProperlyForDifferentRequestedJurorsNumber(term)
         })
 
         context('when the current term is after the randomness block number by less than 256 blocks', () => {
           beforeEach('move 255 blocks after the draft term', async () => {
-            // advance the block 1 less here because setting the maxJurorsToBeDraftedPerBatch will do the missing one
+            // advance the block 1 less here because setting the maxJurorsPerDraftBatch will do the missing one
             await advanceBlocks(254)
           })
 
@@ -320,7 +320,7 @@ contract('Court', ([_, disputer, drafter, juror500, juror1000, juror1500, juror2
 
         context('when the current term is after the randomness block number by 256 blocks', () => {
           beforeEach('move 256 blocks after the draft term', async () => {
-            // advance the block 1 less here because setting the maxJurorsToBeDraftedPerBatch will do the missing one
+            // advance the block 1 less here because setting the maxJurorsPerDraftBatch will do the missing one
             await advanceBlocks(255)
           })
 

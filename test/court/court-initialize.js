@@ -20,7 +20,7 @@ contract('Court', () => {
     })
 
     it('cannot use a max draft batch size of zero', async () => {
-      await assertRevert(courtHelper.deploy({ maxJurorsToBeDraftedPerBatch: bn(0) }), 'CT_BAD_MAX_DRAFT_BATCH_SIZE')
+      await assertRevert(courtHelper.deploy({ maxJurorsPerDraftBatch: bn(0) }), 'CT_BAD_MAX_DRAFT_BATCH_SIZE')
     })
 
     context('penalty pct (1/10,000)', () => {

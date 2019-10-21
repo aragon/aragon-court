@@ -19,6 +19,10 @@ contract('Court', () => {
       await assertRevert(courtHelper.deploy({ mockedTimestamp: NOW, firstTermStartTime: NOW - 1, termDuration: ONE_DAY }), 'CT_BAD_FIRST_TERM_START_TIME')
     })
 
+    it('cannot use a max draft batch size of zero', async () => {
+      await assertRevert(courtHelper.deploy({ maxJurorsToBeDraftedPerBatch: bn(0) }), 'CT_BAD_MAX_DRAFT_BATCH_SIZE')
+    })
+
     context('penalty pct (1/10,000)', () => {
       it('cannot be above 100%', async () => {
         await assertRevert(courtHelper.deploy({ penaltyPct: bn(10001) }), 'CT_INVALID_PENALTY_PCT')

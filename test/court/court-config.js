@@ -290,4 +290,22 @@ contract('Court config', ([_, sender, disputer, drafter, appealMaker, appealTake
       assertBn(appealJurorFees, appealJurorsNumber.mul(jurorFee), 'Jurors Fees don\'t match')
     })
   })
+
+  context('max draft batch size', () => {
+    it('governor can change max draft batch size', async () => {
+      const newMaxDraftBatchSize = bn(20)
+      await court.setMaxJurorsToBeDraftedPerBatch(newMaxDraftBatchSize)
+      const maxJurorsToBeDraftedPerBatch = await court.maxJurorsToBeDraftedPerBatch()
+      assertBn(maxJurorsToBeDraftedPerBatch, newMaxDraftBatchSize, 'Max draft batch size was not properly set')
+    })
+
+    it('fails trying to change max draft batch size to zero', async () => {
+      await assertRevert(court.setMaxJurorsToBeDraftedPerBatch(bn(0)))
+    })
+
+    it('non-governor can not change max draft batch size', async () => {
+      const newMaxDraftBatchSize = bn(20)
+      await assertRevert(court.setMaxJurorsToBeDraftedPerBatch(newMaxDraftBatchSize, { from: juror500 }))
+    })
+  })
 })

@@ -36,7 +36,7 @@ module.exports = (web3, artifacts) => {
   const DEFAULTS = {
     termDuration:                       bn(ONE_DAY),     //  terms lasts one day
     firstTermStartTime:                 bn(NEXT_WEEK),   //  first term starts one week after mocked timestamp
-    maxJurorsToBeDrafted:               bn(10),          //  max numer of jurors drafted per batch
+    maxJurorsToBeDraftedPerBatch:       bn(10),          //  max numer of jurors drafted per batch
     commitTerms:                        bn(1),           //  vote commits last 1 term
     revealTerms:                        bn(1),           //  vote reveals last 1 term
     appealTerms:                        bn(1),           //  appeals last 1 term
@@ -341,11 +341,13 @@ module.exports = (web3, artifacts) => {
 
       // mock draft if there was a jurors set to be drafted
       if (draftedJurors) {
-        /**/
-        const maxJurorsToBeDrafted = (await this.court.maxJurorsToBeDrafted()).toNumber()
+        const { lastRoundId } = await this.getDispute(disputeId)
+        const { roundJurorsNumber } = await this.getRound(disputeId, lastRoundId)
+        const maxJurorsToBeDraftedPerBatch = await this.court.maxJurorsToBeDraftedPerBatch()
+        const jurorsToBeDrafted = roundJurorsNumber.lt(maxJurorsToBeDraftedPerBatch) ?
+              roundJurorsNumber.toNumber() : maxJurorsToBeDraftedPerBatch.toNumber()
         const totalWeight = draftedJurors.reduce((total, { weight }) => total + weight, 0)
-        if (totalWeight !== maxJurorsToBeDrafted) throw Error('Given jurors to be drafted do not fit the round jurors number')
-        /**/
+        if (totalWeight !== jurorsToBeDrafted) throw Error('Given jurors to be drafted do not fit the batch jurors number')
         const jurors = draftedJurors.map(j => j.address)
         const weights = draftedJurors.map(j => j.weight)
         await this.jurorsRegistry.mockNextDraft(jurors, weights)
@@ -455,7 +457,7 @@ module.exports = (web3, artifacts) => {
         this.controller.address,
         this.termDuration,
         this.firstTermStartTime,
-        this.maxJurorsToBeDrafted,
+        this.maxJurorsToBeDraftedPerBatch,
         this.feeToken.address,
         [this.jurorFee, this.heartbeatFee, this.draftFee, this.settleFee],
         [this.commitTerms, this.revealTerms, this.appealTerms, this.appealConfirmTerms],

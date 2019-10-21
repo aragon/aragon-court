@@ -15,6 +15,7 @@ const {
 
 const ERC20 = artifacts.require('ERC20Mock')
 const Arbitrable = artifacts.require('ArbitrableMock')
+const Controller = artifacts.require('ControllerMock')
 const Accounting = artifacts.require('CourtAccounting')
 const JurorsRegistry = artifacts.require('JurorsRegistryMock')
 
@@ -33,6 +34,9 @@ contract('Court global accountancy', (
   const heartbeatFee = bigExp(20, 18)
   const draftFee = bigExp(30, 18)
   const settleFee = bigExp(40, 18)
+
+  const MIN_ACTIVE_AMOUNT = bigExp(1, 18)
+  const TOTAL_ACTIVE_BALANCE_LIMIT = bigExp(100e6, 18)
 
   const checkFundsState = async (fundsState) => {
     // Court balances should be empty
@@ -56,11 +60,22 @@ contract('Court global accountancy', (
 
   beforeEach('create court', async () => {
     courtHelper = buildHelper()
+
+    // tokens
     feeToken = await ERC20.new('Court Fee Token', 'CFT', 18)
     jurorToken = await ERC20.new('Aragon Network Juror Token', 'ANJ', 18)
-    accounting = await Accounting.new()
-    jurorsRegistry =  await JurorsRegistry.new()
+
+    // controller
+    const controller = await Controller.new()
+
+    // accounting
+    accounting = await Accounting.new(controller.address)
+
+    // registry
+    jurorsRegistry =  await JurorsRegistry.new(controller.address, jurorToken.address, MIN_ACTIVE_AMOUNT, TOTAL_ACTIVE_BALANCE_LIMIT)
+
     court = await courtHelper.deploy({
+      controller,
       firstTermStartTime,
       termDuration,
       feeToken,

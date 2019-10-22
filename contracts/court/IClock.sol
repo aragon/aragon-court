@@ -4,7 +4,7 @@ import "@aragon/os/contracts/common/TimeHelpers.sol";
 
 
 interface IClock {
-    function ensureTermId() external returns (uint64);
+    function ensureCurrentTerm() external returns (uint64);
 
     function ensureTermRandomness(uint64 _termId) external returns (bytes32);
 

@@ -55,8 +55,8 @@ contract Controlled is IsContract {
     * @dev Internal function to ensure the current term of the Court
     * @return Identification number of the last ensured term
     */
-    function _ensureTermId() internal returns (uint64) {
-        return _clock().ensureTermId();
+    function _ensureCurrentTerm() internal returns (uint64) {
+        return _clock().ensureCurrentTerm();
     }
 
     /**

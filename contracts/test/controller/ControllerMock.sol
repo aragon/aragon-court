@@ -57,9 +57,9 @@ contract ControllerMock is Controller, TimeHelpersMock {
         mockedTermRandomness = _termRandomness;
     }
 
-    function ensureTermId() external returns (uint64) {
+    function ensureCurrentTerm() external returns (uint64) {
         if (mockedTermId != 0) return mockedTermId;
-        return _ensureTermId();
+        return _ensureCurrentTerm();
     }
 
     function getCurrentTermId() external view returns (uint64) {

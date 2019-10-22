@@ -84,10 +84,10 @@ contract CourtClock is IClock, TimeHelpers {
     /**
     * @dev Tell and ensure the current term of the court. If the Court term is outdated it will update it. Note that this function
     *      only allows updating the Court by one term, if more terms are required, users will have to call the heartbeat function manually.
-    * @return Identification number of the last ensured term
+    * @return Identification number of the current term
     */
-    function ensureTermId() external returns (uint64) {
-        return _ensureTermId();
+    function ensureCurrentTerm() external returns (uint64) {
+        return _ensureCurrentTerm();
     }
 
     /**
@@ -201,7 +201,7 @@ contract CourtClock is IClock, TimeHelpers {
     * @dev Internal function to tell and ensure the current term of the court
     * @return Identification number of the last ensured term
     */
-    function _ensureTermId() internal returns (uint64) {
+    function _ensureCurrentTerm() internal returns (uint64) {
         // Check the required number of transitions does not exceeds the max allowed number to be processed automatically
         uint64 requiredTransitions = _neededTermTransitions();
         require(requiredTransitions <= MAX_AUTO_TERM_TRANSITIONS_ALLOWED, ERROR_TOO_MANY_TRANSITIONS);

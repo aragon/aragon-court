@@ -285,7 +285,7 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
         external
         onlyConfigGovernor
     {
-        uint64 termId = _ensureTermId();
+        uint64 termId = _ensureCurrentTerm();
         _setCourtConfig(termId, _fromTermId, _feeToken, _fees, _roundStateDurations, _pcts, _roundParams, _appealCollateralParams);
     }
 
@@ -300,7 +300,7 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
         // TODO: Limit the min amount of terms before drafting (to allow for evidence submission)
         // TODO: ERC165 check that _subject conforms to the Arbitrable interface
         // TODO: require(address(_subject) == msg.sender, ERROR_INVALID_DISPUTE_CREATOR);
-        uint64 termId = _ensureTermId();
+        uint64 termId = _ensureCurrentTerm();
         ISubscriptions subscriptions = _subscriptions();
         require(subscriptions.isUpToDate(address(_subject)), ERROR_SUBSCRIPTION_NOT_PAID);
         require(_possibleRulings >= MIN_RULING_OPTIONS && _possibleRulings <= MAX_RULING_OPTIONS, ERROR_INVALID_RULING_OPTIONS);
@@ -375,7 +375,8 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
     */
     function createAppeal(uint256 _disputeId, uint256 _roundId, uint8 _ruling) external {
         disputeExists(_disputeId);
-        // Ensure given round can be appealed. Note that if there was a final appeal the adjudication state will be 'Ended'.
+        // Ensure current term and check that the given round can be appealed.
+        // Note that if there was a final appeal the adjudication state will be 'Ended'.
         Dispute storage dispute = disputes[_disputeId];
         _checkAdjudicationState(dispute, _roundId, AdjudicationState.Appealing);
 
@@ -405,7 +406,8 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
     */
     function confirmAppeal(uint256 _disputeId, uint256 _roundId, uint8 _ruling) external {
         // TODO: ensure dispute exists
-        // Ensure given round is appealed and can be confirmed. Note that if there was a final appeal the adjudication state will be 'Ended'.
+        // Ensure current term and check that the given round is appealed and can be confirmed.
+        // Note that if there was a final appeal the adjudication state will be 'Ended'.
         Dispute storage dispute = disputes[_disputeId];
         _checkAdjudicationState(dispute, _roundId, AdjudicationState.ConfirmingAppeal);
 
@@ -631,6 +633,8 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
     function ensureTermAndGetVoterWeightToCommit(uint256 _voteId, address _voter) external onlyVoting returns (uint64) {
         (uint256 disputeId, uint256 roundId) = _decodeVoteId(_voteId);
         Dispute storage dispute = disputes[disputeId];
+
+        // Ensure current term and check that votes can still be committed for the given round
         _checkAdjudicationState(dispute, roundId, AdjudicationState.Committing);
         return _computeJurorWeight(dispute, roundId, _voter);
     }
@@ -654,6 +658,8 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
     function ensureTermAndGetVoterWeightToReveal(uint256 _voteId, address _voter) external onlyVoting returns (uint64) {
         (uint256 disputeId, uint256 roundId) = _decodeVoteId(_voteId);
         Dispute storage dispute = disputes[disputeId];
+
+        // Ensure current term and check that votes can still be revealed for the given round
         _checkAdjudicationState(dispute, roundId, AdjudicationState.Revealing);
         AdjudicationRound storage round = dispute.rounds[roundId];
         return _getStoredJurorWeight(round, _voter);
@@ -952,7 +958,7 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
     * @param _state Expected adjudication state for the given dispute round
     */
     function _checkAdjudicationState(Dispute storage _dispute, uint256 _roundId, AdjudicationState _state) internal {
-        uint64 termId = _ensureTermId();
+        uint64 termId = _ensureCurrentTerm();
         require(_roundId < _dispute.rounds.length, ERROR_ROUND_DOES_NOT_EXIST);
         require(_adjudicationStateAt(_dispute, _roundId, termId) == _state, ERROR_INVALID_ADJUDICATION_STATE);
     }
@@ -969,7 +975,8 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
             return dispute.finalRuling;
         }
 
-        // Ensure the last adjudication round has ended. Note that there will always be at least one round.
+        // Ensure current term and check that the last adjudication round has ended.
+        // Note that there will always be at least one round.
         uint256 lastRoundId = dispute.rounds.length - 1;
         _checkAdjudicationState(dispute, lastRoundId, AdjudicationState.Ended);
 
@@ -1007,7 +1014,7 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
         internal
         returns (uint256)
     {
-        uint64 termId = _ensureTermId();
+        uint64 termId = _ensureCurrentTerm();
         // The batch starts where the previous one ended, stored in _round.settledJurors
         uint256 roundSettledJurors = _round.settledJurors;
         // Compute the amount of jurors that are going to be settled in this batch, which is returned by the function for fees calculation

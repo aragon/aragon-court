@@ -1,3 +1,4 @@
+const { ONE_DAY, NEXT_WEEK } = require('../helpers/time')
 const { SALT, OUTCOMES, encryptVote } = require('../helpers/crvoting')
 
 const CRVoting = artifacts.require('CRVoting')
@@ -10,7 +11,7 @@ contract('CRVoting', ([_, voterWeighted1, voterWeighted2, voterWeighted3, voterW
   let controller, voting, votingOwner, voteId = 0
 
   beforeEach('create voting', async () => {
-    controller = await Controller.new()
+    controller = await Controller.new(ONE_DAY, NEXT_WEEK)
 
     voting = await CRVoting.new(controller.address)
     await controller.setVoting(voting.address)

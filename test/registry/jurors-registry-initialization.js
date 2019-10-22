@@ -1,5 +1,6 @@
 const { bigExp } = require('../helpers/numbers')
 const { assertRevert } = require('../helpers/assertThrow')
+const { ONE_DAY, NEXT_WEEK } = require('../helpers/time')
 
 const JurorsRegistry = artifacts.require('JurorsRegistry')
 const Controller = artifacts.require('ControllerMock')
@@ -14,7 +15,7 @@ contract('JurorsRegistry', ([_, something]) => {
   const TOTAL_ACTIVE_BALANCE_LIMIT = bigExp(100e6, 18)
 
   beforeEach('create base contracts', async () => {
-    controller = await Controller.new()
+    controller = await Controller.new(ONE_DAY, NEXT_WEEK)
     ANJ = await ERC20.new('ANJ Token', 'ANJ', 18)
   })
 

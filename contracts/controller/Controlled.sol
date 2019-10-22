@@ -136,7 +136,7 @@ contract Controlled is IsContract {
     * @return Address of the Clock module
     */
     function _clock() internal view returns (IClock) {
-        return IClock(controller.getClock());
+        return IClock(controller);
     }
 
     /**

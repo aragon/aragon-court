@@ -1,4 +1,5 @@
 const { assertRevert } = require('../helpers/assertThrow')
+const { ONE_DAY, NEXT_WEEK } = require('../helpers/time')
 const { assertAmountOfEvents } = require('../helpers/assertEvent')
 
 const Controller = artifacts.require('Controller')
@@ -10,7 +11,7 @@ contract('Controlled', ([_, fundsGovernor, configGovernor, modulesGovernor, some
   let controller, controlled
 
   beforeEach('create controlled', async () => {
-    controller = await Controller.new(fundsGovernor, configGovernor, modulesGovernor)
+    controller = await Controller.new(ONE_DAY, NEXT_WEEK, fundsGovernor, configGovernor, modulesGovernor)
     controlled = await Controlled.new(controller.address)
   })
 

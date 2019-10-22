@@ -9,14 +9,13 @@ const { assertAmountOfEvents, assertEvent } = require('../helpers/assertEvent')
 
 const JurorsRegistry = artifacts.require('JurorsRegistryMock')
 const Controller = artifacts.require('ControllerMock')
-const CourtClock = artifacts.require('CourtClockMock')
 const Court = artifacts.require('CourtMockForRegistry')
 const ERC20 = artifacts.require('ERC20Mock')
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
 
 contract('JurorsRegistry', ([_, juror500, juror1000, juror1500, juror2000, juror2500, juror3000, juror3500, juror4000]) => {
-  let controller, clock, registry, court, ANJ
+  let controller, registry, court, ANJ
 
   const DRAFT_LOCK_PCT = bn(2000) // 20%
   const MIN_ACTIVE_AMOUNT = bigExp(100, 18)
@@ -67,16 +66,13 @@ contract('JurorsRegistry', ([_, juror500, juror1000, juror1500, juror2000, juror
   }
 
   beforeEach('create base contracts', async () => {
-    controller = await Controller.new()
+    controller = await Controller.new(ONE_DAY, NEXT_WEEK)
     ANJ = await ERC20.new('ANJ Token', 'ANJ', 18)
 
     registry = await JurorsRegistry.new(controller.address, ANJ.address, MIN_ACTIVE_AMOUNT, TOTAL_ACTIVE_BALANCE_LIMIT)
     await controller.setJurorsRegistry(registry.address)
 
-    clock = await CourtClock.new(controller.address, ONE_DAY, NEXT_WEEK)
-    await controller.setClock(clock.address)
-
-    court = await Court.new(registry.address)
+    court = await Court.new(controller.address)
     await controller.setCourt(court.address)
   })
 
@@ -366,7 +362,7 @@ contract('JurorsRegistry', ([_, juror500, juror1000, juror1500, juror2000, juror
 
             context('when the juror is activated for the current term', () => {
               beforeEach('increment term', async () => {
-                await clock.mockIncreaseTerm()
+                await controller.mockIncreaseTerm()
               })
 
               context('when juror has enough unlocked balance to be drafted', () => {
@@ -434,7 +430,7 @@ contract('JurorsRegistry', ([_, juror500, juror1000, juror1500, juror2000, juror
 
               context('when the jurors are activated for the current term', () => {
                 beforeEach('increment term', async () => {
-                  await clock.mockIncreaseTerm()
+                  await controller.mockIncreaseTerm()
                 })
 
                 context('for the first batch', () => {
@@ -474,7 +470,7 @@ contract('JurorsRegistry', ([_, juror500, juror1000, juror1500, juror2000, juror
 
               context('when the jurors are activated for the current term', () => {
                 beforeEach('increment term', async () => {
-                  await clock.mockIncreaseTerm()
+                  await controller.mockIncreaseTerm()
                 })
 
                 context('when jurors have not been selected for other drafts', () => {

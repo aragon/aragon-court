@@ -183,7 +183,7 @@ contract('Court', ([_, disputer, drafter, juror500, juror1000, juror1500, juror2
           let lastTerm
           for (let batch = 0; batch < batches; batch++) {
             await court.draft(disputeId, jurorsPerBatch, { from: drafter })
-            lastTerm = await courtHelper.clock.getLastEnsuredTermId()
+            lastTerm = await courtHelper.controller.getLastEnsuredTermId()
 
             // advance one term to avoid drafting all the batches in the same term
             if (batch + 1 < batches) await courtHelper.passRealTerms(1)
@@ -286,16 +286,16 @@ contract('Court', ([_, disputer, drafter, juror500, juror1000, juror1500, juror2
       const itHandlesDraftsProperly = term => {
         const advanceBlocksAfterDraftBlockNumber = async blocks => {
           // NOTE: To test this scenario we cannot mock the blocknumber, we need a real block mining to have different blockhashes
-          const { randomnessBN } = await courtHelper.clock.getTerm(draftTermId)
-          const currentBlockNumber = await courtHelper.clock.getBlockNumberExt()
+          const { randomnessBN } = await courtHelper.controller.getTerm(draftTermId)
+          const currentBlockNumber = await courtHelper.controller.getBlockNumberExt()
           const outdatedBlocks = currentBlockNumber.toNumber() - randomnessBN.toNumber()
           if (outdatedBlocks <= blocks) await advanceBlocks(blocks - outdatedBlocks)
         }
 
         context('when the current block is the randomness block number', () => {
           beforeEach('mock current block number', async () => {
-            const { randomnessBN } = await courtHelper.clock.getTerm(draftTermId)
-            await courtHelper.clock.mockSetBlockNumber(randomnessBN)
+            const { randomnessBN } = await courtHelper.controller.getTerm(draftTermId)
+            await courtHelper.controller.mockSetBlockNumber(randomnessBN)
           })
 
           it('reverts', async () => {
@@ -348,7 +348,7 @@ contract('Court', ([_, disputer, drafter, juror500, juror1000, juror1500, juror2
         context('when the given dispute was not drafted', () => {
           context('when the court term is up-to-date', () => {
             beforeEach('ensure the draft term', async () => {
-              const neededTransitions = await courtHelper.clock.getNeededTermTransitions()
+              const neededTransitions = await courtHelper.controller.getNeededTermTransitions()
               await court.heartbeat(neededTransitions)
             })
 
@@ -357,7 +357,7 @@ contract('Court', ([_, disputer, drafter, juror500, juror1000, juror1500, juror2
 
           context('when the court term is outdated by one term', () => {
             beforeEach('ensure previous term of the draft term', async () => {
-              const neededTransitions = (await courtHelper.clock.getNeededTermTransitions()).toNumber()
+              const neededTransitions = (await courtHelper.controller.getNeededTermTransitions()).toNumber()
               assert.isAbove(neededTransitions, 0, 'no needed transitions')
               if (neededTransitions > 1) await court.heartbeat(bn(neededTransitions - 1))
             })
@@ -372,7 +372,7 @@ contract('Court', ([_, disputer, drafter, juror500, juror1000, juror1500, juror2
               let lastEnsuredTermId, previousBalance, receipt
 
               beforeEach('call heartbeat', async () => {
-                lastEnsuredTermId = await courtHelper.clock.getLastEnsuredTermId()
+                lastEnsuredTermId = await courtHelper.controller.getLastEnsuredTermId()
                 previousBalance = await courtHelper.accounting.balanceOf(courtHelper.feeToken.address, drafter)
                 receipt = await court.heartbeat(1, { from: drafter })
               })

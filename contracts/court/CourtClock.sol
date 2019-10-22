@@ -7,7 +7,7 @@ import "../controller/Controller.sol";
 import "../controller/Controlled.sol";
 
 
-contract CourtClock is IClock, Controlled, TimeHelpers {
+contract CourtClock is IClock, TimeHelpers {
     string private constant ERROR_TERM_OUTDATED = "CLK_TERM_OUTDATED";
     string private constant ERROR_TERM_DOES_NOT_EXIST = "CLK_TERM_DOES_NOT_EXIST";
     string private constant ERROR_TERM_DURATION_TOO_LONG = "CLK_TERM_DURATION_TOO_LONG";
@@ -57,11 +57,10 @@ contract CourtClock is IClock, Controlled, TimeHelpers {
 
     /**
     * @dev Constructor function
-    * @param _controller Address of the controller
     * @param _termDuration Duration in seconds per term
     * @param _firstTermStartTime Timestamp in seconds when the court will open (to give time for juror on-boarding)
     */
-    constructor(Controller _controller, uint64 _termDuration, uint64 _firstTermStartTime) Controlled(_controller) public {
+    constructor(uint64 _termDuration, uint64 _firstTermStartTime) public {
         require(_termDuration < MAX_TERM_DURATION, ERROR_TERM_DURATION_TOO_LONG);
         require(_firstTermStartTime >= getTimestamp64() + _termDuration, ERROR_BAD_FIRST_TERM_START_TIME);
         require(_firstTermStartTime <= getTimestamp64() + MAX_FIRST_TERM_DELAY_PERIOD, ERROR_BAD_FIRST_TERM_START_TIME);
@@ -78,7 +77,7 @@ contract CourtClock is IClock, Controlled, TimeHelpers {
     * @return previousTermId Identification number of the term id previous to executing the heartbeat transitions
     * @return currentTermId Identification number of the term id after executing the heartbeat transitions
     */
-    function heartbeat(uint64 _maxRequestedTransitions) external onlyCourt returns (uint64 previousTermId, uint64 currentTermId) {
+    function heartbeat(uint64 _maxRequestedTransitions) external returns (uint64 previousTermId, uint64 currentTermId) {
         return _heartbeat(_maxRequestedTransitions);
     }
 

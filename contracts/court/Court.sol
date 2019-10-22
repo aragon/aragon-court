@@ -336,7 +336,7 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
         IClock clock = _clock();
         uint64 requiredTransitions = _clock().getNeededTermTransitions();
         require(uint256(requiredTransitions) == 0, ERROR_TERM_OUTDATED);
-        uint64 currentTermId = clock.getLastEnsuredTermId();
+        uint64 currentTermId = controller.getLastEnsuredTermId();
 
         // Ensure dispute has not been drafted yet
         Dispute storage dispute = disputes[_disputeId];

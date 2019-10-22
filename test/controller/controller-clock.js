@@ -3,18 +3,12 @@ const { assertRevert } = require('../helpers/assertThrow')
 const { NEXT_WEEK, NOW, ONE_DAY } = require('../helpers/time')
 const { assertAmountOfEvents, assertEvent } = require('../helpers/assertEvent')
 
-const CourtClock = artifacts.require('CourtClockMock')
 const Controller = artifacts.require('ControllerMock')
 
-contract('CourtClock', ([_, court, someone]) => {
-  let clock, controller
+contract('Controller', ([_, court, someone]) => {
+  let controller
 
   const EMPTY_RANDOMNESS = '0x0000000000000000000000000000000000000000000000000000000000000000'
-
-  beforeEach('deploy controller', async () => {
-    controller = await Controller.new()
-    await controller.setCourtMock(court)
-  })
 
   describe('constructor', () => {
     const termDuration = bn(ONE_DAY)
@@ -23,7 +17,7 @@ contract('CourtClock', ([_, court, someone]) => {
       const firstTermStartTime = bn(NOW - 1)
 
       it('reverts', async () => {
-        await assertRevert(CourtClock.new(controller.address, termDuration, firstTermStartTime), 'CLK_BAD_FIRST_TERM_START_TIME')
+        await assertRevert(Controller.new(termDuration, firstTermStartTime), 'CLK_BAD_FIRST_TERM_START_TIME')
       })
     })
 
@@ -31,19 +25,19 @@ contract('CourtClock', ([_, court, someone]) => {
       const firstTermStartTime = bn(NOW).add(termDuration.sub(bn(1)))
 
       it('reverts', async () => {
-        await assertRevert(CourtClock.new(controller.address, termDuration, firstTermStartTime), 'CLK_BAD_FIRST_TERM_START_TIME')
+        await assertRevert(Controller.new(termDuration, firstTermStartTime), 'CLK_BAD_FIRST_TERM_START_TIME')
       })
     })
 
     context('when setting the first term start time in the future', () => {
       const firstTermStartTime = bn(NEXT_WEEK)
 
-      beforeEach('deploy clock', async () => {
-        clock = await CourtClock.new(controller.address, termDuration, firstTermStartTime)
+      beforeEach('deploy controller', async () => {
+        controller = await Controller.new(termDuration, firstTermStartTime)
       })
 
       it('it must have already started term #0', async () => {
-        const { startTime, randomnessBN, randomness } = await clock.getTerm(0)
+        const { startTime, randomnessBN, randomness } = await controller.getTerm(0)
 
         assert.equal(startTime.toString(), firstTermStartTime.sub(termDuration), 'term zero start time does not match')
         assert.equal(randomnessBN.toString(), 0, 'zero term randomness block number should not be computed')
@@ -51,7 +45,7 @@ contract('CourtClock', ([_, court, someone]) => {
       })
 
       it('does not require a term transition', async () => {
-        assert.equal((await clock.getNeededTermTransitions()).toString(), 0, 'needed term transitions does not match')
+        assert.equal((await controller.getNeededTermTransitions()).toString(), 0, 'needed term transitions does not match')
       })
     })
   })
@@ -61,9 +55,9 @@ contract('CourtClock', ([_, court, someone]) => {
     const firstTermStartTime = bn(NEXT_WEEK)
     const zeroTermStartTime = firstTermStartTime.sub(termDuration)
 
-    beforeEach('create court clock', async () => {
-      clock = await CourtClock.new(controller.address, termDuration, firstTermStartTime)
-      await controller.setClock(clock.address)
+    beforeEach('create controller', async () => {
+      controller = await Controller.new(termDuration, firstTermStartTime)
+      await controller.setCourtMock(court)
     })
 
     context('when the sender is the court', () => {
@@ -71,7 +65,7 @@ contract('CourtClock', ([_, court, someone]) => {
 
       const itRevertsOnHeartbeat = maxTransitionTerms => {
         it('reverts', async () => {
-          await assertRevert(clock.heartbeat(maxTransitionTerms, { from }), 'CLK_INVALID_TRANSITION_TERMS')
+          await assertRevert(controller.heartbeat(maxTransitionTerms, { from }), 'CLK_INVALID_TRANSITION_TERMS')
         })
       }
 
@@ -91,15 +85,15 @@ contract('CourtClock', ([_, court, someone]) => {
 
       const itNeedsTermTransitions = neededTransitions => {
         it(`requires ${neededTransitions} term transitions`, async () => {
-          assert.equal((await clock.getNeededTermTransitions()).toString(), neededTransitions, 'needed term transitions does not match')
+          assert.equal((await controller.getNeededTermTransitions()).toString(), neededTransitions, 'needed term transitions does not match')
         })
       }
 
       const itUpdatesTermsSuccessfully = (maxTransitionTerms, expectedTransitions, remainingTransitions) => {
         it('updates the term id', async () => {
-          const lastEnsuredTermId = await clock.getLastEnsuredTermId()
+          const lastEnsuredTermId = await controller.getLastEnsuredTermId()
 
-          const receipt = await clock.heartbeat(maxTransitionTerms, { from })
+          const receipt = await controller.heartbeat(maxTransitionTerms, { from })
 
           assertAmountOfEvents(receipt, 'NewTerm', expectedTransitions)
 
@@ -109,14 +103,14 @@ contract('CourtClock', ([_, court, someone]) => {
         })
 
         it(`initializes ${expectedTransitions} new terms`, async () => {
-          const lastEnsuredTermId = await clock.getLastEnsuredTermId()
+          const lastEnsuredTermId = await controller.getLastEnsuredTermId()
 
-          await clock.heartbeat(maxTransitionTerms, { from })
-          const currentBlockNumber = await clock.getBlockNumberExt()
+          await controller.heartbeat(maxTransitionTerms, { from })
+          const currentBlockNumber = await controller.getBlockNumberExt()
 
           for (let transition = 1; transition <= expectedTransitions; transition++) {
             const termId = lastEnsuredTermId.add(bn(transition))
-            const { startTime, randomnessBN, randomness } = await clock.getTerm(termId)
+            const { startTime, randomnessBN, randomness } = await controller.getTerm(termId)
 
             assert.equal(startTime.toString(), firstTermStartTime.add(termDuration.mul(bn(transition - 1))), `start time for term ${termId} does not match`)
             assert.equal(randomnessBN.toString(), currentBlockNumber.add(bn(1)).toString(), `randomness block number for term ${termId} should be the next block number`)
@@ -125,15 +119,15 @@ contract('CourtClock', ([_, court, someone]) => {
         })
 
         it(`remains ${remainingTransitions} transitions`, async () => {
-          await clock.heartbeat(maxTransitionTerms, { from })
+          await controller.heartbeat(maxTransitionTerms, { from })
 
-          assert.equal((await clock.getNeededTermTransitions()).toString(), remainingTransitions, 'needed term transitions does not match')
+          assert.equal((await controller.getNeededTermTransitions()).toString(), remainingTransitions, 'needed term transitions does not match')
         })
       }
 
       context('when current timestamp is before zero term start time', () => {
         beforeEach('set current timestamp', async () => {
-          await clock.mockSetTimestamp(zeroTermStartTime)
+          await controller.mockSetTimestamp(zeroTermStartTime)
         })
 
         itNeedsTermTransitions(0)
@@ -142,7 +136,7 @@ contract('CourtClock', ([_, court, someone]) => {
 
       context('when current timestamp is between zero term and first term ', () => {
         beforeEach('set current timestamp', async () => {
-          await clock.mockSetTimestamp(zeroTermStartTime.add(termDuration).div(bn(2)))
+          await controller.mockSetTimestamp(zeroTermStartTime.add(termDuration).div(bn(2)))
         })
 
         itNeedsTermTransitions(0)
@@ -151,7 +145,7 @@ contract('CourtClock', ([_, court, someone]) => {
 
       context('when current timestamp is right at the beginning of the first term', () => {
         beforeEach('set current timestamp', async () => {
-          await clock.mockSetTimestamp(firstTermStartTime)
+          await controller.mockSetTimestamp(firstTermStartTime)
         })
 
         itNeedsTermTransitions(1)
@@ -173,7 +167,7 @@ contract('CourtClock', ([_, court, someone]) => {
 
       context('when current timestamp is right at the end of the first term ', () => {
         beforeEach('set current timestamp', async () => {
-          await clock.mockSetTimestamp(firstTermStartTime.add(termDuration))
+          await controller.mockSetTimestamp(firstTermStartTime.add(termDuration))
         })
 
         itNeedsTermTransitions(2)
@@ -211,7 +205,7 @@ contract('CourtClock', ([_, court, someone]) => {
 
       context('when current timestamp is two terms after the first term', () => {
         beforeEach('set current timestamp', async () => {
-          await clock.mockSetTimestamp(firstTermStartTime.add(termDuration.mul(bn(2))))
+          await controller.mockSetTimestamp(firstTermStartTime.add(termDuration.mul(bn(2))))
         })
 
         itNeedsTermTransitions(3)
@@ -255,13 +249,13 @@ contract('CourtClock', ([_, court, someone]) => {
         })
       })
     })
+  })
 
-    context('when the sender is not the court', () => {
-      const from = someone
+  context('when the sender is not the court', () => {
+    const from = someone
 
-      it('reverts', async () => {
-        await assertRevert(clock.heartbeat(0, { from }), 'CTD_SENDER_NOT_COURT_MODULE')
-      })
+    it('reverts', async () => {
+      await assertRevert(controller.heartbeat(0, { from }), 'CTR_SENDER_NOT_COURT_MODULE')
     })
   })
 })

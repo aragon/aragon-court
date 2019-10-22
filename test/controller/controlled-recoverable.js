@@ -1,5 +1,6 @@
 const { assertRevert } = require('../helpers/assertThrow')
 const { assertBn, bigExp } = require('../helpers/numbers')
+const { ONE_DAY, NEXT_WEEK } = require('../helpers/time')
 const { assertAmountOfEvents, assertEvent } = require('../helpers/assertEvent')
 
 const ERC20 = artifacts.require('ERC20Mock')
@@ -17,7 +18,7 @@ contract('ControlledRecoverable', ([_, fundsGovernor, configGovernor, modulesGov
 
     beforeEach('create token and recoverable instance', async () => {
       token = await ERC20.new('DAI', 'DAI', 18)
-      controller = await Controller.new(fundsGovernor, configGovernor, modulesGovernor)
+      controller = await Controller.new(ONE_DAY, NEXT_WEEK, fundsGovernor, configGovernor, modulesGovernor)
       recoverable = await ControlledRecoverable.new(controller.address)
     })
 

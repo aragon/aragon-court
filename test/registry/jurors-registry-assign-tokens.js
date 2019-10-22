@@ -1,4 +1,5 @@
 const { assertRevert } = require('../helpers/assertThrow')
+const { ONE_DAY, NEXT_WEEK } = require('../helpers/time')
 const { decodeEventsOfType } = require('../helpers/decodeEvent')
 const { bn, bigExp, MAX_UINT256 } = require('../helpers/numbers')
 const { assertEvent, assertAmountOfEvents } = require('../helpers/assertEvent')
@@ -16,13 +17,13 @@ contract('JurorsRegistry', ([_, juror, someone]) => {
   const BURN_ADDRESS = '0x000000000000000000000000000000000000dead'
 
   beforeEach('create base contracts', async () => {
-    controller = await Controller.new()
+    controller = await Controller.new(ONE_DAY, NEXT_WEEK)
     ANJ = await ERC20.new('ANJ Token', 'ANJ', 18)
 
     registry = await JurorsRegistry.new(controller.address, ANJ.address, MIN_ACTIVE_AMOUNT, TOTAL_ACTIVE_BALANCE_LIMIT)
     await controller.setJurorsRegistry(registry.address)
 
-    court = await Court.new(registry.address)
+    court = await Court.new(controller.address)
     await controller.setCourt(court.address)
   })
 

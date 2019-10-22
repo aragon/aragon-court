@@ -1,4 +1,5 @@
 const { assertRevert } = require('../helpers/assertThrow')
+const { ONE_DAY, NEXT_WEEK } = require('../helpers/time')
 const { bn, bigExp, MAX_UINT256 } = require('../helpers/numbers')
 const { assertEvent, assertAmountOfEvents } = require('../helpers/assertEvent')
 
@@ -12,7 +13,7 @@ contract('CourtAccounting', ([_, court, holder, someone]) => {
   let controller, accounting, DAI, ANT
 
   beforeEach('create accounting', async () => {
-    controller = await Controller.new()
+    controller = await Controller.new(ONE_DAY, NEXT_WEEK)
     accounting = await CourtAccounting.new(controller.address)
     await controller.setCourtMock(court)
     await controller.setAccounting(accounting.address)

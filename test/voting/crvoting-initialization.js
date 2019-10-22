@@ -1,4 +1,5 @@
 const { assertRevert } = require('../helpers/assertThrow')
+const { ONE_DAY, NEXT_WEEK } = require('../helpers/time')
 
 const CRVoting = artifacts.require('CRVoting')
 const Controller = artifacts.require('ControllerMock')
@@ -9,7 +10,7 @@ contract('CRVoting initialization', ([_, someone]) => {
   let controller
 
   beforeEach('create base contracts', async () => {
-    controller = await Controller.new()
+    controller = await Controller.new(ONE_DAY, NEXT_WEEK)
   })
 
   describe('constructor', () => {

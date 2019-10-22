@@ -2,18 +2,18 @@ pragma solidity ^0.5.8;
 
 import "@aragon/os/contracts/common/IsContract.sol";
 
+import "../court/CourtClock.sol";
 
-contract Controller is IsContract {
+
+contract Controller is IsContract, CourtClock {
     string private constant ERROR_SENDER_NOT_GOVERNOR = "CTR_SENDER_NOT_GOVERNOR";
+    string private constant ERROR_SENDER_NOT_COURT_MODULE = "CTR_SENDER_NOT_COURT_MODULE";
     string private constant ERROR_INVALID_GOVERNOR_ADDRESS = "CTR_INVALID_GOVERNOR_ADDRESS";
     string private constant ERROR_ZERO_IMPLEMENTATION_OWNER = "CTR_ZERO_MODULE_OWNER";
     string private constant ERROR_IMPLEMENTATION_NOT_CONTRACT = "CTR_IMPLEMENTATION_NOT_CONTRACT";
     string private constant ERROR_INVALID_IMPLS_INPUT_LENGTH = "CTR_INVALID_IMPLS_INPUT_LENGTH";
 
     address private constant ZERO_ADDRESS = address(0);
-
-    // Clock module ID - keccak256(abi.encodePacked("CLOCK"))
-    bytes32 internal constant CLOCK = 0x63e93c672e6c8e1ca35b86391d0d39606b98e2b328db48b135a69bedad6d3cff;
 
     // Court module ID - keccak256(abi.encodePacked("COURT"))
     bytes32 internal constant COURT = 0x26f3b895987e349a46d6d91132234924c6d45cfdc564b33427f53e3f9284955c;
@@ -51,6 +51,14 @@ contract Controller is IsContract {
     event ModulesGovernorChanged(address previousGovernor, address currentGovernor);
 
     /**
+    * @dev Ensure the msg.sender is the Court module
+    */
+    modifier onlyCourt {
+        require(msg.sender == _getModule(COURT), ERROR_SENDER_NOT_COURT_MODULE);
+        _;
+    }
+
+    /**
     * @dev Ensure the msg.sender is the funds governor
     */
     modifier onlyFundsGovernor {
@@ -76,14 +84,29 @@ contract Controller is IsContract {
 
     /**
     * @dev Constructor function
+    * @param _termDuration Duration in seconds per term
+    * @param _firstTermStartTime Timestamp in seconds when the court will open (to give time for juror on-boarding)
     * @param _fundsGovernor Address of the funds governor
     * @param _configGovernor Address of the config governor
     * @param _modulesGovernor Address of the modules governor
     */
-    constructor(address _fundsGovernor, address _configGovernor, address _modulesGovernor) public {
+    constructor(uint64 _termDuration, uint64 _firstTermStartTime, address _fundsGovernor, address _configGovernor, address _modulesGovernor)
+        CourtClock(_termDuration, _firstTermStartTime)
+        public
+    {
         _setFundsGovernor(_fundsGovernor);
         _setConfigGovernor(_configGovernor);
         _setModulesGovernor(_modulesGovernor);
+    }
+
+    /**
+    * @notice Send a heartbeat to transition up to `_maxRequestedTransitions` terms
+    * @param _maxRequestedTransitions Max number of term transitions allowed by the sender
+    * @return previousTermId Identification number of the term id previous to executing the heartbeat transitions
+    * @return currentTermId Identification number of the term id after executing the heartbeat transitions
+    */
+    function heartbeat(uint64 _maxRequestedTransitions) external onlyCourt returns (uint64 previousTermId, uint64 currentTermId) {
+        return _heartbeat(_maxRequestedTransitions);
     }
 
     /**
@@ -182,14 +205,6 @@ contract Controller is IsContract {
     */
     function getModule(bytes32 _id) external view returns (address) {
         return _getModule(_id);
-    }
-
-    /**
-    * @dev Tell the address of the Clock module
-    * @return Address of the Clock module
-    */
-    function getClock() external view returns (address) {
-        return _getModule(CLOCK);
     }
 
     /**

@@ -1,5 +1,6 @@
 const { bn } = require('../helpers/numbers')
 const { assertRevert } = require('../helpers/assertThrow')
+const { ONE_DAY, NEXT_WEEK } = require('../helpers/time')
 const { SALT, OUTCOMES, encryptVote } = require('../helpers/crvoting')
 const { assertEvent, assertAmountOfEvents } = require('../helpers/assertEvent')
 
@@ -15,7 +16,7 @@ contract('CRVoting leak', ([_, voter, someone]) => {
   const POSSIBLE_OUTCOMES = 2
 
   beforeEach('create base contracts', async () => {
-    controller = await Controller.new()
+    controller = await Controller.new(ONE_DAY, NEXT_WEEK)
 
     voting = await CRVoting.new(controller.address)
     await controller.setVoting(voting.address)

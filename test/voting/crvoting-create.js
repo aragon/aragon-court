@@ -1,5 +1,6 @@
 const { OUTCOMES } = require('../helpers/crvoting')
 const { assertRevert } = require('../helpers/assertThrow')
+const { ONE_DAY, NEXT_WEEK } = require('../helpers/time')
 const { decodeEventsOfType } = require('../helpers/decodeEvent')
 const { assertEvent, assertAmountOfEvents } = require('../helpers/assertEvent')
 
@@ -11,7 +12,7 @@ contract('CRVoting create', ([_, someone]) => {
   let controller, voting, votingOwner
 
   beforeEach('create base contracts', async () => {
-    controller = await Controller.new()
+    controller = await Controller.new(ONE_DAY, NEXT_WEEK)
 
     voting = await CRVoting.new(controller.address)
     await controller.setVoting(voting.address)

@@ -24,7 +24,6 @@ const ROUND_STATES = {
 
 const MODULE_IDS = {
   court: '0x26f3b895987e349a46d6d91132234924c6d45cfdc564b33427f53e3f9284955c',
-  clock: '0x63e93c672e6c8e1ca35b86391d0d39606b98e2b328db48b135a69bedad6d3cff',
   accounting: '0x3ec26b85a7d49ed13a920deeaceb063fa458eb25266fa7b504696047900a5b0f',
   voting: '0x7cbb12e82a6d63ff16fe43977f43e3e2b247ecd4e62c0e340da8800a48c67346',
   registry: '0x3b21d36b36308c830e6c4053fb40a3b6d79dde78947fbf6b0accd30720ab5370',
@@ -188,15 +187,15 @@ module.exports = (web3, artifacts) => {
     }
 
     async setTimestamp(timestamp) {
-      await this.clock.mockSetTimestamp(timestamp)
+      await this.controller.mockSetTimestamp(timestamp)
     }
 
     async increaseTime(seconds) {
-      await this.clock.mockIncreaseTime(seconds)
+      await this.controller.mockIncreaseTime(seconds)
     }
 
     async advanceBlocks(blocks) {
-      await this.clock.mockAdvanceBlocks(blocks)
+      await this.controller.mockAdvanceBlocks(blocks)
     }
 
     async setTerm(termId) {
@@ -205,7 +204,7 @@ module.exports = (web3, artifacts) => {
       await this.setTimestamp(timestamp)
 
       // call heartbeat function for X needed terms
-      const neededTransitions = await this.clock.getNeededTermTransitions()
+      const neededTransitions = await this.controller.getNeededTermTransitions()
       if (neededTransitions.gt(bn(0))) await this.court.heartbeat(neededTransitions)
     }
 
@@ -445,19 +444,12 @@ module.exports = (web3, artifacts) => {
     async deploy(params) {
       Object.assign(this, { ...DEFAULTS, ...params })
       if (!this.governor) this.governor = await this._getAccount(0)
-      if (!this.controller) this.controller = await this.artifacts.require('Controller').new(this.governor, this.governor, this.governor)
-
       if (!this.feeToken) this.feeToken = await this.artifacts.require('ERC20Mock').new('Court Fee Token', 'CFT', 18)
       if (!this.jurorToken) this.jurorToken = await this.artifacts.require('ERC20Mock').new('Aragon Network Juror Token', 'ANJ', 18)
 
+      if (!this.controller) this.controller = await this.artifacts.require('ControllerMock').new(this.termDuration, this.firstTermStartTime, { from: this.governor })
       if (!this.voting) this.voting = await this.artifacts.require('CRVoting').new(this.controller.address)
       if (!this.accounting) this.accounting = await this.artifacts.require('CourtAccounting').new(this.controller.address)
-
-      if (!this.clock) this.clock = await this.artifacts.require('CourtClockMock').new(
-        this.controller.address,
-        this.termDuration,
-        this.firstTermStartTime
-      )
 
       if (!this.court) this.court = await this.artifacts.require('CourtMock').new(
         this.controller.address,
@@ -487,7 +479,7 @@ module.exports = (web3, artifacts) => {
       )
 
       const ids = Object.values(MODULE_IDS)
-      const implementations = [this.court, this.clock, this.accounting, this.voting, this.jurorsRegistry, this.subscriptions].map(i => i.address)
+      const implementations = [this.court, this.accounting, this.voting, this.jurorsRegistry, this.subscriptions].map(i => i.address)
       await this.controller.setModules(ids, implementations, { from: this.governor })
 
       const zeroTermStartTime = this.firstTermStartTime.sub(this.termDuration)

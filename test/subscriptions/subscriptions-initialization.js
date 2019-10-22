@@ -1,5 +1,6 @@
 const { bn, bigExp } = require('../helpers/numbers')
 const { assertRevert } = require('../helpers/assertThrow')
+const { ONE_DAY, NEXT_WEEK } = require('../helpers/time')
 
 const CourtSubscriptions = artifacts.require('CourtSubscriptions')
 const Controller = artifacts.require('ControllerMock')
@@ -18,7 +19,7 @@ contract('CourtSubscriptions', ([_, someone]) => {
   const LATE_PAYMENT_PENALTY_PCT = bn(1000) // 1000‱ = 10%
 
   beforeEach('create base contracts', async () => {
-    controller = await Controller.new()
+    controller = await Controller.new(ONE_DAY, NEXT_WEEK)
     feeToken = await ERC20.new('Subscriptions Fee Token', 'SFT', 18)
   })
 

@@ -100,14 +100,14 @@ contract('Court', ([_, sender]) => {
           })
 
           it(`transitions ${expectedTermTransitions} terms`, async () => {
-            const previousTermId = await courtHelper.clock.getLastEnsuredTermId()
+            const previousTermId = await courtHelper.controller.getLastEnsuredTermId()
 
             const receipt = await court.createDispute(arbitrable.address, possibleRulings, { from: sender })
 
             const logs = decodeEventsOfType(receipt, CourtClock.abi, 'NewTerm')
             assertAmountOfEvents({ logs }, 'NewTerm', expectedTermTransitions)
 
-            const currentTermId = await courtHelper.clock.getLastEnsuredTermId()
+            const currentTermId = await courtHelper.controller.getLastEnsuredTermId()
             assert.equal(previousTermId.add(bn(expectedTermTransitions)).toString(), currentTermId.toString(), 'term id does not match')
           })
         })

@@ -49,8 +49,8 @@ module.exports = (web3, artifacts) => {
     firstRoundJurorsNumber:             bn(3),           //  disputes start with 3 jurors
     appealStepFactor:                   bn(3),           //  each time a new appeal occurs, the amount of jurors to be drafted will be incremented 3 times
     maxRegularAppealRounds:             bn(2),           //  there can be up to 2 appeals in total per dispute
-    appealCollateralFactor:             bn(2),           //  multiple of juror fees required to appeal a preliminary ruling
-    appealConfirmCollateralFactor:      bn(3),           //  multiple of juror fees required to confirm appeal
+    appealCollateralFactor:             bn(25000),       //  multiple of juror fees required to appeal a preliminary ruling in per ten thousand
+    appealConfirmCollateralFactor:      bn(35000),       //  multiple of juror fees required to confirm appeal in per ten thousand
     jurorsMinActiveBalance:             bigExp(100, 18), //  100 ANJ is the minimum balance jurors must activate to participate in the Court
     finalRoundWeightPrecision:          bn(1000),        //  use to improve division rounding for final round maths
 
@@ -151,8 +151,8 @@ module.exports = (web3, artifacts) => {
         appealFees = appealFees.add(draftFees).add(settleFees)
       }
 
-      const appealDeposit = appealFees.mul(this.appealCollateralFactor)
-      const confirmAppealDeposit = appealFees.mul(this.appealConfirmCollateralFactor)
+      const appealDeposit = appealFees.mul(this.appealCollateralFactor).div(PCT_BASE)
+      const confirmAppealDeposit = appealFees.mul(this.appealConfirmCollateralFactor).div(PCT_BASE)
       return { appealFees , appealDeposit, confirmAppealDeposit }
     }
 
@@ -252,8 +252,8 @@ module.exports = (web3, artifacts) => {
       const newFirstRoundJurorsNumber = firstRoundJurorsNumber.add(bn(iteration))
       const newAppealStepFactor = appealStepFactor.add(bn(iteration))
       const newMaxRegularAppealRounds = maxRegularAppealRounds.add(bn(iteration))
-      const newAppealCollateralFactor = appealCollateralFactor.add(bn(iteration))
-      const newAppealConfirmCollateralFactor = appealConfirmCollateralFactor.add(bn(iteration))
+      const newAppealCollateralFactor = appealCollateralFactor.add(bn(iteration * PCT_BASE))
+      const newAppealConfirmCollateralFactor = appealConfirmCollateralFactor.add(bn(iteration * PCT_BASE))
 
       return {
         newFeeTokenAddress,

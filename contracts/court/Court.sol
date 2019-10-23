@@ -132,8 +132,8 @@ contract Court is TimeHelpers, Controlled, ControlledRecoverable, IJurorsRegistr
         uint64 firstRoundJurorsNumber; // Number of jurors drafted on first round
         uint64 appealStepFactor;       // Factor in which the jurors number is increased on each appeal
         uint256 maxRegularAppealRounds; // Before the final appeal
-        uint256 appealCollateralFactor; // Multiple of juror fees required to appeal a preliminary ruling
-        uint256 appealConfirmCollateralFactor; // Multiple of juror fees required to confirm appeal
+        uint256 appealCollateralFactor; // Multiple of juror fees required to appeal a preliminary ruling in per ten thousand (so 2 -> 20000)
+        uint256 appealConfirmCollateralFactor; // Multiple of juror fees required to confirm appeal in per ten thousand (so 3 -> 30000)
     }
 
     struct CourtConfig {
@@ -1459,8 +1459,8 @@ contract Court is TimeHelpers, Controlled, ControlledRecoverable, IJurorsRegistr
         }
 
         // Calculate appeal collateral
-        nextRound.appealDeposit = nextRound.totalFees.mul(disputesConfig.appealCollateralFactor);
-        nextRound.confirmAppealDeposit = nextRound.totalFees.mul(disputesConfig.appealConfirmCollateralFactor);
+        nextRound.appealDeposit = nextRound.totalFees.pct256(disputesConfig.appealCollateralFactor);
+        nextRound.confirmAppealDeposit = nextRound.totalFees.pct256(disputesConfig.appealConfirmCollateralFactor);
         return nextRound;
     }
 

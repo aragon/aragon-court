@@ -55,6 +55,7 @@ contract CourtConfig is IConfig, CourtConfigData {
     *        0. firstRoundJurorsNumber Number of jurors to be drafted for the first round of disputes
     *        1. appealStepFactor Increasing factor for the number of jurors of each round of a dispute
     *        2. maxRegularAppealRounds Number of regular appeal rounds before the final round is triggered
+    *        3. finalRoundLockTerms Number of terms that a coherent juror in a final round is disallowed to withdraw (to prevent 51% attacks)
     * @param _appealCollateralParams Array containing params for appeal collateral:
     *        0. appealCollateralFactor Multiple of juror fees required to appeal a preliminary ruling
     *        1. appealConfirmCollateralFactor Multiple of juror fees required to confirm appeal
@@ -64,7 +65,7 @@ contract CourtConfig is IConfig, CourtConfigData {
         uint256[3] memory _fees,
         uint64[4] memory _roundStateDurations,
         uint16[2] memory _pcts,
-        uint64[3] memory _roundParams,
+        uint64[4] memory _roundParams,
         uint256[2] memory _appealCollateralParams
     )
         public
@@ -117,6 +118,7 @@ contract CourtConfig is IConfig, CourtConfigData {
     *        0. firstRoundJurorsNumber Number of jurors to be drafted for the first round of disputes
     *        1. appealStepFactor Increasing factor for the number of jurors of each round of a dispute
     *        2. maxRegularAppealRounds Number of regular appeal rounds before the final round is triggered
+    *        3. finalRoundLockTerms Number of terms that a coherent juror in a final round is disallowed to withdraw (to prevent 51% attacks)
     * @param _appealCollateralParams Array containing params for appeal collateral:
     *        0. appealCollateralFactor Multiple of juror fees required to appeal a preliminary ruling
     *        1. appealConfirmCollateralFactor Multiple of juror fees required to confirm appeal
@@ -128,7 +130,7 @@ contract CourtConfig is IConfig, CourtConfigData {
         uint256[3] memory _fees,
         uint64[4] memory _roundStateDurations,
         uint16[2] memory _pcts,
-        uint64[3] memory _roundParams,
+        uint64[4] memory _roundParams,
         uint256[2] memory _appealCollateralParams
     )
         internal
@@ -188,6 +190,7 @@ contract CourtConfig is IConfig, CourtConfigData {
             firstRoundJurorsNumber: _roundParams[0],
             appealStepFactor: _roundParams[1],
             maxRegularAppealRounds: _maxRegularAppealRounds,
+            finalRoundLockTerms: _roundParams[3],
             appealCollateralFactor: _appealCollateralParams[0],
             appealConfirmCollateralFactor: _appealCollateralParams[1]
         });
@@ -219,6 +222,7 @@ contract CourtConfig is IConfig, CourtConfigData {
     *         0. firstRoundJurorsNumber Number of jurors to be drafted for the first round of disputes
     *         1. appealStepFactor Increasing factor for the number of jurors of each round of a dispute
     *         2. maxRegularAppealRounds Number of regular appeal rounds before the final round is triggered
+    *         3. finalRoundLockTerms Number of terms that a coherent juror in a final round is disallowed to withdraw (to prevent 51% attacks)
     * @return appealCollateralParams Array containing params for appeal collateral:
     *         0. appealCollateralFactor Multiple of juror fees required to appeal a preliminary ruling
     *         1. appealConfirmCollateralFactor Multiple of juror fees required to confirm appeal
@@ -229,7 +233,7 @@ contract CourtConfig is IConfig, CourtConfigData {
             uint256[3] memory fees,
             uint64[4] memory roundStateDurations,
             uint16[2] memory pcts,
-            uint64[3] memory roundParams,
+            uint64[4] memory roundParams,
             uint256[2] memory appealCollateralParams
         )
     {
@@ -247,7 +251,12 @@ contract CourtConfig is IConfig, CourtConfigData {
             disputesConfig.appealConfirmTerms
         ];
         pcts = [disputesConfig.penaltyPct, feesConfig.finalRoundReduction];
-        roundParams = [disputesConfig.firstRoundJurorsNumber, disputesConfig.appealStepFactor, uint64(disputesConfig.maxRegularAppealRounds)];
+        roundParams = [
+            disputesConfig.firstRoundJurorsNumber,
+            disputesConfig.appealStepFactor,
+            uint64(disputesConfig.maxRegularAppealRounds),
+            disputesConfig.finalRoundLockTerms
+        ];
         appealCollateralParams = [disputesConfig.appealCollateralFactor, disputesConfig.appealConfirmCollateralFactor];
     }
 

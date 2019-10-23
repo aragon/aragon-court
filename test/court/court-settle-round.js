@@ -11,6 +11,7 @@ const Arbitrable = artifacts.require('IArbitrable')
 
 contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, juror1000, juror1500, juror2000, juror2500, juror3000, juror3500, juror4000, anyone]) => {
   let courtHelper, court, voting
+  const maxRegularAppealRounds = bn(2)
 
   const jurors = [
     { address: juror3000, initialActiveBalance: bigExp(3000, 18) },
@@ -27,7 +28,7 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
 
   beforeEach('create court', async () => {
     courtHelper = buildHelper()
-    court = await courtHelper.deploy()
+    court = await courtHelper.deploy({ maxRegularAppealRounds })
     voting = courtHelper.voting
   })
 
@@ -314,6 +315,47 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
                     await assertRevert(court.settleReward(disputeId, roundId, address), 'CT_WONT_REWARD_INCOHERENT_JUROR')
                   }
                 })
+
+                if (roundId >= maxRegularAppealRounds.toNumber()) {
+                  context('locks coherent jurors in final round', () => {
+                    const amount = bn(1)
+                    const data = '0x00'
+                    beforeEach('settle reward', async () => {
+                      // settle reward and deactivate
+                      for(const juror of expectedWinningJurors) {
+                        await court.settleReward(disputeId, roundId, juror.address)
+                        await courtHelper.jurorsRegistry.deactivate(0, { from: juror.address }) // deactivate all
+                      }
+                    })
+
+                    it('locks only after final round lock period', async () => {
+                      // fails to withdraw on next term
+                      await courtHelper.passTerms(bn(1))
+                      for(const juror of expectedWinningJurors) {
+                        assertRevert(courtHelper.jurorsRegistry.unstake(amount, data, { from: juror.address }))
+                      }
+
+                      // fails to withdraw on last locked term
+                      const { draftTerm } = await court.getRound(disputeId, roundId)
+                      const lastLockedTermId = draftTerm
+                            .add(courtHelper.commitTerms)
+                            .add(courtHelper.revealTerms)
+                            .add(courtHelper.finalRoundLockTerms)
+                      await courtHelper.setTerm(lastLockedTermId)
+                      for(const juror of expectedWinningJurors) {
+                        assertRevert(courtHelper.jurorsRegistry.unstake(amount, data, { from: juror.address }))
+                      }
+
+                      // succeeds to withdraw after locked term
+                      await courtHelper.passTerms(bn(1))
+                      for(const juror of expectedWinningJurors) {
+                        const receipt = await courtHelper.jurorsRegistry.unstake(amount, data, { from: juror.address })
+                        assertAmountOfEvents(receipt, 'Unstaked')
+                        assertEvent(receipt, 'Unstaked', { user: juror.address, amount: amount.toString() })
+                      }
+                    })
+                  })
+                }
               } else {
                 it('does not allow settling non-winning jurors', async () => {
                   for(const { address } of expectedLosingJurors) {

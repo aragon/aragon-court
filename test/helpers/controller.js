@@ -30,6 +30,7 @@ module.exports = (web3, artifacts) => {
     firstRoundJurorsNumber:             bn(3),           //  disputes start with 3 jurors
     appealStepFactor:                   bn(3),           //  each time a new appeal occurs, the amount of jurors to be drafted will be incremented 3 times
     maxRegularAppealRounds:             bn(2),           //  there can be up to 2 appeals in total per dispute
+    finalRoundLockTerms:                bn(10),          //  coherent jurors in the final round won't be able to withdraw for 10 terms
     appealCollateralFactor:             bn(25000),       //  permyriad multiple of juror fees required to appeal a preliminary ruling (1/10,000)
     appealConfirmCollateralFactor:      bn(35000),       //  permyriad multiple of juror fees required to confirm appeal (1/10,000)
     jurorsMinActiveBalance:             bigExp(100, 18), //  100 ANJ is the minimum balance jurors must activate to participate in the Court
@@ -72,6 +73,7 @@ module.exports = (web3, artifacts) => {
         firstRoundJurorsNumber: roundParams[0],
         appealStepFactor: roundParams[1],
         maxRegularAppealRounds: roundParams[2],
+        finalRoundLockTerms: roundParams[3],
         appealCollateralFactor: appealCollateralParams[0],
         appealConfirmCollateralFactor: appealCollateralParams[1],
       }
@@ -123,7 +125,7 @@ module.exports = (web3, artifacts) => {
         jurorFee, draftFee, settleFee,
         commitTerms, revealTerms, appealTerms, appealConfirmTerms,
         penaltyPct, finalRoundReduction,
-        firstRoundJurorsNumber, appealStepFactor, maxRegularAppealRounds,
+        firstRoundJurorsNumber, appealStepFactor, maxRegularAppealRounds, finalRoundLockTerms,
         appealCollateralFactor, appealConfirmCollateralFactor,
       } = originalConfig
 
@@ -141,6 +143,7 @@ module.exports = (web3, artifacts) => {
       const newFirstRoundJurorsNumber = firstRoundJurorsNumber.add(bn(iteration))
       const newAppealStepFactor = appealStepFactor.add(bn(iteration))
       const newMaxRegularAppealRounds = maxRegularAppealRounds.add(bn(iteration))
+      const newFinalRoundLockTerms = finalRoundLockTerms.add(bn(1))
       const newAppealCollateralFactor = appealCollateralFactor.add(bn(iteration * PCT_BASE))
       const newAppealConfirmCollateralFactor = appealConfirmCollateralFactor.add(bn(iteration * PCT_BASE))
 
@@ -149,7 +152,7 @@ module.exports = (web3, artifacts) => {
         newJurorFee, newDraftFee, newSettleFee,
         newCommitTerms, newRevealTerms, newAppealTerms, newAppealConfirmTerms,
         newPenaltyPct, newFinalRoundReduction,
-        newFirstRoundJurorsNumber, newAppealStepFactor, newMaxRegularAppealRounds,
+        newFirstRoundJurorsNumber, newAppealStepFactor, newMaxRegularAppealRounds, newFinalRoundLockTerms,
         newAppealCollateralFactor,
         newAppealConfirmCollateralFactor,
       }
@@ -162,7 +165,7 @@ module.exports = (web3, artifacts) => {
         newJurorFee, newDraftFee, newSettleFee,
         newCommitTerms, newRevealTerms, newAppealTerms, newAppealConfirmTerms,
         newPenaltyPct, newFinalRoundReduction,
-        newFirstRoundJurorsNumber, newAppealStepFactor, newMaxRegularAppealRounds,
+        newFirstRoundJurorsNumber, newAppealStepFactor, newMaxRegularAppealRounds, newFinalRoundLockTerms,
         newAppealCollateralFactor,
         newAppealConfirmCollateralFactor,
       } = newConfig
@@ -173,7 +176,7 @@ module.exports = (web3, artifacts) => {
         [ newJurorFee, newDraftFee, newSettleFee ],
         [ newCommitTerms, newRevealTerms, newAppealTerms, newAppealConfirmTerms ],
         [ newPenaltyPct, newFinalRoundReduction ],
-        [ newFirstRoundJurorsNumber, newAppealStepFactor, newMaxRegularAppealRounds ],
+        [ newFirstRoundJurorsNumber, newAppealStepFactor, newMaxRegularAppealRounds, newFinalRoundLockTerms ],
         [ newAppealCollateralFactor, newAppealConfirmCollateralFactor ],
         { from }
       )
@@ -203,7 +206,7 @@ module.exports = (web3, artifacts) => {
         [this.jurorFee, this.draftFee, this.settleFee],
         [this.commitTerms, this.revealTerms, this.appealTerms, this.appealConfirmTerms],
         [this.penaltyPct, this.finalRoundReduction],
-        [this.firstRoundJurorsNumber, this.appealStepFactor, this.maxRegularAppealRounds],
+        [this.firstRoundJurorsNumber, this.appealStepFactor, this.maxRegularAppealRounds, this.finalRoundLockTerms],
         [this.appealCollateralFactor, this.appealConfirmCollateralFactor],
       )
 

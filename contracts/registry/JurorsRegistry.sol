@@ -36,6 +36,7 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
     string private constant ERROR_TOKEN_APPROVE_NOT_ALLOWED = "JR_TOKEN_APPROVE_NOT_ALLOWED";
     string private constant ERROR_BAD_TOTAL_ACTIVE_BALANCE_LIMIT = "JR_BAD_TOTAL_ACTIVE_BAL_LIMIT";
     string private constant ERROR_TOTAL_ACTIVE_BALANCE_EXCEEDED = "JR_TOTAL_ACTIVE_BALANCE_EXCEEDED";
+    string private constant ERROR_FINAL_ROUND_LOCK = "JR_FINAL_ROUND_LOCK";
 
     // Address that will be used to burn juror tokens
     address internal constant BURN_ACCOUNT = address(0x000000000000000000000000000000000000dEaD);
@@ -58,10 +59,11 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
     *      Note that even though jurors balances are stored separately, all the balances are held by this contract.
     */
     struct Juror {
-        uint256 id;                 // key in the jurors tree used for drafting
-        uint256 lockedBalance;      // maximum amount of tokens that can be slashed based on the juror's drafts
-        uint256 availableBalance;   // available tokens that can be withdrawn at any time
+        uint256 id;                  // key in the jurors tree used for drafting
+        uint256 lockedBalance;       // maximum amount of tokens that can be slashed based on the juror's drafts
+        uint256 availableBalance;    // available tokens that can be withdrawn at any time
         DeactivationRequest deactivationRequest;
+        uint64 finalRoundLockTermId; // coherent jurors with final ruling in a final round will be locked for some time to prevent 51% attacks
     }
 
     /**
@@ -146,6 +148,7 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
     function activate(uint256 _amount) external {
         uint64 termId = _ensureCurrentTerm();
 
+        // Try to clean a previous deactivation request if any
         _processDeactivationRequest(msg.sender, termId);
 
         uint256 availableBalance = jurorsByAddress[msg.sender].availableBalance;
@@ -161,7 +164,6 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
     * @param _amount Amount of juror tokens to be deactivated for the next term
     */
     function deactivate(uint256 _amount) external {
-        uint64 termId = _ensureCurrentTerm();
         uint256 unlockedActiveBalance = unlockedActiveBalanceOf(msg.sender);
         uint256 amountToDeactivate = _amount == 0 ? unlockedActiveBalance : _amount;
         require(amountToDeactivate > 0, ERROR_INVALID_ZERO_AMOUNT);
@@ -171,7 +173,7 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
         uint256 futureActiveBalance = unlockedActiveBalance - amountToDeactivate;
         require(futureActiveBalance == 0 || futureActiveBalance >= minActiveBalance, ERROR_INVALID_DEACTIVATION_AMOUNT);
 
-        _createDeactivationRequest(msg.sender, termId, amountToDeactivate);
+        _createDeactivationRequest(msg.sender, amountToDeactivate);
     }
 
     /**
@@ -332,6 +334,16 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
     */
     function setTotalActiveBalanceLimit(uint256 _totalActiveBalanceLimit) external onlyConfigGovernor {
         _setTotalActiveBalanceLimit(_totalActiveBalanceLimit);
+    }
+
+    /**
+    * @notice Lock juror who voted in a final round and was coherent with the final ruling (to prevent 51% attacks)
+    * @param _juror Address of the juror to be locked
+    * @param _finalRoundLockTermId Term id which the juror will be locked until
+    */
+    function finalRoundLock(address _juror, uint64 _finalRoundLockTermId) external onlyCourt {
+        Juror storage juror = jurorsByAddress[_juror];
+        juror.finalRoundLockTermId = _finalRoundLockTermId;
     }
 
     /**
@@ -545,17 +557,17 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
 
     /**
     * @dev Internal function to create a token deactivation request for a juror. Jurors will be allowed
-    *      to process a deactivation request from the next term. This function assumes that the given
-    *      term is the current term and has already been ensured.
+    *      to process a deactivation request from the next term.
     * @param _juror Address of the juror to create a token deactivation request for
-    * @param _termId Current term id
     * @param _amount Amount of juror tokens requested for deactivation
     */
-    function _createDeactivationRequest(address _juror, uint64 _termId, uint256 _amount) internal {
-        // Try to clean a previous deactivation request if possible
-        _processDeactivationRequest(_juror, _termId);
+    function _createDeactivationRequest(address _juror, uint256 _amount) internal {
+        uint64 termId = _ensureCurrentTerm();
 
-        uint64 nextTermId = _termId + 1;
+        // Try to clean a previous deactivation request if possible
+        _processDeactivationRequest(_juror, termId);
+
+        uint64 nextTermId = termId + 1;
         Juror storage juror = jurorsByAddress[_juror];
         DeactivationRequest storage request = juror.deactivationRequest;
         request.amount = request.amount.add(_amount);
@@ -637,7 +649,7 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
     * @dev Internal function to deposit an amount of available tokens for a juror
     * @param _from Address sending the amount of tokens to be deposited
     * @param _juror Address of the juror to deposit the tokens to
-    * @param _amount Amount of available tokens to be withdrawn
+    * @param _amount Amount of tokens to be deposited (and optionally activated)
     * @param _data Optional data that can be used to request the activation of the deposited tokens
     */
     function _deposit(address _from, address _juror, uint256 _amount, bytes memory _data) internal {
@@ -666,7 +678,14 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
         // the current term this time since deactivation requests always work with future terms, which means that if
         // the current term is outdated, it will never match the deactivation term id. We avoid ensuring the term here
         // to avoid forcing jurors to do that in order to withdraw their available balance.
-        _processDeactivationRequest(_juror, _getLastEnsuredTermId());
+        // Same applies to final round locks.
+        uint64 lastEnsuredTermId = _getLastEnsuredTermId();
+
+        // Check that juror is not locked due to a final round
+        uint64 finalRoundLockTermId = jurorsByAddress[_juror].finalRoundLockTermId;
+        require(finalRoundLockTermId == 0 || finalRoundLockTermId < lastEnsuredTermId, ERROR_FINAL_ROUND_LOCK);
+
+        _processDeactivationRequest(_juror, lastEnsuredTermId);
 
         _updateAvailableBalanceOf(_juror, _amount, false);
         require(jurorsToken.safeTransfer(_juror, _amount), ERROR_TOKEN_TRANSFER_FAILED);

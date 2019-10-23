@@ -16,7 +16,7 @@ contract ControllerMock is Controller, TimeHelpersMock {
         uint256[3] memory _fees,
         uint64[4] memory _roundStateDurations,
         uint16[2] memory _pcts,
-        uint64[3] memory _roundParams,
+        uint64[4] memory _roundParams,
         uint256[2] memory _appealCollateralParams
     )
         Controller(

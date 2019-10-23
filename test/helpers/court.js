@@ -36,10 +36,10 @@ module.exports = (web3, artifacts) => {
   const DEFAULTS = {
     termDuration:                       bn(ONE_DAY),     //  terms lasts one day
     firstTermStartTime:                 bn(NEXT_WEEK),   //  first term starts one week after mocked timestamp
-    commitTerms:                        bn(1),           //  vote commits last 1 term
-    revealTerms:                        bn(1),           //  vote reveals last 1 term
-    appealTerms:                        bn(1),           //  appeals last 1 term
-    appealConfirmTerms:                 bn(1),           //  appeal confirmations last 1 term
+    commitTerms:                        bn(2),           //  vote commits last 2 terms
+    revealTerms:                        bn(2),           //  vote reveals last 2 terms
+    appealTerms:                        bn(2),           //  appeals last 2 terms
+    appealConfirmTerms:                 bn(2),           //  appeal confirmations last 2 terms
     jurorFee:                           bigExp(10, 18),  //  10 fee tokens for juror fees
     heartbeatFee:                       bigExp(20, 18),  //  20 fee tokens for heartbeat fees
     draftFee:                           bigExp(30, 18),  //  30 fee tokens for draft fees
@@ -190,7 +190,8 @@ module.exports = (web3, artifacts) => {
       await this.controller.mockSetTimestamp(timestamp)
     }
 
-    async increaseTime(seconds) {
+    async increaseTimeInTerms(terms) {
+      const seconds = this.termDuration.mul(bn(terms))
       await this.controller.mockIncreaseTime(seconds)
     }
 
@@ -210,7 +211,7 @@ module.exports = (web3, artifacts) => {
 
     async passTerms(terms) {
       // increase X terms based on term duration
-      await this.increaseTime(this.termDuration.mul(terms))
+      await this.increaseTimeInTerms(terms)
       // call heartbeat function for X terms
       await this.court.heartbeat(terms)
       // advance 2 blocks to ensure we can compute term randomness
@@ -219,7 +220,7 @@ module.exports = (web3, artifacts) => {
 
     async passRealTerms(terms) {
       // increase X terms based on term duration
-      await this.increaseTime(this.termDuration.mul(bn(terms)))
+      await this.increaseTimeInTerms(terms)
       // call heartbeat function for X terms
       await this.court.heartbeat(terms)
       // advance 2 blocks to ensure we can compute term randomness

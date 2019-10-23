@@ -342,7 +342,7 @@ contract('Court', ([_, disputer, drafter, juror500, juror1000, juror1500, juror2
       const itHandlesDraftsProperlyForTerm = (term, expectsHeartbeatFees) => {
         beforeEach('move to requested term', async () => {
           // the term previous to the draft term was already ensured when creating the dispute
-          await courtHelper.increaseTime(courtHelper.termDuration.mul(bn(term - draftTermId + 1)))
+          await courtHelper.increaseTimeInTerms(term - draftTermId + 1)
         })
 
         context('when the given dispute was not drafted', () => {

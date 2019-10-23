@@ -27,7 +27,7 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
     voting = courtHelper.voting
   })
 
-  describe('appeal', () => {
+  describe('createAppeal', () => {
     context('when the given dispute exists', () => {
       let disputeId
       const draftTermId = 4

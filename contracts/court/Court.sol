@@ -7,6 +7,7 @@ import "@aragon/os/contracts/lib/math/SafeMath.sol";
 import "@aragon/os/contracts/lib/math/SafeMath64.sol";
 import "@aragon/os/contracts/common/Uint256Helpers.sol";
 
+import "./ClockConstants.sol";
 import "../lib/PctHelpers.sol";
 import "../voting/ICRVoting.sol";
 import "../voting/ICRVotingOwner.sol";
@@ -17,7 +18,7 @@ import "../subscriptions/ISubscriptions.sol";
 import "../controller/ControlledRecoverable.sol";
 
 
-contract Court is ControlledRecoverable, ICRVotingOwner {
+contract Court is ControlledRecoverable, ClockConstants, ICRVotingOwner, IClockOwner {
     using SafeERC20 for ERC20;
     using SafeMath for uint256;
     using SafeMath64 for uint64;
@@ -27,8 +28,12 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
     // Authorization-related error messages
     string private constant ERROR_SENDER_NOT_VOTING = "CT_SENDER_NOT_VOTING";
 
-    // Configs-related error messages
+    // Terms-related error messages
     string private constant ERROR_TOO_OLD_TERM = "CT_TOO_OLD_TERM";
+    string private constant ERROR_TERM_OUTDATED = "CT_TERM_OUTDATED";
+    string private constant ERROR_HEARTBEAT_CHANGE_CONFIG_TOKEN = "CT_HEARTBEAT_CHANGE_CONFIG_TOKEN";
+
+    // Configs-related error messages
     string private constant ERROR_CONFIG_PERIOD = "CT_CONFIG_PERIOD";
     string private constant ERROR_INVALID_PENALTY_PCT = "CT_INVALID_PENALTY_PCT";
     string private constant ERROR_BAD_INITIAL_JURORS = "CT_BAD_INITIAL_JURORS";
@@ -37,7 +42,6 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
     string private constant ERROR_ZERO_COLLATERAL_FACTOR = "CT_0_COLLATERAL_FACTOR";
 
     // Disputes-related error messages
-    string private constant ERROR_TERM_OUTDATED = "CT_TERM_OUTDATED";
     string private constant ERROR_DISPUTE_DOES_NOT_EXIST = "CT_DISPUTE_DOES_NOT_EXIST";
     string private constant ERROR_INVALID_DISPUTE_STATE = "CT_INVALID_DISPUTE_STATE";
     string private constant ERROR_INVALID_RULING_OPTIONS = "CT_INVALID_RULING_OPTIONS";
@@ -61,9 +65,6 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
     string private constant ERROR_WONT_REWARD_INCOHERENT_JUROR = "CT_WONT_REWARD_INCOHERENT_JUROR";
     string private constant ERROR_NO_COHERENT_JURORS = "CT_NO_COHERENT_JURORS";
     string private constant ERROR_ROUND_APPEAL_ALREADY_SETTLED = "CT_APPEAL_ALREADY_SETTLED";
-
-    // Initial term to start the Court, disputes are not allowed during this term. It can be used to active jurors
-    uint64 internal constant ZERO_TERM_ID = 0;
 
     // Maximum number of term transitions a callee may have to assume in order to call certain functions that require the Court being up-to-date
     uint64 internal constant MAX_AUTO_TERM_TRANSITIONS_ALLOWED = 1;
@@ -285,7 +286,7 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
         external
         onlyConfigGovernor
     {
-        uint64 termId = _ensureCurrentTerm();
+        uint64 termId = _ensureCurrentTerm(msg.sender);
         _setCourtConfig(termId, _fromTermId, _feeToken, _fees, _roundStateDurations, _pcts, _roundParams, _appealCollateralParams);
     }
 
@@ -300,7 +301,7 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
         // TODO: Limit the min amount of terms before drafting (to allow for evidence submission)
         // TODO: ERC165 check that _subject conforms to the Arbitrable interface
         // TODO: require(address(_subject) == msg.sender, ERROR_INVALID_DISPUTE_CREATOR);
-        uint64 termId = _ensureCurrentTerm();
+        uint64 termId = _ensureCurrentTerm(msg.sender);
         ISubscriptions subscriptions = _subscriptions();
         require(subscriptions.isUpToDate(address(_subject)), ERROR_SUBSCRIPTION_NOT_PAID);
         require(_possibleRulings >= MIN_RULING_OPTIONS && _possibleRulings <= MAX_RULING_OPTIONS, ERROR_INVALID_RULING_OPTIONS);
@@ -666,36 +667,21 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
     }
 
     /**
-    * @notice Send a heartbeat to the Court to transition up to `_maxRequestedTransitions` terms
+    * @notice Send a heartbeat to the Controller to transition up to `_maxRequestedTransitions` terms
     * @param _maxRequestedTransitions Max number of term transitions allowed by the sender
     */
     function heartbeat(uint64 _maxRequestedTransitions) external {
         IClock clock = _clock();
         (uint64 previousTermId, uint64 currentTermId) = clock.heartbeat(_maxRequestedTransitions);
-        uint256 previousConfigId = configIdByTerm[previousTermId];
-        emit Heartbeat(previousTermId, currentTermId, msg.sender);
+        _updateHeartbeatTermsConfig(previousTermId, currentTermId, msg.sender);
+    }
 
-        // Transition the minimum number of terms between the amount requested and the amount actually needed
-        for (uint256 termId = previousTermId + 1; termId <= currentTermId; termId++) {
-            // If the term being processed had no config change scheduled, keep the previous one
-            uint256 configId = configIdByTerm[termId];
-            if (configId == 0) {
-                configId = previousConfigId;
-                configIdByTerm[termId] = configId;
-            }
-            previousConfigId = configId;
-
-            // Add amount of fees to be paid for the transitioned term
-            FeesConfig storage config = _getConfigSafeAt(uint64(termId)).fees;
-            uint256 dependingDrafts = dependingDraftsByTerm[termId];
-            uint256 totalFee = config.heartbeatFee.mul(dependingDrafts);
-
-            // Pay heartbeat fees to the caller of this function
-            if (totalFee > 0) {
-                IAccounting accounting = _accounting();
-                accounting.assign(config.token, msg.sender, totalFee);
-            }
-        }
+    /**
+    * @notice Send a heartbeat to the Controller to transition up to one term to ensure the current term is up-to-date
+    * @param _recipient Address that will receive the corresponding heartbeat fees
+    */
+    function ensureCurrentTerm(address _recipient) external returns (uint64) {
+        return _ensureCurrentTerm(_recipient);
     }
 
     /**
@@ -958,7 +944,7 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
     * @param _state Expected adjudication state for the given dispute round
     */
     function _checkAdjudicationState(Dispute storage _dispute, uint256 _roundId, AdjudicationState _state) internal {
-        uint64 termId = _ensureCurrentTerm();
+        uint64 termId = _ensureCurrentTerm(msg.sender);
         require(_roundId < _dispute.rounds.length, ERROR_ROUND_DOES_NOT_EXIST);
         require(_adjudicationStateAt(_dispute, _roundId, termId) == _state, ERROR_INVALID_ADJUDICATION_STATE);
     }
@@ -1014,7 +1000,7 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
         internal
         returns (uint256)
     {
-        uint64 termId = _ensureCurrentTerm();
+        uint64 termId = _ensureCurrentTerm(msg.sender);
         // The batch starts where the previous one ended, stored in _round.settledJurors
         uint256 roundSettledJurors = _round.settledJurors;
         // Compute the amount of jurors that are going to be settled in this batch, which is returned by the function for fees calculation
@@ -1153,8 +1139,7 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
         require(PctHelpers.isValid(_pcts[0]), ERROR_INVALID_PENALTY_PCT);
 
         // Disputes must request at least one juror to be drafted initially
-        uint64 _firstRoundJurorsNumber = _roundParams[0];
-        require(_firstRoundJurorsNumber > 0, ERROR_BAD_INITIAL_JURORS);
+        require(_roundParams[0] > 0, ERROR_BAD_INITIAL_JURORS);
 
         // Prevent that further rounds have zero jurors
         // TODO: stack too deep: uint64 _appealStepFactor = _roundParams[1];
@@ -1196,7 +1181,7 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
             appealConfirmTerms: _roundStateDurations[3],
             penaltyPct: _pcts[0],
             finalRoundReduction: _pcts[1],
-            firstRoundJurorsNumber: _firstRoundJurorsNumber,
+            firstRoundJurorsNumber: _roundParams[0],
             appealStepFactor: _roundParams[1],
             maxRegularAppealRounds: _maxRegularAppealRounds,
             appealCollateralFactor: _appealCollateralParams[0],
@@ -1207,6 +1192,57 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
         configChangeTermId = _fromTermId;
 
         emit NewCourtConfig(_fromTermId, courtConfigId);
+    }
+
+    /**
+    * @notice Internal function to send a heartbeat to the Controller to transition up to one term to ensure the current term is up-to-date
+    * @param _recipient Address that will receive the corresponding heartbeat fees
+    */
+    function _ensureCurrentTerm(address _recipient) internal returns (uint64) {
+        IClock clock = _clock();
+        uint64 currentTermId = clock.ensureCurrentTerm();
+        _updateHeartbeatTermsConfig(currentTermId - 1, currentTermId, _recipient);
+        return currentTermId;
+    }
+
+    /**
+    * @dev Internal function to update a set of terms config
+    * @param _previousTermId Identification number of the term id previous to executing the heartbeat transitions
+    * @param _currentTermId Identification number of the term id after executing the heartbeat transitions
+    * @param _recipient Address that will receive the corresponding heartbeat fees
+    */
+    function _updateHeartbeatTermsConfig(uint64 _previousTermId, uint64 _currentTermId, address _recipient) internal {
+        uint256 totalFee = 0;
+        uint256 previousConfigId = configIdByTerm[_previousTermId];
+        ERC20 previousTermToken = ERC20(0);
+
+        // Update terms configs
+        for (uint256 termId = _previousTermId + 1; termId <= _currentTermId; termId++) {
+            // If the term being processed had no config change scheduled, keep the previous one
+            uint256 configId = configIdByTerm[termId];
+            if (configId == 0) {
+                configId = previousConfigId;
+                configIdByTerm[termId] = configId;
+            }
+            previousConfigId = configId;
+
+            // Check the config fee token is not changing between the different terms being updated
+            FeesConfig storage config = _getConfigSafeAt(uint64(termId)).fees;
+            require(previousTermToken == ERC20(0) || config.token == previousTermToken, ERROR_HEARTBEAT_CHANGE_CONFIG_TOKEN);
+            previousTermToken = config.token;
+
+            // Add amount of fees to be paid for the transitioned term
+            uint256 dependingDrafts = dependingDraftsByTerm[termId];
+            totalFee = totalFee.add(config.heartbeatFee.mul(dependingDrafts));
+        }
+
+        emit Heartbeat(_previousTermId, _currentTermId, _recipient);
+
+        // Pay heartbeat fees to the heartbeat recipient
+        if (totalFee > 0) {
+            IAccounting accounting = _accounting();
+            accounting.assign(previousTermToken, msg.sender, totalFee);
+        }
     }
 
     /**

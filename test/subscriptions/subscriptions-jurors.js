@@ -7,6 +7,7 @@ const { assertAmountOfEvents, assertEvent } = require('../helpers/assertEvent')
 const CourtSubscriptions = artifacts.require('CourtSubscriptions')
 const JurorsRegistry = artifacts.require('JurorsRegistry')
 const Controller = artifacts.require('ControllerMock')
+const Court = artifacts.require('CourtMockForRegistry')
 const ERC20 = artifacts.require('ERC20Mock')
 
 const ACTIVATE_DATA = sha3('activate(uint256)').slice(0, 10)
@@ -35,6 +36,9 @@ contract('CourtSubscriptions', ([_, payer, subscriberPeriod0, subscriberPeriod1,
 
     jurorsRegistry = await JurorsRegistry.new(controller.address, jurorToken.address, MIN_JURORS_ACTIVE_TOKENS, TOTAL_ACTIVE_BALANCE_LIMIT)
     await controller.setJurorsRegistry(jurorsRegistry.address)
+
+    const court = await Court.new(controller.address)
+    await controller.setCourt(court.address)
   })
 
   describe('claimFees', () => {

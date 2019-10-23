@@ -1,14 +1,12 @@
 pragma solidity ^0.5.8;
 
-import "@aragon/os/contracts/common/TimeHelpers.sol";
-
 
 interface IClock {
     function ensureCurrentTerm() external returns (uint64);
 
-    function ensureTermRandomness(uint64 _termId) external returns (bytes32);
-
     function heartbeat(uint64 _maxRequestedTransitions) external returns (uint64, uint64);
+
+    function ensureTermRandomness(uint64 _termId) external returns (bytes32);
 
     function getLastEnsuredTermId() external view returns (uint64);
 

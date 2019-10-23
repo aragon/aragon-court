@@ -1,29 +1,39 @@
 pragma solidity ^0.5.8;
 
+import "../../court/IClockOwner.sol";
+import "../../controller/Controlled.sol";
 import "../../controller/Controller.sol";
 
 
-contract CourtMockForRegistry is Controlled {
+contract CourtMockForRegistry is Controlled, IClockOwner {
     event Slashed(uint256 collected);
     event Collected(bool collected);
     event Drafted(address[] addresses, uint64[] weights, uint256 outputLength);
 
     constructor(Controller _controller) Controlled(_controller) public {}
 
-    function assignTokens(address _juror, uint256 _amount) public {
+    function heartbeat(uint64 _maxRequestedTransitions) external {
+        _clock().heartbeat(_maxRequestedTransitions);
+    }
+
+    function ensureCurrentTerm(address /*_recipient*/) external returns (uint64) {
+        return _clock().ensureCurrentTerm();
+    }
+
+    function assignTokens(address _juror, uint256 _amount) external {
         _jurorsRegistry().assignTokens(_juror, _amount);
     }
 
-    function burnTokens(uint256 _amount) public {
+    function burnTokens(uint256 _amount) external {
         _jurorsRegistry().burnTokens(_amount);
     }
 
-    function slashOrUnlock(address[] memory _jurors, uint256[] memory _lockedAmounts, bool[] memory _rewardedJurors) public {
+    function slashOrUnlock(address[] calldata _jurors, uint256[] calldata _lockedAmounts, bool[] calldata _rewardedJurors) external {
         uint256 collectedTokens = _jurorsRegistry().slashOrUnlock(_getLastEnsuredTermId(), _jurors, _lockedAmounts, _rewardedJurors);
         emit Slashed(collectedTokens);
     }
 
-    function collect(address _juror, uint256 _amount) public {
+    function collect(address _juror, uint256 _amount) external {
         bool collected = _jurorsRegistry().collectTokens(_juror, _amount, _getLastEnsuredTermId());
         emit Collected(collected);
     }
@@ -36,7 +46,7 @@ contract CourtMockForRegistry is Controlled {
         uint64 _roundRequestedJurors,
         uint16 _lockPct
     )
-        public
+        external
     {
         uint256[7] memory draftParams = [
             uint256(_termRandomness),

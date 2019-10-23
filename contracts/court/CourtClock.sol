@@ -3,11 +3,12 @@ pragma solidity ^0.5.8;
 import "@aragon/os/contracts/common/TimeHelpers.sol";
 
 import "./IClock.sol";
+import "./ClockConstants.sol";
 import "../controller/Controller.sol";
 import "../controller/Controlled.sol";
 
 
-contract CourtClock is IClock, TimeHelpers {
+contract CourtClock is IClock, ClockConstants, TimeHelpers {
     string private constant ERROR_TERM_OUTDATED = "CLK_TERM_OUTDATED";
     string private constant ERROR_TERM_DOES_NOT_EXIST = "CLK_TERM_DOES_NOT_EXIST";
     string private constant ERROR_TERM_DURATION_TOO_LONG = "CLK_TERM_DURATION_TOO_LONG";
@@ -25,9 +26,6 @@ contract CourtClock is IClock, TimeHelpers {
 
     // Max time until first term starts since contract is deployed
     uint64 internal constant MAX_FIRST_TERM_DELAY_PERIOD = 2 * MAX_TERM_DURATION;
-
-    // Initial term to start the Court
-    uint64 internal constant ZERO_TERM_ID = 0;
 
     struct Term {
         uint64 startTime;              // Timestamp when the term started
@@ -82,8 +80,8 @@ contract CourtClock is IClock, TimeHelpers {
     }
 
     /**
-    * @dev Tell and ensure the current term of the court. If the Court term is outdated it will update it. Note that this function
-    *      only allows updating the Court by one term, if more terms are required, users will have to call the heartbeat function manually.
+    * @notice Ensure the current term of the court. If the Court term is outdated it will update it. Note that this function only
+    *         allows updating the Court by one term, if more terms are required, users will have to call the heartbeat function manually.
     * @return Identification number of the current term
     */
     function ensureCurrentTerm() external returns (uint64) {
@@ -94,7 +92,7 @@ contract CourtClock is IClock, TimeHelpers {
     * @dev Ensure that a certain term has its randomness set. As we allow to draft disputes requested for previous terms, if there
     *      were mined more than 256 blocks for the current term, the blockhash of its randomness BN is no longer available, given
     *      round will be able to be drafted in the following term.
-    * @param _termId Identification number of the term to be checked
+    * @param _termId Identification number of the term to be ensured
     */
     function ensureTermRandomness(uint64 _termId) external termExists(_termId) returns (bytes32) {
         // If the randomness for the given term was already computed, return
@@ -105,7 +103,7 @@ contract CourtClock is IClock, TimeHelpers {
         }
 
         // Compute term randomness
-        bytes32 newRandomness = _getTermRandomness(term);
+        bytes32 newRandomness = _computeTermRandomness(term);
         require(newRandomness != bytes32(0), ERROR_TERM_RANDOMNESS_UNAVAILABLE);
         term.randomness = newRandomness;
         return newRandomness;
@@ -157,7 +155,7 @@ contract CourtClock is IClock, TimeHelpers {
     */
     function getTermRandomness(uint64 _termId) external view termExists(_termId) returns (bytes32) {
         Term storage term = terms[_termId];
-        return _getTermRandomness(term);
+        return _computeTermRandomness(term);
     }
 
     /**
@@ -249,7 +247,7 @@ contract CourtClock is IClock, TimeHelpers {
     * @param _term Term to compute the randomness of
     * @return Randomness computed for the given term
     */
-    function _getTermRandomness(Term storage _term) internal view returns (bytes32) {
+    function _computeTermRandomness(Term storage _term) internal view returns (bytes32) {
         require(getBlockNumber64() > _term.randomnessBN, ERROR_TERM_RANDOMNESS_NOT_YET);
         return blockhash(_term.randomnessBN);
     }

@@ -4,6 +4,7 @@ import "@aragon/os/contracts/common/IsContract.sol";
 
 import "./Controller.sol";
 import "../court/IClock.sol";
+import "../court/IClockOwner.sol";
 import "../voting/ICRVoting.sol";
 import "../accounting/IAccounting.sol";
 import "../registry/IJurorsRegistry.sol";
@@ -52,11 +53,13 @@ contract Controlled is IsContract {
     }
 
     /**
-    * @dev Internal function to ensure the current term of the Court
-    * @return Identification number of the last ensured term
+    * @dev Internal function to send a heartbeat to the Controller to transition up to one term to ensure the current term is up-to-date.
+    *      Note that this function should only be used from any module except the court itself.
+    * @param _recipient Address that will receive the corresponding heartbeat fees
     */
-    function _ensureCurrentTerm() internal returns (uint64) {
-        return _clock().ensureCurrentTerm();
+    function _ensureCurrentTerm(address _recipient) internal returns (uint64) {
+        IClockOwner clockOwner = IClockOwner(_court());
+        return clockOwner.ensureCurrentTerm(_recipient);
     }
 
     /**
@@ -73,14 +76,6 @@ contract Controlled is IsContract {
     */
     function _getCurrentTermId() internal view returns (uint64) {
         return _clock().getCurrentTermId();
-    }
-
-    /**
-    * @dev Internal function to tell the number of terms the Court should transition to be up-to-date
-    * @return Number of terms the Court should transition to be up-to-date
-    */
-    function _getNeededTermTransitions() internal view returns (uint64) {
-        return _clock().getNeededTermTransitions();
     }
 
     /**

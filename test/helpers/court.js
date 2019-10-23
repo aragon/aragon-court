@@ -451,7 +451,7 @@ module.exports = (web3, artifacts) => {
       if (!this.voting) this.voting = await this.artifacts.require('CRVoting').new(this.controller.address)
       if (!this.accounting) this.accounting = await this.artifacts.require('CourtAccounting').new(this.controller.address)
 
-      if (!this.court) this.court = await this.artifacts.require('CourtMock').new(
+      if (!this.court) this.court = await this.artifacts.require('Court').new(
         this.controller.address,
         this.feeToken.address,
         [this.jurorFee, this.heartbeatFee, this.draftFee, this.settleFee],

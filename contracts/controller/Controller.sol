@@ -110,6 +110,15 @@ contract Controller is IsContract, CourtClock {
     }
 
     /**
+    * @notice Ensure the current term of the court. If the Court term is outdated it will update it. Note that this function only
+    *         allows updating the Court by one term, if more terms are required, users will have to call the heartbeat function manually.
+    * @return Identification number of the current term
+    */
+    function ensureCurrentTerm() external onlyCourt returns (uint64) {
+        return _ensureCurrentTerm();
+    }
+
+    /**
     * @notice Change funds governor address to `_newFundsGovernor`
     * @param _newFundsGovernor Address of the new funds governor to be set
     */

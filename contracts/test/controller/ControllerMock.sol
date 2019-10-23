@@ -74,6 +74,6 @@ contract ControllerMock is Controller, TimeHelpersMock {
 
     function getTermRandomness(uint64 _termId) external view returns (bytes32) {
         if (mockedTermRandomness != bytes32(0)) return mockedTermRandomness;
-        return _getTermRandomness(terms[_termId]);
+        return _computeTermRandomness(terms[_termId]);
     }
 }

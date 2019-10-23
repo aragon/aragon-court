@@ -255,7 +255,7 @@ contract('Court', ([_, disputer, drafter, juror100, juror500, juror1000, juror15
       })
     })
 
-    context.only('for a final round', () => {
+    context('for a final round', () => {
       const roundId = DEFAULTS.maxRegularAppealRounds.toNumber(), poorJuror = juror100
 
       beforeEach('simulate juror without enough balance to vote on a final round', async () => {

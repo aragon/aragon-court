@@ -15,7 +15,6 @@ contract('Court', ([_, sender]) => {
   const termDuration = bn(ONE_DAY)
   const firstTermStartTime = bn(NEXT_WEEK)
   const jurorFee = bigExp(10, 18)
-  const heartbeatFee = bigExp(20, 18)
   const draftFee = bigExp(30, 18)
   const settleFee = bigExp(40, 18)
   const firstRoundJurorsNumber = 5
@@ -23,7 +22,7 @@ contract('Court', ([_, sender]) => {
   beforeEach('create court', async () => {
     courtHelper = buildHelper()
     feeToken = await ERC20.new('Court Fee Token', 'CFT', 18)
-    court = await courtHelper.deploy({ firstTermStartTime, termDuration, feeToken, jurorFee, heartbeatFee, draftFee, settleFee, firstRoundJurorsNumber })
+    court = await courtHelper.deploy({ firstTermStartTime, termDuration, feeToken, jurorFee, draftFee, settleFee, firstRoundJurorsNumber })
   })
 
   beforeEach('mock subscriptions and arbitrable instance', async () => {
@@ -104,8 +103,8 @@ contract('Court', ([_, sender]) => {
 
             const receipt = await court.createDispute(arbitrable.address, possibleRulings, { from: sender })
 
-            const logs = decodeEventsOfType(receipt, CourtClock.abi, 'NewTerm')
-            assertAmountOfEvents({ logs }, 'NewTerm', expectedTermTransitions)
+            const logs = decodeEventsOfType(receipt, CourtClock.abi, 'Heartbeat')
+            assertAmountOfEvents({ logs }, 'Heartbeat', expectedTermTransitions)
 
             const currentTermId = await courtHelper.controller.getLastEnsuredTermId()
             assert.equal(previousTermId.add(bn(expectedTermTransitions)).toString(), currentTermId.toString(), 'term id does not match')
@@ -123,7 +122,7 @@ contract('Court', ([_, sender]) => {
         const expectedTermTransitions = 0
 
         beforeEach('move right before the desired draft term', async () => {
-          await court.heartbeat(1)
+          await courtHelper.controller.heartbeat(1)
         })
 
         itHandlesDisputesCreationProperly(expectedTermTransitions)

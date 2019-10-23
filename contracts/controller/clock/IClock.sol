@@ -4,7 +4,7 @@ pragma solidity ^0.5.8;
 interface IClock {
     function ensureCurrentTerm() external returns (uint64);
 
-    function heartbeat(uint64 _maxRequestedTransitions) external returns (uint64, uint64);
+    function heartbeat(uint64 _maxRequestedTransitions) external returns (uint64);
 
     function ensureTermRandomness(uint64 _termId) external returns (bytes32);
 

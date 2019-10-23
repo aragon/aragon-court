@@ -1,14 +1,13 @@
 const { sha3 } = require('web3-utils')
 const { bn, bigExp } = require('../helpers/numbers')
 const { getEventAt } = require('@aragon/test-helpers/events')
+const { buildHelper } = require('../helpers/controller')(web3, artifacts)
 const { assertRevert } = require('../helpers/assertThrow')
 const { simulateDraft } = require('../helpers/registry')
-const { ONE_DAY, NEXT_WEEK } = require('../helpers/time')
 const { decodeEventsOfType } = require('../helpers/decodeEvent')
 const { assertAmountOfEvents, assertEvent } = require('../helpers/assertEvent')
 
 const JurorsRegistry = artifacts.require('JurorsRegistryMock')
-const Controller = artifacts.require('ControllerMock')
 const Court = artifacts.require('CourtMockForRegistry')
 const ERC20 = artifacts.require('ERC20Mock')
 
@@ -66,7 +65,7 @@ contract('JurorsRegistry', ([_, juror500, juror1000, juror1500, juror2000, juror
   }
 
   beforeEach('create base contracts', async () => {
-    controller = await Controller.new(ONE_DAY, NEXT_WEEK)
+    controller = await buildHelper().deploy()
     ANJ = await ERC20.new('ANJ Token', 'ANJ', 18)
 
     registry = await JurorsRegistry.new(controller.address, ANJ.address, MIN_ACTIVE_AMOUNT, TOTAL_ACTIVE_BALANCE_LIMIT)

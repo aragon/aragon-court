@@ -1,12 +1,11 @@
 const { bn, bigExp } = require('../helpers/numbers')
+const { buildHelper } = require('../helpers/controller')(web3, artifacts)
 const { assertRevert } = require('../helpers/assertThrow')
-const { ONE_DAY, NEXT_WEEK } = require('../helpers/time')
 const { sha3, padLeft, toHex } = require('web3-utils')
 const { assertAmountOfEvents, assertEvent } = require('../helpers/assertEvent')
 
 const CourtSubscriptions = artifacts.require('CourtSubscriptions')
 const JurorsRegistry = artifacts.require('JurorsRegistry')
-const Controller = artifacts.require('ControllerMock')
 const Court = artifacts.require('CourtMockForRegistry')
 const ERC20 = artifacts.require('ERC20Mock')
 
@@ -27,7 +26,7 @@ contract('CourtSubscriptions', ([_, payer, subscriberPeriod0, subscriberPeriod1,
   const TOTAL_ACTIVE_BALANCE_LIMIT = bigExp(100e6, 18)
 
   beforeEach('create base contracts', async () => {
-    controller = await Controller.new(ONE_DAY, NEXT_WEEK)
+    controller = await buildHelper().deploy()
     feeToken = await ERC20.new('Subscriptions Fee Token', 'SFT', 18)
     jurorToken = await ERC20.new('AN Jurors Token', 'ANJ', 18)
 

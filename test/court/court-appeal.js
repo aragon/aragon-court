@@ -1,9 +1,10 @@
+const { DEFAULTS } = require('../helpers/controller')(web3, artifacts)
 const { bn, bigExp } = require('../helpers/numbers')
 const { filterJurors } = require('../helpers/jurors')
 const { assertRevert } = require('../helpers/assertThrow')
 const { assertAmountOfEvents, assertEvent } = require('../helpers/assertEvent')
+const { buildHelper, ROUND_STATES, DISPUTE_STATES } = require('../helpers/court')(web3, artifacts)
 const { getVoteId, oppositeOutcome, outcomeFor, OUTCOMES } = require('../helpers/crvoting')
-const { buildHelper, DEFAULTS, ROUND_STATES, DISPUTE_STATES } = require('../helpers/court')(web3, artifacts)
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
 

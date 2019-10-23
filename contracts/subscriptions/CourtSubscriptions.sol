@@ -6,15 +6,14 @@ import "@aragon/os/contracts/lib/math/SafeMath64.sol";
 import "@aragon/os/contracts/common/SafeERC20.sol";
 import "@aragon/os/contracts/common/TimeHelpers.sol";
 
+import "./ISubscriptions.sol";
 import "../lib/PctHelpers.sol";
-import "../court/ClockConstants.sol";
 import "../controller/Controlled.sol";
-import "../controller/ControlledRecoverable.sol";
 import "../registry/IJurorsRegistry.sol";
-import "../subscriptions/ISubscriptions.sol";
+import "../controller/ControlledRecoverable.sol";
 
 
-contract CourtSubscriptions is ControlledRecoverable, ClockConstants, TimeHelpers, ISubscriptions {
+contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscriptions {
     using SafeERC20 for ERC20;
     using SafeMath for uint256;
     using SafeMath64 for uint64;
@@ -42,6 +41,9 @@ contract CourtSubscriptions is ControlledRecoverable, ClockConstants, TimeHelper
     string private constant ERROR_PAYING_ZERO_PERIODS = "CS_PAYING_ZERO_PERIODS";
     string private constant ERROR_PAYING_TOO_MANY_PERIODS = "CS_PAYING_TOO_MANY_PERIODS";
     string private constant ERROR_LOW_RESUME_PERIODS_PAYMENT = "CS_LOW_RESUME_PERIODS_PAYMENT";
+
+    // Term 0 is for jurors on-boarding
+    uint64 internal constant START_TERM_ID = 1;
 
     struct Subscriber {
         bool subscribed;                        // Whether or not a user has been subscribed to the Court

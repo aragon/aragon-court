@@ -1,18 +1,17 @@
 const { OUTCOMES } = require('../helpers/crvoting')
+const { buildHelper } = require('../helpers/controller')(web3, artifacts)
 const { assertRevert } = require('../helpers/assertThrow')
-const { ONE_DAY, NEXT_WEEK } = require('../helpers/time')
 const { decodeEventsOfType } = require('../helpers/decodeEvent')
 const { assertEvent, assertAmountOfEvents } = require('../helpers/assertEvent')
 
 const CRVoting = artifacts.require('CRVoting')
 const CRVotingOwner = artifacts.require('CRVotingOwnerMock')
-const Controller = artifacts.require('ControllerMock')
 
 contract('CRVoting create', ([_, someone]) => {
   let controller, voting, votingOwner
 
   beforeEach('create base contracts', async () => {
-    controller = await Controller.new(ONE_DAY, NEXT_WEEK)
+    controller = await buildHelper().deploy()
 
     voting = await CRVoting.new(controller.address)
     await controller.setVoting(voting.address)

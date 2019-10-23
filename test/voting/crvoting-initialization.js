@@ -1,8 +1,7 @@
+const { buildHelper } = require('../helpers/controller')(web3, artifacts)
 const { assertRevert } = require('../helpers/assertThrow')
-const { ONE_DAY, NEXT_WEEK } = require('../helpers/time')
 
 const CRVoting = artifacts.require('CRVoting')
-const Controller = artifacts.require('ControllerMock')
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
 
@@ -10,7 +9,7 @@ contract('CRVoting initialization', ([_, someone]) => {
   let controller
 
   beforeEach('create base contracts', async () => {
-    controller = await Controller.new(ONE_DAY, NEXT_WEEK)
+    controller = await buildHelper().deploy()
   })
 
   describe('constructor', () => {

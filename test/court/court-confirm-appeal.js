@@ -1,9 +1,10 @@
+const { DEFAULTS } = require('../helpers/controller')(web3, artifacts)
 const { bn, bigExp } = require('../helpers/numbers')
 const { filterJurors } = require('../helpers/jurors')
 const { assertRevert } = require('../helpers/assertThrow')
 const { assertAmountOfEvents, assertEvent } = require('../helpers/assertEvent')
 const { getVoteId, oppositeOutcome, outcomeFor, OUTCOMES } = require('../helpers/crvoting')
-const { buildHelper, DEFAULTS, ROUND_STATES, DISPUTE_STATES } = require('../helpers/court')(web3, artifacts)
+const { buildHelper, ROUND_STATES, DISPUTE_STATES } = require('../helpers/court')(web3, artifacts)
 
 contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, juror1000, juror1500, juror2000, juror2500, juror3000, juror3500, juror4000]) => {
   let courtHelper, court, voting
@@ -168,8 +169,14 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
                         const currentActiveBalance = await courtHelper.jurorsRegistry.totalActiveBalanceAt(currentTermId)
                         assert.equal(currentActiveBalance.toString(), previousActiveBalance.mul(bn(2)).toString(), 'new total active balance does not match')
 
-                        const currentJurorsNumber = await courtHelper.getNextRoundJurorsNumber(disputeId, roundId)
-                        assert.equal(previousJurorsNumber.toString(), currentJurorsNumber.toString(), 'next round jurors number does not match')
+                        if (roundId < DEFAULTS.maxRegularAppealRounds.toNumber() - 1) {
+                          const currentJurorsNumber = await courtHelper.getNextRoundJurorsNumber(disputeId, roundId)
+                          assert.equal(currentJurorsNumber.toString(), previousJurorsNumber.toString(), 'next round jurors number does not match')
+                        } else {
+                          const currentJurorsNumber = await courtHelper.getNextRoundJurorsNumber(disputeId, roundId)
+                          // for the final round the number of activated tokens is contemplated, we are duplicating it above
+                          assert.equal(currentJurorsNumber.toString(), previousJurorsNumber.mul(bn(2)).toString(), 'next round jurors number does not match')
+                        }
                       })
 
                       it('emits an event', async () => {

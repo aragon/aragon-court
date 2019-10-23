@@ -8,8 +8,28 @@ contract ControllerMock is Controller, TimeHelpersMock {
     uint64 internal mockedTermId;
     bytes32 internal mockedTermRandomness;
 
-    constructor(uint64 _termDuration, uint64 _firstTermStartTime)
-        Controller(_termDuration, _firstTermStartTime, msg.sender, msg.sender, msg.sender)
+    constructor(
+        uint64 _termDuration,
+        uint64 _firstTermStartTime,
+        address[3] memory _governors,
+        ERC20 _feeToken,
+        uint256[3] memory _fees,
+        uint64[4] memory _roundStateDurations,
+        uint16[2] memory _pcts,
+        uint64[3] memory _roundParams,
+        uint256[2] memory _appealCollateralParams
+    )
+        Controller(
+            _termDuration,
+            _firstTermStartTime,
+            _governors,
+            _feeToken,
+            _fees,
+            _roundStateDurations,
+            _pcts,
+            _roundParams,
+            _appealCollateralParams
+        )
         public
     {}
 
@@ -59,7 +79,8 @@ contract ControllerMock is Controller, TimeHelpersMock {
 
     function ensureCurrentTerm() external returns (uint64) {
         if (mockedTermId != 0) return mockedTermId;
-        return _ensureCurrentTerm();
+        (, uint64 currentTermId) = _ensureCurrentTerm();
+        return currentTermId;
     }
 
     function getCurrentTermId() external view returns (uint64) {

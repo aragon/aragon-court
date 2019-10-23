@@ -1,24 +1,15 @@
 pragma solidity ^0.5.8;
 
-import "../../court/IClockOwner.sol";
 import "../../controller/Controlled.sol";
 import "../../controller/Controller.sol";
 
 
-contract CourtMockForRegistry is Controlled, IClockOwner {
+contract CourtMockForRegistry is Controlled {
     event Slashed(uint256 collected);
     event Collected(bool collected);
     event Drafted(address[] addresses, uint64[] weights, uint256 outputLength);
 
     constructor(Controller _controller) Controlled(_controller) public {}
-
-    function heartbeat(uint64 _maxRequestedTransitions) external {
-        _clock().heartbeat(_maxRequestedTransitions);
-    }
-
-    function ensureCurrentTerm(address /*_recipient*/) external returns (uint64) {
-        return _clock().ensureCurrentTerm();
-    }
 
     function assignTokens(address _juror, uint256 _amount) external {
         _jurorsRegistry().assignTokens(_juror, _amount);

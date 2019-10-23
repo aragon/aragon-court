@@ -140,7 +140,7 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
     * @param _amount Amount of juror tokens to be activated for the next term
     */
     function activate(uint256 _amount) external {
-        uint64 termId = _ensureCurrentTerm(msg.sender);
+        uint64 termId = _ensureCurrentTerm();
 
         _processDeactivationRequest(msg.sender, termId);
 
@@ -157,7 +157,7 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
     * @param _amount Amount of juror tokens to be deactivated for the next term
     */
     function deactivate(uint256 _amount) external {
-        uint64 termId = _ensureCurrentTerm(msg.sender);
+        uint64 termId = _ensureCurrentTerm();
         uint256 unlockedActiveBalance = unlockedActiveBalanceOf(msg.sender);
         uint256 amountToDeactivate = _amount == 0 ? unlockedActiveBalance : _amount;
         require(amountToDeactivate > 0, ERROR_INVALID_ZERO_AMOUNT);
@@ -629,7 +629,7 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
         // Activate tokens if it was requested and the address depositing tokens is the juror. Note that there's
         // no need to check the activation amount since we have just added it to the available balance of the juror
         if (_from == _juror && _data.toBytes4() == JurorsRegistry(this).activate.selector) {
-            uint64 termId = _ensureCurrentTerm(_from);
+            uint64 termId = _ensureCurrentTerm();
             _activateTokens(_juror, termId, _amount);
         }
 

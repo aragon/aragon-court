@@ -339,7 +339,7 @@ contract('Court', ([_, disputer, drafter, juror500, juror1000, juror1500, juror2
         })
       }
 
-      const itHandlesDraftsProperlyForTerm = (term, expectsHeartbeatFees) => {
+      const itHandlesDraftsProperlyForTerm = term => {
         beforeEach('move to requested term', async () => {
           // the term previous to the draft term was already ensured when creating the dispute
           await courtHelper.increaseTimeInTerms(term - draftTermId + 1)
@@ -349,7 +349,7 @@ contract('Court', ([_, disputer, drafter, juror500, juror1000, juror1500, juror2
           context('when the court term is up-to-date', () => {
             beforeEach('ensure the draft term', async () => {
               const neededTransitions = await courtHelper.controller.getNeededTermTransitions()
-              await court.heartbeat(neededTransitions)
+              await courtHelper.controller.heartbeat(neededTransitions)
             })
 
             itHandlesDraftsProperly(term)
@@ -359,7 +359,7 @@ contract('Court', ([_, disputer, drafter, juror500, juror1000, juror1500, juror2
             beforeEach('ensure previous term of the draft term', async () => {
               const neededTransitions = (await courtHelper.controller.getNeededTermTransitions()).toNumber()
               assert.isAbove(neededTransitions, 0, 'no needed transitions')
-              if (neededTransitions > 1) await court.heartbeat(bn(neededTransitions - 1))
+              if (neededTransitions > 1) await courtHelper.controller.heartbeat(bn(neededTransitions - 1))
             })
 
             context('when the heartbeat was not executed', async () => {
@@ -374,19 +374,12 @@ contract('Court', ([_, disputer, drafter, juror500, juror1000, juror1500, juror2
               beforeEach('call heartbeat', async () => {
                 lastEnsuredTermId = await courtHelper.controller.getLastEnsuredTermId()
                 previousBalance = await courtHelper.accounting.balanceOf(courtHelper.feeToken.address, drafter)
-                receipt = await court.heartbeat(1, { from: drafter })
+                receipt = await courtHelper.controller.heartbeat(1, { from: drafter })
               })
 
               it('transitions 1 term', async () => {
                 assertAmountOfEvents(receipt, 'Heartbeat', 1)
-                assertEvent(receipt, 'Heartbeat', { previousTermId: lastEnsuredTermId, currentTermId: lastEnsuredTermId.add(bn(1)), sender: drafter })
-              })
-
-              it(`${expectsHeartbeatFees ? 'refunds' : 'does not refund'} heartbeat fees to the caller`, async () => {
-                const { feeToken, heartbeatFee } = courtHelper
-                const currentBalance = await courtHelper.accounting.balanceOf(feeToken.address, drafter)
-                const expectedBalance = expectsHeartbeatFees ? previousBalance.add(heartbeatFee) : previousBalance
-                assert.equal(currentBalance.toString(), expectedBalance.toString(), 'fee token balances does not match')
+                assertEvent(receipt, 'Heartbeat', { previousTermId: lastEnsuredTermId, currentTermId: lastEnsuredTermId.add(bn(1)) })
               })
 
               itHandlesDraftsProperly(term)
@@ -406,7 +399,7 @@ contract('Court', ([_, disputer, drafter, juror500, juror1000, juror1500, juror2
 
         context('when the given dispute was already drafted', () => {
           beforeEach('draft dispute', async () => {
-            await court.heartbeat(term)
+            await courtHelper.controller.heartbeat(term)
             await advanceBlocks(10) // advance some blocks to ensure term randomness
             await court.draft(disputeId, firstRoundJurorsNumber, { from: drafter })
           })
@@ -425,16 +418,14 @@ contract('Court', ([_, disputer, drafter, juror500, juror1000, juror1500, juror2
 
       context('when the current term is the draft term', () => {
         const currentTerm = draftTermId
-        const expectsHeartbeatFees = true
 
-        itHandlesDraftsProperlyForTerm(currentTerm, expectsHeartbeatFees)
+        itHandlesDraftsProperlyForTerm(currentTerm)
       })
 
       context('when the current term is after the draft term', () => {
         const currentTerm = draftTermId + 10
-        const expectsHeartbeatFees = false
 
-        itHandlesDraftsProperlyForTerm(currentTerm, expectsHeartbeatFees)
+        itHandlesDraftsProperlyForTerm(currentTerm)
       })
     })
 

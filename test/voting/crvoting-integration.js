@@ -1,9 +1,8 @@
-const { ONE_DAY, NEXT_WEEK } = require('../helpers/time')
+const { buildHelper } = require('../helpers/controller')(web3, artifacts)
 const { SALT, OUTCOMES, encryptVote } = require('../helpers/crvoting')
 
 const CRVoting = artifacts.require('CRVoting')
 const CRVotingOwner = artifacts.require('CRVotingOwnerMock')
-const Controller = artifacts.require('ControllerMock')
 
 const POSSIBLE_OUTCOMES = 2
 
@@ -11,7 +10,7 @@ contract('CRVoting', ([_, voterWeighted1, voterWeighted2, voterWeighted3, voterW
   let controller, voting, votingOwner, voteId = 0
 
   beforeEach('create voting', async () => {
-    controller = await Controller.new(ONE_DAY, NEXT_WEEK)
+    controller = await buildHelper().deploy()
 
     voting = await CRVoting.new(controller.address)
     await controller.setVoting(voting.address)

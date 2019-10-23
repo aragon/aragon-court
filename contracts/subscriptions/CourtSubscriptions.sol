@@ -42,6 +42,7 @@ contract CourtSubscriptions is Controlled, ControlledRecoverable, TimeHelpers, I
     string private constant ERROR_PAYING_ZERO_PERIODS = "CS_PAYING_ZERO_PERIODS";
     string private constant ERROR_PAYING_TOO_MANY_PERIODS = "CS_PAYING_TOO_MANY_PERIODS";
     string private constant ERROR_LOW_RESUME_PERIODS_PAYMENT = "CS_LOW_RESUME_PERIODS_PAYMENT";
+    string private constant ERROR_DONATION_AMOUNT_ZERO = "CS_DONATION_AMOUNT_ZERO";
 
     // Term 0 is for jurors on-boarding
     uint64 internal constant START_TERM_ID = 1;
@@ -95,6 +96,7 @@ contract CourtSubscriptions is Controlled, ControlledRecoverable, TimeHelpers, I
     mapping (uint256 => Period) internal periods;
 
     event FeesPaid(address indexed subscriber, uint256 periods, uint256 newLastPeriodId, uint256 collectedFees, uint256 governorFee);
+    event FeesDonated(address indexed payer, uint256 amount);
     event FeesClaimed(address indexed juror, uint256 indexed periodId, uint256 jurorShare);
     event GovernorFeesTransferred(uint256 amount);
     event FeeTokenChanged(address previousFeeToken, address currentFeeToken);
@@ -180,6 +182,25 @@ contract CourtSubscriptions is Controlled, ControlledRecoverable, TimeHelpers, I
         // Deposit fee tokens from sender to this contract
         emit FeesPaid(_from, _periods, newLastPeriodId, collectedFees, governorFee);
         require(feeToken.safeTransferFrom(msg.sender, address(this), amountToPay), ERROR_TOKEN_TRANSFER_FAILED);
+    }
+
+    /**
+    * @notice Donate fees to the Court
+    * @param _amount Amount to be donated
+    */
+    function donate(uint256 _amount) external {
+        require(_amount > 0, ERROR_DONATION_AMOUNT_ZERO);
+
+        uint256 currentPeriodId = _getCurrentPeriodId();
+        Period storage period = periods[currentPeriodId];
+
+        (ERC20 feeToken, ) = _ensurePeriodFeeTokenAndAmount(period);
+
+        period.collectedFees = period.collectedFees.add(_amount);
+
+        // Deposit fee tokens from sender to this contract
+        emit FeesDonated(msg.sender, _amount);
+        require(feeToken.safeTransferFrom(msg.sender, address(this), _amount), ERROR_TOKEN_TRANSFER_FAILED);
     }
 
     /**
@@ -301,6 +322,30 @@ contract CourtSubscriptions is Controlled, ControlledRecoverable, TimeHelpers, I
     */
     function getCurrentPeriodId() external view returns (uint256) {
         return _getCurrentPeriodId();
+    }
+
+    /**
+    * @dev Get details of the current period
+    * @return All stored details of the current period
+    */
+    function getCurrentPeriod()
+        external view
+        returns (
+            uint64 balanceCheckpoint,
+            ERC20 feeToken,
+            uint256 feeAmount,
+            uint256 totalActiveBalance,
+            uint256 collectedFees
+        )
+    {
+        uint256 currentPeriodId = _getCurrentPeriodId();
+        Period storage period = periods[currentPeriodId];
+
+        balanceCheckpoint = period.balanceCheckpoint;
+        feeToken = period.feeToken;
+        feeAmount = period.feeAmount;
+        totalActiveBalance = period.totalActiveBalance;
+        collectedFees = period.collectedFees;
     }
 
     /**

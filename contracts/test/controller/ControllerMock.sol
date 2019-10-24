@@ -61,12 +61,12 @@ contract ControllerMock is Controller, TimeHelpersMock {
 
     function mockIncreaseTerm() external {
         if (mockedTermId != 0) mockedTermId = mockedTermId + 1;
-        else mockedTermId = termId + 1;
+        else mockedTermId = _lastEnsuredTermId() + 1;
     }
 
     function mockIncreaseTerms(uint64 _terms) external {
         if (mockedTermId != 0) mockedTermId = mockedTermId + _terms;
-        else mockedTermId = termId + _terms;
+        else mockedTermId = _lastEnsuredTermId() + _terms;
     }
 
     function mockSetTerm(uint64 _termId) external {
@@ -79,8 +79,7 @@ contract ControllerMock is Controller, TimeHelpersMock {
 
     function ensureCurrentTerm() external returns (uint64) {
         if (mockedTermId != 0) return mockedTermId;
-        (, uint64 currentTermId) = _ensureCurrentTerm();
-        return currentTermId;
+        return _ensureCurrentTerm();
     }
 
     function getCurrentTermId() external view returns (uint64) {
@@ -90,11 +89,11 @@ contract ControllerMock is Controller, TimeHelpersMock {
 
     function getLastEnsuredTermId() external view returns (uint64) {
         if (mockedTermId != 0) return mockedTermId;
-        return termId;
+        return _lastEnsuredTermId();
     }
 
     function getTermRandomness(uint64 _termId) external view returns (bytes32) {
         if (mockedTermRandomness != bytes32(0)) return mockedTermRandomness;
-        return _computeTermRandomness(terms[_termId]);
+        return _computeTermRandomness(_termId);
     }
 }

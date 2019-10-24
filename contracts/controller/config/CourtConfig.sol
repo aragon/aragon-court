@@ -75,6 +75,14 @@ contract CourtConfig is IConfig, CourtConfigData {
     }
 
     /**
+    * @dev Tell the term identification number of the next scheduled config change
+    * @return Term identification number of the next scheduled config change
+    */
+    function getConfigChangeTermId() external view returns (uint64) {
+        return configChangeTermId;
+    }
+
+    /**
     * @dev Internal to make sure to set a config for the new term, it will copy the previous term config if none
     * @param _currentTermId Identification number of the new current term that has been transitioned
     */

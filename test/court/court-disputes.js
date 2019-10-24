@@ -111,7 +111,7 @@ contract('Court', ([_, sender]) => {
           })
         })
 
-        context('when the creator doesn\'t have enough fee tokens approved', () => {
+        context('when the creator does not have enough fee tokens approved', () => {
           it('reverts', async () => {
             await assertRevert(court.createDispute(arbitrable.address, possibleRulings), 'CT_DEPOSIT_FAILED')
           })
@@ -174,11 +174,11 @@ contract('Court', ([_, sender]) => {
       const possibleRulings = 2
 
       beforeEach('create dispute', async () => {
-        // move forward to the term before the desired start one for the dispute
-        await courtHelper.setTerm(draftTermId - 1)
         const { disputeFees } = await courtHelper.getDisputeFees(draftTermId)
         await courtHelper.mintAndApproveFeeTokens(sender, court.address, disputeFees)
 
+        // move forward to the term before the desired start one for the dispute
+        await courtHelper.setTerm(draftTermId - 1)
         await court.createDispute(arbitrable.address, possibleRulings, { from: sender })
       })
 
@@ -205,11 +205,11 @@ contract('Court', ([_, sender]) => {
       const possibleRulings = 2
 
       beforeEach('create dispute', async () => {
-        // move forward to the term before the desired start one for the dispute
-        await courtHelper.setTerm(draftTermId - 1)
         const { disputeFees } = await courtHelper.getDisputeFees(draftTermId)
         await courtHelper.mintAndApproveFeeTokens(sender, court.address, disputeFees)
 
+        // move forward to the term before the desired start one for the dispute
+        await courtHelper.setTerm(draftTermId - 1)
         await court.createDispute(arbitrable.address, possibleRulings, { from: sender })
       })
 

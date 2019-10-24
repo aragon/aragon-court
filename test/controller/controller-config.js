@@ -155,6 +155,7 @@ contract('Controller', ([_, sender, disputer, drafter, appealMaker, appealTaker,
         await assertRevert(promise, ERROR_TOO_OLD_TERM)
       })
     })
+
     context('when the config change succeeds', () => {
       const configChangeTermId = 3
       let newConfig
@@ -165,6 +166,11 @@ contract('Controller', ([_, sender, disputer, drafter, appealMaker, appealTaker,
 
       it('check it from the past', async () => {
         await checkConfig(configChangeTermId, newConfig)
+      })
+
+      it('schedules the new config properly', async () => {
+        const scheduledTermId = await controllerHelper.controller.getConfigChangeTermId()
+        assertBn(scheduledTermId, configChangeTermId, 'config change term id does not match')
       })
 
       it('check once the change term id has been reached', async () => {

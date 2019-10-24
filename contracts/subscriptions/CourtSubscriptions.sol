@@ -317,17 +317,21 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
 
     /**
     * @dev Get details of the current period
-    * @return All stored details of the current period
+    * @return feeToken Fee token corresponding to a certain subscription period
+    * @return feeAmount Amount of fees paid for a certain subscription period
+    * @return balanceCheckpoint Court term id of a period used to fetch the total active balance of the jurors registry
+    * @return totalActiveBalance Total amount of juror tokens active in the Court at the corresponding period checkpoint
+    * @return collectedFees Total amount of subscription fees collected during a period
     */
     function getCurrentPeriod() external view
-        returns (uint64 balanceCheckpoint, ERC20 feeToken, uint256 feeAmount, uint256 totalActiveBalance, uint256 collectedFees)
+        returns (ERC20 feeToken, uint256 feeAmount, uint64 balanceCheckpoint, uint256 totalActiveBalance, uint256 collectedFees)
     {
         uint256 currentPeriodId = _getCurrentPeriodId();
         Period storage period = periods[currentPeriodId];
 
-        balanceCheckpoint = period.balanceCheckpoint;
         feeToken = period.feeToken;
         feeAmount = period.feeAmount;
+        balanceCheckpoint = period.balanceCheckpoint;
         totalActiveBalance = period.totalActiveBalance;
         collectedFees = period.collectedFees;
     }

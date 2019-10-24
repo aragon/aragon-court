@@ -16,7 +16,7 @@ library PctHelpers {
         return self.mul(uint256(_pct)) / PCT_BASE;
     }
 
-    function pct(uint256 self, uint256 _pct) internal pure returns (uint256) {
+    function pct256(uint256 self, uint256 _pct) internal pure returns (uint256) {
         return self.mul(_pct) / PCT_BASE;
     }
 

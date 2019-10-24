@@ -55,13 +55,7 @@ contract CourtAccounting is ControlledRecoverable, IAccounting {
     * @param _amount Amount of tokens to be withdrawn from the sender
     */
     function withdraw(ERC20 _token, address _to, uint256 _amount) external {
-        uint256 balance = balanceOf(_token, msg.sender);
-        require(_amount > 0, ERROR_WITHDRAW_AMOUNT_ZERO);
-        require(balance >= _amount, ERROR_WITHDRAW_INVALID_AMOUNT);
-
-        // No need for SafeMath: checked above
-        uint256 newBalance = balance - _amount;
-        _withdraw(_token, msg.sender, _to, _amount, newBalance);
+        _withdraw(_token, msg.sender, _to, _amount);
     }
 
     /**
@@ -70,11 +64,8 @@ contract CourtAccounting is ControlledRecoverable, IAccounting {
     * @param _to Address of the recipient that will receive their tokens
     */
     function withdrawAll(ERC20 _token, address _to) external {
-        uint256 balance = balanceOf(_token, _to);
-        require(balance > 0, ERROR_WITHDRAW_AMOUNT_ZERO);
-
-        uint256 newBalance = 0;
-        _withdraw(_token, _to, _to, balance, newBalance);
+        uint256 amount = balanceOf(_token, _to);
+        _withdraw(_token, _to, _to, amount);
     }
 
     /**
@@ -93,11 +84,15 @@ contract CourtAccounting is ControlledRecoverable, IAccounting {
     * @param _from Address where the tokens will be removed from
     * @param _to Address of the recipient that will receive the corresponding tokens
     * @param _amount Amount of tokens to be withdrawn from the sender
-    * @param _newBalance Resultant amount of tokens for the sender after the withdrawal
     */
-    function _withdraw(ERC20 _token, address _from, address _to, uint256 _amount, uint256 _newBalance) internal {
+    function _withdraw(ERC20 _token, address _from, address _to, uint256 _amount) internal {
+        require(_amount > 0, ERROR_WITHDRAW_AMOUNT_ZERO);
+        uint256 balance = balanceOf(_token, _from);
+        require(balance >= _amount, ERROR_WITHDRAW_INVALID_AMOUNT);
+
         address tokenAddress = address(_token);
-        balances[tokenAddress][_from] = _newBalance;
+        // No need for SafeMath: checked above
+        balances[tokenAddress][_from] = balance - _amount;
         emit Withdraw(_token, _from, _to, _amount);
 
         require(_token.safeTransfer(_to, _amount), ERROR_WITHDRAW_FAILED);

@@ -1,8 +1,8 @@
+const { buildHelper } = require('../helpers/controller')(web3, artifacts)
 const { assertRevert } = require('../helpers/assertThrow')
 const { assertAmountOfEvents, assertEvent } = require('../helpers/assertEvent')
 
 const Controlled = artifacts.require('Controlled')
-const Controller = artifacts.require('Controller')
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
 
@@ -10,7 +10,7 @@ contract('Controller', ([_, fundsGovernor, configGovernor, modulesGovernor, some
   let controller
 
   beforeEach('create controller', async () => {
-    controller = await Controller.new(fundsGovernor, configGovernor, modulesGovernor)
+    controller = await buildHelper().deploy({ fundsGovernor, configGovernor, modulesGovernor })
   })
 
   describe('getFundsGovernor', () => {

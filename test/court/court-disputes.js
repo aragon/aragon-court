@@ -1,10 +1,12 @@
 const { bn, bigExp } = require('../helpers/numbers')
 const { assertRevert } = require('../helpers/assertThrow')
 const { NEXT_WEEK, ONE_DAY } = require('../helpers/time')
+const { decodeEventsOfType } = require('../helpers/decodeEvent')
 const { buildHelper, DISPUTE_STATES } = require('../helpers/court')(web3, artifacts)
 const { assertAmountOfEvents, assertEvent } = require('../helpers/assertEvent')
 
 const ERC20 = artifacts.require('ERC20Mock')
+const CourtClock = artifacts.require('CourtClock')
 const Arbitrable = artifacts.require('ArbitrableMock')
 
 contract('Court', ([_, sender]) => {
@@ -13,7 +15,6 @@ contract('Court', ([_, sender]) => {
   const termDuration = bn(ONE_DAY)
   const firstTermStartTime = bn(NEXT_WEEK)
   const jurorFee = bigExp(10, 18)
-  const heartbeatFee = bigExp(20, 18)
   const draftFee = bigExp(30, 18)
   const settleFee = bigExp(40, 18)
   const firstRoundJurorsNumber = 5
@@ -21,7 +22,7 @@ contract('Court', ([_, sender]) => {
   beforeEach('create court', async () => {
     courtHelper = buildHelper()
     feeToken = await ERC20.new('Court Fee Token', 'CFT', 18)
-    court = await courtHelper.deploy({ firstTermStartTime, termDuration, feeToken, jurorFee, heartbeatFee, draftFee, settleFee, firstRoundJurorsNumber })
+    court = await courtHelper.deploy({ firstTermStartTime, termDuration, feeToken, jurorFee, draftFee, settleFee, firstRoundJurorsNumber })
   })
 
   beforeEach('mock subscriptions and arbitrable instance', async () => {
@@ -30,6 +31,10 @@ contract('Court', ([_, sender]) => {
   })
 
   describe('createDispute', () => {
+    beforeEach('set timestamp at the beginning of the first term', async () => {
+      await courtHelper.setTimestamp(firstTermStartTime)
+    })
+
     context('when the given input is valid', () => {
       const draftTermId = 2
       const possibleRulings = 2
@@ -94,13 +99,14 @@ contract('Court', ([_, sender]) => {
           })
 
           it(`transitions ${expectedTermTransitions} terms`, async () => {
-            const previousTermId = await court.getLastEnsuredTermId()
+            const previousTermId = await courtHelper.controller.getLastEnsuredTermId()
 
             const receipt = await court.createDispute(arbitrable.address, possibleRulings, { from: sender })
 
-            assertAmountOfEvents(receipt, 'NewTerm', expectedTermTransitions)
+            const logs = decodeEventsOfType(receipt, CourtClock.abi, 'Heartbeat')
+            assertAmountOfEvents({ logs }, 'Heartbeat', expectedTermTransitions)
 
-            const currentTermId = await court.getLastEnsuredTermId()
+            const currentTermId = await courtHelper.controller.getLastEnsuredTermId()
             assert.equal(previousTermId.add(bn(expectedTermTransitions)).toString(), currentTermId.toString(), 'term id does not match')
           })
         })
@@ -112,44 +118,34 @@ contract('Court', ([_, sender]) => {
         })
       }
 
-      context('when the given draft term is after the current term', () => {
-        beforeEach('set timestamp at the beginning of the first term', async () => {
-          await courtHelper.setTimestamp(firstTermStartTime)
+      context('when the term is up-to-date', () => {
+        const expectedTermTransitions = 0
+
+        beforeEach('move right before the desired draft term', async () => {
+          await courtHelper.controller.heartbeat(1)
         })
 
-        context('when the term is up-to-date', () => {
-          const expectedTermTransitions = 0
+        itHandlesDisputesCreationProperly(expectedTermTransitions)
+      })
 
-          beforeEach('update term', async () => {
-            await court.heartbeat(1)
-          })
+      context('when the term is outdated by one term', () => {
+        const expectedTermTransitions = 1
 
-          itHandlesDisputesCreationProperly(expectedTermTransitions)
+        itHandlesDisputesCreationProperly(expectedTermTransitions)
+      })
+
+      context('when the term is outdated by more than one term', () => {
+        beforeEach('set timestamp two terms after the first term', async () => {
+          await courtHelper.setTimestamp(firstTermStartTime.add(termDuration.mul(bn(2))))
         })
 
-        context('when the term is outdated by one term', () => {
-          const expectedTermTransitions = 1
-
-          itHandlesDisputesCreationProperly(expectedTermTransitions)
-        })
-
-        context('when the term is outdated by more than one term', () => {
-          beforeEach('set timestamp two terms after the first term', async () => {
-            await courtHelper.setTimestamp(firstTermStartTime.add(termDuration.mul(bn(2))))
-          })
-
-          it('reverts', async () => {
-            await assertRevert(court.createDispute(arbitrable.address, possibleRulings), 'CT_TOO_MANY_TRANSITIONS')
-          })
+        it('reverts', async () => {
+          await assertRevert(court.createDispute(arbitrable.address, possibleRulings), 'CLK_TOO_MANY_TRANSITIONS')
         })
       })
     })
 
     context('when the given input is not valid', () => {
-      beforeEach('set timestamp at the beginning of the first term', async () => {
-        await courtHelper.setTimestamp(firstTermStartTime)
-      })
-
       context('when the possible rulings are invalid', () => {
         it('reverts', async () => {
           await assertRevert(court.createDispute(arbitrable.address, 0), 'CT_INVALID_RULING_OPTIONS')

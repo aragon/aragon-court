@@ -2,9 +2,6 @@ pragma solidity ^0.5.8;
 
 import "@aragon/os/contracts/lib/token/ERC20.sol";
 
-import "./ISubscriptionsOwner.sol";
-import "../registry/IJurorsRegistry.sol";
-
 
 interface ISubscriptions {
     function setFeeAmount(uint256 _feeAmount) external;

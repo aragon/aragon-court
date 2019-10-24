@@ -1,20 +1,20 @@
+const { buildHelper } = require('../helpers/controller')(web3, artifacts)
 const { assertRevert } = require('../helpers/assertThrow')
 const { bn, bigExp, MAX_UINT256 } = require('../helpers/numbers')
 const { assertEvent, assertAmountOfEvents } = require('../helpers/assertEvent')
 
 const CourtAccounting = artifacts.require('CourtAccounting')
-const Controller = artifacts.require('ControllerMock')
 const ERC20 = artifacts.require('ERC20Mock')
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
 
-contract('CourtAccounting', ([_, accountingOwner, holder, someone]) => {
+contract('CourtAccounting', ([_, court, holder, someone]) => {
   let controller, accounting, DAI, ANT
 
   beforeEach('create accounting', async () => {
-    controller = await Controller.new()
+    controller = await buildHelper().deploy()
     accounting = await CourtAccounting.new(controller.address)
-    await controller.setCourtMock(accountingOwner)
+    await controller.setCourtMock(court)
     await controller.setAccounting(accounting.address)
   })
 
@@ -53,8 +53,8 @@ contract('CourtAccounting', ([_, accountingOwner, holder, someone]) => {
     })
 
     const itHandlesDepositsProperly = account => {
-      context('when the sender is the owner', () => {
-        const from = accountingOwner
+      context('when the sender is the court', () => {
+        const from = court
 
         context('when the account did not have previous balance', () => {
 
@@ -79,15 +79,15 @@ contract('CourtAccounting', ([_, accountingOwner, holder, someone]) => {
               const receipt = await accounting.assign(DAI.address, account, amount, { from })
 
               assertAmountOfEvents(receipt, 'Assign')
-              assertEvent(receipt, 'Assign', { from: accountingOwner, to: account, token: DAI.address, amount })
+              assertEvent(receipt, 'Assign', { from: court, to: account, token: DAI.address, amount })
             })
           })
         })
 
         context('when the account had previous balance', () => {
           beforeEach('deposit some tokens', async () => {
-            await accounting.assign(ANT.address, account, bigExp(100, 18), { from: accountingOwner })
-            await accounting.assign(DAI.address, account, bigExp(200, 18), { from: accountingOwner })
+            await accounting.assign(ANT.address, account, bigExp(100, 18), { from: court })
+            await accounting.assign(DAI.address, account, bigExp(200, 18), { from: court })
           })
 
           context('when the given amount is zero', () => {
@@ -115,7 +115,7 @@ contract('CourtAccounting', ([_, accountingOwner, holder, someone]) => {
                 const receipt = await accounting.assign(DAI.address, account, amount, { from })
 
                 assertAmountOfEvents(receipt, 'Assign')
-                assertEvent(receipt, 'Assign', { from: accountingOwner, to: account, token: DAI.address, amount })
+                assertEvent(receipt, 'Assign', { from: court, to: account, token: DAI.address, amount })
               })
 
               it('does not affect other token balances', async () => {
@@ -139,11 +139,11 @@ contract('CourtAccounting', ([_, accountingOwner, holder, someone]) => {
         })
       })
 
-      context('when the sender is not the owner', () => {
+      context('when the sender is not the court', () => {
         const from = someone
 
         it('reverts', async () => {
-          await assertRevert(accounting.assign(DAI.address, account, bigExp(10, 18), { from }), 'ACCOUNTING_SENDER_NOT_OWNER')
+          await assertRevert(accounting.assign(DAI.address, account, bigExp(10, 18), { from }), 'CTD_SENDER_NOT_COURT_MODULE')
         })
       })
     }
@@ -167,8 +167,8 @@ contract('CourtAccounting', ([_, accountingOwner, holder, someone]) => {
       const from = holder
 
       beforeEach('deposit some tokens', async () => {
-        await accounting.assign(ANT.address, holder, bigExp(100, 18), { from: accountingOwner })
-        await accounting.assign(DAI.address, holder, bigExp(200, 18), { from: accountingOwner })
+        await accounting.assign(ANT.address, holder, bigExp(100, 18), { from: court })
+        await accounting.assign(DAI.address, holder, bigExp(200, 18), { from: court })
       })
 
       context('when the given recipient is not the zero address', () => {

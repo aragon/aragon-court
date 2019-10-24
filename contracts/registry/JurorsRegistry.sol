@@ -5,7 +5,6 @@ import "@aragon/os/contracts/lib/token/ERC20.sol";
 import "@aragon/os/contracts/lib/math/SafeMath.sol";
 
 import "./IJurorsRegistry.sol";
-import "./IJurorsRegistryOwner.sol";
 import "../lib/BytesHelpers.sol";
 import "../lib/HexSumTree.sol";
 import "../lib/PctHelpers.sol";
@@ -16,7 +15,7 @@ import "../controller/Controlled.sol";
 import "../controller/ControlledRecoverable.sol";
 
 
-contract JurorsRegistry is Controlled, ControlledRecoverable, IJurorsRegistry, ERC900, ApproveAndCallFallBack {
+contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, ApproveAndCallFallBack {
     using SafeERC20 for ERC20;
     using SafeMath for uint256;
     using PctHelpers for uint256;
@@ -25,7 +24,6 @@ contract JurorsRegistry is Controlled, ControlledRecoverable, IJurorsRegistry, E
     using JurorsTreeSortition for HexSumTree.Tree;
 
     string private constant ERROR_NOT_CONTRACT = "JR_NOT_CONTRACT";
-    string private constant ERROR_SENDER_NOT_OWNER = "JR_SENDER_NOT_OWNER";
     string private constant ERROR_INVALID_ZERO_AMOUNT = "JR_INVALID_ZERO_AMOUNT";
     string private constant ERROR_INVALID_ACTIVATION_AMOUNT = "JR_INVALID_ACTIVATION_AMOUNT";
     string private constant ERROR_INVALID_DEACTIVATION_AMOUNT = "JR_INVALID_DEACTIVATION_AMOUNT";
@@ -115,15 +113,6 @@ contract JurorsRegistry is Controlled, ControlledRecoverable, IJurorsRegistry, E
     event JurorTokensCollected(address indexed juror, uint256 amount, uint64 termId);
 
     /**
-    * @dev Ensure the msg.sender is the jurors registry's owner
-    */
-    modifier onlyOwner() {
-        IJurorsRegistryOwner owner = _jurorsRegistryOwner();
-        require(msg.sender == address(owner), ERROR_SENDER_NOT_OWNER);
-        _;
-    }
-
-    /**
     * @dev Constructor function
     * @param _controller Address of the controller
     * @param _jurorToken Address of the ERC20 token to be used as juror token for the registry
@@ -151,8 +140,7 @@ contract JurorsRegistry is Controlled, ControlledRecoverable, IJurorsRegistry, E
     * @param _amount Amount of juror tokens to be activated for the next term
     */
     function activate(uint256 _amount) external {
-        IJurorsRegistryOwner owner = _jurorsRegistryOwner();
-        uint64 termId = owner.ensureAndGetTermId();
+        uint64 termId = _ensureCurrentTerm();
 
         _processDeactivationRequest(msg.sender, termId);
 
@@ -169,9 +157,7 @@ contract JurorsRegistry is Controlled, ControlledRecoverable, IJurorsRegistry, E
     * @param _amount Amount of juror tokens to be deactivated for the next term
     */
     function deactivate(uint256 _amount) external {
-        IJurorsRegistryOwner owner = _jurorsRegistryOwner();
-        uint64 termId = owner.ensureAndGetTermId();
-
+        uint64 termId = _ensureCurrentTerm();
         uint256 unlockedActiveBalance = unlockedActiveBalanceOf(msg.sender);
         uint256 amountToDeactivate = _amount == 0 ? unlockedActiveBalance : _amount;
         require(amountToDeactivate > 0, ERROR_INVALID_ZERO_AMOUNT);
@@ -217,7 +203,7 @@ contract JurorsRegistry is Controlled, ControlledRecoverable, IJurorsRegistry, E
     * @param _juror Juror to add an amount of tokens to
     * @param _amount Amount of tokens to be added to the available balance of a juror
     */
-    function assignTokens(address _juror, uint256 _amount) external onlyOwner {
+    function assignTokens(address _juror, uint256 _amount) external onlyCourt {
         _updateAvailableBalanceOf(_juror, _amount, true);
     }
 
@@ -225,7 +211,7 @@ contract JurorsRegistry is Controlled, ControlledRecoverable, IJurorsRegistry, E
     * @notice Burn `@tokenAmount(self.token(), _amount)`
     * @param _amount Amount of tokens to be burned
     */
-    function burnTokens(uint256 _amount) external onlyOwner {
+    function burnTokens(uint256 _amount) external onlyCourt {
         _updateAvailableBalanceOf(BURN_ACCOUNT, _amount, true);
     }
 
@@ -244,7 +230,7 @@ contract JurorsRegistry is Controlled, ControlledRecoverable, IJurorsRegistry, E
     * @return weights List of weights corresponding to each juror
     * @return length Size of the list of the draft result
     */
-    function draft(uint256[7] calldata _params) external onlyOwner returns (address[] memory jurors, uint64[] memory weights, uint256 length) {
+    function draft(uint256[7] calldata _params) external onlyCourt returns (address[] memory jurors, uint64[] memory weights, uint256 length) {
         uint256 batchRequestedJurors = _params[4];
         jurors = new address[](batchRequestedJurors);
         weights = new uint64[](batchRequestedJurors);
@@ -263,7 +249,7 @@ contract JurorsRegistry is Controlled, ControlledRecoverable, IJurorsRegistry, E
     */
     function slashOrUnlock(uint64 _termId, address[] calldata _jurors, uint256[] calldata _lockedAmounts, bool[] calldata _rewardedJurors)
         external
-        onlyOwner
+        onlyCourt
         returns (uint256)
     {
         require(_jurors.length == _lockedAmounts.length, ERROR_INVALID_LOCKED_AMOUNTS_LENGTH);
@@ -297,7 +283,7 @@ contract JurorsRegistry is Controlled, ControlledRecoverable, IJurorsRegistry, E
     * @param _termId Current term id
     * @return True if the juror has enough unlocked tokens to be collected for the requested term, false otherwise
     */
-    function collectTokens(address _juror, uint256 _amount, uint64 _termId) external onlyOwner returns (bool) {
+    function collectTokens(address _juror, uint256 _amount, uint64 _termId) external onlyCourt returns (bool) {
         if (_amount == 0) {
             return true;
         }
@@ -643,8 +629,7 @@ contract JurorsRegistry is Controlled, ControlledRecoverable, IJurorsRegistry, E
         // Activate tokens if it was requested and the address depositing tokens is the juror. Note that there's
         // no need to check the activation amount since we have just added it to the available balance of the juror
         if (_from == _juror && _data.toBytes4() == JurorsRegistry(this).activate.selector) {
-            IJurorsRegistryOwner owner = _jurorsRegistryOwner();
-            uint64 termId = owner.ensureAndGetTermId();
+            uint64 termId = _ensureCurrentTerm();
             _activateTokens(_juror, termId, _amount);
         }
 
@@ -663,8 +648,7 @@ contract JurorsRegistry is Controlled, ControlledRecoverable, IJurorsRegistry, E
         // the current term this time since deactivation requests always work with future terms, which means that if
         // the current term is outdated, it will never match the deactivation term id. We avoid ensuring the term here
         // to avoid forcing jurors to do that in order to withdraw their available balance.
-        IJurorsRegistryOwner owner = _jurorsRegistryOwner();
-        _processDeactivationRequest(_juror, owner.getLastEnsuredTermId());
+        _processDeactivationRequest(_juror, _getLastEnsuredTermId());
 
         _updateAvailableBalanceOf(_juror, _amount, false);
         require(jurorsToken.safeTransfer(_juror, _amount), ERROR_TOKEN_TRANSFER_FAILED);
@@ -796,8 +780,7 @@ contract JurorsRegistry is Controlled, ControlledRecoverable, IJurorsRegistry, E
         // function `totalSumAt` will perform a backwards linear search from the last checkpoint or a binary search
         // depending on whether the given checkpoint is considered to be recent or not. In this case, we consider
         // current or future terms as recent ones.
-        IJurorsRegistryOwner owner = _jurorsRegistryOwner();
-        bool recent = _termId >= owner.getLastEnsuredTermId();
+        bool recent = _termId >= _getLastEnsuredTermId();
         return recent ? tree.getRecentTotalAt(_termId) : tree.getTotalAt(_termId);
     }
 

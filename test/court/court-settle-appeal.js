@@ -1,9 +1,10 @@
+const { DEFAULTS } = require('../helpers/controller')(web3, artifacts)
 const { bn, bigExp } = require('../helpers/numbers')
 const { assertRevert } = require('../helpers/assertThrow')
 const { filterWinningJurors } = require('../helpers/jurors')
+const { buildHelper, ROUND_STATES } = require('../helpers/court')(web3, artifacts)
 const { assertAmountOfEvents, assertEvent } = require('../helpers/assertEvent')
 const { getVoteId, oppositeOutcome, OUTCOMES } = require('../helpers/crvoting')
-const { buildHelper, DEFAULTS, ROUND_STATES } = require('../helpers/court')(web3, artifacts)
 
 contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, juror1000, juror1500, juror2000, juror2500, juror3000, juror3500, juror4000]) => {
   let courtHelper, court, voting

@@ -14,7 +14,7 @@ contract('Controller', ([_, sender, disputer, drafter, appealMaker, appealTaker,
   let appealCollateralFactor, appealConfirmCollateralFactor
 
   const ERROR_SENDER_NOT_CONFIG_GOVERNOR = 'CTR_SENDER_NOT_GOVERNOR'
-  const ERROR_TOO_OLD_TERM = 'CT_TOO_OLD_TERM'
+  const ERROR_TOO_OLD_TERM = 'CONF_TOO_OLD_TERM'
 
   const checkConfig = async (termId, newConfig) => {
     const {

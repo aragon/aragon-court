@@ -154,28 +154,26 @@ module.exports = (web3, artifacts) => {
       return getEventArgument(receipt, 'NewDispute', 'disputeId')
     }
 
-    async draft({ disputeId, maxJurorsToBeDrafted = undefined, draftedJurors = undefined, drafter = undefined }) {
+    async draft({ disputeId, draftedJurors = undefined, drafter = undefined }) {
       // if no drafter was given pick the third account
       if (!drafter) drafter = await this._getAccount(2)
 
-      // draft all jurors if there was no max given
-      if (!maxJurorsToBeDrafted) {
-        const { lastRoundId } = await this.getDispute(disputeId)
-        const { roundJurorsNumber } = await this.getRound(disputeId, lastRoundId)
-        maxJurorsToBeDrafted = roundJurorsNumber.toNumber()
-      }
-
       // mock draft if there was a jurors set to be drafted
       if (draftedJurors) {
+        const { lastRoundId } = await this.getDispute(disputeId)
+        const { roundJurorsNumber } = await this.getRound(disputeId, lastRoundId)
+        const maxJurorsPerDraftBatch = await this.court.maxJurorsPerDraftBatch()
+        const jurorsToBeDrafted = roundJurorsNumber.lt(maxJurorsPerDraftBatch) ?
+              roundJurorsNumber.toNumber() : maxJurorsPerDraftBatch.toNumber()
         const totalWeight = draftedJurors.reduce((total, { weight }) => total + weight, 0)
-        if (totalWeight !== maxJurorsToBeDrafted) throw Error('Given jurors to be drafted do not fit the round jurors number')
+        if (totalWeight !== jurorsToBeDrafted) throw Error('Given jurors to be drafted do not fit the batch jurors number')
         const jurors = draftedJurors.map(j => j.address)
         const weights = draftedJurors.map(j => j.weight)
         await this.jurorsRegistry.mockNextDraft(jurors, weights)
       }
 
       // draft and flat jurors with their weights
-      const receipt = await this.court.draft(disputeId, maxJurorsToBeDrafted, { from: drafter })
+      const receipt = await this.court.draft(disputeId, { from: drafter })
       const logs = decodeEventsOfType(receipt, this.artifacts.require('JurorsRegistry').abi, 'JurorDrafted')
       const weights = getEvents({ logs }, 'JurorDrafted').reduce((jurors, event) => {
         const { juror } = event.args

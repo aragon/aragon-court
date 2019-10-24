@@ -17,6 +17,7 @@ module.exports = (web3, artifacts) => {
   const DEFAULTS = {
     termDuration:                       bn(ONE_DAY),     //  terms lasts one day
     firstTermStartTime:                 bn(NEXT_WEEK),   //  first term starts one week after mocked timestamp
+    maxJurorsPerDraftBatch:             bn(10),          //  max number of jurors drafted per batch
     commitTerms:                        bn(2),           //  vote commits last 2 terms
     revealTerms:                        bn(2),           //  vote reveals last 2 terms
     appealTerms:                        bn(2),           //  appeals last 2 terms
@@ -211,7 +212,7 @@ module.exports = (web3, artifacts) => {
 
     async deployModules() {
       if (!this.jurorToken) this.jurorToken = await this.artifacts.require('ERC20Mock').new('Aragon Network Juror Token', 'ANJ', 18)
-      if (!this.court) this.court = await this.artifacts.require('Court').new(this.controller.address)
+      if (!this.court) this.court = await this.artifacts.require('Court').new(this.controller.address, this.maxJurorsPerDraftBatch)
       if (!this.voting) this.voting = await this.artifacts.require('CRVoting').new(this.controller.address)
       if (!this.treasury) this.treasury = await this.artifacts.require('CourtTreasury').new(this.controller.address)
 

@@ -80,7 +80,7 @@ contract('Court', ([_, sender, disputer, drafter, appealMaker, appealTaker, juro
         await courtHelper.passRealTerms(draftTermId - lastEnsuredTermId)
       })
 
-      itCostsAtMost('draft', 388e3, () => court.draft(disputeId, 100))
+      itCostsAtMost('draft', 388e3, () => court.draft(disputeId))
     })
 
     describe('commit', () => {
@@ -196,7 +196,7 @@ contract('Court', ([_, sender, disputer, drafter, appealMaker, appealTaker, juro
           assertBn(neededTransitions, 1, 'needed transitions does not match')
         })
 
-        itCostsAtMost('createAppeal', 139e3, () => court.createAppeal(disputeId, roundId, appealMakerRuling, { from: appealMaker }))
+        itCostsAtMost('createAppeal', 140e3, () => court.createAppeal(disputeId, roundId, appealMakerRuling, { from: appealMaker }))
       })
     })
 
@@ -315,7 +315,7 @@ contract('Court', ([_, sender, disputer, drafter, appealMaker, appealTaker, juro
           assertBn(neededTransitions, 1, 'needed transitions does not match')
         })
 
-        itCostsAtMost('settlePenalties', 258e3, () => court.settlePenalties(disputeId, roundId, 0))
+        itCostsAtMost('settlePenalties', 265e3, () => court.settlePenalties(disputeId, roundId, 0))
       })
     })
 

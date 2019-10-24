@@ -34,6 +34,7 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
     string private constant ERROR_INVALID_RULING_OPTIONS = "CT_INVALID_RULING_OPTIONS";
     string private constant ERROR_SUBSCRIPTION_NOT_PAID = "CT_SUBSCRIPTION_NOT_PAID";
     string private constant ERROR_DEPOSIT_FAILED = "CT_DEPOSIT_FAILED";
+    string private constant ERROR_BAD_MAX_DRAFT_BATCH_SIZE = "CT_BAD_MAX_DRAFT_BATCH_SIZE";
 
     // Rounds-related error messages
     string private constant ERROR_ROUND_IS_FINAL = "CT_ROUND_IS_FINAL";
@@ -124,6 +125,10 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
         uint256 confirmAppealDeposit;  // Total amount of fees for a regular round at the given term
     }
 
+    // Max jurors to be drafted in each batch. To prevent running out of gas. We allow to change it because max gas per tx can vary
+    // As a reference, drafting 100 jurors from a small tree of 4 would cost ~2.4M. Drafting 500, ~7.75M.
+    uint64 public maxJurorsPerDraftBatch;
+
     // List of all the disputes created in the Court
     Dispute[] internal disputes;
 
@@ -135,6 +140,7 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
     event PenaltiesSettled(uint256 indexed disputeId, uint256 indexed roundId, uint256 collectedTokens);
     event RewardSettled(uint256 indexed disputeId, uint256 indexed roundId, address juror);
     event AppealDepositSettled(uint256 indexed disputeId, uint256 indexed roundId);
+    event MaxJurorsPerDraftBatchChanged(uint64 previousMaxJurorsPerDraftBatch, uint64 currentMaxJurorsPerDraftBatch);
 
     /**
     * @dev Ensure the msg.sender is the CR Voting module
@@ -167,10 +173,11 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
     /**
     * @dev Constructor function
     * @param _controller Address of the controller
+    * @param _maxJurorsPerDraftBatch Max number of jurors to be drafted per batch
     */
-    constructor(Controller _controller) ControlledRecoverable(_controller) public {
-        // solium-disable-previous-line no-empty-blocks
+    constructor(Controller _controller, uint64 _maxJurorsPerDraftBatch) ControlledRecoverable(_controller) public {
         // No need to explicitly call `Controlled` constructor since `ControlledRecoverable` is already doing it
+        _setMaxJurorsPerDraftBatch(_maxJurorsPerDraftBatch);
     }
 
     /**
@@ -211,9 +218,8 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
     /**
      * @notice Draft jurors for the next round of dispute #`_disputeId`
      * @param _disputeId Identification number of the dispute to be drafted
-     * @param _maxJurorsToBeDrafted Max number of jurors to be drafted, it will be capped to the requested number of jurors of the dispute
      */
-    function draft(uint256 _disputeId, uint64 _maxJurorsToBeDrafted) external disputeExists(_disputeId) {
+    function draft(uint256 _disputeId) external disputeExists(_disputeId) {
         // Drafts can only be computed when the Court is up-to-date. Note that forcing a term transition won't work since the term randomness
         // is always based on the next term which means it won't be available anyway.
         IClock clock = _clock();
@@ -227,24 +233,17 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
 
         // Ensure draft term randomness can be computed for the current block number
         AdjudicationRound storage round = dispute.rounds[dispute.rounds.length - 1];
-        // TODO: stack too deep issue - cannot cache round.draftTermId
-        bytes32 draftTermRandomness = clock.ensureTermRandomness(round.draftTermId);
-
-        // Draft the min number of jurors between the one requested by the sender and the one requested by the disputer
-        uint64 jurorsNumber = round.jurorsNumber;
-        uint64 selectedJurors = round.selectedJurors;
-        // No need for SafeMath: selectedJurors is set in `_draft` function, by adding to it `requestedJurors`. The line below prevents underflow
-        uint64 jurorsToBeDrafted = jurorsNumber - selectedJurors;
-        uint64 requestedJurors = jurorsToBeDrafted < _maxJurorsToBeDrafted ? jurorsToBeDrafted : _maxJurorsToBeDrafted;
+        uint64 draftTermId = round.draftTermId;
+        bytes32 draftTermRandomness = clock.ensureTermRandomness(draftTermId);
 
         // Draft jurors for the given dispute and reimburse fees
         Config memory config = _getDisputeConfig(dispute);
-        bool draftEnded = _draft(_disputeId, round, jurorsNumber, selectedJurors, requestedJurors, currentTermId, draftTermRandomness, config);
+        bool draftEnded = _draft(_disputeId, round, currentTermId, draftTermRandomness, config);
 
         // If the drafting is over, update its state
         if (draftEnded) {
             // Note that we can avoid using SafeMath here since we already ensured `termId` is greater than or equal to `round.draftTermId`
-            round.delayedTerms = currentTermId - round.draftTermId;
+            round.delayedTerms = currentTermId - draftTermId;
             dispute.state = DisputeState.Adjudicating;
             emit DisputeStateChanged(_disputeId, DisputeState.Adjudicating);
         }
@@ -510,6 +509,14 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
         _checkAdjudicationState(dispute, roundId, AdjudicationState.Revealing);
         AdjudicationRound storage round = dispute.rounds[roundId];
         return _getStoredJurorWeight(round, _voter);
+    }
+
+    /**
+    * @notice Sets the global configuration for the max number of jurors to be drafted per batch to `_maxJurorsPerDraftBatch`
+    * @param _maxJurorsPerDraftBatch Max number of jurors to be drafted per batch
+    */
+    function setMaxJurorsPerDraftBatch(uint64 _maxJurorsPerDraftBatch) external onlyConfigGovernor {
+        _setMaxJurorsPerDraftBatch(_maxJurorsPerDraftBatch);
     }
 
     /**
@@ -871,6 +878,16 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
     }
 
     /**
+    * @dev Sets the global configuration for the max number of jurors to be drafted per batch
+    * @param _maxJurorsPerDraftBatch Max number of jurors to be drafted per batch
+    */
+    function _setMaxJurorsPerDraftBatch(uint64 _maxJurorsPerDraftBatch) internal {
+        require(_maxJurorsPerDraftBatch > 0, ERROR_BAD_MAX_DRAFT_BATCH_SIZE);
+        emit MaxJurorsPerDraftBatchChanged(maxJurorsPerDraftBatch, _maxJurorsPerDraftBatch);
+        maxJurorsPerDraftBatch = _maxJurorsPerDraftBatch;
+    }
+
+    /**
     * @dev Internal function to execute a deposit of tokens from the msg.sender to the Court treasury contract
     * @param _token ERC20 token to execute a transfer from
     * @param _amount Amount of tokens to be transferred from the msg.sender to the Court treasury
@@ -1155,9 +1172,6 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
     * @dev Private function to draft jurors for a given dispute and round. It assumes the given data is correct
     * @param _disputeId Identification number of the dispute to be drafted
     * @param _round Round of the dispute to be drafted
-    * @param _jurorsNumber Number of jurors requested for the dispute round
-    * @param _selectedJurors Number of jurors already selected for the dispute round
-    * @param _requestedJurors Number of jurors to be drafted for the given dispute. Note that this number could be part of the jurors number.
     * @param _currentTermId Identification number of the current term of the Court
     * @param _draftTermRandomness Randomness of the term in which the dispute was requested to be drafted
     * @param _config Config of the Court at the draft term
@@ -1166,23 +1180,28 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
     function _draft(
         uint256  _disputeId,
         AdjudicationRound storage _round,
-        uint64 _jurorsNumber,
-        uint64 _selectedJurors,
-        uint64 _requestedJurors,
         uint64 _currentTermId,
         bytes32 _draftTermRandomness,
         Config memory _config
     )
         private returns (bool)
     {
+        uint64 jurorsNumber = _round.jurorsNumber;
+        uint64 selectedJurors = _round.selectedJurors;
+        uint64 maxJurorsPerDraftBatch_ = maxJurorsPerDraftBatch;
+        // No need for SafeMath: selectedJurors is set in `_draft` function, by adding to it `requestedJurors`. The line below prevents underflow
+        uint64 jurorsToBeDrafted = jurorsNumber - selectedJurors;
+        // Draft the min number of jurors between the one requested by the sender and the one requested by the disputer
+        uint64 requestedJurors = jurorsToBeDrafted < maxJurorsPerDraftBatch_ ? jurorsToBeDrafted : maxJurorsPerDraftBatch_;
+
         // Pack draft params
         uint256[7] memory draftParams = [
             uint256(_draftTermRandomness),
             _disputeId,
             uint256(_currentTermId),
-            _selectedJurors,
-            _requestedJurors,
-            uint256(_jurorsNumber),
+            uint256(selectedJurors),
+            uint256(requestedJurors),
+            uint256(jurorsNumber),
             uint256(_config.disputes.penaltyPct)
         ];
 
@@ -1191,27 +1210,40 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
         (address[] memory jurors, uint256 draftedJurors) = jurorsRegistry.draft(draftParams);
 
         // Update round with drafted jurors information
-        // No need for SafeMath: this cannot be greater than `jurorsNumber`.
-        uint64 newSelectedJurors = _selectedJurors + uint64(draftedJurors);
+        // No need for SafeMath: this cannot be greater than `jurorsNumber`
+        uint64 newSelectedJurors = selectedJurors + uint64(draftedJurors);
         _round.selectedJurors = newSelectedJurors;
+        _updateRoundDraftedJurors(_round, jurors, draftedJurors);
+        bool draftEnded = newSelectedJurors == jurorsNumber;
 
-        // Store or update drafted jurors' weight
-        for (uint256 i = 0; i < draftedJurors; i++) {
-            address juror = jurors[i];
+        // Transfer fees corresponding to the actual number of drafted jurors
+        ITreasury treasury = _treasury();
+        FeesConfig memory feesConfig = _config.fees;
+        treasury.assign(feesConfig.token, msg.sender, feesConfig.draftFee.mul(draftedJurors));
+
+        return draftEnded;
+    }
+
+    /**
+    * @dev Private function to update the drafted jurors' weight for the given round
+    * @param _round Adjudication round that needs to be updated
+    * @param _jurors List of jurors addresses that were drafted for the given round
+    * @param _draftedJurors Number of jurors that were drafted for the given round. Note that this number may not necessarily be equal to the
+    *        given list of jurors since the draft could potentially return less jurors than the requested amount.
+    */
+    function _updateRoundDraftedJurors(AdjudicationRound storage _round, address[] memory _jurors, uint256 _draftedJurors) private {
+        for (uint256 i = 0; i < _draftedJurors; i++) {
+            address juror = _jurors[i];
             JurorState storage jurorState = _round.jurorsStates[juror];
+
             // If the juror was already registered in the list, then don't add it twice
             if (uint256(jurorState.weight) == 0) {
                 _round.jurors.push(juror);
             }
+
             // No need for SafeMath: we assume a juror cannot be drafted 2^64 times for a round
             jurorState.weight++;
         }
-
-        // Transfer fees corresponding to the actual number of drafted jurors
-        ITreasury treasury = _treasury();
-        treasury.assign(_config.fees.token, msg.sender, _config.fees.draftFee.mul(draftedJurors));
-
-        return newSelectedJurors == _jurorsNumber;
     }
 
     /**

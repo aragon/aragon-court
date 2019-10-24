@@ -957,8 +957,8 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
         }
 
         // Calculate appeal collateral
-        nextRound.appealDeposit = nextRound.totalFees.mul(disputesConfig.appealCollateralFactor);
-        nextRound.confirmAppealDeposit = nextRound.totalFees.mul(disputesConfig.appealConfirmCollateralFactor);
+        nextRound.appealDeposit = nextRound.totalFees.pct256(disputesConfig.appealCollateralFactor);
+        nextRound.confirmAppealDeposit = nextRound.totalFees.pct256(disputesConfig.appealConfirmCollateralFactor);
         return nextRound;
     }
 

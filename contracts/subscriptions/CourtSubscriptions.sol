@@ -19,21 +19,14 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
     using SafeMath64 for uint64;
     using PctHelpers for uint256;
 
-    string private constant ERROR_OWNER_ALREADY_SET = "CS_OWNER_ALREADY_SET";
-    string private constant ERROR_REGISTRY_NOT_CONTRACT = "CS_REGISTRY_NOT_CONTRACT";
     string private constant ERROR_SENDER_NOT_SUBSCRIBED = "CS_SENDER_NOT_SUBSCRIBED";
     string private constant ERROR_GOVERNOR_SHARE_FEES_ZERO = "CS_GOVERNOR_SHARE_FEES_ZERO";
     string private constant ERROR_TOKEN_TRANSFER_FAILED = "CS_TOKEN_TRANSFER_FAILED";
     string private constant ERROR_PERIOD_DURATION_ZERO = "CS_PERIOD_DURATION_ZERO";
-    string private constant ERROR_INVALID_FEE_AMOUNT = "CS_INVALID_FEE_AMOUNT";
     string private constant ERROR_FEE_AMOUNT_ZERO = "CS_FEE_AMOUNT_ZERO";
-    string private constant ERROR_INVALID_FEE_TOKEN = "CS_INVALID_FEE_TOKEN";
     string private constant ERROR_FEE_TOKEN_NOT_CONTRACT = "CS_FEE_TOKEN_NOT_CONTRACT";
-    string private constant ERROR_INVALID_PREPAYMENT_PERIODS = "CS_INVALID_PREPAYMENT_PERIODS";
     string private constant ERROR_PREPAYMENT_PERIODS_ZERO = "CS_PREPAYMENT_PERIODS_ZERO";
-    string private constant ERROR_INVALID_GOVERNOR_SHARE_PCT = "CS_INVALID_GOVERNOR_SHARE_PCT";
     string private constant ERROR_OVERRATED_GOVERNOR_SHARE_PCT = "CS_OVERRATED_GOVERNOR_SHARE_PCT";
-    string private constant ERROR_INVALID_LATE_PAYMENT_PENALTY_PCT = "CS_INVALID_LATE_PAYMENT_PENALTY";
     string private constant ERROR_RESUME_PRE_PAID_PERIODS_TOO_BIG = "CS_RESUME_PRE_PAID_PERIODS_BIG";
     string private constant ERROR_NON_PAST_PERIOD = "CS_NON_PAST_PERIOD";
     string private constant ERROR_JUROR_FEES_ALREADY_CLAIMED = "CS_JUROR_FEES_ALREADY_CLAIMED";
@@ -41,6 +34,8 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
     string private constant ERROR_PAYING_ZERO_PERIODS = "CS_PAYING_ZERO_PERIODS";
     string private constant ERROR_PAYING_TOO_MANY_PERIODS = "CS_PAYING_TOO_MANY_PERIODS";
     string private constant ERROR_LOW_RESUME_PERIODS_PAYMENT = "CS_LOW_RESUME_PERIODS_PAYMENT";
+    string private constant ERROR_DONATION_AMOUNT_ZERO = "CS_DONATION_AMOUNT_ZERO";
+    string private constant ERROR_COURT_HAS_NOT_STARTED = "CS_COURT_HAS_NOT_STARTED";
 
     // Term 0 is for jurors on-boarding
     uint64 internal constant START_TERM_ID = 1;
@@ -64,10 +59,10 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
     // Duration of a subscription period in Court terms
     uint64 public periodDuration;
 
-    // Per ten thousand of subscription fees that will be applied as penalty for not paying during proper period (‱ - 1/10,000)
+    // Permyriad of subscription fees that will be applied as penalty for not paying during proper period (‱ - 1/10,000)
     uint16 public latePaymentPenaltyPct;
 
-    // Per ten thousand of subscription fees that will be allocated to the governor of the Court (‱ - 1/10,000)
+    // Permyriad of subscription fees that will be allocated to the governor of the Court (‱ - 1/10,000)
     uint16 public governorSharePct;
 
     // ERC20 token used for the subscription fees
@@ -94,6 +89,7 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
     mapping (uint256 => Period) internal periods;
 
     event FeesPaid(address indexed subscriber, uint256 periods, uint256 newLastPeriodId, uint256 collectedFees, uint256 governorFee);
+    event FeesDonated(address indexed payer, uint256 amount);
     event FeesClaimed(address indexed juror, uint256 indexed periodId, uint256 jurorShare);
     event GovernorFeesTransferred(uint256 amount);
     event FeeTokenChanged(address previousFeeToken, address currentFeeToken);
@@ -111,8 +107,8 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
     * @param _feeAmount Initial amount of fees to be paid for each subscription period
     * @param _prePaymentPeriods Initial number of periods that can be paid in advance including the current period
     * @param _resumePrePaidPeriods Initial number of periods a subscriber must pre-pay in order to resume his activity after pausing
-    * @param _latePaymentPenaltyPct Initial per ten thousand of subscription fees that will be applied as penalty for not paying during proper period (‱ - 1/10,000)
-    * @param _governorSharePct Initial per ten thousand of subscription fees that will be allocated to the governor of the Court (‱ - 1/10,000)
+    * @param _latePaymentPenaltyPct Initial permyriad of subscription fees that will be applied as penalty for not paying during proper period (‱ - 1/10,000)
+    * @param _governorSharePct Initial permyriad of subscription fees that will be allocated to the governor of the Court (‱ - 1/10,000)
     */
     constructor(
         Controller _controller,
@@ -150,7 +146,6 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
         Subscriber storage subscriber = subscribers[_from];
         uint256 currentPeriodId = _getCurrentPeriodId();
         Period storage period = periods[currentPeriodId];
-
         (ERC20 feeToken, uint256 feeAmount) = _ensurePeriodFeeTokenAndAmount(period);
 
         // Compute the total amount to pay by sender on behalf of the subscriber, including the penalties for delayed periods
@@ -179,6 +174,24 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
         // Deposit fee tokens from sender to this contract
         emit FeesPaid(_from, _periods, newLastPeriodId, collectedFees, governorFee);
         require(feeToken.safeTransferFrom(msg.sender, address(this), amountToPay), ERROR_TOKEN_TRANSFER_FAILED);
+    }
+
+    /**
+    * @notice Donate fees to the Court
+    * @param _amount Amount of fee tokens to be donated
+    */
+    function donate(uint256 _amount) external {
+        require(_amount > 0, ERROR_DONATION_AMOUNT_ZERO);
+
+        uint256 currentPeriodId = _getCurrentPeriodId();
+        Period storage period = periods[currentPeriodId];
+        (ERC20 feeToken, ) = _ensurePeriodFeeTokenAndAmount(period);
+
+        period.collectedFees = period.collectedFees.add(_amount);
+
+        // Deposit fee tokens from sender to this contract
+        emit FeesDonated(msg.sender, _amount);
+        require(feeToken.safeTransferFrom(msg.sender, address(this), _amount), ERROR_TOKEN_TRANSFER_FAILED);
     }
 
     /**
@@ -261,8 +274,8 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
     }
 
     /**
-    * @notice Set new late payment penalty `_latePaymentPenaltyPct`‱ (1/10,000)
-    * @param _latePaymentPenaltyPct New per ten thousand of subscription fees that will be applied as penalty for not paying during proper period
+    * @notice Set new late payment penalty `_latePaymentPenaltyPct`‱ (‱ - 1/10,000)
+    * @param _latePaymentPenaltyPct New permyriad of subscription fees that will be applied as penalty for not paying during proper period
     */
     function setLatePaymentPenaltyPct(uint16 _latePaymentPenaltyPct) external onlyConfigGovernor {
         _setLatePaymentPenaltyPct(_latePaymentPenaltyPct);
@@ -270,7 +283,7 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
 
     /**
     * @notice Set new governor share to `_governorSharePct`‱ (1/10,000)
-    * @param _governorSharePct New per ten thousand of subscription fees that will be allocated to the governor of the Court (‱ - 1/10,000)
+    * @param _governorSharePct New permyriad of subscription fees that will be allocated to the governor of the Court (‱ - 1/10,000)
     */
     function setGovernorSharePct(uint16 _governorSharePct) external onlyConfigGovernor {
         _setGovernorSharePct(_governorSharePct);
@@ -300,6 +313,27 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
     */
     function getCurrentPeriodId() external view returns (uint256) {
         return _getCurrentPeriodId();
+    }
+
+    /**
+    * @dev Get details of the current period
+    * @return feeToken Fee token corresponding to a certain subscription period
+    * @return feeAmount Amount of fees paid for a certain subscription period
+    * @return balanceCheckpoint Court term id of a period used to fetch the total active balance of the jurors registry
+    * @return totalActiveBalance Total amount of juror tokens active in the Court at the corresponding period checkpoint
+    * @return collectedFees Total amount of subscription fees collected during a period
+    */
+    function getCurrentPeriod() external view
+        returns (ERC20 feeToken, uint256 feeAmount, uint64 balanceCheckpoint, uint256 totalActiveBalance, uint256 collectedFees)
+    {
+        uint256 currentPeriodId = _getCurrentPeriodId();
+        Period storage period = periods[currentPeriodId];
+
+        feeToken = period.feeToken;
+        feeAmount = period.feeAmount;
+        balanceCheckpoint = period.balanceCheckpoint;
+        totalActiveBalance = period.totalActiveBalance;
+        collectedFees = period.collectedFees;
     }
 
     /**
@@ -487,7 +521,7 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
 
     /**
     * @dev Internal function to set new late payment penalty `_latePaymentPenaltyPct`‱ (1/10,000)
-    * @param _latePaymentPenaltyPct New per ten thousand of subscription fees that will be applied as penalty for not paying during proper period
+    * @param _latePaymentPenaltyPct New permyriad of subscription fees that will be applied as penalty for not paying during proper period
     */
     function _setLatePaymentPenaltyPct(uint16 _latePaymentPenaltyPct) internal {
         emit LatePaymentPenaltyPctChanged(latePaymentPenaltyPct, _latePaymentPenaltyPct);
@@ -496,7 +530,7 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
 
     /**
     * @dev Internal function to set a new governor share value
-    * @param _governorSharePct New per ten thousand of subscription fees that will be allocated to the governor of the Court (‱ - 1/10,000)
+    * @param _governorSharePct New permyriad of subscription fees that will be allocated to the governor of the Court (‱ - 1/10,000)
     */
     function _setGovernorSharePct(uint16 _governorSharePct) internal {
         // Check governor share is not greater than 10,000‱
@@ -527,7 +561,11 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
     function _getCurrentPeriodId() internal view returns (uint256) {
         // Since the Court starts at term #1, and the first subscription period is #0, then subtract one unit to the current term of the Court
         uint64 termId = _getCurrentTermId();
-        return uint256(termId).sub(START_TERM_ID) / periodDuration;
+        require(termId > 0, ERROR_COURT_HAS_NOT_STARTED);
+
+        // No need for SafeMath: we already checked that termId is at least 1
+        uint64 periodId = (termId - START_TERM_ID) / periodDuration;
+        return uint256(periodId);
     }
 
     /**

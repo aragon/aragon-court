@@ -228,7 +228,7 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
     *        3. uint256 Number of seats already filled
     *        4. uint256 Number of seats left to be filled
     *        5. uint64  Number of jurors required for the draft
-    *        6. uint16  Per ten thousand of the minimum active balance to be locked for the draft
+    *        6. uint16  Permyriad of the minimum active balance to be locked for the draft
     *
     * @return jurors List of jurors selected for the draft
     * @return length Size of the list of the draft result
@@ -865,7 +865,7 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
     *        3. uint256 Number of seats already filled
     *        4. uint256 Number of seats left to be filled
     *        5. uint64  Number of jurors required for the draft
-    *        6. uint16  Per ten thousand of the minimum active balance to be locked for the draft
+    *        6. uint16  Permyriad of the minimum active balance to be locked for the draft
     *
     * @return Draft params object parsed
     */

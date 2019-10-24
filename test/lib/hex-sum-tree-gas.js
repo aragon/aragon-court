@@ -15,10 +15,10 @@ contract('HexSumTree', () => {
   })
 
   const itCostsAtMost = (expectedCost, call) => {
-    it(`should cost up to ${expectedCost} gas`, async () => {
+    it(`should cost up to ${expectedCost.toLocaleString()} gas`, async () => {
       const receipt = await call()
       const costs = getEventArgument(receipt, 'GasConsumed', 'gas').toNumber()
-      console.log(`gas costs: ${costs}`)
+      console.log(`gas costs: ${costs.toLocaleString()}`)
       assert.isAtMost(costs, expectedCost)
     })
   }
@@ -33,7 +33,7 @@ contract('HexSumTree', () => {
         })
 
         context('huge tree', () => {
-          const expectedCost = 280e3
+          const expectedCost = 277e3
 
           itCostsAtMost(expectedCost, async () => {
             // mock huge next key
@@ -49,7 +49,7 @@ contract('HexSumTree', () => {
 
       context('increasing height', () => {
         context('small tree', () => {
-          const expectedCost = 150e3
+          const expectedCost = 149e3
 
           itCostsAtMost(expectedCost, async () => {
             for (let i = 0; i < CHILDREN; i++) await tree.insert(0, 10)
@@ -60,7 +60,7 @@ contract('HexSumTree', () => {
         })
 
         context('huge tree', () => {
-          const expectedCost = 592e3
+          const expectedCost = 589e3
 
           itCostsAtMost(expectedCost, async () => {
             // mock huge next key
@@ -109,14 +109,14 @@ contract('HexSumTree', () => {
 
         context('previous registered checkpoint', () => {
           const setTime = 0
-          const expectedCost = 241e3
+          const expectedCost = 238e3
 
           itCostsAtMost(expectedCost, () => tree.set(nextKey, setTime, 50))
         })
 
         context('new registered checkpoint', () => {
           const setTime = 10
-          const expectedCost = 816e3
+          const expectedCost = 812e3
 
           itCostsAtMost(expectedCost, () => tree.set(nextKey, setTime, 50))
         })
@@ -157,14 +157,14 @@ contract('HexSumTree', () => {
 
         context('previous registered checkpoint', () => {
           const updateTime = 0
-          const expectedCost = 241e3
+          const expectedCost = 238e3
 
           itCostsAtMost(expectedCost, () => tree.update(nextKey, updateTime, 50, true))
         })
 
         context('new registered checkpoint', () => {
           const updateTime = 10
-          const expectedCost = 816e3
+          const expectedCost = 812e3
 
           itCostsAtMost(expectedCost, () => tree.update(nextKey, updateTime, 50, true))
         })
@@ -215,7 +215,7 @@ contract('HexSumTree', () => {
 
         context('huge tree', () => {
           context('without checkpoints', () => {
-            const expectedCost = 74e3
+            const expectedCost = 72e3
 
             itCostsAtMost(expectedCost, async () => {
               // mock huge next key
@@ -229,7 +229,7 @@ contract('HexSumTree', () => {
 
           context('with checkpoints', () => {
             const updateTimes = 100
-            const expectedCost = 256e3
+            const expectedCost = 249e3
 
             itCostsAtMost(expectedCost, async () => {
               // mock huge next key
@@ -267,7 +267,7 @@ contract('HexSumTree', () => {
 
           context('with checkpoints', () => {
             const updateTimes = 100
-            const expectedCost = 37e3
+            const expectedCost = 36e3
 
             itCostsAtMost(expectedCost, async () => {
               await insertMany(value, insertTimes)
@@ -280,7 +280,7 @@ contract('HexSumTree', () => {
 
         context('huge tree', () => {
           context('without checkpoints', () => {
-            const expectedCost = 116e3
+            const expectedCost = 113e3
 
             itCostsAtMost(expectedCost, async () => {
               // mock huge next key
@@ -294,7 +294,7 @@ contract('HexSumTree', () => {
 
           context('with checkpoints', () => {
             const updateTimes = 100
-            const expectedCost = 741e3
+            const expectedCost = 725e3
 
             itCostsAtMost(expectedCost, async () => {
               // mock huge next key

@@ -1,8 +1,8 @@
+const { buildHelper } = require('../helpers/controller')(web3, artifacts)
 const { assertRevert } = require('../helpers/assertThrow')
 const { assertAmountOfEvents, assertEvent } = require('../helpers/assertEvent')
 
 const Controlled = artifacts.require('Controlled')
-const Controller = artifacts.require('Controller')
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
 
@@ -10,7 +10,7 @@ contract('Controller', ([_, fundsGovernor, configGovernor, modulesGovernor, some
   let controller
 
   beforeEach('create controller', async () => {
-    controller = await Controller.new(fundsGovernor, configGovernor, modulesGovernor)
+    controller = await buildHelper().deploy({ fundsGovernor, configGovernor, modulesGovernor })
   })
 
   describe('getFundsGovernor', () => {
@@ -252,7 +252,7 @@ contract('Controller', ([_, fundsGovernor, configGovernor, modulesGovernor, some
           const modules = [
             { id: '0x26f3b895987e349a46d6d91132234924c6d45cfdc564b33427f53e3f9284955c', getter: 'getCourt' },
             { id: '0x7cbb12e82a6d63ff16fe43977f43e3e2b247ecd4e62c0e340da8800a48c67346', getter: 'getVoting' },
-            { id: '0x3ec26b85a7d49ed13a920deeaceb063fa458eb25266fa7b504696047900a5b0f', getter: 'getAccounting' },
+            { id: '0x06aa03964db1f7257357ef09714a5f0ca3633723df419e97015e0c7a3e83edb7', getter: 'getTreasury' },
             { id: '0x3b21d36b36308c830e6c4053fb40a3b6d79dde78947fbf6b0accd30720ab5370', getter: 'getJurorsRegistry' },
             { id: '0x2bfa3327fe52344390da94c32a346eeb1b65a8b583e4335a419b9471e88c1365', getter: 'getSubscriptions' },
           ]

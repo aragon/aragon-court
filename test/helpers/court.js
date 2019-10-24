@@ -1,7 +1,6 @@
+const { bn } = require('./numbers')
 const { sha3 } = require('web3-utils')
 const { decodeEventsOfType } = require('./decodeEvent')
-const { NEXT_WEEK, ONE_DAY } = require('./time')
-const { MAX_UINT64, bn, bigExp } = require('./numbers')
 const { getEvents, getEventArgument } = require('@aragon/os/test/helpers/events')
 const { SALT, OUTCOMES, getVoteId, encryptVote, oppositeOutcome, outcomeFor } = require('../helpers/crvoting')
 
@@ -22,80 +21,14 @@ const ROUND_STATES = {
   ENDED: bn(5)
 }
 
-const MODULE_IDS = {
-  court: '0x26f3b895987e349a46d6d91132234924c6d45cfdc564b33427f53e3f9284955c',
-  accounting: '0x3ec26b85a7d49ed13a920deeaceb063fa458eb25266fa7b504696047900a5b0f',
-  voting: '0x7cbb12e82a6d63ff16fe43977f43e3e2b247ecd4e62c0e340da8800a48c67346',
-  registry: '0x3b21d36b36308c830e6c4053fb40a3b6d79dde78947fbf6b0accd30720ab5370',
-  subscriptions: '0x2bfa3327fe52344390da94c32a346eeb1b65a8b583e4335a419b9471e88c1365'
-}
-
 module.exports = (web3, artifacts) => {
-  const { advanceBlocks } = require('../helpers/blocks')(web3)
-
-  const DEFAULTS = {
-    termDuration:                       bn(ONE_DAY),     //  terms lasts one day
-    firstTermStartTime:                 bn(NEXT_WEEK),   //  first term starts one week after mocked timestamp
-    commitTerms:                        bn(1),           //  vote commits last 1 term
-    revealTerms:                        bn(1),           //  vote reveals last 1 term
-    appealTerms:                        bn(1),           //  appeals last 1 term
-    appealConfirmTerms:                 bn(1),           //  appeal confirmations last 1 term
-    jurorFee:                           bigExp(10, 18),  //  10 fee tokens for juror fees
-    heartbeatFee:                       bigExp(20, 18),  //  20 fee tokens for heartbeat fees
-    draftFee:                           bigExp(30, 18),  //  30 fee tokens for draft fees
-    settleFee:                          bigExp(40, 18),  //  40 fee tokens for settle fees
-    penaltyPct:                         bn(100),         //  1% (1/10,000)
-    finalRoundReduction:                bn(3300),        //  33% (1/10,000)
-    firstRoundJurorsNumber:             bn(3),           //  disputes start with 3 jurors
-    appealStepFactor:                   bn(3),           //  each time a new appeal occurs, the amount of jurors to be drafted will be incremented 3 times
-    maxRegularAppealRounds:             bn(2),           //  there can be up to 2 appeals in total per dispute
-    appealCollateralFactor:             bn(25000),       //  multiple of juror fees required to appeal a preliminary ruling in per ten thousand
-    appealConfirmCollateralFactor:      bn(35000),       //  multiple of juror fees required to confirm appeal in per ten thousand
-    jurorsMinActiveBalance:             bigExp(100, 18), //  100 ANJ is the minimum balance jurors must activate to participate in the Court
-    finalRoundWeightPrecision:          bn(1000),        //  use to improve division rounding for final round maths
-
-    subscriptionPeriodDuration:         bn(10),          //  each subscription period lasts 10 terms
-    subscriptionFeeAmount:              bigExp(100, 18), //  100 fee tokens per subscription period
-    subscriptionPrePaymentPeriods:      bn(15),          //  15 subscription pre payment period
-    subscriptionResumePrePaidPeriods:   bn(10),          //  10 pre-paid periods when resuming activity
-    subscriptionLatePaymentPenaltyPct:  bn(0),           //  none subscription late payment penalties
-    subscriptionGovernorSharePct:       bn(0),           //  none subscription governor shares
-  }
+  const { DEFAULTS, buildHelper } = require('./controller')(web3, artifacts)
 
   class CourtHelper {
     constructor(web3, artifacts) {
       this.web3 = web3
       this.artifacts = artifacts
-    }
-
-    async getCourtConfig(termId) {
-      const {
-        feeToken,
-        fees,
-        roundStateDurations,
-        pcts,
-        roundParams,
-        appealCollateralParams
-      } = await this.court.getCourtConfig(termId)
-
-      return {
-        feeToken,
-        jurorFee: fees[0],
-        heartbeatFee: fees[1],
-        draftFee: fees[2],
-        settleFee: fees[3],
-        commitTerms: roundStateDurations[0],
-        revealTerms: roundStateDurations[1],
-        appealTerms: roundStateDurations[2],
-        appealConfirmTerms: roundStateDurations[3],
-        penaltyPct: pcts[0],
-        finalRoundReduction: pcts[1],
-        firstRoundJurorsNumber: roundParams[0],
-        appealStepFactor: roundParams[1],
-        maxRegularAppealRounds: roundParams[2],
-        appealCollateralFactor: appealCollateralParams[0],
-        appealConfirmCollateralFactor: appealCollateralParams[1],
-      }
+      this.controllerHelper = buildHelper()
     }
 
     async getDispute(disputeId) {
@@ -143,7 +76,7 @@ module.exports = (web3, artifacts) => {
     async getAppealFees(disputeId, roundId) {
       const nextRoundJurorsNumber = await this.getNextRoundJurorsNumber(disputeId, roundId)
       const jurorFees = await this.getNextRoundJurorFees(disputeId, roundId)
-      let appealFees = this.heartbeatFee.add(jurorFees)
+      let appealFees = jurorFees
 
       if (roundId < this.maxRegularAppealRounds.toNumber() - 1) {
         const draftFees = this.draftFee.mul(nextRoundJurorsNumber)
@@ -184,119 +117,6 @@ module.exports = (web3, artifacts) => {
       const draftActiveBalance = await this.jurorsRegistry.activeBalanceOfAt(juror, draftTerm)
       if (draftActiveBalance.lt(this.jurorsMinActiveBalance)) return bn(0)
       return draftActiveBalance.mul(this.finalRoundWeightPrecision).div(this.jurorsMinActiveBalance)
-    }
-
-    async setTimestamp(timestamp) {
-      await this.jurorsRegistry.mockSetTimestamp(timestamp)
-      await this.court.mockSetTimestamp(timestamp)
-    }
-
-    async increaseTime(seconds) {
-      await this.jurorsRegistry.mockIncreaseTime(seconds)
-      await this.court.mockIncreaseTime(seconds)
-    }
-
-    async advanceBlocks(blocks) {
-      await this.jurorsRegistry.mockAdvanceBlocks(blocks)
-      await this.court.mockAdvanceBlocks(blocks)
-    }
-
-    async setTerm(termId) {
-      // set timestamp corresponding to given term ID
-      await this.setTimestamp(this.firstTermStartTime.add(this.termDuration.mul(bn(termId - 1))))
-      // call heartbeat function for X needed terms
-      const neededTransitions = await this.court.neededTermTransitions()
-      if (neededTransitions.gt(bn(0))) await this.court.heartbeat(neededTransitions)
-    }
-
-    async passTerms(terms) {
-      // increase X terms based on term duration
-      await this.increaseTime(this.termDuration.mul(terms))
-      // call heartbeat function for X terms
-      await this.court.heartbeat(terms)
-      // advance 2 blocks to ensure we can compute term randomness
-      await this.advanceBlocks(2)
-    }
-
-    async passRealTerms(terms) {
-      // increase X terms based on term duration
-      await this.increaseTime(this.termDuration.mul(bn(terms)))
-      // call heartbeat function for X terms
-      await this.court.heartbeat(terms)
-      // advance 2 blocks to ensure we can compute term randomness
-      await advanceBlocks(2)
-    }
-
-    async buildNewConfig (originalConfig, iteration = 1) {
-      const {
-        feeToken,
-        jurorFee, heartbeatFee, draftFee, settleFee,
-        commitTerms, revealTerms, appealTerms, appealConfirmTerms,
-        penaltyPct, finalRoundReduction,
-        firstRoundJurorsNumber, appealStepFactor, maxRegularAppealRounds,
-        appealCollateralFactor, appealConfirmCollateralFactor,
-      } = originalConfig
-
-      const newFeeToken = await artifacts.require('ERC20Mock').new('Court Fee Token', 'CFT', 18)
-      const newFeeTokenAddress = newFeeToken.address
-      const newJurorFee = jurorFee.add(bigExp(iteration * 10, 18))
-      const newHeartbeatFee = heartbeatFee.add(bigExp(iteration * 10, 18))
-      const newDraftFee = draftFee.add(bigExp(iteration * 10, 18))
-      const newSettleFee = settleFee.add(bigExp(iteration * 10, 18))
-      const newCommitTerms = commitTerms.add(bn(iteration))
-      const newRevealTerms = revealTerms.add(bn(iteration))
-      const newAppealTerms = appealTerms.add(bn(iteration))
-      const newAppealConfirmTerms = appealConfirmTerms.add(bn(iteration))
-      const newPenaltyPct = penaltyPct.add(bn(iteration * 100))
-      const newFinalRoundReduction = finalRoundReduction.add(bn(iteration * 100))
-      const newFirstRoundJurorsNumber = firstRoundJurorsNumber.add(bn(iteration))
-      const newAppealStepFactor = appealStepFactor.add(bn(iteration))
-      const newMaxRegularAppealRounds = maxRegularAppealRounds.add(bn(iteration))
-      const newAppealCollateralFactor = appealCollateralFactor.add(bn(iteration * PCT_BASE))
-      const newAppealConfirmCollateralFactor = appealConfirmCollateralFactor.add(bn(iteration * PCT_BASE))
-
-      return {
-        newFeeTokenAddress,
-        newJurorFee, newHeartbeatFee, newDraftFee, newSettleFee,
-        newCommitTerms, newRevealTerms, newAppealTerms, newAppealConfirmTerms,
-        newPenaltyPct, newFinalRoundReduction,
-        newFirstRoundJurorsNumber, newAppealStepFactor, newMaxRegularAppealRounds,
-        newAppealCollateralFactor,
-        newAppealConfirmCollateralFactor,
-      }
-    }
-
-    async changeConfigPromise(originalConfig, termId, from, iteration = 1) {
-      const newConfig = await this.buildNewConfig(originalConfig, iteration)
-      const {
-        newFeeTokenAddress,
-        newJurorFee, newHeartbeatFee, newDraftFee, newSettleFee,
-        newCommitTerms, newRevealTerms, newAppealTerms, newAppealConfirmTerms,
-        newPenaltyPct, newFinalRoundReduction,
-        newFirstRoundJurorsNumber, newAppealStepFactor, newMaxRegularAppealRounds,
-        newAppealCollateralFactor,
-        newAppealConfirmCollateralFactor,
-      } = newConfig
-
-      const promise = this.court.setCourtConfig(
-        termId,
-        newFeeTokenAddress,
-        [ newJurorFee, newHeartbeatFee, newDraftFee, newSettleFee ],
-        [ newCommitTerms, newRevealTerms, newAppealTerms, newAppealConfirmTerms ],
-        [ newPenaltyPct, newFinalRoundReduction ],
-        [ newFirstRoundJurorsNumber, newAppealStepFactor, newMaxRegularAppealRounds ],
-        [ newAppealCollateralFactor, newAppealConfirmCollateralFactor ],
-        { from }
-      )
-
-      return { promise, newConfig }
-    }
-
-    async changeConfig(originalConfig, termId, iteration = 1) {
-      const { promise, newConfig } = await this.changeConfigPromise(originalConfig, termId, this.governor, iteration)
-      await promise
-
-      return newConfig
     }
 
     async mintAndApproveFeeTokens(from, to, amount) {
@@ -445,52 +265,35 @@ module.exports = (web3, artifacts) => {
 
     async deploy(params) {
       Object.assign(this, { ...DEFAULTS, ...params })
-      if (!this.governor) this.governor = await this._getAccount(0)
-      if (!this.controller) this.controller = await this.artifacts.require('Controller').new(this.governor, this.governor, this.governor)
-
-      if (!this.feeToken) this.feeToken = await this.artifacts.require('ERC20Mock').new('Court Fee Token', 'CFT', 18)
-      if (!this.jurorToken) this.jurorToken = await this.artifacts.require('ERC20Mock').new('Aragon Network Juror Token', 'ANJ', 18)
-
-      if (!this.voting) this.voting = await this.artifacts.require('CRVoting').new(this.controller.address)
-      if (!this.accounting) this.accounting = await this.artifacts.require('CourtAccounting').new(this.controller.address)
-
-      if (!this.court) this.court = await this.artifacts.require('CourtMock').new(
-        this.controller.address,
-        this.termDuration,
-        this.firstTermStartTime,
-        this.feeToken.address,
-        [this.jurorFee, this.heartbeatFee, this.draftFee, this.settleFee],
-        [this.commitTerms, this.revealTerms, this.appealTerms, this.appealConfirmTerms],
-        [this.penaltyPct, this.finalRoundReduction],
-        [this.firstRoundJurorsNumber, this.appealStepFactor, this.maxRegularAppealRounds],
-        [this.appealCollateralFactor, this.appealConfirmCollateralFactor],
-      )
-
-      if (!this.jurorsRegistry) this.jurorsRegistry = await this.artifacts.require('JurorsRegistryMock').new(
-        this.controller.address,
-        this.jurorToken.address,
-        this.jurorsMinActiveBalance,
-        this.jurorsMinActiveBalance.mul(MAX_UINT64.div(this.finalRoundWeightPrecision)),
-      )
-
-      if (!this.subscriptions) this.subscriptions = await this.artifacts.require('SubscriptionsMock').new(
-        this.controller.address,
-        this.subscriptionPeriodDuration,
-        this.feeToken.address,
-        this.subscriptionFeeAmount,
-        this.subscriptionPrePaymentPeriods,
-        this.subscriptionLatePaymentPenaltyPct,
-        this.subscriptionGovernorSharePct,
-      )
-
-      const ids = Object.values(MODULE_IDS)
-      const implementations = [this.court, this.accounting, this.voting, this.jurorsRegistry, this.subscriptions].map(i => i.address)
-      await this.controller.setModules(ids, implementations, { from: this.governor })
-
-      const zeroTermStartTime = this.firstTermStartTime.sub(this.termDuration)
-      await this.setTimestamp(zeroTermStartTime)
-
+      await this.controllerHelper.deploy(params)
+      await this.controllerHelper.deployModules()
+      const { controller, court, jurorsRegistry, voting, subscriptions, treasury, feeToken, jurorToken, governor } = this.controllerHelper
+      Object.assign(this, { controller, court, jurorsRegistry, voting, subscriptions, treasury, feeToken, jurorToken, governor })
       return this.court
+    }
+
+    async setTimestamp(timestamp) {
+      await this.controllerHelper.setTimestamp(timestamp)
+    }
+
+    async increaseTimeInTerms(terms) {
+      await this.controllerHelper.increaseTimeInTerms(terms)
+    }
+
+    async advanceBlocks(blocks) {
+      await this.controllerHelper.advanceBlocks(blocks)
+    }
+
+    async setTerm(termId) {
+      await this.controllerHelper.setTerm(termId)
+    }
+
+    async passTerms(terms) {
+      await this.controllerHelper.passTerms(terms)
+    }
+
+    async passRealTerms(terms) {
+      await this.controllerHelper.passRealTerms(terms)
     }
 
     async _getAccount(index) {
@@ -500,7 +303,6 @@ module.exports = (web3, artifacts) => {
   }
 
   return {
-    DEFAULTS,
     DISPUTE_STATES,
     ROUND_STATES,
     buildHelper: () => new CourtHelper(web3, artifacts),

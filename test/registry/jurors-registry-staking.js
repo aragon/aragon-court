@@ -1,32 +1,32 @@
 const { sha3 } = require('web3-utils')
 const { bn, bigExp } = require('../helpers/numbers')
+const { buildHelper } = require('../helpers/controller')(web3, artifacts)
 const { assertRevert } = require('../helpers/assertThrow')
 const { decodeEventsOfType } = require('../helpers/decodeEvent')
 const { assertEvent, assertAmountOfEvents } = require('../helpers/assertEvent')
 
 const JurorsRegistry = artifacts.require('JurorsRegistry')
-const JurorsRegistryOwner = artifacts.require('JurorsRegistryOwnerMock')
-const Controller = artifacts.require('ControllerMock')
+const Court = artifacts.require('CourtMockForRegistry')
 const ERC20 = artifacts.require('ERC20Mock')
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
 
 contract('JurorsRegistry', ([_, juror, anotherJuror]) => {
-  let controller, registry, registryOwner, ANJ
+  let controller, registry, court, ANJ
 
   const MIN_ACTIVE_AMOUNT = bigExp(100, 18)
   const TOTAL_ACTIVE_BALANCE_LIMIT = bigExp(100e6, 18)
   const ACTIVATE_DATA = sha3('activate(uint256)').slice(0, 10)
 
   beforeEach('create base contracts', async () => {
-    controller = await Controller.new()
+    controller = await buildHelper().deploy()
     ANJ = await ERC20.new('ANJ Token', 'ANJ', 18)
 
     registry = await JurorsRegistry.new(controller.address, ANJ.address, MIN_ACTIVE_AMOUNT, TOTAL_ACTIVE_BALANCE_LIMIT)
     await controller.setJurorsRegistry(registry.address)
 
-    registryOwner = await JurorsRegistryOwner.new(registry.address)
-    await controller.setCourt(registryOwner.address)
+    court = await Court.new(controller.address)
+    await controller.setCourt(court.address)
   })
 
   describe('stake', () => {
@@ -56,7 +56,7 @@ contract('JurorsRegistry', ([_, juror, anotherJuror]) => {
           })
 
           it('does not affect the active balance of the current term', async () => {
-            const termId = await registryOwner.getLastEnsuredTermId()
+            const termId = await controller.getLastEnsuredTermId()
             const currentTermPreviousBalance = await registry.activeBalanceOfAt(from, termId)
 
             await registry.stake(amount, data, { from })
@@ -185,7 +185,7 @@ contract('JurorsRegistry', ([_, juror, anotherJuror]) => {
         })
 
         it('does not affect the active balance of the current term', async () => {
-          const termId = await registryOwner.getLastEnsuredTermId()
+          const termId = await controller.getLastEnsuredTermId()
           const currentTermPreviousBalance = await registry.activeBalanceOfAt(from, termId)
 
           await registry.stake(amount, data, { from })
@@ -350,7 +350,7 @@ contract('JurorsRegistry', ([_, juror, anotherJuror]) => {
         })
 
         it('does not affect the active balance of the current term', async () => {
-          const termId = await registryOwner.getLastEnsuredTermId()
+          const termId = await controller.getLastEnsuredTermId()
           const currentTermPreviousBalance = await registry.activeBalanceOfAt(recipient, termId)
 
           await registry.stakeFor(recipient, amount, data, { from })
@@ -534,7 +534,7 @@ contract('JurorsRegistry', ([_, juror, anotherJuror]) => {
         })
 
         it('does not affect the active balance of the current term', async () => {
-          const termId = await registryOwner.getLastEnsuredTermId()
+          const termId = await controller.getLastEnsuredTermId()
           const currentTermPreviousBalance = await registry.activeBalanceOfAt(recipient, termId)
 
           await registry.stakeFor(recipient, amount, data, { from })
@@ -874,7 +874,7 @@ contract('JurorsRegistry', ([_, juror, anotherJuror]) => {
           })
 
           it('does not affect the active balance of the current term', async () => {
-            const termId = await registryOwner.getLastEnsuredTermId()
+            const termId = await controller.getLastEnsuredTermId()
             const currentTermPreviousBalance = await registry.activeBalanceOfAt(from, termId)
 
             await ANJ.approveAndCall(registry.address, amount, data, { from })
@@ -1149,7 +1149,7 @@ contract('JurorsRegistry', ([_, juror, anotherJuror]) => {
           })
 
           it('emits a deactivation processed event', async () => {
-            const termId = await registryOwner.getLastEnsuredTermId()
+            const termId = await controller.getLastEnsuredTermId()
 
             const receipt = await registry.unstake(amount, data, { from })
 
@@ -1207,7 +1207,7 @@ contract('JurorsRegistry', ([_, juror, anotherJuror]) => {
 
           context('when the juror tokens are deactivated for the current term', () => {
             beforeEach('increment term', async () => {
-              await registryOwner.mockIncreaseTerm()
+              await controller.mockIncreaseTerm()
             })
 
             context('when the given amount is zero', () => {

@@ -1,7 +1,7 @@
+const { buildHelper } = require('../helpers/controller')(web3, artifacts)
 const { assertRevert } = require('../helpers/assertThrow')
 const { assertAmountOfEvents } = require('../helpers/assertEvent')
 
-const Controller = artifacts.require('Controller')
 const Controlled = artifacts.require('ControlledMock')
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
@@ -10,7 +10,7 @@ contract('Controlled', ([_, fundsGovernor, configGovernor, modulesGovernor, some
   let controller, controlled
 
   beforeEach('create controlled', async () => {
-    controller = await Controller.new(fundsGovernor, configGovernor, modulesGovernor)
+    controller = await buildHelper().deploy({ fundsGovernor, configGovernor, modulesGovernor })
     controlled = await Controlled.new(controller.address)
   })
 

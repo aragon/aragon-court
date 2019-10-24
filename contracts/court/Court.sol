@@ -27,17 +27,11 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
     // Authorization-related error messages
     string private constant ERROR_SENDER_NOT_VOTING = "CT_SENDER_NOT_VOTING";
 
-    // Configs-related error messages
-    string private constant ERROR_TOO_OLD_TERM = "CT_TOO_OLD_TERM";
-    string private constant ERROR_CONFIG_PERIOD = "CT_CONFIG_PERIOD";
-    string private constant ERROR_INVALID_PENALTY_PCT = "CT_INVALID_PENALTY_PCT";
-    string private constant ERROR_BAD_INITIAL_JURORS = "CT_BAD_INITIAL_JURORS";
-    string private constant ERROR_BAD_APEAL_STEP_FACTOR = "CT_BAD_APEAL_STEP_FACTOR";
-    string private constant ERROR_INVALID_MAX_APPEAL_ROUNDS = "CT_INVALID_MAX_APPEAL_ROUNDS";
-    string private constant ERROR_ZERO_COLLATERAL_FACTOR = "CT_0_COLLATERAL_FACTOR";
+    // Terms-related error messages
+    string private constant ERROR_TERM_OUTDATED = "CT_TERM_OUTDATED";
+    string private constant ERROR_HEARTBEAT_CHANGE_CONFIG_TOKEN = "CT_HEARTBEAT_CHANGE_CONFIG_TOKEN";
 
     // Disputes-related error messages
-    string private constant ERROR_TERM_OUTDATED = "CT_TERM_OUTDATED";
     string private constant ERROR_DISPUTE_DOES_NOT_EXIST = "CT_DISPUTE_DOES_NOT_EXIST";
     string private constant ERROR_INVALID_DISPUTE_STATE = "CT_INVALID_DISPUTE_STATE";
     string private constant ERROR_INVALID_RULING_OPTIONS = "CT_INVALID_RULING_OPTIONS";
@@ -62,26 +56,14 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
     string private constant ERROR_NO_COHERENT_JURORS = "CT_NO_COHERENT_JURORS";
     string private constant ERROR_ROUND_APPEAL_ALREADY_SETTLED = "CT_APPEAL_ALREADY_SETTLED";
 
-    // Initial term to start the Court, disputes are not allowed during this term. It can be used to active jurors
-    uint64 internal constant ZERO_TERM_ID = 0;
-
-    // Maximum number of term transitions a callee may have to assume in order to call certain functions that require the Court being up-to-date
-    uint64 internal constant MAX_AUTO_TERM_TRANSITIONS_ALLOWED = 1;
-
     // Minimum possible rulings for a dispute
     uint8 internal constant MIN_RULING_OPTIONS = 2;
 
     // Maximum possible rulings for a dispute, equal to minimum limit
     uint8 internal constant MAX_RULING_OPTIONS = MIN_RULING_OPTIONS;
 
-    // Cap the max number of regular appeal rounds
-    uint256 internal constant MAX_REGULAR_APPEAL_ROUNDS_LIMIT = 10;
-
     // Precision factor used to improve rounding when computing weights for the final round
     uint256 internal constant FINAL_ROUND_WEIGHT_PRECISION = 1000;
-
-    // Max number of terms that each of the different adjudication states can last (if lasted 1h, this would be a year)
-    uint64 internal constant MAX_ADJ_STATE_DURATION = 8670;
 
     enum DisputeState {
         PreDraft,
@@ -96,33 +78,6 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
         Appealing,
         ConfirmingAppeal,
         Ended
-    }
-
-    struct FeesConfig {
-        ERC20 token;                   // ERC20 token to be used for the fees of the Court
-        uint256 jurorFee;              // Amount of tokens paid to draft a juror to adjudicate a dispute
-        uint256 heartbeatFee;          // Amount of tokens paid per dispute to cover the term transitions costs of the draft term
-        uint256 draftFee;              // Amount of tokens paid per round to cover the costs of drafting jurors
-        uint256 settleFee;             // Amount of tokens paid per round to cover the costs of slashing jurors
-    }
-
-    struct DisputesConfig {
-        uint64 commitTerms;            // Committing period duration in terms
-        uint64 revealTerms;            // Revealing period duration in terms
-        uint64 appealTerms;            // Appealing period duration in terms
-        uint64 appealConfirmTerms;     // Confirmation appeal period duration in terms
-        uint16 penaltyPct;             // Per ten thousand that will be used to compute the tokens to be locked for drafted jurors (‱ - 1/10,000)
-        uint16 finalRoundReduction;    // Per ten thousand of reduction applied for final appeal round (‱ - 1/10,000)
-        uint64 firstRoundJurorsNumber; // Number of jurors drafted on first round
-        uint64 appealStepFactor;       // Factor in which the jurors number is increased on each appeal
-        uint256 maxRegularAppealRounds; // Before the final appeal
-        uint256 appealCollateralFactor; // Multiple of juror fees required to appeal a preliminary ruling
-        uint256 appealConfirmCollateralFactor; // Multiple of juror fees required to confirm appeal
-    }
-
-    struct CourtConfig {
-        FeesConfig fees;
-        DisputesConfig disputes;
     }
 
     struct Dispute {
@@ -173,22 +128,9 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
         uint256 confirmAppealDeposit;  // Total amount of fees for a regular round at the given term
     }
 
-    // Future term id in which a config change has been scheduled
-    uint64 internal configChangeTermId;
-
     // List of all the disputes created in the Court
     Dispute[] internal disputes;
 
-    // List of all the configs used in the Court
-    CourtConfig[] internal courtConfigs;
-
-    // List of configs indexed by id
-    mapping (uint256 => uint256) internal configIdByTerm;
-
-    // List of number of disputes per term id
-    mapping (uint256 => uint256) internal dependingDraftsByTerm;
-
-    event NewCourtConfig(uint64 fromTermId, uint64 courtConfigId);
     event DisputeStateChanged(uint256 indexed disputeId, DisputeState indexed state);
     event NewDispute(uint256 indexed disputeId, address indexed subject, uint64 indexed draftTermId, uint64 jurorsNumber);
     event RulingAppealed(uint256 indexed disputeId, uint256 indexed roundId, uint8 ruling);
@@ -197,7 +139,6 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
     event PenaltiesSettled(uint256 indexed disputeId, uint256 indexed roundId, uint256 collectedTokens);
     event RewardSettled(uint256 indexed disputeId, uint256 indexed roundId, address juror);
     event AppealDepositSettled(uint256 indexed disputeId, uint256 indexed roundId);
-    event Heartbeat(uint64 previousTermId, uint64 currentTermId, address indexed sender);
 
     /**
     * @dev Ensure the msg.sender is the CR Voting module
@@ -230,82 +171,10 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
     /**
     * @dev Constructor function
     * @param _controller Address of the controller
-    * @param _feeToken Address of the token contract that is used to pay for fees
-    * @param _fees Array containing:
-    *        0. jurorFee The amount of _feeToken that is paid per juror per dispute
-    *        1. heartbeatFee The amount of _feeToken per dispute to cover maintenance costs
-    *        2. draftFee The amount of _feeToken per juror to cover the drafting cost
-    *        3. settleFee The amount of _feeToken per juror to cover round settlement cost
-    * @param _roundStateDurations Array containing the durations in terms of the different phases of a dispute:
-    *        0. commitTerms Commit period duration in terms
-    *        1. revealTerms Reveal period duration in terms
-    *        2. appealTerms Appeal period duration in terms
-    *        3. appealConfirmationTerms Appeal confirmation period duration in terms
-    * @param _pcts Array containing:
-    *        0. penaltyPct ‱ of minJurorsActiveBalance that can be slashed (1/10,000)
-    *        1. finalRoundReduction ‱ of fee reduction for the last appeal round (1/10,000)
-    * @param _roundParams Array containing params for rounds:
-    *        0. firstRoundJurorsNumber Number of jurors to be drafted for the first round of disputes
-    *        1. appealStepFactor Increasing factor for the number of jurors of each round of a dispute
-    *        2. maxRegularAppealRounds Number of regular appeal rounds before the final round is triggered
-    * @param _appealCollateralParams Array containing params for appeal collateral:
-    *        0. appealCollateralFactor Multiple of juror fees required to appeal a preliminary ruling
-    *        1. appealConfirmCollateralFactor Multiple of juror fees required to confirm appeal
     */
-    constructor(
-        Controller _controller,
-        ERC20 _feeToken,
-        uint256[4] memory _fees,
-        uint64[4] memory _roundStateDurations,
-        uint16[2] memory _pcts,
-        uint64[3] memory _roundParams,
-        uint256[2] memory _appealCollateralParams
-    )
-        ControlledRecoverable(_controller)
-        public
-    {
+    constructor(Controller _controller) ControlledRecoverable(_controller) public {
+        // solium-disable-previous-line no-empty-blocks
         // No need to explicitly call `Controlled` constructor since `ControlledRecoverable` is already doing it
-        // Leave config at index 0 empty for non-scheduled config changes
-        courtConfigs.length = 1;
-        _setCourtConfig(ZERO_TERM_ID, ZERO_TERM_ID, _feeToken, _fees, _roundStateDurations, _pcts, _roundParams, _appealCollateralParams);
-    }
-
-    /**
-    * @notice Change Court configuration params
-    * @param _fromTermId Identification number of the term in which the config will be effective at
-    * @param _feeToken Address of the token contract that is used to pay for fees.
-    * @param _fees Array containing:
-    *        _jurorFee The amount of _feeToken that is paid per juror per dispute
-    *        _heartbeatFee The amount of _feeToken per dispute to cover maintenance costs.
-    *        _draftFee The amount of _feeToken per juror to cover the drafting cost.
-    *        _settleFee The amount of _feeToken per juror to cover round settlement cost.
-    * @param _roundStateDurations Array containing the durations in terms of the different phases of a dispute,
-    *        in this order: commit, reveal, appeal and appeal confirm
-    * @param _pcts Array containing:
-    *        _penaltyPct ‱ of minJurorsActiveBalance that can be slashed (1/10,000)
-    *        _finalRoundReduction ‱ of fee reduction for the last appeal round (1/10,000)
-    * @param _roundParams Array containing params for rounds:
-    *        _firstRoundJurorsNumber Number of jurors to be drafted for the first round of disputes
-    *        _appealStepFactor Increasing factor for the number of jurors of each round of a dispute
-    *        _maxRegularAppealRounds Number of regular appeal rounds before the final round is triggered
-    * @param _appealCollateralParams Array containing params for appeal collateral:
-    *        _appealCollateralFactor Multiple of juror fees required to appeal a preliminary ruling
-    *        _appealConfirmCollateralFactor Multiple of juror fees required to confirm appeal
-    */
-    function setCourtConfig(
-        uint64 _fromTermId,
-        ERC20 _feeToken,
-        uint256[4] calldata _fees,
-        uint64[4] calldata _roundStateDurations,
-        uint16[2] calldata _pcts,
-        uint64[3] calldata _roundParams,
-        uint256[2] calldata _appealCollateralParams
-    )
-        external
-        onlyConfigGovernor
-    {
-        uint64 termId = _ensureTermId();
-        _setCourtConfig(termId, _fromTermId, _feeToken, _fees, _roundStateDurations, _pcts, _roundParams, _appealCollateralParams);
     }
 
     /**
@@ -319,7 +188,7 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
         // TODO: Limit the min amount of terms before drafting (to allow for evidence submission)
         // TODO: ERC165 check that _subject conforms to the Arbitrable interface
         // TODO: require(address(_subject) == msg.sender, ERROR_INVALID_DISPUTE_CREATOR);
-        uint64 termId = _ensureTermId();
+        uint64 termId = _ensureCurrentTerm();
         ISubscriptions subscriptions = _subscriptions();
         require(subscriptions.isUpToDate(address(_subject)), ERROR_SUBSCRIPTION_NOT_PAID);
         require(_possibleRulings >= MIN_RULING_OPTIONS && _possibleRulings <= MAX_RULING_OPTIONS, ERROR_INVALID_RULING_OPTIONS);
@@ -330,12 +199,12 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
         Dispute storage dispute = disputes[disputeId];
         dispute.subject = _subject;
         dispute.possibleRulings = _possibleRulings;
-        CourtConfig storage config = _getConfigAt(draftTermId);
+        Config memory config = _getConfigAt(draftTermId);
         uint64 jurorsNumber = config.disputes.firstRoundJurorsNumber;
         emit NewDispute(disputeId, address(_subject), draftTermId, jurorsNumber);
 
         // Create first adjudication round of the dispute
-        (ERC20 feeToken, uint256 jurorFees, uint256 totalFees) = _getRegularRoundFees(config, jurorsNumber);
+        (ERC20 feeToken, uint256 jurorFees, uint256 totalFees) = _getRegularRoundFees(config.fees, jurorsNumber);
         _createRound(disputeId, DisputeState.PreDraft, draftTermId, jurorsNumber, jurorFees);
 
         // Pay round fees and return dispute id
@@ -354,7 +223,7 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
         IClock clock = _clock();
         uint64 requiredTransitions = _clock().getNeededTermTransitions();
         require(uint256(requiredTransitions) == 0, ERROR_TERM_OUTDATED);
-        uint64 currentTermId = clock.getLastEnsuredTermId();
+        uint64 currentTermId = controller.getLastEnsuredTermId();
 
         // Ensure dispute has not been drafted yet
         Dispute storage dispute = disputes[_disputeId];
@@ -362,6 +231,7 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
 
         // Ensure draft term randomness can be computed for the current block number
         AdjudicationRound storage round = dispute.rounds[dispute.rounds.length - 1];
+        // TODO: stack too deep issue round.draftTermId
         bytes32 draftTermRandomness = clock.ensureTermRandomness(round.draftTermId);
 
         // Draft the min number of jurors between the one requested by the sender and the one requested by the disputer
@@ -372,7 +242,7 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
         uint64 requestedJurors = jurorsToBeDrafted < _maxJurorsToBeDrafted ? jurorsToBeDrafted : _maxJurorsToBeDrafted;
 
         // Draft jurors for the given dispute and reimburse fees
-        CourtConfig storage config = _getDisputeConfig(dispute);
+        Config memory config = _getDisputeConfig(dispute);
         bool draftEnded = _draft(_disputeId, round, jurorsNumber, selectedJurors, requestedJurors, currentTermId, draftTermRandomness, config);
         _accounting().assign(config.fees.token, msg.sender, config.fees.draftFee.mul(requestedJurors));
 
@@ -392,7 +262,8 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
     * @param _ruling Ruling appealing a dispute round in favor of
     */
     function createAppeal(uint256 _disputeId, uint256 _roundId, uint8 _ruling) external roundExists(_disputeId, _roundId) {
-        // Ensure given round can be appealed. Note that if there was a final appeal the adjudication state will be 'Ended'.
+        // Ensure current term and check that the given round can be appealed.
+        // Note that if there was a final appeal the adjudication state will be 'Ended'.
         Dispute storage dispute = disputes[_disputeId];
         _checkAdjudicationState(dispute, _roundId, AdjudicationState.Appealing);
 
@@ -421,7 +292,8 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
     * @param _ruling Ruling being confirmed against a dispute round appeal
     */
     function confirmAppeal(uint256 _disputeId, uint256 _roundId, uint8 _ruling) external roundExists(_disputeId, _roundId) {
-        // Ensure given round is appealed and can be confirmed. Note that if there was a final appeal the adjudication state will be 'Ended'.
+        // Ensure current term and check that the given round is appealed and can be confirmed.
+        // Note that if there was a final appeal the adjudication state will be 'Ended'.
         Dispute storage dispute = disputes[_disputeId];
         _checkAdjudicationState(dispute, _roundId, AdjudicationState.ConfirmingAppeal);
 
@@ -490,10 +362,9 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
             round.coherentJurors = uint64(voting.getOutcomeTally(voteId, finalRuling));
         }
 
-        CourtConfig storage config = _getDisputeConfig(dispute);
+        Config memory config = _getDisputeConfig(dispute);
         IAccounting accounting = _accounting();
         ERC20 feeToken = config.fees.token;
-
         if (_isRegularRound(_roundId, config)) {
             // For regular appeal rounds we compute the amount of locked tokens that needs to get burned in batches.
             // The callers of this function will get rewarded in this case.
@@ -551,7 +422,7 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
 
         // Reward the winning juror
         uint256 jurorFee = round.jurorFees.mul(jurorState.weight) / coherentJurors;
-        CourtConfig storage config = _getDisputeConfig(dispute);
+        Config memory config = _getDisputeConfig(dispute);
         IAccounting accounting = _accounting();
         accounting.assign(config.fees.token, _juror, jurorFee);
         emit RewardSettled(_disputeId, _roundId, _juror);
@@ -616,6 +487,8 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
     */
     function ensureTermAndGetVoterWeightToCommit(uint256 _voteId, address _voter) external onlyVoting returns (uint64) {
         (Dispute storage dispute, uint256 roundId) = _decodeVoteId(_voteId);
+
+        // Ensure current term and check that votes can still be committed for the given round
         _checkAdjudicationState(dispute, roundId, AdjudicationState.Committing);
         return _computeJurorWeight(dispute, roundId, _voter);
     }
@@ -637,84 +510,11 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
     */
     function ensureTermAndGetVoterWeightToReveal(uint256 _voteId, address _voter) external onlyVoting returns (uint64) {
         (Dispute storage dispute, uint256 roundId) = _decodeVoteId(_voteId);
+
+        // Ensure current term and check that votes can still be revealed for the given round
         _checkAdjudicationState(dispute, roundId, AdjudicationState.Revealing);
         AdjudicationRound storage round = dispute.rounds[roundId];
         return _getStoredJurorWeight(round, _voter);
-    }
-
-    /**
-    * @notice Send a heartbeat to the Court to transition up to `_maxRequestedTransitions` terms
-    * @param _maxRequestedTransitions Max number of term transitions allowed by the sender
-    */
-    function heartbeat(uint64 _maxRequestedTransitions) external {
-        IClock clock = _clock();
-        (uint64 previousTermId, uint64 currentTermId) = clock.heartbeat(_maxRequestedTransitions);
-        uint256 previousConfigId = configIdByTerm[previousTermId];
-        emit Heartbeat(previousTermId, currentTermId, msg.sender);
-
-        // Transition the minimum number of terms between the amount requested and the amount actually needed
-        for (uint256 termId = previousTermId + 1; termId <= currentTermId; termId++) {
-            // If the term being processed had no config change scheduled, keep the previous one
-            uint256 configId = configIdByTerm[termId];
-            if (configId == 0) {
-                configId = previousConfigId;
-                configIdByTerm[termId] = configId;
-            }
-            previousConfigId = configId;
-
-            // Add amount of fees to be paid for the transitioned term
-            FeesConfig storage config = _getConfigSafeAt(uint64(termId)).fees;
-            uint256 dependingDrafts = dependingDraftsByTerm[termId];
-            uint256 totalFee = config.heartbeatFee.mul(dependingDrafts);
-
-            // Pay heartbeat fees to the caller of this function
-            if (totalFee > 0) {
-                IAccounting accounting = _accounting();
-                accounting.assign(config.token, msg.sender, totalFee);
-            }
-        }
-    }
-
-    /**
-    * @dev Get Court configuration parameters
-    * @return token Address of the token used to pay for fees
-    * @return roundStateDurations Array containing the durations in terms of the different phases a dispute goes through,
-    *         in this order: commit, reveal, appeal and appeal confirm
-    * @return pcts Array containing:
-    *         penaltyPct ‱ of minJurorsActiveBalance that can be slashed (1/10,000)
-    *         finalRoundReduction ‱ of fee reduction for the last appeal round (1/10,000)
-    * @return roundParams Array containing params for rounds:
-    *         firstRoundJurorsNumber Number of jurors to be drafted for the first round of disputes
-    *         appealStepFactor Increasing factor for the number of jurors of each round of a dispute
-    *         maxRegularAppealRounds Number of regular appeal rounds before the final round is triggered
-    * @return appealCollateralParams Array containing params for appeal collateral:
-    *         appealCollateralFactor Multiple of juror fees required to appeal a preliminary ruling
-    *         appealConfirmCollateralFactor Multiple of juror fees required to confirm appeal
-    */
-    function getCourtConfig(uint64 _termId) external view
-        returns (
-            ERC20 feeToken,
-            uint256[4] memory fees, //jurorFee, heartbeatFee, draftFee, settleFee,
-            uint64[4] memory roundStateDurations, //commitTerms, revealTerms, appealTerms, appealConfirmTerms,
-            uint16[2] memory pcts, // penaltyPct, finalRoundReduction,
-            uint64[3] memory roundParams, // firstRoundJurorsNumber, appealStepFactor, maxRegularAppealRounds,
-            uint256[2] memory appealCollateralParams // appealCollateralFactor, appealConfirmCollateralFactor
-        )
-    {
-        CourtConfig storage config = _getConfigAt(_termId);
-        FeesConfig storage feesConfig = config.fees;
-        DisputesConfig storage disputesConfig = config.disputes;
-        feeToken = feesConfig.token;
-        fees = [ feesConfig.jurorFee, feesConfig.heartbeatFee, feesConfig.draftFee, feesConfig.settleFee ];
-        roundStateDurations = [
-            disputesConfig.commitTerms,
-            disputesConfig.revealTerms,
-            disputesConfig.appealTerms,
-            disputesConfig.appealConfirmTerms
-        ];
-        pcts = [ disputesConfig.penaltyPct, disputesConfig.finalRoundReduction ];
-        roundParams = [ disputesConfig.firstRoundJurorsNumber, disputesConfig.appealStepFactor, uint64(disputesConfig.maxRegularAppealRounds) ];
-        appealCollateralParams = [ disputesConfig.appealCollateralFactor, disputesConfig.appealConfirmCollateralFactor ];
     }
 
     /**
@@ -725,9 +525,9 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
     * @return totalFees Total amount of fees for a regular round at the given term
     */
     function getDisputeFees(uint64 _draftTermId) external view returns (ERC20 feeToken, uint256 jurorFees, uint256 totalFees) {
-        CourtConfig storage config = _getConfigAt(_draftTermId);
+        Config memory config = _getConfigAt(_draftTermId);
         uint64 jurorsNumber = config.disputes.firstRoundJurorsNumber;
-        return _getRegularRoundFees(config, jurorsNumber);
+        return _getRegularRoundFees(config.fees, jurorsNumber);
     }
 
     /**
@@ -873,7 +673,7 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
     {
         Dispute storage dispute = disputes[_disputeId];
         AdjudicationRound storage round = dispute.rounds[_roundId];
-        CourtConfig storage config = _getDisputeConfig(dispute);
+        Config memory config = _getDisputeConfig(dispute);
 
         if (_isRegularRound(_roundId, config)) {
             weight = _getStoredJurorWeight(round, _juror);
@@ -910,9 +710,6 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
         round.jurorFees = _jurorFees;
         round.triggeredBy = msg.sender;
 
-        // Register new draft for the requested term
-        dependingDraftsByTerm[_draftTermId] += 1;
-
         // Create new vote for the new round
         ICRVoting voting = _voting();
         uint256 voteId = _getVoteId(_disputeId, roundId);
@@ -927,7 +724,7 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
     * @param _state Expected adjudication state for the given dispute round
     */
     function _checkAdjudicationState(Dispute storage _dispute, uint256 _roundId, AdjudicationState _state) internal {
-        uint64 termId = _ensureTermId();
+        uint64 termId = _ensureCurrentTerm();
         require(_adjudicationStateAt(_dispute, _roundId, termId) == _state, ERROR_INVALID_ADJUDICATION_STATE);
     }
 
@@ -943,7 +740,8 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
             return dispute.finalRuling;
         }
 
-        // Ensure the last adjudication round has ended. Note that there will always be at least one round.
+        // Ensure current term and check that the last adjudication round has ended.
+        // Note that there will always be at least one round.
         uint256 lastRoundId = dispute.rounds.length - 1;
         _checkAdjudicationState(dispute, lastRoundId, AdjudicationState.Ended);
 
@@ -981,7 +779,7 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
         internal
         returns (uint256)
     {
-        uint64 termId = _ensureTermId();
+        uint64 termId = _ensureCurrentTerm();
         // The batch starts where the previous one ended, stored in _round.settledJurors
         uint256 roundSettledJurors = _round.settledJurors;
         // Compute the amount of jurors that are going to be settled in this batch, which is returned by the function for fees calculation
@@ -1029,7 +827,7 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
     */
     function _computeJurorWeight(Dispute storage _dispute, uint256 _roundId, address _juror) internal returns (uint64) {
         AdjudicationRound storage round = _dispute.rounds[_roundId];
-        CourtConfig storage config = _getDisputeConfig(_dispute);
+        Config memory config = _getDisputeConfig(_dispute);
 
         return _isRegularRound(_roundId, config)
             ? _getStoredJurorWeight(round, _juror)
@@ -1045,7 +843,7 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
     * @param _juror Address of the juror to calculate the weight of
     * @return Weight of the requested juror for the final round of the given dispute
     */
-    function _computeJurorWeightForFinalRound(CourtConfig storage _config, AdjudicationRound storage _round, address _juror)
+    function _computeJurorWeightForFinalRound(Config memory _config, AdjudicationRound storage _round, address _juror)
         internal returns (uint64)
     {
         IJurorsRegistry jurorsRegistry = _jurorsRegistry();
@@ -1074,106 +872,6 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
         _round.jurorsStates[_juror].weight = weight;
         _round.collectedTokens = _round.collectedTokens.add(weightedPenalty);
         return weight;
-    }
-
-    /**
-    * @dev Assumes that sender it's allowed (either it's from governor or it's on init)
-    * @param _currentTermId Identification number of the current Court term
-    * @param _fromTermId Identification number of the term in which the config will be effective at
-    * @param _feeToken Address of the token contract that is used to pay for fees.
-    * @param _fees Array containing:
-    *        _jurorFee The amount of _feeToken that is paid per juror per dispute
-    *        _heartbeatFee The amount of _feeToken per dispute to cover maintenance costs.
-    *        _draftFee The amount of _feeToken per juror to cover the drafting cost.
-    *        _settleFee The amount of _feeToken per juror to cover round settlement cost.
-    * @param _roundStateDurations Array containing the durations in terms of the different phases of a dispute,
-    *        in this order: commit, reveal, appeal and appeal confirm
-    * @param _pcts Array containing:
-    *        _penaltyPct ‱ of minJurorsActiveBalance that can be slashed (1/10,000)
-    *        _finalRoundReduction ‱ of fee reduction for the last appeal round (1/10,000)
-    * @param _roundParams Array containing params for rounds:
-    *        _firstRoundJurorsNumber Number of jurors to be drafted for the first round of disputes
-    *        _appealStepFactor Increasing factor for the number of jurors of each round of a dispute
-    *        _maxRegularAppealRounds Number of regular appeal rounds before the final round is triggered
-    * @param _appealCollateralParams Array containing params for appeal collateral:
-    *        _appealCollateralFactor Multiple of juror fees required to appeal a preliminary ruling
-    *        _appealConfirmCollateralFactor Multiple of juror fees required to confirm a    */
-    function _setCourtConfig(
-        uint64 _currentTermId,
-        uint64 _fromTermId,
-        ERC20 _feeToken,
-        uint256[4] memory _fees, // _jurorFee, _heartbeatFee, _draftFee, _settleFee
-        uint64[4] memory _roundStateDurations,
-        uint16[2] memory _pcts, //_penaltyPct, _finalRoundReduction,
-        uint64[3] memory _roundParams, // _firstRoundJurorsNumber, _appealStepFactor, _maxRegularAppealRounds
-        uint256[2] memory _appealCollateralParams // _appealCollateralFactor, _appealConfirmCollateralFactor
-    )
-        internal
-    {
-        // If the current term is not zero, changes must be scheduled at least 2 terms in the future.
-        // This way we can ensure that disputes scheduled for the next term won't have their config changed.
-        require(_currentTermId == ZERO_TERM_ID || _fromTermId > _currentTermId + 1, ERROR_TOO_OLD_TERM);
-
-        // Make sure appeal and confirm-appeal collateral are greater than zero
-        require(_appealCollateralParams[0] > 0 && _appealCollateralParams[1] > 0, ERROR_ZERO_COLLATERAL_FACTOR);
-
-        // Make sure the given penalty pct is not greater than 100%
-        require(PctHelpers.isValid(_pcts[0]), ERROR_INVALID_PENALTY_PCT);
-
-        // Disputes must request at least one juror to be drafted initially
-        uint64 _firstRoundJurorsNumber = _roundParams[0];
-        require(_firstRoundJurorsNumber > 0, ERROR_BAD_INITIAL_JURORS);
-
-        // Prevent that further rounds have zero jurors
-        require(_roundParams[1] > 0, ERROR_BAD_APEAL_STEP_FACTOR);
-
-        // Make sure the max number of appeals allowed does not reach the limit
-        uint256 _maxRegularAppealRounds = _roundParams[2];
-        bool isMaxAppealRoundsValid = _maxRegularAppealRounds > 0 && _maxRegularAppealRounds <= MAX_REGULAR_APPEAL_ROUNDS_LIMIT;
-        require(isMaxAppealRoundsValid, ERROR_INVALID_MAX_APPEAL_ROUNDS);
-
-        // Make sure each round phase duration does not last longer than the limit
-        for (uint i = 0; i < _roundStateDurations.length; i++) {
-            require(_roundStateDurations[i] > 0 && _roundStateDurations[i] < MAX_ADJ_STATE_DURATION, ERROR_CONFIG_PERIOD);
-        }
-
-        // If there was a config change already scheduled, reset it (in that case we will overwrite last array item).
-        // Otherwise, schedule a new config.
-        if (configChangeTermId > _currentTermId) {
-            configIdByTerm[configChangeTermId] = 0;
-        } else {
-            courtConfigs.length++;
-        }
-
-        uint64 courtConfigId = uint64(courtConfigs.length - 1);
-        CourtConfig storage config = courtConfigs[courtConfigId];
-
-        config.fees = FeesConfig({
-            token: _feeToken,
-            jurorFee: _fees[0],
-            heartbeatFee: _fees[1],
-            draftFee: _fees[2],
-            settleFee: _fees[3]
-        });
-
-        config.disputes = DisputesConfig({
-            commitTerms: _roundStateDurations[0],
-            revealTerms: _roundStateDurations[1],
-            appealTerms: _roundStateDurations[2],
-            appealConfirmTerms: _roundStateDurations[3],
-            penaltyPct: _pcts[0],
-            finalRoundReduction: _pcts[1],
-            firstRoundJurorsNumber: _firstRoundJurorsNumber,
-            appealStepFactor: _roundParams[1],
-            maxRegularAppealRounds: _maxRegularAppealRounds,
-            appealCollateralFactor: _appealCollateralParams[0],
-            appealConfirmCollateralFactor: _appealCollateralParams[1]
-        });
-
-        configIdByTerm[_fromTermId] = courtConfigId;
-        configChangeTermId = _fromTermId;
-
-        emit NewCourtConfig(_fromTermId, courtConfigId);
     }
 
     /**
@@ -1212,8 +910,8 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
         returns (NextRoundDetails memory)
     {
         NextRoundDetails memory nextRound;
-        CourtConfig storage config = _getDisputeConfig(_dispute);
-        DisputesConfig storage disputesConfig = config.disputes;
+        Config memory config = _getDisputeConfig(_dispute);
+        DisputesConfig memory disputesConfig = config.disputes;
 
         // No need for SafeMath: round state durations are safely capped at config
         // and we assume that timestamps (and its derivatives like termId) won't reach MAX_UINT64, which would be ~5.8e11 years
@@ -1235,14 +933,14 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
             uint256 jurorsNumber = jurorsRegistry.getTotalMinActiveBalanceMultiple(nextRound.startTerm, FINAL_ROUND_WEIGHT_PRECISION);
             nextRound.jurorsNumber = jurorsNumber.toUint64();
             // Calculate fees for the final round using the appeal start term of the current round
-            (nextRound.feeToken, nextRound.jurorFees, nextRound.totalFees) = _getFinalRoundFees(config, nextRound.jurorsNumber);
+            (nextRound.feeToken, nextRound.jurorFees, nextRound.totalFees) = _getFinalRoundFees(config.fees, nextRound.jurorsNumber);
         } else {
             // For a new regular rounds we need to draft jurors
             nextRound.newDisputeState = DisputeState.PreDraft;
             // The number of jurors will be the number of jurors of the current round multiplied by an appeal factor
             nextRound.jurorsNumber = _getNextRegularRoundJurorsNumber(_round, disputesConfig);
             // Calculate fees for the next regular round using the appeal start term of the current round
-            (nextRound.feeToken, nextRound.jurorFees, nextRound.totalFees) = _getRegularRoundFees(config, nextRound.jurorsNumber);
+            (nextRound.feeToken, nextRound.jurorFees, nextRound.totalFees) = _getRegularRoundFees(config.fees, nextRound.jurorsNumber);
         }
 
         // Calculate appeal collateral
@@ -1258,7 +956,7 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
     * @param _config Disputes config at the draft term of the first round of the dispute
     * @return Jurors number for the next regular round of the given round
     */
-    function _getNextRegularRoundJurorsNumber(AdjudicationRound storage _round, DisputesConfig storage _config) internal view returns (uint64) {
+    function _getNextRegularRoundJurorsNumber(AdjudicationRound storage _round, DisputesConfig memory _config) internal view returns (uint64) {
         // Jurors number are increased by a step factor on each appeal
         uint64 jurorsNumber = _round.jurorsNumber.mul(_config.appealStepFactor);
         // Make sure it's odd to enforce avoiding a tie. Note that it can happen if any of the jurors don't vote anyway.
@@ -1266,44 +964,6 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
             jurorsNumber++;
         }
         return jurorsNumber;
-    }
-
-    /**
-    * @dev Internal function to get fees information for regular rounds for a certain term. This function assumes Court term is up-to-date.
-    * @param _config Court config to use in order to get fees
-    * @param _jurorsNumber Number of jurors participating in the round being queried
-    * @return feeToken ERC20 token used for the fees
-    * @return jurorFees Total amount of fees to be distributed between the winning jurors of a round
-    * @return totalFees Total amount of fees for a regular round at the given term
-    */
-    function _getRegularRoundFees(CourtConfig storage _config, uint64 _jurorsNumber) internal view
-        returns (ERC20 feeToken, uint256 jurorFees, uint256 totalFees)
-    {
-        feeToken = _config.fees.token;
-        // For regular rounds the fees for each juror is constant and given by the config of the round
-        jurorFees = uint256(_jurorsNumber).mul(_config.fees.jurorFee);
-        // The total fees for regular rounds also considers the heartbeat, the number of drafts, and the number of settles
-        uint256 draftAndSettleFees = (_config.fees.draftFee.add(_config.fees.settleFee)).mul(uint256(_jurorsNumber));
-        totalFees = _config.fees.heartbeatFee.add(jurorFees).add(draftAndSettleFees);
-    }
-
-    /**
-    * @dev Internal function to get fees information for final rounds for a certain term. This function assumes Court term is up-to-date.
-    * @param _config Court config to use in order to get fees
-    * @param _jurorsNumber Number of jurors participating in the round being queried
-    * @return feeToken ERC20 token used for the fees
-    * @return jurorFees Total amount of fees corresponding to the jurors at the given term
-    * @return totalFees Total amount of fees for a final round at the given term
-    */
-    function _getFinalRoundFees(CourtConfig storage _config, uint64 _jurorsNumber) internal view
-        returns (ERC20 feeToken, uint256 jurorFees, uint256 totalFees)
-    {
-        feeToken = _config.fees.token;
-        // For final rounds, the jurors number is computed as the number of times the registry's minimum active balance is held in the registry
-        // itself, multiplied by a precision factor. To avoid requesting a huge amount of fees, a final round discount is applied for each juror.
-        jurorFees = (uint256(_jurorsNumber).mul(_config.fees.jurorFee) / FINAL_ROUND_WEIGHT_PRECISION).pct(_config.disputes.finalRoundReduction);
-        // The total fees for final rounds only considers the heartbeat, there is no draft and no extra settle fees considered
-        totalFees = _config.fees.heartbeatFee.add(jurorFees);
     }
 
     /**
@@ -1315,7 +975,7 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
     */
     function _adjudicationStateAt(Dispute storage _dispute, uint256 _roundId, uint64 _termId) internal view returns (AdjudicationState) {
         AdjudicationRound storage round = _dispute.rounds[_roundId];
-        CourtConfig storage config = _getDisputeConfig(_dispute);
+        Config memory config = _getDisputeConfig(_dispute);
 
         // If the dispute is executed or the given round is not the last one, we consider it ended
         uint256 numberOfRounds = _dispute.rounds.length;
@@ -1382,52 +1042,10 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
     * @param _dispute Dispute querying the court config at its first draft term
     * @return Court config at the draft term of the given round
     */
-    function _getDisputeConfig(Dispute storage _dispute) internal view returns (CourtConfig storage) {
+    function _getDisputeConfig(Dispute storage _dispute) internal view returns (Config memory) {
         // Note that it is safe to access a court config directly for a past term, no need to use `_getConfigAt`
         AdjudicationRound storage round = _dispute.rounds[0];
-        return _getConfigSafeAt(round.draftTermId);
-    }
-
-    /**
-    * @dev Internal function to get the Court config for a given term
-    * @param _termId Term querying the Court config of
-    * @return Court config for the given term
-    */
-    function _getConfigAt(uint64 _termId) internal view returns (CourtConfig storage) {
-        // If the given term is lower or equal to the last ensured Court term, it is safe to use a past Court config
-        uint64 lastEnsuredTermId = _getLastEnsuredTermId();
-        if (_termId <= lastEnsuredTermId) {
-            return _getConfigSafeAt(_termId);
-        }
-
-        // If the given term is in the future but there is a config change scheduled before it, use the incoming config
-        uint64 configChangeTermId_ = configChangeTermId;
-        if (configChangeTermId_ <= _termId) {
-            return _getConfigSafeAt(configChangeTermId_);
-        }
-
-        // If no changes are scheduled, use the Court config of the last ensured term
-        return _getConfigSafeAt(lastEnsuredTermId);
-    }
-
-    /**
-    * @dev Internal function to directly get the Court config for a given term
-    * @param _termId Term querying the Court config of
-    * @return Court config for the given term
-    */
-    function _getConfigSafeAt(uint64 _termId) internal view returns (CourtConfig storage) {
-        uint256 configId = configIdByTerm[uint256(_termId)];
-        return courtConfigs[configId];
-    }
-
-    /**
-    * @dev Internal function to tell whether a round is regular or final. This function assumes the given round exists.
-    * @param _roundId Identification number of the round to be checked
-    * @param _config Court config to use in order to check if the given round is regular or final
-    * @return True if the given round is regular, false in case its a final round
-    */
-    function _isRegularRound(uint256 _roundId, CourtConfig storage _config) internal view returns (bool) {
-        return _roundId < _config.disputes.maxRegularAppealRounds;
+        return _getConfigAt(round.draftTermId);
     }
 
     /**
@@ -1490,6 +1108,54 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
     }
 
     /**
+    * @dev Internal function to get fees information for regular rounds for a certain term. This function assumes Court term is up-to-date.
+    * @param _config Court config to use in order to get fees
+    * @param _jurorsNumber Number of jurors participating in the round being queried
+    * @return feeToken ERC20 token used for the fees
+    * @return jurorFees Total amount of fees to be distributed between the winning jurors of a round
+    * @return totalFees Total amount of fees for a regular round at the given term
+    */
+    function _getRegularRoundFees(FeesConfig memory _config, uint64 _jurorsNumber) internal pure
+    returns (ERC20 feeToken, uint256 jurorFees, uint256 totalFees)
+    {
+        feeToken = _config.token;
+        // For regular rounds the fees for each juror is constant and given by the config of the round
+        jurorFees = uint256(_jurorsNumber).mul(_config.jurorFee);
+        // The total fees for regular rounds also considers the heartbeat, the number of drafts, and the number of settles
+        uint256 draftAndSettleFees = (_config.draftFee.add(_config.settleFee)).mul(uint256(_jurorsNumber));
+        totalFees = jurorFees.add(draftAndSettleFees);
+    }
+
+    /**
+    * @dev Internal function to get fees information for final rounds for a certain term. This function assumes Court term is up-to-date.
+    * @param _config Court config to use in order to get fees
+    * @param _jurorsNumber Number of jurors participating in the round being queried
+    * @return feeToken ERC20 token used for the fees
+    * @return jurorFees Total amount of fees corresponding to the jurors at the given term
+    * @return totalFees Total amount of fees for a final round at the given term
+    */
+    function _getFinalRoundFees(FeesConfig memory _config, uint64 _jurorsNumber) internal pure
+    returns (ERC20 feeToken, uint256 jurorFees, uint256 totalFees)
+    {
+        feeToken = _config.token;
+        // For final rounds, the jurors number is computed as the number of times the registry's minimum active balance is held in the registry
+        // itself, multiplied by a precision factor. To avoid requesting a huge amount of fees, a final round discount is applied for each juror.
+        jurorFees = (uint256(_jurorsNumber).mul(_config.jurorFee) / FINAL_ROUND_WEIGHT_PRECISION).pct(_config.finalRoundReduction);
+        // The total fees for final rounds only considers the heartbeat, there is no draft and no extra settle fees considered
+        totalFees = jurorFees;
+    }
+
+    /**
+    * @dev Internal function to tell whether a round is regular or final. This function assumes the given round exists.
+    * @param _roundId Identification number of the round to be checked
+    * @param _config Court config to use in order to check if the given round is regular or final
+    * @return True if the given round is regular, false in case its a final round
+    */
+    function _isRegularRound(uint256 _roundId, Config memory _config) internal pure returns (bool) {
+        return _roundId < _config.disputes.maxRegularAppealRounds;
+    }
+
+    /**
     * @dev Private function to draft jurors for a given dispute and round. It assumes the given data is correct
     * @param _disputeId Identification number of the dispute to be drafted
     * @param _round Round of the dispute to be drafted
@@ -1509,9 +1175,9 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
         uint64 _requestedJurors,
         uint64 _currentTermId,
         bytes32 _draftTermRandomness,
-        CourtConfig storage _config
+        Config memory _config
     )
-        private returns(bool)
+        private returns (bool)
     {
         // Pack draft params
         uint256[7] memory draftParams = [

@@ -1,11 +1,11 @@
 const { bn } = require('../helpers/numbers')
+const { buildHelper } = require('../helpers/controller')(web3, artifacts)
 const { assertRevert } = require('../helpers/assertThrow')
 const { OUTCOMES, encryptVote } = require('../helpers/crvoting')
 const { assertEvent, assertAmountOfEvents } = require('../helpers/assertEvent')
 
 const CRVoting = artifacts.require('CRVoting')
 const CRVotingOwner = artifacts.require('CRVotingOwnerMock')
-const Controller = artifacts.require('ControllerMock')
 
 contract('CRVoting commit', ([_, voter]) => {
   let controller, voting, votingOwner
@@ -13,7 +13,7 @@ contract('CRVoting commit', ([_, voter]) => {
   const POSSIBLE_OUTCOMES = 2
 
   beforeEach('create base contracts', async () => {
-    controller = await Controller.new()
+    controller = await buildHelper().deploy()
 
     voting = await CRVoting.new(controller.address)
     await controller.setVoting(voting.address)

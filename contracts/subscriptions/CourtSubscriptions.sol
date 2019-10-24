@@ -6,11 +6,11 @@ import "@aragon/os/contracts/lib/math/SafeMath64.sol";
 import "@aragon/os/contracts/common/SafeERC20.sol";
 import "@aragon/os/contracts/common/TimeHelpers.sol";
 
+import "./ISubscriptions.sol";
 import "../lib/PctHelpers.sol";
 import "../controller/Controlled.sol";
-import "../controller/ControlledRecoverable.sol";
 import "../registry/IJurorsRegistry.sol";
-import "../subscriptions/ISubscriptions.sol";
+import "../controller/ControlledRecoverable.sol";
 
 
 contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscriptions {

@@ -9,8 +9,8 @@ const MAX_UINT64 = maxUint(64)
 const MAX_UINT192 = maxUint(192)
 const MAX_UINT256 = maxUint(256)
 
-const assertBn = (result, expected, errorMsg) => {
-  assert.isTrue(result.eq(expected), `${errorMsg} expected ${expected.toString()} to equal ${result.toString()}`)
+const assertBn = (actual, expected, errorMsg) => {
+  assert.equal(actual.toString(), expected.toString(), `${errorMsg} expected ${expected.toString()} to equal ${actual.toString()}`)
 }
 
 module.exports = {

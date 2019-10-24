@@ -1,19 +1,17 @@
 const { sha3 } = require('web3-utils')
 const { bn, bigExp } = require('../helpers/numbers')
 const { getEventAt } = require('@aragon/test-helpers/events')
+const { buildHelper } = require('../helpers/controller')(web3, artifacts)
 const { assertRevert } = require('../helpers/assertThrow')
-const { ONE_DAY, NEXT_WEEK } = require('../helpers/time')
 const { decodeEventsOfType } = require('../helpers/decodeEvent')
 const { assertEvent, assertAmountOfEvents } = require('../helpers/assertEvent')
 
 const JurorsRegistry = artifacts.require('JurorsRegistryMock')
-const Controller = artifacts.require('ControllerMock')
-const CourtClock = artifacts.require('CourtClockMock')
 const Court = artifacts.require('CourtMockForRegistry')
 const ERC20 = artifacts.require('ERC20Mock')
 
 contract('JurorsRegistry', ([_, juror, secondJuror, thirdJuror, anyone]) => {
-  let controller, registry, court, clock, ANJ
+  let controller, registry, court, ANJ
 
   const ACTIVATE_DATA = sha3('activate(uint256)').slice(0, 10)
   const MIN_ACTIVE_AMOUNT = bigExp(100, 18)
@@ -23,16 +21,13 @@ contract('JurorsRegistry', ([_, juror, secondJuror, thirdJuror, anyone]) => {
   const EMPTY_RANDOMNESS = '0x0000000000000000000000000000000000000000000000000000000000000000'
 
   beforeEach('create base contracts', async () => {
-    controller = await Controller.new()
+    controller = await buildHelper().deploy()
     ANJ = await ERC20.new('ANJ Token', 'ANJ', 18)
 
     registry = await JurorsRegistry.new(controller.address, ANJ.address, MIN_ACTIVE_AMOUNT, TOTAL_ACTIVE_BALANCE_LIMIT)
     await controller.setJurorsRegistry(registry.address)
 
-    clock = await CourtClock.new(controller.address, ONE_DAY, NEXT_WEEK)
-    await controller.setClock(clock.address)
-
-    court = await Court.new(registry.address)
+    court = await Court.new(controller.address)
     await controller.setCourt(court.address)
   })
 
@@ -51,7 +46,7 @@ contract('JurorsRegistry', ([_, juror, secondJuror, thirdJuror, anyone]) => {
         await ANJ.generateTokens(thirdJuror, thirdJurorBalance)
         await ANJ.approveAndCall(registry.address, thirdJurorBalance, ACTIVATE_DATA, { from: thirdJuror })
 
-        await clock.mockIncreaseTerm()
+        await controller.mockIncreaseTerm()
       })
 
       context('when given input length does not match', () => {
@@ -168,7 +163,7 @@ contract('JurorsRegistry', ([_, juror, secondJuror, thirdJuror, anyone]) => {
             })
 
             it('does not affect the active balances of the current term', async () => {
-              let termId = await clock.getLastEnsuredTermId()
+              let termId = await controller.getLastEnsuredTermId()
               const firstJurorPreviousActiveBalance = await registry.activeBalanceOfAt(juror, termId)
               const secondJurorPreviousActiveBalance = await registry.activeBalanceOfAt(secondJuror, termId)
               const thirdJurorPreviousActiveBalance = await registry.activeBalanceOfAt(thirdJuror, termId)
@@ -233,7 +228,7 @@ contract('JurorsRegistry', ([_, juror, secondJuror, thirdJuror, anyone]) => {
         })
 
         it('does not affect the active balance of the current term', async () => {
-          const termId = await clock.getLastEnsuredTermId()
+          const termId = await controller.getLastEnsuredTermId()
           const currentTermPreviousBalance = await registry.activeBalanceOfAt(juror, termId)
 
           await court.collect(juror, amount)
@@ -286,7 +281,7 @@ contract('JurorsRegistry', ([_, juror, secondJuror, thirdJuror, anyone]) => {
           })
         } else {
           it('emits a juror tokens collected event', async () => {
-            const termId = await clock.getLastEnsuredTermId()
+            const termId = await controller.getLastEnsuredTermId()
 
             const receipt = await court.collect(juror, amount)
             const logs = decodeEventsOfType(receipt, JurorsRegistry.abi, 'JurorTokensCollected')
@@ -304,7 +299,7 @@ contract('JurorsRegistry', ([_, juror, secondJuror, thirdJuror, anyone]) => {
 
         if (!deactivationReduced.eq(bn(0))) {
           it('emits a deactivation request updated event', async () => {
-            const termId = await clock.getLastEnsuredTermId()
+            const termId = await controller.getLastEnsuredTermId()
             const { pendingDeactivation: previousDeactivation } = await registry.balanceOf(juror)
 
             const receipt = await court.collect(juror, amount)
@@ -422,7 +417,7 @@ contract('JurorsRegistry', ([_, juror, secondJuror, thirdJuror, anyone]) => {
 
             context('when the deactivation request is for the current term', () => {
               beforeEach('increment term', async () => {
-                await clock.mockIncreaseTerm()
+                await controller.mockIncreaseTerm()
               })
 
               context('when the given amount is zero', () => {
@@ -452,8 +447,8 @@ contract('JurorsRegistry', ([_, juror, secondJuror, thirdJuror, anyone]) => {
 
             context('when the deactivation request is for the previous term', () => {
               beforeEach('increment term twice', async () => {
-                await clock.mockIncreaseTerm()
-                await clock.mockIncreaseTerm()
+                await controller.mockIncreaseTerm()
+                await controller.mockIncreaseTerm()
               })
 
               context('when the given amount is zero', () => {

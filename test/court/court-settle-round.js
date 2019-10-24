@@ -1,10 +1,11 @@
+const { DEFAULTS } = require('../helpers/controller')(web3, artifacts)
 const { bn, bigExp } = require('../helpers/numbers')
 const { assertRevert } = require('../helpers/assertThrow')
 const { decodeEventsOfType } = require('../helpers/decodeEvent')
 const { filterJurors, filterWinningJurors } = require('../helpers/jurors')
 const { assertAmountOfEvents, assertEvent } = require('../helpers/assertEvent')
 const { getVoteId, oppositeOutcome, OUTCOMES } = require('../helpers/crvoting')
-const { buildHelper, DEFAULTS, ROUND_STATES, DISPUTE_STATES } = require('../helpers/court')(web3, artifacts)
+const { buildHelper, ROUND_STATES, DISPUTE_STATES } = require('../helpers/court')(web3, artifacts)
 
 const Arbitrable = artifacts.require('IArbitrable')
 
@@ -79,16 +80,12 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
               assert.equal(finalRuling.toString(), expectedFinalRuling.toString(), 'dispute final ruling does not match')
             })
 
-            it('executes the associated arbitrable', async () => {
+            it('executes the associated arbitrable and cannot be executed twice', async () => {
               const receipt = await court.executeRuling(disputeId)
 
               const logs = decodeEventsOfType(receipt, Arbitrable.abi, 'CourtRuling')
               assertAmountOfEvents({ logs }, 'CourtRuling')
               assertEvent({ logs }, 'CourtRuling', { court: court.address, disputeId, ruling: expectedFinalRuling })
-            })
-
-            it('cannot be executed twice', async () => {
-              await court.executeRuling(disputeId)
 
               await assertRevert(court.executeRuling(disputeId), 'CT_INVALID_DISPUTE_STATE')
             })
@@ -219,7 +216,7 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
                 }
               })
 
-              it('updates the given round', async () => {
+              it('updates the given round and cannot be settled twice', async () => {
                 assertAmountOfEvents(receipt, 'PenaltiesSettled')
                 assertEvent(receipt, 'PenaltiesSettled', { disputeId, roundId, collectedTokens: expectedCollectedTokens })
 
@@ -227,9 +224,7 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
                 assert.equal(settledPenalties, true, 'current round penalties should be settled')
                 assert.equal(collectedTokens.toString(), expectedCollectedTokens.toString(), 'current round collected tokens does not match')
                 assert.equal(coherentJurors.toString(), expectedCoherentJurors, 'current round coherent jurors does not match')
-              })
 
-              it('cannot be settled twice', async () => {
                 await assertRevert(court.settlePenalties(disputeId, roundId, 0), 'CT_ROUND_ALREADY_SETTLED')
               })
             }
@@ -272,12 +267,14 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
               })
 
               if (expectedWinningJurors.length > 0) {
-                it('emits an event for each juror', async () => {
+                it('emits an event for each juror and cannot be settled twice', async () => {
                   for(const { address } of expectedWinningJurors) {
                     const receipt = await court.settleReward(disputeId, roundId, address)
 
                     assertAmountOfEvents(receipt, 'RewardSettled')
                     assertEvent(receipt, 'RewardSettled', { disputeId, roundId, juror: address })
+
+                    await assertRevert(court.settleReward(disputeId, roundId, address), 'CT_JUROR_ALREADY_REWARDED')
                   }
                 })
 
@@ -316,13 +313,6 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
                   for(const { address } of expectedLosingJurors) {
                     await assertRevert(court.settleReward(disputeId, roundId, address), 'CT_WONT_REWARD_INCOHERENT_JUROR')
                   }
-                })
-
-                it('cannot be settled twice', async () => {
-                  const { address } = expectedWinningJurors[0]
-                  await court.settleReward(disputeId, roundId, address)
-
-                  await assertRevert(court.settleReward(disputeId, roundId, address), 'CT_JUROR_ALREADY_REWARDED')
                 })
               } else {
                 it('does not allow settling non-winning jurors', async () => {

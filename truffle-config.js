@@ -10,8 +10,7 @@ const config = {
       settings: {
         optimizer: {
           enabled: true,
-          runs: 1     // Could be increased depending on the final size of Court.sol. We are currently disabling the optimizer
-                      // cause it is increasing the Court bytecode which causes an out-of-gas error when deploying it.
+          runs: 10000
         },
       },
     },

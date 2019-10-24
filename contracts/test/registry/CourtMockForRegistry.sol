@@ -7,7 +7,7 @@ import "../../controller/Controller.sol";
 contract CourtMockForRegistry is Controlled {
     event Slashed(uint256 collected);
     event Collected(bool collected);
-    event Drafted(address[] addresses, uint64[] weights, uint256 outputLength);
+    event Drafted(address[] addresses, uint256 length);
 
     constructor(Controller _controller) Controlled(_controller) public {}
 
@@ -48,7 +48,8 @@ contract CourtMockForRegistry is Controlled {
             _roundRequestedJurors,
             _lockPct
         ];
-        (address[] memory jurors, uint64[] memory weights, uint256 outputLength) = _jurorsRegistry().draft(draftParams);
-        emit Drafted(jurors, weights, outputLength);
+
+        (address[] memory jurors, uint256 length) = _jurorsRegistry().draft(draftParams);
+        emit Drafted(jurors, length);
     }
 }

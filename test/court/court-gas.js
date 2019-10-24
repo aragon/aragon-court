@@ -392,7 +392,7 @@ contract('Court', ([_, sender, disputer, drafter, appealMaker, appealTaker, juro
           assertBn(neededTransitions, 0, 'needed transitions does not match')
         })
 
-        itCostsAtMost('settleAppealDeposit', 83e3, () => court.settleAppealDeposit(disputeId, roundId))
+        itCostsAtMost('settleAppealDeposit', 81e3, () => court.settleAppealDeposit(disputeId, roundId))
       })
 
       context('when the current term is outdated by one term', () => {
@@ -402,7 +402,7 @@ contract('Court', ([_, sender, disputer, drafter, appealMaker, appealTaker, juro
           assertBn(neededTransitions, 1, 'needed transitions does not match')
         })
 
-        itCostsAtMost('settleAppealDeposit', 83e3, () => court.settleAppealDeposit(disputeId, roundId))
+        itCostsAtMost('settleAppealDeposit', 81e3, () => court.settleAppealDeposit(disputeId, roundId))
       })
     })
   })

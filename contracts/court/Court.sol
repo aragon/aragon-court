@@ -240,7 +240,6 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
         // Draft jurors for the given dispute and reimburse fees
         Config memory config = _getDisputeConfig(dispute);
         bool draftEnded = _draft(_disputeId, round, jurorsNumber, selectedJurors, requestedJurors, currentTermId, draftTermRandomness, config);
-        _treasury().assign(config.fees.token, msg.sender, config.fees.draftFee.mul(requestedJurors));
 
         // If the drafting is over, update its state
         if (draftEnded) {
@@ -1189,24 +1188,28 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
 
         // Draft jurors for the requested round
         IJurorsRegistry jurorsRegistry = _jurorsRegistry();
-        (address[] memory jurors, uint64[] memory weights, uint256 outputLength) = jurorsRegistry.draft(draftParams);
+        (address[] memory jurors, uint256 draftedJurors) = jurorsRegistry.draft(draftParams);
 
-        // Update round with drafted jurors information.
+        // Update round with drafted jurors information
         // No need for SafeMath: this cannot be greater than `jurorsNumber`.
-        uint64 newSelectedJurors = _selectedJurors + _requestedJurors;
+        uint64 newSelectedJurors = _selectedJurors + uint64(draftedJurors);
         _round.selectedJurors = newSelectedJurors;
 
         // Store or update drafted jurors' weight
-        for (uint256 i = 0; i < outputLength; i++) {
-            // TODO: stack too deep issue - cannot cache jurors[i]
-            JurorState storage jurorState = _round.jurorsStates[jurors[i]];
+        for (uint256 i = 0; i < draftedJurors; i++) {
+            address juror = jurors[i];
+            JurorState storage jurorState = _round.jurorsStates[juror];
             // If the juror was already registered in the list, then don't add it twice
             if (uint256(jurorState.weight) == 0) {
-                _round.jurors.push(jurors[i]);
+                _round.jurors.push(juror);
             }
-            // No need for SafeMath: We assume a juror cannot be drafted 2^64 times for a round
-            jurorState.weight += weights[i];
+            // No need for SafeMath: we assume a juror cannot be drafted 2^64 times for a round
+            jurorState.weight++;
         }
+
+        // Transfer fees corresponding to the actual number of drafted jurors
+        ITreasury treasury = _treasury();
+        treasury.assign(_config.fees.token, msg.sender, _config.fees.draftFee.mul(draftedJurors));
 
         return newSelectedJurors == _jurorsNumber;
     }

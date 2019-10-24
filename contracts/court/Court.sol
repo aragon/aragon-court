@@ -244,7 +244,6 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
         // Draft jurors for the given dispute and reimburse fees
         Config memory config = _getDisputeConfig(dispute);
         bool draftEnded = _draft(_disputeId, round, jurorsNumber, selectedJurors, requestedJurors, currentTermId, draftTermRandomness, config);
-        _treasury().assign(config.fees.token, msg.sender, config.fees.draftFee.mul(requestedJurors));
 
         // If the drafting is over, update its state
         if (draftEnded) {
@@ -1193,15 +1192,15 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
 
         // Draft jurors for the requested round
         IJurorsRegistry jurorsRegistry = _jurorsRegistry();
-        (address[] memory jurors, uint256 length) = jurorsRegistry.draft(draftParams);
+        (address[] memory jurors, uint256 draftedJurors) = jurorsRegistry.draft(draftParams);
 
         // Update round with drafted jurors information
         // No need for SafeMath: this cannot be greater than `jurorsNumber`.
-        uint64 newSelectedJurors = _selectedJurors + uint64(length);
+        uint64 newSelectedJurors = _selectedJurors + uint64(draftedJurors);
         _round.selectedJurors = newSelectedJurors;
 
         // Store or update drafted jurors' weight
-        for (uint256 i = 0; i < length; i++) {
+        for (uint256 i = 0; i < draftedJurors; i++) {
             address juror = jurors[i];
             JurorState storage jurorState = _round.jurorsStates[juror];
             // If the juror was already registered in the list, then don't add it twice
@@ -1211,6 +1210,10 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
             // No need for SafeMath: we assume a juror cannot be drafted 2^64 times for a round
             jurorState.weight++;
         }
+
+        // Transfer fees corresponding to the actual number of drafted jurors
+        ITreasury treasury = _treasury();
+        treasury.assign(_config.fees.token, msg.sender, _config.fees.draftFee.mul(draftedJurors));
 
         return newSelectedJurors == _jurorsNumber;
     }

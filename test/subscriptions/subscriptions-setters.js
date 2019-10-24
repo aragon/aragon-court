@@ -1,18 +1,16 @@
 const { bn, bigExp } = require('../helpers/numbers')
+const { buildHelper } = require('../helpers/controller')(web3, artifacts)
 const { assertRevert } = require('../helpers/assertThrow')
-const { ONE_DAY, NEXT_WEEK } = require('../helpers/time')
 const { decodeEventsOfType } = require('../helpers/decodeEvent')
 const { assertEvent, assertAmountOfEvents } = require('../helpers/assertEvent')
 
 const CourtSubscriptions = artifacts.require('CourtSubscriptions')
-const CourtClock = artifacts.require('CourtClockMock')
-const Controller = artifacts.require('ControllerMock')
 const ERC20 = artifacts.require('ERC20Mock')
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
 
 contract('CourtSubscriptions', ([_, governor, someone, something, subscriber]) => {
-  let controller, subscriptions, clock, feeToken
+  let controller, subscriptions, feeToken
 
   const FEE_AMOUNT = bigExp(10, 18)
   const PREPAYMENT_PERIODS = 12
@@ -22,14 +20,11 @@ contract('CourtSubscriptions', ([_, governor, someone, something, subscriber]) =
   const LATE_PAYMENT_PENALTY_PCT = bn(1000) // 1000‱ = 10%
 
   beforeEach('create base contracts', async () => {
-    controller = await Controller.new({ from: governor })
+    controller = await buildHelper().deploy({ configGovernor: governor })
     feeToken = await ERC20.new('Subscriptions Fee Token', 'SFT', 18)
 
     subscriptions = await CourtSubscriptions.new(controller.address, PERIOD_DURATION, feeToken.address, FEE_AMOUNT, PREPAYMENT_PERIODS, RESUME_PRE_PAID_PERIODS, LATE_PAYMENT_PENALTY_PCT, GOVERNOR_SHARE_PCT)
     await controller.setSubscriptions(subscriptions.address)
-
-    clock = await CourtClock.new(controller.address, ONE_DAY, NEXT_WEEK)
-    await controller.setClock(clock.address)
   })
 
   describe('setFeeAmount', () => {
@@ -122,7 +117,7 @@ contract('CourtSubscriptions', ([_, governor, someone, something, subscriber]) =
             const governorFees = GOVERNOR_SHARE_PCT.mul(paidAmount).div(bn(10000))
 
             beforeEach('pay some subscriptions', async () => {
-              await clock.mockSetTerm(PERIOD_DURATION)
+              await controller.mockSetTerm(PERIOD_DURATION)
               await feeToken.generateTokens(subscriber, paidAmount)
               await feeToken.approve(subscriptions.address, paidAmount, { from: subscriber })
               await subscriptions.payFees(subscriber, paidPeriods, { from: subscriber })

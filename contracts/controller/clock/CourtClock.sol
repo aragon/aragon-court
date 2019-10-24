@@ -76,8 +76,8 @@ contract CourtClock is IClock, TimeHelpers {
     }
 
     /**
-    * @notice Ensure that the current term of the Court is up-to-date. If the Court is outdated by more than one term, the heartbeat function
-    *         must be called manually instead.
+    * @notice Ensure that the current term of the Court is up-to-date. If the Court is outdated by more than `MAX_AUTO_TERM_TRANSITIONS_ALLOWED`
+    *         terms, the heartbeat function must be called manually instead.
     * @return Identification number of the current term
     */
     function ensureCurrentTerm() external returns (uint64) {
@@ -155,8 +155,8 @@ contract CourtClock is IClock, TimeHelpers {
     }
 
     /**
-    * @dev Internal function to ensure that the current term of the Court is up-to-date. If the Court is outdated by more than one term,
-    *      the heartbeat function must be called manually.
+    * @dev Internal function to ensure that the current term of the Court is up-to-date. If the Court is outdated by more than
+    *      `MAX_AUTO_TERM_TRANSITIONS_ALLOWED` terms, the heartbeat function must be called manually.
     * @return Identification number of the resultant term id after executing the corresponding transitions
     */
     function _ensureCurrentTerm() internal returns (uint64) {
@@ -216,7 +216,7 @@ contract CourtClock is IClock, TimeHelpers {
     */
     function _onTermTransitioned(uint64 _currentTermId) internal {
         // solium-disable-previous-line no-empty-blocks
-        // This function must be override to provide custom behavior
+        // This function must be overridden to provide custom behavior
     }
 
     /**

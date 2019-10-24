@@ -43,8 +43,8 @@ contract ControllerMock is Controller, TimeHelpersMock {
         emit ModuleSet(COURT, _addr);
     }
 
-    function setAccounting(address _addr) external {
-        _setModule(ACCOUNTING, _addr);
+    function setTreasury(address _addr) external {
+        _setModule(TREASURY, _addr);
     }
 
     function setVoting(address _addr) external {

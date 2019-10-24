@@ -3,27 +3,27 @@ const { assertRevert } = require('../helpers/assertThrow')
 const { bn, bigExp, MAX_UINT256 } = require('../helpers/numbers')
 const { assertEvent, assertAmountOfEvents } = require('../helpers/assertEvent')
 
-const CourtAccounting = artifacts.require('CourtAccounting')
+const CourtTreasury = artifacts.require('CourtTreasury')
 const ERC20 = artifacts.require('ERC20Mock')
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
 
-contract('CourtAccounting', ([_, court, holder, someone]) => {
-  let controller, accounting, DAI, ANT
+contract('CourtTreasury', ([_, court, holder, someone]) => {
+  let controller, treasury, DAI, ANT
 
-  beforeEach('create accounting', async () => {
+  beforeEach('create treasury', async () => {
     controller = await buildHelper().deploy()
-    accounting = await CourtAccounting.new(controller.address)
+    treasury = await CourtTreasury.new(controller.address)
+    await controller.setTreasury(treasury.address)
     await controller.setCourtMock(court)
-    await controller.setAccounting(accounting.address)
   })
 
   describe('constructor', () => {
     context('when the initialization succeeds', () => {
       it('is initialized', async () => {
-        accounting = await CourtAccounting.new(controller.address)
+        treasury = await CourtTreasury.new(controller.address)
 
-        assert.equal(await accounting.getController(), controller.address, 'accounting is not initialized')
+        assert.equal(await treasury.getController(), controller.address, 'treasury is not initialized')
       })
     })
 
@@ -32,7 +32,7 @@ contract('CourtAccounting', ([_, court, holder, someone]) => {
         const controllerAddress = ZERO_ADDRESS
 
         it('reverts', async () => {
-          await assertRevert(CourtAccounting.new(controllerAddress), 'CTD_CONTROLLER_NOT_CONTRACT')
+          await assertRevert(CourtTreasury.new(controllerAddress), 'CTD_CONTROLLER_NOT_CONTRACT')
         })
       })
 
@@ -40,7 +40,7 @@ contract('CourtAccounting', ([_, court, holder, someone]) => {
         const controllerAddress = someone
 
         it('reverts', async () => {
-          await assertRevert(CourtAccounting.new(controllerAddress), 'CTD_CONTROLLER_NOT_CONTRACT')
+          await assertRevert(CourtTreasury.new(controllerAddress), 'CTD_CONTROLLER_NOT_CONTRACT')
         })
       })
     })
@@ -62,7 +62,7 @@ contract('CourtAccounting', ([_, court, holder, someone]) => {
             const amount = bn(0)
 
             it('reverts', async () => {
-              await assertRevert(accounting.assign(DAI.address, account, amount, { from }), 'ACCOUNTING_DEPOSIT_AMOUNT_ZERO')
+              await assertRevert(treasury.assign(DAI.address, account, amount, { from }), 'TREASURY_DEPOSIT_AMOUNT_ZERO')
             })
           })
 
@@ -70,13 +70,13 @@ contract('CourtAccounting', ([_, court, holder, someone]) => {
             const amount = bigExp(10, 18)
 
             it('adds the new balance to the previous token balance', async () => {
-              await accounting.assign(DAI.address, account, amount, { from })
+              await treasury.assign(DAI.address, account, amount, { from })
 
-              assert.equal((await accounting.balanceOf(DAI.address, account)).toString(), amount.toString(), 'account balance do not match')
+              assert.equal((await treasury.balanceOf(DAI.address, account)).toString(), amount.toString(), 'account balance do not match')
             })
 
             it('emits an event', async () => {
-              const receipt = await accounting.assign(DAI.address, account, amount, { from })
+              const receipt = await treasury.assign(DAI.address, account, amount, { from })
 
               assertAmountOfEvents(receipt, 'Assign')
               assertEvent(receipt, 'Assign', { from: court, to: account, token: DAI.address, amount })
@@ -86,15 +86,15 @@ contract('CourtAccounting', ([_, court, holder, someone]) => {
 
         context('when the account had previous balance', () => {
           beforeEach('deposit some tokens', async () => {
-            await accounting.assign(ANT.address, account, bigExp(100, 18), { from: court })
-            await accounting.assign(DAI.address, account, bigExp(200, 18), { from: court })
+            await treasury.assign(ANT.address, account, bigExp(100, 18), { from: court })
+            await treasury.assign(DAI.address, account, bigExp(200, 18), { from: court })
           })
 
           context('when the given amount is zero', () => {
             const amount = bn(0)
 
             it('reverts', async () => {
-              await assertRevert(accounting.assign(DAI.address, account, amount, { from }), 'ACCOUNTING_DEPOSIT_AMOUNT_ZERO')
+              await assertRevert(treasury.assign(DAI.address, account, amount, { from }), 'TREASURY_DEPOSIT_AMOUNT_ZERO')
             })
           })
 
@@ -103,27 +103,27 @@ contract('CourtAccounting', ([_, court, holder, someone]) => {
               const amount = bigExp(10, 18)
 
               it('adds the new balance to the previous token balance', async () => {
-                const previousBalance = await accounting.balanceOf(DAI.address, account)
+                const previousBalance = await treasury.balanceOf(DAI.address, account)
 
-                await accounting.assign(DAI.address, account, amount, { from })
+                await treasury.assign(DAI.address, account, amount, { from })
 
-                const currentBalance = await accounting.balanceOf(DAI.address, account)
+                const currentBalance = await treasury.balanceOf(DAI.address, account)
                 assert.equal(currentBalance.toString(), previousBalance.add(amount).toString(), 'account balance do not match')
               })
 
               it('emits an event', async () => {
-                const receipt = await accounting.assign(DAI.address, account, amount, { from })
+                const receipt = await treasury.assign(DAI.address, account, amount, { from })
 
                 assertAmountOfEvents(receipt, 'Assign')
                 assertEvent(receipt, 'Assign', { from: court, to: account, token: DAI.address, amount })
               })
 
               it('does not affect other token balances', async () => {
-                const previousANTBalance = await accounting.balanceOf(ANT.address, account)
+                const previousANTBalance = await treasury.balanceOf(ANT.address, account)
 
-                await accounting.assign(DAI.address, account, amount, { from })
+                await treasury.assign(DAI.address, account, amount, { from })
 
-                const currentANTBalance = await accounting.balanceOf(ANT.address, account)
+                const currentANTBalance = await treasury.balanceOf(ANT.address, account)
                 assert.equal(currentANTBalance.toString(), previousANTBalance.toString(), 'account balance do not match')
               })
             })
@@ -132,7 +132,7 @@ contract('CourtAccounting', ([_, court, holder, someone]) => {
               const amount = MAX_UINT256
 
               it('reverts', async () => {
-                await assertRevert(accounting.assign(DAI.address, account, amount, { from }), 'MATH_ADD_OVERFLOW')
+                await assertRevert(treasury.assign(DAI.address, account, amount, { from }), 'MATH_ADD_OVERFLOW')
               })
             })
           })
@@ -143,7 +143,7 @@ contract('CourtAccounting', ([_, court, holder, someone]) => {
         const from = someone
 
         it('reverts', async () => {
-          await assertRevert(accounting.assign(DAI.address, account, bigExp(10, 18), { from }), 'CTD_SENDER_NOT_COURT_MODULE')
+          await assertRevert(treasury.assign(DAI.address, account, bigExp(10, 18), { from }), 'CTD_SENDER_NOT_COURT_MODULE')
         })
       })
     }
@@ -167,8 +167,8 @@ contract('CourtAccounting', ([_, court, holder, someone]) => {
       const from = holder
 
       beforeEach('deposit some tokens', async () => {
-        await accounting.assign(ANT.address, holder, bigExp(100, 18), { from: court })
-        await accounting.assign(DAI.address, holder, bigExp(200, 18), { from: court })
+        await treasury.assign(ANT.address, holder, bigExp(100, 18), { from: court })
+        await treasury.assign(DAI.address, holder, bigExp(200, 18), { from: court })
       })
 
       context('when the given recipient is not the zero address', () => {
@@ -178,54 +178,54 @@ contract('CourtAccounting', ([_, court, holder, someone]) => {
           const amount = bn(0)
 
           it('reverts', async () => {
-            await assertRevert(accounting.withdraw(DAI.address, recipient, amount, { from }), 'ACCOUNTING_WITHDRAW_AMOUNT_ZERO')
+            await assertRevert(treasury.withdraw(DAI.address, recipient, amount, { from }), 'TREASURY_WITHDRAW_AMOUNT_ZERO')
           })
         })
 
         context('when the given amount is lower than the balance of the account', () => {
           const amount = bigExp(10, 18)
 
-          context('when the accounting contract has enough tokens', () => {
+          context('when the treasury contract has enough tokens', () => {
             beforeEach('mint tokens', async () => {
-              await DAI.generateTokens(accounting.address, amount)
+              await DAI.generateTokens(treasury.address, amount)
             })
 
             it('subtracts the requested amount from the previous token balance', async () => {
-              const previousBalance = await accounting.balanceOf(DAI.address, recipient)
+              const previousBalance = await treasury.balanceOf(DAI.address, recipient)
 
-              await accounting.withdraw(DAI.address, recipient, amount, { from })
+              await treasury.withdraw(DAI.address, recipient, amount, { from })
 
-              const currentBalance = await accounting.balanceOf(DAI.address, recipient)
+              const currentBalance = await treasury.balanceOf(DAI.address, recipient)
               assert.equal(currentBalance.toString(), previousBalance.sub(amount).toString(), 'account balance do not match')
             })
 
             it('transfers the requested amount to the recipient', async () => {
-              await accounting.withdraw(DAI.address, recipient, amount, { from })
+              await treasury.withdraw(DAI.address, recipient, amount, { from })
 
               const balance = await DAI.balanceOf(recipient)
               assert.equal(balance.toString(), amount.toString(), 'token balance do not match')
             })
 
             it('emits an event', async () => {
-              const receipt = await accounting.withdraw(DAI.address, recipient, amount, { from })
+              const receipt = await treasury.withdraw(DAI.address, recipient, amount, { from })
 
               assertAmountOfEvents(receipt, 'Withdraw')
               assertEvent(receipt, 'Withdraw', { from, to: recipient, token: DAI.address, amount })
             })
 
             it('does not affect other token balances', async () => {
-              const previousANTBalance = await accounting.balanceOf(ANT.address, recipient)
+              const previousANTBalance = await treasury.balanceOf(ANT.address, recipient)
 
-              await accounting.withdraw(DAI.address, recipient, amount, { from })
+              await treasury.withdraw(DAI.address, recipient, amount, { from })
 
-              const currentANTBalance = await accounting.balanceOf(ANT.address, recipient)
+              const currentANTBalance = await treasury.balanceOf(ANT.address, recipient)
               assert.equal(currentANTBalance.toString(), previousANTBalance.toString(), 'account balance do not match')
             })
           })
 
-          context('when the accounting contract does not have enough tokens', () => {
+          context('when the treasury contract does not have enough tokens', () => {
             it('reverts', async () => {
-              await assertRevert(accounting.withdraw(DAI.address, recipient, amount, { from }), 'ACCOUNTING_WITHDRAW_FAILED')
+              await assertRevert(treasury.withdraw(DAI.address, recipient, amount, { from }), 'TREASURY_WITHDRAW_FAILED')
             })
           })
         })
@@ -233,45 +233,45 @@ contract('CourtAccounting', ([_, court, holder, someone]) => {
         context('when the given amount is equal to the balance of the account', () => {
           const amount = bigExp(200, 18)
 
-          context('when the accounting contract has enough tokens', () => {
+          context('when the treasury contract has enough tokens', () => {
             beforeEach('mint tokens', async () => {
-              await DAI.generateTokens(accounting.address, amount)
+              await DAI.generateTokens(treasury.address, amount)
             })
 
             it('reduces the account balance to 0', async () => {
-              await accounting.withdraw(DAI.address, recipient, amount, { from })
+              await treasury.withdraw(DAI.address, recipient, amount, { from })
 
-              const currentBalance = await accounting.balanceOf(DAI.address, recipient)
+              const currentBalance = await treasury.balanceOf(DAI.address, recipient)
               assert.equal(currentBalance.toString(), 0, 'account balance do not match')
             })
 
             it('transfers the requested amount to the recipient', async () => {
-              await accounting.withdraw(DAI.address, recipient, amount, { from })
+              await treasury.withdraw(DAI.address, recipient, amount, { from })
 
               const balance = await DAI.balanceOf(recipient)
               assert.equal(balance.toString(), amount.toString(), 'token balance do not match')
             })
 
             it('emits an event', async () => {
-              const receipt = await accounting.withdraw(DAI.address, recipient, amount, { from })
+              const receipt = await treasury.withdraw(DAI.address, recipient, amount, { from })
 
               assertAmountOfEvents(receipt, 'Withdraw')
               assertEvent(receipt, 'Withdraw', { from, to: recipient, token: DAI.address, amount })
             })
 
             it('does not affect other token balances', async () => {
-              const previousANTBalance = await accounting.balanceOf(ANT.address, recipient)
+              const previousANTBalance = await treasury.balanceOf(ANT.address, recipient)
 
-              await accounting.withdraw(DAI.address, recipient, amount, { from })
+              await treasury.withdraw(DAI.address, recipient, amount, { from })
 
-              const currentANTBalance = await accounting.balanceOf(ANT.address, recipient)
+              const currentANTBalance = await treasury.balanceOf(ANT.address, recipient)
               assert.equal(currentANTBalance.toString(), previousANTBalance.toString(), 'account balance do not match')
             })
           })
 
-          context('when the accounting contract does not have enough tokens', () => {
+          context('when the treasury contract does not have enough tokens', () => {
             it('reverts', async () => {
-              await assertRevert(accounting.withdraw(DAI.address, recipient, amount, { from }), 'ACCOUNTING_WITHDRAW_FAILED')
+              await assertRevert(treasury.withdraw(DAI.address, recipient, amount, { from }), 'TREASURY_WITHDRAW_FAILED')
             })
           })
         })
@@ -280,7 +280,7 @@ contract('CourtAccounting', ([_, court, holder, someone]) => {
           const amount = bigExp(201, 18)
 
           it('reverts', async () => {
-            await assertRevert(accounting.withdraw(DAI.address, recipient, amount, { from }), 'ACCOUNTING_WITHDRAW_INVALID_AMOUNT')
+            await assertRevert(treasury.withdraw(DAI.address, recipient, amount, { from }), 'TREASURY_WITHDRAW_INVALID_AMOUNT')
           })
         })
       })
@@ -292,7 +292,7 @@ contract('CourtAccounting', ([_, court, holder, someone]) => {
           const amount = bn(0)
 
           it('reverts', async () => {
-            await assertRevert(accounting.withdraw(DAI.address, recipient, amount, { from }), 'ACCOUNTING_WITHDRAW_AMOUNT_ZERO')
+            await assertRevert(treasury.withdraw(DAI.address, recipient, amount, { from }), 'TREASURY_WITHDRAW_AMOUNT_ZERO')
           })
         })
 
@@ -300,7 +300,7 @@ contract('CourtAccounting', ([_, court, holder, someone]) => {
           const amount = bigExp(10, 18)
 
           it('reverts', async () => {
-            await assertRevert(accounting.withdraw(DAI.address, recipient, amount, { from }), 'ACCOUNTING_WITHDRAW_FAILED')
+            await assertRevert(treasury.withdraw(DAI.address, recipient, amount, { from }), 'TREASURY_WITHDRAW_FAILED')
           })
         })
 
@@ -308,7 +308,7 @@ contract('CourtAccounting', ([_, court, holder, someone]) => {
           const amount = bigExp(200, 18)
 
           it('reverts', async () => {
-            await assertRevert(accounting.withdraw(DAI.address, recipient, amount, { from }), 'ACCOUNTING_WITHDRAW_FAILED')
+            await assertRevert(treasury.withdraw(DAI.address, recipient, amount, { from }), 'TREASURY_WITHDRAW_FAILED')
           })
         })
 
@@ -316,7 +316,7 @@ contract('CourtAccounting', ([_, court, holder, someone]) => {
           const amount = bigExp(201, 18)
 
           it('reverts', async () => {
-            await assertRevert(accounting.withdraw(DAI.address, recipient, amount, { from }), 'ACCOUNTING_WITHDRAW_INVALID_AMOUNT')
+            await assertRevert(treasury.withdraw(DAI.address, recipient, amount, { from }), 'TREASURY_WITHDRAW_INVALID_AMOUNT')
           })
         })
       })
@@ -326,7 +326,7 @@ contract('CourtAccounting', ([_, court, holder, someone]) => {
       const from = holder
 
       it('reverts', async () => {
-        await assertRevert(accounting.withdraw(DAI.address, holder, bigExp(10, 18), { from }), 'ACCOUNTING_WITHDRAW_INVALID_AMOUNT')
+        await assertRevert(treasury.withdraw(DAI.address, holder, bigExp(10, 18), { from }), 'TREASURY_WITHDRAW_INVALID_AMOUNT')
       })
     })
   })
@@ -344,49 +344,49 @@ contract('CourtAccounting', ([_, court, holder, someone]) => {
       const balance = bigExp(200, 18)
 
       beforeEach('deposit some tokens to the recipient', async () => {
-        await accounting.assign(DAI.address, recipient, balance, { from: court })
-        await accounting.assign(ANT.address, recipient, balance, { from: court })
+        await treasury.assign(DAI.address, recipient, balance, { from: court })
+        await treasury.assign(ANT.address, recipient, balance, { from: court })
       })
 
-      context('when the accounting contract has enough tokens', () => {
+      context('when the treasury contract has enough tokens', () => {
         beforeEach('mint tokens', async () => {
-          await DAI.generateTokens(accounting.address, balance)
+          await DAI.generateTokens(treasury.address, balance)
         })
 
         it('subtracts the total balance from the recipient', async () => {
-          await accounting.withdrawAll(DAI.address, recipient, { from })
+          await treasury.withdrawAll(DAI.address, recipient, { from })
 
-          const currentBalance = await accounting.balanceOf(DAI.address, recipient)
+          const currentBalance = await treasury.balanceOf(DAI.address, recipient)
           assert.equal(currentBalance.toString(), 0, 'account balance do not match')
         })
 
         it('transfers the total balance to the recipient', async () => {
-          await accounting.withdrawAll(DAI.address, recipient, { from })
+          await treasury.withdrawAll(DAI.address, recipient, { from })
 
           const currentBalance = await DAI.balanceOf(recipient)
           assert.equal(currentBalance.toString(), balance.toString(), 'token balance do not match')
         })
 
         it('emits an event', async () => {
-          const receipt = await accounting.withdrawAll(DAI.address, recipient, { from })
+          const receipt = await treasury.withdrawAll(DAI.address, recipient, { from })
 
           assertAmountOfEvents(receipt, 'Withdraw')
           assertEvent(receipt, 'Withdraw', { from: recipient, to: recipient, token: DAI.address, amount: balance })
         })
 
         it('does not affect other token balances', async () => {
-          const previousANTBalance = await accounting.balanceOf(ANT.address, recipient)
+          const previousANTBalance = await treasury.balanceOf(ANT.address, recipient)
 
-          await accounting.withdrawAll(DAI.address, recipient, { from })
+          await treasury.withdrawAll(DAI.address, recipient, { from })
 
-          const currentANTBalance = await accounting.balanceOf(ANT.address, recipient)
+          const currentANTBalance = await treasury.balanceOf(ANT.address, recipient)
           assert.equal(currentANTBalance.toString(), previousANTBalance.toString(), 'account balance do not match')
         })
       })
 
-      context('when the accounting contract does not have enough tokens', () => {
+      context('when the treasury contract does not have enough tokens', () => {
         it('reverts', async () => {
-          await assertRevert(accounting.withdrawAll(DAI.address, recipient, { from }), 'ACCOUNTING_WITHDRAW_FAILED')
+          await assertRevert(treasury.withdrawAll(DAI.address, recipient, { from }), 'TREASURY_WITHDRAW_FAILED')
         })
       })
     })
@@ -395,7 +395,7 @@ contract('CourtAccounting', ([_, court, holder, someone]) => {
       const from = holder
 
       it('reverts', async () => {
-        await assertRevert(accounting.withdrawAll(DAI.address, recipient, { from }), 'ACCOUNTING_WITHDRAW_AMOUNT_ZERO')
+        await assertRevert(treasury.withdrawAll(DAI.address, recipient, { from }), 'TREASURY_WITHDRAW_AMOUNT_ZERO')
       })
     })
   })

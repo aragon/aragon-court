@@ -20,8 +20,8 @@ contract Controller is IsContract, CourtClock, CourtConfig {
     // Court module ID - keccak256(abi.encodePacked("COURT"))
     bytes32 internal constant COURT = 0x26f3b895987e349a46d6d91132234924c6d45cfdc564b33427f53e3f9284955c;
 
-    // Accounting module ID - keccak256(abi.encodePacked("ACCOUNTING"))
-    bytes32 internal constant ACCOUNTING = 0x3ec26b85a7d49ed13a920deeaceb063fa458eb25266fa7b504696047900a5b0f;
+    // Treasury module ID - keccak256(abi.encodePacked("TREASURY"))
+    bytes32 internal constant TREASURY = 0x06aa03964db1f7257357ef09714a5f0ca3633723df419e97015e0c7a3e83edb7;
 
     // Voting module ID - keccak256(abi.encodePacked("VOTING"))
     bytes32 internal constant VOTING = 0x7cbb12e82a6d63ff16fe43977f43e3e2b247ecd4e62c0e340da8800a48c67346;
@@ -306,11 +306,11 @@ contract Controller is IsContract, CourtClock, CourtConfig {
     }
 
     /**
-    * @dev Tell the address of the Accounting module
-    * @return Address of the Accounting module
+    * @dev Tell the address of the Treasury module
+    * @return Address of the Treasury module
     */
-    function getAccounting() external view returns (address) {
-        return _getModule(ACCOUNTING);
+    function getTreasury() external view returns (address) {
+        return _getModule(TREASURY);
     }
 
     /**

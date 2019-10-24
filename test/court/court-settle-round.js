@@ -105,10 +105,10 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
             const { active, available, locked } = await courtHelper.jurorsRegistry.balanceOf(BURN_ADDRESS)
             previousBalances[BURN_ADDRESS] = { active, available, locked }
 
-            const { feeToken, accounting } = courtHelper
-            previousBalances[disputer] = { feeAmount: await accounting.balanceOf(feeToken.address, disputer) }
-            previousBalances[appealMaker] = { feeAmount: await accounting.balanceOf(feeToken.address, appealMaker) }
-            previousBalances[appealTaker] = { feeAmount: await accounting.balanceOf(feeToken.address, appealTaker) }
+            const { feeToken, treasury } = courtHelper
+            previousBalances[disputer] = { feeAmount: await treasury.balanceOf(feeToken.address, disputer) }
+            previousBalances[appealMaker] = { feeAmount: await treasury.balanceOf(feeToken.address, appealMaker) }
+            previousBalances[appealTaker] = { feeAmount: await treasury.balanceOf(feeToken.address, appealTaker) }
           })
 
           beforeEach('load expected coherent jurors', async () => {
@@ -189,21 +189,21 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
 
               it('refunds the jurors fees if necessary', async () => {
                 const { jurorFees } = await courtHelper.getRound(disputeId, roundId)
-                const { feeToken, accounting } = courtHelper
+                const { feeToken, treasury } = courtHelper
 
                 if (roundId === 0) {
                   const { feeAmount: previousDisputerBalance } = previousBalances[disputer]
-                  const currentDisputerBalance = await accounting.balanceOf(feeToken.address, disputer)
+                  const currentDisputerBalance = await treasury.balanceOf(feeToken.address, disputer)
 
                   expectedCoherentJurors === 0
                     ? assert.equal(currentDisputerBalance.toString(), previousDisputerBalance.add(jurorFees).toString(), 'disputer fee balance does not match')
                     : assert.equal(currentDisputerBalance.toString(), previousDisputerBalance.toString(), 'disputer fee balance does not match')
                 } else {
                   const { feeAmount: previousAppealMakerBalance } = previousBalances[appealMaker]
-                  const currentAppealMakerBalance = await accounting.balanceOf(feeToken.address, appealMaker)
+                  const currentAppealMakerBalance = await treasury.balanceOf(feeToken.address, appealMaker)
 
                   const { feeAmount: previousAppealTakerBalance } = previousBalances[appealTaker]
-                  const currentAppealTakerBalance = await accounting.balanceOf(feeToken.address, appealTaker)
+                  const currentAppealTakerBalance = await treasury.balanceOf(feeToken.address, appealTaker)
 
                   if (expectedCoherentJurors === 0) {
                     const refundFees = jurorFees.div(bn(2))
@@ -295,16 +295,16 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
                 })
 
                 it('rewards winning jurors with fees', async () => {
-                  const { accounting, feeToken } = courtHelper
+                  const { treasury, feeToken } = courtHelper
                   const { jurorFees } = await courtHelper.getRound(disputeId, roundId)
 
                   for(const { address, weight } of expectedWinningJurors) {
-                    const previousJurorBalance = await accounting.balanceOf(feeToken.address, address)
+                    const previousJurorBalance = await treasury.balanceOf(feeToken.address, address)
 
                     await court.settleReward(disputeId, roundId, address)
 
                     const expectedReward = jurorFees.mul(bn(weight)).div(bn(expectedCoherentJurors))
-                    const currentJurorBalance = await accounting.balanceOf(feeToken.address, address)
+                    const currentJurorBalance = await treasury.balanceOf(feeToken.address, address)
                     assert.equal(currentJurorBalance.toString(), previousJurorBalance.add(expectedReward), 'juror fee balance does not match')
                   }
                 })

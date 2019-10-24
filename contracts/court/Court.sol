@@ -10,7 +10,7 @@ import "@aragon/os/contracts/common/Uint256Helpers.sol";
 import "../lib/PctHelpers.sol";
 import "../voting/ICRVoting.sol";
 import "../voting/ICRVotingOwner.sol";
-import "../accounting/IAccounting.sol";
+import "../treasury/ITreasury.sol";
 import "../arbitration/IArbitrable.sol";
 import "../registry/IJurorsRegistry.sol";
 import "../subscriptions/ISubscriptions.sol";
@@ -240,7 +240,7 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
         // Draft jurors for the given dispute and reimburse fees
         Config memory config = _getDisputeConfig(dispute);
         bool draftEnded = _draft(_disputeId, round, jurorsNumber, selectedJurors, requestedJurors, currentTermId, draftTermRandomness, config);
-        _accounting().assign(config.fees.token, msg.sender, config.fees.draftFee.mul(requestedJurors));
+        _treasury().assign(config.fees.token, msg.sender, config.fees.draftFee.mul(requestedJurors));
 
         // If the drafting is over, update its state
         if (draftEnded) {
@@ -359,13 +359,13 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
         }
 
         Config memory config = _getDisputeConfig(dispute);
-        IAccounting accounting = _accounting();
+        ITreasury treasury = _treasury();
         ERC20 feeToken = config.fees.token;
         if (_isRegularRound(_roundId, config)) {
             // For regular appeal rounds we compute the amount of locked tokens that needs to get burned in batches.
             // The callers of this function will get rewarded in this case.
             uint256 jurorsSettled = _settleRegularRoundPenalties(round, voteId, finalRuling, config.disputes.penaltyPct, _jurorsToSettle);
-            accounting.assign(feeToken, msg.sender, config.fees.settleFee.mul(jurorsSettled));
+            treasury.assign(feeToken, msg.sender, config.fees.settleFee.mul(jurorsSettled));
         } else {
             // For the final appeal round, there is no need to settle in batches since, to guarantee scalability,
             // all the tokens collected from jurors participating in the final round are burned, and those jurors who
@@ -377,7 +377,7 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
         if (round.settledPenalties) {
             uint256 collectedTokens = round.collectedTokens;
             emit PenaltiesSettled(_disputeId, _roundId, collectedTokens);
-            _burnCollectedTokensIfNecessary(dispute, round, _roundId, accounting, feeToken, collectedTokens);
+            _burnCollectedTokensIfNecessary(dispute, round, _roundId, treasury, feeToken, collectedTokens);
         }
     }
 
@@ -419,8 +419,8 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
         // Reward the winning juror
         uint256 jurorFee = round.jurorFees.mul(jurorState.weight) / coherentJurors;
         Config memory config = _getDisputeConfig(dispute);
-        IAccounting accounting = _accounting();
-        accounting.assign(config.fees.token, _juror, jurorFee);
+        ITreasury treasury = _treasury();
+        treasury.assign(config.fees.token, _juror, jurorFee);
         emit RewardSettled(_disputeId, _roundId, _juror);
     }
 
@@ -450,9 +450,9 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
         uint256 confirmAppealDeposit = nextRound.confirmAppealDeposit;
 
         // If the appeal wasn't confirmed, return the entire deposit to appeal maker
-        IAccounting accounting = _accounting();
+        ITreasury treasury = _treasury();
         if (!_isAppealConfirmed(appeal)) {
-            accounting.assign(feeToken, appeal.maker, appealDeposit);
+            treasury.assign(feeToken, appeal.maker, appealDeposit);
             return;
         }
 
@@ -463,15 +463,15 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
         uint256 totalDeposit = appealDeposit.add(confirmAppealDeposit);
         if (appeal.appealedRuling == finalRuling) {
             // No need for SafeMath: collateral factors > 0 => both appeal deposits > totalFees
-            accounting.assign(feeToken, appeal.maker, totalDeposit - totalFees);
+            treasury.assign(feeToken, appeal.maker, totalDeposit - totalFees);
         } else if (appeal.opposedRuling == finalRuling) {
             // No need for SafeMath: collateral factors > 0 => both appeal deposits > totalFees
-            accounting.assign(feeToken, appeal.taker, totalDeposit - totalFees);
+            treasury.assign(feeToken, appeal.taker, totalDeposit - totalFees);
         } else {
             uint256 feesRefund = totalFees / 2;
             // No need for SafeMath: collateral factors > 0 => both appeal deposits > totalFees
-            accounting.assign(feeToken, appeal.maker, appealDeposit - feesRefund);
-            accounting.assign(feeToken, appeal.taker, confirmAppealDeposit - feesRefund);
+            treasury.assign(feeToken, appeal.maker, appealDeposit - feesRefund);
+            treasury.assign(feeToken, appeal.taker, confirmAppealDeposit - feesRefund);
         }
     }
 
@@ -872,14 +872,14 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
     }
 
     /**
-    * @dev Internal function to execute a deposit of tokens from the msg.sender to the Court accounting contract
+    * @dev Internal function to execute a deposit of tokens from the msg.sender to the Court treasury contract
     * @param _token ERC20 token to execute a transfer from
-    * @param _amount Amount of tokens to be transferred from the msg.sender to the Court accounting
+    * @param _amount Amount of tokens to be transferred from the msg.sender to the Court treasury
     */
     function _depositSenderAmount(ERC20 _token, uint256 _amount) internal {
         if (_amount > 0) {
-            IAccounting accounting = _accounting();
-            require(_token.safeTransferFrom(msg.sender, address(accounting), _amount), ERROR_DEPOSIT_FAILED);
+            ITreasury treasury = _treasury();
+            require(_token.safeTransferFrom(msg.sender, address(treasury), _amount), ERROR_DEPOSIT_FAILED);
         }
     }
 
@@ -1216,7 +1216,7 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
     * @param _dispute Dispute to settle penalties for
     * @param _round Dispute round to settle penalties for
     * @param _roundId Identification number of the dispute round to settle penalties for
-    * @param _accounting Accounting module to refund the corresponding juror fees
+    * @param _treasury treasury module to refund the corresponding juror fees
     * @param _feeToken ERC20 token to be used for the fees corresponding to the draft term of the given dispute round
     * @param _collectedTokens Amount of tokens collected during the given dispute round
     */
@@ -1224,7 +1224,7 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
         Dispute storage _dispute,
         AdjudicationRound storage _round,
         uint256 _roundId,
-        IAccounting _accounting,
+        ITreasury _treasury,
         ERC20 _feeToken,
         uint256 _collectedTokens
     )
@@ -1246,12 +1246,12 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
         // Reimburse juror fees to the disputer for round 0 or to the previous appeal parties for other rounds. Note that if the
         // given round is not the first round, we can ensure there was an appeal in the previous round.
         if (_roundId == 0) {
-            _accounting.assign(_feeToken, _round.triggeredBy, _round.jurorFees);
+            _treasury.assign(_feeToken, _round.triggeredBy, _round.jurorFees);
         } else {
             uint256 refundFees = _round.jurorFees / 2;
             Appeal storage triggeringAppeal = _dispute.rounds[_roundId - 1].appeal;
-            _accounting.assign(_feeToken, triggeringAppeal.maker, refundFees);
-            _accounting.assign(_feeToken, triggeringAppeal.taker, refundFees);
+            _treasury.assign(_feeToken, triggeringAppeal.maker, refundFees);
+            _treasury.assign(_feeToken, triggeringAppeal.taker, refundFees);
         }
     }
 }

@@ -267,8 +267,8 @@ module.exports = (web3, artifacts) => {
       Object.assign(this, { ...DEFAULTS, ...params })
       await this.controllerHelper.deploy(params)
       await this.controllerHelper.deployModules()
-      const { controller, court, jurorsRegistry, voting, subscriptions, accounting, feeToken, jurorToken, governor } = this.controllerHelper
-      Object.assign(this, { controller, court, jurorsRegistry, voting, subscriptions, accounting, feeToken, jurorToken, governor })
+      const { controller, court, jurorsRegistry, voting, subscriptions, treasury, feeToken, jurorToken, governor } = this.controllerHelper
+      Object.assign(this, { controller, court, jurorsRegistry, voting, subscriptions, treasury, feeToken, jurorToken, governor })
       return this.court
     }
 

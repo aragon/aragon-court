@@ -158,7 +158,7 @@ contract('CourtAccounting', ([_, court, holder, someone]) => {
   })
 
   describe('withdraw', () => {
-    beforeEach('create tokens and mint to accounting', async () => {
+    beforeEach('create tokens', async () => {
       DAI = await ERC20.new('DAI Token', 'DAI', 18)
       ANT = await ERC20.new('AN Token', 'ANT', 18)
     })
@@ -223,7 +223,7 @@ contract('CourtAccounting', ([_, court, holder, someone]) => {
             })
           })
 
-          context('when the accounting contract has enough tokens', () => {
+          context('when the accounting contract does not have enough tokens', () => {
             it('reverts', async () => {
               await assertRevert(accounting.withdraw(DAI.address, recipient, amount, { from }), 'ACCOUNTING_WITHDRAW_FAILED')
             })
@@ -269,7 +269,7 @@ contract('CourtAccounting', ([_, court, holder, someone]) => {
             })
           })
 
-          context('when the accounting contract has enough tokens', () => {
+          context('when the accounting contract does not have enough tokens', () => {
             it('reverts', async () => {
               await assertRevert(accounting.withdraw(DAI.address, recipient, amount, { from }), 'ACCOUNTING_WITHDRAW_FAILED')
             })
@@ -327,6 +327,75 @@ contract('CourtAccounting', ([_, court, holder, someone]) => {
 
       it('reverts', async () => {
         await assertRevert(accounting.withdraw(DAI.address, holder, bigExp(10, 18), { from }), 'ACCOUNTING_WITHDRAW_INVALID_AMOUNT')
+      })
+    })
+  })
+
+  describe('withdrawAll', () => {
+    const from = someone
+    const recipient = holder
+
+    beforeEach('create tokens', async () => {
+      DAI = await ERC20.new('DAI Token', 'DAI', 18)
+      ANT = await ERC20.new('AN Token', 'ANT', 18)
+    })
+
+    context('when the recipient has some assigned tokens', () => {
+      const balance = bigExp(200, 18)
+
+      beforeEach('deposit some tokens to the recipient', async () => {
+        await accounting.assign(DAI.address, recipient, balance, { from: court })
+        await accounting.assign(ANT.address, recipient, balance, { from: court })
+      })
+
+      context('when the accounting contract has enough tokens', () => {
+        beforeEach('mint tokens', async () => {
+          await DAI.generateTokens(accounting.address, balance)
+        })
+
+        it('subtracts the total balance from the recipient', async () => {
+          await accounting.withdrawAll(DAI.address, recipient, { from })
+
+          const currentBalance = await accounting.balanceOf(DAI.address, recipient)
+          assert.equal(currentBalance.toString(), 0, 'account balance do not match')
+        })
+
+        it('transfers the total balance to the recipient', async () => {
+          await accounting.withdrawAll(DAI.address, recipient, { from })
+
+          const currentBalance = await DAI.balanceOf(recipient)
+          assert.equal(currentBalance.toString(), balance.toString(), 'token balance do not match')
+        })
+
+        it('emits an event', async () => {
+          const receipt = await accounting.withdrawAll(DAI.address, recipient, { from })
+
+          assertAmountOfEvents(receipt, 'Withdraw')
+          assertEvent(receipt, 'Withdraw', { from: recipient, to: recipient, token: DAI.address, amount: balance })
+        })
+
+        it('does not affect other token balances', async () => {
+          const previousANTBalance = await accounting.balanceOf(ANT.address, recipient)
+
+          await accounting.withdrawAll(DAI.address, recipient, { from })
+
+          const currentANTBalance = await accounting.balanceOf(ANT.address, recipient)
+          assert.equal(currentANTBalance.toString(), previousANTBalance.toString(), 'account balance do not match')
+        })
+      })
+
+      context('when the accounting contract does not have enough tokens', () => {
+        it('reverts', async () => {
+          await assertRevert(accounting.withdrawAll(DAI.address, recipient, { from }), 'ACCOUNTING_WITHDRAW_FAILED')
+        })
+      })
+    })
+
+    context('when the recipient does not have balance', () => {
+      const from = holder
+
+      it('reverts', async () => {
+        await assertRevert(accounting.withdrawAll(DAI.address, recipient, { from }), 'ACCOUNTING_WITHDRAW_AMOUNT_ZERO')
       })
     })
   })

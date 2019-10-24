@@ -1,7 +1,8 @@
+const { DEFAULTS } = require('../helpers/controller')(web3, artifacts)
 const { bn, bigExp } = require('../helpers/numbers')
 const { filterJurors } = require('../helpers/jurors')
 const { assertRevert } = require('../helpers/assertThrow')
-const { buildHelper, DEFAULTS, ROUND_STATES } = require('../helpers/court')(web3, artifacts)
+const { buildHelper, ROUND_STATES } = require('../helpers/court')(web3, artifacts)
 const { assertAmountOfEvents, assertEvent } = require('../helpers/assertEvent')
 const { getVoteId, encryptVote, outcomeFor, SALT, OUTCOMES } = require('../helpers/crvoting')
 
@@ -259,7 +260,7 @@ contract('Court', ([_, disputer, drafter, juror100, juror500, juror1000, juror15
       const roundId = DEFAULTS.maxRegularAppealRounds.toNumber(), poorJuror = juror100
 
       beforeEach('simulate juror without enough balance to vote on a final round', async () => {
-        await court.collect(poorJuror, bigExp(99, 18))
+        await courtHelper.jurorsRegistry.collect(poorJuror, bigExp(99, 18))
         await courtHelper.passTerms(bn(1))
 
         const { active } = await courtHelper.jurorsRegistry.balanceOf(poorJuror)

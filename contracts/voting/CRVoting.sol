@@ -10,7 +10,6 @@ import "../controller/Controlled.sol";
 contract CRVoting is Controlled, ICRVoting {
     using SafeMath for uint256;
 
-    string private constant ERROR_NOT_OWNER = "CRV_SENDER_NOT_OWNER";
     string private constant ERROR_OWNER_NOT_CONTRACT = "CRV_OWNER_NOT_CONTRACT";
     string private constant ERROR_COMMIT_DENIED_BY_OWNER = "CRV_COMMIT_DENIED_BY_OWNER";
     string private constant ERROR_REVEAL_DENIED_BY_OWNER = "CRV_REVEAL_DENIED_BY_OWNER";
@@ -53,12 +52,6 @@ contract CRVoting is Controlled, ICRVoting {
     event VoteRevealed(uint256 indexed voteId, address indexed voter, uint8 outcome);
     event VoteLeaked(uint256 indexed voteId, address indexed voter, uint8 outcome, address leaker);
 
-    modifier onlyOwner {
-        ICRVotingOwner owner = _votingOwner();
-        require(msg.sender == address(owner), ERROR_NOT_OWNER);
-        _;
-    }
-
     modifier voteExists(uint256 _voteId) {
         Vote storage vote = voteRecords[_voteId];
         require(_existsVote(vote), ERROR_VOTE_DOES_NOT_EXIST);
@@ -79,7 +72,7 @@ contract CRVoting is Controlled, ICRVoting {
     * @param _voteId ID of the new vote instance to be created
     * @param _possibleOutcomes Number of possible outcomes for the new vote instance to be created
     */
-    function create(uint256 _voteId, uint8 _possibleOutcomes) external onlyOwner {
+    function create(uint256 _voteId, uint8 _possibleOutcomes) external onlyCourt {
         require(_possibleOutcomes >= MIN_POSSIBLE_OUTCOMES && _possibleOutcomes <= MAX_POSSIBLE_OUTCOMES, ERROR_INVALID_OUTCOMES_AMOUNT);
 
         Vote storage vote = voteRecords[_voteId];

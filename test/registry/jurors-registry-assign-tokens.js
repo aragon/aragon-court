@@ -1,29 +1,29 @@
+const { buildHelper } = require('../helpers/controller')(web3, artifacts)
 const { assertRevert } = require('../helpers/assertThrow')
 const { decodeEventsOfType } = require('../helpers/decodeEvent')
 const { bn, bigExp, MAX_UINT256 } = require('../helpers/numbers')
 const { assertEvent, assertAmountOfEvents } = require('../helpers/assertEvent')
 
 const JurorsRegistry = artifacts.require('JurorsRegistry')
-const JurorsRegistryOwner = artifacts.require('JurorsRegistryOwnerMock')
+const Court = artifacts.require('CourtMockForRegistry')
 const ERC20 = artifacts.require('ERC20Mock')
-const Controller = artifacts.require('ControllerMock')
 
 contract('JurorsRegistry', ([_, juror, someone]) => {
-  let controller, registry, registryOwner, ANJ
+  let controller, registry, court, ANJ
 
   const MIN_ACTIVE_AMOUNT = bigExp(100, 18)
   const TOTAL_ACTIVE_BALANCE_LIMIT = bigExp(100e6, 18)
   const BURN_ADDRESS = '0x000000000000000000000000000000000000dead'
 
   beforeEach('create base contracts', async () => {
-    controller = await Controller.new()
+    controller = await buildHelper().deploy()
     ANJ = await ERC20.new('ANJ Token', 'ANJ', 18)
 
     registry = await JurorsRegistry.new(controller.address, ANJ.address, MIN_ACTIVE_AMOUNT, TOTAL_ACTIVE_BALANCE_LIMIT)
     await controller.setJurorsRegistry(registry.address)
 
-    registryOwner = await JurorsRegistryOwner.new(registry.address)
-    await controller.setCourt(registryOwner.address)
+    court = await Court.new(controller.address)
+    await controller.setCourt(court.address)
   })
 
   const itHandlesZeroTokenAssignmentsProperly = (assignmentCall, recipient) => {
@@ -136,18 +136,18 @@ contract('JurorsRegistry', ([_, juror, someone]) => {
   }
 
   describe('assignTokens', () => {
-    context('when the sender is the owner', () => {
+    context('when the sender is the court', () => {
       context('when the given amount is zero', () => {
         const amount = bn(0)
 
-        itHandlesZeroTokenAssignmentsProperly(() => registryOwner.assignTokens(juror, amount), juror)
+        itHandlesZeroTokenAssignmentsProperly(() => court.assignTokens(juror, amount), juror)
       })
 
       context('when the given amount is greater than zero', () => {
         context('when the juror did not have balance', () => {
           const amount = bigExp(100, 18)
 
-          itHandlesTokenAssignmentsProperly(() => registryOwner.assignTokens(juror, amount), juror, amount)
+          itHandlesTokenAssignmentsProperly(() => court.assignTokens(juror, amount), juror, amount)
         })
 
         context('when the juror already had some balance', () => {
@@ -160,71 +160,71 @@ contract('JurorsRegistry', ([_, juror, someone]) => {
           context('when the given amount does not overflow', () => {
             const amount = bigExp(100, 18)
 
-            itHandlesTokenAssignmentsProperly(() => registryOwner.assignTokens(juror, amount), juror, amount)
+            itHandlesTokenAssignmentsProperly(() => court.assignTokens(juror, amount), juror, amount)
           })
 
           context('when the given amount does overflow', () => {
             const amount = MAX_UINT256
 
             it('reverts', async () => {
-              await assertRevert(registryOwner.assignTokens(juror, amount), 'MATH_ADD_OVERFLOW')
+              await assertRevert(court.assignTokens(juror, amount), 'MATH_ADD_OVERFLOW')
             })
           })
         })
       })
     })
 
-    context('when the sender is not the owner', () => {
+    context('when the sender is not the court', () => {
       const from = someone
 
       it('reverts', async () => {
-        await assertRevert(registry.assignTokens(juror, bigExp(100, 18), { from }), 'JR_SENDER_NOT_OWNER')
+        await assertRevert(registry.assignTokens(juror, bigExp(100, 18), { from }), 'CTD_SENDER_NOT_COURT_MODULE')
       })
     })
   })
 
   describe('burnTokens', () => {
-    context('when the sender is the owner', () => {
+    context('when the sender is the court', () => {
       context('when the given amount is zero', () => {
         const amount = bn(0)
 
-        itHandlesZeroTokenAssignmentsProperly(() => registryOwner.burnTokens(amount), BURN_ADDRESS)
+        itHandlesZeroTokenAssignmentsProperly(() => court.burnTokens(amount), BURN_ADDRESS)
       })
 
       context('when the given amount is greater than zero', () => {
         context('when the juror did not have balance', () => {
           const amount = bigExp(100, 18)
 
-          itHandlesTokenAssignmentsProperly(() => registryOwner.burnTokens(amount), BURN_ADDRESS, amount)
+          itHandlesTokenAssignmentsProperly(() => court.burnTokens(amount), BURN_ADDRESS, amount)
         })
 
         context('when the burn address already had some balance', () => {
           beforeEach('burn some balance', async () => {
-            await registryOwner.burnTokens(bigExp(50, 18))
+            await court.burnTokens(bigExp(50, 18))
           })
 
           context('when the given amount does not overflow', () => {
             const amount = bigExp(100, 18)
 
-            itHandlesTokenAssignmentsProperly(() => registryOwner.burnTokens(amount), BURN_ADDRESS, amount)
+            itHandlesTokenAssignmentsProperly(() => court.burnTokens(amount), BURN_ADDRESS, amount)
           })
 
           context('when the given amount does overflow', () => {
             const amount = MAX_UINT256
 
             it('reverts', async () => {
-              await assertRevert(registryOwner.burnTokens(amount), 'MATH_ADD_OVERFLOW')
+              await assertRevert(court.burnTokens(amount), 'MATH_ADD_OVERFLOW')
             })
           })
         })
       })
     })
 
-    context('when the sender is not the owner', () => {
+    context('when the sender is not the court', () => {
       const from = someone
 
       it('reverts', async () => {
-        await assertRevert(registry.burnTokens(bigExp(100, 18), { from }), 'JR_SENDER_NOT_OWNER')
+        await assertRevert(registry.burnTokens(bigExp(100, 18), { from }), 'CTD_SENDER_NOT_COURT_MODULE')
       })
     })
   })

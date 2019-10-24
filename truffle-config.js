@@ -18,6 +18,4 @@ const config = {
   }
 }
 
-config.networks.rpc.gas = 8e6
-
 module.exports = config

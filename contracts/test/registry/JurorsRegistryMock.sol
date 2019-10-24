@@ -1,25 +1,30 @@
 pragma solidity ^0.5.8;
 
-import "../lib/TimeHelpersMock.sol";
 import "../../registry/JurorsRegistry.sol";
 
 
-contract JurorsRegistryMock is JurorsRegistry, TimeHelpersMock {
-    bool internal treeSearchHijacked;
+contract JurorsRegistryMock is JurorsRegistry {
+    string private constant ERROR_INVALID_MOCK_LOCK_AMOUNT = 'JR_INVALID_MOCK_LOCK_AMOUNT';
+
     bool internal nextDraftMocked;
-    address[] public mockedSelectedJurors;
-    uint256[] public mockedWeights;
+    address[] internal mockedSelectedJurors;
 
     constructor (Controller _controller, ERC20 _jurorToken, uint256 _minActiveBalance, uint256 _totalActiveBalanceLimit)
         public
         JurorsRegistry(_controller, _jurorToken, _minActiveBalance, _totalActiveBalanceLimit)
     {}
 
-    function lockAll(address _juror) external {
+    function mockLock(address _juror, uint256 _leftUnlockedAmount) external {
         Juror storage juror = jurorsByAddress[_juror];
-
         uint256 active = _existsJuror(juror) ? tree.getItem(juror.id) : 0;
-        juror.lockedBalance = active;
+        require(_leftUnlockedAmount < active, ERROR_INVALID_MOCK_LOCK_AMOUNT);
+        juror.lockedBalance = active - _leftUnlockedAmount;
+    }
+
+    function collect(address _juror, uint256 _amount) external {
+        Juror storage juror = jurorsByAddress[_juror];
+        uint64 nextTermId = _getLastEnsuredTermId() + 1;
+        tree.update(juror.id, nextTermId, _amount, false);
     }
 
     function mockNextDraft(address[] calldata _selectedJurors, uint256[] calldata _weights) external {
@@ -27,12 +32,9 @@ contract JurorsRegistryMock is JurorsRegistry, TimeHelpersMock {
 
         delete mockedSelectedJurors;
         for (uint256 i = 0; i < _selectedJurors.length; i++) {
-            mockedSelectedJurors.push(_selectedJurors[i]);
-        }
-
-        delete mockedWeights;
-        for (uint256 j = 0; j < _weights.length; j++) {
-            mockedWeights.push(_weights[j]);
+            for (uint256 j = 0; j < _weights[i]; j++) {
+                mockedSelectedJurors.push(_selectedJurors[i]);
+            }
         }
     }
 
@@ -44,25 +46,17 @@ contract JurorsRegistryMock is JurorsRegistry, TimeHelpersMock {
     }
 
     function _runMockedSearch(DraftParams memory _params) internal view returns (uint256[] memory ids, uint256[] memory activeBalances) {
-        uint256 totalLength = 0;
-        for (uint256 k = 0; k < mockedWeights.length; k++) {
-            totalLength += mockedWeights[k];
-        }
+        uint256 length = mockedSelectedJurors.length;
+        ids = new uint256[](length);
+        activeBalances = new uint256[](length);
 
-        ids = new uint256[](totalLength);
-        activeBalances = new uint256[](totalLength);
-
-        uint256 index = 0;
         for (uint256 i = 0; i < mockedSelectedJurors.length; i++) {
             address juror = mockedSelectedJurors[i];
             uint256 id = jurorsByAddress[juror].id;
             uint256 activeBalance = tree.getItemAt(id, _params.termId);
 
-            for (uint256 j = 0; j < mockedWeights[i]; j++) {
-                ids[index] = id;
-                activeBalances[index] = activeBalance;
-                index++;
-            }
+            ids[i] = id;
+            activeBalances[i] = activeBalance;
         }
     }
 }

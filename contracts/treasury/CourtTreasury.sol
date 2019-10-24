@@ -4,36 +4,26 @@ import "@aragon/os/contracts/lib/token/ERC20.sol";
 import "@aragon/os/contracts/lib/math/SafeMath.sol";
 import "@aragon/os/contracts/common/SafeERC20.sol";
 
-import "./IAccounting.sol";
+import "./ITreasury.sol";
 import "../controller/Controlled.sol";
 import "../controller/Controller.sol";
 import "../controller/ControlledRecoverable.sol";
 
 
-contract CourtAccounting is Controlled, ControlledRecoverable, IAccounting {
+contract CourtTreasury is ControlledRecoverable, ITreasury {
     using SafeERC20 for ERC20;
     using SafeMath for uint256;
 
-    string private constant ERROR_SENDER_NOT_OWNER = "ACCOUNTING_SENDER_NOT_OWNER";
-    string private constant ERROR_DEPOSIT_AMOUNT_ZERO = "ACCOUNTING_DEPOSIT_AMOUNT_ZERO";
-    string private constant ERROR_WITHDRAW_FAILED = "ACCOUNTING_WITHDRAW_FAILED";
-    string private constant ERROR_WITHDRAW_AMOUNT_ZERO = "ACCOUNTING_WITHDRAW_AMOUNT_ZERO";
-    string private constant ERROR_WITHDRAW_INVALID_AMOUNT = "ACCOUNTING_WITHDRAW_INVALID_AMOUNT";
+    string private constant ERROR_DEPOSIT_AMOUNT_ZERO = "TREASURY_DEPOSIT_AMOUNT_ZERO";
+    string private constant ERROR_WITHDRAW_FAILED = "TREASURY_WITHDRAW_FAILED";
+    string private constant ERROR_WITHDRAW_AMOUNT_ZERO = "TREASURY_WITHDRAW_AMOUNT_ZERO";
+    string private constant ERROR_WITHDRAW_INVALID_AMOUNT = "TREASURY_WITHDRAW_INVALID_AMOUNT";
 
     // List of balances indexed by token and holder address
     mapping (address => mapping (address => uint256)) internal balances;
 
     event Assign(ERC20 indexed token, address indexed from, address indexed to, uint256 amount);
     event Withdraw(ERC20 indexed token, address indexed from, address indexed to, uint256 amount);
-
-    /**
-    * @dev Ensure the msg.sender is the accounting's owner
-    */
-    modifier onlyOwner {
-        address owner = _accountingOwner();
-        require(msg.sender == owner, ERROR_SENDER_NOT_OWNER);
-        _;
-    }
 
     /**
     * @dev Constructor function
@@ -50,7 +40,7 @@ contract CourtAccounting is Controlled, ControlledRecoverable, IAccounting {
     * @param _to Address of the recipient that will be assigned the tokens to
     * @param _amount Amount of tokens to be assigned to the recipient
     */
-    function assign(ERC20 _token, address _to, uint256 _amount) external onlyOwner {
+    function assign(ERC20 _token, address _to, uint256 _amount) external onlyCourt {
         require(_amount > 0, ERROR_DEPOSIT_AMOUNT_ZERO);
 
         address tokenAddress = address(_token);
@@ -65,15 +55,17 @@ contract CourtAccounting is Controlled, ControlledRecoverable, IAccounting {
     * @param _amount Amount of tokens to be withdrawn from the sender
     */
     function withdraw(ERC20 _token, address _to, uint256 _amount) external {
-        uint256 balance = balanceOf(_token, msg.sender);
-        require(_amount > 0, ERROR_WITHDRAW_AMOUNT_ZERO);
-        require(balance >= _amount, ERROR_WITHDRAW_INVALID_AMOUNT);
+        _withdraw(_token, msg.sender, _to, _amount);
+    }
 
-        address tokenAddress = address(_token);
-        balances[tokenAddress][msg.sender] = balance.sub(_amount);
-        emit Withdraw(_token, msg.sender, _to, _amount);
-
-        require(_token.safeTransfer(_to, _amount), ERROR_WITHDRAW_FAILED);
+    /**
+    * @notice Withdraw all the tokens from `_to` to themself
+    * @param _token ERC20 token to be withdrawn
+    * @param _to Address of the recipient that will receive their tokens
+    */
+    function withdrawAll(ERC20 _token, address _to) external {
+        uint256 amount = balanceOf(_token, _to);
+        _withdraw(_token, _to, _to, amount);
     }
 
     /**
@@ -84,5 +76,25 @@ contract CourtAccounting is Controlled, ControlledRecoverable, IAccounting {
     */
     function balanceOf(ERC20 _token, address _holder) public view returns (uint256) {
         return balances[address(_token)][_holder];
+    }
+
+    /**
+    * @dev Internal function to withdraw tokens from an account
+    * @param _token ERC20 token to be withdrawn
+    * @param _from Address where the tokens will be removed from
+    * @param _to Address of the recipient that will receive the corresponding tokens
+    * @param _amount Amount of tokens to be withdrawn from the sender
+    */
+    function _withdraw(ERC20 _token, address _from, address _to, uint256 _amount) internal {
+        require(_amount > 0, ERROR_WITHDRAW_AMOUNT_ZERO);
+        uint256 balance = balanceOf(_token, _from);
+        require(balance >= _amount, ERROR_WITHDRAW_INVALID_AMOUNT);
+
+        address tokenAddress = address(_token);
+        // No need for SafeMath: checked above
+        balances[tokenAddress][_from] = balance - _amount;
+        emit Withdraw(_token, _from, _to, _amount);
+
+        require(_token.safeTransfer(_to, _amount), ERROR_WITHDRAW_FAILED);
     }
 }

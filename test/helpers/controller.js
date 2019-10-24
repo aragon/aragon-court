@@ -30,8 +30,8 @@ module.exports = (web3, artifacts) => {
     firstRoundJurorsNumber:             bn(3),           //  disputes start with 3 jurors
     appealStepFactor:                   bn(3),           //  each time a new appeal occurs, the amount of jurors to be drafted will be incremented 3 times
     maxRegularAppealRounds:             bn(2),           //  there can be up to 2 appeals in total per dispute
-    appealCollateralFactor:             bn(2),           //  multiple of juror fees required to appeal a preliminary ruling
-    appealConfirmCollateralFactor:      bn(3),           //  multiple of juror fees required to confirm appeal
+    appealCollateralFactor:             bn(25000),       //  permyriad multiple of juror fees required to appeal a preliminary ruling (1/10,000)
+    appealConfirmCollateralFactor:      bn(35000),       //  permyriad multiple of juror fees required to confirm appeal (1/10,000)
     jurorsMinActiveBalance:             bigExp(100, 18), //  100 ANJ is the minimum balance jurors must activate to participate in the Court
     finalRoundWeightPrecision:          bn(1000),        //  use to improve division rounding for final round maths
     subscriptionPeriodDuration:         bn(10),          //  each subscription period lasts 10 terms

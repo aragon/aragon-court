@@ -184,7 +184,7 @@ contract('Court', ([_, disputer, drafter, juror500, juror1000, juror1500, juror2
           let lastTerm
           for (let batch = 0; batch < batches; batch++) {
             await court.draft(disputeId, { from: drafter })
-            lastTerm = await court.getLastEnsuredTermId()
+            lastTerm = await courtHelper.controller.getLastEnsuredTermId()
 
             // advance one term to avoid drafting all the batches in the same term
             if (batch + 1 < batches) await courtHelper.passRealTerms(1)
@@ -262,7 +262,7 @@ contract('Court', ([_, disputer, drafter, juror500, juror1000, juror1500, juror2
             const maxJurorsPerDraftBatch = firstRoundJurorsNumber
 
             beforeEach('set max number of jurors to be drafted per batch', async () => {
-              await court.setMaxJurorsPerDraftBatch(maxJurorsPerDraftBatch)
+              await court.setMaxJurorsPerDraftBatch(maxJurorsPerDraftBatch, { from: configGovernor })
             })
 
             itDraftsRequestedRoundInOneBatch(term, maxJurorsPerDraftBatch)
@@ -272,7 +272,7 @@ contract('Court', ([_, disputer, drafter, juror500, juror1000, juror1500, juror2
             const batches = 2, maxJurorsPerDraftBatch = 4
 
             beforeEach('set max number of jurors to be drafted per batch', async () => {
-              await court.setMaxJurorsPerDraftBatch(maxJurorsPerDraftBatch)
+              await court.setMaxJurorsPerDraftBatch(maxJurorsPerDraftBatch, { from: configGovernor })
             })
 
             itDraftsRequestedRoundInMultipleBatches(term, firstRoundJurorsNumber, batches, maxJurorsPerDraftBatch)
@@ -283,7 +283,7 @@ contract('Court', ([_, disputer, drafter, juror500, juror1000, juror1500, juror2
           const maxJurorsPerDraftBatch = Math.floor(firstRoundJurorsNumber / 2)
 
           beforeEach('set max number of jurors to be drafted per batch', async () => {
-            await court.setMaxJurorsPerDraftBatch(maxJurorsPerDraftBatch)
+            await court.setMaxJurorsPerDraftBatch(maxJurorsPerDraftBatch, { from: configGovernor })
           })
 
           itDraftsRequestedRoundInOneBatch(term, maxJurorsPerDraftBatch)
@@ -293,7 +293,7 @@ contract('Court', ([_, disputer, drafter, juror500, juror1000, juror1500, juror2
           const maxJurorsPerDraftBatch = firstRoundJurorsNumber * 2
 
           beforeEach('set max number of jurors to be drafted per batch', async () => {
-            await court.setMaxJurorsPerDraftBatch(maxJurorsPerDraftBatch)
+            await court.setMaxJurorsPerDraftBatch(maxJurorsPerDraftBatch, { from: configGovernor })
           })
 
           itDraftsRequestedRoundInOneBatch(term, maxJurorsPerDraftBatch)
@@ -336,8 +336,8 @@ contract('Court', ([_, disputer, drafter, juror500, juror1000, juror1500, juror2
 
         context('when the current term is after the randomness block number by 256 blocks', () => {
           beforeEach('move 256 blocks after the draft term block number', async () => {
-            // moving 255 blocks instead of 256 since the `beforeEach` block will hit the next block
-            await advanceBlocksAfterDraftBlockNumber(255)
+            // moving 254 blocks instead of 256 since the `beforeEach` block will hit two more blocks
+            await advanceBlocksAfterDraftBlockNumber(254)
           })
 
           itHandlesDraftsProperlyForDifferentRequestedJurorsNumber(term)

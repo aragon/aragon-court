@@ -31,7 +31,7 @@ contract('CourtSubscriptions', ([_, governor, payer, subscriber, anotherSubscrib
 
       context('when the court has not started yet', () => {
         it('reverts', async () => {
-          await assertRevert(subscriptions.payFees(subscriber, periods), 'MATH_SUB_UNDERFLOW')
+          await assertRevert(subscriptions.payFees(subscriber, periods), 'CS_COURT_HAS_NOT_STARTED')
         })
       })
 

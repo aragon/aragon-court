@@ -91,8 +91,7 @@ contract CRVoting is Controlled, ICRVoting {
     function commit(uint256 _voteId, bytes32 _commitment) external voteExists(_voteId) {
         CastVote storage castVote = voteRecords[_voteId].votes[msg.sender];
         require(castVote.commitment == bytes32(0), ERROR_VOTE_ALREADY_COMMITTED);
-
-        _ensureTermAndVoterWeightToCommit(_voteId, msg.sender);
+        _ensureVoterWeightToCommit(_voteId, msg.sender);
 
         castVote.commitment = _commitment;
         emit VoteCommitted(_voteId, msg.sender, _commitment);
@@ -108,10 +107,7 @@ contract CRVoting is Controlled, ICRVoting {
     function leak(uint256 _voteId, address _voter, uint8 _outcome, bytes32 _salt) external voteExists(_voteId) {
         CastVote storage castVote = voteRecords[_voteId].votes[_voter];
         _ensureCanReveal(castVote, _outcome, _salt);
-
-        // There's no need to check voter weight, as this was done on commit
-        ICRVotingOwner owner = _votingOwner();
-        owner.ensureTermToLeak(_voteId);
+        _ensureVoterWeightToCommit(_voteId, _voter);
 
         // There is no need to check if an outcome is valid if it was leaked.
         // Additionally, leaked votes are not considered for the tally.
@@ -131,7 +127,7 @@ contract CRVoting is Controlled, ICRVoting {
         _ensureCanReveal(castVote, _outcome, _salt);
         require(_isValidOutcome(vote, _outcome), ERROR_INVALID_OUTCOME);
 
-        uint256 weight = _ensureTermAndGetVoterWeightToReveal(_voteId, msg.sender);
+        uint256 weight = _ensureVoterWeightToReveal(_voteId, msg.sender);
 
         castVote.outcome = _outcome;
         _updateTally(vote, _outcome, weight);
@@ -143,7 +139,7 @@ contract CRVoting is Controlled, ICRVoting {
     * @param _voteId ID of the vote instance querying the max allowed outcome of
     * @return Max allowed outcome for the given vote instance
     */
-    function getMaxAllowedOutcome(uint256 _voteId) external voteExists(_voteId) view returns (uint8) {
+    function getMaxAllowedOutcome(uint256 _voteId) external view voteExists(_voteId) returns (uint8) {
         Vote storage vote = voteRecords[_voteId];
         return vote.maxAllowedOutcome;
     }
@@ -154,7 +150,7 @@ contract CRVoting is Controlled, ICRVoting {
     * @param _voteId ID of the vote instance querying the winning outcome of
     * @return Winning outcome of the given vote instance or refused in case it's missing
     */
-    function getWinningOutcome(uint256 _voteId) external voteExists(_voteId) view returns (uint8) {
+    function getWinningOutcome(uint256 _voteId) external view voteExists(_voteId) returns (uint8) {
         Vote storage vote = voteRecords[_voteId];
         uint8 winningOutcome = vote.winningOutcome;
         return winningOutcome == OUTCOME_MISSING ? OUTCOME_REFUSED : winningOutcome;
@@ -166,7 +162,7 @@ contract CRVoting is Controlled, ICRVoting {
     * @param _outcome Outcome querying the tally of
     * @return Tally of the outcome being queried for the given vote instance
     */
-    function getOutcomeTally(uint256 _voteId, uint8 _outcome) external voteExists(_voteId) view returns (uint256) {
+    function getOutcomeTally(uint256 _voteId, uint8 _outcome) external view voteExists(_voteId) returns (uint256) {
         Vote storage vote = voteRecords[_voteId];
         return vote.outcomesTally[_outcome];
     }
@@ -178,7 +174,7 @@ contract CRVoting is Controlled, ICRVoting {
     * @param _outcome Outcome to check if valid or not
     * @return True if the given outcome is valid for the requested vote instance, false otherwise.
     */
-    function isValidOutcome(uint256 _voteId, uint8 _outcome) external voteExists(_voteId) view returns (bool) {
+    function isValidOutcome(uint256 _voteId, uint8 _outcome) external view voteExists(_voteId) returns (bool) {
         Vote storage vote = voteRecords[_voteId];
         return _isValidOutcome(vote, _outcome);
     }
@@ -189,7 +185,7 @@ contract CRVoting is Controlled, ICRVoting {
     * @param _voter Address of the voter querying the outcome of
     * @return Outcome of the voter for the given vote instance
     */
-    function getVoterOutcome(uint256 _voteId, address _voter) external voteExists(_voteId) view returns (uint8) {
+    function getVoterOutcome(uint256 _voteId, address _voter) external view voteExists(_voteId) returns (uint8) {
         Vote storage vote = voteRecords[_voteId];
         return vote.votes[_voter].outcome;
     }
@@ -201,7 +197,7 @@ contract CRVoting is Controlled, ICRVoting {
     * @param _voter Address of the voter to query if voted in favor of the given outcome
     * @return True if the given voter voted in favor of the given outcome, false otherwise
     */
-    function hasVotedInFavorOf(uint256 _voteId, uint8 _outcome, address _voter) external voteExists(_voteId) view returns (bool) {
+    function hasVotedInFavorOf(uint256 _voteId, uint8 _outcome, address _voter) external view voteExists(_voteId) returns (bool) {
         Vote storage vote = voteRecords[_voteId];
         return vote.votes[_voter].outcome == _outcome;
     }
@@ -215,7 +211,7 @@ contract CRVoting is Controlled, ICRVoting {
     * @param _voters List of addresses of the voters to be filtered
     * @return List of results to tell whether a voter voted in favor of the given outcome or not
     */
-    function getVotersInFavorOf(uint256 _voteId, uint8 _outcome, address[] calldata _voters) external voteExists(_voteId) view
+    function getVotersInFavorOf(uint256 _voteId, uint8 _outcome, address[] calldata _voters) external view voteExists(_voteId)
         returns (bool[] memory)
     {
         Vote storage vote = voteRecords[_voteId];
@@ -244,9 +240,9 @@ contract CRVoting is Controlled, ICRVoting {
     * @param _voter Address of the voter willing to commit a vote
     * @return Weight of the voter willing to commit a vote
     */
-    function _ensureTermAndVoterWeightToCommit(uint256 _voteId, address _voter) internal returns (uint256) {
+    function _ensureVoterWeightToCommit(uint256 _voteId, address _voter) internal returns (uint256) {
         ICRVotingOwner owner = _votingOwner();
-        uint256 weight = uint256(owner.ensureTermAndGetVoterWeightToCommit(_voteId, _voter));
+        uint256 weight = uint256(owner.ensureVoterWeightToCommit(_voteId, _voter));
         require(weight > 0, ERROR_COMMIT_DENIED_BY_OWNER);
         return weight;
     }
@@ -257,10 +253,10 @@ contract CRVoting is Controlled, ICRVoting {
     * @param _voter Address of the voter willing to reveal a vote
     * @return Weight of the voter willing to reveal a vote
     */
-    function _ensureTermAndGetVoterWeightToReveal(uint256 _voteId, address _voter) internal returns (uint256) {
+    function _ensureVoterWeightToReveal(uint256 _voteId, address _voter) internal returns (uint256) {
         // There's no need to check voter weight, as this was done on commit
         ICRVotingOwner owner = _votingOwner();
-        return uint256(owner.ensureTermAndGetVoterWeightToReveal(_voteId, _voter));
+        return uint256(owner.ensureVoterWeightToReveal(_voteId, _voter));
     }
 
     /**

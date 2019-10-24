@@ -718,7 +718,8 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
     }
 
     /**
-    * @dev Internal function to check the adjudication state of a certain dispute round. This function also ensures the court terms are updated.
+    * @dev Internal function to check the adjudication state of a certain dispute round. It also ensures the court terms are updated.
+    *      This function assumes the given round exists.
     * @param _dispute Dispute to be checked
     * @param _roundId Identification number of the dispute round to be checked
     * @param _state Expected adjudication state for the given dispute round

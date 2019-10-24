@@ -26,13 +26,13 @@ contract CourtConfig is IConfig, CourtConfigData {
     uint256 internal constant MAX_REGULAR_APPEAL_ROUNDS_LIMIT = 10;
 
     // Future term id in which a config change has been scheduled
-    uint64 internal configChangeTermId;
+    uint64 private configChangeTermId;
 
     // List of all the configs used in the Court
-    Config[] internal configs;
+    Config[] private configs;
 
     // List of configs indexed by id
-    mapping (uint64 => uint256) internal configIdByTerm;
+    mapping (uint64 => uint256) private configIdByTerm;
 
     event NewConfig(uint64 fromTermId, uint64 courtConfigId);
 

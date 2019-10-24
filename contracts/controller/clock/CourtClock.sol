@@ -31,13 +31,13 @@ contract CourtClock is IClock, TimeHelpers {
     }
 
     // Duration in seconds for each term of the Court
-    uint64 public termDuration;
+    uint64 private termDuration;
 
     // Last ensured term id
-    uint64 internal termId;
+    uint64 private termId;
 
     // List of Court terms indexed by id
-    mapping (uint64 => Term) internal terms;
+    mapping (uint64 => Term) private terms;
 
     event Heartbeat(uint64 previousTermId, uint64 currentTermId);
 
@@ -99,10 +99,18 @@ contract CourtClock is IClock, TimeHelpers {
         }
 
         // Compute term randomness
-        bytes32 newRandomness = _computeTermRandomness(term);
+        bytes32 newRandomness = _computeTermRandomness(_termId);
         require(newRandomness != bytes32(0), ERROR_TERM_RANDOMNESS_UNAVAILABLE);
         term.randomness = newRandomness;
         return newRandomness;
+    }
+
+    /**
+    * @dev Tell the term duration of the Court
+    * @return Duration in seconds of the Court term
+    */
+    function getTermDuration() external view returns (uint64) {
+        return termDuration;
     }
 
     /**
@@ -110,7 +118,7 @@ contract CourtClock is IClock, TimeHelpers {
     * @return Identification number of the last ensured term
     */
     function getLastEnsuredTermId() external view returns (uint64) {
-        return termId;
+        return _lastEnsuredTermId();
     }
 
     /**
@@ -146,12 +154,11 @@ contract CourtClock is IClock, TimeHelpers {
 
     /**
     * @dev Tell the randomness of a term even if it wasn't computed yet
-    * @param _termId ID of the term being queried
+    * @param _termId Identification number of the term being queried
     * @return Randomness of the requested term
     */
     function getTermRandomness(uint64 _termId) external view termExists(_termId) returns (bytes32) {
-        Term storage term = terms[_termId];
-        return _computeTermRandomness(term);
+        return _computeTermRandomness(_termId);
     }
 
     /**
@@ -257,11 +264,12 @@ contract CourtClock is IClock, TimeHelpers {
     *      function assumes the given term exists. To determine the randomness factor for a term we use the hash of a
     *      block number that is set once the term has started to ensure it cannot be known beforehand. Note that the
     *      hash function being used only works for the 256 most recent block numbers.
-    * @param _term Term to compute the randomness of
+    * @param _termId Identification number of the term being queried
     * @return Randomness computed for the given term
     */
-    function _computeTermRandomness(Term storage _term) internal view returns (bytes32) {
-        require(getBlockNumber64() > _term.randomnessBN, ERROR_TERM_RANDOMNESS_NOT_YET);
-        return blockhash(_term.randomnessBN);
+    function _computeTermRandomness(uint64 _termId) internal view returns (bytes32) {
+        Term storage term = terms[_termId];
+        require(getBlockNumber64() > term.randomnessBN, ERROR_TERM_RANDOMNESS_NOT_YET);
+        return blockhash(term.randomnessBN);
     }
 }

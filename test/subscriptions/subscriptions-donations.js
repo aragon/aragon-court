@@ -1,14 +1,13 @@
-const { bn, bigExp, assertBn } = require('../helpers/numbers')
+const { buildHelper } = require('../helpers/controller')(web3, artifacts)
 const { assertRevert } = require('../helpers/assertThrow')
+const { bn, bigExp, assertBn } = require('../helpers/numbers')
 const { assertAmountOfEvents } = require('../helpers/assertEvent')
 
 const CourtSubscriptions = artifacts.require('CourtSubscriptions')
-const SubscriptionsOwner = artifacts.require('SubscriptionsOwnerMock')
-const Controller = artifacts.require('ControllerMock')
 const ERC20 = artifacts.require('ERC20Mock')
 
-contract('CourtSubscriptions', ([_, governor, payer]) => {
-  let controller, subscriptions, subscriptionsOwner, feeToken
+contract('CourtSubscriptions', ([_, payer]) => {
+  let controller, subscriptions, feeToken
 
   const FEE_AMOUNT = bigExp(10, 18)
   const PREPAYMENT_PERIODS = 5
@@ -17,34 +16,31 @@ contract('CourtSubscriptions', ([_, governor, payer]) => {
   const GOVERNOR_SHARE_PCT = bn(100)        // 100‱ = 1%
   const LATE_PAYMENT_PENALTY_PCT = bn(1000) // 1000‱ = 10%
 
-  const ERROR_SUB_UNDERFLOW = 'MATH_SUB_UNDERFLOW'
+  const ERROR_COURT_HAS_NOT_STARTED = "CS_COURT_HAS_NOT_STARTED"
   const ERROR_TOKEN_TRANSFER_FAILED = 'CS_TOKEN_TRANSFER_FAILED'
   const ERROR_DONATION_AMOUNT_ZERO = 'CS_DONATION_AMOUNT_ZERO'
 
   beforeEach('create base contracts', async () => {
-    controller = await Controller.new({ from: governor })
+    controller = await buildHelper().deploy()
     feeToken = await ERC20.new('Subscriptions Fee Token', 'SFT', 18)
 
     subscriptions = await CourtSubscriptions.new(controller.address, PERIOD_DURATION, feeToken.address, FEE_AMOUNT, PREPAYMENT_PERIODS, RESUME_PRE_PAID_PERIODS, LATE_PAYMENT_PENALTY_PCT, GOVERNOR_SHARE_PCT)
     await controller.setSubscriptions(subscriptions.address)
-
-    subscriptionsOwner = await SubscriptionsOwner.new(subscriptions.address)
-    await controller.setCourt(subscriptionsOwner.address)
   })
 
-  describe('donate fees', () => {
+  describe('donate', () => {
     context('when the amount is greater than zero', () => {
       const amount = bn(10)
 
       context('when the court has not started yet', () => {
         it('reverts', async () => {
-          await assertRevert(subscriptions.donate(amount, { from: payer }), ERROR_SUB_UNDERFLOW)
+          await assertRevert(subscriptions.donate(amount, { from: payer }), ERROR_COURT_HAS_NOT_STARTED)
         })
       })
 
       context('when the court has already started', () => {
         beforeEach('move terms to reach period #0', async () => {
-          await subscriptionsOwner.mockSetTerm(PERIOD_DURATION)
+          await controller.mockSetTerm(PERIOD_DURATION)
         })
 
         context('when the sender has enough balance', () => {
@@ -72,7 +68,7 @@ contract('CourtSubscriptions', ([_, governor, payer]) => {
             assertBn(currentPayerBalance, previousPayerBalance.sub(amount), 'payer balances do not match')
 
             const { collectedFees: newCollectedFees } = await subscriptions.getCurrentPeriod()
-            assertBn(newCollectedFees, collectedFees.add(amount), 'Period collected fees don\'t match')
+            assertBn(newCollectedFees, collectedFees.add(amount), 'period collected fees do not match')
           })
         })
 

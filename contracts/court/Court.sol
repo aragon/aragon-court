@@ -27,11 +27,8 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
     // Authorization-related error messages
     string private constant ERROR_SENDER_NOT_VOTING = "CT_SENDER_NOT_VOTING";
 
-    // Terms-related error messages
-    string private constant ERROR_TERM_OUTDATED = "CT_TERM_OUTDATED";
-    string private constant ERROR_HEARTBEAT_CHANGE_CONFIG_TOKEN = "CT_HEARTBEAT_CHANGE_CONFIG_TOKEN";
-
     // Disputes-related error messages
+    string private constant ERROR_TERM_OUTDATED = "CT_TERM_OUTDATED";
     string private constant ERROR_DISPUTE_DOES_NOT_EXIST = "CT_DISPUTE_DOES_NOT_EXIST";
     string private constant ERROR_INVALID_DISPUTE_STATE = "CT_INVALID_DISPUTE_STATE";
     string private constant ERROR_INVALID_RULING_OPTIONS = "CT_INVALID_RULING_OPTIONS";
@@ -53,7 +50,6 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
     string private constant ERROR_JUROR_ALREADY_REWARDED = "CT_JUROR_ALREADY_REWARDED";
     string private constant ERROR_WONT_REWARD_NON_VOTER_JUROR = "CT_WONT_REWARD_NON_VOTER_JUROR";
     string private constant ERROR_WONT_REWARD_INCOHERENT_JUROR = "CT_WONT_REWARD_INCOHERENT_JUROR";
-    string private constant ERROR_NO_COHERENT_JURORS = "CT_NO_COHERENT_JURORS";
     string private constant ERROR_ROUND_APPEAL_ALREADY_SETTLED = "CT_APPEAL_ALREADY_SETTLED";
 
     // Minimum possible rulings for a dispute
@@ -231,7 +227,7 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
 
         // Ensure draft term randomness can be computed for the current block number
         AdjudicationRound storage round = dispute.rounds[dispute.rounds.length - 1];
-        // TODO: stack too deep issue round.draftTermId
+        // TODO: stack too deep issue - cannot cache round.draftTermId
         bytes32 draftTermRandomness = clock.ensureTermRandomness(round.draftTermId);
 
         // Draft the min number of jurors between the one requested by the sender and the one requested by the disputer

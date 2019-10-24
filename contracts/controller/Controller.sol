@@ -1,19 +1,21 @@
 pragma solidity ^0.5.8;
 
+import "@aragon/os/contracts/lib/token/ERC20.sol";
 import "@aragon/os/contracts/common/IsContract.sol";
 
+import "./clock/CourtClock.sol";
+import "./config/CourtConfig.sol";
 
-contract Controller is IsContract {
+
+contract Controller is IsContract, CourtClock, CourtConfig {
     string private constant ERROR_SENDER_NOT_GOVERNOR = "CTR_SENDER_NOT_GOVERNOR";
+    string private constant ERROR_SENDER_NOT_COURT_MODULE = "CTR_SENDER_NOT_COURT_MODULE";
     string private constant ERROR_INVALID_GOVERNOR_ADDRESS = "CTR_INVALID_GOVERNOR_ADDRESS";
     string private constant ERROR_ZERO_IMPLEMENTATION_OWNER = "CTR_ZERO_MODULE_OWNER";
     string private constant ERROR_IMPLEMENTATION_NOT_CONTRACT = "CTR_IMPLEMENTATION_NOT_CONTRACT";
     string private constant ERROR_INVALID_IMPLS_INPUT_LENGTH = "CTR_INVALID_IMPLS_INPUT_LENGTH";
 
     address private constant ZERO_ADDRESS = address(0);
-
-    // Clock module ID - keccak256(abi.encodePacked("CLOCK"))
-    bytes32 internal constant CLOCK = 0x63e93c672e6c8e1ca35b86391d0d39606b98e2b328db48b135a69bedad6d3cff;
 
     // Court module ID - keccak256(abi.encodePacked("COURT"))
     bytes32 internal constant COURT = 0x26f3b895987e349a46d6d91132234924c6d45cfdc564b33427f53e3f9284955c;
@@ -76,14 +78,111 @@ contract Controller is IsContract {
 
     /**
     * @dev Constructor function
-    * @param _fundsGovernor Address of the funds governor
-    * @param _configGovernor Address of the config governor
-    * @param _modulesGovernor Address of the modules governor
+    * @param _termDuration Duration in seconds per term
+    * @param _firstTermStartTime Timestamp in seconds when the court will open (to give time for juror on-boarding)
+    * @param _governors Array containing:
+    *        0. _fundsGovernor Address of the funds governor
+    *        1. _configGovernor Address of the config governor
+    *        2. _modulesGovernor Address of the modules governor
+    * @param _feeToken Address of the token contract that is used to pay for fees
+    * @param _fees Array containing:
+    *        0. jurorFee The amount of _feeToken that is paid per juror per dispute
+    *        1. draftFee The amount of _feeToken per juror to cover the drafting cost
+    *        2. settleFee The amount of _feeToken per juror to cover round settlement cost
+    * @param _roundStateDurations Array containing the durations in terms of the different phases of a dispute:
+    *        0. commitTerms Commit period duration in terms
+    *        1. revealTerms Reveal period duration in terms
+    *        2. appealTerms Appeal period duration in terms
+    *        3. appealConfirmationTerms Appeal confirmation period duration in terms
+    * @param _pcts Array containing:
+    *        0. penaltyPct ‱ of minJurorsActiveBalance that can be slashed (1/10,000)
+    *        1. finalRoundReduction ‱ of fee reduction for the last appeal round (1/10,000)
+    * @param _roundParams Array containing params for rounds:
+    *        0. firstRoundJurorsNumber Number of jurors to be drafted for the first round of disputes
+    *        1. appealStepFactor Increasing factor for the number of jurors of each round of a dispute
+    *        2. maxRegularAppealRounds Number of regular appeal rounds before the final round is triggered
+    * @param _appealCollateralParams Array containing params for appeal collateral:
+    *        0. appealCollateralFactor Multiple of juror fees required to appeal a preliminary ruling
+    *        1. appealConfirmCollateralFactor Multiple of juror fees required to confirm appeal
     */
-    constructor(address _fundsGovernor, address _configGovernor, address _modulesGovernor) public {
-        _setFundsGovernor(_fundsGovernor);
-        _setConfigGovernor(_configGovernor);
-        _setModulesGovernor(_modulesGovernor);
+    constructor(
+        uint64 _termDuration,
+        uint64 _firstTermStartTime,
+        address[3] memory _governors,
+        ERC20 _feeToken,
+        uint256[3] memory _fees,
+        uint64[4] memory _roundStateDurations,
+        uint16[2] memory _pcts,
+        uint64[3] memory _roundParams,
+        uint256[2] memory _appealCollateralParams
+    )
+        public
+        CourtClock(_termDuration, _firstTermStartTime)
+        CourtConfig(_feeToken, _fees, _roundStateDurations, _pcts, _roundParams, _appealCollateralParams)
+    {
+        _setFundsGovernor(_governors[0]);
+        _setConfigGovernor(_governors[1]);
+        _setModulesGovernor(_governors[2]);
+    }
+
+    /**
+    * @notice Transition up to `_maxRequestedTransitions` terms
+    * @param _maxRequestedTransitions Max number of term transitions allowed by the sender
+    * @return currentTermId Identification number of the term id after executing the heartbeat transitions
+    */
+    function heartbeat(uint64 _maxRequestedTransitions) external returns (uint64) {
+        (uint64 previousTermId, uint64 currentTermId) = _heartbeat(_maxRequestedTransitions);
+        _updateTermsConfig(previousTermId, currentTermId);
+        return currentTermId;
+    }
+
+    /**
+    * @notice Ensure that the current term of the Court is up-to-date. If the Court is outdated by more than one term, the heartbeat function
+    *         must be called manually instead.
+    * @return Identification number of the current term
+    */
+    function ensureCurrentTerm() external returns (uint64) {
+        (uint64 previousTermId, uint64 currentTermId) = _ensureCurrentTerm();
+        _updateTermsConfig(previousTermId, currentTermId);
+        return currentTermId;
+    }
+
+    /**
+    * @notice Change Court configuration params
+    * @param _fromTermId Identification number of the term in which the config will be effective at
+    * @param _feeToken Address of the token contract that is used to pay for fees.
+    * @param _fees Array containing:
+    *        _jurorFee The amount of _feeToken that is paid per juror per dispute
+    *        _draftFee The amount of _feeToken per juror to cover the drafting cost.
+    *        _settleFee The amount of _feeToken per juror to cover round settlement cost.
+    * @param _roundStateDurations Array containing the durations in terms of the different phases of a dispute,
+    *        in this order: commit, reveal, appeal and appeal confirm
+    * @param _pcts Array containing:
+    *        _penaltyPct ‱ of minJurorsActiveBalance that can be slashed (1/10,000)
+    *        _finalRoundReduction ‱ of fee reduction for the last appeal round (1/10,000)
+    * @param _roundParams Array containing params for rounds:
+    *        _firstRoundJurorsNumber Number of jurors to be drafted for the first round of disputes
+    *        _appealStepFactor Increasing factor for the number of jurors of each round of a dispute
+    *        _maxRegularAppealRounds Number of regular appeal rounds before the final round is triggered
+    * @param _appealCollateralParams Array containing params for appeal collateral:
+    *        _appealCollateralFactor Multiple of juror fees required to appeal a preliminary ruling
+    *        _appealConfirmCollateralFactor Multiple of juror fees required to confirm appeal
+    */
+    function setConfig(
+        uint64 _fromTermId,
+        ERC20 _feeToken,
+        uint256[3] calldata _fees,
+        uint64[4] calldata _roundStateDurations,
+        uint16[2] calldata _pcts,
+        uint64[3] calldata _roundParams,
+        uint256[2] calldata _appealCollateralParams
+    )
+        external
+        onlyConfigGovernor
+    {
+        (uint64 previousTermId, uint64 currentTermId) = _ensureCurrentTerm();
+        _updateTermsConfig(previousTermId, currentTermId);
+        _setConfig(currentTermId, _fromTermId, _feeToken, _fees, _roundStateDurations, _pcts, _roundParams, _appealCollateralParams);
     }
 
     /**
@@ -182,14 +281,6 @@ contract Controller is IsContract {
     */
     function getModule(bytes32 _id) external view returns (address) {
         return _getModule(_id);
-    }
-
-    /**
-    * @dev Tell the address of the Clock module
-    * @return Address of the Clock module
-    */
-    function getClock() external view returns (address) {
-        return _getModule(CLOCK);
     }
 
     /**

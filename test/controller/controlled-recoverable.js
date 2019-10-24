@@ -1,9 +1,9 @@
+const { buildHelper } = require('../helpers/controller')(web3, artifacts)
 const { assertRevert } = require('../helpers/assertThrow')
 const { assertBn, bigExp } = require('../helpers/numbers')
 const { assertAmountOfEvents, assertEvent } = require('../helpers/assertEvent')
 
 const ERC20 = artifacts.require('ERC20Mock')
-const Controller = artifacts.require('Controller')
 const ControlledRecoverable = artifacts.require('ControlledRecoverableMock')
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
@@ -17,7 +17,7 @@ contract('ControlledRecoverable', ([_, fundsGovernor, configGovernor, modulesGov
 
     beforeEach('create token and recoverable instance', async () => {
       token = await ERC20.new('DAI', 'DAI', 18)
-      controller = await Controller.new(fundsGovernor, configGovernor, modulesGovernor)
+      controller = await buildHelper().deploy({ fundsGovernor, configGovernor, modulesGovernor })
       recoverable = await ControlledRecoverable.new(controller.address)
     })
 

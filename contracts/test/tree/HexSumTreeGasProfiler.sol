@@ -1,10 +1,9 @@
 pragma solidity ^0.5.8;
 
 import "../../lib/HexSumTree.sol";
-import "../lib/TimeHelpersMock.sol";
 
 
-contract HexSumTreeGasProfiler is TimeHelpersMock {
+contract HexSumTreeGasProfiler {
     using HexSumTree for HexSumTree.Tree;
     using Checkpointing for Checkpointing.History;
 

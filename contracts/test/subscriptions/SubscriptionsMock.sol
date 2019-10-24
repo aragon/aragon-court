@@ -4,7 +4,6 @@ import "@aragon/os/contracts/lib/token/ERC20.sol";
 
 import "../../registry/IJurorsRegistry.sol";
 import "../../subscriptions/ISubscriptions.sol";
-import "../../subscriptions/ISubscriptionsOwner.sol";
 
 
 contract SubscriptionsMock is ISubscriptions {

@@ -1,17 +1,15 @@
 const { bn, bigExp } = require('../helpers/numbers')
+const { buildHelper } = require('../helpers/controller')(web3, artifacts)
 const { assertRevert } = require('../helpers/assertThrow')
-const { decodeEventsOfType } = require('../helpers/decodeEvent')
 const { assertEvent, assertAmountOfEvents } = require('../helpers/assertEvent')
 
 const CourtSubscriptions = artifacts.require('CourtSubscriptions')
-const SubscriptionsOwner = artifacts.require('SubscriptionsOwnerMock')
-const Controller = artifacts.require('ControllerMock')
 const ERC20 = artifacts.require('ERC20Mock')
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
 
 contract('CourtSubscriptions', ([_, governor, someone, something, subscriber]) => {
-  let controller, subscriptions, subscriptionsOwner, feeToken
+  let controller, subscriptions, feeToken
 
   const FEE_AMOUNT = bigExp(10, 18)
   const PREPAYMENT_PERIODS = 12
@@ -21,14 +19,11 @@ contract('CourtSubscriptions', ([_, governor, someone, something, subscriber]) =
   const LATE_PAYMENT_PENALTY_PCT = bn(1000) // 1000‱ = 10%
 
   beforeEach('create base contracts', async () => {
-    controller = await Controller.new({ from: governor })
+    controller = await buildHelper().deploy({ configGovernor: governor })
     feeToken = await ERC20.new('Subscriptions Fee Token', 'SFT', 18)
 
     subscriptions = await CourtSubscriptions.new(controller.address, PERIOD_DURATION, feeToken.address, FEE_AMOUNT, PREPAYMENT_PERIODS, RESUME_PRE_PAID_PERIODS, LATE_PAYMENT_PENALTY_PCT, GOVERNOR_SHARE_PCT)
     await controller.setSubscriptions(subscriptions.address)
-
-    subscriptionsOwner = await SubscriptionsOwner.new(subscriptions.address)
-    await controller.setCourt(subscriptionsOwner.address)
   })
 
   describe('setFeeAmount', () => {
@@ -49,9 +44,8 @@ contract('CourtSubscriptions', ([_, governor, someone, something, subscriber]) =
 
           const receipt = await subscriptions.setFeeAmount(newFeeAmount, { from })
 
-          const logs = decodeEventsOfType(receipt, CourtSubscriptions.abi, 'FeeAmountChanged')
-          assertAmountOfEvents({ logs }, 'FeeAmountChanged')
-          assertEvent({ logs }, 'FeeAmountChanged', { previousFeeAmount, currentFeeAmount: newFeeAmount })
+          assertAmountOfEvents(receipt, 'FeeAmountChanged')
+          assertEvent(receipt, 'FeeAmountChanged', { previousFeeAmount, currentFeeAmount: newFeeAmount })
         })
       })
 
@@ -101,13 +95,11 @@ contract('CourtSubscriptions', ([_, governor, someone, something, subscriber]) =
 
               const receipt = await subscriptions.setFeeToken(newFeeToken.address, newFeeAmount, { from })
 
-              const tokenLogs = decodeEventsOfType(receipt, CourtSubscriptions.abi, 'FeeTokenChanged')
-              assertAmountOfEvents({ logs: tokenLogs }, 'FeeTokenChanged')
-              assertEvent({ logs: tokenLogs }, 'FeeTokenChanged', { previousFeeToken, currentFeeToken: newFeeToken.address })
+              assertAmountOfEvents(receipt, 'FeeTokenChanged')
+              assertEvent(receipt, 'FeeTokenChanged', { previousFeeToken, currentFeeToken: newFeeToken.address })
 
-              const amountLogs = decodeEventsOfType(receipt, CourtSubscriptions.abi, 'FeeAmountChanged')
-              assertAmountOfEvents({ logs: amountLogs }, 'FeeAmountChanged')
-              assertEvent({ logs: amountLogs }, 'FeeAmountChanged', { previousFeeAmount, currentFeeAmount: newFeeAmount })
+              assertAmountOfEvents(receipt, 'FeeAmountChanged')
+              assertEvent(receipt, 'FeeAmountChanged', { previousFeeAmount, currentFeeAmount: newFeeAmount })
             })
           }
 
@@ -121,7 +113,7 @@ contract('CourtSubscriptions', ([_, governor, someone, something, subscriber]) =
             const governorFees = GOVERNOR_SHARE_PCT.mul(paidAmount).div(bn(10000))
 
             beforeEach('pay some subscriptions', async () => {
-              await subscriptionsOwner.mockSetTerm(PERIOD_DURATION)
+              await controller.mockSetTerm(PERIOD_DURATION)
               await feeToken.generateTokens(subscriber, paidAmount)
               await feeToken.approve(subscriptions.address, paidAmount, { from: subscriber })
               await subscriptions.payFees(subscriber, paidPeriods, { from: subscriber })
@@ -140,10 +132,9 @@ contract('CourtSubscriptions', ([_, governor, someone, something, subscriber]) =
 
             it('emits a governor share fees transferred event', async () => {
               const receipt = await subscriptions.setFeeToken(newFeeToken.address, newFeeAmount, { from })
-              const logs = decodeEventsOfType(receipt, CourtSubscriptions.abi, 'GovernorFeesTransferred')
 
-              assertAmountOfEvents({ logs }, 'GovernorFeesTransferred')
-              assertEvent({ logs }, 'GovernorFeesTransferred', { amount: governorFees })
+              assertAmountOfEvents(receipt, 'GovernorFeesTransferred')
+              assertEvent(receipt, 'GovernorFeesTransferred', { amount: governorFees })
             })
           })
         })
@@ -199,10 +190,8 @@ contract('CourtSubscriptions', ([_, governor, someone, something, subscriber]) =
 
           const receipt = await subscriptions.setPrePaymentPeriods(newPrePaymentPeriods, { from })
 
-          const logs = decodeEventsOfType(receipt, CourtSubscriptions.abi, 'PrePaymentPeriodsChanged')
-
-          assertAmountOfEvents({ logs }, 'PrePaymentPeriodsChanged')
-          assertEvent({ logs }, 'PrePaymentPeriodsChanged', { previousPrePaymentPeriods, currentPrePaymentPeriods: newPrePaymentPeriods })
+          assertAmountOfEvents(receipt, 'PrePaymentPeriodsChanged')
+          assertEvent(receipt, 'PrePaymentPeriodsChanged', { previousPrePaymentPeriods, currentPrePaymentPeriods: newPrePaymentPeriods })
         })
       }
 
@@ -265,10 +254,9 @@ contract('CourtSubscriptions', ([_, governor, someone, something, subscriber]) =
           const previousLatePaymentPenaltyPct = await subscriptions.latePaymentPenaltyPct()
 
           const receipt = await subscriptions.setLatePaymentPenaltyPct(newLatePaymentPenaltyPct, { from })
-          const logs = decodeEventsOfType(receipt, CourtSubscriptions.abi, 'LatePaymentPenaltyPctChanged')
 
-          assertAmountOfEvents({ logs }, 'LatePaymentPenaltyPctChanged')
-          assertEvent({ logs }, 'LatePaymentPenaltyPctChanged', { previousLatePaymentPenaltyPct, currentLatePaymentPenaltyPct: newLatePaymentPenaltyPct })
+          assertAmountOfEvents(receipt, 'LatePaymentPenaltyPctChanged')
+          assertEvent(receipt, 'LatePaymentPenaltyPctChanged', { previousLatePaymentPenaltyPct, currentLatePaymentPenaltyPct: newLatePaymentPenaltyPct })
         })
       }
 
@@ -315,10 +303,9 @@ contract('CourtSubscriptions', ([_, governor, someone, something, subscriber]) =
           const previousGovernorSharePct = await subscriptions.governorSharePct()
 
           const receipt = await subscriptions.setGovernorSharePct(newGovernorSharePct, { from })
-          const logs = decodeEventsOfType(receipt, CourtSubscriptions.abi, 'GovernorSharePctChanged')
 
-          assertAmountOfEvents({ logs }, 'GovernorSharePctChanged')
-          assertEvent({ logs }, 'GovernorSharePctChanged', { previousGovernorSharePct, currentGovernorSharePct: newGovernorSharePct })
+          assertAmountOfEvents(receipt, 'GovernorSharePctChanged')
+          assertEvent(receipt, 'GovernorSharePctChanged', { previousGovernorSharePct, currentGovernorSharePct: newGovernorSharePct })
         })
       }
 
@@ -367,10 +354,9 @@ contract('CourtSubscriptions', ([_, governor, someone, something, subscriber]) =
           const previousResumePrePaidPeriods = await subscriptions.resumePrePaidPeriods()
 
           const receipt = await subscriptions.setResumePrePaidPeriods(newResumePrePaidPeriods, { from })
-          const logs = decodeEventsOfType(receipt, CourtSubscriptions.abi, 'ResumePenaltiesChanged')
 
-          assertAmountOfEvents({ logs }, 'ResumePenaltiesChanged')
-          assertEvent({ logs }, 'ResumePenaltiesChanged', { previousResumePrePaidPeriods, currentResumePrePaidPeriods: newResumePrePaidPeriods })
+          assertAmountOfEvents(receipt, 'ResumePenaltiesChanged')
+          assertEvent(receipt, 'ResumePenaltiesChanged', { previousResumePrePaidPeriods, currentResumePrePaidPeriods: newResumePrePaidPeriods })
         })
       }
 

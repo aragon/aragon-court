@@ -1,8 +1,8 @@
 const { bn } = require('./numbers')
-const { soliditySha3 } = require("web3-utils");
+const { soliditySha3, toBN } = require('web3-utils')
 
 const expectedBounds = ({ selectedJurors, batchRequestedJurors, balances, totalRequestedJurors }) => {
-  const totalBalance = balances.reduce((acc, x) => acc.add(x), bn(0))
+  const totalBalance = balances.reduce((total, balance) => total.add(balance), bn(0))
 
   const expectedLowBound = bn(selectedJurors).mul(bn(totalBalance)).div(bn(totalRequestedJurors))
   const expectedHighBound = bn(selectedJurors).add(bn(batchRequestedJurors)).mul(bn(totalBalance)).div(bn(totalRequestedJurors))
@@ -20,18 +20,20 @@ const simulateComputeSearchRandomBalances = ({
   let expectedSumTreeBalances = []
   const interval = highActiveBalanceBatchBound.sub(lowActiveBalanceBatchBound)
   for(let i = 0; i < batchRequestedJurors; i++) {
-    const seed = soliditySha3(termRandomness, disputeId, sortitionIteration, i)
-    const balance = bn(lowActiveBalanceBatchBound).add(web3.utils.toBN(seed).mod(interval))
-    expectedSumTreeBalances.push(balance)
+    if (interval.eq(bn(0))) expectedSumTreeBalances.push(lowActiveBalanceBatchBound)
+    else {
+      const seed = soliditySha3(termRandomness, disputeId, sortitionIteration, i)
+      const balance = bn(lowActiveBalanceBatchBound).add(toBN(seed).mod(interval))
+      expectedSumTreeBalances.push(balance)
+    }
   }
 
   return expectedSumTreeBalances.sort((x, y) => x.lt(y) ? -1 : 1)
 }
 
-const simulateBachedRandomSearch = ({
+const simulateBatchedRandomSearch = ({
   termRandomness,
   disputeId,
-  termId,
   selectedJurors,
   batchRequestedJurors,
   roundRequestedJurors,
@@ -56,32 +58,33 @@ const simulateBachedRandomSearch = ({
   })
 
   // as jurors balances are sequential 0 to n, ids and values are the same
-  return expectedSumTreeBalances.map(b => getTreeKey(balances, b))
+  return expectedSumTreeBalances
+    .map(balance => getTreeKey(balances, balance))
+    .filter(key => key !== undefined)
 }
 
 const simulateDraft = ({
   termRandomness,
   disputeId,
-  termId,
   selectedJurors,
   batchRequestedJurors,
   roundRequestedJurors,
   sortitionIteration,
   jurors,
-  minUnlockedAmount,
+  draftLockAmount,
   getTreeKey
 }) => {
   const balances = jurors.map(juror => juror.activeBalance)
 
-  const MAX_ITERATIONS = 20
+  const MAX_ITERATIONS = 10
   let draftedKeys = []
   let iteration = sortitionIteration
   let jurorsLeft = batchRequestedJurors
+
   while(jurorsLeft > 0 && iteration < MAX_ITERATIONS) {
-    const iterationDraftedKeys = simulateBachedRandomSearch({
+    const iterationDraftedKeys = simulateBatchedRandomSearch({
       termRandomness,
       disputeId,
-      termId,
       selectedJurors,
       batchRequestedJurors,
       roundRequestedJurors,
@@ -89,35 +92,28 @@ const simulateDraft = ({
       balances,
       getTreeKey
     })
+
     // remove locked jurors
-    const filteredIterationDraftedKeys = iterationDraftedKeys.filter(
-      key => jurors[key].unlockedActiveBalance.sub(jurors[key].pendingDeactivation).gte(minUnlockedAmount)).slice(0, jurorsLeft)
+    const filteredIterationDraftedKeys = iterationDraftedKeys
+      .filter(key => {
+        const { unlockedActiveBalance, pendingDeactivation } = jurors[key]
+        const enoughBalance = unlockedActiveBalance.sub(pendingDeactivation).gte(draftLockAmount)
+        if (enoughBalance) jurors[key].unlockedActiveBalance = unlockedActiveBalance.sub(draftLockAmount)
+        return enoughBalance
+      })
+      .slice(0, jurorsLeft)
+
     iteration++
     jurorsLeft -= filteredIterationDraftedKeys.length
     draftedKeys = draftedKeys.concat(filteredIterationDraftedKeys)
   }
 
-  // we allow the simulation to "run out of gas" because we also want to test that
-  // assert.notEqual(iteration, MAX_ITERATIONS, 'Out of gas reached')
-
-  const draftedJurors = draftedKeys.reduce(
-    (acc, key) => {
-      if (acc.length > 0 && acc[acc.length - 1].key == key) {
-        acc[acc.length - 1].weight++
-      } else {
-        acc.push({ key: key, address: jurors[key].address, weight: 1})
-      }
-      return acc
-    },
-    []
-  )
-
-  return draftedJurors
+  return draftedKeys.map(key => jurors[key].address)
 }
 
 module.exports = {
   expectedBounds,
   simulateComputeSearchRandomBalances,
-  simulateBachedRandomSearch,
+  simulateBatchedRandomSearch,
   simulateDraft
 }

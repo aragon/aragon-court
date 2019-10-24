@@ -3,11 +3,9 @@ pragma solidity ^0.5.8;
 import "@aragon/os/contracts/common/TimeHelpers.sol";
 
 import "./IClock.sol";
-import "../controller/Controller.sol";
-import "../controller/Controlled.sol";
 
 
-contract CourtClock is IClock, Controlled, TimeHelpers {
+contract CourtClock is IClock, TimeHelpers {
     string private constant ERROR_TERM_OUTDATED = "CLK_TERM_OUTDATED";
     string private constant ERROR_TERM_DOES_NOT_EXIST = "CLK_TERM_DOES_NOT_EXIST";
     string private constant ERROR_TERM_DURATION_TOO_LONG = "CLK_TERM_DURATION_TOO_LONG";
@@ -26,9 +24,6 @@ contract CourtClock is IClock, Controlled, TimeHelpers {
     // Max time until first term starts since contract is deployed
     uint64 internal constant MAX_FIRST_TERM_DELAY_PERIOD = 2 * MAX_TERM_DURATION;
 
-    // Initial term to start the Court
-    uint64 internal constant ZERO_TERM_ID = 0;
-
     struct Term {
         uint64 startTime;              // Timestamp when the term started
         uint64 randomnessBN;           // Block number for entropy
@@ -36,15 +31,15 @@ contract CourtClock is IClock, Controlled, TimeHelpers {
     }
 
     // Duration in seconds for each term of the Court
-    uint64 public termDuration;
+    uint64 private termDuration;
 
     // Last ensured term id
-    uint64 internal termId;
+    uint64 private termId;
 
     // List of Court terms indexed by id
-    mapping (uint64 => Term) internal terms;
+    mapping (uint64 => Term) private terms;
 
-    event NewTerm(uint64 termId);
+    event Heartbeat(uint64 previousTermId, uint64 currentTermId);
 
     /**
     * @dev Ensure a certain term has already been processed
@@ -57,11 +52,10 @@ contract CourtClock is IClock, Controlled, TimeHelpers {
 
     /**
     * @dev Constructor function
-    * @param _controller Address of the controller
     * @param _termDuration Duration in seconds per term
     * @param _firstTermStartTime Timestamp in seconds when the court will open (to give time for juror on-boarding)
     */
-    constructor(Controller _controller, uint64 _termDuration, uint64 _firstTermStartTime) Controlled(_controller) public {
+    constructor(uint64 _termDuration, uint64 _firstTermStartTime) public {
         require(_termDuration < MAX_TERM_DURATION, ERROR_TERM_DURATION_TOO_LONG);
         require(_firstTermStartTime >= getTimestamp64() + _termDuration, ERROR_BAD_FIRST_TERM_START_TIME);
         require(_firstTermStartTime <= getTimestamp64() + MAX_FIRST_TERM_DELAY_PERIOD, ERROR_BAD_FIRST_TERM_START_TIME);
@@ -69,33 +63,32 @@ contract CourtClock is IClock, Controlled, TimeHelpers {
         termDuration = _termDuration;
 
         // No need for SafeMath: checked above
-        terms[ZERO_TERM_ID].startTime = _firstTermStartTime - _termDuration;
+        terms[0].startTime = _firstTermStartTime - _termDuration;
     }
 
     /**
-    * @notice Send a heartbeat to transition up to `_maxRequestedTransitions` terms
+    * @notice Transition up to `_maxRequestedTransitions` terms
     * @param _maxRequestedTransitions Max number of term transitions allowed by the sender
-    * @return previousTermId Identification number of the term id previous to executing the heartbeat transitions
     * @return currentTermId Identification number of the term id after executing the heartbeat transitions
     */
-    function heartbeat(uint64 _maxRequestedTransitions) external onlyCourt returns (uint64 previousTermId, uint64 currentTermId) {
+    function heartbeat(uint64 _maxRequestedTransitions) external returns (uint64) {
         return _heartbeat(_maxRequestedTransitions);
     }
 
     /**
-    * @dev Tell and ensure the current term of the court. If the Court term is outdated it will update it. Note that this function
-    *      only allows updating the Court by one term, if more terms are required, users will have to call the heartbeat function manually.
-    * @return Identification number of the last ensured term
+    * @notice Ensure that the current term of the Court is up-to-date. If the Court is outdated by more than `MAX_AUTO_TERM_TRANSITIONS_ALLOWED`
+    *         terms, the heartbeat function must be called manually instead.
+    * @return Identification number of the current term
     */
-    function ensureTermId() external returns (uint64) {
-        return _ensureTermId();
+    function ensureCurrentTerm() external returns (uint64) {
+        return _ensureCurrentTerm();
     }
 
     /**
     * @dev Ensure that a certain term has its randomness set. As we allow to draft disputes requested for previous terms, if there
     *      were mined more than 256 blocks for the current term, the blockhash of its randomness BN is no longer available, given
     *      round will be able to be drafted in the following term.
-    * @param _termId Identification number of the term to be checked
+    * @param _termId Identification number of the term to be ensured
     */
     function ensureTermRandomness(uint64 _termId) external termExists(_termId) returns (bytes32) {
         // If the randomness for the given term was already computed, return
@@ -106,10 +99,18 @@ contract CourtClock is IClock, Controlled, TimeHelpers {
         }
 
         // Compute term randomness
-        bytes32 newRandomness = _getTermRandomness(term);
+        bytes32 newRandomness = _computeTermRandomness(_termId);
         require(newRandomness != bytes32(0), ERROR_TERM_RANDOMNESS_UNAVAILABLE);
         term.randomness = newRandomness;
         return newRandomness;
+    }
+
+    /**
+    * @dev Tell the term duration of the Court
+    * @return Duration in seconds of the Court term
+    */
+    function getTermDuration() external view returns (uint64) {
+        return termDuration;
     }
 
     /**
@@ -117,7 +118,7 @@ contract CourtClock is IClock, Controlled, TimeHelpers {
     * @return Identification number of the last ensured term
     */
     function getLastEnsuredTermId() external view returns (uint64) {
-        return termId;
+        return _lastEnsuredTermId();
     }
 
     /**
@@ -153,56 +154,19 @@ contract CourtClock is IClock, Controlled, TimeHelpers {
 
     /**
     * @dev Tell the randomness of a term even if it wasn't computed yet
-    * @param _termId ID of the term being queried
+    * @param _termId Identification number of the term being queried
     * @return Randomness of the requested term
     */
     function getTermRandomness(uint64 _termId) external view termExists(_termId) returns (bytes32) {
-        Term storage term = terms[_termId];
-        return _getTermRandomness(term);
+        return _computeTermRandomness(_termId);
     }
 
     /**
-    * @dev Internal function to compute a heartbeat
-    * @param _maxRequestedTransitions Max number of term transitions allowed by the sender
-    * @return Identification number of the term id previous to executing the heartbeat transitions
-    * @return Identification number of the term id after executing the heartbeat transitions
+    * @dev Internal function to ensure that the current term of the Court is up-to-date. If the Court is outdated by more than
+    *      `MAX_AUTO_TERM_TRANSITIONS_ALLOWED` terms, the heartbeat function must be called manually.
+    * @return Identification number of the resultant term id after executing the corresponding transitions
     */
-    function _heartbeat(uint64 _maxRequestedTransitions) internal returns (uint64, uint64) {
-        // Transition the minimum number of terms between the amount requested and the amount actually needed
-        uint64 neededTransitions = _neededTermTransitions();
-        uint256 transitions = uint256(_maxRequestedTransitions < neededTransitions ? _maxRequestedTransitions : neededTransitions);
-        require(transitions > 0, ERROR_INVALID_TRANSITION_TERMS);
-
-        uint64 previousTermId = termId;
-        uint64 currentTermId;
-        for (uint256 transition = 1; transition <= transitions; transition++) {
-            // Term IDs are incremented by one based on the number of time periods since the Court started. Since time is represented in uint64,
-            // even if we chose the minimum duration possible for a term (1 second), we can ensure terms will never reach 2^64 since time is
-            // already assumed to fit in uint64.
-            Term storage previousTerm = terms[termId++];
-            currentTermId = termId;
-            Term storage currentTerm = terms[currentTermId];
-
-            // Set the start time of the new term. Note that we are using a constant term duration value to guarantee
-            // equally long terms, regardless of heartbeats.
-            // No need for SafeMath: termDuration is capped at MAX_TERM_DURATION, _firstTermStartTime by MAX_FIRST_TERM_DELAY_PERIOD,
-            // and we assume that timestamps (and its derivatives like termId) won't reach MAX_UINT64, which would be ~5.8e11 years
-            currentTerm.startTime = previousTerm.startTime + termDuration;
-
-            // In order to draft a random number of jurors in a term, we use a randomness factor for each term based on a
-            // block number that is set once the term has started. Note that this information could not be known beforehand.
-            currentTerm.randomnessBN = getBlockNumber64() + 1;
-            emit NewTerm(currentTermId);
-        }
-
-        return (previousTermId, currentTermId);
-    }
-
-    /**
-    * @dev Internal function to tell and ensure the current term of the court
-    * @return Identification number of the last ensured term
-    */
-    function _ensureTermId() internal returns (uint64) {
+    function _ensureCurrentTerm() internal returns (uint64) {
         // Check the required number of transitions does not exceeds the max allowed number to be processed automatically
         uint64 requiredTransitions = _neededTermTransitions();
         require(requiredTransitions <= MAX_AUTO_TERM_TRANSITIONS_ALLOWED, ERROR_TOO_MANY_TRANSITIONS);
@@ -213,8 +177,61 @@ contract CourtClock is IClock, Controlled, TimeHelpers {
         }
 
         // Process transition if there is at least one pending
-        (, uint64 currentTermId) = _heartbeat(requiredTransitions);
+        return _heartbeat(requiredTransitions);
+    }
+
+    /**
+    * @dev Internal function to transition the Court terms up to a requested number of terms
+    * @param _maxRequestedTransitions Max number of term transitions allowed by the sender
+    * @return Identification number of the resultant term id after executing the requested transitions
+    */
+    function _heartbeat(uint64 _maxRequestedTransitions) internal returns (uint64) {
+        // Transition the minimum number of terms between the amount requested and the amount actually needed
+        uint64 neededTransitions = _neededTermTransitions();
+        uint256 transitions = uint256(_maxRequestedTransitions < neededTransitions ? _maxRequestedTransitions : neededTransitions);
+        require(transitions > 0, ERROR_INVALID_TRANSITION_TERMS);
+
+        uint64 previousTermId = termId;
+        uint64 currentTermId = previousTermId;
+        for (uint256 transition = 1; transition <= transitions; transition++) {
+            // Term IDs are incremented by one based on the number of time periods since the Court started. Since time is represented in uint64,
+            // even if we chose the minimum duration possible for a term (1 second), we can ensure terms will never reach 2^64 since time is
+            // already assumed to fit in uint64.
+            Term storage previousTerm = terms[currentTermId++];
+            Term storage currentTerm = terms[currentTermId];
+            _onTermTransitioned(currentTermId);
+
+            // Set the start time of the new term. Note that we are using a constant term duration value to guarantee
+            // equally long terms, regardless of heartbeats.
+            // No need for SafeMath: termDuration is capped at MAX_TERM_DURATION, _firstTermStartTime by MAX_FIRST_TERM_DELAY_PERIOD,
+            // and we assume that timestamps (and its derivatives like termId) won't reach MAX_UINT64, which would be ~5.8e11 years
+            currentTerm.startTime = previousTerm.startTime + termDuration;
+
+            // In order to draft a random number of jurors in a term, we use a randomness factor for each term based on a
+            // block number that is set once the term has started. Note that this information could not be known beforehand.
+            currentTerm.randomnessBN = getBlockNumber64() + 1;
+        }
+
+        termId = currentTermId;
+        emit Heartbeat(previousTermId, currentTermId);
         return currentTermId;
+    }
+
+    /**
+    * @dev Internal function to notify when a term has been transitioned
+    * @param _currentTermId Identification number of the new current term that has been transitioned
+    */
+    function _onTermTransitioned(uint64 _currentTermId) internal {
+        // solium-disable-previous-line no-empty-blocks
+        // This function must be overridden to provide custom behavior
+    }
+
+    /**
+    * @dev Internal function to tell the last ensured term identification number
+    * @return Identification number of the last ensured term
+    */
+    function _lastEnsuredTermId() internal view returns (uint64) {
+        return termId;
     }
 
     /**
@@ -247,11 +264,12 @@ contract CourtClock is IClock, Controlled, TimeHelpers {
     *      function assumes the given term exists. To determine the randomness factor for a term we use the hash of a
     *      block number that is set once the term has started to ensure it cannot be known beforehand. Note that the
     *      hash function being used only works for the 256 most recent block numbers.
-    * @param _term Term to compute the randomness of
+    * @param _termId Identification number of the term being queried
     * @return Randomness computed for the given term
     */
-    function _getTermRandomness(Term storage _term) internal view returns (bytes32) {
-        require(getBlockNumber64() > _term.randomnessBN, ERROR_TERM_RANDOMNESS_NOT_YET);
-        return blockhash(_term.randomnessBN);
+    function _computeTermRandomness(uint64 _termId) internal view returns (bytes32) {
+        Term storage term = terms[_termId];
+        require(getBlockNumber64() > term.randomnessBN, ERROR_TERM_RANDOMNESS_NOT_YET);
+        return blockhash(term.randomnessBN);
     }
 }

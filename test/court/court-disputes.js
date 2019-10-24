@@ -15,7 +15,6 @@ contract('Court', ([_, sender]) => {
   const termDuration = bn(ONE_DAY)
   const firstTermStartTime = bn(NEXT_WEEK)
   const jurorFee = bigExp(10, 18)
-  const heartbeatFee = bigExp(20, 18)
   const draftFee = bigExp(30, 18)
   const settleFee = bigExp(40, 18)
   const firstRoundJurorsNumber = 5
@@ -23,7 +22,7 @@ contract('Court', ([_, sender]) => {
   beforeEach('create court', async () => {
     courtHelper = buildHelper()
     feeToken = await ERC20.new('Court Fee Token', 'CFT', 18)
-    court = await courtHelper.deploy({ firstTermStartTime, termDuration, feeToken, jurorFee, heartbeatFee, draftFee, settleFee, firstRoundJurorsNumber })
+    court = await courtHelper.deploy({ firstTermStartTime, termDuration, feeToken, jurorFee, draftFee, settleFee, firstRoundJurorsNumber })
   })
 
   beforeEach('mock subscriptions and arbitrable instance', async () => {
@@ -48,6 +47,8 @@ contract('Court', ([_, sender]) => {
           })
 
           it('creates a new dispute', async () => {
+            // move forward to the term before the desired start one for the dispute
+            await courtHelper.setTerm(draftTermId - 1)
             const receipt = await court.createDispute(arbitrable.address, possibleRulings, { from: sender })
 
             assertAmountOfEvents(receipt, 'NewDispute')
@@ -60,14 +61,9 @@ contract('Court', ([_, sender]) => {
             assert.equal(finalRuling.toString(), 0, 'dispute final ruling does not match')
           })
 
-          it('schedules one draft for the corresponding draft term', async () => {
-            await court.createDispute(arbitrable.address, possibleRulings, { from: sender })
-
-            const dependingDrafts = await court.getDependingDraftsAt(draftTermId)
-            assert.equal(dependingDrafts.toString(), 1, 'depending drafts does not match')
-          })
-
           it('creates a new adjudication round', async () => {
+            // move forward to the term before the desired start one for the dispute
+            await courtHelper.setTerm(draftTermId - 1)
             await court.createDispute(arbitrable.address, possibleRulings, { from: sender })
 
             const { draftTerm, delayedTerms, roundJurorsNumber, selectedJurors, jurorFees, triggeredBy, settledPenalties, collectedTokens } = await courtHelper.getRound(0, 0)
@@ -83,9 +79,11 @@ contract('Court', ([_, sender]) => {
           })
 
           it('transfers fees to the court', async () => {
+            // move forward to the term before the desired start one for the dispute
+            await courtHelper.setTerm(draftTermId - 1)
             const { disputeFees: expectedDisputeDeposit } = await courtHelper.getDisputeFees(draftTermId)
             const previousCourtBalance = await feeToken.balanceOf(court.address)
-            const previousAccountingBalance = await feeToken.balanceOf(courtHelper.accounting.address)
+            const previousTreasuryBalance = await feeToken.balanceOf(courtHelper.treasury.address)
             const previousSenderBalance = await feeToken.balanceOf(sender)
 
             await court.createDispute(arbitrable.address, possibleRulings, { from: sender })
@@ -93,27 +91,27 @@ contract('Court', ([_, sender]) => {
             const currentCourtBalance = await feeToken.balanceOf(court.address)
             assert.equal(previousCourtBalance.toString(), currentCourtBalance.toString(), 'court balances do not match')
 
-            const currentAccountingBalance = await feeToken.balanceOf(courtHelper.accounting.address)
-            assert.equal(previousAccountingBalance.add(expectedDisputeDeposit).toString(), currentAccountingBalance.toString(), 'court accounting balances do not match')
+            const currentTreasuryBalance = await feeToken.balanceOf(courtHelper.treasury.address)
+            assert.equal(previousTreasuryBalance.add(expectedDisputeDeposit).toString(), currentTreasuryBalance.toString(), 'court treasury balances do not match')
 
             const currentSenderBalance = await feeToken.balanceOf(sender)
             assert.equal(previousSenderBalance.sub(expectedDisputeDeposit).toString(), currentSenderBalance.toString(), 'sender balances do not match')
           })
 
           it(`transitions ${expectedTermTransitions} terms`, async () => {
-            const previousTermId = await courtHelper.clock.getLastEnsuredTermId()
+            const previousTermId = await courtHelper.controller.getLastEnsuredTermId()
 
             const receipt = await court.createDispute(arbitrable.address, possibleRulings, { from: sender })
 
-            const logs = decodeEventsOfType(receipt, CourtClock.abi, 'NewTerm')
-            assertAmountOfEvents({ logs }, 'NewTerm', expectedTermTransitions)
+            const logs = decodeEventsOfType(receipt, CourtClock.abi, 'Heartbeat')
+            assertAmountOfEvents({ logs }, 'Heartbeat', expectedTermTransitions)
 
-            const currentTermId = await courtHelper.clock.getLastEnsuredTermId()
+            const currentTermId = await courtHelper.controller.getLastEnsuredTermId()
             assert.equal(previousTermId.add(bn(expectedTermTransitions)).toString(), currentTermId.toString(), 'term id does not match')
           })
         })
 
-        context('when the creator doesn\'t have enough fee tokens approved', () => {
+        context('when the creator does not have enough fee tokens approved', () => {
           it('reverts', async () => {
             await assertRevert(court.createDispute(arbitrable.address, possibleRulings), 'CT_DEPOSIT_FAILED')
           })
@@ -123,8 +121,8 @@ contract('Court', ([_, sender]) => {
       context('when the term is up-to-date', () => {
         const expectedTermTransitions = 0
 
-        beforeEach('send heartbeat for the first term', async () => {
-          await court.heartbeat(1)
+        beforeEach('move right before the desired draft term', async () => {
+          await courtHelper.controller.heartbeat(1)
         })
 
         itHandlesDisputesCreationProperly(expectedTermTransitions)

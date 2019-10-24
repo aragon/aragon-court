@@ -1,9 +1,10 @@
+const { DEFAULTS } = require('../helpers/controller')(web3, artifacts)
 const { bn, bigExp } = require('../helpers/numbers')
 const { assertRevert } = require('../helpers/assertThrow')
 const { filterWinningJurors } = require('../helpers/jurors')
+const { buildHelper, ROUND_STATES } = require('../helpers/court')(web3, artifacts)
 const { assertAmountOfEvents, assertEvent } = require('../helpers/assertEvent')
 const { getVoteId, oppositeOutcome, OUTCOMES } = require('../helpers/crvoting')
-const { buildHelper, DEFAULTS, ROUND_STATES } = require('../helpers/court')(web3, artifacts)
 
 contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, juror1000, juror1500, juror2000, juror2500, juror3000, juror3500, juror4000]) => {
   let courtHelper, court, voting
@@ -187,17 +188,17 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
                 })
 
                 it('does not affect the balances of the court', async () => {
-                  const { accounting, feeToken } = courtHelper
+                  const { treasury, feeToken } = courtHelper
                   const previousCourtBalance = await feeToken.balanceOf(court.address)
-                  const previousAccountingBalance = await feeToken.balanceOf(accounting.address)
+                  const previousTreasuryBalance = await feeToken.balanceOf(treasury.address)
 
                   await court.settleAppealDeposit(disputeId, roundId)
 
                   const currentCourtBalance = await feeToken.balanceOf(court.address)
                   assert.equal(previousCourtBalance.toString(), currentCourtBalance.toString(), 'court balances do not match')
 
-                  const currentAccountingBalance = await feeToken.balanceOf(accounting.address)
-                  assert.equal(previousAccountingBalance.toString(), currentAccountingBalance.toString(), 'court accounting balances do not match')
+                  const currentTreasuryBalance = await feeToken.balanceOf(treasury.address)
+                  assert.equal(previousTreasuryBalance.toString(), currentTreasuryBalance.toString(), 'court treasury balances do not match')
                 })
 
                 it('cannot be settled twice', async () => {
@@ -218,14 +219,14 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
           const itReturnsAppealDepositsToMaker = (roundId) => {
             itSettlesAppealDeposits(roundId, () => {
               it('returns the deposit to the appeal maker', async () => {
-                const { accounting, feeToken } = courtHelper
+                const { treasury, feeToken } = courtHelper
                 const { appealDeposit } = await courtHelper.getAppealFees(disputeId, roundId)
 
-                const previousBalance = await accounting.balanceOf(feeToken.address, appealMaker)
+                const previousBalance = await treasury.balanceOf(feeToken.address, appealMaker)
 
                 await court.settleAppealDeposit(disputeId, roundId)
 
-                const currentBalance = await accounting.balanceOf(feeToken.address, appealMaker)
+                const currentBalance = await treasury.balanceOf(feeToken.address, appealMaker)
                 assert.equal(previousBalance.add(appealDeposit).toString(), currentBalance.toString(), 'appeal maker balances do not match')
               })
             })
@@ -234,15 +235,15 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
           const itSettlesAppealDepositsToMaker = (roundId) => {
             itSettlesAppealDeposits(roundId, () => {
               it('settles the total deposit to the appeal taker', async () => {
-                const { accounting, feeToken } = courtHelper
+                const { treasury, feeToken } = courtHelper
                 const { appealFees, appealDeposit, confirmAppealDeposit } = await courtHelper.getAppealFees(disputeId, roundId)
 
                 const expectedAppealReward = appealDeposit.add(confirmAppealDeposit).sub(appealFees)
-                const previousAppealTakerBalance = await accounting.balanceOf(feeToken.address, appealTaker)
+                const previousAppealTakerBalance = await treasury.balanceOf(feeToken.address, appealTaker)
 
                 await court.settleAppealDeposit(disputeId, roundId)
 
-                const currentAppealTakerBalance = await accounting.balanceOf(feeToken.address, appealTaker)
+                const currentAppealTakerBalance = await treasury.balanceOf(feeToken.address, appealTaker)
                 assert.equal(currentAppealTakerBalance.toString(), previousAppealTakerBalance.add(expectedAppealReward).toString(), 'appeal maker balances do not match')
               })
             })
@@ -251,15 +252,15 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
           const itSettlesAppealDepositsToTaker = (roundId) => {
             itSettlesAppealDeposits(roundId, () => {
               it('settles the total deposit to the appeal maker', async () => {
-                const { accounting, feeToken } = courtHelper
+                const { treasury, feeToken } = courtHelper
                 const { appealFees, appealDeposit, confirmAppealDeposit } = await courtHelper.getAppealFees(disputeId, roundId)
 
                 const expectedAppealReward = appealDeposit.add(confirmAppealDeposit).sub(appealFees)
-                const previousAppealMakerBalance = await accounting.balanceOf(feeToken.address, appealMaker)
+                const previousAppealMakerBalance = await treasury.balanceOf(feeToken.address, appealMaker)
 
                 await court.settleAppealDeposit(disputeId, roundId)
 
-                const currentAppealMakerBalance = await accounting.balanceOf(feeToken.address, appealMaker)
+                const currentAppealMakerBalance = await treasury.balanceOf(feeToken.address, appealMaker)
                 assert.equal(currentAppealMakerBalance.toString(), previousAppealMakerBalance.add(expectedAppealReward).toString(), 'appeal maker balances do not match')
               })
             })
@@ -268,21 +269,21 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
           const itReturnsAppealDepositsToBoth = (roundId) => {
             itSettlesAppealDeposits(roundId, () => {
               it('splits the appeal deposit', async () => {
-                const { accounting, feeToken } = courtHelper
+                const { treasury, feeToken } = courtHelper
                 const { appealFees, appealDeposit, confirmAppealDeposit } = await courtHelper.getAppealFees(disputeId, roundId)
 
                 const expectedAppealMakerReward = appealDeposit.sub(appealFees.div(bn(2)))
-                const previousAppealMakerBalance = await accounting.balanceOf(feeToken.address, appealMaker)
+                const previousAppealMakerBalance = await treasury.balanceOf(feeToken.address, appealMaker)
 
                 const expectedAppealTakerReward = confirmAppealDeposit.sub(appealFees.div(bn(2)))
-                const previousAppealTakerBalance = await accounting.balanceOf(feeToken.address, appealTaker)
+                const previousAppealTakerBalance = await treasury.balanceOf(feeToken.address, appealTaker)
 
                 await court.settleAppealDeposit(disputeId, roundId)
 
-                const currentAppealMakerBalance = await accounting.balanceOf(feeToken.address, appealMaker)
+                const currentAppealMakerBalance = await treasury.balanceOf(feeToken.address, appealMaker)
                 assert.equal(currentAppealMakerBalance.toString(), previousAppealMakerBalance.add(expectedAppealMakerReward).toString(), 'appeal maker balances do not match')
 
-                const currentAppealTakerBalance = await accounting.balanceOf(feeToken.address, appealTaker)
+                const currentAppealTakerBalance = await treasury.balanceOf(feeToken.address, appealTaker)
                 assert.equal(currentAppealTakerBalance.toString(), previousAppealTakerBalance.add(expectedAppealTakerReward).toString(), 'appeal taker balances do not match')
               })
             })

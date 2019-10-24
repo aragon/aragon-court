@@ -115,17 +115,24 @@ library JurorsTreeSortition {
         // like for instance [0,10)
         // No need for SafeMath: see function getSearchBatchBounds to check that this is always >= 0
         uint256 interval = _highBatchBound - _lowBatchBound;
-        uint256[] memory balances = new uint256[](_batchRequestedJurors);
 
-        // If the given interval is zero, we don't need to compute a random search, simply fill the resulting array with the unique bound
+        // If the given interval is zero, we don't need to compute a random search
         if (interval == 0) {
+            // If the requested number of jurors for the batch was zero, simply return an empty array
+            if (_batchRequestedJurors == 0) {
+                return new uint256[](0);
+            }
+
+            // Otherwise, simply fill the resulting array with the unique bound
+            uint256[] memory balances = new uint256[](_batchRequestedJurors);
             for (uint256 batchJurorNumber = 0; batchJurorNumber < _batchRequestedJurors; batchJurorNumber++) {
                 balances[batchJurorNumber] = _lowBatchBound;
             }
             return balances;
         }
 
-        // Compute an ordered list of random active balance to be searched in the jurors tree
+        // If the interval was not zero, compute an ordered list of random active balance to be searched in the jurors tree
+        uint256[] memory balances = new uint256[](_batchRequestedJurors);
         for (uint256 batchJurorNumber = 0; batchJurorNumber < _batchRequestedJurors; batchJurorNumber++) {
             // Compute a random seed using:
             // - the inherent randomness associated to the term from blockhash

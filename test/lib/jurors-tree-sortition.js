@@ -87,20 +87,33 @@ contract('JurorsTreeSortition', () => {
     const termRandomness = '0x0000000000000000000000000000000000000000000000000000000000000000'
     const disputeId = 0
     const sortitionIteration = 0
-    const batchRequestedJurors = 200
 
     context('when the given bounds are zero', () => {
       const lowActiveBalanceBatchBound = bn(0)
       const highActiveBalanceBatchBound = bn(0)
 
-      it('returns a list of empty balances', async () => {
-        const balances = await tree.computeSearchRandomBalances(termRandomness, disputeId, sortitionIteration, batchRequestedJurors, lowActiveBalanceBatchBound, highActiveBalanceBatchBound)
+      context('when the requested number of jurors is greater than zero', () => {
+        const batchRequestedJurors = 200
 
-        assert.equal(balances.length, batchRequestedJurors, 'list length does not match')
+        it('returns a list of empty balances', async () => {
+          const balances = await tree.computeSearchRandomBalances(termRandomness, disputeId, sortitionIteration, batchRequestedJurors, lowActiveBalanceBatchBound, highActiveBalanceBatchBound)
 
-        for (let i = 0; i < batchRequestedJurors; i++) {
-          assertBn(balances[i], bn(0), `balance ${i} doesn't match`)
-        }
+          assert.equal(balances.length, batchRequestedJurors, 'list length does not match')
+
+          for (let i = 0; i < batchRequestedJurors; i++) {
+            assertBn(balances[i], bn(0), `balance ${i} doesn't match`)
+          }
+        })
+      })
+
+      context('when the requested number of jurors is zero', () => {
+        const batchRequestedJurors = 0
+
+        it('returns an empty list', async () => {
+          const balances = await tree.computeSearchRandomBalances(termRandomness, disputeId, sortitionIteration, batchRequestedJurors, lowActiveBalanceBatchBound, highActiveBalanceBatchBound)
+
+          assert.equal(balances.length, 0, 'list length does not match')
+        })
       })
     })
 
@@ -109,14 +122,28 @@ contract('JurorsTreeSortition', () => {
         const lowActiveBalanceBatchBound = bn(10)
         const highActiveBalanceBatchBound = bn(10)
 
-        it('returns a list of balances equals to the given bound', async () => {
-          const balances = await tree.computeSearchRandomBalances(termRandomness, disputeId, sortitionIteration, batchRequestedJurors, lowActiveBalanceBatchBound, highActiveBalanceBatchBound)
+        context('when the requested number of jurors is greater than zero', () => {
+          const batchRequestedJurors = 200
 
-          assert.equal(balances.length, batchRequestedJurors, 'list length does not match')
+          it('returns a list of balances equals to the given bound', async () => {
+            const balances = await tree.computeSearchRandomBalances(termRandomness, disputeId, sortitionIteration, batchRequestedJurors, lowActiveBalanceBatchBound, highActiveBalanceBatchBound)
 
-          for (let i = 0; i < batchRequestedJurors; i++) {
-            assertBn(balances[i], lowActiveBalanceBatchBound, `balance ${i} doesn't match`)
-          }
+            assert.equal(balances.length, batchRequestedJurors, 'list length does not match')
+
+            for (let i = 0; i < batchRequestedJurors; i++) {
+              assertBn(balances[i], lowActiveBalanceBatchBound, `balance ${i} doesn't match`)
+            }
+          })
+        })
+
+        context('when the requested number of jurors is zero', () => {
+          const batchRequestedJurors = 0
+
+          it('returns an empty list', async () => {
+            const balances = await tree.computeSearchRandomBalances(termRandomness, disputeId, sortitionIteration, batchRequestedJurors, lowActiveBalanceBatchBound, highActiveBalanceBatchBound)
+
+            assert.equal(balances.length, 0, 'list length does not match')
+          })
         })
       })
 
@@ -124,28 +151,42 @@ contract('JurorsTreeSortition', () => {
         const lowActiveBalanceBatchBound = bn(0)
         const highActiveBalanceBatchBound = bn(10)
 
-        it('returns a ordered list of random balances', async () => {
-          const balances = await tree.computeSearchRandomBalances(termRandomness, disputeId, sortitionIteration, batchRequestedJurors, lowActiveBalanceBatchBound, highActiveBalanceBatchBound)
+        context('when the requested number of jurors is greater than zero', () => {
+          const batchRequestedJurors = 200
 
-          assert.equal(balances.length, batchRequestedJurors, 'list length does not match')
+          it('returns a ordered list of random balances', async () => {
+            const balances = await tree.computeSearchRandomBalances(termRandomness, disputeId, sortitionIteration, batchRequestedJurors, lowActiveBalanceBatchBound, highActiveBalanceBatchBound)
 
-          for (let i = 0; i < batchRequestedJurors - 1; i++) {
-            assert.isAtLeast(balances[i + 1].toNumber(), balances[i].toNumber(), `item ${i} is not ordered`)
-            assert.isAtMost(balances[i].toNumber(), highActiveBalanceBatchBound.toNumber(), `item ${i} is not included in the requested interval`)
-          }
+            assert.equal(balances.length, batchRequestedJurors, 'list length does not match')
 
-          const expectedSumTreeBalances = simulateComputeSearchRandomBalances({
-            termRandomness,
-            disputeId,
-            sortitionIteration,
-            batchRequestedJurors,
-            lowActiveBalanceBatchBound,
-            highActiveBalanceBatchBound
+            for (let i = 0; i < batchRequestedJurors - 1; i++) {
+              assert.isAtLeast(balances[i + 1].toNumber(), balances[i].toNumber(), `item ${i} is not ordered`)
+              assert.isAtMost(balances[i].toNumber(), highActiveBalanceBatchBound.toNumber(), `item ${i} is not included in the requested interval`)
+            }
+
+            const expectedSumTreeBalances = simulateComputeSearchRandomBalances({
+              termRandomness,
+              disputeId,
+              sortitionIteration,
+              batchRequestedJurors,
+              lowActiveBalanceBatchBound,
+              highActiveBalanceBatchBound
+            })
+
+            for (let i = 0; i < batchRequestedJurors; i++) {
+              assertBn(balances[i], expectedSumTreeBalances[i], `balance ${i} doesn't match`)
+            }
           })
+        })
 
-          for (let i = 0; i < batchRequestedJurors; i++) {
-            assertBn(balances[i], expectedSumTreeBalances[i], `balance ${i} doesn't match`)
-          }
+        context('when the requested number of jurors is zero', () => {
+          const batchRequestedJurors = 0
+
+          it('returns an empty list', async () => {
+            const balances = await tree.computeSearchRandomBalances(termRandomness, disputeId, sortitionIteration, batchRequestedJurors, lowActiveBalanceBatchBound, highActiveBalanceBatchBound)
+
+            assert.equal(balances.length, 0, 'list length does not match')
+          })
         })
       })
     })
@@ -155,12 +196,12 @@ contract('JurorsTreeSortition', () => {
     const termId = 0
     const disputeId = 0
     const sortitionIteration = 0
+    const roundRequestedJurors = 10
     const termRandomness = '0x0000000000000000000000000000000000000000000000000000000000000000'
 
     context('when there are no balances in the tree', () => {
       const selectedJurors = 0
       const batchRequestedJurors = 5
-      const roundRequestedJurors = 10
 
       it('reverts', async () => {
         await assertRevert(tree.batchedRandomSearch(termRandomness, disputeId, termId, selectedJurors, batchRequestedJurors, roundRequestedJurors, sortitionIteration), 'SUM_TREE_SEARCH_OUT_OF_BOUNDS')
@@ -174,61 +215,70 @@ contract('JurorsTreeSortition', () => {
         for(let i = 0; i < 100; i++) await tree.insert(termId, balances[i])
       })
 
-      context('for a first batch', () => {
+      context('when the requested number of jurors is zero', () => {
         const selectedJurors = 0
-        const batchRequestedJurors = 5
-        const roundRequestedJurors = 10
+        const batchRequestedJurors = 0
 
-        it('returns the expected results', async () => {
-          const { jurorsIds, activeBalances } = await tree.batchedRandomSearch(termRandomness, disputeId, termId, selectedJurors, batchRequestedJurors, roundRequestedJurors, sortitionIteration)
-
-          assert.equal(jurorsIds.length, batchRequestedJurors, 'result keys length does not match')
-          assert.equal(activeBalances.length, batchRequestedJurors, 'result values length does not match')
-
-          const expectedJurorIds = simulateBatchedRandomSearch({
-            termRandomness,
-            disputeId,
-            selectedJurors,
-            batchRequestedJurors,
-            roundRequestedJurors,
-            sortitionIteration,
-            balances,
-            getTreeKey
-          })
-
-          for (let i = 0; i < batchRequestedJurors; i++) {
-            assert.equal(jurorsIds[i].toString(), expectedJurorIds[i], `result key ${i} does not match`)
-            assert.equal(activeBalances[i].toString(), expectedJurorIds[i], `result value ${i} does not match`)
-          }
+        it('reverts', async () => {
+          await assertRevert(tree.batchedRandomSearch(termRandomness, disputeId, termId, selectedJurors, batchRequestedJurors, roundRequestedJurors, sortitionIteration), 'SUM_TREE_MISSING_SEARCH_VALUES')
         })
       })
 
-      context('for a second batch', () => {
-        const selectedJurors = 5
-        const batchRequestedJurors = 5
-        const roundRequestedJurors = 10
+      context('when the requested number of jurors is greater than zero', () => {
+        context('for a first batch', () => {
+          const selectedJurors = 0
+          const batchRequestedJurors = 5
 
-        it('returns the expected results', async () => {
-          const { jurorsIds, activeBalances } = await tree.batchedRandomSearch(termRandomness, disputeId, termId, selectedJurors, batchRequestedJurors, roundRequestedJurors, sortitionIteration)
+          it('returns the expected results', async () => {
+            const { jurorsIds, activeBalances } = await tree.batchedRandomSearch(termRandomness, disputeId, termId, selectedJurors, batchRequestedJurors, roundRequestedJurors, sortitionIteration)
 
-          assert.equal(jurorsIds.length, batchRequestedJurors, 'result keys length does not match')
-          assert.equal(activeBalances.length, batchRequestedJurors, 'result values length does not match')
+            assert.equal(jurorsIds.length, batchRequestedJurors, 'result keys length does not match')
+            assert.equal(activeBalances.length, batchRequestedJurors, 'result values length does not match')
 
-          const expectedJurorIds = simulateBatchedRandomSearch({
-            termRandomness,
-            disputeId,
-            selectedJurors,
-            batchRequestedJurors,
-            roundRequestedJurors,
-            sortitionIteration,
-            balances,
-            getTreeKey
+            const expectedJurorIds = simulateBatchedRandomSearch({
+              termRandomness,
+              disputeId,
+              selectedJurors,
+              batchRequestedJurors,
+              roundRequestedJurors,
+              sortitionIteration,
+              balances,
+              getTreeKey
+            })
+
+            for (let i = 0; i < batchRequestedJurors; i++) {
+              assert.equal(jurorsIds[i].toString(), expectedJurorIds[i], `result key ${i} does not match`)
+              assert.equal(activeBalances[i].toString(), expectedJurorIds[i], `result value ${i} does not match`)
+            }
           })
+        })
 
-          for (let i = 0; i < batchRequestedJurors; i++) {
-            assert.equal(jurorsIds[i].toString(), expectedJurorIds[i], `result key ${i} does not match`)
-            assert.equal(activeBalances[i].toString(), expectedJurorIds[i], `result value ${i} does not match`)
-          }
+        context('for a second batch', () => {
+          const selectedJurors = 5
+          const batchRequestedJurors = 5
+
+          it('returns the expected results', async () => {
+            const { jurorsIds, activeBalances } = await tree.batchedRandomSearch(termRandomness, disputeId, termId, selectedJurors, batchRequestedJurors, roundRequestedJurors, sortitionIteration)
+
+            assert.equal(jurorsIds.length, batchRequestedJurors, 'result keys length does not match')
+            assert.equal(activeBalances.length, batchRequestedJurors, 'result values length does not match')
+
+            const expectedJurorIds = simulateBatchedRandomSearch({
+              termRandomness,
+              disputeId,
+              selectedJurors,
+              batchRequestedJurors,
+              roundRequestedJurors,
+              sortitionIteration,
+              balances,
+              getTreeKey
+            })
+
+            for (let i = 0; i < batchRequestedJurors; i++) {
+              assert.equal(jurorsIds[i].toString(), expectedJurorIds[i], `result key ${i} does not match`)
+              assert.equal(activeBalances[i].toString(), expectedJurorIds[i], `result value ${i} does not match`)
+            }
+          })
         })
       })
     })

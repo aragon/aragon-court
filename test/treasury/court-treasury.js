@@ -1,9 +1,9 @@
+const { buildHelper } = require('../helpers/controller')(web3, artifacts)
 const { assertRevert } = require('../helpers/assertThrow')
 const { bn, bigExp, MAX_UINT256 } = require('../helpers/numbers')
 const { assertEvent, assertAmountOfEvents } = require('../helpers/assertEvent')
 
 const CourtTreasury = artifacts.require('CourtTreasury')
-const Controller = artifacts.require('ControllerMock')
 const ERC20 = artifacts.require('ERC20Mock')
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
@@ -12,7 +12,7 @@ contract('CourtTreasury', ([_, court, holder, someone]) => {
   let controller, treasury, DAI, ANT
 
   beforeEach('create treasury', async () => {
-    controller = await Controller.new()
+    controller = await buildHelper().deploy()
     treasury = await CourtTreasury.new(controller.address)
     await controller.setTreasury(treasury.address)
     await controller.setCourtMock(court)

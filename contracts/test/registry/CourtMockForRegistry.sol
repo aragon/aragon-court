@@ -1,35 +1,31 @@
 pragma solidity ^0.5.8;
 
-import "../../court/IClock.sol";
-import "../../registry/JurorsRegistry.sol";
+import "../../controller/Controlled.sol";
+import "../../controller/Controller.sol";
 
 
-contract CourtMockForRegistry {
-    JurorsRegistry internal registry;
-
+contract CourtMockForRegistry is Controlled {
     event Slashed(uint256 collected);
     event Collected(bool collected);
     event Drafted(address[] addresses, uint256 length);
 
-    constructor(JurorsRegistry _registry) public {
-        registry = _registry;
+    constructor(Controller _controller) Controlled(_controller) public {}
+
+    function assignTokens(address _juror, uint256 _amount) external {
+        _jurorsRegistry().assignTokens(_juror, _amount);
     }
 
-    function assignTokens(address _juror, uint256 _amount) public {
-        registry.assignTokens(_juror, _amount);
+    function burnTokens(uint256 _amount) external {
+        _jurorsRegistry().burnTokens(_amount);
     }
 
-    function burnTokens(uint256 _amount) public {
-        registry.burnTokens(_amount);
-    }
-
-    function slashOrUnlock(address[] memory _jurors, uint256[] memory _lockedAmounts, bool[] memory _rewardedJurors) public {
-        uint256 collectedTokens = registry.slashOrUnlock(_termId(), _jurors, _lockedAmounts, _rewardedJurors);
+    function slashOrUnlock(address[] calldata _jurors, uint256[] calldata _lockedAmounts, bool[] calldata _rewardedJurors) external {
+        uint256 collectedTokens = _jurorsRegistry().slashOrUnlock(_getLastEnsuredTermId(), _jurors, _lockedAmounts, _rewardedJurors);
         emit Slashed(collectedTokens);
     }
 
-    function collect(address _juror, uint256 _amount) public {
-        bool collected = registry.collectTokens(_juror, _amount, _termId());
+    function collect(address _juror, uint256 _amount) external {
+        bool collected = _jurorsRegistry().collectTokens(_juror, _amount, _getLastEnsuredTermId());
         emit Collected(collected);
     }
 
@@ -41,25 +37,19 @@ contract CourtMockForRegistry {
         uint64 _roundRequestedJurors,
         uint16 _lockPct
     )
-        public
+        external
     {
         uint256[7] memory draftParams = [
             uint256(_termRandomness),
             _disputeId,
-            _termId(),
+            _getLastEnsuredTermId(),
             _selectedJurors,
             _batchRequestedJurors,
             _roundRequestedJurors,
             _lockPct
         ];
 
-        (address[] memory jurors, uint256 length) = registry.draft(draftParams);
+        (address[] memory jurors, uint256 length) = _jurorsRegistry().draft(draftParams);
         emit Drafted(jurors, length);
-    }
-
-    function _termId() internal view returns (uint64) {
-        Controller controller = registry.getController();
-        IClock clock = IClock(controller.getClock());
-        return clock.getLastEnsuredTermId();
     }
 }

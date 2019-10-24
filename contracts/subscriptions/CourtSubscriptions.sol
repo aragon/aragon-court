@@ -59,10 +59,10 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
     // Duration of a subscription period in Court terms
     uint64 public periodDuration;
 
-    // Per ten thousand of subscription fees that will be applied as penalty for not paying during proper period (‱ - 1/10,000)
+    // Permyriad of subscription fees that will be applied as penalty for not paying during proper period (‱ - 1/10,000)
     uint16 public latePaymentPenaltyPct;
 
-    // Per ten thousand of subscription fees that will be allocated to the governor of the Court (‱ - 1/10,000)
+    // Permyriad of subscription fees that will be allocated to the governor of the Court (‱ - 1/10,000)
     uint16 public governorSharePct;
 
     // ERC20 token used for the subscription fees
@@ -107,8 +107,8 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
     * @param _feeAmount Initial amount of fees to be paid for each subscription period
     * @param _prePaymentPeriods Initial number of periods that can be paid in advance including the current period
     * @param _resumePrePaidPeriods Initial number of periods a subscriber must pre-pay in order to resume his activity after pausing
-    * @param _latePaymentPenaltyPct Initial per ten thousand of subscription fees that will be applied as penalty for not paying during proper period (‱ - 1/10,000)
-    * @param _governorSharePct Initial per ten thousand of subscription fees that will be allocated to the governor of the Court (‱ - 1/10,000)
+    * @param _latePaymentPenaltyPct Initial permyriad of subscription fees that will be applied as penalty for not paying during proper period (‱ - 1/10,000)
+    * @param _governorSharePct Initial permyriad of subscription fees that will be allocated to the governor of the Court (‱ - 1/10,000)
     */
     constructor(
         Controller _controller,
@@ -274,8 +274,8 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
     }
 
     /**
-    * @notice Set new late payment penalty `_latePaymentPenaltyPct`‱ (1/10,000)
-    * @param _latePaymentPenaltyPct New per ten thousand of subscription fees that will be applied as penalty for not paying during proper period
+    * @notice Set new late payment penalty `_latePaymentPenaltyPct`‱ (‱ - 1/10,000)
+    * @param _latePaymentPenaltyPct New permyriad of subscription fees that will be applied as penalty for not paying during proper period
     */
     function setLatePaymentPenaltyPct(uint16 _latePaymentPenaltyPct) external onlyConfigGovernor {
         _setLatePaymentPenaltyPct(_latePaymentPenaltyPct);
@@ -283,7 +283,7 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
 
     /**
     * @notice Set new governor share to `_governorSharePct`‱ (1/10,000)
-    * @param _governorSharePct New per ten thousand of subscription fees that will be allocated to the governor of the Court (‱ - 1/10,000)
+    * @param _governorSharePct New permyriad of subscription fees that will be allocated to the governor of the Court (‱ - 1/10,000)
     */
     function setGovernorSharePct(uint16 _governorSharePct) external onlyConfigGovernor {
         _setGovernorSharePct(_governorSharePct);
@@ -521,7 +521,7 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
 
     /**
     * @dev Internal function to set new late payment penalty `_latePaymentPenaltyPct`‱ (1/10,000)
-    * @param _latePaymentPenaltyPct New per ten thousand of subscription fees that will be applied as penalty for not paying during proper period
+    * @param _latePaymentPenaltyPct New permyriad of subscription fees that will be applied as penalty for not paying during proper period
     */
     function _setLatePaymentPenaltyPct(uint16 _latePaymentPenaltyPct) internal {
         emit LatePaymentPenaltyPctChanged(latePaymentPenaltyPct, _latePaymentPenaltyPct);
@@ -530,7 +530,7 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
 
     /**
     * @dev Internal function to set a new governor share value
-    * @param _governorSharePct New per ten thousand of subscription fees that will be allocated to the governor of the Court (‱ - 1/10,000)
+    * @param _governorSharePct New permyriad of subscription fees that will be allocated to the governor of the Court (‱ - 1/10,000)
     */
     function _setGovernorSharePct(uint16 _governorSharePct) internal {
         // Check governor share is not greater than 10,000‱

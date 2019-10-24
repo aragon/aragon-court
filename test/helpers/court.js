@@ -84,8 +84,8 @@ module.exports = (web3, artifacts) => {
         appealFees = appealFees.add(draftFees).add(settleFees)
       }
 
-      const appealDeposit = appealFees.mul(this.appealCollateralFactor)
-      const confirmAppealDeposit = appealFees.mul(this.appealConfirmCollateralFactor)
+      const appealDeposit = appealFees.mul(this.appealCollateralFactor).div(PCT_BASE)
+      const confirmAppealDeposit = appealFees.mul(this.appealConfirmCollateralFactor).div(PCT_BASE)
       return { appealFees , appealDeposit, confirmAppealDeposit }
     }
 

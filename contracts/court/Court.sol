@@ -1459,8 +1459,8 @@ contract Court is TimeHelpers, Controlled, ControlledRecoverable, IJurorsRegistr
         }
 
         // Calculate appeal collateral
-        nextRound.appealDeposit = nextRound.totalFees.pct256(disputesConfig.appealCollateralFactor);
-        nextRound.confirmAppealDeposit = nextRound.totalFees.pct256(disputesConfig.appealConfirmCollateralFactor);
+        nextRound.appealDeposit = nextRound.totalFees.pct(disputesConfig.appealCollateralFactor);
+        nextRound.confirmAppealDeposit = nextRound.totalFees.pct(disputesConfig.appealConfirmCollateralFactor);
         return nextRound;
     }
 

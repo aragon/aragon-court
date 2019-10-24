@@ -4,14 +4,13 @@ import "@aragon/os/contracts/lib/token/ERC20.sol";
 
 import "./IConfig.sol";
 import "./CourtConfigData.sol";
-import "../clock/CourtClock.sol";
 import "../../lib/PctHelpers.sol";
 
 
-contract CourtConfig is IConfig, CourtConfigData, CourtClock {
+contract CourtConfig is IConfig, CourtConfigData {
     using PctHelpers for uint256;
 
-    string private constant ERROR_TOO_OLD_TERM = "CT_TOO_OLD_TERM";
+    string private constant ERROR_TOO_OLD_TERM = "CONF_TOO_OLD_TERM";
     string private constant ERROR_INVALID_PENALTY_PCT = "CONF_INVALID_PENALTY_PCT";
     string private constant ERROR_INVALID_FINAL_ROUND_REDUCTION_PCT = "CONF_INVALID_FINAL_ROUND_RED_PCT";
     string private constant ERROR_INVALID_MAX_APPEAL_ROUNDS = "CONF_INVALID_MAX_APPEAL_ROUNDS";
@@ -76,71 +75,16 @@ contract CourtConfig is IConfig, CourtConfigData, CourtClock {
     }
 
     /**
-    * @dev Get Court configuration parameters
-    * @return token Address of the token used to pay for fees
-    * @return fees Array containing:
-    *         0. jurorFee The amount of _feeToken that is paid per juror per dispute
-    *         1. draftFee The amount of _feeToken per juror to cover the drafting cost
-    *         2. settleFee The amount of _feeToken per juror to cover round settlement cost
-    * @return roundStateDurations Array containing the durations in terms of the different phases of a dispute:
-    *         0. commitTerms Commit period duration in terms
-    *         1. revealTerms Reveal period duration in terms
-    *         2. appealTerms Appeal period duration in terms
-    *         3. appealConfirmationTerms Appeal confirmation period duration in terms
-    * @return pcts Array containing:
-    *         0. penaltyPct ‱ of minJurorsActiveBalance that can be slashed (1/10,000)
-    *         1. finalRoundReduction ‱ of fee reduction for the last appeal round (1/10,000)
-    * @return roundParams Array containing params for rounds:
-    *         0. firstRoundJurorsNumber Number of jurors to be drafted for the first round of disputes
-    *         1. appealStepFactor Increasing factor for the number of jurors of each round of a dispute
-    *         2. maxRegularAppealRounds Number of regular appeal rounds before the final round is triggered
-    * @return appealCollateralParams Array containing params for appeal collateral:
-    *         0. appealCollateralFactor Multiple of juror fees required to appeal a preliminary ruling
-    *         1. appealConfirmCollateralFactor Multiple of juror fees required to confirm appeal
+    * @dev Internal to make sure to set a config for the new term, it will copy the previous term config if none
+    * @param _currentTermId Identification number of the new current term that has been transitioned
     */
-    function getConfig(uint64 _termId) external view
-        returns (
-            ERC20 feeToken,
-            uint256[3] memory fees,
-            uint64[4] memory roundStateDurations,
-            uint16[2] memory pcts,
-            uint64[3] memory roundParams,
-            uint256[2] memory appealCollateralParams
-        )
-    {
-        Config storage config = _getConfigAt(_termId);
-
-        FeesConfig storage feesConfig = config.fees;
-        feeToken = feesConfig.token;
-        fees = [feesConfig.jurorFee, feesConfig.draftFee, feesConfig.settleFee];
-
-        DisputesConfig storage disputesConfig = config.disputes;
-        roundStateDurations = [
-            disputesConfig.commitTerms,
-            disputesConfig.revealTerms,
-            disputesConfig.appealTerms,
-            disputesConfig.appealConfirmTerms
-        ];
-        pcts = [disputesConfig.penaltyPct, feesConfig.finalRoundReduction];
-        roundParams = [disputesConfig.firstRoundJurorsNumber, disputesConfig.appealStepFactor, uint64(disputesConfig.maxRegularAppealRounds)];
-        appealCollateralParams = [disputesConfig.appealCollateralFactor, disputesConfig.appealConfirmCollateralFactor];
-    }
-
-    /**
-    * @dev Internal function to update the configs associated to each term of a set of terms
-    * @param _lastUpdatedTermId Identification number of the last term that was updated
-    * @param _lastTermIdToUpdate Identification number of the last term to be updated
-    */
-    function _updateTermsConfig(uint64 _lastUpdatedTermId, uint64 _lastTermIdToUpdate) internal {
-        uint256 previousConfigId = configIdByTerm[_lastUpdatedTermId];
-        for (uint64 updatingTermId = _lastUpdatedTermId + 1; updatingTermId <= _lastTermIdToUpdate; updatingTermId++) {
-            // If the term being processed had no config change scheduled, keep the previous one
-            uint256 configId = configIdByTerm[updatingTermId];
-            if (configId == 0) {
-                configId = previousConfigId;
-                configIdByTerm[updatingTermId] = configId;
-            }
-            previousConfigId = configId;
+    function _ensureTermConfig(uint64 _currentTermId) internal {
+        // If the term being transitioned had no config change scheduled, keep the previous one
+        uint256 currentConfigId = configIdByTerm[_currentTermId];
+        if (currentConfigId == 0) {
+            // No need for SafeMath: if there was a term transition we know the current term id will be greater than zero
+            uint256 previousConfigId = configIdByTerm[_currentTermId - 1];
+            configIdByTerm[_currentTermId] = previousConfigId;
         }
     }
 
@@ -248,23 +192,76 @@ contract CourtConfig is IConfig, CourtConfigData, CourtClock {
 
     /**
     * @dev Internal function to get the Court config for a given term
-    * @param _termId Term querying the Court config of
-    * @return Court config for the given term
+    * @param _termId Identification number of the term querying the Court config of
+    * @param _lastEnsuredTermId Identification number of the last ensured term of the Court
+    * @return token Address of the token used to pay for fees
+    * @return fees Array containing:
+    *         0. jurorFee The amount of _feeToken that is paid per juror per dispute
+    *         1. draftFee The amount of _feeToken per juror to cover the drafting cost
+    *         2. settleFee The amount of _feeToken per juror to cover round settlement cost
+    * @return roundStateDurations Array containing the durations in terms of the different phases of a dispute:
+    *         0. commitTerms Commit period duration in terms
+    *         1. revealTerms Reveal period duration in terms
+    *         2. appealTerms Appeal period duration in terms
+    *         3. appealConfirmationTerms Appeal confirmation period duration in terms
+    * @return pcts Array containing:
+    *         0. penaltyPct ‱ of minJurorsActiveBalance that can be slashed (1/10,000)
+    *         1. finalRoundReduction ‱ of fee reduction for the last appeal round (1/10,000)
+    * @return roundParams Array containing params for rounds:
+    *         0. firstRoundJurorsNumber Number of jurors to be drafted for the first round of disputes
+    *         1. appealStepFactor Increasing factor for the number of jurors of each round of a dispute
+    *         2. maxRegularAppealRounds Number of regular appeal rounds before the final round is triggered
+    * @return appealCollateralParams Array containing params for appeal collateral:
+    *         0. appealCollateralFactor Multiple of juror fees required to appeal a preliminary ruling
+    *         1. appealConfirmCollateralFactor Multiple of juror fees required to confirm appeal
     */
-    function _getConfigAt(uint64 _termId) internal view returns (Config storage) {
+    function _getConfigAt(uint64 _termId, uint64 _lastEnsuredTermId) internal view
+        returns (
+            ERC20 feeToken,
+            uint256[3] memory fees,
+            uint64[4] memory roundStateDurations,
+            uint16[2] memory pcts,
+            uint64[3] memory roundParams,
+            uint256[2] memory appealCollateralParams
+        )
+    {
+        Config storage config = configs[_getConfigIdFor(_termId, _lastEnsuredTermId)];
+
+        FeesConfig storage feesConfig = config.fees;
+        feeToken = feesConfig.token;
+        fees = [feesConfig.jurorFee, feesConfig.draftFee, feesConfig.settleFee];
+
+        DisputesConfig storage disputesConfig = config.disputes;
+        roundStateDurations = [
+            disputesConfig.commitTerms,
+            disputesConfig.revealTerms,
+            disputesConfig.appealTerms,
+            disputesConfig.appealConfirmTerms
+        ];
+        pcts = [disputesConfig.penaltyPct, feesConfig.finalRoundReduction];
+        roundParams = [disputesConfig.firstRoundJurorsNumber, disputesConfig.appealStepFactor, uint64(disputesConfig.maxRegularAppealRounds)];
+        appealCollateralParams = [disputesConfig.appealCollateralFactor, disputesConfig.appealConfirmCollateralFactor];
+    }
+
+    /**
+    * @dev Internal function to get the Court config for a given term
+    * @param _termId Identification number of the term querying the Court config of
+    * @param _lastEnsuredTermId Identification number of the last ensured term of the Court
+    * @return Identification number of the config for the given terms
+    */
+    function _getConfigIdFor(uint64 _termId, uint64 _lastEnsuredTermId) internal view returns (uint256) {
         // If the given term is lower or equal to the last ensured Court term, it is safe to use a past Court config
-        uint64 lastEnsuredTermId = termId;
-        if (_termId <= lastEnsuredTermId) {
-            return configs[configIdByTerm[_termId]];
+        if (_termId <= _lastEnsuredTermId) {
+            return configIdByTerm[_termId];
         }
 
         // If the given term is in the future but there is a config change scheduled before it, use the incoming config
         uint64 scheduledChangeTermId = configChangeTermId;
         if (scheduledChangeTermId <= _termId) {
-            return configs[configIdByTerm[scheduledChangeTermId]];
+            return configIdByTerm[scheduledChangeTermId];
         }
 
         // If no changes are scheduled, use the Court config of the last ensured term
-        return configs[configIdByTerm[lastEnsuredTermId]];
+        return configIdByTerm[_lastEnsuredTermId];
     }
 }

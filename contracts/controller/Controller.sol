@@ -126,28 +126,6 @@ contract Controller is IsContract, CourtClock, CourtConfig {
     }
 
     /**
-    * @notice Transition up to `_maxRequestedTransitions` terms
-    * @param _maxRequestedTransitions Max number of term transitions allowed by the sender
-    * @return currentTermId Identification number of the term id after executing the heartbeat transitions
-    */
-    function heartbeat(uint64 _maxRequestedTransitions) external returns (uint64) {
-        (uint64 previousTermId, uint64 currentTermId) = _heartbeat(_maxRequestedTransitions);
-        _updateTermsConfig(previousTermId, currentTermId);
-        return currentTermId;
-    }
-
-    /**
-    * @notice Ensure that the current term of the Court is up-to-date. If the Court is outdated by more than one term, the heartbeat function
-    *         must be called manually instead.
-    * @return Identification number of the current term
-    */
-    function ensureCurrentTerm() external returns (uint64) {
-        (uint64 previousTermId, uint64 currentTermId) = _ensureCurrentTerm();
-        _updateTermsConfig(previousTermId, currentTermId);
-        return currentTermId;
-    }
-
-    /**
     * @notice Change Court configuration params
     * @param _fromTermId Identification number of the term in which the config will be effective at
     * @param _feeToken Address of the token contract that is used to pay for fees.
@@ -180,8 +158,7 @@ contract Controller is IsContract, CourtClock, CourtConfig {
         external
         onlyConfigGovernor
     {
-        (uint64 previousTermId, uint64 currentTermId) = _ensureCurrentTerm();
-        _updateTermsConfig(previousTermId, currentTermId);
+        uint64 currentTermId = _ensureCurrentTerm();
         _setConfig(currentTermId, _fromTermId, _feeToken, _fees, _roundStateDurations, _pcts, _roundParams, _appealCollateralParams);
     }
 
@@ -248,6 +225,43 @@ contract Controller is IsContract, CourtClock, CourtConfig {
         for (uint256 i = 0; i < _ids.length; i++) {
             _setModule(_ids[i], _addresses[i]);
         }
+    }
+
+    /**
+    * @dev Get Court configuration parameters
+    * @return token Address of the token used to pay for fees
+    * @return fees Array containing:
+    *         0. jurorFee The amount of _feeToken that is paid per juror per dispute
+    *         1. draftFee The amount of _feeToken per juror to cover the drafting cost
+    *         2. settleFee The amount of _feeToken per juror to cover round settlement cost
+    * @return roundStateDurations Array containing the durations in terms of the different phases of a dispute:
+    *         0. commitTerms Commit period duration in terms
+    *         1. revealTerms Reveal period duration in terms
+    *         2. appealTerms Appeal period duration in terms
+    *         3. appealConfirmationTerms Appeal confirmation period duration in terms
+    * @return pcts Array containing:
+    *         0. penaltyPct ‱ of minJurorsActiveBalance that can be slashed (1/10,000)
+    *         1. finalRoundReduction ‱ of fee reduction for the last appeal round (1/10,000)
+    * @return roundParams Array containing params for rounds:
+    *         0. firstRoundJurorsNumber Number of jurors to be drafted for the first round of disputes
+    *         1. appealStepFactor Increasing factor for the number of jurors of each round of a dispute
+    *         2. maxRegularAppealRounds Number of regular appeal rounds before the final round is triggered
+    * @return appealCollateralParams Array containing params for appeal collateral:
+    *         0. appealCollateralFactor Multiple of juror fees required to appeal a preliminary ruling
+    *         1. appealConfirmCollateralFactor Multiple of juror fees required to confirm appeal
+    */
+    function getConfig(uint64 _termId) external view
+        returns (
+            ERC20 feeToken,
+            uint256[3] memory fees,
+            uint64[4] memory roundStateDurations,
+            uint16[2] memory pcts,
+            uint64[3] memory roundParams,
+            uint256[2] memory appealCollateralParams
+        )
+    {
+        uint64 lastEnsuredTermId = _lastEnsuredTermId();
+        return _getConfigAt(_termId, lastEnsuredTermId);
     }
 
     /**
@@ -359,6 +373,14 @@ contract Controller is IsContract, CourtClock, CourtConfig {
         require(isContract(_addr), ERROR_IMPLEMENTATION_NOT_CONTRACT);
         modules[_id] = _addr;
         emit ModuleSet(_id, _addr);
+    }
+
+    /**
+    * @dev Internal function to notify when a term has been transitioned
+    * @param _currentTermId Identification number of the new current term that has been transitioned
+    */
+    function _onTermTransitioned(uint64 _currentTermId) internal {
+        _ensureTermConfig(_currentTermId);
     }
 
     /**

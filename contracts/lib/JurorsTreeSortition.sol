@@ -116,22 +116,12 @@ library JurorsTreeSortition {
         // No need for SafeMath: see function getSearchBatchBounds to check that this is always >= 0
         uint256 interval = _highBatchBound - _lowBatchBound;
 
-        // If the given interval is zero, we don't need to compute a random search
-        if (interval == 0) {
-            // If the requested number of jurors for the batch was zero, simply return an empty array
-            if (_batchRequestedJurors == 0) {
-                return new uint256[](0);
-            }
+        // The given interval can only be zero, if:
+        // - Param _batchRequestedJurors is zero, Court prevents that. Anyway code below would return an empty array, that is the correct thing to do.
+        // - The total active balance in the tree is zero. Then the search will always revert.
+        // So there's no need to check for interval zero.
 
-            // Otherwise, simply fill the resulting array with the unique bound
-            uint256[] memory balances = new uint256[](_batchRequestedJurors);
-            for (uint256 batchJurorNumber = 0; batchJurorNumber < _batchRequestedJurors; batchJurorNumber++) {
-                balances[batchJurorNumber] = _lowBatchBound;
-            }
-            return balances;
-        }
-
-        // If the interval was not zero, compute an ordered list of random active balance to be searched in the jurors tree
+        // Compute an ordered list of random active balance to be searched in the jurors tree
         uint256[] memory balances = new uint256[](_batchRequestedJurors);
         for (uint256 batchJurorNumber = 0; batchJurorNumber < _batchRequestedJurors; batchJurorNumber++) {
             // Compute a random seed using:

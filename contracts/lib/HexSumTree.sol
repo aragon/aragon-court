@@ -154,14 +154,14 @@ library HexSumTree {
     }
 
     /**
-     * @dev Search a list of values in the tree at a given point in time. It will return a list with the nearest
-     *      high value in case a value cannot be found. This function assumes the given list of given values to be
-     *      searched is in ascending order. In case of searching a value out of bounds, it will return zeroed results.
-     * @param _values Ordered list of values to be searched in the tree
-     * @param _time Point in time to query the values being searched
-     * @return keys List of keys found for each requested value in the same order
-     * @return values List of node values found for each requested value in the same order
-     */
+    * @dev Search a list of values in the tree at a given point in time. It will return a list with the nearest
+    *      high value in case a value cannot be found. This function assumes the given list of given values to be
+    *      searched is in ascending order. In case of searching a value out of bounds, it will return zeroed results.
+    * @param _values Ordered list of values to be searched in the tree
+    * @param _time Point in time to query the values being searched
+    * @return keys List of keys found for each requested value in the same order
+    * @return values List of node values found for each requested value in the same order
+    */
     function search(Tree storage self, uint256[] memory _values, uint64 _time) internal view
         returns (uint256[] memory keys, uint256[] memory values)
     {
@@ -203,10 +203,10 @@ library HexSumTree {
     }
 
     /**
-     * @dev Tell the sum of the all the items (leaves) stored in the tree, i.e. value of the root of the tree, at a given point in time
-     *      It uses a linear search starting from the end.
-     * @param _time Point in time to query the sum of all the items (leaves) stored in the tree
-     */
+    * @dev Tell the sum of the all the items (leaves) stored in the tree, i.e. value of the root of the tree, at a given point in time
+    *      It uses a linear search starting from the end.
+    * @param _time Point in time to query the sum of all the items (leaves) stored in the tree
+    */
     function getRecentTotalAt(Tree storage self, uint64 _time) internal view returns (uint256) {
         uint256 rootLevel = getRecentHeightAt(self, _time);
         return getRecentNodeAt(self, rootLevel, BASE_KEY, _time);
@@ -345,18 +345,18 @@ library HexSumTree {
     }
 
     /**
-     * @dev Recursive pre-order traversal function
-     *      Every time it checks a node, it traverses the input array to find the initial subset of elements that are
-     *      below its accumulated value and passes that sub-array to the next iteration. Actually, the array is always
-     *      the same, to avoid making extra copies, it just passes the number of values already found , to avoid
-     *      checking values that went through a different branch. The same happens with the result lists of keys and
-     *      values, these are the same on every recursion step. The visited total is carried over each iteration to
-     *      avoid having to subtract all elements in the array.
-     * @param _values Ordered list of values to be searched in the tree
-     * @param _params Search parameters for the current recursive step
-     * @param _resultKeys List of keys found for each requested value in the same order
-     * @param _resultValues List of node values found for each requested value in the same order
-     */
+    * @dev Recursive pre-order traversal function
+    *      Every time it checks a node, it traverses the input array to find the initial subset of elements that are
+    *      below its accumulated value and passes that sub-array to the next iteration. Actually, the array is always
+    *      the same, to avoid making extra copies, it just passes the number of values already found , to avoid
+    *      checking values that went through a different branch. The same happens with the result lists of keys and
+    *      values, these are the same on every recursion step. The visited total is carried over each iteration to
+    *      avoid having to subtract all elements in the array.
+    * @param _values Ordered list of values to be searched in the tree
+    * @param _params Search parameters for the current recursive step
+    * @param _resultKeys List of keys found for each requested value in the same order
+    * @param _resultValues List of node values found for each requested value in the same order
+    */
     function _search(
         Tree storage self,
         uint256[] memory _values,

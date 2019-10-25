@@ -216,9 +216,9 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
     }
 
     /**
-     * @notice Draft jurors for the next round of dispute #`_disputeId`
-     * @param _disputeId Identification number of the dispute to be drafted
-     */
+    * @notice Draft jurors for the next round of dispute #`_disputeId`
+    * @param _disputeId Identification number of the dispute to be drafted
+    */
     function draft(uint256 _disputeId) external disputeExists(_disputeId) {
         // Drafts can only be computed when the Court is up-to-date. Note that forcing a term transition won't work since the term randomness
         // is always based on the next term which means it won't be available anyway.

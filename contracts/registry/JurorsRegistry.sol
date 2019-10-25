@@ -729,7 +729,14 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
                 uint256 nextTermDeactivationRequestAmount = _deactivationRequestedAmountForTerm(juror, _draftParams.termId + 1);
 
                 // Check if juror has enough active tokens to lock the requested amount for the draft, skip it otherwise.
-                if (activeBalances[i].sub(nextTermDeactivationRequestAmount) >= newLockedBalance) {
+                // TODO: stack too deep
+                //uint256 currentActiveBalance = activeBalances[i];
+                if (activeBalances[i] >= newLockedBalance) {
+                    // If this reverts there's a bug somewhere, but let's keep SafeMath for extra safety
+                    uint256 nextTermActiveBalance = activeBalances[i].sub(nextTermDeactivationRequestAmount);
+                    if (nextTermActiveBalance < newLockedBalance) {
+                        _reduceDeactivationRequest(jurorAddress, newLockedBalance - nextTermActiveBalance, _draftParams.termId);
+                    }
                     juror.lockedBalance = newLockedBalance;
                     _jurors[length++] = jurorAddress;
                     emit JurorDrafted(_draftParams.disputeId, jurorAddress);

@@ -2,19 +2,18 @@ pragma solidity ^0.5.8;
 
 import "../../voting/ICRVoting.sol";
 import "../../voting/ICRVotingOwner.sol";
+import "../../controller/Controller.sol";
+import "../../controller/Controlled.sol";
 
 
-contract CRVotingOwnerMock is ICRVotingOwner {
+contract CourtMockForVoting is ICRVotingOwner, Controlled {
     string private constant ERROR_OWNER_MOCK_COMMIT_CHECK_REVERTED = "CRV_OWNER_MOCK_COMMIT_CHECK_REVERTED";
     string private constant ERROR_OWNER_MOCK_REVEAL_CHECK_REVERTED = "CRV_OWNER_MOCK_REVEAL_CHECK_REVERTED";
 
-    ICRVoting internal voting;
     bool internal failing;
     mapping (address => uint64) internal weights;
 
-    constructor(ICRVoting _voting) public {
-        voting = _voting;
-    }
+    constructor(Controller _controller) Controlled(_controller) public {}
 
     function mockChecksFailing(bool _failing) external {
         failing = _failing;
@@ -25,7 +24,7 @@ contract CRVotingOwnerMock is ICRVotingOwner {
     }
 
     function create(uint256 _voteId, uint8 _ruling) external {
-        voting.create(_voteId, _ruling);
+        _voting().create(_voteId, _ruling);
     }
 
     function ensureVoterWeightToCommit(uint256 /* _voteId */, address _voter) external returns (uint64) {

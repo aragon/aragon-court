@@ -364,7 +364,8 @@ library HexSumTree {
         uint256[] memory _resultKeys,
         uint256[] memory _resultValues
     )
-        private view
+        private
+        view
     {
         // No need for SafeMath: BITS_IN_NIBBLE * MAX_DEPTH = 256 (see explanation above BITS_IN_NIBBLE definition)
         uint256 levelKeyLessSignificantNibble = _params.level * BITS_IN_NIBBLE;
@@ -473,7 +474,8 @@ library HexSumTree {
         uint256 _value,
         uint256[] memory _resultValues
     )
-        private pure
+        private
+        pure
     {
         for (uint256 i = 0; i < _times; i++) {
             _resultKeys[_from + i] = _key;

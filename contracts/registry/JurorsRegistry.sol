@@ -432,8 +432,8 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
     * @param _precision Multiplier to mitigate division rounding errors
     * @return Weight of the requested juror for the final round of the given dispute
     */
-    function getActiveBalanceInfoOfAt(address _juror, uint64 _termId, uint256 _precision)
-        external view returns (uint256 activeBalance, uint256 minActiveBalanceMultiple)
+    function getActiveBalanceInfoOfAt(address _juror, uint64 _termId, uint256 _precision) external view
+        returns (uint256 activeBalance, uint256 minActiveBalanceMultiple)
     {
         activeBalance = _activeBalanceOfAt(_juror, _termId);
 
@@ -484,8 +484,8 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
     * @return locked Amount of active tokens that are locked due to ongoing disputes
     * @return pendingDeactivation Amount of active tokens that were requested for deactivation
     */
-    function balanceOfAt(address _juror, uint64 _termId)
-        public view returns (uint256 active, uint256 available, uint256 locked, uint256 pendingDeactivation)
+    function balanceOfAt(address _juror, uint64 _termId) public view
+        returns (uint256 active, uint256 available, uint256 locked, uint256 pendingDeactivation)
     {
         Juror storage juror = jurorsByAddress[_juror];
 

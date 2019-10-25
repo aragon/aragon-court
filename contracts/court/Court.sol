@@ -598,12 +598,7 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
     * @return opposedRuling Ruling confirmed by the appeal taker of the given round
     */
     function getAppeal(uint256 _disputeId, uint256 _roundId) external view roundExists(_disputeId, _roundId)
-        returns (
-            address maker,
-            uint64 appealedRuling,
-            address taker,
-            uint64 opposedRuling
-        )
+        returns (address maker, uint64 appealedRuling, address taker, uint64 opposedRuling)
     {
         Appeal storage appeal = disputes[_disputeId].rounds[_roundId].appeal;
 
@@ -837,9 +832,7 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
     * @param _juror Address of the juror to calculate the weight of
     * @return Weight of the requested juror for the final round of the given dispute
     */
-    function _computeJurorWeightForFinalRound(Config memory _config, AdjudicationRound storage _round, address _juror)
-        internal returns (uint64)
-    {
+    function _computeJurorWeightForFinalRound(Config memory _config, AdjudicationRound storage _round, address _juror) internal returns(uint64) {
         // If there was a weight already computed, return it
         JurorState storage jurorState = _round.jurorsStates[_juror];
         uint64 currentWeight = jurorState.weight;
@@ -1128,7 +1121,7 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
     * @return totalFees Total amount of fees for a regular round at the given term
     */
     function _getRegularRoundFees(FeesConfig memory _config, uint64 _jurorsNumber) internal pure
-    returns (ERC20 feeToken, uint256 jurorFees, uint256 totalFees)
+        returns (ERC20 feeToken, uint256 jurorFees, uint256 totalFees)
     {
         feeToken = _config.token;
         // For regular rounds the fees for each juror is constant and given by the config of the round
@@ -1147,7 +1140,7 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
     * @return totalFees Total amount of fees for a final round at the given term
     */
     function _getFinalRoundFees(FeesConfig memory _config, uint64 _jurorsNumber) internal pure
-    returns (ERC20 feeToken, uint256 jurorFees, uint256 totalFees)
+        returns (ERC20 feeToken, uint256 jurorFees, uint256 totalFees)
     {
         feeToken = _config.token;
         // For final rounds, the jurors number is computed as the number of times the registry's minimum active balance is held in the registry

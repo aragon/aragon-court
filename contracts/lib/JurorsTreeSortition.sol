@@ -13,6 +13,7 @@ library JurorsTreeSortition {
     using HexSumTree for HexSumTree.Tree;
 
     string private constant ERROR_SORTITION_LENGTHS_MISMATCH = "TREE_SORTITION_LENGTHS_MISMATCH";
+    string private constant ERROR_INTERVAL_ZERO_SEARCH = "TREE_INTERVAL_ZERO_SEARCH";
 
     /**
     * @dev Search random items in the tree based on certain restrictions
@@ -116,22 +117,10 @@ library JurorsTreeSortition {
         // No need for SafeMath: see function getSearchBatchBounds to check that this is always >= 0
         uint256 interval = _highBatchBound - _lowBatchBound;
 
-        // If the given interval is zero, we don't need to compute a random search
-        if (interval == 0) {
-            // If the requested number of jurors for the batch was zero, simply return an empty array
-            if (_batchRequestedJurors == 0) {
-                return new uint256[](0);
-            }
+        // A search for interval zero doesn't make any sense
+        require(interval > 0, ERROR_INTERVAL_ZERO_SEARCH);
 
-            // Otherwise, simply fill the resulting array with the unique bound
-            uint256[] memory balances = new uint256[](_batchRequestedJurors);
-            for (uint256 batchJurorNumber = 0; batchJurorNumber < _batchRequestedJurors; batchJurorNumber++) {
-                balances[batchJurorNumber] = _lowBatchBound;
-            }
-            return balances;
-        }
-
-        // If the interval was not zero, compute an ordered list of random active balance to be searched in the jurors tree
+        // Compute an ordered list of random active balance to be searched in the jurors tree
         uint256[] memory balances = new uint256[](_batchRequestedJurors);
         for (uint256 batchJurorNumber = 0; batchJurorNumber < _batchRequestedJurors; batchJurorNumber++) {
             // Compute a random seed using:

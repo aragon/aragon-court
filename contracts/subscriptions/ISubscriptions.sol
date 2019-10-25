@@ -4,11 +4,10 @@ import "@aragon/os/contracts/lib/token/ERC20.sol";
 
 
 interface ISubscriptions {
-    function setFeeAmount(uint256 _feeAmount) external;
-    function setFeeToken(ERC20 _feeToken, uint256 _feeAmount) external;
-    function setPrePaymentPeriods(uint256 _prePaymentPeriods) external;
-    function setLatePaymentPenaltyPct(uint16 _latePaymentPenaltyPct) external;
-    function setGovernorSharePct(uint16 _governorSharePct) external;
-    function setResumePrePaidPeriods(uint256 _resumePrePaidPeriods) external;
+    /**
+    * @dev Tell whether a certain subscriber has paid all the fees up to current period or not
+    * @param _subscriber Address of subscriber being checked
+    * @return True if subscriber has paid all the fees up to current period, false otherwise
+    */
     function isUpToDate(address _subscriber) external view returns (bool);
 }

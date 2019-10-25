@@ -221,7 +221,7 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
     }
 
     /**
-    * @dev Draft a set of jurors based on given requirements for a term id
+    * @notice Draft a set of jurors based on given requirements for a term id
     * @param _params Array containing draft requirements:
     *        0. bytes32 Term randomness
     *        1. uint256 Dispute id
@@ -242,7 +242,7 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
     }
 
     /**
-    * @dev Slash a set of jurors based on their votes compared to the winning ruling. This function will unlock the
+    * @notice Slash a set of jurors based on their votes compared to the winning ruling. This function will unlock the
     *      corresponding locked balances of those jurors that are set to be slashed.
     * @param _termId Current term id
     * @param _jurors List of juror addresses to be slashed
@@ -456,7 +456,7 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
     * @param _token Address of the token
     * @param _data Optional data that can be used to request the activation of the transferred tokens
     */
-    function receiveApproval(address _from, uint256 _amount, address _token, bytes memory _data) public {
+    function receiveApproval(address _from, uint256 _amount, address _token, bytes calldata _data) external {
         require(msg.sender == _token && _token == address(jurorsToken), ERROR_TOKEN_APPROVE_NOT_ALLOWED);
         _stake(_from, _from, _amount, _data);
     }
@@ -499,6 +499,7 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
     *      balances, and the pending balance for deactivation. Note that we don't have to include the locked
     *      balances since these represent the amount of active tokens that are locked for drafts, i.e. these
     *      are included in the active balance of the juror.
+    * @param _juror Address of the juror querying the total amount of tokens staked of
     * @return Total amount of tokens of a juror
     */
     function totalStakedFor(address _juror) public view returns (uint256) {
@@ -700,13 +701,13 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
 
     /**
     * @dev Internal function to draft a set of jurors based on a given set of params
-    * @param _draftParams Params to be used for the jurors draft
+    * @param _params Params to be used for the jurors draft
     * @param _jurors List of unique jurors selected for the draft
     * @return Number of unique jurors selected for the draft. Note that this value may differ from the number of requested jurors
     */
-    function _draft(DraftParams memory _draftParams, address[] memory _jurors) internal returns (uint256) {
+    function _draft(DraftParams memory _params, address[] memory _jurors) internal returns (uint256) {
         uint256 length = 0;
-        uint256 requestedJurors = _draftParams.batchRequestedJurors;
+        uint256 requestedJurors = _params.batchRequestedJurors;
 
         // Jurors returned by the tree multi-sortition may not have enough unlocked active balance to be drafted. Thus,
         // we compute several sortitions until all the requested jurors are selected. To guarantee a different set of
@@ -714,8 +715,8 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
         // Note that we are capping the number of iterations to avoid an OOG error, which means that this function could
         // return less jurors than the requested number.
 
-        for (_draftParams.iteration = 0; length < requestedJurors && _draftParams.iteration < MAX_DRAFT_ITERATIONS; _draftParams.iteration++) {
-            (uint256[] memory jurorIds, uint256[] memory activeBalances) = _treeSearch(_draftParams);
+        for (_params.iteration = 0; length < requestedJurors && _params.iteration < MAX_DRAFT_ITERATIONS; _params.iteration++) {
+            (uint256[] memory jurorIds, uint256[] memory activeBalances) = _treeSearch(_params);
 
             for (uint256 i = 0; i < jurorIds.length && length < requestedJurors; i++) {
                 // We assume the selected jurors are registered in the registry, we are not checking their addresses exist
@@ -723,17 +724,17 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
                 Juror storage juror = jurorsByAddress[jurorAddress];
 
                 // Compute new locked balance for a juror based on the penalty applied when being drafted
-                uint256 newLockedBalance = juror.lockedBalance.add(_draftParams.draftLockAmount);
+                uint256 newLockedBalance = juror.lockedBalance.add(_params.draftLockAmount);
 
                 // Check if there is any deactivation requests for the next term. Drafts are always computed for the current term
                 // but we have to make sure we are locking an amount that will exist in the next term.
-                uint256 nextTermDeactivationRequestAmount = _deactivationRequestedAmountForTerm(juror, _draftParams.termId + 1);
+                uint256 nextTermDeactivationRequestAmount = _deactivationRequestedAmountForTerm(juror, _params.termId + 1);
 
                 // Check if juror has enough active tokens to lock the requested amount for the draft, skip it otherwise.
                 if (activeBalances[i].sub(nextTermDeactivationRequestAmount) >= newLockedBalance) {
                     juror.lockedBalance = newLockedBalance;
                     _jurors[length++] = jurorAddress;
-                    emit JurorDrafted(_draftParams.disputeId, jurorAddress);
+                    emit JurorDrafted(_params.disputeId, jurorAddress);
                 }
             }
         }

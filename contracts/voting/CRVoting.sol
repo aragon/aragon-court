@@ -11,7 +11,7 @@ contract CRVoting is Controlled, ICRVoting {
     using SafeMath for uint256;
 
     string private constant ERROR_OWNER_NOT_CONTRACT = "CRV_OWNER_NOT_CONTRACT";
-    string private constant ERROR_COMMIT_DENIED_BY_OWNER = "CRV_COMMIT_DENIED_BY_OWNER";
+    string private constant ERROR_COMMIT_DENIED_BY_OWNER = "CT_VOTER_WEIGHT_ZERO";
     string private constant ERROR_REVEAL_DENIED_BY_OWNER = "CRV_REVEAL_DENIED_BY_OWNER";
     string private constant ERROR_VOTE_ALREADY_EXISTS = "CRV_VOTE_ALREADY_EXISTS";
     string private constant ERROR_VOTE_DOES_NOT_EXIST = "CRV_VOTE_DOES_NOT_EXIST";
@@ -95,7 +95,7 @@ contract CRVoting is Controlled, ICRVoting {
     function commit(uint256 _voteId, bytes32 _commitment) external voteExists(_voteId) {
         CastVote storage castVote = voteRecords[_voteId].votes[msg.sender];
         require(castVote.commitment == bytes32(0), ERROR_VOTE_ALREADY_COMMITTED);
-        _ensureVoterWeightToCommit(_voteId, msg.sender);
+        _ensureVoterCanCommit(_voteId, msg.sender);
 
         castVote.commitment = _commitment;
         emit VoteCommitted(_voteId, msg.sender, _commitment);
@@ -110,8 +110,8 @@ contract CRVoting is Controlled, ICRVoting {
     */
     function leak(uint256 _voteId, address _voter, uint8 _outcome, bytes32 _salt) external voteExists(_voteId) {
         CastVote storage castVote = voteRecords[_voteId].votes[_voter];
-        _ensureCanReveal(castVote, _outcome, _salt);
-        _ensureVoterWeightToCommit(_voteId, _voter);
+        _checkValidSalt(castVote, _outcome, _salt);
+        _ensureCanCommit(_voteId);
 
         // There is no need to check if an outcome is valid if it was leaked.
         // Additionally, leaked votes are not considered for the tally.
@@ -128,10 +128,10 @@ contract CRVoting is Controlled, ICRVoting {
     function reveal(uint256 _voteId, uint8 _outcome, bytes32 _salt) external voteExists(_voteId) {
         Vote storage vote = voteRecords[_voteId];
         CastVote storage castVote = vote.votes[msg.sender];
-        _ensureCanReveal(castVote, _outcome, _salt);
+        _checkValidSalt(castVote, _outcome, _salt);
         require(_isValidOutcome(vote, _outcome), ERROR_INVALID_OUTCOME);
 
-        uint256 weight = _ensureVoterWeightToReveal(_voteId, msg.sender);
+        uint256 weight = _ensureVoterCanReveal(_voteId, msg.sender);
 
         castVote.outcome = _outcome;
         _updateTally(vote, _outcome, weight);
@@ -239,28 +239,35 @@ contract CRVoting is Controlled, ICRVoting {
     }
 
     /**
-    * @dev Internal function to fetch and ensure the weight of voter willing to commit a vote for a given vote instance
-    * @param _voteId ID of the vote instance to check the voter's weight of
-    * @param _voter Address of the voter willing to commit a vote
-    * @return Weight of the voter willing to commit a vote
+    * @dev Internal function to ensure votes can be committed for a vote
+    * @param _voteId ID of the vote instance to be checked
     */
-    function _ensureVoterWeightToCommit(uint256 _voteId, address _voter) internal returns (uint256) {
+    function _ensureCanCommit(uint256 _voteId) internal {
         ICRVotingOwner owner = _votingOwner();
-        uint256 weight = uint256(owner.ensureVoterWeightToCommit(_voteId, _voter));
-        require(weight > 0, ERROR_COMMIT_DENIED_BY_OWNER);
-        return weight;
+        owner.ensureCanCommit(_voteId);
     }
 
     /**
-    * @dev Internal function to fetch the weight of voter willing to reveal a vote for a given vote instance and ensure its term
-    * @param _voteId ID of the vote instance to check the voter's weight of
+    * @dev Internal function to ensure a voter can commit votes
+    * @param _voteId ID of the vote instance to be checked
+    * @param _voter Address of the voter willing to commit a vote
+    */
+    function _ensureVoterCanCommit(uint256 _voteId, address _voter) internal {
+        ICRVotingOwner owner = _votingOwner();
+        owner.ensureCanCommit(_voteId, _voter);
+    }
+
+    /**
+    * @dev Internal function to ensure a voter can reveal votes
+    * @param _voteId ID of the vote instance to be checked
     * @param _voter Address of the voter willing to reveal a vote
     * @return Weight of the voter willing to reveal a vote
     */
-    function _ensureVoterWeightToReveal(uint256 _voteId, address _voter) internal returns (uint256) {
+    function _ensureVoterCanReveal(uint256 _voteId, address _voter) internal returns (uint256) {
         // There's no need to check voter weight, as this was done on commit
         ICRVotingOwner owner = _votingOwner();
-        return uint256(owner.ensureVoterWeightToReveal(_voteId, _voter));
+        uint64 weight = owner.ensureCanReveal(_voteId, _voter);
+        return uint256(weight);
     }
 
     /**
@@ -269,7 +276,7 @@ contract CRVoting is Controlled, ICRVoting {
     * @param _outcome Outcome of the cast vote to be proved
     * @param _salt Salt to decrypt and validate the provided outcome for a cast vote
     */
-    function _ensureCanReveal(CastVote storage _castVote, uint8 _outcome, bytes32 _salt) internal view {
+    function _checkValidSalt(CastVote storage _castVote, uint8 _outcome, bytes32 _salt) internal view {
         require(_castVote.outcome == OUTCOME_MISSING, ERROR_VOTE_ALREADY_REVEALED);
         require(_castVote.commitment == encryptVote(_outcome, _salt), ERROR_INVALID_COMMITMENT_SALT);
     }

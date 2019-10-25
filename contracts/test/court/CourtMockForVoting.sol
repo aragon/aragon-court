@@ -7,6 +7,7 @@ import "../../controller/Controlled.sol";
 
 
 contract CourtMockForVoting is ICRVotingOwner, Controlled {
+    string private constant ERROR_VOTER_WEIGHT_ZERO = "CT_VOTER_WEIGHT_ZERO";
     string private constant ERROR_OWNER_MOCK_COMMIT_CHECK_REVERTED = "CRV_OWNER_MOCK_COMMIT_CHECK_REVERTED";
     string private constant ERROR_OWNER_MOCK_REVEAL_CHECK_REVERTED = "CRV_OWNER_MOCK_REVEAL_CHECK_REVERTED";
 
@@ -27,19 +28,17 @@ contract CourtMockForVoting is ICRVotingOwner, Controlled {
         _voting().create(_voteId, _ruling);
     }
 
-    function ensureVoterWeightToCommit(uint256 /* _voteId */, address _voter) external returns (uint64) {
-        if (failing) {
-            revert(ERROR_OWNER_MOCK_COMMIT_CHECK_REVERTED);
-        }
-
-        return weights[_voter];
+    function ensureCanCommit(uint256 /* _voteId */) external {
+        require(!failing, ERROR_OWNER_MOCK_COMMIT_CHECK_REVERTED);
     }
 
-    function ensureVoterWeightToReveal(uint256 /* _voteId */, address _voter) external returns (uint64) {
-        if (failing) {
-            revert(ERROR_OWNER_MOCK_REVEAL_CHECK_REVERTED);
-        }
+    function ensureCanCommit(uint256 /* _voteId */, address _voter) external {
+        require(!failing, ERROR_OWNER_MOCK_COMMIT_CHECK_REVERTED);
+        require(weights[_voter] > 0, ERROR_VOTER_WEIGHT_ZERO);
+    }
 
+    function ensureCanReveal(uint256 /* _voteId */, address _voter) external returns (uint64) {
+        require(!failing, ERROR_OWNER_MOCK_REVEAL_CHECK_REVERTED);
         return weights[_voter];
     }
 }

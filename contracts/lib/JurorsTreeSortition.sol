@@ -12,8 +12,8 @@ library JurorsTreeSortition {
     using SafeMath for uint256;
     using HexSumTree for HexSumTree.Tree;
 
+    string private constant ERROR_INVALID_INTERVAL_SEARCH = "TREE_INVALID_INTERVAL_SEARCH";
     string private constant ERROR_SORTITION_LENGTHS_MISMATCH = "TREE_SORTITION_LENGTHS_MISMATCH";
-    string private constant ERROR_INTERVAL_ZERO_SEARCH = "TREE_INTERVAL_ZERO_SEARCH";
 
     /**
     * @dev Search random items in the tree based on certain restrictions
@@ -114,11 +114,8 @@ library JurorsTreeSortition {
         // Calculate the interval to be used to search the balances in the tree. Since we are using a modulo function
         // to compute the random balances to be searched, intervals will be closed on the left and open on the right,
         // like for instance [0,10)
-        // No need for SafeMath: see function getSearchBatchBounds to check that this is always >= 0
+        require(_highBatchBound > _lowBatchBound, ERROR_INVALID_INTERVAL_SEARCH);
         uint256 interval = _highBatchBound - _lowBatchBound;
-
-        // A search for interval zero doesn't make any sense
-        require(interval > 0, ERROR_INTERVAL_ZERO_SEARCH);
 
         // Compute an ordered list of random active balance to be searched in the jurors tree
         uint256[] memory balances = new uint256[](_batchRequestedJurors);

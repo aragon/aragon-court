@@ -336,7 +336,7 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
     *        given round. This argument is only used when settling regular rounds.
     */
     function settlePenalties(uint256 _disputeId, uint256 _roundId, uint256 _jurorsToSettle) external roundExists(_disputeId, _roundId) {
-        // Enforce that rounds are settled in order to avoid one round without incentive to settle. Even if there is a settleFee
+        // Enforce that rounds are settled in order to avoid one round without incentive to settle. Even if there is a settle fee
         // it may not be big enough and all jurors in the round could be slashed.
         Dispute storage dispute = disputes[_disputeId];
         require(_roundId == 0 || dispute.rounds[_roundId - 1].settledPenalties, ERROR_PREV_ROUND_NOT_SETTLED);
@@ -349,9 +349,8 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
         uint8 finalRuling = _ensureFinalRuling(_disputeId);
         uint256 voteId = _getVoteId(_disputeId, _roundId);
         if (round.settledJurors == 0) {
-            // Note that we are safe to cast the tally of a ruling to uint64 since the highest value a ruling can have is
-            // `jurorsNumbers` for regular rounds or total active balance of the registry for final rounds, and both are
-            // ensured to fit in uint64
+            // Note that we are safe to cast the tally of a ruling to uint64 since the highest value a ruling can have is equal to the jurors
+            // number for regular rounds or to the total active balance of the registry for final rounds, and both are ensured to fit in uint64.
             ICRVoting voting = _voting();
             round.coherentJurors = uint64(voting.getOutcomeTally(voteId, finalRuling));
         }
@@ -403,12 +402,13 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
         uint256 voteId = _getVoteId(_disputeId, _roundId);
         require(voting.hasVotedInFavorOf(voteId, dispute.finalRuling, _juror), ERROR_WONT_REWARD_INCOHERENT_JUROR);
 
-        // Distribute the collected tokens of the jurors that were slashed weighted by the winning jurors. Note that
-        // we are penalizing jurors that refused intentionally their vote for the final round.
-        // Note that coherentJurors has to be > 0 because above it's required that _juror voted in favour (so at the very least there is one),
-        // therefore divisions below are safe.
+        // Note that the number of coherent jurors has to be greater than zero since we already ensured the juror has voted in favor of the
+        // final ruling, therefore there will be at least one coherent juror and divisions below are safe.
         uint256 coherentJurors = round.coherentJurors;
         uint256 collectedTokens = round.collectedTokens;
+
+        // Distribute the collected tokens of the jurors that were slashed weighted by the winning jurors. Note that we are penalizing jurors
+        // that refused intentionally their vote for the final round.
         if (collectedTokens > 0) {
             IJurorsRegistry jurorsRegistry = _jurorsRegistry();
             jurorsRegistry.assignTokens(_juror, uint256(jurorState.weight).mul(collectedTokens) / coherentJurors);
@@ -460,14 +460,14 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
         uint8 finalRuling = dispute.finalRuling;
         uint256 totalDeposit = appealDeposit.add(confirmAppealDeposit);
         if (appeal.appealedRuling == finalRuling) {
-            // No need for SafeMath: collateral factors > 0 => both appeal deposits > totalFees
+            // No need for SafeMath: collateral factors are greater than zero, then both appeal deposits are greater than `totalFees`
             treasury.assign(feeToken, appeal.maker, totalDeposit - totalFees);
         } else if (appeal.opposedRuling == finalRuling) {
-            // No need for SafeMath: collateral factors > 0 => both appeal deposits > totalFees
+            // No need for SafeMath: collateral factors are greater than zero, then both appeal deposits are greater than `totalFees`
             treasury.assign(feeToken, appeal.taker, totalDeposit - totalFees);
         } else {
             uint256 feesRefund = totalFees / 2;
-            // No need for SafeMath: collateral factors > 0 => both appeal deposits > totalFees
+            // No need for SafeMath: collateral factors are greater than zero, then both appeal deposits are greater than `totalFees`
             treasury.assign(feeToken, appeal.maker, appealDeposit - feesRefund);
             treasury.assign(feeToken, appeal.taker, confirmAppealDeposit - feesRefund);
         }
@@ -773,7 +773,7 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
         uint256 roundSettledJurors = _round.settledJurors;
         // Compute the amount of jurors that are going to be settled in this batch, which is returned by the function for fees calculation
         // Initially we try to reach the end of the jurors array
-        // No need for SafeMath: settledJurors gets added batchSettledJurors itself (see few lines below)
+        // No need for SafeMath: `settledJurors` gets added `batchSettledJurors` itself (see few lines below).
         uint256 batchSettledJurors = _round.jurors.length - roundSettledJurors;
 
         // If the requested amount of jurors is not zero and it is lower that the remaining number of jurors to be settled for the given round,
@@ -918,8 +918,8 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
         Config memory config = _getDisputeConfig(_dispute);
         DisputesConfig memory disputesConfig = config.disputes;
 
-        // No need for SafeMath: round state durations are safely capped at config
-        // and we assume that timestamps (and its derivatives like termId) won't reach MAX_UINT64, which would be ~5.8e11 years
+        // No need for SafeMath: round state durations are safely capped and we assume that timestamps,
+        // and its derivatives like term ID, won't reach MAX_UINT64, which would be ~5.8e11 years.
         uint64 currentRoundAppealStartTerm = _round.draftTermId + _round.delayedTerms + disputesConfig.commitTerms + disputesConfig.revealTerms;
         // Next round start term is current round end term
         nextRound.startTerm = currentRoundAppealStartTerm + disputesConfig.appealTerms + disputesConfig.appealConfirmTerms;
@@ -931,9 +931,8 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
             nextRound.newDisputeState = DisputeState.Adjudicating;
             // The number of jurors will be the number of times the minimum stake is hold in the registry,
             // multiplied by a precision factor to help with division rounding.
-            // Total active balance is guaranteed to never be greater than
-            // `2^64 * minActiveBalance / FINAL_ROUND_WEIGHT_PRECISION`. Thus, the
-            // jurors number for a final round will always fit in `uint64`
+            // Total active balance is guaranteed to never be greater than `2^64 * minActiveBalance / FINAL_ROUND_WEIGHT_PRECISION`.
+            // Thus, the jurors number for a final round will always fit in uint64.
             IJurorsRegistry jurorsRegistry = _jurorsRegistry();
             uint256 jurorsNumber = jurorsRegistry.getTotalMinActiveBalanceMultiple(nextRound.startTerm, FINAL_ROUND_WEIGHT_PRECISION);
             nextRound.jurorsNumber = jurorsNumber.toUint64();
@@ -1031,7 +1030,7 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
 
         // If the last round was appealed and the given term is before the appeal confirmation end term, then the last round appeal can still be
         // confirmed. Note that if the round being checked was already appealed and confirmed, it won't be the last round, thus it will be caught
-        // above by the first check and considered 'Ended'
+        // above by the first check and considered 'Ended'.
         // No need for SafeMath: round state durations are safely capped at config
         uint64 appealConfirmationEndTerm = appealConfirmationStartTerm + config.disputes.appealConfirmTerms;
         if (_termId < appealConfirmationEndTerm) {

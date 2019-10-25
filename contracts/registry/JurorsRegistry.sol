@@ -58,10 +58,10 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
     *      Note that even though jurors balances are stored separately, all the balances are held by this contract.
     */
     struct Juror {
-        uint256 id;                 // key in the jurors tree used for drafting
-        uint256 lockedBalance;      // maximum amount of tokens that can be slashed based on the juror's drafts
-        uint256 availableBalance;   // available tokens that can be withdrawn at any time
-        DeactivationRequest deactivationRequest;
+        uint256 id;                                 // Key in the jurors tree used for drafting
+        uint256 lockedBalance;                      // Maximum amount of tokens that can be slashed based on the juror's drafts
+        uint256 availableBalance;                   // Available tokens that can be withdrawn at any time
+        DeactivationRequest deactivationRequest;    // Juror's pending deactivation request
     }
 
     /**
@@ -71,22 +71,22 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
     *      when a token deactivation was requested and its corresponding amount.
     */
     struct DeactivationRequest {
-        uint256 amount;             // amount requested for deactivation
-        uint64 availableTermId;     // id of the term when jurors can withdraw their requested deactivation tokens
+        uint256 amount;                             // Amount requested for deactivation
+        uint64 availableTermId;                     // Term ID when jurors can withdraw their requested deactivation tokens
     }
 
     /**
     * @dev Internal struct to wrap all the params required to perform jurors drafting
     */
     struct DraftParams {
-        bytes32 termRandomness;
-        uint256 disputeId;
-        uint64 termId;
-        uint256 selectedJurors;
-        uint256 batchRequestedJurors;
-        uint256 roundRequestedJurors;
-        uint256 draftLockAmount;
-        uint256 iteration;
+        bytes32 termRandomness;                     // Randomness seed to be used for the draft
+        uint256 disputeId;                          // ID of the dispute being drafted
+        uint64 termId;                              // Term ID of the dispute's draft term
+        uint256 selectedJurors;                     // Number of jurors already selected for the draft
+        uint256 batchRequestedJurors;               // Number of jurors to be selected in the given batch of the draft
+        uint256 roundRequestedJurors;               // Total number of jurors requested to be drafted
+        uint256 draftLockAmount;                    // Amount of tokens to be locked to each drafted juror
+        uint256 iteration;                          // Sortition iteration number
     }
 
     // Minimum amount of tokens jurors have to activate to participate in the Court
@@ -135,8 +135,9 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
         _setMinActiveBalance(_minActiveBalance);
         _setTotalActiveBalanceLimit(_totalActiveBalanceLimit);
 
+        // First tree item is an empty juror
         tree.init();
-        assert(tree.insert(0, 0) == 0); // first tree item is an empty juror
+        assert(tree.insert(0, 0) == 0);
     }
 
     /**
@@ -266,7 +267,7 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
             juror.lockedBalance = juror.lockedBalance.sub(lockedAmount);
 
             // Slash juror if requested. Note that there's no need to check if there was a deactivation
-            // request since we're working with already locked balances
+            // request since we're working with already locked balances.
             if (!_rewardedJurors[i]) {
                 collectedTokens = collectedTokens.add(lockedAmount);
                 tree.update(juror.id, nextTermId, lockedAmount, false);
@@ -582,8 +583,8 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
         }
 
         uint256 deactivationAmount = request.amount;
-        // Note that we can use a zeroed term id to denote void here since we are storing
-        // the minimum allowed term to deactivate tokens which will always be at least 1
+        // Note that we can use a zeroed term ID to denote void here since we are storing
+        // the minimum allowed term to deactivate tokens which will always be at least 1.
         request.availableTermId = uint64(0);
         request.amount = 0;
         _updateAvailableBalanceOf(_juror, deactivationAmount, true);
@@ -645,7 +646,7 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
         _updateAvailableBalanceOf(_juror, _amount, true);
 
         // Activate tokens if it was requested and the address depositing tokens is the juror. Note that there's
-        // no need to check the activation amount since we have just added it to the available balance of the juror
+        // no need to check the activation amount since we have just added it to the available balance of the juror.
         if (_from == _juror && _data.toBytes4() == JurorsRegistry(this).activate.selector) {
             uint64 termId = _ensureCurrentTerm();
             _activateTokens(_juror, termId, _amount);
@@ -806,10 +807,9 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
     * @return Total amount of active juror tokens at the given term id
     */
     function _totalActiveBalanceAt(uint64 _termId) internal view returns (uint256) {
-        // This function will return always the same values, the only difference remains on gas costs. The
-        // function `totalSumAt` will perform a backwards linear search from the last checkpoint or a binary search
-        // depending on whether the given checkpoint is considered to be recent or not. In this case, we consider
-        // current or future terms as recent ones.
+        // This function will return always the same values, the only difference remains on gas costs. In case we look for a
+        // recent term, in this case current or future ones, we perform a backwards linear search from the last checkpoint.
+        // Otherwise, a binary search is computed.
         bool recent = _termId >= _getLastEnsuredTermId();
         return recent ? tree.getRecentTotalAt(_termId) : tree.getTotalAt(_termId);
     }

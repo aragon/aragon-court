@@ -203,8 +203,8 @@ contract CourtClock is IClock, TimeHelpers {
 
             // Set the start time of the new term. Note that we are using a constant term duration value to guarantee
             // equally long terms, regardless of heartbeats.
-            // No need for SafeMath: termDuration is capped at MAX_TERM_DURATION, _firstTermStartTime by MAX_FIRST_TERM_DELAY_PERIOD,
-            // and we assume that timestamps (and its derivatives like termId) won't reach MAX_UINT64, which would be ~5.8e11 years
+            // No need for SafeMath: term duration is capped at `MAX_TERM_DURATION`, first term start time by `MAX_FIRST_TERM_DELAY_PERIOD`,
+            // and we assume that timestamps (and its derivatives like term ID) won't reach MAX_UINT64, which would be ~5.8e11 years.
             currentTerm.startTime = previousTerm.startTime + termDuration;
 
             // In order to draft a random number of jurors in a term, we use a randomness factor for each term based on a

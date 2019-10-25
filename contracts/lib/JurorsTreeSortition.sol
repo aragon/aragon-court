@@ -77,7 +77,7 @@ library JurorsTreeSortition {
         returns (uint256 low, uint256 high)
     {
         uint256 totalActiveBalance = tree.getRecentTotalAt(_termId);
-        // _roundRequestedJurors can't be zero because firstRoundJurorsNumber and appealStepFactor are checked in Court config
+        // No need for SafeMath: the number of round requested jurors is always ensured to be greater than zero in the Court config
         low = _selectedJurors.mul(totalActiveBalance) / _roundRequestedJurors;
 
         // No need for SafeMath: these are originally uint64
@@ -110,9 +110,8 @@ library JurorsTreeSortition {
         pure
         returns (uint256[] memory)
     {
-        // Calculate the interval to be used to search the balances in the tree. Since we are using a modulo function
-        // to compute the random balances to be searched, intervals will be closed on the left and open on the right,
-        // like for instance [0,10)
+        // Calculate the interval to be used to search the balances in the tree. Since we are using a modulo function to compute the
+        // random balances to be searched, intervals will be closed on the left and open on the right, for example [0,10).
         // No need for SafeMath: see function getSearchBatchBounds to check that this is always >= 0
         uint256 interval = _highBatchBound - _lowBatchBound;
 
@@ -135,21 +134,20 @@ library JurorsTreeSortition {
         uint256[] memory balances = new uint256[](_batchRequestedJurors);
         for (uint256 batchJurorNumber = 0; batchJurorNumber < _batchRequestedJurors; batchJurorNumber++) {
             // Compute a random seed using:
-            // - the inherent randomness associated to the term from blockhash
-            // - the disputeId, so 2 disputes in the same term will have different outcomes
-            // - the sortition iteration, to avoid getting stuck if resulting jurors are dismissed due to locked balance
-            // - the juror number in this batch
+            // - The inherent randomness associated to the term from blockhash
+            // - The disputeId, so 2 disputes in the same term will have different outcomes
+            // - The sortition iteration, to avoid getting stuck if resulting jurors are dismissed due to locked balance
+            // - The juror number in this batch
             bytes32 seed = keccak256(abi.encodePacked(_termRandomness, _disputeId, _sortitionIteration, batchJurorNumber));
 
             // Compute a random active balance to be searched in the jurors tree using the generated seed within the
             // boundaries computed for the current batch.
-            // No need for SafeMath: _lowBatchBound + uint256(seed) % (_highBatchBound - _lowBatchBound)
-            // <= _lowBatchBound + (_highBatchBound - _lowBatchBound) <= _highBatchBound
+            // No need for SafeMath: note that the computed balance will be always lower than or equal to the high batch bound given
+            // since low + seed % (high - low) <= low + (high - low) <= high.
             balances[batchJurorNumber] = _lowBatchBound + uint256(seed) % interval;
 
-            // Make sure it's ordered
+            // Make sure it's ordered, flip values if necessary
             for (uint256 i = batchJurorNumber; i > 0 && balances[i] < balances[i - 1]; i--) {
-                // Flip values
                 uint256 tmp = balances[i - 1];
                 balances[i - 1] = balances[i];
                 balances[i] = tmp;

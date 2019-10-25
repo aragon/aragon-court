@@ -36,11 +36,8 @@ library HexSumTree {
     string private constant ERROR_MISSING_SEARCH_VALUES = "SUM_TREE_MISSING_SEARCH_VALUES";
 
     // Constants used to perform tree computations
-    // To change any the following constants, the following relationship must be kept:
-    // 2^BITS_IN_NIBBLE = CHILDREN
-    // and the max depth of the tree will be given by:
-    // BITS_IN_NIBBLE * MAX_DEPTH = 256
-    // (so in this case it's 64)
+    // To change any the following constants, the following relationship must be kept: 2^BITS_IN_NIBBLE = CHILDREN
+    // The max depth of the tree will be given by: BITS_IN_NIBBLE * MAX_DEPTH = 256 (so in this case it's 64)
     uint256 private constant CHILDREN = 16;
     uint256 private constant BITS_IN_NIBBLE = 4;
 
@@ -57,14 +54,14 @@ library HexSumTree {
 
     /**
     * @dev The tree is stored using the following structure:
-    *      - nodes: A mapping indexed by a pair (level, key) with a history of the values for each node.
+    *      - nodes: A mapping indexed by a pair (level, key) with a history of the values for each node (level -> key -> value).
     *      - height: A history of the heights of the tree. Minimum height is 1, a root with 16 children.
     *      - nextKey: The next key to be used to identify the next new value that will be inserted into the tree.
     */
     struct Tree {
         uint256 nextKey;
         Checkpointing.History height;
-        mapping (uint256 => mapping (uint256 => Checkpointing.History)) nodes; // level -> key -> value
+        mapping (uint256 => mapping (uint256 => Checkpointing.History)) nodes;
     }
 
     /**
@@ -145,7 +142,7 @@ library HexSumTree {
 
         // Update the value of the requested leaf node based on the given delta
         uint256 lastValue = getItem(self, _key);
-        // No need for SafeMath: (for addition) it's checked on _updateSums
+        // No need for SafeMath: additions are being checked afterwards in `_updateSums`
         uint256 newValue = _positive ? lastValue + _delta : lastValue.sub(_delta);
         _add(self, ITEMS_LEVEL, _key, _time, newValue);
 
@@ -174,7 +171,7 @@ library HexSumTree {
 
         // Build search params for the first iteration
         uint256 rootLevel = getRecentHeightAt(self, _time);
-        // No need for SafeMath: rootLevel starts with 1 and it always goes up
+        // No need for SafeMath: `rootLevel` starts with 1 and it always goes up
         SearchParams memory searchParams = SearchParams(_time, rootLevel - 1, BASE_KEY, 0, 0);
 
         // These arrays will be used to fill in the results. We are passing them as parameters to avoid extra copies
@@ -304,7 +301,7 @@ library HexSumTree {
             ancestorKey = ancestorKey & mask;
 
             // No need for SafeMath: for addition, overflow it's checked at the end of the update for the root,
-            // while for subtraction is checked by set and update before calling this with positive = false
+            // while for subtraction it was checked previously by `set` and `update` functions.
             uint256 lastValue = getNode(self, level, ancestorKey);
             uint256 newValue = _positive ? lastValue + _delta : lastValue - _delta;
             _add(self, level, ancestorKey, _time, newValue);
@@ -367,7 +364,7 @@ library HexSumTree {
         private
         view
     {
-        // No need for SafeMath: BITS_IN_NIBBLE * MAX_DEPTH = 256 (see explanation above BITS_IN_NIBBLE definition)
+        // No need for SafeMath: `BITS_IN_NIBBLE * MAX_DEPTH` = 256, see explanation above in `BITS_IN_NIBBLE` definition.
         uint256 levelKeyLessSignificantNibble = _params.level * BITS_IN_NIBBLE;
         for (uint256 childNumber = 0; childNumber < CHILDREN; childNumber++) {
             // Return if we already found enough values
@@ -391,20 +388,20 @@ library HexSumTree {
 
             // Check how many values belong to the subtree of this node. As they are ordered, it will be a contiguous
             // subset starting from the beginning, so we only need to know the length of that subset.
-            // No need for SafeMath: as this is a sum tree, the sum in the parent node would have overflown on insert
+            // No need for SafeMath: as this is a sum tree, the sum in the parent node would have overflown on insert.
             uint256 newVisitedTotal = _params.visitedTotal + childNodeValue;
             uint256 subtreeIncludedValues = _getValuesIncludedInSubtree(_values, _params.foundValues, newVisitedTotal);
 
             // If there are some values included in the subtree of the child node, visit them
             if (subtreeIncludedValues > 0) {
                 // If the child node being analyzed is a leaf, add it to the list of results a number of times equals
-                // to the number of values that were included in it. Otherwise, descend one level
+                // to the number of values that were included in it. Otherwise, descend one level.
                 if (_params.level == ITEMS_LEVEL) {
                     _copyFoundNode(_params.foundValues, subtreeIncludedValues, childNodeKey, _resultKeys, childNodeValue, _resultValues);
                 } else {
                     SearchParams memory nextLevelParams = SearchParams(
                         _params.time,
-                        _params.level - 1, // No need for SafeMath: ITEMS_LEVEL = 0 => _params.level > 0 here
+                        _params.level - 1, // No need for SafeMath: we already checked above that the level being checked is greater than zero
                         childNodeKey,
                         _params.foundValues,
                         _params.visitedTotal
@@ -432,7 +429,7 @@ library HexSumTree {
         // Height  2: 0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff00 (up to 32 keys)
         // ...
         // Height 64: 0x0000000000000000000000000000000000000000000000000000000000000000 (up to 16^64 keys - tree max height)
-        // No need for SafeMath: BITS_IN_NIBBLE * MAX_DEPTH = 256 (see explanation above BITS_IN_NIBBLE)
+        // No need for SafeMath: `BITS_IN_NIBBLE * MAX_DEPTH` = 256, see explanation above in `BITS_IN_NIBBLE` definition.
         uint256 shift = _currentHeight * BITS_IN_NIBBLE;
         uint256 mask = uint256(-1) << shift;
 

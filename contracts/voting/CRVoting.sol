@@ -33,15 +33,15 @@ contract CRVoting is Controlled, ICRVoting {
     uint8 internal constant MAX_POSSIBLE_OUTCOMES = uint8(-1) - OUTCOME_REFUSED;
 
     struct CastVote {
-        bytes32 commitment;     // hash of the outcome casted by the voter
-        uint8 outcome;          // outcome submitted by the voter
+        bytes32 commitment;                         // Hash of the outcome casted by the voter
+        uint8 outcome;                              // Outcome submitted by the voter
     }
 
     struct Vote {
-        uint8 winningOutcome;                       // outcome winner of a vote instance
-        uint8 maxAllowedOutcome;                    // highest outcome allowed for the vote instance
-        mapping (address => CastVote) votes;        // mapping of voters addresses to their casted votes
-        mapping (uint8 => uint256) outcomesTally;   // tally for each of the possible outcomes
+        uint8 winningOutcome;                       // Outcome winner of a vote instance
+        uint8 maxAllowedOutcome;                    // Highest outcome allowed for the vote instance
+        mapping (address => CastVote) votes;        // Mapping of voters addresses to their casted votes
+        mapping (uint8 => uint256) outcomesTally;   // Tally for each of the possible outcomes
     }
 
     // Vote records indexed by their ID
@@ -52,6 +52,10 @@ contract CRVoting is Controlled, ICRVoting {
     event VoteRevealed(uint256 indexed voteId, address indexed voter, uint8 outcome);
     event VoteLeaked(uint256 indexed voteId, address indexed voter, uint8 outcome, address leaker);
 
+    /**
+    * @dev Ensure a certain vote exists
+    * @param _voteId Identification number of the vote to be checked
+    */
     modifier voteExists(uint256 _voteId) {
         Vote storage vote = voteRecords[_voteId];
         require(_existsVote(vote), ERROR_VOTE_DOES_NOT_EXIST);
@@ -308,7 +312,7 @@ contract CRVoting is Controlled, ICRVoting {
         _vote.outcomesTally[_outcome] = newOutcomeTally;
 
         // Update the winning outcome only if its support was passed or if the given outcome represents a lowest
-        // option than the winning outcome in case of a tie
+        // option than the winning outcome in case of a tie.
         uint8 winningOutcome = _vote.winningOutcome;
         uint256 winningOutcomeTally = _vote.outcomesTally[winningOutcome];
         if (newOutcomeTally > winningOutcomeTally || (newOutcomeTally == winningOutcomeTally && _outcome < winningOutcome)) {

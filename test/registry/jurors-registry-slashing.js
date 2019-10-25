@@ -236,10 +236,18 @@ contract('JurorsRegistry', ([_, juror, secondJuror, thirdJuror, anyone]) => {
         })
 
         it('decreases the unlocked balance of the juror', async () => {
-          const previousUnlockedActiveBalance = await registry.unlockedActiveBalanceOf(juror)
+          const pendingDeactivation = await registry.getDeactivationRequest(juror)
+          const currentTermId = await controller.getLastEnsuredTermId()
+
+          let pendingDeactivationAmount = bn(0)
+          if (pendingDeactivation.availableTermId.gt(currentTermId)) {
+            pendingDeactivationAmount = pendingDeactivation.amount
+          }
+          const previousUnlockedActiveBalance = (await registry.unlockedActiveBalanceOf(juror)).sub(pendingDeactivationAmount)
 
           await court.collect(juror, amount)
 
+          await controller.mockIncreaseTerm()
           const currentUnlockedActiveBalance = await registry.unlockedActiveBalanceOf(juror)
           assert.equal(previousUnlockedActiveBalance.sub(amount).add(deactivationReduced).toString(), currentUnlockedActiveBalance.toString(), 'unlocked balances do not match')
         })
@@ -304,7 +312,7 @@ contract('JurorsRegistry', ([_, juror, secondJuror, thirdJuror, anyone]) => {
             const logs = decodeEventsOfType(receipt, JurorsRegistry.abi, 'JurorDeactivationUpdated')
 
             assertAmountOfEvents({ logs }, 'JurorDeactivationUpdated')
-            assertEvent({ logs }, 'JurorDeactivationUpdated', { juror, availableTermId: 1, updateTermId: termId, amount: previousDeactivation.sub(deactivationReduced) })
+            assertEvent({ logs }, 'JurorDeactivationUpdated', { juror, availableTermId: 2, updateTermId: termId, amount: previousDeactivation.sub(deactivationReduced) })
           })
         }
       }
@@ -356,6 +364,7 @@ contract('JurorsRegistry', ([_, juror, secondJuror, thirdJuror, anyone]) => {
 
           beforeEach('activate some tokens', async () => {
             await registry.activate(activeBalance, { from: juror })
+            await controller.mockIncreaseTerm()
           })
 
           context('when the juror does not have a deactivation request', () => {
@@ -400,8 +409,8 @@ contract('JurorsRegistry', ([_, juror, secondJuror, thirdJuror, anyone]) => {
               })
 
               context('when the given amount is greater than the active balance of the juror but fits with the future deactivation amount', () => {
-                const amount = currentActiveBalance.add(bn(1))
-                const deactivationReduced = amount.sub(currentActiveBalance)
+                const deactivationReduced = bn(1)
+                const amount = currentActiveBalance.add(deactivationReduced)
 
                 itHandlesTokensCollectionFor(amount, deactivationReduced)
               })

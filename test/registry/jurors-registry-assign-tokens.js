@@ -33,6 +33,7 @@ contract('JurorsRegistry', ([_, juror, someone]) => {
 
       await assignmentCall()
 
+      await controller.mockIncreaseTerm()
       const currentUnlockedActiveBalance = await registry.unlockedActiveBalanceOf(recipient)
       assert.equal(previousUnlockedActiveBalance.toString(), currentUnlockedActiveBalance.toString(), 'unlocked balances do not match')
 
@@ -96,6 +97,7 @@ contract('JurorsRegistry', ([_, juror, someone]) => {
 
       await assignmentCall()
 
+      await controller.mockIncreaseTerm()
       const currentUnlockedActiveBalance = await registry.unlockedActiveBalanceOf(recipient)
       assert.equal(previousUnlockedActiveBalance.toString(), currentUnlockedActiveBalance.toString(), 'unlocked balances do not match')
     })

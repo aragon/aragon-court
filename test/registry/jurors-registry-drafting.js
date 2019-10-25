@@ -86,9 +86,8 @@ contract('JurorsRegistry', ([_, juror500, juror1000, juror1500, juror2000, juror
     }) => {
       for (const juror of jurors) {
         juror.unlockedActiveBalance = await registry.unlockedActiveBalanceOf(juror.address)
-        const { active, pendingDeactivation } = (await registry.balanceOfAt(juror.address, TERM_ID))
+        const { active } = (await registry.balanceOfAt(juror.address, TERM_ID))
         juror.activeBalance = active
-        juror.pendingDeactivation = pendingDeactivation
       }
 
       const activeJurors = jurors.filter(juror => juror.activeBalance.gte(MIN_ACTIVE_AMOUNT))
@@ -120,20 +119,20 @@ contract('JurorsRegistry', ([_, juror500, juror1000, juror1500, juror2000, juror
       return { receipt, addresses, length, expectedJurors }
     }
 
-    const getFirstExpectedJurorAddress = async (batchRequestedJurors, roundRequestedJurors) => {
-      const expectedJurors = await computeExpectedJurors({ batchRequestedJurors, roundRequestedJurors })
+    const getFirstExpectedJurorAddress = async ({ disputeId, batchRequestedJurors, roundRequestedJurors }) => {
+      const expectedJurors = await computeExpectedJurors({ disputeId, batchRequestedJurors, roundRequestedJurors })
       return expectedJurors[0]
     }
 
-    const deactivateFirstExpectedJuror = async (batchRequestedJurors, roundRequestedJurors) => {
-      const juror = await getFirstExpectedJurorAddress(batchRequestedJurors, roundRequestedJurors)
+    const deactivateFirstExpectedJuror = async ({ disputeId = DISPUTE_ID, batchRequestedJurors, roundRequestedJurors }) => {
+      const juror = await getFirstExpectedJurorAddress({ disputeId, batchRequestedJurors, roundRequestedJurors })
       await registry.deactivate(0, { from: juror })
       const { active } = await registry.balanceOf(juror)
       assert.equal(active.toString(), 0, 'first expected juror active balance does not match')
     }
 
-    const lockFirstExpectedJuror = async (batchRequestedJurors, roundRequestedJurors, leftUnlockedAmount = bn(0)) => {
-      const juror = await getFirstExpectedJurorAddress(batchRequestedJurors, roundRequestedJurors)
+    const lockFirstExpectedJuror = async ({ disputeId, batchRequestedJurors, roundRequestedJurors, leftUnlockedAmount = bn(0) }) => {
+      const juror = await getFirstExpectedJurorAddress({ disputeId, batchRequestedJurors, roundRequestedJurors })
       await registry.mockLock(juror, leftUnlockedAmount)
       const { active, locked } = await registry.balanceOfAt(juror, TERM_ID)
       assert.equal(locked.toString(), active.sub(leftUnlockedAmount).toString(), 'juror locked balance does not match')
@@ -323,7 +322,7 @@ contract('JurorsRegistry', ([_, juror500, juror1000, juror1500, juror2000, juror
 
                 beforeEach('lock first expected juror', async () => {
                   const leftUnlockedAmount = DRAFT_LOCKED_AMOUNT.mul(bn(2))
-                  await lockFirstExpectedJuror(firstBatchRequestedJurors, roundRequestedJurors, leftUnlockedAmount)
+                  await lockFirstExpectedJuror({ batchRequestedJurors: firstBatchRequestedJurors, roundRequestedJurors, leftUnlockedAmount })
                 })
 
                 context('for the first batch', () => {
@@ -348,7 +347,7 @@ contract('JurorsRegistry', ([_, juror500, juror1000, juror1500, juror2000, juror
                 const roundRequestedJurors = 1
 
                 beforeEach('lock first expected juror', async () => {
-                  await lockFirstExpectedJuror(batchRequestedJurors, roundRequestedJurors)
+                  await lockFirstExpectedJuror({ batchRequestedJurors, roundRequestedJurors })
                 })
 
                 itReturnsEmptyValues(batchRequestedJurors, roundRequestedJurors)
@@ -469,6 +468,7 @@ contract('JurorsRegistry', ([_, juror500, juror1000, juror1500, juror2000, juror
                 })
 
                 context('when jurors have been selected for other drafts', () => {
+                  const disputeId = DISPUTE_ID + 1
                   context('when all jurors have been enough balance to be drafted again', () => {
                     beforeEach('compute a previous draft', async () => {
                       await draft({ batchRequestedJurors: 3, roundRequestedJurors: 3 })
@@ -478,14 +478,38 @@ contract('JurorsRegistry', ([_, juror500, juror1000, juror1500, juror2000, juror
                       const batchRequestedJurors = 3
                       const previousSelectedJurors = 0
 
-                      itReturnsExpectedJurors({ previousSelectedJurors, batchRequestedJurors, roundRequestedJurors })
+                      itReturnsExpectedJurors({ disputeId, previousSelectedJurors, batchRequestedJurors, roundRequestedJurors })
                     })
 
                     context('for the second batch', () => {
                       const batchRequestedJurors = 7
                       const previousSelectedJurors = 3
 
-                      itReturnsExpectedJurors({ previousSelectedJurors, batchRequestedJurors, roundRequestedJurors })
+                      itReturnsExpectedJurors({ disputeId, previousSelectedJurors, batchRequestedJurors, roundRequestedJurors })
+                    })
+
+                    context('when some jurors have deactivation requests', () => {
+                      context('for the first batch', () => {
+                        const batchRequestedJurors = 3
+                        const previousSelectedJurors = 0
+
+                        beforeEach('deactivate first expected juror', async () => {
+                          await deactivateFirstExpectedJuror({ disputeId, batchRequestedJurors, roundRequestedJurors })
+                        })
+
+                        itReturnsExpectedJurors({ disputeId, previousSelectedJurors, batchRequestedJurors, roundRequestedJurors })
+                      })
+
+                      context('for the second batch', () => {
+                        const batchRequestedJurors = 7
+                        const previousSelectedJurors = 3
+
+                        beforeEach('deactivate first expected juror', async () => {
+                          await deactivateFirstExpectedJuror({ disputeId, batchRequestedJurors, roundRequestedJurors })
+                        })
+
+                        itReturnsExpectedJurors({ disputeId, previousSelectedJurors, batchRequestedJurors, roundRequestedJurors })
+                      })
                     })
                   })
 
@@ -496,10 +520,10 @@ contract('JurorsRegistry', ([_, juror500, juror1000, juror1500, juror2000, juror
                         const previousSelectedJurors = 0
 
                         beforeEach('lock first expected juror', async () => {
-                          await lockFirstExpectedJuror(batchRequestedJurors, roundRequestedJurors)
+                          await lockFirstExpectedJuror({ disputeId, batchRequestedJurors, roundRequestedJurors })
                         })
 
-                        itReturnsExpectedJurors({ previousSelectedJurors, batchRequestedJurors, roundRequestedJurors })
+                        itReturnsExpectedJurors({ disputeId, previousSelectedJurors, batchRequestedJurors, roundRequestedJurors })
                       })
 
                       context('for the second batch', () => {
@@ -507,34 +531,10 @@ contract('JurorsRegistry', ([_, juror500, juror1000, juror1500, juror2000, juror
                         const previousSelectedJurors = 3
 
                         beforeEach('lock first expected juror', async () => {
-                          await lockFirstExpectedJuror(batchRequestedJurors, roundRequestedJurors)
+                          await lockFirstExpectedJuror({ disputeId, batchRequestedJurors, roundRequestedJurors })
                         })
 
-                        itReturnsExpectedJurors({ previousSelectedJurors, batchRequestedJurors, roundRequestedJurors })
-                      })
-                    })
-
-                    context('when it is due to deactivation requests', () => {
-                      context('for the first batch', () => {
-                        const batchRequestedJurors = 3
-                        const previousSelectedJurors = 0
-
-                        beforeEach('deactivate first expected juror', async () => {
-                          await deactivateFirstExpectedJuror(batchRequestedJurors, roundRequestedJurors)
-                        })
-
-                        itReturnsExpectedJurors({ previousSelectedJurors, batchRequestedJurors, roundRequestedJurors })
-                      })
-
-                      context('for the second batch', () => {
-                        const batchRequestedJurors = 7
-                        const previousSelectedJurors = 3
-
-                        beforeEach('deactivate first expected juror', async () => {
-                          await deactivateFirstExpectedJuror(batchRequestedJurors, roundRequestedJurors)
-                        })
-
-                        itReturnsExpectedJurors({ previousSelectedJurors, batchRequestedJurors, roundRequestedJurors })
+                        itReturnsExpectedJurors({ disputeId, previousSelectedJurors, batchRequestedJurors, roundRequestedJurors })
                       })
                     })
                   })

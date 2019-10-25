@@ -118,17 +118,7 @@ library JurorsTreeSortition {
 
         // If the given interval is zero, we don't need to compute a random search
         if (interval == 0) {
-            // If the requested number of jurors for the batch was zero, simply return an empty array
-            if (_batchRequestedJurors == 0) {
-                return new uint256[](0);
-            }
-
-            // Otherwise, simply fill the resulting array with the unique bound
-            uint256[] memory balances = new uint256[](_batchRequestedJurors);
-            for (uint256 batchJurorNumber = 0; batchJurorNumber < _batchRequestedJurors; batchJurorNumber++) {
-                balances[batchJurorNumber] = _lowBatchBound;
-            }
-            return balances;
+            return new uint256[](0);
         }
 
         // If the interval was not zero, compute an ordered list of random active balance to be searched in the jurors tree

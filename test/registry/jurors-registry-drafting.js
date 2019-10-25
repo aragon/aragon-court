@@ -148,7 +148,7 @@ contract('JurorsRegistry', ([_, juror500, juror1000, juror1500, juror2000, juror
     context('when the sender is the court', () => {
       const itReverts = (previousSelectedJurors, batchRequestedJurors, roundRequestedJurors) => {
         it('reverts', async () => {
-          await assertRevert(draft({ selectedJurors: previousSelectedJurors, batchRequestedJurors, roundRequestedJurors }), 'SUM_TREE_SEARCH_OUT_OF_BOUNDS')
+          await assertRevert(draft({ selectedJurors: previousSelectedJurors, batchRequestedJurors, roundRequestedJurors }), 'TREE_INVALID_INTERVAL_SEARCH')
         })
       }
 

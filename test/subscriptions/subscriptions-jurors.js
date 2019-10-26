@@ -26,14 +26,14 @@ contract('CourtSubscriptions', ([_, payer, subscriberPeriod0, subscriberPeriod1,
   const TOTAL_ACTIVE_BALANCE_LIMIT = bigExp(100e6, 18)
 
   beforeEach('create base contracts', async () => {
-    controller = await buildHelper().deploy()
+    controller = await buildHelper().deploy({ minActiveBalance: MIN_JURORS_ACTIVE_TOKENS })
     feeToken = await ERC20.new('Subscriptions Fee Token', 'SFT', 18)
     jurorToken = await ERC20.new('AN Jurors Token', 'ANJ', 18)
 
     subscriptions = await CourtSubscriptions.new(controller.address, PERIOD_DURATION, feeToken.address, FEE_AMOUNT, PREPAYMENT_PERIODS, RESUME_PRE_PAID_PERIODS, LATE_PAYMENT_PENALTY_PCT, GOVERNOR_SHARE_PCT)
     await controller.setSubscriptions(subscriptions.address)
 
-    jurorsRegistry = await JurorsRegistry.new(controller.address, jurorToken.address, MIN_JURORS_ACTIVE_TOKENS, TOTAL_ACTIVE_BALANCE_LIMIT)
+    jurorsRegistry = await JurorsRegistry.new(controller.address, jurorToken.address, TOTAL_ACTIVE_BALANCE_LIMIT)
     await controller.setJurorsRegistry(jurorsRegistry.address)
 
     const court = await Court.new(controller.address)

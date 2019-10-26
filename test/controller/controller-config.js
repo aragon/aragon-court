@@ -24,7 +24,8 @@ contract('Controller', ([_, sender, disputer, drafter, appealMaker, appealTaker,
       newCommitTerms, newRevealTerms, newAppealTerms, newAppealConfirmTerms,
       newPenaltyPct, newFinalRoundReduction,
       newFirstRoundJurorsNumber, newAppealStepFactor, newMaxRegularAppealRounds, newFinalRoundLockTerms,
-      newAppealCollateralFactor, newAppealConfirmCollateralFactor
+      newAppealCollateralFactor, newAppealConfirmCollateralFactor,
+      newMinActiveBalance
     } = newConfig
     const {
       feeToken,

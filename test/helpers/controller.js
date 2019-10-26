@@ -33,7 +33,7 @@ module.exports = (web3, artifacts) => {
     finalRoundLockTerms:                bn(10),          //  coherent jurors in the final round won't be able to withdraw for 10 terms
     appealCollateralFactor:             bn(25000),       //  permyriad multiple of juror fees required to appeal a preliminary ruling (1/10,000)
     appealConfirmCollateralFactor:      bn(35000),       //  permyriad multiple of juror fees required to confirm appeal (1/10,000)
-    jurorsMinActiveBalance:             bigExp(100, 18), //  100 ANJ is the minimum balance jurors must activate to participate in the Court
+    minActiveBalance:                   bigExp(100, 18), //  100 ANJ is the minimum balance jurors must activate to participate in the Court
     finalRoundWeightPrecision:          bn(1000),        //  use to improve division rounding for final round maths
     subscriptionPeriodDuration:         bn(10),          //  each subscription period lasts 10 terms
     subscriptionFeeAmount:              bigExp(100, 18), //  100 fee tokens per subscription period
@@ -77,7 +77,7 @@ module.exports = (web3, artifacts) => {
         finalRoundLockTerms: roundParams[3],
         appealCollateralFactor: appealCollateralParams[0],
         appealConfirmCollateralFactor: appealCollateralParams[1],
-        minActiveBalance: minActiveBalance
+        minActiveBalance
       }
     }
 
@@ -148,6 +148,7 @@ module.exports = (web3, artifacts) => {
       const newMaxRegularAppealRounds = maxRegularAppealRounds.add(bn(iteration))
       const newFinalRoundLockTerms = finalRoundLockTerms.add(bn(1))
       const newAppealCollateralFactor = appealCollateralFactor.add(bn(iteration * PCT_BASE))
+      const newAppealConfirmCollateralFactor = appealConfirmCollateralFactor.add(bn(iteration * PCT_BASE))
       const newMinActiveBalance = minActiveBalance.add(bigExp(iteration * 100, 18))
 
       return {
@@ -158,6 +159,7 @@ module.exports = (web3, artifacts) => {
         newFirstRoundJurorsNumber, newAppealStepFactor, newMaxRegularAppealRounds, newFinalRoundLockTerms,
         newAppealCollateralFactor,
         newAppealConfirmCollateralFactor,
+        newMinActiveBalance,
       }
     }
 
@@ -171,6 +173,7 @@ module.exports = (web3, artifacts) => {
         newFirstRoundJurorsNumber, newAppealStepFactor, newMaxRegularAppealRounds, newFinalRoundLockTerms,
         newAppealCollateralFactor,
         newAppealConfirmCollateralFactor,
+        newMinActiveBalance,
       } = newConfig
 
       const promise = this.controller.setConfig(
@@ -181,6 +184,7 @@ module.exports = (web3, artifacts) => {
         [ newPenaltyPct, newFinalRoundReduction ],
         [ newFirstRoundJurorsNumber, newAppealStepFactor, newMaxRegularAppealRounds, newFinalRoundLockTerms ],
         [ newAppealCollateralFactor, newAppealConfirmCollateralFactor ],
+        newMinActiveBalance,
         { from }
       )
 
@@ -210,7 +214,7 @@ module.exports = (web3, artifacts) => {
         [this.penaltyPct, this.finalRoundReduction],
         [this.firstRoundJurorsNumber, this.appealStepFactor, this.maxRegularAppealRounds, this.finalRoundLockTerms],
         [this.appealCollateralFactor, this.appealConfirmCollateralFactor],
-        this.jurorsMinActiveBalance,
+        this.minActiveBalance,
       )
 
       return this.controller
@@ -225,7 +229,7 @@ module.exports = (web3, artifacts) => {
       if (!this.jurorsRegistry) this.jurorsRegistry = await this.artifacts.require('JurorsRegistryMock').new(
         this.controller.address,
         this.jurorToken.address,
-        this.jurorsMinActiveBalance.mul(MAX_UINT64.div(this.finalRoundWeightPrecision)),
+        this.minActiveBalance.mul(MAX_UINT64.div(this.finalRoundWeightPrecision)),
       )
 
       if (!this.subscriptions) this.subscriptions = await this.artifacts.require('SubscriptionsMock').new(

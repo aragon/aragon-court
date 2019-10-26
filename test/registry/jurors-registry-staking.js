@@ -1094,7 +1094,6 @@ contract('JurorsRegistry', ([_, juror, anotherJuror]) => {
 
           await registry.unstake(amount, data, { from })
 
-          await controller.mockIncreaseTerm()
           const currentUnlockedActiveBalance = await registry.unlockedActiveBalanceOf(juror)
           assert.equal(previousUnlockedActiveBalance.toString(), currentUnlockedActiveBalance.toString(), 'unlocked balances do not match')
         })

@@ -243,6 +243,7 @@ contract('JurorsRegistry', ([_, juror, secondJuror, thirdJuror, anyone]) => {
           if (pendingDeactivation.availableTermId.gt(currentTermId)) {
             pendingDeactivationAmount = pendingDeactivation.amount
           }
+          // unlockedActivebalanceOf returns the balance for the current term, but there may be a deactivation scheduled for the next term
           const previousUnlockedActiveBalance = (await registry.unlockedActiveBalanceOf(juror)).sub(pendingDeactivationAmount)
 
           await court.collect(juror, amount)

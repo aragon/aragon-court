@@ -115,7 +115,7 @@ contract('CRVoting commit', ([_, voter]) => {
             })
 
             it('reverts', async () => {
-              await assertRevert(voting.commit(voteId, '0x', { from: voter }), 'CRV_COMMIT_DENIED_BY_OWNER')
+              await assertRevert(voting.commit(voteId, '0x', { from: voter }), 'CT_VOTER_WEIGHT_ZERO')
             })
           })
         })

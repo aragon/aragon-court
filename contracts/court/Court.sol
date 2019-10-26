@@ -24,7 +24,8 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
     using PctHelpers for uint256;
     using Uint256Helpers for uint256;
 
-    // Authorization-related error messages
+    // Voting-related error messages
+    string private constant ERROR_VOTER_WEIGHT_ZERO = "CT_VOTER_WEIGHT_ZERO";
     string private constant ERROR_SENDER_NOT_VOTING = "CT_SENDER_NOT_VOTING";
 
     // Disputes-related error messages
@@ -474,26 +475,40 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
     }
 
     /**
-    * @notice Get the weight of `_voter` for vote #`_voteId` and check if votes can be committed
+    * @notice Ensure votes can be committed for vote #`_voteId`, revert otherwise
+    * @dev This function will ensure the current term of the Court and revert in case votes cannot still be committed
     * @param _voteId ID of the vote instance to request the weight of a voter for
-    * @param _voter Address of the voter querying the weight of
-    * @return Weight of the requested juror for the requested dispute's round
     */
-    function ensureVoterWeightToCommit(uint256 _voteId, address _voter) external onlyVoting returns (uint64) {
+    function ensureCanCommit(uint256 _voteId) external {
         (Dispute storage dispute, uint256 roundId) = _decodeVoteId(_voteId);
 
         // Ensure current term and check that votes can still be committed for the given round
         _checkAdjudicationState(dispute, roundId, AdjudicationState.Committing);
-        return _computeJurorWeight(dispute, roundId, _voter);
     }
 
     /**
-    * @notice Get the weight of `_voter` for vote #`_voteId` and check if votes can be revealed
+    * @notice Ensure `voter` can commit votes for vote #`_voteId`, revert otherwise
+    * @dev This function will ensure the current term of the Court and revert in case the given voter is not allowed to commit votes
+    * @param _voteId ID of the vote instance to request the weight of a voter for
+    * @param _voter Address of the voter querying the weight of
+    */
+    function ensureCanCommit(uint256 _voteId, address _voter) external onlyVoting {
+        (Dispute storage dispute, uint256 roundId) = _decodeVoteId(_voteId);
+
+        // Ensure current term and check that votes can still be committed for the given round
+        _checkAdjudicationState(dispute, roundId, AdjudicationState.Committing);
+        uint64 weight = _computeJurorWeight(dispute, roundId, _voter);
+        require(weight > 0, ERROR_VOTER_WEIGHT_ZERO);
+    }
+
+    /**
+    * @notice Ensure `voter` can reveal votes for vote #`_voteId`, revert otherwise
+    * @dev This function will ensure the current term of the Court and revert in case votes cannot still be revealed
     * @param _voteId ID of the vote instance to request the weight of a voter for
     * @param _voter Address of the voter querying the weight of
     * @return Weight of the requested juror for the requested dispute's round
     */
-    function ensureVoterWeightToReveal(uint256 _voteId, address _voter) external onlyVoting returns (uint64) {
+    function ensureCanReveal(uint256 _voteId, address _voter) external returns (uint64) {
         (Dispute storage dispute, uint256 roundId) = _decodeVoteId(_voteId);
 
         // Ensure current term and check that votes can still be revealed for the given round
@@ -832,14 +847,9 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
     * @param _juror Address of the juror to calculate the weight of
     * @return Weight of the requested juror for the final round of the given dispute
     */
-    function _computeJurorWeightForFinalRound(Config memory _config, AdjudicationRound storage _round, address _juror) internal returns(uint64) {
-        // If there was a weight already computed, return it
-        JurorState storage jurorState = _round.jurorsStates[_juror];
-        uint64 currentWeight = jurorState.weight;
-        if (currentWeight != 0) {
-            return currentWeight;
-        }
-
+    function _computeJurorWeightForFinalRound(Config memory _config, AdjudicationRound storage _round, address _juror) internal
+        returns (uint64)
+    {
         // Fetch active balance and multiples of the min active balance from the registry
         IJurorsRegistry jurorsRegistry = _jurorsRegistry();
         (uint256 activeBalance, uint256 minActiveBalanceMultiple) = jurorsRegistry.getActiveBalanceInfoOfAt(
@@ -864,7 +874,7 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
 
         // If it was possible to collect the amount of active tokens to be locked, update the final round state
         uint64 weight = minActiveBalanceMultiple.toUint64();
-        jurorState.weight = weight;
+        _round.jurorsStates[_juror].weight = weight;
         _round.collectedTokens = _round.collectedTokens.add(weightedPenalty);
         return weight;
     }

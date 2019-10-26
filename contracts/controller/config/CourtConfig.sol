@@ -26,7 +26,7 @@ contract CourtConfig is IConfig, CourtConfigData {
     // Cap the max number of regular appeal rounds
     uint256 internal constant MAX_REGULAR_APPEAL_ROUNDS_LIMIT = 10;
 
-    // Future term id in which a config change has been scheduled
+    // Future term ID in which a config change has been scheduled
     uint64 private configChangeTermId;
 
     // List of all the configs used in the Court
@@ -104,7 +104,7 @@ contract CourtConfig is IConfig, CourtConfigData {
         // If the term being transitioned had no config change scheduled, keep the previous one
         uint256 currentConfigId = configIdByTerm[_currentTermId];
         if (currentConfigId == 0) {
-            // No need for SafeMath: if there was a term transition we know the current term id will be greater than zero
+            // No need for SafeMath: if there was a term transition we know the current term ID will be greater than zero
             uint256 previousConfigId = configIdByTerm[_currentTermId - 1];
             configIdByTerm[_currentTermId] = previousConfigId;
         }

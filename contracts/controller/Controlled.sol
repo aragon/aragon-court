@@ -61,7 +61,7 @@ contract Controlled is IsContract, CourtConfigData {
     }
 
     /**
-    * @dev Internal function to fetch the last ensured term id of the Court
+    * @dev Internal function to fetch the last ensured term ID of the Court
     * @return Identification number of the last ensured term
     */
     function _getLastEnsuredTermId() internal view returns (uint64) {

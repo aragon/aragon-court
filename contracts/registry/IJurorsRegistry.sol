@@ -55,19 +55,24 @@ interface IJurorsRegistry {
     */
     function collectTokens(address _juror, uint256 _amount, uint64 _termId) external returns (bool);
 
+    /**
+    * @dev Lock a juror's withdrawals until a certain term ID
+    * @param _juror Address of the juror to be locked
+    * @param _termId Term ID until which the juror's withdrawals will be locked
+    */
     function lockWithdrawals(address _juror, uint64 _termId) external;
 
     /**
     * @dev Tell the active balance of a juror for a given term id
     * @param _juror Address of the juror querying the active balance of
-    * @param _termId Term id querying the active balance for
+    * @param _termId Term ID querying the active balance for
     * @return Amount of active tokens for juror in the requested past term id
     */
     function activeBalanceOfAt(address _juror, uint64 _termId) external view returns (uint256);
 
     /**
     * @dev Tell the total amount of active juror tokens at the given term id
-    * @param _termId Term id querying the total active balance for
+    * @param _termId Term ID querying the total active balance for
     * @return Total amount of active juror tokens at the given term id
     */
     function totalActiveBalanceAt(uint64 _termId) external view returns (uint256);

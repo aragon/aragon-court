@@ -116,7 +116,7 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
     }
 
     struct NextRoundDetails {
-        uint64 startTerm;              // Term id from which the next round will start
+        uint64 startTerm;              // Term ID from which the next round will start
         uint64 jurorsNumber;           // Jurors number for the next round
         DisputeState newDisputeState;  // New state for the dispute associated to the given round after the appeal
         ERC20 feeToken;                // ERC20 token used for the next round fees
@@ -381,10 +381,10 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
 
     /**
     * @notice Claim reward for round #`_roundId` of dispute #`_disputeId` for juror `_juror`
-    * @dev For regular rounds, it will only reward winning
-    * @param _disputeId Identification number of the dispute to settle penalties for
-    * @param _roundId Identification number of the dispute round to settle penalties for
-    * @param _juror Identification number of the dispute round to settle penalties for
+    * @dev For regular rounds, it will only reward winning jurors
+    * @param _disputeId Identification number of the dispute to settle rewards for
+    * @param _roundId Identification number of the dispute round to settle rewards for
+    * @param _juror Address of the juror to settle their rewards
     */
     function settleReward(uint256 _disputeId, uint256 _roundId, address _juror) external roundExists(_disputeId, _roundId) {
         // Ensure dispute round penalties are settled first
@@ -421,7 +421,7 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
 
         // Set the lock for final round
         if (!_isRegularRound(_roundId, config)) {
-            // Round end term id (as it's final there's no draft delay nor appeal) plus the lock period
+            // Round end term ID (as it's final there's no draft delay nor appeal) plus the lock period
             DisputesConfig memory disputesConfig = config.disputes;
             uint64 finalRoundLockTermId = round.draftTermId +
                 disputesConfig.commitTerms + disputesConfig.revealTerms + disputesConfig.finalRoundLockTerms;
@@ -535,7 +535,7 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
 
     /**
     * @dev Tell the amount of token fees required to create a dispute
-    * @param _draftTermId Term id in which the dispute will be drafted
+    * @param _draftTermId Term ID in which the dispute will be drafted
     * @return feeToken ERC20 token used for the fees
     * @return jurorFees Total amount of fees to be distributed between the winning jurors of a round
     * @return totalFees Total amount of fees for a regular round at the given term
@@ -635,7 +635,7 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
     * @dev Tell information related to the next round due to an appeal of a certain round given.
     * @param _disputeId Identification number of the dispute being queried
     * @param _roundId Identification number of the round requesting the appeal details of
-    * @return nextRoundStartTerm Term id from which the next round will start
+    * @return nextRoundStartTerm Term ID from which the next round will start
     * @return nextRoundJurorsNumber Jurors number for the next round
     * @return newDisputeState New state for the dispute associated to the given round after the appeal
     * @return feeToken ERC20 token used for the next round fees
@@ -701,7 +701,7 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
     * @dev Internal function to create a new round for a given dispute
     * @param _disputeId Identification number of the dispute to create a new round for
     * @param _disputeState New state for the dispute to be changed
-    * @param _draftTermId Term id when the jurors for the new round will be drafted
+    * @param _draftTermId Term ID when the jurors for the new round will be drafted
     * @param _jurorsNumber Number of jurors to be drafted for the new round
     * @param _jurorFees Total amount of fees to be shared between the winning jurors of the new round
     * @return Identification number of the new dispute round
@@ -1119,8 +1119,8 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
 
     /**
     * @dev Internal function to get the identification number of the vote of a certain dispute round
-    * @param _disputeId Identification number of the dispute querying the vote id of
-    * @param _roundId Identification number of the dispute round querying the vote id of
+    * @param _disputeId Identification number of the dispute querying the vote ID of
+    * @param _roundId Identification number of the dispute round querying the vote ID of
     * @return Identification number of the vote of the requested dispute round
     */
     function _getVoteId(uint256 _disputeId, uint256 _roundId) internal pure returns (uint256) {

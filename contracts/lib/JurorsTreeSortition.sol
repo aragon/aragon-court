@@ -59,7 +59,7 @@ library JurorsTreeSortition {
 
     /**
     * @dev Get the bounds for a draft batch based on the active balances of the jurors
-    * @param _termId Term id of the active balances that will be used to compute the boundaries
+    * @param _termId Term ID of the active balances that will be used to compute the boundaries
     * @param _selectedJurors Number of jurors already selected for the draft
     * @param _batchRequestedJurors Number of jurors to be selected in the given batch of the draft
     * @param _roundRequestedJurors Total number of jurors requested to be drafted

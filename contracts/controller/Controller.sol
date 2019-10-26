@@ -104,8 +104,8 @@ contract Controller is IsContract, CourtClock, CourtConfig {
     *        2. maxRegularAppealRounds Number of regular appeal rounds before the final round is triggered
     *        3. finalRoundLockTerms Number of terms that a coherent juror in a final round is disallowed to withdraw (to prevent 51% attacks)
     * @param _appealCollateralParams Array containing params for appeal collateral:
-    *        0. appealCollateralFactor Multiple of juror fees required to appeal a preliminary ruling
-    *        1. appealConfirmCollateralFactor Multiple of juror fees required to confirm appeal
+    *        1. appealCollateralFactor Permyriad multiple of juror fees required to appeal a preliminary ruling
+    *        2. appealConfirmCollateralFactor Permyriad multiple of juror fees required to confirm appeal
     */
     constructor(
         uint64[2] memory _termParams,

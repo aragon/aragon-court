@@ -11,7 +11,7 @@ interface IClock {
     /**
     * @dev Transition up to a certain number of terms to leave the clock up-to-date
     * @param _maxRequestedTransitions Max number of term transitions allowed by the sender
-    * @return Identification number of the term id after executing the heartbeat transitions
+    * @return Identification number of the term ID after executing the heartbeat transitions
     */
     function heartbeat(uint64 _maxRequestedTransitions) external returns (uint64);
 

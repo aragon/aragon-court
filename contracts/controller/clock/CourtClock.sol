@@ -82,7 +82,7 @@ contract CourtClock is IClock, TimeHelpers {
     /**
     * @notice Transition up to `_maxRequestedTransitions` terms
     * @param _maxRequestedTransitions Max number of term transitions allowed by the sender
-    * @return Identification number of the term id after executing the heartbeat transitions
+    * @return Identification number of the term ID after executing the heartbeat transitions
     */
     function heartbeat(uint64 _maxRequestedTransitions) external returns (uint64) {
         return _heartbeat(_maxRequestedTransitions);
@@ -166,7 +166,7 @@ contract CourtClock is IClock, TimeHelpers {
     /**
     * @dev Internal function to ensure that the current term of the Court is up-to-date. If the Court is outdated by more than
     *      `MAX_AUTO_TERM_TRANSITIONS_ALLOWED` terms, the heartbeat function must be called manually.
-    * @return Identification number of the resultant term id after executing the corresponding transitions
+    * @return Identification number of the resultant term ID after executing the corresponding transitions
     */
     function _ensureCurrentTerm() internal returns (uint64) {
         // Check the required number of transitions does not exceeds the max allowed number to be processed automatically
@@ -185,7 +185,7 @@ contract CourtClock is IClock, TimeHelpers {
     /**
     * @dev Internal function to transition the Court terms up to a requested number of terms
     * @param _maxRequestedTransitions Max number of term transitions allowed by the sender
-    * @return Identification number of the resultant term id after executing the requested transitions
+    * @return Identification number of the resultant term ID after executing the requested transitions
     */
     function _heartbeat(uint64 _maxRequestedTransitions) internal returns (uint64) {
         // Transition the minimum number of terms between the amount requested and the amount actually needed

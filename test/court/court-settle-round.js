@@ -9,6 +9,8 @@ const { buildHelper, ROUND_STATES, DISPUTE_STATES } = require('../helpers/court'
 
 const Arbitrable = artifacts.require('IArbitrable')
 
+const ERROR_WITHDRAWALS_LOCK = 'JR_WITHDRAWALS_LOCK'
+
 contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, juror1000, juror1500, juror2000, juror2500, juror3000, juror3500, juror4000, anyone]) => {
   let courtHelper, court, voting
   const maxRegularAppealRounds = bn(2)
@@ -332,7 +334,7 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
                       // fails to withdraw on next term
                       await courtHelper.passTerms(bn(1))
                       for(const juror of expectedWinningJurors) {
-                        assertRevert(courtHelper.jurorsRegistry.unstake(amount, data, { from: juror.address }))
+                        await assertRevert(courtHelper.jurorsRegistry.unstake(amount, data, { from: juror.address }), ERROR_WITHDRAWALS_LOCK)
                       }
 
                       // fails to withdraw on last locked term
@@ -343,7 +345,7 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
                             .add(courtHelper.finalRoundLockTerms)
                       await courtHelper.setTerm(lastLockedTermId)
                       for(const juror of expectedWinningJurors) {
-                        assertRevert(courtHelper.jurorsRegistry.unstake(amount, data, { from: juror.address }))
+                        await assertRevert(courtHelper.jurorsRegistry.unstake(amount, data, { from: juror.address }), ERROR_WITHDRAWALS_LOCK)
                       }
 
                       // succeeds to withdraw after locked term

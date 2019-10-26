@@ -36,7 +36,7 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
     string private constant ERROR_TOKEN_APPROVE_NOT_ALLOWED = "JR_TOKEN_APPROVE_NOT_ALLOWED";
     string private constant ERROR_BAD_TOTAL_ACTIVE_BALANCE_LIMIT = "JR_BAD_TOTAL_ACTIVE_BAL_LIMIT";
     string private constant ERROR_TOTAL_ACTIVE_BALANCE_EXCEEDED = "JR_TOTAL_ACTIVE_BALANCE_EXCEEDED";
-    string private constant ERROR_FINAL_ROUND_LOCK = "JR_FINAL_ROUND_LOCK";
+    string private constant ERROR_WITHDRAWALS_LOCK = "JR_WITHDRAWALS_LOCK";
 
     // Address that will be used to burn juror tokens
     address internal constant BURN_ACCOUNT = address(0x000000000000000000000000000000000000dEaD);
@@ -63,7 +63,7 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
         uint256 lockedBalance;       // maximum amount of tokens that can be slashed based on the juror's drafts
         uint256 availableBalance;    // available tokens that can be withdrawn at any time
         DeactivationRequest deactivationRequest;
-        uint64 finalRoundLockTermId; // coherent jurors with final ruling in a final round will be locked for some time to prevent 51% attacks
+        uint64 withdrawalsLockTermId; // coherent jurors with final ruling in a final round will be locked for some time to prevent 51% attacks
     }
 
     /**
@@ -337,13 +337,14 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
     }
 
     /**
-    * @notice Lock juror who voted in a final round and was coherent with the final ruling (to prevent 51% attacks)
+    * @notice Lock `_juror`'s withdrawals until term #`_termId`
+    * @dev This is intended for jurors who voted in a final round and were coherent with the final ruling, to prevent 51% attacks
     * @param _juror Address of the juror to be locked
-    * @param _finalRoundLockTermId Term id which the juror will be locked until
+    * @param _termId Term id which the juror will be locked until
     */
-    function finalRoundLock(address _juror, uint64 _finalRoundLockTermId) external onlyCourt {
+    function lockWithdrawals(address _juror, uint64 _termId) external onlyCourt {
         Juror storage juror = jurorsByAddress[_juror];
-        juror.finalRoundLockTermId = _finalRoundLockTermId;
+        juror.withdrawalsLockTermId = _termId;
     }
 
     /**
@@ -681,9 +682,9 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
         // Same applies to final round locks.
         uint64 lastEnsuredTermId = _getLastEnsuredTermId();
 
-        // Check that juror is not locked due to a final round
-        uint64 finalRoundLockTermId = jurorsByAddress[_juror].finalRoundLockTermId;
-        require(finalRoundLockTermId == 0 || finalRoundLockTermId < lastEnsuredTermId, ERROR_FINAL_ROUND_LOCK);
+        // Check that juror's withdrawals are not locked (due to a final round)
+        uint64 withdrawalsLockTermId = jurorsByAddress[_juror].withdrawalsLockTermId;
+        require(withdrawalsLockTermId == 0 || withdrawalsLockTermId < lastEnsuredTermId, ERROR_WITHDRAWALS_LOCK);
 
         _processDeactivationRequest(_juror, lastEnsuredTermId);
 

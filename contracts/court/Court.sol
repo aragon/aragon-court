@@ -424,7 +424,7 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
             DisputesConfig memory disputesConfig = config.disputes;
             uint64 finalRoundLockTermId = round.draftTermId +
                 disputesConfig.commitTerms + disputesConfig.revealTerms + disputesConfig.finalRoundLockTerms;
-            jurorsRegistry.finalRoundLock(_juror, finalRoundLockTermId);
+            jurorsRegistry.lockWithdrawals(_juror, finalRoundLockTermId);
         }
 
         emit RewardSettled(_disputeId, _roundId, _juror);

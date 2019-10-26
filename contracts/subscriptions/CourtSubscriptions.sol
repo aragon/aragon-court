@@ -36,6 +36,8 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
     string private constant ERROR_LOW_RESUME_PERIODS_PAYMENT = "CS_LOW_RESUME_PERIODS_PAYMENT";
     string private constant ERROR_DONATION_AMOUNT_ZERO = "CS_DONATION_AMOUNT_ZERO";
     string private constant ERROR_COURT_HAS_NOT_STARTED = "CS_COURT_HAS_NOT_STARTED";
+    string private constant ERROR_SUBSCRIPTION_PAUSED = "CS_SUBSCRIPTION_PAUSED";
+    string private constant ERROR_SUBSCRIPTION_NOT_PAUSED = "CS_SUBSCRIPTION_NOT_PAUSED";
 
     // Term 0 is for jurors on-boarding
     uint64 internal constant START_TERM_ID = 1;
@@ -136,44 +138,34 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
     }
 
     /**
-    * @notice Pay fees on behalf of `_from` for `_periods` periods
-    * @param _from Subscriber whose subscription is being paid
+    * @notice Pay fees on behalf of `_to` for `_periods` periods
+    * @param _to Subscriber whose subscription is being paid
     * @param _periods Number of periods to be paid in total since the last paid period
     */
-    function payFees(address _from, uint256 _periods) external {
-        require(_periods > 0, ERROR_PAYING_ZERO_PERIODS);
+    function payFees(address _to, uint256 _periods) external {
+        Subscriber storage subscriber = subscribers[_to];
+        require(!subscriber.paused, ERROR_SUBSCRIPTION_PAUSED);
 
-        Subscriber storage subscriber = subscribers[_from];
-        uint256 currentPeriodId = _getCurrentPeriodId();
-        Period storage period = periods[currentPeriodId];
-        (ERC20 feeToken, uint256 feeAmount) = _ensurePeriodFeeTokenAndAmount(period);
+        _payFees(subscriber, msg.sender, _to, _periods);
 
-        // Compute the total amount to pay by sender on behalf of the subscriber, including the penalties for delayed periods
-        (uint256 amountToPay, uint256 newLastPeriodId) = _getPayFeesDetails(subscriber, _periods, currentPeriodId, feeAmount);
-
-        // Compute the portion of the total amount to pay that will be allocated to the governor
-        uint256 governorFee = amountToPay.pct(governorSharePct);
-        accumulatedGovernorFees = accumulatedGovernorFees.add(governorFee);
-
-        // No need for SafeMath: the governor share cannot be above 100%. Thus, the highest governor fees we
-        // could have is equal to the amount to be paid.
-        uint256 collectedFees = amountToPay - governorFee;
-        period.collectedFees = period.collectedFees.add(collectedFees);
-
-        // Initialize subscription for the requested subscriber if it is the first time paying fees, or resume subscriptions if they were paused
+        // Initialize subscription for the requested subscriber if it is the first time paying fees
         if (!subscriber.subscribed) {
             subscriber.subscribed = true;
-        } else if (subscriber.paused) {
-            subscriber.paused = false;
-            subscriber.previousDelayedPeriods = 0;
         }
+    }
 
-        // Periods are measured in Court terms. Since Court terms are represented in uint64, we are safe to use uint64 for period ids too.
-        subscriber.lastPaymentPeriodId = uint64(newLastPeriodId);
+    /**
+    * @notice Resume sender's subscription
+    * @param _periods Number of periods to be paid in total
+    */
+    function resume(uint256 _periods) external {
+        Subscriber storage subscriber = subscribers[msg.sender];
+        require(subscriber.paused, ERROR_SUBSCRIPTION_NOT_PAUSED);
 
-        // Deposit fee tokens from sender to this contract
-        emit FeesPaid(_from, _periods, newLastPeriodId, collectedFees, governorFee);
-        require(feeToken.safeTransferFrom(msg.sender, address(this), amountToPay), ERROR_TOKEN_TRANSFER_FAILED);
+        _payFees(subscriber, msg.sender, msg.sender, _periods);
+
+        subscriber.paused = false;
+        subscriber.previousDelayedPeriods = 0;
     }
 
     /**
@@ -426,6 +418,41 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
     */
     function hasJurorClaimed(address _juror, uint256 _periodId) external view returns (bool) {
         return periods[_periodId].claimedFees[_juror];
+    }
+
+    /**
+    * @dev Internal function to pay fees for a subscription
+    * @param _subscriber Subscriber whose subscription is being paid
+    * @param _from Address paying for the subscription fees
+    * @param _to Address of the subscriber whose subscription is being paid
+    * @param _periods Number of periods to be paid in total since the last paid period
+    */
+    function _payFees(Subscriber storage _subscriber, address _from, address _to, uint256 _periods) internal {
+        require(_periods > 0, ERROR_PAYING_ZERO_PERIODS);
+
+        // Ensure fee token data for the current period
+        uint256 currentPeriodId = _getCurrentPeriodId();
+        Period storage period = periods[currentPeriodId];
+        (ERC20 feeToken, uint256 feeAmount) = _ensurePeriodFeeTokenAndAmount(period);
+
+        // Compute the total amount to pay by sender including the penalties for delayed periods
+        (uint256 amountToPay, uint256 newLastPeriodId) = _getPayFeesDetails(_subscriber, _periods, currentPeriodId, feeAmount);
+
+        // Compute the portion of the total amount to pay that will be allocated to the governor
+        uint256 governorFee = amountToPay.pct(governorSharePct);
+        accumulatedGovernorFees = accumulatedGovernorFees.add(governorFee);
+
+        // No need for SafeMath: the governor share cannot be above 100%. Thus, the highest governor fees we
+        // could have is equal to the amount to be paid.
+        uint256 collectedFees = amountToPay - governorFee;
+        period.collectedFees = period.collectedFees.add(collectedFees);
+
+        // Periods are measured in Court terms. Since Court terms are represented in uint64, we are safe to use uint64 for period ids too.
+        _subscriber.lastPaymentPeriodId = uint64(newLastPeriodId);
+
+        // Deposit fee tokens from sender to this contract
+        emit FeesPaid(_to, _periods, newLastPeriodId, collectedFees, governorFee);
+        require(feeToken.safeTransferFrom(_from, address(this), amountToPay), ERROR_TOKEN_TRANSFER_FAILED);
     }
 
     /**

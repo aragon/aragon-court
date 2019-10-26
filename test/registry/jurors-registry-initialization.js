@@ -10,7 +10,6 @@ const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
 contract('JurorsRegistry', ([_, something]) => {
   let controller, ANJ
 
-  const MIN_ACTIVE_AMOUNT = bigExp(100, 18)
   const TOTAL_ACTIVE_BALANCE_LIMIT = bigExp(100e6, 18)
 
   beforeEach('create base contracts', async () => {
@@ -21,12 +20,11 @@ contract('JurorsRegistry', ([_, something]) => {
   describe('initialize', () => {
     context('when the initialization succeeds', () => {
       it('sets initial config correctly', async () => {
-        const registry = await JurorsRegistry.new(controller.address, ANJ.address, MIN_ACTIVE_AMOUNT, TOTAL_ACTIVE_BALANCE_LIMIT)
+        const registry = await JurorsRegistry.new(controller.address, ANJ.address, TOTAL_ACTIVE_BALANCE_LIMIT)
 
         assert.isFalse(await registry.supportsHistory())
         assert.equal(await registry.getController(), controller.address, 'registry controller does not match')
         assert.equal(await registry.token(), ANJ.address, 'token address does not match')
-        assert.equal((await registry.minJurorsActiveBalance()).toString(), MIN_ACTIVE_AMOUNT, 'min active token amount does not match')
         assert.equal((await registry.totalJurorsActiveBalanceLimit()).toString(), TOTAL_ACTIVE_BALANCE_LIMIT, 'total active balance limit does not match')
       })
     })
@@ -36,7 +34,7 @@ contract('JurorsRegistry', ([_, something]) => {
         const token = ZERO_ADDRESS
 
         it('reverts', async () => {
-          await assertRevert(JurorsRegistry.new(controller.address, token, MIN_ACTIVE_AMOUNT, TOTAL_ACTIVE_BALANCE_LIMIT), 'JR_NOT_CONTRACT')
+          await assertRevert(JurorsRegistry.new(controller.address, token, TOTAL_ACTIVE_BALANCE_LIMIT), 'JR_NOT_CONTRACT')
         })
       })
 
@@ -44,7 +42,7 @@ contract('JurorsRegistry', ([_, something]) => {
         const token = something
 
         it('reverts', async () => {
-          await assertRevert(JurorsRegistry.new(controller.address, token, MIN_ACTIVE_AMOUNT, TOTAL_ACTIVE_BALANCE_LIMIT), 'JR_NOT_CONTRACT')
+          await assertRevert(JurorsRegistry.new(controller.address, token, TOTAL_ACTIVE_BALANCE_LIMIT), 'JR_NOT_CONTRACT')
         })
       })
 
@@ -52,7 +50,7 @@ contract('JurorsRegistry', ([_, something]) => {
         const totalActiveBalanceLimit = 0
 
         it('reverts', async () => {
-          await assertRevert(JurorsRegistry.new(controller.address, ANJ.address, MIN_ACTIVE_AMOUNT, totalActiveBalanceLimit), 'JR_BAD_TOTAL_ACTIVE_BAL_LIMIT')
+          await assertRevert(JurorsRegistry.new(controller.address, ANJ.address, totalActiveBalanceLimit), 'JR_BAD_TOTAL_ACTIVE_BAL_LIMIT')
         })
       })
 
@@ -60,7 +58,7 @@ contract('JurorsRegistry', ([_, something]) => {
         const controllerAddress = ZERO_ADDRESS
 
         it('reverts', async () => {
-          await assertRevert(JurorsRegistry.new(controllerAddress, ANJ.address, MIN_ACTIVE_AMOUNT, TOTAL_ACTIVE_BALANCE_LIMIT), 'CTD_CONTROLLER_NOT_CONTRACT')
+          await assertRevert(JurorsRegistry.new(controllerAddress, ANJ.address, TOTAL_ACTIVE_BALANCE_LIMIT), 'CTD_CONTROLLER_NOT_CONTRACT')
         })
       })
 
@@ -68,7 +66,7 @@ contract('JurorsRegistry', ([_, something]) => {
         const controllerAddress = something
 
         it('reverts', async () => {
-          await assertRevert(JurorsRegistry.new(controllerAddress, ANJ.address, MIN_ACTIVE_AMOUNT, TOTAL_ACTIVE_BALANCE_LIMIT), 'CTD_CONTROLLER_NOT_CONTRACT')
+          await assertRevert(JurorsRegistry.new(controllerAddress, ANJ.address, TOTAL_ACTIVE_BALANCE_LIMIT), 'CTD_CONTROLLER_NOT_CONTRACT')
         })
       })
     })

@@ -19,10 +19,10 @@ contract('JurorsRegistry', ([_, juror, anotherJuror]) => {
   const ACTIVATE_DATA = sha3('activate(uint256)').slice(0, 10)
 
   beforeEach('create base contracts', async () => {
-    controller = await buildHelper().deploy()
+    controller = await buildHelper().deploy({ minActiveBalance: MIN_ACTIVE_AMOUNT })
     ANJ = await ERC20.new('ANJ Token', 'ANJ', 18)
 
-    registry = await JurorsRegistry.new(controller.address, ANJ.address, MIN_ACTIVE_AMOUNT, TOTAL_ACTIVE_BALANCE_LIMIT)
+    registry = await JurorsRegistry.new(controller.address, ANJ.address, TOTAL_ACTIVE_BALANCE_LIMIT)
     await controller.setJurorsRegistry(registry.address)
 
     court = await Court.new(controller.address)

@@ -96,8 +96,8 @@ const simulateDraft = ({
     // remove locked jurors
     const filteredIterationDraftedKeys = iterationDraftedKeys
       .filter(key => {
-        const { unlockedActiveBalance, pendingDeactivation } = jurors[key]
-        const enoughBalance = unlockedActiveBalance.sub(pendingDeactivation).gte(draftLockAmount)
+        const { unlockedActiveBalance } = jurors[key]
+        const enoughBalance = unlockedActiveBalance.gte(draftLockAmount)
         if (enoughBalance) jurors[key].unlockedActiveBalance = unlockedActiveBalance.sub(draftLockAmount)
         return enoughBalance
       })

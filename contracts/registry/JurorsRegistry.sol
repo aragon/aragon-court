@@ -682,7 +682,6 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
     */
     function _draft(DraftParams memory _params, address[] memory _jurors) internal returns (uint256) {
         uint256 length = 0;
-        uint256 requestedJurors = _params.batchRequestedJurors;
 
         // Jurors returned by the tree multi-sortition may not have enough unlocked active balance to be drafted. Thus,
         // we compute several sortitions until all the requested jurors are selected. To guarantee a different set of
@@ -690,10 +689,10 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
         // Note that we are capping the number of iterations to avoid an OOG error, which means that this function could
         // return less jurors than the requested number.
 
-        for (_params.iteration = 0; length < requestedJurors && _params.iteration < MAX_DRAFT_ITERATIONS; _params.iteration++) {
+        for (_params.iteration = 0; length < _params.batchRequestedJurors && _params.iteration < MAX_DRAFT_ITERATIONS; _params.iteration++) {
             (uint256[] memory jurorIds, uint256[] memory activeBalances) = _treeSearch(_params);
 
-            for (uint256 i = 0; i < jurorIds.length && length < requestedJurors; i++) {
+            for (uint256 i = 0; i < jurorIds.length && length < _params.batchRequestedJurors; i++) {
                 // We assume the selected jurors are registered in the registry, we are not checking their addresses exist
                 address jurorAddress = jurorsAddressById[jurorIds[i]];
                 Juror storage juror = jurorsByAddress[jurorAddress];
@@ -706,13 +705,13 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
                 uint256 nextTermDeactivationRequestAmount = _deactivationRequestedAmountForTerm(juror, _params.termId + 1);
 
                 // Check if juror has enough active tokens to lock the requested amount for the draft, skip it otherwise.
-                // TODO: stack too deep
-                //uint256 currentActiveBalance = activeBalances[i];
-                if (activeBalances[i] >= newLockedBalance) {
+                uint256 currentActiveBalance = activeBalances[i];
+                if (currentActiveBalance >= newLockedBalance) {
+
                     // Check if the amount of active tokens for the next term is enough to lock the required amount for
                     // the draft. Otherwise, reduce the requested deactivation amount of the next term.
                     // Next term deactivation amount should always be less than current active balance, but we make sure using SafeMath
-                    uint256 nextTermActiveBalance = activeBalances[i].sub(nextTermDeactivationRequestAmount);
+                    uint256 nextTermActiveBalance = currentActiveBalance.sub(nextTermDeactivationRequestAmount);
                     if (nextTermActiveBalance < newLockedBalance) {
                         _reduceDeactivationRequest(jurorAddress, newLockedBalance - nextTermActiveBalance, _params.termId);
                     }

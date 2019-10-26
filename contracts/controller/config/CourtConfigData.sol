@@ -29,5 +29,6 @@ contract CourtConfigData {
         uint256 maxRegularAppealRounds;         // Before the final appeal
         uint256 appealCollateralFactor;         // Permyriad multiple of juror fees required to appeal a preliminary ruling (‱ - 1/10,000)
         uint256 appealConfirmCollateralFactor;  // Permyriad multiple of juror fees required to confirm appeal (‱ - 1/10,000)
+        uint256 minActiveBalance;               // Minimum amount of tokens jurors have to activate to participate in the Court
     }
 }

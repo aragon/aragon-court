@@ -12,6 +12,7 @@ contract('Controller', ([_, sender, disputer, drafter, appealMaker, appealTaker,
   let penaltyPct, finalRoundReduction
   let firstRoundJurorsNumber, appealStepFactor, maxRegularAppealRounds, finalRoundLockTerms
   let appealCollateralFactor, appealConfirmCollateralFactor
+  let minActiveBalance
 
   const ERROR_SENDER_NOT_CONFIG_GOVERNOR = 'CTR_SENDER_NOT_GOVERNOR'
   const ERROR_TOO_OLD_TERM = 'CONF_TOO_OLD_TERM'
@@ -32,6 +33,7 @@ contract('Controller', ([_, sender, disputer, drafter, appealMaker, appealTaker,
       penaltyPct, finalRoundReduction,
       firstRoundJurorsNumber, appealStepFactor, maxRegularAppealRounds, finalRoundLockTerms,
       appealCollateralFactor, appealConfirmCollateralFactor,
+      minActiveBalance,
     } = await controllerHelper.getConfig(termId)
 
     assert.equal(feeToken, newFeeTokenAddress, 'Fee token does not match')
@@ -50,6 +52,7 @@ contract('Controller', ([_, sender, disputer, drafter, appealMaker, appealTaker,
     assertBn(finalRoundLockTerms, newFinalRoundLockTerms, 'Number of final round lock terms does not match')
     assertBn(appealCollateralFactor, newAppealCollateralFactor, 'Appeal collateral factor does not match')
     assertBn(appealConfirmCollateralFactor, newAppealConfirmCollateralFactor, 'Appeal confirmation collateral factor does not match')
+    assertBn(minActiveBalance, newMinActiveBalance, 'Min active balance does not match')
   }
 
   beforeEach('deploy court', async () => {
@@ -75,13 +78,16 @@ contract('Controller', ([_, sender, disputer, drafter, appealMaker, appealTaker,
     appealCollateralFactor = bn(4)
     appealConfirmCollateralFactor = bn(6)
 
+    minActiveBalance = bigExp(200, 18)
+
     originalConfig = {
       feeToken,
       jurorFee, draftFee, settleFee,
       commitTerms, revealTerms, appealTerms, appealConfirmTerms,
       penaltyPct, finalRoundReduction,
       firstRoundJurorsNumber, appealStepFactor, maxRegularAppealRounds, finalRoundLockTerms,
-      appealCollateralFactor, appealConfirmCollateralFactor
+      appealCollateralFactor, appealConfirmCollateralFactor,
+      minActiveBalance
     }
 
     initialConfig = {
@@ -100,7 +106,8 @@ contract('Controller', ([_, sender, disputer, drafter, appealMaker, appealTaker,
       newMaxRegularAppealRounds: maxRegularAppealRounds,
       newFinalRoundLockTerms: finalRoundLockTerms,
       newAppealCollateralFactor: appealCollateralFactor,
-      newAppealConfirmCollateralFactor: appealConfirmCollateralFactor
+      newAppealConfirmCollateralFactor: appealConfirmCollateralFactor,
+      newMinActiveBalance: minActiveBalance
     }
 
     courtHelper = buildHelper()
@@ -112,7 +119,8 @@ contract('Controller', ([_, sender, disputer, drafter, appealMaker, appealTaker,
       commitTerms, revealTerms, appealTerms, appealConfirmTerms,
       penaltyPct, finalRoundReduction,
       firstRoundJurorsNumber, appealStepFactor, maxRegularAppealRounds, finalRoundLockTerms,
-      appealCollateralFactor, appealConfirmCollateralFactor
+      appealCollateralFactor, appealConfirmCollateralFactor,
+      minActiveBalance
     })
   })
 

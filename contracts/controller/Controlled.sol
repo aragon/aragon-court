@@ -159,7 +159,8 @@ contract Controlled is IsContract, CourtConfigData {
         uint64[4] memory _roundStateDurations,
         uint16[2] memory _pcts,
         uint64[4] memory _roundParams,
-        uint256[2] memory _appealCollateralParams) = _config().getConfig(_termId);
+        uint256[2] memory _appealCollateralParams,
+        uint256 _minActiveBalance) = _config().getConfig(_termId);
 
         Config memory config;
 
@@ -182,7 +183,8 @@ contract Controlled is IsContract, CourtConfigData {
             maxRegularAppealRounds: _roundParams[2],
             finalRoundLockTerms: _roundParams[3],
             appealCollateralFactor: _appealCollateralParams[0],
-            appealConfirmCollateralFactor: _appealCollateralParams[1]
+            appealConfirmCollateralFactor: _appealCollateralParams[1],
+            minActiveBalance: _minActiveBalance
         });
 
         return config;

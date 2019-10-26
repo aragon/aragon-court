@@ -78,8 +78,9 @@ contract Controller is IsContract, CourtClock, CourtConfig {
 
     /**
     * @dev Constructor function
-    * @param _termDuration Duration in seconds per term
-    * @param _firstTermStartTime Timestamp in seconds when the court will open (to give time for juror on-boarding)
+    * @param _termParams Array containing:
+    *        0. _termDuration Duration in seconds per term
+    *        1. _firstTermStartTime Timestamp in seconds when the court will open (to give time for juror on-boarding)
     * @param _governors Array containing:
     *        0. _fundsGovernor Address of the funds governor
     *        1. _configGovernor Address of the config governor
@@ -107,19 +108,19 @@ contract Controller is IsContract, CourtClock, CourtConfig {
     *        1. appealConfirmCollateralFactor Multiple of juror fees required to confirm appeal
     */
     constructor(
-        uint64 _termDuration,
-        uint64 _firstTermStartTime,
+        uint64[2] memory _termParams,
         address[3] memory _governors,
         ERC20 _feeToken,
         uint256[3] memory _fees,
         uint64[4] memory _roundStateDurations,
         uint16[2] memory _pcts,
         uint64[4] memory _roundParams,
-        uint256[2] memory _appealCollateralParams
+        uint256[2] memory _appealCollateralParams,
+        uint256 _minActiveBalance
     )
         public
-        CourtClock(_termDuration, _firstTermStartTime)
-        CourtConfig(_feeToken, _fees, _roundStateDurations, _pcts, _roundParams, _appealCollateralParams)
+        CourtClock(_termParams)
+        CourtConfig(_feeToken, _fees, _roundStateDurations, _pcts, _roundParams, _appealCollateralParams, _minActiveBalance)
     {
         _setFundsGovernor(_governors[0]);
         _setConfigGovernor(_governors[1]);
@@ -155,13 +156,24 @@ contract Controller is IsContract, CourtClock, CourtConfig {
         uint64[4] calldata _roundStateDurations,
         uint16[2] calldata _pcts,
         uint64[4] calldata _roundParams,
-        uint256[2] calldata _appealCollateralParams
+        uint256[2] calldata _appealCollateralParams,
+        uint256 _minActiveBalance
     )
         external
         onlyConfigGovernor
     {
         uint64 currentTermId = _ensureCurrentTerm();
-        _setConfig(currentTermId, _fromTermId, _feeToken, _fees, _roundStateDurations, _pcts, _roundParams, _appealCollateralParams);
+        _setConfig(
+            currentTermId,
+            _fromTermId,
+            _feeToken,
+            _fees,
+            _roundStateDurations,
+            _pcts,
+            _roundParams,
+            _appealCollateralParams,
+            _minActiveBalance
+        );
     }
 
     /**
@@ -260,7 +272,8 @@ contract Controller is IsContract, CourtClock, CourtConfig {
             uint64[4] memory roundStateDurations,
             uint16[2] memory pcts,
             uint64[4] memory roundParams,
-            uint256[2] memory appealCollateralParams
+            uint256[2] memory appealCollateralParams,
+            uint256 minActiveBalance
         )
     {
         uint64 lastEnsuredTermId = _lastEnsuredTermId();

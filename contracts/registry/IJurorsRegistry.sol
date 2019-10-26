@@ -11,10 +11,6 @@ interface IJurorsRegistry {
         returns (uint256 collectedTokens);
     function collectTokens(address _juror, uint256 _amount, uint64 _termId) external returns (bool);
     function lockWithdrawals(address _juror, uint64 _termId) external;
-    function minJurorsActiveBalance() external view returns (uint256);
     function activeBalanceOfAt(address _juror, uint64 _termId) external view returns (uint256);
     function totalActiveBalanceAt(uint64 _termId) external view returns (uint256);
-    function getTotalMinActiveBalanceMultiple(uint64 _termId, uint256 _precision) external view returns (uint256);
-    function getActiveBalanceInfoOfAt(address _juror, uint64 _termId, uint256 _precision) external view
-        returns (uint256 activeBalance, uint256 shares);
 }

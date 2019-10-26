@@ -362,7 +362,7 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
         if (_isRegularRound(_roundId, config)) {
             // For regular appeal rounds we compute the amount of locked tokens that needs to get burned in batches.
             // The callers of this function will get rewarded in this case.
-            uint256 jurorsSettled = _settleRegularRoundPenalties(round, voteId, finalRuling, config.disputes.penaltyPct, _jurorsToSettle);
+            uint256 jurorsSettled = _settleRegularRoundPenalties(round, voteId, finalRuling, config.disputes.penaltyPct, _jurorsToSettle, config.disputes.minActiveBalance);
             treasury.assign(feeToken, msg.sender, config.fees.settleFee.mul(jurorsSettled));
         } else {
             // For the final appeal round, there is no need to settle in batches since, to guarantee scalability,
@@ -680,8 +680,8 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
             weight = _getJurorWeight(round, _juror);
         } else {
             IJurorsRegistry jurorsRegistry = _jurorsRegistry();
-            (, uint256 minActiveBalanceMultiple) = jurorsRegistry.getActiveBalanceInfoOfAt(_juror, round.draftTermId, FINAL_ROUND_WEIGHT_PRECISION);
-            weight = minActiveBalanceMultiple.toUint64();
+            uint256 activeBalance = jurorsRegistry.activeBalanceOfAt(_juror, round.draftTermId);
+            weight = _getMinActiveBalanceMultiple(activeBalance, config.disputes.minActiveBalance);
         }
 
         rewarded = round.jurorsStates[_juror].rewarded;
@@ -776,7 +776,8 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
         uint256 _voteId,
         uint8 _finalRuling,
         uint16 _penaltyPct,
-        uint256 _jurorsToSettle
+        uint256 _jurorsToSettle,
+        uint256 _minActiveBalance
     )
         internal
         returns (uint256)
@@ -804,13 +805,12 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
 
         // Prepare the list of jurors and penalties to either be slashed or returned based on their votes for the given round
         IJurorsRegistry jurorsRegistry = _jurorsRegistry();
-        uint256 minActiveBalance = jurorsRegistry.minJurorsActiveBalance();
         address[] memory jurors = new address[](batchSettledJurors);
         uint256[] memory penalties = new uint256[](batchSettledJurors);
         for (uint256 i = 0; i < batchSettledJurors; i++) {
             address juror = _round.jurors[roundSettledJurors + i];
             jurors[i] = juror;
-            penalties[i] = minActiveBalance.pct(_penaltyPct).mul(_round.jurorsStates[juror].weight);
+            penalties[i] = _minActiveBalance.pct(_penaltyPct).mul(_round.jurorsStates[juror].weight);
         }
 
         // Check which of the jurors voted in favor of the final ruling of the dispute in this round. Ask the registry to slash or unlocked the
@@ -857,14 +857,11 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
 
         // Fetch active balance and multiples of the min active balance from the registry
         IJurorsRegistry jurorsRegistry = _jurorsRegistry();
-        (uint256 activeBalance, uint256 minActiveBalanceMultiple) = jurorsRegistry.getActiveBalanceInfoOfAt(
-            _juror,
-            _round.draftTermId,
-            FINAL_ROUND_WEIGHT_PRECISION
-        );
+        uint256 activeBalance = jurorsRegistry.activeBalanceOfAt(_juror, _round.draftTermId);
+        uint64 weight = _getMinActiveBalanceMultiple(activeBalance, _config.disputes.minActiveBalance);
 
         // If the juror weight for the last round is zero, return zero
-        if (minActiveBalanceMultiple == 0) {
+        if (weight == 0) {
             return uint64(0);
         }
 
@@ -878,9 +875,9 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
         }
 
         // If it was possible to collect the amount of active tokens to be locked, update the final round state
-        uint64 weight = minActiveBalanceMultiple.toUint64();
         jurorState.weight = weight;
         _round.collectedTokens = _round.collectedTokens.add(weightedPenalty);
+
         return weight;
     }
 
@@ -950,10 +947,11 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
             // `2^64 * minActiveBalance / FINAL_ROUND_WEIGHT_PRECISION`. Thus, the
             // jurors number for a final round will always fit in `uint64`
             IJurorsRegistry jurorsRegistry = _jurorsRegistry();
-            uint256 jurorsNumber = jurorsRegistry.getTotalMinActiveBalanceMultiple(nextRound.startTerm, FINAL_ROUND_WEIGHT_PRECISION);
-            nextRound.jurorsNumber = jurorsNumber.toUint64();
+            uint256 totalActiveBalance = jurorsRegistry.totalActiveBalanceAt(nextRound.startTerm);
+            uint64 jurorsNumber = _getMinActiveBalanceMultiple(totalActiveBalance, disputesConfig.minActiveBalance);
+            nextRound.jurorsNumber = jurorsNumber;
             // Calculate fees for the final round using the appeal start term of the current round
-            (nextRound.feeToken, nextRound.jurorFees, nextRound.totalFees) = _getFinalRoundFees(config.fees, nextRound.jurorsNumber);
+            (nextRound.feeToken, nextRound.jurorFees, nextRound.totalFees) = _getFinalRoundFees(config.fees, jurorsNumber);
         } else {
             // For a new regular rounds we need to draft jurors
             nextRound.newDisputeState = DisputeState.PreDraft;
@@ -1173,6 +1171,27 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
     */
     function _isRegularRound(uint256 _roundId, Config memory _config) internal pure returns (bool) {
         return _roundId < _config.disputes.maxRegularAppealRounds;
+    }
+
+    /**
+    * @dev Calculate the number of times that an amount contains the min active balance (multiplied by precision).
+    *      Used to get the juror weight for the final round. Note that for the final round the weight of
+    *      each juror is equal to the number of times the min active balance the juror has, multiplied by a precision
+    *      factor to deal with division rounding.
+    * @param _activeBalance Juror's or total active balance
+    * @param _minActiveBalance Min active balance from config
+    * @return Number of times that the active balance contains the min active balance (multiplied by precision)
+    */
+    function _getMinActiveBalanceMultiple(uint256 _activeBalance, uint256 _minActiveBalance) internal pure returns (uint64) {
+        // Note that jurors may not reach the minimum active balance since some might have been slashed. If that occurs,
+        // these jurors cannot vote in the final round.
+        if (_activeBalance < _minActiveBalance) {
+            return 0;
+        }
+
+        // Otherwise, return the times the active balance of the juror fits in the min active balance, multiplying
+        // it by a round factor to ensure a better precision rounding.
+        return (FINAL_ROUND_WEIGHT_PRECISION.mul(_activeBalance) / _minActiveBalance).toUint64();
     }
 
     /**

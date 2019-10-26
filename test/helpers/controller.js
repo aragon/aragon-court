@@ -56,7 +56,8 @@ module.exports = (web3, artifacts) => {
         roundStateDurations,
         pcts,
         roundParams,
-        appealCollateralParams
+        appealCollateralParams,
+        minActiveBalance
       } = await this.controller.getConfig(termId)
 
       return {
@@ -76,6 +77,7 @@ module.exports = (web3, artifacts) => {
         finalRoundLockTerms: roundParams[3],
         appealCollateralFactor: appealCollateralParams[0],
         appealConfirmCollateralFactor: appealCollateralParams[1],
+        minActiveBalance: minActiveBalance
       }
     }
 
@@ -127,6 +129,7 @@ module.exports = (web3, artifacts) => {
         penaltyPct, finalRoundReduction,
         firstRoundJurorsNumber, appealStepFactor, maxRegularAppealRounds, finalRoundLockTerms,
         appealCollateralFactor, appealConfirmCollateralFactor,
+        minActiveBalance,
       } = originalConfig
 
       const newFeeToken = await artifacts.require('ERC20Mock').new('Court Fee Token', 'CFT', 18)
@@ -145,7 +148,7 @@ module.exports = (web3, artifacts) => {
       const newMaxRegularAppealRounds = maxRegularAppealRounds.add(bn(iteration))
       const newFinalRoundLockTerms = finalRoundLockTerms.add(bn(1))
       const newAppealCollateralFactor = appealCollateralFactor.add(bn(iteration * PCT_BASE))
-      const newAppealConfirmCollateralFactor = appealConfirmCollateralFactor.add(bn(iteration * PCT_BASE))
+      const newMinActiveBalance = minActiveBalance.add(bigExp(iteration * 100, 18))
 
       return {
         newFeeTokenAddress,
@@ -199,8 +202,7 @@ module.exports = (web3, artifacts) => {
       if (!this.feeToken) this.feeToken = await this.artifacts.require('ERC20Mock').new('Court Fee Token', 'CFT', 18)
 
       if (!this.controller) this.controller = await this.artifacts.require('ControllerMock').new(
-        this.termDuration,
-        this.firstTermStartTime,
+        [this.termDuration, this.firstTermStartTime],
         [this.fundsGovernor, this.configGovernor, this.modulesGovernor],
         this.feeToken.address,
         [this.jurorFee, this.draftFee, this.settleFee],
@@ -208,6 +210,7 @@ module.exports = (web3, artifacts) => {
         [this.penaltyPct, this.finalRoundReduction],
         [this.firstRoundJurorsNumber, this.appealStepFactor, this.maxRegularAppealRounds, this.finalRoundLockTerms],
         [this.appealCollateralFactor, this.appealConfirmCollateralFactor],
+        this.jurorsMinActiveBalance,
       )
 
       return this.controller
@@ -222,7 +225,6 @@ module.exports = (web3, artifacts) => {
       if (!this.jurorsRegistry) this.jurorsRegistry = await this.artifacts.require('JurorsRegistryMock').new(
         this.controller.address,
         this.jurorToken.address,
-        this.jurorsMinActiveBalance,
         this.jurorsMinActiveBalance.mul(MAX_UINT64.div(this.finalRoundWeightPrecision)),
       )
 

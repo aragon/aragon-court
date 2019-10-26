@@ -11,6 +11,7 @@ interface IConfig {
             uint64[4] memory roundStateDurations,
             uint16[2] memory pcts,
             uint64[4] memory roundParams,
-            uint256[2] memory appealCollateralParams
+            uint256[2] memory appealCollateralParams,
+            uint256 minActiveBalance
         );
 }

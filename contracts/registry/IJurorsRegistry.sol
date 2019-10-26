@@ -10,6 +10,7 @@ interface IJurorsRegistry {
     function slashOrUnlock(uint64 _termId, address[] calldata _jurors, uint256[] calldata _penalties, bool[] calldata _rewardedJurors) external
         returns (uint256 collectedTokens);
     function collectTokens(address _juror, uint256 _amount, uint64 _termId) external returns (bool);
+    function lockWithdrawals(address _juror, uint64 _termId) external;
     function minJurorsActiveBalance() external view returns (uint256);
     function activeBalanceOfAt(address _juror, uint64 _termId) external view returns (uint256);
     function totalActiveBalanceAt(uint64 _termId) external view returns (uint256);

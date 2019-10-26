@@ -10,7 +10,7 @@ interface IConfig {
             uint256[3] memory fees,
             uint64[4] memory roundStateDurations,
             uint16[2] memory pcts,
-            uint64[3] memory roundParams,
+            uint64[4] memory roundParams,
             uint256[2] memory appealCollateralParams
         );
 }

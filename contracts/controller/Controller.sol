@@ -101,6 +101,7 @@ contract Controller is IsContract, CourtClock, CourtConfig {
     *        0. firstRoundJurorsNumber Number of jurors to be drafted for the first round of disputes
     *        1. appealStepFactor Increasing factor for the number of jurors of each round of a dispute
     *        2. maxRegularAppealRounds Number of regular appeal rounds before the final round is triggered
+    *        3. finalRoundLockTerms Number of terms that a coherent juror in a final round is disallowed to withdraw (to prevent 51% attacks)
     * @param _appealCollateralParams Array containing params for appeal collateral:
     *        0. appealCollateralFactor Multiple of juror fees required to appeal a preliminary ruling
     *        1. appealConfirmCollateralFactor Multiple of juror fees required to confirm appeal
@@ -113,7 +114,7 @@ contract Controller is IsContract, CourtClock, CourtConfig {
         uint256[3] memory _fees,
         uint64[4] memory _roundStateDurations,
         uint16[2] memory _pcts,
-        uint64[3] memory _roundParams,
+        uint64[4] memory _roundParams,
         uint256[2] memory _appealCollateralParams
     )
         public
@@ -142,6 +143,7 @@ contract Controller is IsContract, CourtClock, CourtConfig {
     *        _firstRoundJurorsNumber Number of jurors to be drafted for the first round of disputes
     *        _appealStepFactor Increasing factor for the number of jurors of each round of a dispute
     *        _maxRegularAppealRounds Number of regular appeal rounds before the final round is triggered
+    *        _finalRoundLockTerms Number of terms that a coherent juror in a final round is disallowed to withdraw (to prevent 51% attacks)
     * @param _appealCollateralParams Array containing params for appeal collateral:
     *        _appealCollateralFactor Multiple of juror fees required to appeal a preliminary ruling
     *        _appealConfirmCollateralFactor Multiple of juror fees required to confirm appeal
@@ -152,7 +154,7 @@ contract Controller is IsContract, CourtClock, CourtConfig {
         uint256[3] calldata _fees,
         uint64[4] calldata _roundStateDurations,
         uint16[2] calldata _pcts,
-        uint64[3] calldata _roundParams,
+        uint64[4] calldata _roundParams,
         uint256[2] calldata _appealCollateralParams
     )
         external
@@ -246,6 +248,7 @@ contract Controller is IsContract, CourtClock, CourtConfig {
     *         0. firstRoundJurorsNumber Number of jurors to be drafted for the first round of disputes
     *         1. appealStepFactor Increasing factor for the number of jurors of each round of a dispute
     *         2. maxRegularAppealRounds Number of regular appeal rounds before the final round is triggered
+    *         3. finalRoundLockTerms Number of terms that a coherent juror in a final round is disallowed to withdraw (to prevent 51% attacks)
     * @return appealCollateralParams Array containing params for appeal collateral:
     *         0. appealCollateralFactor Multiple of juror fees required to appeal a preliminary ruling
     *         1. appealConfirmCollateralFactor Multiple of juror fees required to confirm appeal
@@ -256,7 +259,7 @@ contract Controller is IsContract, CourtClock, CourtConfig {
             uint256[3] memory fees,
             uint64[4] memory roundStateDurations,
             uint16[2] memory pcts,
-            uint64[3] memory roundParams,
+            uint64[4] memory roundParams,
             uint256[2] memory appealCollateralParams
         )
     {

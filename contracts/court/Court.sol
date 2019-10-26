@@ -366,7 +366,7 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
             treasury.assign(feeToken, msg.sender, config.fees.settleFee.mul(jurorsSettled));
         } else {
             // For the final appeal round, there is no need to settle in batches since, to guarantee scalability,
-            // all the tokens collected from jurors participating in the final round are burned, and those jurors who
+            // all the tokens are collected from jurors when they vote, and those jurors who
             // voted in favor of the winning ruling can claim their collected tokens back along with their reward.
             // Note that the caller of this function is not being reimbursed.
             round.settledPenalties = true;
@@ -409,16 +409,24 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
         // therefore divisions below are safe.
         uint256 coherentJurors = round.coherentJurors;
         uint256 collectedTokens = round.collectedTokens;
+        IJurorsRegistry jurorsRegistry = _jurorsRegistry();
         if (collectedTokens > 0) {
-            IJurorsRegistry jurorsRegistry = _jurorsRegistry();
             jurorsRegistry.assignTokens(_juror, uint256(jurorState.weight).mul(collectedTokens) / coherentJurors);
         }
 
         // Reward the winning juror
-        uint256 jurorFee = round.jurorFees.mul(jurorState.weight) / coherentJurors;
         Config memory config = _getDisputeConfig(dispute);
-        ITreasury treasury = _treasury();
-        treasury.assign(config.fees.token, _juror, jurorFee);
+        _treasury().assign(config.fees.token, _juror, round.jurorFees.mul(jurorState.weight) / coherentJurors);
+
+        // Set the lock for final round
+        if (!_isRegularRound(_roundId, config)) {
+            // Round end term id (as it's final there's no draft delay nor appeal) plus the lock period
+            DisputesConfig memory disputesConfig = config.disputes;
+            uint64 finalRoundLockTermId = round.draftTermId +
+                disputesConfig.commitTerms + disputesConfig.revealTerms + disputesConfig.finalRoundLockTerms;
+            jurorsRegistry.lockWithdrawals(_juror, finalRoundLockTermId);
+        }
+
         emit RewardSettled(_disputeId, _roundId, _juror);
     }
 

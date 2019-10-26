@@ -10,7 +10,7 @@ contract('Controller', ([_, sender, disputer, drafter, appealMaker, appealTaker,
   let jurorFee, draftFee, settleFee
   let commitTerms, revealTerms, appealTerms, appealConfirmTerms
   let penaltyPct, finalRoundReduction
-  let firstRoundJurorsNumber, appealStepFactor, maxRegularAppealRounds
+  let firstRoundJurorsNumber, appealStepFactor, maxRegularAppealRounds, finalRoundLockTerms
   let appealCollateralFactor, appealConfirmCollateralFactor
 
   const ERROR_SENDER_NOT_CONFIG_GOVERNOR = 'CTR_SENDER_NOT_GOVERNOR'
@@ -22,7 +22,7 @@ contract('Controller', ([_, sender, disputer, drafter, appealMaker, appealTaker,
       newJurorFee, newDraftFee, newSettleFee,
       newCommitTerms, newRevealTerms, newAppealTerms, newAppealConfirmTerms,
       newPenaltyPct, newFinalRoundReduction,
-      newFirstRoundJurorsNumber, newAppealStepFactor, newMaxRegularAppealRounds,
+      newFirstRoundJurorsNumber, newAppealStepFactor, newMaxRegularAppealRounds, newFinalRoundLockTerms,
       newAppealCollateralFactor, newAppealConfirmCollateralFactor
     } = newConfig
     const {
@@ -30,7 +30,7 @@ contract('Controller', ([_, sender, disputer, drafter, appealMaker, appealTaker,
       jurorFee, draftFee, settleFee,
       commitTerms, revealTerms, appealTerms, appealConfirmTerms,
       penaltyPct, finalRoundReduction,
-      firstRoundJurorsNumber, appealStepFactor, maxRegularAppealRounds,
+      firstRoundJurorsNumber, appealStepFactor, maxRegularAppealRounds, finalRoundLockTerms,
       appealCollateralFactor, appealConfirmCollateralFactor,
     } = await controllerHelper.getConfig(termId)
 
@@ -46,7 +46,8 @@ contract('Controller', ([_, sender, disputer, drafter, appealMaker, appealTaker,
     assertBn(finalRoundReduction, newFinalRoundReduction, 'Final round reduction does not match')
     assertBn(firstRoundJurorsNumber, newFirstRoundJurorsNumber, 'First round jurors number does not match')
     assertBn(appealStepFactor, newAppealStepFactor, 'Appeal step factor does not match')
-    assertBn(maxRegularAppealRounds, newMaxRegularAppealRounds, 'Number af max regular appeal rounds does not match')
+    assertBn(maxRegularAppealRounds, newMaxRegularAppealRounds, 'Number of max regular appeal rounds does not match')
+    assertBn(finalRoundLockTerms, newFinalRoundLockTerms, 'Number of final round lock terms does not match')
     assertBn(appealCollateralFactor, newAppealCollateralFactor, 'Appeal collateral factor does not match')
     assertBn(appealConfirmCollateralFactor, newAppealConfirmCollateralFactor, 'Appeal confirmation collateral factor does not match')
   }
@@ -69,6 +70,7 @@ contract('Controller', ([_, sender, disputer, drafter, appealMaker, appealTaker,
     firstRoundJurorsNumber = bn(5)
     appealStepFactor = bn(3)
     maxRegularAppealRounds = bn(2)
+    finalRoundLockTerms = bn(2)
 
     appealCollateralFactor = bn(4)
     appealConfirmCollateralFactor = bn(6)
@@ -78,7 +80,7 @@ contract('Controller', ([_, sender, disputer, drafter, appealMaker, appealTaker,
       jurorFee, draftFee, settleFee,
       commitTerms, revealTerms, appealTerms, appealConfirmTerms,
       penaltyPct, finalRoundReduction,
-      firstRoundJurorsNumber, appealStepFactor, maxRegularAppealRounds,
+      firstRoundJurorsNumber, appealStepFactor, maxRegularAppealRounds, finalRoundLockTerms,
       appealCollateralFactor, appealConfirmCollateralFactor
     }
 
@@ -96,6 +98,7 @@ contract('Controller', ([_, sender, disputer, drafter, appealMaker, appealTaker,
       newFirstRoundJurorsNumber: firstRoundJurorsNumber,
       newAppealStepFactor: appealStepFactor,
       newMaxRegularAppealRounds: maxRegularAppealRounds,
+      newFinalRoundLockTerms: finalRoundLockTerms,
       newAppealCollateralFactor: appealCollateralFactor,
       newAppealConfirmCollateralFactor: appealConfirmCollateralFactor
     }
@@ -108,7 +111,7 @@ contract('Controller', ([_, sender, disputer, drafter, appealMaker, appealTaker,
       jurorFee,  draftFee, settleFee,
       commitTerms, revealTerms, appealTerms, appealConfirmTerms,
       penaltyPct, finalRoundReduction,
-      firstRoundJurorsNumber, appealStepFactor, maxRegularAppealRounds,
+      firstRoundJurorsNumber, appealStepFactor, maxRegularAppealRounds, finalRoundLockTerms,
       appealCollateralFactor, appealConfirmCollateralFactor
     })
   })

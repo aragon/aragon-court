@@ -19,10 +19,10 @@ contract('JurorsRegistry', ([_, juror, anotherJuror]) => {
   const ACTIVATE_DATA = sha3('activate(uint256)').slice(0, 10)
 
   beforeEach('create base contracts', async () => {
-    controller = await buildHelper().deploy()
+    controller = await buildHelper().deploy({ minActiveBalance: MIN_ACTIVE_AMOUNT })
     ANJ = await ERC20.new('ANJ Token', 'ANJ', 18)
 
-    registry = await JurorsRegistry.new(controller.address, ANJ.address, MIN_ACTIVE_AMOUNT, TOTAL_ACTIVE_BALANCE_LIMIT)
+    registry = await JurorsRegistry.new(controller.address, ANJ.address, TOTAL_ACTIVE_BALANCE_LIMIT)
     await controller.setJurorsRegistry(registry.address)
 
     court = await Court.new(controller.address)
@@ -70,6 +70,7 @@ contract('JurorsRegistry', ([_, juror, anotherJuror]) => {
 
             await registry.stake(amount, data, { from })
 
+            await controller.mockIncreaseTerm()
             const currentUnlockedActiveBalance = await registry.unlockedActiveBalanceOf(juror)
             assert.equal(previousUnlockedActiveBalance.toString(), currentUnlockedActiveBalance.toString(), 'unlocked balances do not match')
           })
@@ -199,6 +200,7 @@ contract('JurorsRegistry', ([_, juror, anotherJuror]) => {
 
           await registry.stake(amount, data, { from })
 
+          await controller.mockIncreaseTerm()
           const currentUnlockedActiveBalance = await registry.unlockedActiveBalanceOf(juror)
           assert.equal(previousUnlockedActiveBalance.add(amount).toString(), currentUnlockedActiveBalance.toString(), 'unlocked balances do not match')
         })
@@ -379,6 +381,7 @@ contract('JurorsRegistry', ([_, juror, anotherJuror]) => {
 
           await registry.stakeFor(recipient, amount, data, { from })
 
+          await controller.mockIncreaseTerm()
           const currentRecipientUnlockedActiveBalance = await registry.unlockedActiveBalanceOf(recipient)
           assert.equal(previousRecipientUnlockedActiveBalance.toString(), currentRecipientUnlockedActiveBalance.toString(), 'recipient unlocked balances do not match')
 
@@ -563,6 +566,7 @@ contract('JurorsRegistry', ([_, juror, anotherJuror]) => {
 
           await registry.stakeFor(recipient, amount, data, { from })
 
+          await controller.mockIncreaseTerm()
           const currentRecipientUnlockedActiveBalance = await registry.unlockedActiveBalanceOf(recipient)
           assert.equal(previousRecipientUnlockedActiveBalance.add(amount).toString(), currentRecipientUnlockedActiveBalance.toString(), 'recipient unlocked balances do not match')
 
@@ -758,6 +762,7 @@ contract('JurorsRegistry', ([_, juror, anotherJuror]) => {
 
               await ANJ.approveAndCall(registry.address, amount, data, { from })
 
+              await controller.mockIncreaseTerm()
               const currentUnlockedActiveBalance = await registry.unlockedActiveBalanceOf(juror)
               assert.equal(previousUnlockedActiveBalance.toString(), currentUnlockedActiveBalance.toString(), 'unlocked balances do not match')
             })
@@ -888,6 +893,7 @@ contract('JurorsRegistry', ([_, juror, anotherJuror]) => {
 
             await ANJ.approveAndCall(registry.address, amount, data, { from })
 
+            await controller.mockIncreaseTerm()
             const currentUnlockedActiveBalance = await registry.unlockedActiveBalanceOf(juror)
             assert.equal(previousUnlockedActiveBalance.add(amount).toString(), currentUnlockedActiveBalance.toString(), 'unlocked balances do not match')
           })

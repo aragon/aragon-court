@@ -60,7 +60,7 @@ module.exports = (web3, artifacts) => {
       } else {
         const finalRoundStartTerm = await this.getNextRoundStartTerm(disputeId, roundId)
         const totalActiveBalance = await this.jurorsRegistry.totalActiveBalanceAt(finalRoundStartTerm)
-        return totalActiveBalance.mul(this.finalRoundWeightPrecision).div(this.jurorsMinActiveBalance)
+        return totalActiveBalance.mul(this.finalRoundWeightPrecision).div(this.minActiveBalance)
       }
     }
 
@@ -101,13 +101,13 @@ module.exports = (web3, artifacts) => {
 
     async getRoundLockBalance(disputeId, roundId, juror) {
       if (roundId < this.maxRegularAppealRounds) {
-        const lockPerDraft = this.jurorsMinActiveBalance.mul(this.penaltyPct).div(PCT_BASE)
+        const lockPerDraft = this.minActiveBalance.mul(this.penaltyPct).div(PCT_BASE)
         const { weight } = await this.getRoundJuror(disputeId, roundId, juror)
         return lockPerDraft.mul(weight)
       } else {
         const { draftTerm } = await this.getRound(disputeId, roundId)
         const draftActiveBalance = await this.jurorsRegistry.activeBalanceOfAt(juror, draftTerm)
-        if (draftActiveBalance.lt(this.jurorsMinActiveBalance)) return bn(0)
+        if (draftActiveBalance.lt(this.minActiveBalance)) return bn(0)
         return draftActiveBalance.mul(this.penaltyPct).div(PCT_BASE)
       }
     }
@@ -115,8 +115,8 @@ module.exports = (web3, artifacts) => {
     async getFinalRoundWeight(disputeId, roundId, juror) {
       const { draftTerm } = await this.getRound(disputeId, roundId)
       const draftActiveBalance = await this.jurorsRegistry.activeBalanceOfAt(juror, draftTerm)
-      if (draftActiveBalance.lt(this.jurorsMinActiveBalance)) return bn(0)
-      return draftActiveBalance.mul(this.finalRoundWeightPrecision).div(this.jurorsMinActiveBalance)
+      if (draftActiveBalance.lt(this.minActiveBalance)) return bn(0)
+      return draftActiveBalance.mul(this.finalRoundWeightPrecision).div(this.minActiveBalance)
     }
 
     async mintAndApproveFeeTokens(from, to, amount) {

@@ -9,26 +9,26 @@ contract ControllerMock is Controller, TimeHelpersMock {
     bytes32 internal mockedTermRandomness;
 
     constructor(
-        uint64 _termDuration,
-        uint64 _firstTermStartTime,
+        uint64[2] memory _termParams,
         address[3] memory _governors,
         ERC20 _feeToken,
         uint256[3] memory _fees,
         uint64[4] memory _roundStateDurations,
         uint16[2] memory _pcts,
-        uint64[3] memory _roundParams,
-        uint256[2] memory _appealCollateralParams
+        uint64[4] memory _roundParams,
+        uint256[2] memory _appealCollateralParams,
+        uint256 _minActiveBalance
     )
         Controller(
-            _termDuration,
-            _firstTermStartTime,
+            _termParams,
             _governors,
             _feeToken,
             _fees,
             _roundStateDurations,
             _pcts,
             _roundParams,
-            _appealCollateralParams
+            _appealCollateralParams,
+            _minActiveBalance
         )
         public
     {}

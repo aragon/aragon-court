@@ -36,6 +36,7 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
     string private constant ERROR_TOKEN_APPROVE_NOT_ALLOWED = "JR_TOKEN_APPROVE_NOT_ALLOWED";
     string private constant ERROR_BAD_TOTAL_ACTIVE_BALANCE_LIMIT = "JR_BAD_TOTAL_ACTIVE_BAL_LIMIT";
     string private constant ERROR_TOTAL_ACTIVE_BALANCE_EXCEEDED = "JR_TOTAL_ACTIVE_BALANCE_EXCEEDED";
+    string private constant ERROR_WITHDRAWALS_LOCK = "JR_WITHDRAWALS_LOCK";
 
     // Address that will be used to burn juror tokens
     address internal constant BURN_ACCOUNT = address(0x000000000000000000000000000000000000dEaD);
@@ -61,6 +62,7 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
         uint256 id;                                 // Key in the jurors tree used for drafting
         uint256 lockedBalance;                      // Maximum amount of tokens that can be slashed based on the juror's drafts
         uint256 availableBalance;                   // Available tokens that can be withdrawn at any time
+        uint64 withdrawalsLockTermId;               // coherent jurors with final ruling in a final round will be locked for some time to prevent 51% attacks
         DeactivationRequest deactivationRequest;    // Juror's pending deactivation request
     }
 
@@ -89,9 +91,6 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
         uint256 iteration;                          // Sortition iteration number
     }
 
-    // Minimum amount of tokens jurors have to activate to participate in the Court
-    uint256 internal minActiveBalance;
-
     // Maximum amount of total active balance that can be hold in the registry
     uint256 internal totalActiveBalanceLimit;
 
@@ -114,17 +113,15 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
     event JurorDeactivationUpdated(address indexed juror, uint64 availableTermId, uint256 amount, uint64 updateTermId);
     event JurorAvailableBalanceChanged(address indexed juror, uint256 amount, bool positive);
     event JurorTokensCollected(address indexed juror, uint256 amount, uint64 termId);
-    event MinActiveBalanceChanged(uint256 previousMinActiveBalance, uint256 currentMinActiveBalance);
     event TotalActiveBalanceLimitChanged(uint256 previousTotalActiveBalanceLimit, uint256 currentTotalActiveBalanceLimit);
 
     /**
     * @dev Constructor function
     * @param _controller Address of the controller
     * @param _jurorToken Address of the ERC20 token to be used as juror token for the registry
-    * @param _minActiveBalance Minimum amount of juror tokens that can be activated
     * @param _totalActiveBalanceLimit Maximum amount of total active balance that can be hold in the registry
     */
-    constructor(Controller _controller, ERC20 _jurorToken, uint256 _minActiveBalance, uint256 _totalActiveBalanceLimit)
+    constructor(Controller _controller, ERC20 _jurorToken, uint256 _totalActiveBalanceLimit)
         ControlledRecoverable(_controller)
         public
     {
@@ -132,7 +129,6 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
         require(isContract(address(_jurorToken)), ERROR_NOT_CONTRACT);
 
         jurorsToken = _jurorToken;
-        _setMinActiveBalance(_minActiveBalance);
         _setTotalActiveBalanceLimit(_totalActiveBalanceLimit);
 
         // First tree item is an empty juror
@@ -147,6 +143,7 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
     function activate(uint256 _amount) external {
         uint64 termId = _ensureCurrentTerm();
 
+        // Try to clean a previous deactivation request if any
         _processDeactivationRequest(msg.sender, termId);
 
         uint256 availableBalance = jurorsByAddress[msg.sender].availableBalance;
@@ -163,16 +160,18 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
     */
     function deactivate(uint256 _amount) external {
         uint64 termId = _ensureCurrentTerm();
-        uint256 unlockedActiveBalance = unlockedActiveBalanceOf(msg.sender);
+        Juror storage juror = jurorsByAddress[msg.sender];
+        uint256 unlockedActiveBalance = _lastUnlockedActiveBalanceOf(juror);
         uint256 amountToDeactivate = _amount == 0 ? unlockedActiveBalance : _amount;
         require(amountToDeactivate > 0, ERROR_INVALID_ZERO_AMOUNT);
         require(amountToDeactivate <= unlockedActiveBalance, ERROR_INVALID_DEACTIVATION_AMOUNT);
 
         // No need for SafeMath: we already checked values above
         uint256 futureActiveBalance = unlockedActiveBalance - amountToDeactivate;
-        require(futureActiveBalance == 0 || futureActiveBalance >= minActiveBalance, ERROR_INVALID_DEACTIVATION_AMOUNT);
+        Config memory config = _getConfigAt(termId);
+        require(futureActiveBalance == 0 || futureActiveBalance >= config.disputes.minActiveBalance, ERROR_INVALID_DEACTIVATION_AMOUNT);
 
-        _createDeactivationRequest(msg.sender, termId, amountToDeactivate);
+        _createDeactivationRequest(msg.sender, amountToDeactivate);
     }
 
     /**
@@ -293,7 +292,7 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
 
         uint64 nextTermId = _termId + 1;
         Juror storage juror = jurorsByAddress[_juror];
-        uint256 unlockedActiveBalance = _unlockedActiveBalanceOf(juror);
+        uint256 unlockedActiveBalance = _lastUnlockedActiveBalanceOf(juror);
         uint256 nextTermDeactivationRequestAmount = _deactivationRequestedAmountForTerm(juror, nextTermId);
 
         // Check if the juror has enough unlocked tokens to collect the requested amount
@@ -320,19 +319,22 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
     }
 
     /**
-    * @notice Set a new minimum active balance of juror tokens
-    * @param _minActiveBalance New minimum active balance of juror tokens
-    */
-    function setMinActiveBalance(uint256 _minActiveBalance) external onlyConfigGovernor {
-        _setMinActiveBalance(_minActiveBalance);
-    }
-
-    /**
     * @notice Set new limit of total active balance of juror tokens
     * @param _totalActiveBalanceLimit New limit of total active balance of juror tokens
     */
     function setTotalActiveBalanceLimit(uint256 _totalActiveBalanceLimit) external onlyConfigGovernor {
         _setTotalActiveBalanceLimit(_totalActiveBalanceLimit);
+    }
+
+    /**
+    * @notice Lock `_juror`'s withdrawals until term #`_termId`
+    * @dev This is intended for jurors who voted in a final round and were coherent with the final ruling, to prevent 51% attacks
+    * @param _juror Address of the juror to be locked
+    * @param _termId Term id which the juror will be locked until
+    */
+    function lockWithdrawals(address _juror, uint64 _termId) external onlyCourt {
+        Juror storage juror = jurorsByAddress[_juror];
+        juror.withdrawalsLockTermId = _termId;
     }
 
     /**
@@ -387,14 +389,6 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
     }
 
     /**
-    * @dev Tell the minimum amount of tokens jurors have to activate to participate in the Court
-    * @return Minimum amount of tokens jurors hav to activate to participate in the Court
-    */
-    function minJurorsActiveBalance() external view returns (uint256) {
-        return minActiveBalance;
-    }
-
-    /**
     * @dev Tell the maximum amount of total active balance that can be hold in the registry
     * @return Maximum amount of total active balance that can be hold in the registry
     */
@@ -412,41 +406,24 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
     }
 
     /**
-    * @dev Calculate the number of times that the total active balance contains the min active balance (multiplied by inputted precision).
-    *      Used to calculate the jurors number for final rounds at the current term.
-    * @param _termId Term querying that multiple
-    * @param _precision Multiplier to mitigate division rounding errors
-    * @return The number of times that the total active balance contains the min active balance.
-    *         Equals Jurors number for final rounds for the given term.
+    * @dev Tell the amount of active tokens of a juror at the last ensured term that are not locked due to ongoing disputes
+    * @param _juror Address of the juror querying the unlocked balance of
+    * @return Amount of active tokens of a juror that are not locked due to ongoing disputes
     */
-    function getTotalMinActiveBalanceMultiple(uint64 _termId, uint256 _precision) external view returns (uint256) {
-        return _precision.mul(_totalActiveBalanceAt(_termId)) / minActiveBalance;
+    function unlockedActiveBalanceOf(address _juror) external view returns (uint256) {
+        Juror storage juror = jurorsByAddress[_juror];
+        return _currentUnlockedActiveBalanceOf(juror);
     }
 
     /**
-    * @dev Calculate a juror's active balance and the number of times that it contains the min active balance (multiplied by precision).
-    *      Used to get the juror weight for the final round. Note that for the final round the weight of
-    *      each juror is equal to the number of times the min active balance the juror has, multiplied by a precision
-    *      factor to deal with division rounding.
-    * @param _juror Address of the juror to calculate the balance info
-    * @param _termId Term querying the balance info
-    * @param _precision Multiplier to mitigate division rounding errors
-    * @return Weight of the requested juror for the final round of the given dispute
+    * @notice Get pending deactivation details for a juror
+    * @param _juror Address of the juror whose info is requested
+    * @return amount Amount to be deactivated
+    * @return availableTermId Term in which the deactivated amount will be available
     */
-    function getActiveBalanceInfoOfAt(address _juror, uint64 _termId, uint256 _precision) external view
-        returns (uint256 activeBalance, uint256 minActiveBalanceMultiple)
-    {
-        activeBalance = _activeBalanceOfAt(_juror, _termId);
-
-        // Note that jurors may not reach the minimum active balance since some might have been slashed. If that occurs,
-        // these jurors cannot vote in the final round.
-        if (activeBalance < minActiveBalance) {
-            return (activeBalance, 0);
-        }
-
-        // Otherwise, return the times the active balance of the juror fits in the min active balance, multiplying
-        // it by a round factor to ensure a better precision rounding.
-        minActiveBalanceMultiple = _precision.mul(activeBalance) / minActiveBalance;
+    function getDeactivationRequest(address _juror) external view returns (uint256 amount, uint64 availableTermId) {
+        DeactivationRequest storage request = jurorsByAddress[_juror].deactivationRequest;
+        return (request.amount, request.availableTermId);
     }
 
     /**
@@ -508,16 +485,6 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
     }
 
     /**
-    * @dev Tell the amount of active tokens of a juror that are not locked due to ongoing disputes
-    * @param _juror Address of the juror querying the unlocked balance of
-    * @return Amount of active tokens of a juror that are not locked due to ongoing disputes
-    */
-    function unlockedActiveBalanceOf(address _juror) public view returns (uint256) {
-        Juror storage juror = jurorsByAddress[_juror];
-        return _unlockedActiveBalanceOf(juror);
-    }
-
-    /**
     * @dev Internal function to activate a given amount of tokens for a juror.
     *      This function assumes that the given term is the current term and has already been ensured.
     * @param _juror Address of the juror to activate tokens
@@ -529,14 +496,16 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
         _checkTotalActiveBalance(nextTermId, _amount);
         Juror storage juror = jurorsByAddress[_juror];
 
+        Config memory config = _getConfigAt(_termId);
+
         if (_existsJuror(juror)) {
             // Even though we are adding amounts, let's check the new active balance is greater than or equal to the
             // minimum active amount. Note that the juror might have been slashed.
             uint256 activeBalance = tree.getItem(juror.id);
-            require(activeBalance.add(_amount) >= minActiveBalance, ERROR_ACTIVE_BALANCE_BELOW_MIN);
+            require(activeBalance.add(_amount) >= config.disputes.minActiveBalance, ERROR_ACTIVE_BALANCE_BELOW_MIN);
             tree.update(juror.id, nextTermId, _amount, true);
         } else {
-            require(_amount >= minActiveBalance, ERROR_ACTIVE_BALANCE_BELOW_MIN);
+            require(_amount >= config.disputes.minActiveBalance, ERROR_ACTIVE_BALANCE_BELOW_MIN);
             juror.id = tree.insert(nextTermId, _amount);
             jurorsAddressById[juror.id] = _juror;
         }
@@ -547,17 +516,17 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
 
     /**
     * @dev Internal function to create a token deactivation request for a juror. Jurors will be allowed
-    *      to process a deactivation request from the next term. This function assumes that the given
-    *      term is the current term and has already been ensured.
+    *      to process a deactivation request from the next term.
     * @param _juror Address of the juror to create a token deactivation request for
-    * @param _termId Current term id
     * @param _amount Amount of juror tokens requested for deactivation
     */
-    function _createDeactivationRequest(address _juror, uint64 _termId, uint256 _amount) internal {
-        // Try to clean a previous deactivation request if possible
-        _processDeactivationRequest(_juror, _termId);
+    function _createDeactivationRequest(address _juror, uint256 _amount) internal {
+        uint64 termId = _ensureCurrentTerm();
 
-        uint64 nextTermId = _termId + 1;
+        // Try to clean a previous deactivation request if possible
+        _processDeactivationRequest(_juror, termId);
+
+        uint64 nextTermId = termId + 1;
         Juror storage juror = jurorsByAddress[_juror];
         DeactivationRequest storage request = juror.deactivationRequest;
         request.amount = request.amount.add(_amount);
@@ -639,7 +608,7 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
     * @dev Internal function to deposit an amount of available tokens for a juror
     * @param _from Address sending the amount of tokens to be deposited
     * @param _juror Address of the juror to deposit the tokens to
-    * @param _amount Amount of available tokens to be withdrawn
+    * @param _amount Amount of tokens to be deposited (and optionally activated)
     * @param _data Optional data that can be used to request the activation of the deposited tokens
     */
     function _deposit(address _from, address _juror, uint256 _amount, bytes memory _data) internal {
@@ -668,7 +637,14 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
         // the current term this time since deactivation requests always work with future terms, which means that if
         // the current term is outdated, it will never match the deactivation term id. We avoid ensuring the term here
         // to avoid forcing jurors to do that in order to withdraw their available balance.
-        _processDeactivationRequest(_juror, _getLastEnsuredTermId());
+        // Same applies to final round locks.
+        uint64 lastEnsuredTermId = _getLastEnsuredTermId();
+
+        // Check that juror's withdrawals are not locked (due to a final round)
+        uint64 withdrawalsLockTermId = jurorsByAddress[_juror].withdrawalsLockTermId;
+        require(withdrawalsLockTermId == 0 || withdrawalsLockTermId < lastEnsuredTermId, ERROR_WITHDRAWALS_LOCK);
+
+        _processDeactivationRequest(_juror, lastEnsuredTermId);
 
         _updateAvailableBalanceOf(_juror, _amount, false);
         require(jurorsToken.safeTransfer(_juror, _amount), ERROR_TOKEN_TRANSFER_FAILED);
@@ -731,7 +707,18 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
                 uint256 nextTermDeactivationRequestAmount = _deactivationRequestedAmountForTerm(juror, _params.termId + 1);
 
                 // Check if juror has enough active tokens to lock the requested amount for the draft, skip it otherwise.
-                if (activeBalances[i].sub(nextTermDeactivationRequestAmount) >= newLockedBalance) {
+                // TODO: stack too deep
+                //uint256 currentActiveBalance = activeBalances[i];
+                if (activeBalances[i] >= newLockedBalance) {
+                    // Check if the amount of active tokens for the next term is enough to lock the required amount for
+                    // the draft. Otherwise, reduce the requested deactivation amount of the next term.
+                    // Next term deactivation amount should always be less than current active balance, but we make sure using SafeMath
+                    uint256 nextTermActiveBalance = activeBalances[i].sub(nextTermDeactivationRequestAmount);
+                    if (nextTermActiveBalance < newLockedBalance) {
+                        _reduceDeactivationRequest(jurorAddress, newLockedBalance - nextTermActiveBalance, _params.termId);
+                    }
+
+                    // Update the current active locked balance of the juror
                     juror.lockedBalance = newLockedBalance;
                     _jurors[length++] = jurorAddress;
                     emit JurorDrafted(_params.disputeId, jurorAddress);
@@ -740,16 +727,6 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
         }
 
         return length;
-    }
-
-    /**
-    * @dev Internal function to set a new minimum active balance of juror tokens
-    * @param _minActiveBalance New minimum active balance of juror tokens
-    */
-    function _setMinActiveBalance(uint256 _minActiveBalance) internal {
-        // Non min active balance is allowed
-        emit MinActiveBalanceChanged(minActiveBalance, _minActiveBalance);
-        minActiveBalance = _minActiveBalance;
     }
 
     /**
@@ -775,11 +752,22 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
 
     /**
     * @dev Internal function to get the amount of active tokens of a juror that are not locked due to ongoing disputes
+    *      It will use the last value, that might be in a future term
     * @param _juror Juror querying the unlocked active balance of
     * @return Amount of active tokens of a juror that are not locked due to ongoing disputes
     */
-    function _unlockedActiveBalanceOf(Juror storage _juror) internal view returns (uint256) {
+    function _lastUnlockedActiveBalanceOf(Juror storage _juror) internal view returns (uint256) {
         return _existsJuror(_juror) ? tree.getItem(_juror.id).sub(_juror.lockedBalance) : 0;
+    }
+
+    /**
+    * @dev Internal function to get the amount of active tokens at the last ensured term of a juror that are not locked due to ongoing disputes
+    * @param _juror Juror querying the unlocked active balance of
+    * @return Amount of active tokens of a juror that are not locked due to ongoing disputes
+    */
+    function _currentUnlockedActiveBalanceOf(Juror storage _juror) internal view returns (uint256) {
+        uint64 lastEnsuredTermId = _getLastEnsuredTermId();
+        return _existsJuror(_juror) ? tree.getItemAt(_juror.id, lastEnsuredTermId).sub(_juror.lockedBalance) : 0;
     }
 
     /**
@@ -871,14 +859,17 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
     * @return Draft params object parsed
     */
     function _buildDraftParams(uint256[7] memory _params) private view returns (DraftParams memory) {
+        uint64 termId = uint64(_params[2]);
+        Config memory config = _getConfigAt(termId);
+
         return DraftParams({
             termRandomness: bytes32(_params[0]),
             disputeId: _params[1],
-            termId: uint64(_params[2]),
+            termId: termId,
             selectedJurors: _params[3],
             batchRequestedJurors: _params[4],
             roundRequestedJurors: _params[5],
-            draftLockAmount: minActiveBalance.pct(uint16(_params[6])),
+            draftLockAmount: config.disputes.minActiveBalance.pct(uint16(_params[6])),
             iteration: 0
         });
     }

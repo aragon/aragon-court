@@ -13,55 +13,11 @@ contract('JurorsRegistry', ([_, governor, someone]) => {
   const TOTAL_ACTIVE_BALANCE_LIMIT = bigExp(100e6, 18)
 
   beforeEach('create base contracts', async () => {
-    controller = await buildHelper().deploy({ configGovernor: governor })
+    controller = await buildHelper().deploy({ configGovernor: governor, minActiveBalance: MIN_ACTIVE_BALANCE })
     ANJ = await ERC20.new('ANJ Token', 'ANJ', 18)
 
-    registry = await JurorsRegistry.new(controller.address, ANJ.address, MIN_ACTIVE_BALANCE, TOTAL_ACTIVE_BALANCE_LIMIT)
+    registry = await JurorsRegistry.new(controller.address, ANJ.address, TOTAL_ACTIVE_BALANCE_LIMIT)
     await controller.setJurorsRegistry(registry.address)
-  })
-
-  describe('setMinActiveBalance', () => {
-    context('when the sender is the governor', () => {
-      const from = governor
-
-      const itUpdatesTheMinActiveBalance = newMinActiveBalance => {
-        it('updates the current total active balance limit', async () => {
-          await registry.setMinActiveBalance(newMinActiveBalance, { from })
-
-          const currentMinActiveBalance = await registry.minJurorsActiveBalance()
-          assert.equal(currentMinActiveBalance.toString(), newMinActiveBalance.toString(), 'min active balance does not match')
-        })
-
-        it('emits an event', async () => {
-          const previousMinActiveBalance = await registry.minJurorsActiveBalance()
-
-          const receipt = await registry.setMinActiveBalance(newMinActiveBalance, { from })
-
-          assertAmountOfEvents(receipt, 'MinActiveBalanceChanged')
-          assertEvent(receipt, 'MinActiveBalanceChanged', { previousMinActiveBalance, currentMinActiveBalance: newMinActiveBalance })
-        })
-      }
-
-      context('when the given value is greater than zero', async () => {
-        const newMinActiveBalance = bn(500)
-
-        itUpdatesTheMinActiveBalance(newMinActiveBalance)
-      })
-
-      context('when the given value is zero', async () => {
-        const newMinActiveBalance = bn(0)
-
-        itUpdatesTheMinActiveBalance(newMinActiveBalance)
-      })
-    })
-
-    context('when the sender is not the governor', () => {
-      const from = someone
-
-      it('reverts', async () => {
-        await assertRevert(registry.setMinActiveBalance(MIN_ACTIVE_BALANCE, { from }), 'CTD_SENDER_NOT_CONFIG_GOVERNOR')
-      })
-    })
   })
 
   describe('setTotalActiveBalanceLimit', () => {

@@ -11,7 +11,6 @@ const ERC20 = artifacts.require('ERC20Mock')
 contract('JurorsRegistry', ([_, juror, someone]) => {
   let controller, registry, court, ANJ
 
-  const MIN_ACTIVE_AMOUNT = bigExp(100, 18)
   const TOTAL_ACTIVE_BALANCE_LIMIT = bigExp(100e6, 18)
   const BURN_ADDRESS = '0x000000000000000000000000000000000000dead'
 
@@ -19,7 +18,7 @@ contract('JurorsRegistry', ([_, juror, someone]) => {
     controller = await buildHelper().deploy()
     ANJ = await ERC20.new('ANJ Token', 'ANJ', 18)
 
-    registry = await JurorsRegistry.new(controller.address, ANJ.address, MIN_ACTIVE_AMOUNT, TOTAL_ACTIVE_BALANCE_LIMIT)
+    registry = await JurorsRegistry.new(controller.address, ANJ.address, TOTAL_ACTIVE_BALANCE_LIMIT)
     await controller.setJurorsRegistry(registry.address)
 
     court = await Court.new(controller.address)
@@ -33,6 +32,7 @@ contract('JurorsRegistry', ([_, juror, someone]) => {
 
       await assignmentCall()
 
+      await controller.mockIncreaseTerm()
       const currentUnlockedActiveBalance = await registry.unlockedActiveBalanceOf(recipient)
       assert.equal(previousUnlockedActiveBalance.toString(), currentUnlockedActiveBalance.toString(), 'unlocked balances do not match')
 
@@ -96,6 +96,7 @@ contract('JurorsRegistry', ([_, juror, someone]) => {
 
       await assignmentCall()
 
+      await controller.mockIncreaseTerm()
       const currentUnlockedActiveBalance = await registry.unlockedActiveBalanceOf(recipient)
       assert.equal(previousUnlockedActiveBalance.toString(), currentUnlockedActiveBalance.toString(), 'unlocked balances do not match')
     })

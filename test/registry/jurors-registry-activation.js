@@ -14,10 +14,10 @@ contract('JurorsRegistry', ([_, juror]) => {
   const TOTAL_ACTIVE_BALANCE_LIMIT = bigExp(100e6, 18)
 
   beforeEach('create base contracts', async () => {
-    controller = await buildHelper().deploy()
+    controller = await buildHelper().deploy({ minActiveBalance: MIN_ACTIVE_AMOUNT })
     ANJ = await ERC20.new('ANJ Token', 'ANJ', 18)
 
-    registry = await JurorsRegistry.new(controller.address, ANJ.address, MIN_ACTIVE_AMOUNT, TOTAL_ACTIVE_BALANCE_LIMIT)
+    registry = await JurorsRegistry.new(controller.address, ANJ.address, TOTAL_ACTIVE_BALANCE_LIMIT)
     await controller.setJurorsRegistry(registry.address)
 
     court = await Court.new(controller.address)
@@ -90,6 +90,7 @@ contract('JurorsRegistry', ([_, juror]) => {
 
           await registry.activate(requestedAmount, { from })
 
+          await controller.mockIncreaseTerm()
           const currentUnlockedActiveBalance = await registry.unlockedActiveBalanceOf(juror)
           assert.equal(previousUnlockedActiveBalance.add(expectedAmount).toString(), currentUnlockedActiveBalance.toString(), 'unlocked balances do not match')
         })
@@ -214,13 +215,18 @@ contract('JurorsRegistry', ([_, juror]) => {
             const amount = bn(0)
             const expectedAmount = maxPossibleBalance.sub(activeBalance)
 
-            context('when the juror was not slash and reaches the minimum active amount of tokens', () => {
+            context('when the juror was not slashed and reaches the minimum active amount of tokens', () => {
+              beforeEach('increase term', async () => {
+                await controller.mockIncreaseTerm()
+              })
+
               itHandlesActivationProperlyFor(amount, expectedAmount)
             })
 
             context('when the juror was slashed and reaches the minimum active amount of tokens', () => {
               beforeEach('slash juror', async () => {
                 await court.collect(juror, bigExp(1, 18))
+                await controller.mockIncreaseTerm()
               })
 
               itHandlesActivationProperlyFor(amount, expectedAmount)
@@ -239,15 +245,20 @@ contract('JurorsRegistry', ([_, juror]) => {
           })
 
           context('when the given amount is greater than zero', () => {
-            const amount = bigExp(1, 18)
+            const amount = bigExp(2, 18)
 
-            context('when the juror was not slash and reaches the minimum active amount of tokens', () => {
+            context('when the juror was not slashed and reaches the minimum active amount of tokens', () => {
+              beforeEach('increase term', async () => {
+                await controller.mockIncreaseTerm()
+              })
+
               itHandlesActivationProperlyFor(amount)
             })
 
             context('when the juror was slashed and reaches the minimum active amount of tokens', () => {
               beforeEach('slash juror', async () => {
                 await court.collect(juror, amount)
+                await controller.mockIncreaseTerm()
               })
 
               itHandlesActivationProperlyFor(amount)
@@ -458,10 +469,12 @@ contract('JurorsRegistry', ([_, juror]) => {
           })
 
           it('decreases the unlocked balance of the juror', async () => {
+            await controller.mockIncreaseTerm()
             const previousUnlockedActiveBalance = await registry.unlockedActiveBalanceOf(juror)
 
             await registry.deactivate(requestedAmount, { from })
 
+            await controller.mockIncreaseTerm()
             const currentUnlockedActiveBalance = await registry.unlockedActiveBalanceOf(juror)
             assert.equal(previousUnlockedActiveBalance.sub(expectedAmount).toString(), currentUnlockedActiveBalance.toString(), 'unlocked balances do not match')
           })

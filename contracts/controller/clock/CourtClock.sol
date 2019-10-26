@@ -52,10 +52,14 @@ contract CourtClock is IClock, TimeHelpers {
 
     /**
     * @dev Constructor function
-    * @param _termDuration Duration in seconds per term
-    * @param _firstTermStartTime Timestamp in seconds when the court will open (to give time for juror on-boarding)
+    * @param _termParams Array containing:
+    *        0. _termDuration Duration in seconds per term
+    *        1. _firstTermStartTime Timestamp in seconds when the court will open (to give time for juror on-boarding)
     */
-    constructor(uint64 _termDuration, uint64 _firstTermStartTime) public {
+    constructor(uint64[2] memory _termParams) public {
+        uint64 _termDuration = _termParams[0];
+        uint64 _firstTermStartTime = _termParams[1];
+
         require(_termDuration < MAX_TERM_DURATION, ERROR_TERM_DURATION_TOO_LONG);
         require(_firstTermStartTime >= getTimestamp64() + _termDuration, ERROR_BAD_FIRST_TERM_START_TIME);
         require(_firstTermStartTime <= getTimestamp64() + MAX_FIRST_TERM_DELAY_PERIOD, ERROR_BAD_FIRST_TERM_START_TIME);

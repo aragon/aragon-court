@@ -55,11 +55,7 @@ interface IJurorsRegistry {
     */
     function collectTokens(address _juror, uint256 _amount, uint64 _termId) external returns (bool);
 
-    /**
-    * @dev Tell the minimum amount of tokens jurors have to activate to participate in the Court
-    * @return Minimum amount of tokens jurors hav to activate to participate in the Court
-    */
-    function minJurorsActiveBalance() external view returns (uint256);
+    function lockWithdrawals(address _juror, uint64 _termId) external;
 
     /**
     * @dev Tell the active balance of a juror for a given term id
@@ -75,22 +71,4 @@ interface IJurorsRegistry {
     * @return Total amount of active juror tokens at the given term id
     */
     function totalActiveBalanceAt(uint64 _termId) external view returns (uint256);
-
-    /**
-    * @dev Calculate the number of times that the total active balance contains the min active balance (multiplied by inputted precision)
-    * @param _termId Term querying that multiple
-    * @param _precision Multiplier to mitigate division rounding errors
-    * @return The number of times that the total active balance contains the min active balance
-    */
-    function getTotalMinActiveBalanceMultiple(uint64 _termId, uint256 _precision) external view returns (uint256);
-
-    /**
-    * @dev Calculate a juror's active balance and the number of times that it contains the min active balance (multiplied by precision)
-    * @param _juror Address of the juror to calculate the balance info
-    * @param _termId Term querying the balance info
-    * @param _precision Multiplier to mitigate division rounding errors
-    * @return Weight of the requested juror for the final round of the given dispute
-    */
-    function getActiveBalanceInfoOfAt(address _juror, uint64 _termId, uint256 _precision) external view
-        returns (uint256 activeBalance, uint256 shares);
 }

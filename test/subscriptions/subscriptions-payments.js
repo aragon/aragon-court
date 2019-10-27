@@ -148,120 +148,21 @@ contract('CourtSubscriptions', ([_, governor, payer, subscriber, anotherSubscrib
               await subscriptions.payFees(subscriber, 1, { from })
             })
 
-            context('when the subscriber has paid some periods in advance', () => {
-              const prePaidPeriods = 3
-              const previousPaidPeriods = 1 + prePaidPeriods
-              const expectedMovedPeriods = periods + prePaidPeriods
-              const expectedRegularPeriods = periods
-              const expectedDelayedPeriods = 0
+            context('when the subscriber was not paused', () => {
+              context('when the subscriber has paid some periods in advance', () => {
+                const prePaidPeriods = 3
+                const previousPaidPeriods = 1 + prePaidPeriods
+                const expectedMovedPeriods = periods + prePaidPeriods
+                const expectedRegularPeriods = periods
+                const expectedDelayedPeriods = 0
 
-              beforeEach('subscribe', async () => {
-                await subscriptions.payFees(subscriber, prePaidPeriods, { from })
-              })
-
-              context('when the number of pre-payment periods is not reached', () => {
-                beforeEach('set number of pre-payment periods', async () => {
-                  await subscriptions.setPrePaymentPeriods(periods + previousPaidPeriods + 1, { from: governor })
-                })
-
-                itHandleSubscriptionsSuccessfully(expectedMovedPeriods, expectedRegularPeriods, expectedDelayedPeriods)
-              })
-
-              context('when the number of pre-payment periods is reached', () => {
-                beforeEach('set number of pre-payment periods', async () => {
-                  await subscriptions.setPrePaymentPeriods(periods + previousPaidPeriods, { from: governor })
-                })
-
-                itHandleSubscriptionsSuccessfully(expectedMovedPeriods, expectedRegularPeriods, expectedDelayedPeriods)
-              })
-
-              context('when the number of pre-payment periods is exceeded', () => {
-                beforeEach('set number of pre-payment periods', async () => {
-                  await subscriptions.setPrePaymentPeriods(periods + previousPaidPeriods - 1, { from: governor })
-                })
-
-                it('reverts', async () => {
-                  await assertRevert(subscriptions.payFees(subscriber, periods, { from }), 'CS_PAYING_TOO_MANY_PERIODS')
-                })
-              })
-            })
-
-            context('when the subscriber is up-to-date and has not pre-paid any periods', () => {
-              const previousPaidPeriods = 1
-              const expectedMovedPeriods = periods
-              const expectedRegularPeriods = periods
-              const expectedDelayedPeriods = 0
-
-              context('when the number of pre-payment periods is not reached', () => {
-                beforeEach('set number of pre-payment periods', async () => {
-                  await subscriptions.setPrePaymentPeriods(periods + previousPaidPeriods + 1, { from: governor })
-                })
-
-                itHandleSubscriptionsSuccessfully(expectedMovedPeriods, expectedRegularPeriods, expectedDelayedPeriods)
-              })
-
-              context('when the number of pre-payment periods is reached', () => {
-                beforeEach('set number of pre-payment periods', async () => {
-                  await subscriptions.setPrePaymentPeriods(periods + previousPaidPeriods, { from: governor })
-                })
-
-                itHandleSubscriptionsSuccessfully(expectedMovedPeriods, expectedRegularPeriods, expectedDelayedPeriods)
-              })
-
-              context('when the number of pre-payment periods is exceeded', () => {
-                beforeEach('set number of pre-payment periods', async () => {
-                  await subscriptions.setPrePaymentPeriods(periods + previousPaidPeriods - 1, { from: governor })
-                })
-
-                it('reverts', async () => {
-                  await assertRevert(subscriptions.payFees(subscriber, periods, { from }), 'CS_PAYING_TOO_MANY_PERIODS')
-                })
-              })
-            })
-
-            context('when the subscriber has some overdue periods', () => {
-              context('when the given number of periods is lower than the number of overdue periods', () => {
-                const overduePeriods = periods + 2
-
-                const expectedMovedPeriods = -2
-                const expectedRegularPeriods = 0
-                const expectedDelayedPeriods = periods
-
-                beforeEach('advance periods', async () => {
-                  await controller.mockIncreaseTerms(PERIOD_DURATION * overduePeriods)
-                })
-
-                itHandleSubscriptionsSuccessfully(expectedMovedPeriods, expectedRegularPeriods, expectedDelayedPeriods)
-              })
-
-              context('when the given number of periods is equal to the number of overdue periods', () => {
-                const overduePeriods = periods
-
-                const expectedMovedPeriods = 0
-                const expectedRegularPeriods = 1 // the current term is not considered delayed if it is not paid yet
-                const expectedDelayedPeriods = periods - 1
-
-                beforeEach('advance periods', async () => {
-                  await controller.mockIncreaseTerms(PERIOD_DURATION * overduePeriods)
-                })
-
-                itHandleSubscriptionsSuccessfully(expectedMovedPeriods, expectedRegularPeriods, expectedDelayedPeriods)
-              })
-
-              context('when the given number of periods is greater than the number of overdue periods', () => {
-                const overduePeriods = periods - 2
-
-                const expectedMovedPeriods = 2
-                const expectedRegularPeriods = 3 // the current term is not considered delayed if it is not paid yet
-                const expectedDelayedPeriods = periods - 3
-
-                beforeEach('advance periods', async () => {
-                  await controller.mockIncreaseTerms(PERIOD_DURATION * overduePeriods)
+                beforeEach('subscribe', async () => {
+                  await subscriptions.payFees(subscriber, prePaidPeriods, { from })
                 })
 
                 context('when the number of pre-payment periods is not reached', () => {
                   beforeEach('set number of pre-payment periods', async () => {
-                    await subscriptions.setPrePaymentPeriods(periods - overduePeriods + 2, { from: governor })
+                    await subscriptions.setPrePaymentPeriods(periods + previousPaidPeriods + 1, { from: governor })
                   })
 
                   itHandleSubscriptionsSuccessfully(expectedMovedPeriods, expectedRegularPeriods, expectedDelayedPeriods)
@@ -269,7 +170,7 @@ contract('CourtSubscriptions', ([_, governor, payer, subscriber, anotherSubscrib
 
                 context('when the number of pre-payment periods is reached', () => {
                   beforeEach('set number of pre-payment periods', async () => {
-                    await subscriptions.setPrePaymentPeriods(periods - overduePeriods + 1, { from: governor })
+                    await subscriptions.setPrePaymentPeriods(periods + previousPaidPeriods, { from: governor })
                   })
 
                   itHandleSubscriptionsSuccessfully(expectedMovedPeriods, expectedRegularPeriods, expectedDelayedPeriods)
@@ -277,13 +178,124 @@ contract('CourtSubscriptions', ([_, governor, payer, subscriber, anotherSubscrib
 
                 context('when the number of pre-payment periods is exceeded', () => {
                   beforeEach('set number of pre-payment periods', async () => {
-                    await subscriptions.setPrePaymentPeriods(periods - overduePeriods, { from: governor })
+                    await subscriptions.setPrePaymentPeriods(periods + previousPaidPeriods - 1, { from: governor })
                   })
 
                   it('reverts', async () => {
                     await assertRevert(subscriptions.payFees(subscriber, periods, { from }), 'CS_PAYING_TOO_MANY_PERIODS')
                   })
                 })
+              })
+
+              context('when the subscriber is up-to-date and has not pre-paid any periods', () => {
+                const previousPaidPeriods = 1
+                const expectedMovedPeriods = periods
+                const expectedRegularPeriods = periods
+                const expectedDelayedPeriods = 0
+
+                context('when the number of pre-payment periods is not reached', () => {
+                  beforeEach('set number of pre-payment periods', async () => {
+                    await subscriptions.setPrePaymentPeriods(periods + previousPaidPeriods + 1, { from: governor })
+                  })
+
+                  itHandleSubscriptionsSuccessfully(expectedMovedPeriods, expectedRegularPeriods, expectedDelayedPeriods)
+                })
+
+                context('when the number of pre-payment periods is reached', () => {
+                  beforeEach('set number of pre-payment periods', async () => {
+                    await subscriptions.setPrePaymentPeriods(periods + previousPaidPeriods, { from: governor })
+                  })
+
+                  itHandleSubscriptionsSuccessfully(expectedMovedPeriods, expectedRegularPeriods, expectedDelayedPeriods)
+                })
+
+                context('when the number of pre-payment periods is exceeded', () => {
+                  beforeEach('set number of pre-payment periods', async () => {
+                    await subscriptions.setPrePaymentPeriods(periods + previousPaidPeriods - 1, { from: governor })
+                  })
+
+                  it('reverts', async () => {
+                    await assertRevert(subscriptions.payFees(subscriber, periods, { from }), 'CS_PAYING_TOO_MANY_PERIODS')
+                  })
+                })
+              })
+
+              context('when the subscriber has some overdue periods', () => {
+                context('when the given number of periods is lower than the number of overdue periods', () => {
+                  const overduePeriods = periods + 2
+
+                  const expectedMovedPeriods = -2
+                  const expectedRegularPeriods = 0
+                  const expectedDelayedPeriods = periods
+
+                  beforeEach('advance periods', async () => {
+                    await controller.mockIncreaseTerms(PERIOD_DURATION * overduePeriods)
+                  })
+
+                  itHandleSubscriptionsSuccessfully(expectedMovedPeriods, expectedRegularPeriods, expectedDelayedPeriods)
+                })
+
+                context('when the given number of periods is equal to the number of overdue periods', () => {
+                  const overduePeriods = periods
+
+                  const expectedMovedPeriods = 0
+                  const expectedRegularPeriods = 1 // the current term is not considered delayed if it is not paid yet
+                  const expectedDelayedPeriods = periods - 1
+
+                  beforeEach('advance periods', async () => {
+                    await controller.mockIncreaseTerms(PERIOD_DURATION * overduePeriods)
+                  })
+
+                  itHandleSubscriptionsSuccessfully(expectedMovedPeriods, expectedRegularPeriods, expectedDelayedPeriods)
+                })
+
+                context('when the given number of periods is greater than the number of overdue periods', () => {
+                  const overduePeriods = periods - 2
+
+                  const expectedMovedPeriods = 2
+                  const expectedRegularPeriods = 3 // the current term is not considered delayed if it is not paid yet
+                  const expectedDelayedPeriods = periods - 3
+
+                  beforeEach('advance periods', async () => {
+                    await controller.mockIncreaseTerms(PERIOD_DURATION * overduePeriods)
+                  })
+
+                  context('when the number of pre-payment periods is not reached', () => {
+                    beforeEach('set number of pre-payment periods', async () => {
+                      await subscriptions.setPrePaymentPeriods(periods - overduePeriods + 2, { from: governor })
+                    })
+
+                    itHandleSubscriptionsSuccessfully(expectedMovedPeriods, expectedRegularPeriods, expectedDelayedPeriods)
+                  })
+
+                  context('when the number of pre-payment periods is reached', () => {
+                    beforeEach('set number of pre-payment periods', async () => {
+                      await subscriptions.setPrePaymentPeriods(periods - overduePeriods + 1, { from: governor })
+                    })
+
+                    itHandleSubscriptionsSuccessfully(expectedMovedPeriods, expectedRegularPeriods, expectedDelayedPeriods)
+                  })
+
+                  context('when the number of pre-payment periods is exceeded', () => {
+                    beforeEach('set number of pre-payment periods', async () => {
+                      await subscriptions.setPrePaymentPeriods(periods - overduePeriods, { from: governor })
+                    })
+
+                    it('reverts', async () => {
+                      await assertRevert(subscriptions.payFees(subscriber, periods, { from }), 'CS_PAYING_TOO_MANY_PERIODS')
+                    })
+                  })
+                })
+              })
+            })
+
+            context('when the subscriber was paused', () => {
+              beforeEach('pause', async () => {
+                await subscriptions.pause({ from: subscriber })
+              })
+
+              it('reverts', async () => {
+                await assertRevert(subscriptions.payFees(subscriber, periods, { from }), 'CS_SUBSCRIPTION_PAUSED')
               })
             })
           })

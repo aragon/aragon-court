@@ -2,12 +2,12 @@ const { buildHelper } = require('../helpers/controller')(web3, artifacts)
 const { SALT, OUTCOMES, encryptVote } = require('../helpers/crvoting')
 
 const CRVoting = artifacts.require('CRVoting')
-const CRVotingOwner = artifacts.require('CRVotingOwnerMock')
+const Court = artifacts.require('CourtMockForVoting')
 
 const POSSIBLE_OUTCOMES = 2
 
 contract('CRVoting', ([_, voterWeighted1, voterWeighted2, voterWeighted3, voterWeighted10, voterWeighted12, voterWeighted13, someone]) => {
-  let controller, voting, votingOwner, voteId = 0
+  let controller, voting, court, voteId = 0
 
   beforeEach('create voting', async () => {
     controller = await buildHelper().deploy()
@@ -15,15 +15,15 @@ contract('CRVoting', ([_, voterWeighted1, voterWeighted2, voterWeighted3, voterW
     voting = await CRVoting.new(controller.address)
     await controller.setVoting(voting.address)
 
-    votingOwner = await CRVotingOwner.new(voting.address)
-    await controller.setCourt(votingOwner.address)
-    await votingOwner.create(voteId, POSSIBLE_OUTCOMES)
+    court = await Court.new(controller.address)
+    await controller.setCourt(court.address)
+    await court.create(voteId, POSSIBLE_OUTCOMES)
   })
 
   const submitVotes = async votes => {
     for (const voter in votes) {
       const { weight, outcome, reveal, leak } = votes[voter]
-      await votingOwner.mockVoterWeight(voter, weight)
+      await court.mockVoterWeight(voter, weight)
       if (outcome) await voting.commit(voteId, encryptVote(outcome), { from: voter })
       if (reveal) await voting.reveal(voteId, outcome, SALT, { from: voter })
       if (leak) await voting.leak(voteId, voter, outcome, SALT, { from: someone })

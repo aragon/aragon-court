@@ -21,7 +21,7 @@ library PctHelpers {
     }
 
     function pctIncrease(uint256 self, uint16 _pct) internal pure returns (uint256) {
-        // No need for SafeMath: (for addition) as long as PCT_BASE < 2^256 - 2^16
+        // No need for SafeMath: for addition note that `PCT_BASE` is lower than (2^256 - 2^16)
         return self.mul(PCT_BASE + uint256(_pct)) / PCT_BASE;
     }
 }

@@ -116,7 +116,7 @@ contract('Court', ([_, disputer, drafter, juror100, juror500, juror1000, juror15
         context('when the sender was not drafted', () => {
           it('reverts', async () => {
             for (const { address } of nonDraftedJurors) {
-              await assertRevert(voting.commit(voteId, vote, { from: address }), 'CRV_COMMIT_DENIED_BY_OWNER')
+              await assertRevert(voting.commit(voteId, vote, { from: address }), 'CT_VOTER_WEIGHT_ZERO')
             }
           })
         })
@@ -297,7 +297,7 @@ contract('Court', ([_, disputer, drafter, juror100, juror500, juror1000, juror15
 
         context('when the sender does not have enough active balance', () => {
           it('reverts', async () => {
-            await assertRevert(voting.commit(voteId, encryptVote(OUTCOMES.LOW), { from: poorJuror }), 'CRV_COMMIT_DENIED_BY_OWNER')
+            await assertRevert(voting.commit(voteId, encryptVote(OUTCOMES.LOW), { from: poorJuror }), 'CT_VOTER_WEIGHT_ZERO')
           })
         })
       })

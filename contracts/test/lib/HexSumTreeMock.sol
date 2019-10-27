@@ -24,43 +24,43 @@ contract HexSumTreeMock {
         tree.update(_key, _time, _delta, _positive);
     }
 
-    function nextKey() public view returns (uint256) {
+    function nextKey() external view returns (uint256) {
         return tree.nextKey;
     }
 
-    function total() public view returns (uint256) {
+    function total() external view returns (uint256) {
         return tree.getTotal();
     }
 
-    function totalAt(uint64 _time) public view returns (uint256) {
+    function totalAt(uint64 _time) external view returns (uint256) {
         return tree.getTotalAt(_time);
     }
 
-    function node(uint256 _level, uint256 _key) public view returns (uint256) {
+    function node(uint256 _level, uint256 _key) external view returns (uint256) {
         return tree.getNode(_level, _key);
     }
 
-    function nodeAt(uint256 _level, uint256 _key, uint64 _time) public view returns (uint256) {
+    function nodeAt(uint256 _level, uint256 _key, uint64 _time) external view returns (uint256) {
         return tree.getNodeAt(_level, _key, _time);
     }
 
-    function item(uint256 _key) public view returns (uint256) {
+    function item(uint256 _key) external view returns (uint256) {
         return tree.getItem(_key);
     }
 
-    function itemAt(uint256 _key, uint64 _time) public view returns (uint256) {
+    function itemAt(uint256 _key, uint64 _time) external view returns (uint256) {
         return tree.getItemAt(_key, _time);
     }
 
-    function height() public view returns (uint256) {
+    function height() external view returns (uint256) {
         return tree.getHeight();
     }
 
-    function heightAt(uint64 _time) public view returns (uint256) {
+    function heightAt(uint64 _time) external view returns (uint256) {
         return tree.getRecentHeightAt(_time);
     }
 
-    function search(uint256[] memory _values, uint64 _time) public view returns (uint256[] memory keys, uint256[] memory values) {
+    function search(uint256[] calldata _values, uint64 _time) external view returns (uint256[] memory keys, uint256[] memory values) {
         return tree.search(_values, _time);
     }
 }

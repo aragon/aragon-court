@@ -92,11 +92,11 @@ library Checkpointing {
         uint256 length = self.history.length;
         if (length == 0 || self.history[self.history.length - 1].time < _time) {
             // If there was no value registered or the given point in time is after the latest registered value,
-            // we can insert it to the history directly
+            // we can insert it to the history directly.
             self.history.push(Checkpoint(_time, _value));
         } else {
             // If the point in time given for the new value is not after the latest registered value, we must ensure
-            // we are only trying to update the latest value, otherwise we would be changing past data
+            // we are only trying to update the latest value, otherwise we would be changing past data.
             Checkpoint storage currentCheckpoint = self.history[length - 1];
             require(_time == currentCheckpoint.time, ERROR_CANNOT_ADD_PAST_VALUE);
             currentCheckpoint.value = _value;

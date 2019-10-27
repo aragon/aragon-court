@@ -5,10 +5,10 @@ const { OUTCOMES, encryptVote } = require('../helpers/crvoting')
 const { assertEvent, assertAmountOfEvents } = require('../helpers/assertEvent')
 
 const CRVoting = artifacts.require('CRVoting')
-const CRVotingOwner = artifacts.require('CRVotingOwnerMock')
+const Court = artifacts.require('CourtMockForVoting')
 
 contract('CRVoting commit', ([_, voter]) => {
-  let controller, voting, votingOwner
+  let controller, voting, court
 
   const POSSIBLE_OUTCOMES = 2
 
@@ -18,8 +18,8 @@ contract('CRVoting commit', ([_, voter]) => {
     voting = await CRVoting.new(controller.address)
     await controller.setVoting(voting.address)
 
-    votingOwner = await CRVotingOwner.new(voting.address)
-    await controller.setCourt(votingOwner.address)
+    court = await Court.new(controller.address)
+    await controller.setCourt(court.address)
   })
 
   describe('commit', () => {
@@ -27,7 +27,7 @@ contract('CRVoting commit', ([_, voter]) => {
       const voteId = 0
 
       beforeEach('create voting', async () => {
-        await votingOwner.create(voteId, POSSIBLE_OUTCOMES)
+        await court.create(voteId, POSSIBLE_OUTCOMES)
       })
 
       context('when the voter has not voted before', () => {
@@ -36,7 +36,7 @@ contract('CRVoting commit', ([_, voter]) => {
             const weight = 10
 
             beforeEach('mock voter weight', async () => {
-              await votingOwner.mockVoterWeight(voter, weight)
+              await court.mockVoterWeight(voter, weight)
             })
 
             const itHandlesCommittedVotesFor = outcome => {
@@ -111,18 +111,18 @@ contract('CRVoting commit', ([_, voter]) => {
             const weight = 0
 
             beforeEach('mock voter weight', async () => {
-              await votingOwner.mockVoterWeight(voter, weight)
+              await court.mockVoterWeight(voter, weight)
             })
 
             it('reverts', async () => {
-              await assertRevert(voting.commit(voteId, '0x', { from: voter }), 'CRV_COMMIT_DENIED_BY_OWNER')
+              await assertRevert(voting.commit(voteId, '0x', { from: voter }), 'CT_VOTER_WEIGHT_ZERO')
             })
           })
         })
 
         context('when the owner reverts when checking the weight of the voter', () => {
           beforeEach('mock the owner to revert', async () => {
-            await votingOwner.mockChecksFailing(true)
+            await court.mockChecksFailing(true)
           })
 
           it('reverts', async () => {
@@ -136,7 +136,7 @@ contract('CRVoting commit', ([_, voter]) => {
 
         beforeEach('mock voter weight and commit', async () => {
           const weight = 10
-          await votingOwner.mockVoterWeight(voter, weight)
+          await court.mockVoterWeight(voter, weight)
           await voting.commit(voteId, commitment, { from: voter })
         })
 

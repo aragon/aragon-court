@@ -71,15 +71,6 @@ contract CourtClock is IClock, TimeHelpers {
     }
 
     /**
-    * @notice Transition up to `_maxRequestedTransitions` terms
-    * @param _maxRequestedTransitions Max number of term transitions allowed by the sender
-    * @return currentTermId Identification number of the term id after executing the heartbeat transitions
-    */
-    function heartbeat(uint64 _maxRequestedTransitions) external returns (uint64) {
-        return _heartbeat(_maxRequestedTransitions);
-    }
-
-    /**
     * @notice Ensure that the current term of the Court is up-to-date. If the Court is outdated by more than `MAX_AUTO_TERM_TRANSITIONS_ALLOWED`
     *         terms, the heartbeat function must be called manually instead.
     * @return Identification number of the current term
@@ -89,7 +80,16 @@ contract CourtClock is IClock, TimeHelpers {
     }
 
     /**
-    * @dev Ensure that a certain term has its randomness set. As we allow to draft disputes requested for previous terms, if there
+    * @notice Transition up to `_maxRequestedTransitions` terms
+    * @param _maxRequestedTransitions Max number of term transitions allowed by the sender
+    * @return Identification number of the term ID after executing the heartbeat transitions
+    */
+    function heartbeat(uint64 _maxRequestedTransitions) external returns (uint64) {
+        return _heartbeat(_maxRequestedTransitions);
+    }
+
+    /**
+    * @notice Ensure that a certain term has its randomness set. As we allow to draft disputes requested for previous terms, if there
     *      were mined more than 256 blocks for the current term, the blockhash of its randomness BN is no longer available, given
     *      round will be able to be drafted in the following term.
     * @param _termId Identification number of the term to be ensured
@@ -145,11 +145,9 @@ contract CourtClock is IClock, TimeHelpers {
     * @dev Tell the information related to a term based on its ID. Note that if the term has not been reached, the
     *      information returned won't be computed yet. This function allows querying future terms that were not computed yet.
     * @param _termId ID of the term being queried
-    * @return Term start time
-    * @return Number of drafts depending on the requested term
-    * @return ID of the court configuration associated to the requested term
-    * @return Block number used for randomness in the requested term
-    * @return Randomness computed for the requested term
+    * @return startTime Term start time
+    * @return randomnessBN Block number used for randomness in the requested term
+    * @return randomness Randomness computed for the requested term
     */
     function getTerm(uint64 _termId) external view returns (uint64 startTime, uint64 randomnessBN, bytes32 randomness) {
         Term storage term = terms[_termId];
@@ -168,7 +166,7 @@ contract CourtClock is IClock, TimeHelpers {
     /**
     * @dev Internal function to ensure that the current term of the Court is up-to-date. If the Court is outdated by more than
     *      `MAX_AUTO_TERM_TRANSITIONS_ALLOWED` terms, the heartbeat function must be called manually.
-    * @return Identification number of the resultant term id after executing the corresponding transitions
+    * @return Identification number of the resultant term ID after executing the corresponding transitions
     */
     function _ensureCurrentTerm() internal returns (uint64) {
         // Check the required number of transitions does not exceeds the max allowed number to be processed automatically
@@ -187,7 +185,7 @@ contract CourtClock is IClock, TimeHelpers {
     /**
     * @dev Internal function to transition the Court terms up to a requested number of terms
     * @param _maxRequestedTransitions Max number of term transitions allowed by the sender
-    * @return Identification number of the resultant term id after executing the requested transitions
+    * @return Identification number of the resultant term ID after executing the requested transitions
     */
     function _heartbeat(uint64 _maxRequestedTransitions) internal returns (uint64) {
         // Transition the minimum number of terms between the amount requested and the amount actually needed
@@ -207,8 +205,8 @@ contract CourtClock is IClock, TimeHelpers {
 
             // Set the start time of the new term. Note that we are using a constant term duration value to guarantee
             // equally long terms, regardless of heartbeats.
-            // No need for SafeMath: termDuration is capped at MAX_TERM_DURATION, _firstTermStartTime by MAX_FIRST_TERM_DELAY_PERIOD,
-            // and we assume that timestamps (and its derivatives like termId) won't reach MAX_UINT64, which would be ~5.8e11 years
+            // No need for SafeMath: term duration is capped at `MAX_TERM_DURATION`, first term start time by `MAX_FIRST_TERM_DELAY_PERIOD`,
+            // and we assume that timestamps (and its derivatives like term ID) won't reach MAX_UINT64, which would be ~5.8e11 years.
             currentTerm.startTime = previousTerm.startTime + termDuration;
 
             // In order to draft a random number of jurors in a term, we use a randomness factor for each term based on a

@@ -48,7 +48,7 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
     }
 
     struct Period {
-        uint64 balanceCheckpoint;               // Court term id of a period used to fetch the total active balance of the jurors registry
+        uint64 balanceCheckpoint;               // Court term ID of a period used to fetch the total active balance of the jurors registry
         ERC20 feeToken;                         // Fee token corresponding to a certain subscription period
         uint256 feeAmount;                      // Amount of fees paid for a certain subscription period
         uint256 totalActiveBalance;             // Total amount of juror tokens active in the Court at the corresponding period checkpoint
@@ -102,7 +102,7 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
     /**
     * @dev Initialize court subscriptions
     * @param _controller Address of the controller
-    * @param _periodDuration Initial duration of a subscription period in Court terms
+    * @param _periodDuration Duration of a subscription period in Court terms
     * @param _feeToken Initial ERC20 token used for the subscription fees
     * @param _feeAmount Initial amount of fees to be paid for each subscription period
     * @param _prePaymentPeriods Initial number of periods that can be paid in advance including the current period
@@ -168,7 +168,7 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
             subscriber.previousDelayedPeriods = 0;
         }
 
-        // Periods are measured in Court terms. Since Court terms are represented in `uint64`, we are safe to use `uint64` for period ids too.
+        // Periods are measured in Court terms. Since Court terms are represented in uint64, we are safe to use uint64 for period ids too.
         subscriber.lastPaymentPeriodId = uint64(newLastPeriodId);
 
         // Deposit fee tokens from sender to this contract
@@ -237,7 +237,7 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
     /**
     * @notice Make sure that the balance details of a certain period have been computed
     * @param _periodId Identification number of the period being ensured
-    * @return periodBalanceCheckpoint Court term id used to fetch the total active balance of the jurors registry
+    * @return periodBalanceCheckpoint Court term ID used to fetch the total active balance of the jurors registry
     * @return totalActiveBalance Total amount of juror tokens active in the Court at the corresponding used checkpoint
     */
     function ensurePeriodBalanceDetails(uint256 _periodId) external returns (uint64 periodBalanceCheckpoint, uint256 totalActiveBalance) {
@@ -260,8 +260,8 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
     * @param _feeAmount New amount of fees to be paid for each subscription period
     */
     function setFeeToken(ERC20 _feeToken, uint256 _feeAmount) external onlyConfigGovernor {
+        // The `setFeeToken` function transfers governor's accumulated fees, so must be executed first.
         _setFeeToken(_feeToken);
-        // `setFeeToken` transfers governor's accumulated fees, so must be executed first
         _setFeeAmount(_feeAmount);
     }
 
@@ -319,7 +319,7 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
     * @dev Get details of the current period
     * @return feeToken Fee token corresponding to a certain subscription period
     * @return feeAmount Amount of fees paid for a certain subscription period
-    * @return balanceCheckpoint Court term id of a period used to fetch the total active balance of the jurors registry
+    * @return balanceCheckpoint Court term ID of a period used to fetch the total active balance of the jurors registry
     * @return totalActiveBalance Total amount of juror tokens active in the Court at the corresponding period checkpoint
     * @return collectedFees Total amount of subscription fees collected during a period
     */
@@ -339,7 +339,7 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
     /**
     * @dev Tell total active balance of the jurors registry at a random term during a certain period
     * @param _periodId Identification number of the period being queried
-    * @return periodBalanceCheckpoint Court term id used to fetch the total active balance of the jurors registry
+    * @return periodBalanceCheckpoint Court term ID used to fetch the total active balance of the jurors registry
     * @return totalActiveBalance Total amount of juror tokens active in the Court at the corresponding used checkpoint
     */
     function getPeriodBalanceDetails(uint256 _periodId) external view returns (uint64 periodBalanceCheckpoint, uint256 totalActiveBalance) {
@@ -460,7 +460,7 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
     *      period correspond to each other.
     * @param _periodId Identification number of the period being ensured
     * @param _period Period being ensured
-    * @return periodBalanceCheckpoint Court term id used to fetch the total active balance of the jurors registry
+    * @return periodBalanceCheckpoint Court term ID used to fetch the total active balance of the jurors registry
     * @return totalActiveBalance Total amount of juror tokens active in the Court at the corresponding used checkpoint
     */
     function _ensurePeriodBalanceDetails(uint256 _periodId, Period storage _period) internal
@@ -547,7 +547,7 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
     function _setResumePrePaidPeriods(uint256 _resumePrePaidPeriods) internal {
         // Check resume resume pre-paid periods it not above the number of allowed pre payment periods. Since these periods are always paid in
         // advance, we must make sure there won't be users covering too many periods in the future to avoid skipping fee changes or
-        // excluding many jurors from their corresponding rewards
+        // excluding many jurors from their corresponding rewards.
         require(_resumePrePaidPeriods <= prePaymentPeriods, ERROR_RESUME_PRE_PAID_PERIODS_TOO_BIG);
 
         emit ResumePenaltiesChanged(resumePrePaidPeriods, _resumePrePaidPeriods);
@@ -563,7 +563,7 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
         uint64 termId = _getCurrentTermId();
         require(termId > 0, ERROR_COURT_HAS_NOT_STARTED);
 
-        // No need for SafeMath: we already checked that termId is at least 1
+        // No need for SafeMath: we already checked that the term ID is at least 1
         uint64 periodId = (termId - START_TERM_ID) / periodDuration;
         return uint256(periodId);
     }
@@ -574,8 +574,8 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
     * @return Court term where the given period starts
     */
     function _getPeriodStartTermId(uint256 _periodId) internal view returns (uint64) {
-        // Periods are measured in Court terms. Since Court terms are represented in `uint64`, we are safe to use `uint64` for period ids too.
-        // We are using SafeMath here because if any user calls getPeriodBalanceDetails with a too high _periodId param,
+        // Periods are measured in Court terms. Since Court terms are represented in uint64, we are safe to use uint64 for period ids too.
+        // We are using SafeMath here because if any user calls `getPeriodBalanceDetails` for a huge period ID,
         // it would overflow and therefore return wrong information.
         return START_TERM_ID.add(uint64(_periodId).mul(periodDuration));
     }
@@ -650,7 +650,7 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
             delayedPeriods = 0;
             regularPeriods = _periods;
             // The number of periods to be paid includes the current period, thus we subtract one unit.
-            // No need for SafeMath: (for subtraction) the number of periods is at least one.
+            // No need for SafeMath: the number of periods is at least one.
             newLastPeriodId = _currentPeriodId.add(_periods) - 1;
         } else {
             uint256 totalDelayedPeriods = _getDelayedPeriods(_subscriber, _currentPeriodId);
@@ -661,10 +661,10 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
                 delayedPeriods = totalDelayedPeriods;
                 require(_periods >= resumePeriods.add(delayedPeriods), ERROR_LOW_RESUME_PERIODS_PAYMENT);
 
-                // No need for SafeMath: we already checked the number of given and resume periods
+                // No need for SafeMath: we already checked the number of given and resume periods.
                 regularPeriods = _periods - resumePeriods - delayedPeriods;
                 // The new last period is computed including the current period
-                // No need for SafeMath: (for subtraction) the number of periods is at least one.
+                // No need for SafeMath: the number of periods is at least one.
                 newLastPeriodId = _currentPeriodId.add(_periods) - 1;
             } else {
                 // If the subscriber does not need to resume his activity, there are no resume periods, last period is simply updated
@@ -721,7 +721,7 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
     /**
     * @dev Internal function to get the total active balance of the jurors registry at a random term during a period
     * @param _periodId Identification number of the period being queried
-    * @return periodBalanceCheckpoint Court term id used to fetch the total active balance of the jurors registry
+    * @return periodBalanceCheckpoint Court term ID used to fetch the total active balance of the jurors registry
     * @return totalActiveBalance Total amount of juror tokens active in the Court at the corresponding used checkpoint
     */
     function _getPeriodBalanceDetails(uint256 _periodId) internal view returns (uint64 periodBalanceCheckpoint, uint256 totalActiveBalance) {
@@ -734,15 +734,15 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
 
         // The randomness factor for each Court term is computed using the the hash of a block number set during the initialization of the
         // term, to ensure it cannot be known beforehand. Note that the hash function being used only works for the 256 most recent block
-        // numbers. Therefore, if that occurs we use the hash of the previous block number. This could be slightly beneficial for the first juror
-        // calling this function, but it's still impossible to predict during the requested period.
+        // numbers. Therefore, if that occurs we use the hash of the previous block number. This could be slightly beneficial for the first
+        // juror calling this function, but it's still impossible to predict during the requested period.
         if (randomness == bytes32(0)) {
             randomness = blockhash(getBlockNumber() - 1);
         }
 
         // Use randomness to choose a Court term of the requested period and query the total amount of juror tokens active at that term
         IJurorsRegistry jurorsRegistry = _jurorsRegistry();
-        // No need for SafeMath: terms are represented in `uint64`
+        // No need for SafeMath: terms are represented in uint64
         periodBalanceCheckpoint = periodStartTermId + uint64(uint256(randomness) % periodDuration);
         totalActiveBalance = jurorsRegistry.totalActiveBalanceAt(periodBalanceCheckpoint);
     }
@@ -751,7 +751,7 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
     * @dev Internal function to tell the share fees corresponding to a juror for a certain period
     * @param _juror Address of the juror querying the owed shared fees of
     * @param _period Period being queried
-    * @param _periodBalanceCheckpoint Court term id used to fetch the active balance of the juror for the requested period
+    * @param _periodBalanceCheckpoint Court term ID used to fetch the active balance of the juror for the requested period
     * @param _totalActiveBalance Total amount of juror tokens active in the Court at the corresponding used checkpoint
     * @return Amount of share fees owed to the given juror for the requested period
     */

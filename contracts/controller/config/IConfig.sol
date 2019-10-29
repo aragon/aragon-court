@@ -6,7 +6,8 @@ import "@aragon/os/contracts/lib/token/ERC20.sol";
 interface IConfig {
 
     /**
-    * @dev Get Court configuration parameters
+    * @dev Tell the full Court configuration parameters at a certain term
+    * @param _termId Term querying the Court config of
     * @return token Address of the token used to pay for fees
     * @return fees Array containing:
     *         0. jurorFee Amount of fee tokens that is paid per juror per dispute
@@ -27,6 +28,7 @@ interface IConfig {
     * @return appealCollateralParams Array containing params for appeal collateral:
     *         0. appealCollateralFactor Multiple of juror fees required to appeal a preliminary ruling
     *         1. appealConfirmCollateralFactor Multiple of juror fees required to confirm appeal
+    * @return minActiveBalance Minimum amount of tokens jurors have to activate to participate in the Court
     */
     function getConfig(uint64 _termId) external view
         returns (
@@ -38,4 +40,11 @@ interface IConfig {
             uint256[2] memory appealCollateralParams,
             uint256 minActiveBalance
         );
+
+    /**
+    * @dev Tell the min active balance config at a certain term
+    * @param _termId Term querying the Court config of
+    * @return Minimum amount of tokens jurors have to activate to participate in the Court
+    */
+    function getMinActiveBalance(uint64 _termId) external view returns (uint256);
 }

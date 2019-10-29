@@ -1,11 +1,11 @@
 const { sha3 } = require('web3-utils')
-const { bn, bigExp } = require('../helpers/numbers')
 const { getEventAt } = require('@aragon/test-helpers/events')
 const { buildHelper } = require('../helpers/controller')(web3, artifacts)
 const { assertRevert } = require('../helpers/assertThrow')
 const { simulateDraft } = require('../helpers/registry')
 const { countEqualJurors } = require('../helpers/jurors')
 const { decodeEventsOfType } = require('../helpers/decodeEvent')
+const { assertBn, bn, bigExp } = require('../helpers/numbers')
 const { assertAmountOfEvents, assertEvent } = require('../helpers/assertEvent')
 
 const JurorsRegistry = artifacts.require('JurorsRegistryMock')
@@ -128,14 +128,14 @@ contract('JurorsRegistry', ([_, juror500, juror1000, juror1500, juror2000, juror
       const juror = await getFirstExpectedJurorAddress({ disputeId, batchRequestedJurors, roundRequestedJurors })
       await registry.deactivate(0, { from: juror })
       const { active } = await registry.balanceOf(juror)
-      assert.equal(active.toString(), 0, 'first expected juror active balance does not match')
+      assertBn(active, 0, 'first expected juror active balance does not match')
     }
 
     const lockFirstExpectedJuror = async ({ disputeId, batchRequestedJurors, roundRequestedJurors, leftUnlockedAmount = bn(0) }) => {
       const juror = await getFirstExpectedJurorAddress({ disputeId, batchRequestedJurors, roundRequestedJurors })
       await registry.mockLock(juror, leftUnlockedAmount)
       const { active, locked } = await registry.balanceOfAt(juror, TERM_ID)
-      assert.equal(locked.toString(), active.sub(leftUnlockedAmount).toString(), 'juror locked balance does not match')
+      assertBn(locked, active.sub(leftUnlockedAmount), 'juror locked balance does not match')
     }
 
     beforeEach('initialize registry and mint ANJ for jurors', async () => {
@@ -155,7 +155,7 @@ contract('JurorsRegistry', ([_, juror500, juror1000, juror1500, juror2000, juror
         it('returns empty values', async () => {
           const { length, addresses } = await draft({ batchRequestedJurors, roundRequestedJurors })
 
-          assert.equal(length.toString(), 0, 'output length does not match')
+          assertBn(length, 0, 'output length does not match')
 
           const expectedAddresses = (batchRequestedJurors === 0) ? [] : Array.from(new Array(addresses.length)).map(() => ZERO_ADDRESS)
           assert.deepEqual(addresses, expectedAddresses, 'jurors address do not match')

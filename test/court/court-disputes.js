@@ -1,7 +1,7 @@
-const { bn, bigExp } = require('../helpers/numbers')
 const { assertRevert } = require('../helpers/assertThrow')
 const { NEXT_WEEK, ONE_DAY } = require('../helpers/time')
 const { decodeEventsOfType } = require('../helpers/decodeEvent')
+const { assertBn, bn, bigExp } = require('../helpers/numbers')
 const { buildHelper, DISPUTE_STATES } = require('../helpers/court')(web3, artifacts)
 const { assertAmountOfEvents, assertEvent } = require('../helpers/assertEvent')
 
@@ -56,9 +56,9 @@ contract('Court', ([_, sender]) => {
 
             const { subject, possibleRulings: rulings, state, finalRuling } = await courtHelper.getDispute(0)
             assert.equal(subject, arbitrable.address, 'dispute subject does not match')
-            assert.equal(state.toString(), DISPUTE_STATES.PRE_DRAFT.toString(), 'dispute state does not match')
-            assert.equal(rulings.toString(), possibleRulings, 'dispute possible rulings do not match')
-            assert.equal(finalRuling.toString(), 0, 'dispute final ruling does not match')
+            assertBn(state, DISPUTE_STATES.PRE_DRAFT, 'dispute state does not match')
+            assertBn(rulings, possibleRulings, 'dispute possible rulings do not match')
+            assertBn(finalRuling, 0, 'dispute final ruling does not match')
           })
 
           it('creates a new adjudication round', async () => {
@@ -68,14 +68,14 @@ contract('Court', ([_, sender]) => {
 
             const { draftTerm, delayedTerms, roundJurorsNumber, selectedJurors, jurorFees, triggeredBy, settledPenalties, collectedTokens } = await courtHelper.getRound(0, 0)
 
-            assert.equal(draftTerm.toString(), draftTermId, 'round draft term does not match')
-            assert.equal(delayedTerms.toString(), 0, 'round delay term does not match')
-            assert.equal(roundJurorsNumber.toString(), firstRoundJurorsNumber, 'round jurors number does not match')
-            assert.equal(selectedJurors.toString(), 0, 'round selected jurors number does not match')
-            assert.equal(jurorFees.toString(), courtHelper.jurorFee.mul(bn(firstRoundJurorsNumber)).toString(), 'round juror fees do not match')
+            assertBn(draftTerm, draftTermId, 'round draft term does not match')
+            assertBn(delayedTerms, 0, 'round delay term does not match')
+            assertBn(roundJurorsNumber, firstRoundJurorsNumber, 'round jurors number does not match')
+            assertBn(selectedJurors, 0, 'round selected jurors number does not match')
+            assertBn(jurorFees, courtHelper.jurorFee.mul(bn(firstRoundJurorsNumber)), 'round juror fees do not match')
             assert.equal(triggeredBy, sender, 'round trigger does not match')
             assert.equal(settledPenalties, false, 'round penalties should not be settled')
-            assert.equal(collectedTokens.toString(), 0, 'round collected tokens should be zero')
+            assertBn(collectedTokens, 0, 'round collected tokens should be zero')
           })
 
           it('transfers fees to the court', async () => {
@@ -89,13 +89,13 @@ contract('Court', ([_, sender]) => {
             await court.createDispute(arbitrable.address, possibleRulings, { from: sender })
 
             const currentCourtBalance = await feeToken.balanceOf(court.address)
-            assert.equal(previousCourtBalance.toString(), currentCourtBalance.toString(), 'court balances do not match')
+            assertBn(previousCourtBalance, currentCourtBalance, 'court balances do not match')
 
             const currentTreasuryBalance = await feeToken.balanceOf(courtHelper.treasury.address)
-            assert.equal(previousTreasuryBalance.add(expectedDisputeDeposit).toString(), currentTreasuryBalance.toString(), 'court treasury balances do not match')
+            assertBn(previousTreasuryBalance.add(expectedDisputeDeposit), currentTreasuryBalance, 'court treasury balances do not match')
 
             const currentSenderBalance = await feeToken.balanceOf(sender)
-            assert.equal(previousSenderBalance.sub(expectedDisputeDeposit).toString(), currentSenderBalance.toString(), 'sender balances do not match')
+            assertBn(previousSenderBalance.sub(expectedDisputeDeposit), currentSenderBalance, 'sender balances do not match')
           })
 
           it(`transitions ${expectedTermTransitions} terms`, async () => {
@@ -107,7 +107,7 @@ contract('Court', ([_, sender]) => {
             assertAmountOfEvents({ logs }, 'Heartbeat', expectedTermTransitions)
 
             const currentTermId = await courtHelper.controller.getLastEnsuredTermId()
-            assert.equal(previousTermId.add(bn(expectedTermTransitions)).toString(), currentTermId.toString(), 'term id does not match')
+            assertBn(previousTermId.add(bn(expectedTermTransitions)), currentTermId, 'term id does not match')
           })
         })
 
@@ -186,9 +186,9 @@ contract('Court', ([_, sender]) => {
         const { subject, possibleRulings: rulings, state, finalRuling } = await courtHelper.getDispute(0)
 
         assert.equal(subject, arbitrable.address, 'dispute subject does not match')
-        assert.equal(state.toString(), DISPUTE_STATES.PRE_DRAFT.toString(), 'dispute state does not match')
-        assert.equal(rulings.toString(), possibleRulings, 'dispute possible rulings do not match')
-        assert.equal(finalRuling.toString(), 0, 'dispute final ruling does not match')
+        assertBn(state, DISPUTE_STATES.PRE_DRAFT, 'dispute state does not match')
+        assertBn(rulings, possibleRulings, 'dispute possible rulings do not match')
+        assertBn(finalRuling, 0, 'dispute final ruling does not match')
       })
     })
 
@@ -217,14 +217,14 @@ contract('Court', ([_, sender]) => {
         it('returns the requested round', async () => {
           const { draftTerm, delayedTerms, roundJurorsNumber, selectedJurors, jurorFees, triggeredBy, settledPenalties, collectedTokens } = await courtHelper.getRound(0, 0)
 
-          assert.equal(draftTerm.toString(), draftTermId, 'round draft term does not match')
-          assert.equal(delayedTerms.toString(), 0, 'round delay term does not match')
-          assert.equal(roundJurorsNumber.toString(), firstRoundJurorsNumber, 'round jurors number does not match')
-          assert.equal(selectedJurors.toString(), 0, 'round selected jurors number does not match')
-          assert.equal(jurorFees.toString(), courtHelper.jurorFee.mul(bn(firstRoundJurorsNumber)).toString(), 'round juror fees do not match')
+          assertBn(draftTerm, draftTermId, 'round draft term does not match')
+          assertBn(delayedTerms, 0, 'round delay term does not match')
+          assertBn(roundJurorsNumber, firstRoundJurorsNumber, 'round jurors number does not match')
+          assertBn(selectedJurors, 0, 'round selected jurors number does not match')
+          assertBn(jurorFees, courtHelper.jurorFee.mul(bn(firstRoundJurorsNumber)), 'round juror fees do not match')
           assert.equal(triggeredBy, sender, 'round trigger does not match')
           assert.equal(settledPenalties, false, 'round penalties should not be settled')
-          assert.equal(collectedTokens.toString(), 0, 'round collected tokens should be zero')
+          assertBn(collectedTokens, 0, 'round collected tokens should be zero')
         })
       })
 

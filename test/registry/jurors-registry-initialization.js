@@ -1,6 +1,6 @@
-const { bigExp } = require('../helpers/numbers')
 const { buildHelper } = require('../helpers/controller')(web3, artifacts)
 const { assertRevert } = require('../helpers/assertThrow')
+const { assertBn, bigExp } = require('../helpers/numbers')
 
 const JurorsRegistry = artifacts.require('JurorsRegistry')
 const ERC20 = artifacts.require('ERC20Mock')
@@ -25,7 +25,7 @@ contract('JurorsRegistry', ([_, something]) => {
         assert.isFalse(await registry.supportsHistory())
         assert.equal(await registry.getController(), controller.address, 'registry controller does not match')
         assert.equal(await registry.token(), ANJ.address, 'token address does not match')
-        assert.equal((await registry.totalJurorsActiveBalanceLimit()).toString(), TOTAL_ACTIVE_BALANCE_LIMIT, 'total active balance limit does not match')
+        assertBn((await registry.totalJurorsActiveBalanceLimit()), TOTAL_ACTIVE_BALANCE_LIMIT, 'total active balance limit does not match')
       })
     })
 

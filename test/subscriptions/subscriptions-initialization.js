@@ -1,6 +1,6 @@
-const { bn, bigExp } = require('../helpers/numbers')
 const { buildHelper } = require('../helpers/controller')(web3, artifacts)
 const { assertRevert } = require('../helpers/assertThrow')
+const { assertBn, bn, bigExp } = require('../helpers/numbers')
 
 const CourtSubscriptions = artifacts.require('CourtSubscriptions')
 const ERC20 = artifacts.require('ERC20Mock')
@@ -30,10 +30,10 @@ contract('CourtSubscriptions', ([_, someone]) => {
         assert.equal(await subscriptions.getController(), controller.address, 'subscriptions controller does not match')
         assert.equal(await subscriptions.periodDuration(), PERIOD_DURATION, 'subscriptions duration does not match')
         assert.equal(await subscriptions.currentFeeToken(), feeToken.address, 'fee token does not match')
-        assert.equal((await subscriptions.currentFeeAmount()).toString(), FEE_AMOUNT.toString(), 'fee amount does not match')
-        assert.equal((await subscriptions.prePaymentPeriods()).toString(), PREPAYMENT_PERIODS.toString(), 'pre payment periods does not match')
-        assert.equal((await subscriptions.latePaymentPenaltyPct()).toString(), LATE_PAYMENT_PENALTY_PCT.toString(), 'late payments penalty pct does not match')
-        assert.equal((await subscriptions.governorSharePct()).toString(), GOVERNOR_SHARE_PCT.toString(), 'governor share pct does not match')
+        assertBn((await subscriptions.currentFeeAmount()), FEE_AMOUNT, 'fee amount does not match')
+        assertBn((await subscriptions.prePaymentPeriods()), PREPAYMENT_PERIODS, 'pre payment periods does not match')
+        assertBn((await subscriptions.latePaymentPenaltyPct()), LATE_PAYMENT_PENALTY_PCT, 'late payments penalty pct does not match')
+        assertBn((await subscriptions.governorSharePct()), GOVERNOR_SHARE_PCT, 'governor share pct does not match')
       })
     })
 

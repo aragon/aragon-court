@@ -1,5 +1,5 @@
-const { bn, bigExp } = require('../helpers/numbers')
 const { getEventArgument } = require('@aragon/test-helpers/events')
+const { assertBn, bn, bigExp } = require('../helpers/numbers')
 
 const HexSumTree = artifacts.require('HexSumTreeGasProfiler')
 
@@ -41,7 +41,7 @@ contract('HexSumTree', () => {
             await tree.mockNextKey(0, nextKey)
 
             await tree.insert(0, 10)
-            assert.equal((await tree.height()).toString(), 28, 'tree height does not match')
+            assertBn((await tree.height()), 28, 'tree height does not match')
             await tree.insert(0, 10)
           })
         })
@@ -54,7 +54,7 @@ contract('HexSumTree', () => {
           itCostsAtMost(expectedCost, async () => {
             for (let i = 0; i < CHILDREN; i++) await tree.insert(0, 10)
             const receipt = await tree.insert(0, 10)
-            assert.equal((await tree.height()).toString(), 2, 'tree height does not match')
+            assertBn((await tree.height()), 2, 'tree height does not match')
             return receipt
           })
         })
@@ -68,7 +68,7 @@ contract('HexSumTree', () => {
             await tree.mockNextKey(0, nextKey)
 
             await tree.insert(0, 10)
-            assert.equal((await tree.height()).toString(), 29, 'tree height does not match')
+            assertBn((await tree.height()), 29, 'tree height does not match')
             await tree.insert(0, 10)
           })
         })

@@ -1,6 +1,6 @@
-const { bn, bigExp } = require('../helpers/numbers')
 const { buildHelper } = require('../helpers/controller')(web3, artifacts)
 const { assertRevert } = require('../helpers/assertThrow')
+const { assertBn, bn, bigExp } = require('../helpers/numbers')
 const { assertAmountOfEvents, assertEvent } = require('../helpers/assertEvent')
 
 const CourtSubscriptions = artifacts.require('CourtSubscriptions')
@@ -60,7 +60,7 @@ contract('CourtSubscriptions', ([_, governor, payer, subscriber, anotherSubscrib
               const expectedLastPeriodId = currentPeriodId + expectedMovedPeriods
               const { newLastPeriodId } = await subscriptions.getPayFeesDetails(subscriber, periods)
 
-              assert.equal(newLastPeriodId.toString(), expectedLastPeriodId, 'new last period id does not match')
+              assertBn(newLastPeriodId, expectedLastPeriodId, 'new last period id does not match')
             })
 
             it('computes number of delayed periods correctly', async () => {
@@ -69,7 +69,7 @@ contract('CourtSubscriptions', ([_, governor, payer, subscriber, anotherSubscrib
               await subscriptions.payFees(subscriber, periods, { from })
 
               const currentDelayedPeriods = await subscriptions.getDelayedPeriods(subscriber)
-              assert.equal(currentDelayedPeriods.toString(), previousDelayedPeriods.sub(bn(expectedDelayedPeriods)).toString(), 'number of delayed periods does not match')
+              assertBn(currentDelayedPeriods, previousDelayedPeriods.sub(bn(expectedDelayedPeriods)), 'number of delayed periods does not match')
             })
 
             it('subscribes the requested periods', async () => {
@@ -85,15 +85,15 @@ contract('CourtSubscriptions', ([_, governor, payer, subscriber, anotherSubscrib
               const previousSubscriptionsBalance = await feeToken.balanceOf(subscriptions.address)
 
               const { amountToPay } = await subscriptions.getPayFeesDetails(subscriber, periods)
-              assert.equal(amountToPay.toString(), expectedTotalPaidFees.toString(), 'amount to be paid does not match')
+              assertBn(amountToPay, expectedTotalPaidFees, 'amount to be paid does not match')
 
               await subscriptions.payFees(subscriber, periods, { from })
 
               const currentSubscriptionsBalance = await feeToken.balanceOf(subscriptions.address)
-              assert.equal(currentSubscriptionsBalance.toString(), previousSubscriptionsBalance.add(expectedTotalPaidFees).toString(), 'subscriptions balances do not match')
+              assertBn(currentSubscriptionsBalance, previousSubscriptionsBalance.add(expectedTotalPaidFees), 'subscriptions balances do not match')
 
               const currentPayerBalance = await feeToken.balanceOf(from)
-              assert.equal(currentPayerBalance.toString(), previousPayerBalance.sub(expectedTotalPaidFees).toString(), 'payer balances do not match')
+              assertBn(currentPayerBalance, previousPayerBalance.sub(expectedTotalPaidFees), 'payer balances do not match')
             })
 
             it('pays the governor fees', async () => {
@@ -103,7 +103,7 @@ contract('CourtSubscriptions', ([_, governor, payer, subscriber, anotherSubscrib
               const receipt = await subscriptions.payFees(subscriber, periods, { from })
 
               const currentGovernorFees = await subscriptions.accumulatedGovernorFees()
-              assert.equal(currentGovernorFees.toString(), previousGovernorFees.add(expectedGovernorFees).toString(), 'governor fees do not match')
+              assertBn(currentGovernorFees, previousGovernorFees.add(expectedGovernorFees), 'governor fees do not match')
 
               const expectedCollectedFees = expectedTotalPaidFees.sub(expectedGovernorFees)
               assertAmountOfEvents(receipt, 'FeesPaid')
@@ -347,10 +347,10 @@ contract('CourtSubscriptions', ([_, governor, payer, subscriber, anotherSubscrib
         await subscriptions.transferFeesToGovernor()
 
         const currentGovernorBalance = await feeToken.balanceOf(governor)
-        assert.equal(previousGovernorBalance.add(previousAccumulatedFees).toString(), currentGovernorBalance.toString(), 'governor shares do not match')
+        assertBn(previousGovernorBalance.add(previousAccumulatedFees), currentGovernorBalance, 'governor shares do not match')
 
         const currentAccumulatedFees = await subscriptions.accumulatedGovernorFees()
-        assert.equal(currentAccumulatedFees.toString(), 0, 'governor shares do not match')
+        assertBn(currentAccumulatedFees, 0, 'governor shares do not match')
       })
 
       it('emits an event', async () => {

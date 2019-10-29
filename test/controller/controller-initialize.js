@@ -1,6 +1,6 @@
-const { bn } = require('../helpers/numbers')
 const { buildHelper } = require('../helpers/controller')(web3, artifacts)
 const { NOW, ONE_DAY } = require('../helpers/time')
+const { assertBn, bn } = require('../helpers/numbers')
 const { assertRevert } = require('../helpers/assertThrow')
 
 contract('Court', () => {
@@ -28,14 +28,14 @@ contract('Court', () => {
         await controllerHelper.deploy({ penaltyPct: bn(0) })
         const termId = await controllerHelper.controller.getLastEnsuredTermId()
         const { penaltyPct } = await controllerHelper.getConfig(termId)
-        assert.equal(penaltyPct.toString(), 0, 'penalty pct does not match')
+        assertBn(penaltyPct, 0, 'penalty pct does not match')
       })
 
       it('can be 100%', async () => {
         await controllerHelper.deploy({ penaltyPct: bn(10000) })
         const termId = await controllerHelper.controller.getLastEnsuredTermId()
         const { penaltyPct } = await controllerHelper.getConfig(termId)
-        assert.equal(penaltyPct.toString(), 10000, 'penalty pct does not match')
+        assertBn(penaltyPct, 10000, 'penalty pct does not match')
       })
     })
   })

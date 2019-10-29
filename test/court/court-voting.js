@@ -1,7 +1,7 @@
 const { DEFAULTS } = require('../helpers/controller')(web3, artifacts)
-const { bn, bigExp } = require('../helpers/numbers')
 const { filterJurors } = require('../helpers/jurors')
 const { assertRevert } = require('../helpers/assertThrow')
+const { assertBn, bn, bigExp } = require('../helpers/numbers')
 const { buildHelper, ROUND_STATES } = require('../helpers/court')(web3, artifacts)
 const { assertAmountOfEvents, assertEvent } = require('../helpers/assertEvent')
 const { getVoteId, encryptVote, outcomeFor, SALT, OUTCOMES } = require('../helpers/crvoting')
@@ -46,7 +46,7 @@ contract('Court', ([_, disputer, drafter, juror100, juror500, juror1000, juror15
     const itIsAtState = (roundId, state) => {
       it(`round is at state ${state}`, async () => {
         const { roundState } = await courtHelper.getRound(disputeId, roundId)
-        assert.equal(roundState.toString(), state.toString(), 'round state does not match')
+        assertBn(roundState, state, 'round state does not match')
       })
     }
 
@@ -149,14 +149,14 @@ contract('Court', ([_, disputer, drafter, juror100, juror500, juror1000, juror15
 
             it('computes tallies properly', async () => {
               const lowOutcomeTally = await voting.getOutcomeTally(voteId, OUTCOMES.LOW)
-              assert.equal(lowOutcomeTally.toString(), expectedTally[OUTCOMES.LOW], 'low outcome tally does not match')
+              assertBn(lowOutcomeTally, expectedTally[OUTCOMES.LOW], 'low outcome tally does not match')
 
               const highOutcomeTally = await voting.getOutcomeTally(voteId, OUTCOMES.HIGH)
-              assert.equal(highOutcomeTally.toString(), expectedTally[OUTCOMES.HIGH], 'high outcome tally does not match')
+              assertBn(highOutcomeTally, expectedTally[OUTCOMES.HIGH], 'high outcome tally does not match')
 
               const winningOutcome = await voting.getWinningOutcome(voteId)
               const expectedWinningOutcome = highOutcomeTally > lowOutcomeTally ? OUTCOMES.HIGH : OUTCOMES.LOW
-              assert.equal(winningOutcome.toString(), expectedWinningOutcome, 'winning outcome does not match')
+              assertBn(winningOutcome, expectedWinningOutcome, 'winning outcome does not match')
             })
           })
 
@@ -260,7 +260,7 @@ contract('Court', ([_, disputer, drafter, juror100, juror500, juror1000, juror15
         await courtHelper.passTerms(bn(1))
 
         const { active } = await courtHelper.jurorsRegistry.balanceOf(poorJuror)
-        assert.equal(active.toString(), bigExp(1, 18).toString(), 'poor juror active balance does not match')
+        assertBn(active, bigExp(1, 18), 'poor juror active balance does not match')
       })
 
       beforeEach('move to final round', async () => {
@@ -329,14 +329,14 @@ contract('Court', ([_, disputer, drafter, juror100, juror500, juror1000, juror15
 
           it('computes tallies properly', async () => {
             const lowOutcomeTally = await voting.getOutcomeTally(voteId, OUTCOMES.LOW)
-            assert.equal(lowOutcomeTally.toString(), expectedTally[OUTCOMES.LOW], 'low outcome tally does not match')
+            assertBn(lowOutcomeTally, expectedTally[OUTCOMES.LOW], 'low outcome tally does not match')
 
             const highOutcomeTally = await voting.getOutcomeTally(voteId, OUTCOMES.HIGH)
-            assert.equal(highOutcomeTally.toString(), expectedTally[OUTCOMES.HIGH], 'high outcome tally does not match')
+            assertBn(highOutcomeTally, expectedTally[OUTCOMES.HIGH], 'high outcome tally does not match')
 
             const winningOutcome = await voting.getWinningOutcome(voteId)
             const expectedWinningOutcome = highOutcomeTally > lowOutcomeTally ? OUTCOMES.HIGH : OUTCOMES.LOW
-            assert.equal(winningOutcome.toString(), expectedWinningOutcome, 'winning outcome does not match')
+            assertBn(winningOutcome, expectedWinningOutcome, 'winning outcome does not match')
           })
         })
 

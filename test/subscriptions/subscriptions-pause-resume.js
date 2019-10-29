@@ -1,6 +1,6 @@
-const { bn, bigExp } = require('../helpers/numbers')
 const { buildHelper } = require('../helpers/controller')(web3, artifacts)
 const { assertRevert } = require('../helpers/assertThrow')
+const { assertBn, bn, bigExp } = require('../helpers/numbers')
 const { assertAmountOfEvents, assertEvent } = require('../helpers/assertEvent')
 
 const CourtSubscriptions = artifacts.require('CourtSubscriptions')
@@ -53,7 +53,7 @@ contract('CourtSubscriptions', ([_, subscriber]) => {
 
           assert.isTrue(subscribed, 'subscriber should be subscribed')
           assert.isFalse(paused, 'subscriber should not be paused')
-          assert.equal(previousDelayedPeriods.toString(), 0, 'previous delayed periods does not match')
+          assertBn(previousDelayedPeriods, 0, 'previous delayed periods does not match')
         })
       }
 
@@ -63,11 +63,11 @@ contract('CourtSubscriptions', ([_, subscriber]) => {
           const expectedLastPeriodId = currentPeriodId + expectedMovedPeriods
 
           const { newLastPeriodId } = await subscriptions.getPayFeesDetails(subscriber, resumePaidPeriods)
-          assert.equal(newLastPeriodId.toString(), expectedLastPeriodId, 'new last period id does not match')
+          assertBn(newLastPeriodId, expectedLastPeriodId, 'new last period id does not match')
 
           await subscriptions.resume(resumePaidPeriods, { from })
           const { lastPaymentPeriodId } = await subscriptions.getSubscriber(subscriber)
-          assert.equal(lastPaymentPeriodId.toString(), expectedLastPeriodId, 'new last period id does not match')
+          assertBn(lastPaymentPeriodId, expectedLastPeriodId, 'new last period id does not match')
         })
 
         it('computes number of delayed periods correctly', async () => {
@@ -76,7 +76,7 @@ contract('CourtSubscriptions', ([_, subscriber]) => {
           await subscriptions.resume(resumePaidPeriods, { from })
 
           const currentDelayedPeriods = await subscriptions.getDelayedPeriods(subscriber)
-          assert.equal(currentDelayedPeriods.toString(), previousDelayedPeriods.sub(bn(expectedDelayedPeriods)).toString(), 'number of delayed periods does not match')
+          assertBn(currentDelayedPeriods, previousDelayedPeriods.sub(bn(expectedDelayedPeriods)), 'number of delayed periods does not match')
         })
       }
 
@@ -91,15 +91,15 @@ contract('CourtSubscriptions', ([_, subscriber]) => {
           const previousSubscriptionsBalance = await feeToken.balanceOf(subscriptions.address)
 
           const { amountToPay } = await subscriptions.getPayFeesDetails(subscriber, resumePaidPeriods)
-          assert.equal(amountToPay.toString(), expectedTotalPaidFees.toString(), 'amount to be paid does not match')
+          assertBn(amountToPay, expectedTotalPaidFees, 'amount to be paid does not match')
 
           await subscriptions.resume(resumePaidPeriods, { from })
 
           const currentSubscriptionsBalance = await feeToken.balanceOf(subscriptions.address)
-          assert.equal(currentSubscriptionsBalance.toString(), previousSubscriptionsBalance.add(expectedTotalPaidFees).toString(), 'subscriptions balances do not match')
+          assertBn(currentSubscriptionsBalance, previousSubscriptionsBalance.add(expectedTotalPaidFees), 'subscriptions balances do not match')
 
           const currentPayerBalance = await feeToken.balanceOf(subscriber)
-          assert.equal(currentPayerBalance.toString(), previousPayerBalance.sub(expectedTotalPaidFees).toString(), 'payer balances do not match')
+          assertBn(currentPayerBalance, previousPayerBalance.sub(expectedTotalPaidFees), 'payer balances do not match')
         })
 
         it('pays the governor fees', async () => {
@@ -109,7 +109,7 @@ contract('CourtSubscriptions', ([_, subscriber]) => {
           const receipt = await subscriptions.resume(resumePaidPeriods, { from })
 
           const currentGovernorFees = await subscriptions.accumulatedGovernorFees()
-          assert.equal(currentGovernorFees.toString(), previousGovernorFees.add(expectedGovernorFees).toString(), 'governor fees do not match')
+          assertBn(currentGovernorFees, previousGovernorFees.add(expectedGovernorFees), 'governor fees do not match')
 
           const expectedCollectedFees = expectedTotalPaidFees.sub(expectedGovernorFees)
           assertAmountOfEvents(receipt, 'FeesPaid')
@@ -129,15 +129,15 @@ contract('CourtSubscriptions', ([_, subscriber]) => {
           const previousSubscriptionsBalance = await feeToken.balanceOf(subscriptions.address)
 
           const { amountToPay } = await subscriptions.getPayFeesDetails(subscriber, resumePaidPeriods)
-          assert.equal(amountToPay.toString(), expectedTotalPaidFees.toString(), 'amount to be paid does not match')
+          assertBn(amountToPay, expectedTotalPaidFees, 'amount to be paid does not match')
 
           await subscriptions.resume(resumePaidPeriods, { from })
 
           const currentSubscriptionsBalance = await feeToken.balanceOf(subscriptions.address)
-          assert.equal(currentSubscriptionsBalance.toString(), previousSubscriptionsBalance.add(expectedTotalPaidFees).toString(), 'subscriptions balances do not match')
+          assertBn(currentSubscriptionsBalance, previousSubscriptionsBalance.add(expectedTotalPaidFees), 'subscriptions balances do not match')
 
           const currentPayerBalance = await feeToken.balanceOf(subscriber)
-          assert.equal(currentPayerBalance.toString(), previousPayerBalance.sub(expectedTotalPaidFees).toString(), 'payer balances do not match')
+          assertBn(currentPayerBalance, previousPayerBalance.sub(expectedTotalPaidFees), 'payer balances do not match')
         })
 
         it('pays the governor fees', async () => {
@@ -147,7 +147,7 @@ contract('CourtSubscriptions', ([_, subscriber]) => {
           const receipt = await subscriptions.resume(resumePaidPeriods, { from })
 
           const currentGovernorFees = await subscriptions.accumulatedGovernorFees()
-          assert.equal(currentGovernorFees.toString(), previousGovernorFees.add(expectedGovernorFees).toString(), 'governor fees do not match')
+          assertBn(currentGovernorFees, previousGovernorFees.add(expectedGovernorFees), 'governor fees do not match')
 
           const expectedCollectedFees = expectedTotalPaidFees.sub(expectedGovernorFees)
           assertAmountOfEvents(receipt, 'FeesPaid')
@@ -164,7 +164,7 @@ contract('CourtSubscriptions', ([_, subscriber]) => {
 
           const { paused, previousDelayedPeriods } = await subscriptions.getSubscriber(subscriber)
           assert.isTrue(paused, 'subscriber should be paused')
-          assert.equal(previousDelayedPeriods.toString(), 0, 'delayed periods does not match')
+          assertBn(previousDelayedPeriods, 0, 'delayed periods does not match')
         })
 
         context('when the current period has not passed', () => {
@@ -269,7 +269,7 @@ contract('CourtSubscriptions', ([_, subscriber]) => {
 
           const { paused, previousDelayedPeriods } = await subscriptions.getSubscriber(subscriber)
           assert.isTrue(paused, 'subscriber should be paused')
-          assert.equal(previousDelayedPeriods.toString(), 0, 'delayed periods does not match')
+          assertBn(previousDelayedPeriods, 0, 'delayed periods does not match')
         })
 
         context('when the current period has not passed', () => {
@@ -351,7 +351,7 @@ contract('CourtSubscriptions', ([_, subscriber]) => {
 
           const { paused, previousDelayedPeriods } = await subscriptions.getSubscriber(subscriber)
           assert.isTrue(paused, 'subscriber should be paused')
-          assert.equal(previousDelayedPeriods.toString(), 0, 'delayed periods does not match')
+          assertBn(previousDelayedPeriods, 0, 'delayed periods does not match')
         })
 
         itIsUpToDate(resumePaidPeriods)
@@ -369,7 +369,7 @@ contract('CourtSubscriptions', ([_, subscriber]) => {
 
           const { paused, previousDelayedPeriods } = await subscriptions.getSubscriber(subscriber)
           assert.isTrue(paused, 'subscriber should be paused')
-          assert.equal(previousDelayedPeriods.toString(), delayedPeriods, 'delayed periods does not match')
+          assertBn(previousDelayedPeriods, delayedPeriods, 'delayed periods does not match')
         })
 
         context('when paying less than the corresponding pre-paid periods', () => {

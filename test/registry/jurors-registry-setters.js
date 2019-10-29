@@ -1,6 +1,6 @@
-const { bn, bigExp } = require('../helpers/numbers')
 const { buildHelper } = require('../helpers/controller')(web3, artifacts)
 const { assertRevert } = require('../helpers/assertThrow')
+const { assertBn, bn, bigExp } = require('../helpers/numbers')
 const { assertEvent, assertAmountOfEvents } = require('../helpers/assertEvent')
 
 const JurorsRegistry = artifacts.require('JurorsRegistry')
@@ -30,7 +30,7 @@ contract('JurorsRegistry', ([_, governor, someone]) => {
             await registry.setTotalActiveBalanceLimit(newTotalActiveBalanceLimit, { from })
 
             const currentTotalActiveBalanceLimit = await registry.totalJurorsActiveBalanceLimit()
-            assert.equal(currentTotalActiveBalanceLimit.toString(), newTotalActiveBalanceLimit.toString(), 'total active balance limit does not match')
+            assertBn(currentTotalActiveBalanceLimit, newTotalActiveBalanceLimit, 'total active balance limit does not match')
           })
 
           it('emits an event', async () => {

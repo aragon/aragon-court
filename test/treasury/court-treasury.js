@@ -1,6 +1,6 @@
 const { buildHelper } = require('../helpers/controller')(web3, artifacts)
 const { assertRevert } = require('../helpers/assertThrow')
-const { bn, bigExp, MAX_UINT256 } = require('../helpers/numbers')
+const { assertBn, bn, bigExp, MAX_UINT256 } = require('../helpers/numbers')
 const { assertEvent, assertAmountOfEvents } = require('../helpers/assertEvent')
 
 const CourtTreasury = artifacts.require('CourtTreasury')
@@ -71,7 +71,7 @@ contract('CourtTreasury', ([_, court, holder, someone]) => {
             it('adds the new balance to the previous token balance', async () => {
               await treasury.assign(DAI.address, account, amount, { from })
 
-              assert.equal((await treasury.balanceOf(DAI.address, account)).toString(), amount.toString(), 'account balance do not match')
+              assertBn((await treasury.balanceOf(DAI.address, account)), amount, 'account balance do not match')
             })
 
             it('emits an event', async () => {
@@ -107,7 +107,7 @@ contract('CourtTreasury', ([_, court, holder, someone]) => {
                 await treasury.assign(DAI.address, account, amount, { from })
 
                 const currentBalance = await treasury.balanceOf(DAI.address, account)
-                assert.equal(currentBalance.toString(), previousBalance.add(amount).toString(), 'account balance do not match')
+                assertBn(currentBalance, previousBalance.add(amount), 'account balance do not match')
               })
 
               it('emits an event', async () => {
@@ -123,7 +123,7 @@ contract('CourtTreasury', ([_, court, holder, someone]) => {
                 await treasury.assign(DAI.address, account, amount, { from })
 
                 const currentANTBalance = await treasury.balanceOf(ANT.address, account)
-                assert.equal(currentANTBalance.toString(), previousANTBalance.toString(), 'account balance do not match')
+                assertBn(currentANTBalance, previousANTBalance, 'account balance do not match')
               })
             })
 
@@ -195,14 +195,14 @@ contract('CourtTreasury', ([_, court, holder, someone]) => {
               await treasury.withdraw(DAI.address, recipient, amount, { from })
 
               const currentBalance = await treasury.balanceOf(DAI.address, recipient)
-              assert.equal(currentBalance.toString(), previousBalance.sub(amount).toString(), 'account balance do not match')
+              assertBn(currentBalance, previousBalance.sub(amount), 'account balance do not match')
             })
 
             it('transfers the requested amount to the recipient', async () => {
               await treasury.withdraw(DAI.address, recipient, amount, { from })
 
               const balance = await DAI.balanceOf(recipient)
-              assert.equal(balance.toString(), amount.toString(), 'token balance do not match')
+              assertBn(balance, amount, 'token balance do not match')
             })
 
             it('emits an event', async () => {
@@ -218,7 +218,7 @@ contract('CourtTreasury', ([_, court, holder, someone]) => {
               await treasury.withdraw(DAI.address, recipient, amount, { from })
 
               const currentANTBalance = await treasury.balanceOf(ANT.address, recipient)
-              assert.equal(currentANTBalance.toString(), previousANTBalance.toString(), 'account balance do not match')
+              assertBn(currentANTBalance, previousANTBalance, 'account balance do not match')
             })
           })
 
@@ -241,14 +241,14 @@ contract('CourtTreasury', ([_, court, holder, someone]) => {
               await treasury.withdraw(DAI.address, recipient, amount, { from })
 
               const currentBalance = await treasury.balanceOf(DAI.address, recipient)
-              assert.equal(currentBalance.toString(), 0, 'account balance do not match')
+              assertBn(currentBalance, 0, 'account balance do not match')
             })
 
             it('transfers the requested amount to the recipient', async () => {
               await treasury.withdraw(DAI.address, recipient, amount, { from })
 
               const balance = await DAI.balanceOf(recipient)
-              assert.equal(balance.toString(), amount.toString(), 'token balance do not match')
+              assertBn(balance, amount, 'token balance do not match')
             })
 
             it('emits an event', async () => {
@@ -264,7 +264,7 @@ contract('CourtTreasury', ([_, court, holder, someone]) => {
               await treasury.withdraw(DAI.address, recipient, amount, { from })
 
               const currentANTBalance = await treasury.balanceOf(ANT.address, recipient)
-              assert.equal(currentANTBalance.toString(), previousANTBalance.toString(), 'account balance do not match')
+              assertBn(currentANTBalance, previousANTBalance, 'account balance do not match')
             })
           })
 
@@ -361,14 +361,14 @@ contract('CourtTreasury', ([_, court, holder, someone]) => {
             await treasury.withdrawAll(DAI.address, recipient, { from })
 
             const currentBalance = await treasury.balanceOf(DAI.address, recipient)
-            assert.equal(currentBalance.toString(), 0, 'account balance do not match')
+            assertBn(currentBalance, 0, 'account balance do not match')
           })
 
           it('transfers the total balance to the recipient', async () => {
             await treasury.withdrawAll(DAI.address, recipient, { from })
 
             const currentBalance = await DAI.balanceOf(recipient)
-            assert.equal(currentBalance.toString(), balance.toString(), 'token balance do not match')
+            assertBn(currentBalance, balance, 'token balance do not match')
           })
 
           it('emits an event', async () => {
@@ -384,7 +384,7 @@ contract('CourtTreasury', ([_, court, holder, someone]) => {
             await treasury.withdrawAll(DAI.address, recipient, { from })
 
             const currentANTBalance = await treasury.balanceOf(ANT.address, recipient)
-            assert.equal(currentANTBalance.toString(), previousANTBalance.toString(), 'account balance do not match')
+            assertBn(currentANTBalance, previousANTBalance, 'account balance do not match')
           })
         })
 

@@ -1,6 +1,6 @@
-const { bn, bigExp } = require('../helpers/numbers')
 const { buildHelper } = require('../helpers/controller')(web3, artifacts)
 const { assertRevert } = require('../helpers/assertThrow')
+const { assertBn, bn, bigExp } = require('../helpers/numbers')
 const { assertEvent, assertAmountOfEvents } = require('../helpers/assertEvent')
 
 const CourtSubscriptions = artifacts.require('CourtSubscriptions')
@@ -36,7 +36,7 @@ contract('CourtSubscriptions', ([_, governor, someone, something, subscriber]) =
         it('updates the subscriptions fee amount', async () => {
           await subscriptions.setFeeAmount(newFeeAmount, { from })
 
-          assert.equal((await subscriptions.currentFeeAmount()).toString(), newFeeAmount.toString(), 'subscription fee amount does not match')
+          assertBn((await subscriptions.currentFeeAmount()), newFeeAmount, 'subscription fee amount does not match')
         })
 
         it('emits an event', async () => {
@@ -86,7 +86,7 @@ contract('CourtSubscriptions', ([_, governor, someone, something, subscriber]) =
               await subscriptions.setFeeToken(newFeeToken.address, newFeeAmount, { from })
 
               assert.equal(await subscriptions.currentFeeToken(), newFeeToken.address, 'fee token does not match')
-              assert.equal((await subscriptions.currentFeeAmount()).toString(), newFeeAmount.toString(), 'fee amount does not match')
+              assertBn((await subscriptions.currentFeeAmount()), newFeeAmount, 'fee amount does not match')
             })
 
             it('emits an event', async () => {
@@ -127,7 +127,7 @@ contract('CourtSubscriptions', ([_, governor, someone, something, subscriber]) =
               await subscriptions.setFeeToken(newFeeToken.address, newFeeAmount, { from })
 
               const currentGovernorBalance = await feeToken.balanceOf(governor)
-              assert.equal(previousGovernorBalance.add(governorFees).toString(), currentGovernorBalance.toString(), 'governor shares do not match')
+              assertBn(previousGovernorBalance.add(governorFees), currentGovernorBalance, 'governor shares do not match')
             })
 
             it('emits a governor share fees transferred event', async () => {
@@ -182,7 +182,7 @@ contract('CourtSubscriptions', ([_, governor, someone, something, subscriber]) =
         it('updates the pre payment periods number', async () => {
           await subscriptions.setPrePaymentPeriods(newPrePaymentPeriods, { from })
 
-          assert.equal((await subscriptions.prePaymentPeriods()).toString(), newPrePaymentPeriods.toString(), 'pre payment periods does not match')
+          assertBn((await subscriptions.prePaymentPeriods()), newPrePaymentPeriods, 'pre payment periods does not match')
         })
 
         it('emits an event', async () => {
@@ -247,7 +247,7 @@ contract('CourtSubscriptions', ([_, governor, someone, something, subscriber]) =
         it('updates the late payments penalty pct', async () => {
           await subscriptions.setLatePaymentPenaltyPct(newLatePaymentPenaltyPct, { from })
 
-          assert.equal((await subscriptions.latePaymentPenaltyPct()).toString(), newLatePaymentPenaltyPct.toString(), 'late payments penalty does not match')
+          assertBn((await subscriptions.latePaymentPenaltyPct()), newLatePaymentPenaltyPct, 'late payments penalty does not match')
         })
 
         it('emits an event', async () => {
@@ -296,7 +296,7 @@ contract('CourtSubscriptions', ([_, governor, someone, something, subscriber]) =
         it('updates the governor share pct', async () => {
           await subscriptions.setGovernorSharePct(newGovernorSharePct, { from })
 
-          assert.equal((await subscriptions.governorSharePct()).toString(), newGovernorSharePct.toString(), 'governor share pct does not match')
+          assertBn((await subscriptions.governorSharePct()), newGovernorSharePct, 'governor share pct does not match')
         })
 
         it('emits an event', async () => {
@@ -347,7 +347,7 @@ contract('CourtSubscriptions', ([_, governor, someone, something, subscriber]) =
         it('updates the resume penalties', async () => {
           await subscriptions.setResumePrePaidPeriods(newResumePrePaidPeriods, { from })
 
-          assert.equal((await subscriptions.resumePrePaidPeriods()).toString(), newResumePrePaidPeriods.toString(), 'resume pre-paid periods does not match')
+          assertBn((await subscriptions.resumePrePaidPeriods()), newResumePrePaidPeriods, 'resume pre-paid periods does not match')
         })
 
         it('emits an event', async () => {

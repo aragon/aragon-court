@@ -1,5 +1,5 @@
-const { bn } = require('../helpers/numbers')
 const { buildHelper } = require('../helpers/controller')(web3, artifacts)
+const { assertBn, bn } = require('../helpers/numbers')
 const { assertRevert } = require('../helpers/assertThrow')
 const { SALT, OUTCOMES, encryptVote } = require('../helpers/crvoting')
 const { assertEvent, assertAmountOfEvents } = require('../helpers/assertEvent')
@@ -65,7 +65,7 @@ contract('CRVoting reveal', ([_, voter]) => {
                     await voting.reveal(voteId, outcome, salt, { from: voter })
 
                     const voterOutcome = await voting.getVoterOutcome(voteId, voter)
-                    assert.equal(voterOutcome.toString(), outcome, 'voter outcome does not match')
+                    assertBn(voterOutcome, outcome, 'voter outcome does not match')
                   })
 
                   it('emits an event', async () => {
@@ -81,13 +81,13 @@ contract('CRVoting reveal', ([_, voter]) => {
                     await voting.reveal(voteId, outcome, salt, { from: voter })
 
                     const currentTally = await voting.getOutcomeTally(voteId, outcome)
-                    assert.equal(previousTally.add(bn(weight)).toString(), currentTally.toString(), 'tallies do not match')
+                    assertBn(previousTally.add(bn(weight)), currentTally, 'tallies do not match')
                   })
 
                   it('computes the new winning outcome', async () => {
                     await voting.reveal(voteId, outcome, salt, { from: voter })
 
-                    assert.equal((await voting.getWinningOutcome(voteId)).toString(), outcome, 'winning outcomes does not match')
+                    assertBn((await voting.getWinningOutcome(voteId)), outcome, 'winning outcomes does not match')
                   })
 
                   it('considers the voter as a winner', async () => {

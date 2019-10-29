@@ -1,5 +1,5 @@
-const { MAX_UINT256 } = require('../helpers/numbers')
 const { assertRevert } = require('../helpers/assertThrow')
+const { assertBn, MAX_UINT256 } = require('../helpers/numbers')
 
 const Checkpointing = artifacts.require('CheckpointingMock')
 
@@ -11,7 +11,9 @@ contract('Checkpointing', () => {
   })
 
   const assertFetchedValue = async (time, expectedValue) => {
-    for (const searchFn of ['get', 'getRecent']) { assert.equal((await checkpointing[searchFn](time)).toString(), expectedValue.toString(), 'value does not match') }
+    for (const searchFn of ['get', 'getRecent']) {
+      assertBn((await checkpointing[searchFn](time)), expectedValue, 'value does not match')
+    }
   }
 
   describe('add', () => {
@@ -94,7 +96,7 @@ contract('Checkpointing', () => {
   describe('getLast', () => {
     context('when there are no values registered yet', () => {
       it('returns zero', async () => {
-        assert.equal((await checkpointing.getLast()).toString(), 0, 'value does not match')
+        assertBn((await checkpointing.getLast()), 0, 'value does not match')
       })
     })
 
@@ -106,7 +108,7 @@ contract('Checkpointing', () => {
       })
 
       it('returns the last registered value', async () => {
-        assert.equal((await checkpointing.getLast()).toString(), 3, 'value does not match')
+        assertBn((await checkpointing.getLast()), 3, 'value does not match')
       })
     })
   })

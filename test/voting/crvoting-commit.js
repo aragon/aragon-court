@@ -1,5 +1,5 @@
-const { bn } = require('../helpers/numbers')
 const { buildHelper } = require('../helpers/controller')(web3, artifacts)
+const { assertBn, bn } = require('../helpers/numbers')
 const { assertRevert } = require('../helpers/assertThrow')
 const { OUTCOMES, encryptVote } = require('../helpers/crvoting')
 const { assertEvent, assertAmountOfEvents } = require('../helpers/assertEvent')
@@ -46,7 +46,7 @@ contract('CRVoting commit', ([_, voter]) => {
                 await voting.commit(voteId, commitment, { from: voter })
 
                 const voterOutcome = await voting.getVoterOutcome(voteId, voter)
-                assert.equal(voterOutcome.toString(), OUTCOMES.MISSING, 'voter outcome should be missing')
+                assertBn(voterOutcome, OUTCOMES.MISSING, 'voter outcome should be missing')
               })
 
               it('emits an event', async () => {
@@ -62,7 +62,7 @@ contract('CRVoting commit', ([_, voter]) => {
                 await voting.commit(voteId, commitment, { from: voter })
 
                 const currentTally = await voting.getOutcomeTally(voteId, outcome)
-                assert.equal(previousTally.toString(), currentTally.toString(), 'tallies do not match')
+                assertBn(previousTally, currentTally, 'tallies do not match')
               })
 
               it('does not affect the winning outcome', async () => {
@@ -72,10 +72,10 @@ contract('CRVoting commit', ([_, voter]) => {
                 await voting.commit(voteId, commitment, { from: voter })
 
                 const currentWinningOutcome = await voting.getWinningOutcome(voteId)
-                assert.equal(previousWinningOutcome.toString(), currentWinningOutcome.toString(), 'winning outcomes do not match')
+                assertBn(previousWinningOutcome, currentWinningOutcome, 'winning outcomes do not match')
 
                 const currentWinningOutcomeTally = await voting.getOutcomeTally(voteId, currentWinningOutcome)
-                assert.equal(previousWinningOutcomeTally.toString(), currentWinningOutcomeTally.toString(), 'winning outcome tallies do not match')
+                assertBn(previousWinningOutcomeTally, currentWinningOutcomeTally, 'winning outcome tallies do not match')
               })
 
               it('does not consider the voter a winner', async () => {

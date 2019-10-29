@@ -1,6 +1,6 @@
-const { bn, bigExp } = require('../helpers/numbers')
 const { buildHelper } = require('../helpers/controller')(web3, artifacts)
 const { assertRevert } = require('../helpers/assertThrow')
+const { assertBn, bn, bigExp } = require('../helpers/numbers')
 const { assertEvent, assertAmountOfEvents } = require('../helpers/assertEvent')
 
 const JurorsRegistry = artifacts.require('JurorsRegistry')
@@ -68,11 +68,11 @@ contract('JurorsRegistry', ([_, juror]) => {
           await registry.activate(requestedAmount, { from })
 
           const { active: currentActiveBalance, available: currentAvailableBalance, locked: currentLockedBalance, pendingDeactivation: currentDeactivationBalance } = await registry.balanceOf(juror)
-          assert.equal(previousLockedBalance.toString(), currentLockedBalance.toString(), 'locked balances do not match')
-          assert.equal(previousAvailableBalance.sub(expectedAmount.sub(deactivationAmount)).toString(), currentAvailableBalance.toString(), 'available balances do not match')
+          assertBn(previousLockedBalance, currentLockedBalance, 'locked balances do not match')
+          assertBn(previousAvailableBalance.sub(expectedAmount.sub(deactivationAmount)), currentAvailableBalance, 'available balances do not match')
 
-          assert.equal(previousActiveBalance.add(expectedAmount).toString(), currentActiveBalance.toString(), 'active balances do not match')
-          assert.equal(previousDeactivationBalance.sub(deactivationAmount).toString(), currentDeactivationBalance.toString(), 'deactivation balances do not match')
+          assertBn(previousActiveBalance.add(expectedAmount), currentActiveBalance, 'active balances do not match')
+          assertBn(previousDeactivationBalance.sub(deactivationAmount), currentDeactivationBalance, 'deactivation balances do not match')
         })
 
         it('does not affect the active balance of the current term', async () => {
@@ -82,7 +82,7 @@ contract('JurorsRegistry', ([_, juror]) => {
           await registry.activate(requestedAmount, { from })
 
           const currentTermCurrentBalance = await registry.activeBalanceOfAt(juror, termId)
-          assert.equal(currentTermPreviousBalance.toString(), currentTermCurrentBalance.toString(), 'current term active balances do not match')
+          assertBn(currentTermPreviousBalance, currentTermCurrentBalance, 'current term active balances do not match')
         })
 
         it('increments the unlocked balance of the juror', async () => {
@@ -92,7 +92,7 @@ contract('JurorsRegistry', ([_, juror]) => {
 
           await controller.mockIncreaseTerm()
           const currentUnlockedActiveBalance = await registry.unlockedActiveBalanceOf(juror)
-          assert.equal(previousUnlockedActiveBalance.add(expectedAmount).toString(), currentUnlockedActiveBalance.toString(), 'unlocked balances do not match')
+          assertBn(previousUnlockedActiveBalance.add(expectedAmount), currentUnlockedActiveBalance, 'unlocked balances do not match')
         })
 
         it('does not affect the staked balances', async () => {
@@ -102,10 +102,10 @@ contract('JurorsRegistry', ([_, juror]) => {
           await registry.activate(requestedAmount, { from })
 
           const currentTotalStake = await registry.totalStaked()
-          assert.equal(previousTotalStake.toString(), currentTotalStake.toString(), 'total stake amounts do not match')
+          assertBn(previousTotalStake, currentTotalStake, 'total stake amounts do not match')
 
           const currentJurorStake = await registry.totalStakedFor(juror)
-          assert.equal(previousJurorStake.toString(), currentJurorStake.toString(), 'juror stake amounts do not match')
+          assertBn(previousJurorStake, currentJurorStake, 'juror stake amounts do not match')
         })
 
         it('does not affect the token balances', async () => {
@@ -115,10 +115,10 @@ contract('JurorsRegistry', ([_, juror]) => {
           await registry.activate(requestedAmount, { from })
 
           const currentSenderBalance = await ANJ.balanceOf(from)
-          assert.equal(previousJurorBalance.toString(), currentSenderBalance.toString(), 'juror balances do not match')
+          assertBn(previousJurorBalance, currentSenderBalance, 'juror balances do not match')
 
           const currentRegistryBalance = await ANJ.balanceOf(registry.address)
-          assert.equal(previousRegistryBalance.toString(), currentRegistryBalance.toString(), 'registry balances do not match')
+          assertBn(previousRegistryBalance, currentRegistryBalance, 'registry balances do not match')
         })
 
         it('emits an activation event', async () => {
@@ -163,7 +163,7 @@ contract('JurorsRegistry', ([_, juror]) => {
             await registry.activate(amount, { from })
 
             const jurorId = await registry.getJurorId(from)
-            assert.equal(jurorId.toString(), 1, 'juror id does not match')
+            assertBn(jurorId, 1, 'juror id does not match')
           })
         }
 
@@ -452,15 +452,15 @@ contract('JurorsRegistry', ([_, juror]) => {
             const { active: currentActiveBalance, available: currentAvailableBalance, locked: currentLockedBalance, pendingDeactivation: currentDeactivationBalance } = await registry.balanceOf(juror)
 
             const expectedActiveBalance = previousActiveBalance.sub(expectedAmount)
-            assert.equal(currentActiveBalance.toString(), expectedActiveBalance.toString(), 'active balances do not match')
+            assertBn(currentActiveBalance, expectedActiveBalance, 'active balances do not match')
 
             const expectedAvailableBalance = previousAvailableBalance.add(previousDeactivationAmount)
-            assert.equal(currentAvailableBalance.toString(), expectedAvailableBalance.toString(), 'available balances do not match')
+            assertBn(currentAvailableBalance, expectedAvailableBalance, 'available balances do not match')
 
             const expectedDeactivationBalance = previousDeactivationBalance.add(expectedAmount).sub(previousDeactivationAmount)
-            assert.equal(currentDeactivationBalance.toString(), expectedDeactivationBalance.toString(), 'deactivation balances do not match')
+            assertBn(currentDeactivationBalance, expectedDeactivationBalance, 'deactivation balances do not match')
 
-            assert.equal(currentLockedBalance.toString(), previousLockedBalance.toString(), 'locked balances do not match')
+            assertBn(currentLockedBalance, previousLockedBalance, 'locked balances do not match')
           })
 
           it('does not affect the active balance of the current term', async () => {
@@ -470,7 +470,7 @@ contract('JurorsRegistry', ([_, juror]) => {
             await registry.deactivate(requestedAmount, { from })
 
             const currentTermCurrentBalance = await registry.activeBalanceOfAt(juror, termId)
-            assert.equal(currentTermCurrentBalance.toString(), currentTermPreviousBalance.toString(), 'current term active balances do not match')
+            assertBn(currentTermCurrentBalance, currentTermPreviousBalance, 'current term active balances do not match')
           })
 
           it('decreases the unlocked balance of the juror', async () => {
@@ -481,7 +481,7 @@ contract('JurorsRegistry', ([_, juror]) => {
 
             await controller.mockIncreaseTerm()
             const currentUnlockedActiveBalance = await registry.unlockedActiveBalanceOf(juror)
-            assert.equal(currentUnlockedActiveBalance.toString(), previousUnlockedActiveBalance.sub(expectedAmount).toString(), 'unlocked balances do not match')
+            assertBn(currentUnlockedActiveBalance, previousUnlockedActiveBalance.sub(expectedAmount), 'unlocked balances do not match')
           })
 
           it('does not affect the staked balance of the juror', async () => {
@@ -491,10 +491,10 @@ contract('JurorsRegistry', ([_, juror]) => {
             await registry.deactivate(requestedAmount, { from })
 
             const currentTotalStake = await registry.totalStaked()
-            assert.equal(currentTotalStake.toString(), previousTotalStake.toString(), 'total stake amounts do not match')
+            assertBn(currentTotalStake, previousTotalStake, 'total stake amounts do not match')
 
             const currentJurorStake = await registry.totalStakedFor(juror)
-            assert.equal(currentJurorStake.toString(), previousJurorStake.toString(), 'juror stake amounts do not match')
+            assertBn(currentJurorStake, previousJurorStake, 'juror stake amounts do not match')
           })
 
           it('does not affect the token balances', async () => {
@@ -504,10 +504,10 @@ contract('JurorsRegistry', ([_, juror]) => {
             await registry.deactivate(requestedAmount, { from })
 
             const currentSenderBalance = await ANJ.balanceOf(from)
-            assert.equal(currentSenderBalance.toString(), previousJurorBalance.toString(), 'juror balances do not match')
+            assertBn(currentSenderBalance, previousJurorBalance, 'juror balances do not match')
 
             const currentRegistryBalance = await ANJ.balanceOf(registry.address)
-            assert.equal(currentRegistryBalance.toString(), previousRegistryBalance.toString(), 'registry balances do not match')
+            assertBn(currentRegistryBalance, previousRegistryBalance, 'registry balances do not match')
           })
 
           it('emits a deactivation request created event', async () => {

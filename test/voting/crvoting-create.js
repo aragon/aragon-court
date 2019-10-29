@@ -1,3 +1,4 @@
+const { assertBn } = require('../helpers/numbers')
 const { OUTCOMES } = require('../helpers/crvoting')
 const { buildHelper } = require('../helpers/controller')(web3, artifacts)
 const { assertRevert } = require('../helpers/assertThrow')
@@ -32,7 +33,7 @@ contract('CRVoting create', ([_, someone]) => {
             await court.create(voteId, possibleOutcomes)
 
             assert.isTrue(await voting.isValidOutcome(voteId, OUTCOMES.REFUSED), 'refused outcome should be invalid')
-            assert.equal((await voting.getMaxAllowedOutcome(voteId)).toString(), possibleOutcomes + OUTCOMES.REFUSED.toNumber(), 'max allowed outcome does not match')
+            assertBn((await voting.getMaxAllowedOutcome(voteId)), possibleOutcomes + OUTCOMES.REFUSED.toNumber(), 'max allowed outcome does not match')
           })
 
           it('emits an event', async () => {
@@ -62,7 +63,7 @@ contract('CRVoting create', ([_, someone]) => {
           it('considers refused as the winning outcome initially', async () => {
             await court.create(voteId, possibleOutcomes)
 
-            assert.equal((await voting.getWinningOutcome(voteId)).toString(), OUTCOMES.REFUSED, 'winning outcome does not match')
+            assertBn((await voting.getWinningOutcome(voteId)), OUTCOMES.REFUSED, 'winning outcome does not match')
           })
         })
 

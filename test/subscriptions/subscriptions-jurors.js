@@ -1,7 +1,7 @@
-const { bn, bigExp } = require('../helpers/numbers')
 const { buildHelper } = require('../helpers/controller')(web3, artifacts)
 const { assertRevert } = require('../helpers/assertThrow')
 const { sha3, padLeft, toHex } = require('web3-utils')
+const { assertBn, bn, bigExp } = require('../helpers/numbers')
 const { assertAmountOfEvents, assertEvent } = require('../helpers/assertEvent')
 
 const CourtSubscriptions = artifacts.require('CourtSubscriptions')
@@ -92,8 +92,8 @@ contract('CourtSubscriptions', ([_, payer, subscriberPeriod0, subscriberPeriod1,
             it('computes total active balance correctly', async () => {
               const { periodBalanceCheckpoint, totalActiveBalance } = await subscriptions.getPeriodBalanceDetails(periodId)
 
-              assert.equal(periodBalanceCheckpoint.toString(), 1, 'checkpoint does not match')
-              assert.equal(totalActiveBalance.toString(), expectedTotalActiveBalance.toString(), 'total active balance does not match')
+              assertBn(periodBalanceCheckpoint, 1, 'checkpoint does not match')
+              assertBn(totalActiveBalance, expectedTotalActiveBalance, 'total active balance does not match')
             })
 
             context('when the claiming juror was active at that term', async () => {
@@ -104,7 +104,7 @@ contract('CourtSubscriptions', ([_, payer, subscriberPeriod0, subscriberPeriod1,
                 const { feeToken: tokenAddress, jurorShare } = await subscriptions.getJurorShare(juror, periodId)
 
                 assert.equal(tokenAddress, feeToken.address, 'fee token address does not match')
-                assert.equal(jurorShare.toString(), expectedShareFees.toString(), 'juror share fees does not match')
+                assertBn(jurorShare, expectedShareFees, 'juror share fees does not match')
               })
 
               it('transfers share fees to the juror', async () => {
@@ -113,7 +113,7 @@ contract('CourtSubscriptions', ([_, payer, subscriberPeriod0, subscriberPeriod1,
                 await subscriptions.claimFees(periodId, { from: juror })
 
                 const currentBalance = await feeToken.balanceOf(juror)
-                assert.equal(previousBalance.add(expectedShareFees).toString(), currentBalance.toString(), 'juror balance does not match')
+                assertBn(previousBalance.add(expectedShareFees), currentBalance, 'juror balance does not match')
                 assert.isTrue(await subscriptions.hasJurorClaimed(juror, periodId))
               })
 
@@ -132,7 +132,7 @@ contract('CourtSubscriptions', ([_, payer, subscriberPeriod0, subscriberPeriod1,
                 const { feeToken: tokenAddress, jurorShare } = await subscriptions.getJurorShare(juror, periodId)
 
                 assert.equal(tokenAddress, feeToken.address, 'fee token address does not match')
-                assert.equal(jurorShare.toString(), 0, 'juror share fees does not match')
+                assertBn(jurorShare, 0, 'juror share fees does not match')
               })
 
               it('reverts', async () => {
@@ -152,8 +152,8 @@ contract('CourtSubscriptions', ([_, payer, subscriberPeriod0, subscriberPeriod1,
             it('computes total active balance correctly', async () => {
               const { periodBalanceCheckpoint, totalActiveBalance } = await subscriptions.getPeriodBalanceDetails(periodId)
 
-              assert.equal(periodBalanceCheckpoint.toString(), 3, 'checkpoint does not match')
-              assert.equal(totalActiveBalance.toString(), expectedTotalActiveBalance.toString(), 'total active balance does not match')
+              assertBn(periodBalanceCheckpoint, 3, 'checkpoint does not match')
+              assertBn(totalActiveBalance, expectedTotalActiveBalance, 'total active balance does not match')
             })
 
             context('when the claiming juror was active before that term', async () => {
@@ -164,7 +164,7 @@ contract('CourtSubscriptions', ([_, payer, subscriberPeriod0, subscriberPeriod1,
                 const { feeToken: tokenAddress, jurorShare } = await subscriptions.getJurorShare(juror, periodId)
 
                 assert.equal(tokenAddress, feeToken.address, 'fee token address does not match')
-                assert.equal(jurorShare.toString(), expectedShareFees.toString(), 'juror share fees does not match')
+                assertBn(jurorShare, expectedShareFees, 'juror share fees does not match')
               })
 
               it('transfers share fees to the juror', async () => {
@@ -173,7 +173,7 @@ contract('CourtSubscriptions', ([_, payer, subscriberPeriod0, subscriberPeriod1,
                 await subscriptions.claimFees(periodId, { from: juror })
 
                 const currentBalance = await feeToken.balanceOf(juror)
-                assert.equal(previousBalance.add(expectedShareFees).toString(), currentBalance.toString(), 'juror balance does not match')
+                assertBn(previousBalance.add(expectedShareFees), currentBalance, 'juror balance does not match')
                 assert.isTrue(await subscriptions.hasJurorClaimed(juror, periodId))
               })
 
@@ -193,7 +193,7 @@ contract('CourtSubscriptions', ([_, payer, subscriberPeriod0, subscriberPeriod1,
                 const { feeToken: tokenAddress, jurorShare } = await subscriptions.getJurorShare(juror, periodId)
 
                 assert.equal(tokenAddress, feeToken.address, 'fee token address does not match')
-                assert.equal(jurorShare.toString(), expectedShareFees.toString(), 'juror share fees does not match')
+                assertBn(jurorShare, expectedShareFees, 'juror share fees does not match')
               })
 
               it('transfers share fees to the juror', async () => {
@@ -202,7 +202,7 @@ contract('CourtSubscriptions', ([_, payer, subscriberPeriod0, subscriberPeriod1,
                 await subscriptions.claimFees(periodId, { from: juror })
 
                 const currentBalance = await feeToken.balanceOf(juror)
-                assert.equal(previousBalance.add(expectedShareFees).toString(), currentBalance.toString(), 'juror balance does not match')
+                assertBn(previousBalance.add(expectedShareFees), currentBalance, 'juror balance does not match')
                 assert.isTrue(await subscriptions.hasJurorClaimed(juror, periodId))
               })
 

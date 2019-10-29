@@ -29,8 +29,8 @@ contract('JurorsTreeSortition', () => {
       it('returns zeroed values', async () => {
         const { low, high } = await tree.getSearchBatchBounds(termId, selectedJurors, batchRequestedJurors, totalRequestedJurors)
 
-        assert.equal(low.toString(), 0, 'low bound does not match')
-        assert.equal(high.toString(), 0, 'high bound does not match')
+        assertBn(low, 0, 'low bound does not match')
+        assertBn(high, 0, 'high bound does not match')
       })
     })
 
@@ -48,8 +48,8 @@ contract('JurorsTreeSortition', () => {
         it('includes the first juror', async () => {
           const { low, high } = await tree.getSearchBatchBounds(termId, selectedJurors, batchRequestedJurors, totalRequestedJurors)
 
-          assert.equal(low.toString(), expectedLowBound, 'low bound does not match')
-          assert.equal(high.toString(), expectedHighBound, 'high bound does not match')
+          assertBn(low, expectedLowBound, 'low bound does not match')
+          assertBn(high, expectedHighBound, 'high bound does not match')
         })
       })
 
@@ -62,8 +62,8 @@ contract('JurorsTreeSortition', () => {
         it('includes middle jurors', async () => {
           const { low, high } = await tree.getSearchBatchBounds(termId, selectedJurors, batchRequestedJurors, totalRequestedJurors)
 
-          assert.equal(low.toString(), expectedLowBound, 'low bound does not match')
-          assert.equal(high.toString(), expectedHighBound, 'high bound does not match')
+          assertBn(low, expectedLowBound, 'low bound does not match')
+          assertBn(high, expectedHighBound, 'high bound does not match')
         })
       })
 
@@ -76,8 +76,8 @@ contract('JurorsTreeSortition', () => {
         it('includes the last juror', async () => {
           const { low, high } = await tree.getSearchBatchBounds(termId, selectedJurors, batchRequestedJurors, totalRequestedJurors)
 
-          assert.equal(low.toString(), expectedLowBound, 'low bound does not match')
-          assert.equal(high.toString(), expectedHighBound, 'high bound does not match')
+          assertBn(low, expectedLowBound, 'low bound does not match')
+          assertBn(high, expectedHighBound, 'high bound does not match')
         })
       })
     })
@@ -231,8 +231,8 @@ contract('JurorsTreeSortition', () => {
             })
 
             for (let i = 0; i < batchRequestedJurors; i++) {
-              assert.equal(jurorsIds[i].toString(), expectedJurorIds[i], `result key ${i} does not match`)
-              assert.equal(activeBalances[i].toString(), expectedJurorIds[i], `result value ${i} does not match`)
+              assertBn(jurorsIds[i], expectedJurorIds[i], `result key ${i} does not match`)
+              assertBn(activeBalances[i], expectedJurorIds[i], `result value ${i} does not match`)
             }
           })
         })
@@ -259,8 +259,8 @@ contract('JurorsTreeSortition', () => {
             })
 
             for (let i = 0; i < batchRequestedJurors; i++) {
-              assert.equal(jurorsIds[i].toString(), expectedJurorIds[i], `result key ${i} does not match`)
-              assert.equal(activeBalances[i].toString(), expectedJurorIds[i], `result value ${i} does not match`)
+              assertBn(jurorsIds[i], expectedJurorIds[i], `result key ${i} does not match`)
+              assertBn(activeBalances[i], expectedJurorIds[i], `result value ${i} does not match`)
             }
           })
         })

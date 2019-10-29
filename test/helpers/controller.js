@@ -44,12 +44,12 @@ module.exports = (web3, artifacts) => {
   }
 
   class ControllerHelper {
-    constructor (web3, artifacts) {
+    constructor(web3, artifacts) {
       this.web3 = web3
       this.artifacts = artifacts
     }
 
-    async getConfig (termId) {
+    async getConfig(termId) {
       const {
         feeToken,
         fees,
@@ -81,20 +81,20 @@ module.exports = (web3, artifacts) => {
       }
     }
 
-    async setTimestamp (timestamp) {
+    async setTimestamp(timestamp) {
       await this.controller.mockSetTimestamp(timestamp)
     }
 
-    async increaseTimeInTerms (terms) {
+    async increaseTimeInTerms(terms) {
       const seconds = this.termDuration.mul(bn(terms))
       await this.controller.mockIncreaseTime(seconds)
     }
 
-    async advanceBlocks (blocks) {
+    async advanceBlocks(blocks) {
       await this.controller.mockAdvanceBlocks(blocks)
     }
 
-    async setTerm (termId) {
+    async setTerm(termId) {
       // set timestamp corresponding to given term ID
       const timestamp = this.firstTermStartTime.add(this.termDuration.mul(bn(termId - 1)))
       await this.setTimestamp(timestamp)
@@ -104,7 +104,7 @@ module.exports = (web3, artifacts) => {
       if (neededTransitions.gt(bn(0))) await this.controller.heartbeat(neededTransitions)
     }
 
-    async passTerms (terms) {
+    async passTerms(terms) {
       // increase X terms based on term duration
       await this.increaseTimeInTerms(terms)
       // call heartbeat function for X terms
@@ -113,7 +113,7 @@ module.exports = (web3, artifacts) => {
       await this.advanceBlocks(2)
     }
 
-    async passRealTerms (terms) {
+    async passRealTerms(terms) {
       // increase X terms based on term duration
       await this.increaseTimeInTerms(terms)
       // call heartbeat function for X terms
@@ -122,7 +122,7 @@ module.exports = (web3, artifacts) => {
       await advanceBlocks(2)
     }
 
-    async buildNewConfig (originalConfig, iteration = 1) {
+    async buildNewConfig(originalConfig, iteration = 1) {
       const {
         jurorFee, draftFee, settleFee,
         commitTerms, revealTerms, appealTerms, appealConfirmTerms,
@@ -172,7 +172,7 @@ module.exports = (web3, artifacts) => {
       }
     }
 
-    async changeConfigPromise (originalConfig, termId, from, iteration = 1) {
+    async changeConfigPromise(originalConfig, termId, from, iteration = 1) {
       const newConfig = await this.buildNewConfig(originalConfig, iteration)
       const {
         newFeeTokenAddress,
@@ -200,14 +200,14 @@ module.exports = (web3, artifacts) => {
       return { promise, newConfig }
     }
 
-    async changeConfig (originalConfig, termId, iteration = 1) {
+    async changeConfig(originalConfig, termId, iteration = 1) {
       const { promise, newConfig } = await this.changeConfigPromise(originalConfig, termId, this.configGovernor, iteration)
       await promise
 
       return newConfig
     }
 
-    async deploy (params) {
+    async deploy(params) {
       Object.assign(this, { ...DEFAULTS, ...params })
       if (!this.fundsGovernor) this.fundsGovernor = await this._getAccount(0)
       if (!this.configGovernor) this.configGovernor = await this._getAccount(0)
@@ -231,7 +231,7 @@ module.exports = (web3, artifacts) => {
       return this.controller
     }
 
-    async deployModules () {
+    async deployModules() {
       if (!this.jurorToken) this.jurorToken = await this.artifacts.require('ERC20Mock').new('Aragon Network Juror Token', 'ANJ', 18)
       if (!this.court) this.court = await this.artifacts.require('Court').new(this.controller.address, this.maxJurorsPerDraftBatch)
       if (!this.voting) this.voting = await this.artifacts.require('CRVoting').new(this.controller.address)
@@ -267,7 +267,7 @@ module.exports = (web3, artifacts) => {
       return this.controller
     }
 
-    async _getAccount (index) {
+    async _getAccount(index) {
       const accounts = await this.web3.eth.getAccounts()
       return accounts[index]
     }

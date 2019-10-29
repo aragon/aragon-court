@@ -1,11 +1,11 @@
 const REVERT_CODE = 'revert'
 const THROW_ERROR_PREFIX = 'Returned error: VM Exception while processing transaction:'
 
-function assertError (error, expectedErrorCode) {
+function assertError(error, expectedErrorCode) {
   assert(error.message.search(expectedErrorCode) > -1, `Expected error code "${expectedErrorCode}" but failed with "${error}" instead.`)
 }
 
-async function assertThrows (blockOrPromise, expectedErrorCode, expectedReason) {
+async function assertThrows(blockOrPromise, expectedErrorCode, expectedReason) {
   try {
     (typeof blockOrPromise === 'function') ? await blockOrPromise() : await blockOrPromise
   } catch (error) {
@@ -16,7 +16,7 @@ async function assertThrows (blockOrPromise, expectedErrorCode, expectedReason) 
   assert(0, `Expected "${expectedErrorCode}"${expectedReason ? ` (with reason: "${expectedReason}")` : ''} but it did not fail`)
 }
 
-async function assertRevert (blockOrPromise, reason) {
+async function assertRevert(blockOrPromise, reason) {
   const error = await assertThrows(blockOrPromise, REVERT_CODE, reason)
   const errorPrefix = `${THROW_ERROR_PREFIX} ${REVERT_CODE}`
 

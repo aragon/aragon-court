@@ -12,7 +12,7 @@ const TREE_MAX_SIZE = 10000
 const MIN_JUROR_BALANCE = 100
 const MAX_JUROR_BALANCE = 1000000
 
-async function profileGas () {
+async function profileGas() {
   console.log(`MAX_APPEAL_ROUNDS: ${MAX_APPEAL_ROUNDS}`)
   console.log(`APPEAL_STEP_FACTOR: ${APPEAL_STEP_FACTOR}`)
   console.log(`INITIAL_JURORS_NUMBER: ${INITIAL_JURORS_NUMBER}`)
@@ -32,7 +32,7 @@ async function profileGas () {
   }
 }
 
-async function insert (tree, values) {
+async function insert(tree, values) {
   const insertGasCosts = []
   for (let i = 0; i < values; i++) {
     const balance = Math.floor(Math.random() * MAX_JUROR_BALANCE) + MIN_JUROR_BALANCE
@@ -44,7 +44,7 @@ async function insert (tree, values) {
   logInsertStats(`${values} values inserted:`, insertGasCosts)
 }
 
-async function search (tree, jurorsNumber, batches) {
+async function search(tree, jurorsNumber, batches) {
   const searchGasCosts = []
   const values = await computeSearchValues(tree, jurorsNumber, batches)
 
@@ -57,7 +57,7 @@ async function search (tree, jurorsNumber, batches) {
   logSearchStats(`${jurorsNumber} jurors searched in ${batches} batches:`, searchGasCosts)
 }
 
-async function computeSearchValues (tree, jurorsNumber, batches) {
+async function computeSearchValues(tree, jurorsNumber, batches) {
   const searchValues = []
   const total = (await tree.total()).div(bigExp(1, 18))
   const step = total.divToInt(jurorsNumber)

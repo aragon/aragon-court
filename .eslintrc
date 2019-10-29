@@ -20,6 +20,7 @@
     "no-return-assign": "off",
     "no-unused-vars": ["error", { "argsIgnorePattern": "^_" }],
     "unused-imports/no-unused-imports": "error",
-    "linebreak-style": ["error", "unix"]
+    "linebreak-style": ["error", "unix"],
+    "space-before-function-paren": ["error", { "anonymous": "always", "named": "never", "asyncArrow": "always" }],
   }
 }

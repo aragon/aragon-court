@@ -97,7 +97,7 @@ contract('HexSumTree', () => {
           // Second 16 set of children will be        2^0, 2^1, 2^2, ..., 2^15 at time i+1
           // Final 8 set of remaining values will be  3^0, 3^1, 3^2, ..., 3^7  at time i+1
 
-          for(let key = 0; key < 40; key++) {
+          for (let key = 0; key < 40; key++) {
             const time = key + 1
             await tree.insert(time, value(key))
           }
@@ -115,7 +115,7 @@ contract('HexSumTree', () => {
         })
 
         it('inserts the given values at level 0', async () => {
-          for(let key = 0; key < 40; key++) {
+          for (let key = 0; key < 40; key++) {
             const time = key + 1
             const expectedValue = value(key)
 
@@ -135,7 +135,7 @@ contract('HexSumTree', () => {
           const rootKey = 0
           let expectedTotal = 0
 
-          for(let key = 0; key < 40; key++) {
+          for (let key = 0; key < 40; key++) {
             const time = key + 1
             expectedTotal += value(key)
 
@@ -148,7 +148,7 @@ contract('HexSumTree', () => {
 
         it('updates the total values stored in the middle nodes', async () => {
           let expectedMiddleTotal = 0
-          for(let key = 0; key < 40; key++) {
+          for (let key = 0; key < 40; key++) {
             const time = key + 1
 
             // For 40 samples, the height of the tree will be 1 for the first 16 items and 2 for the rest, then the middle
@@ -195,68 +195,68 @@ contract('HexSumTree', () => {
 
     context('when the given key is present in the tree', () => {
       context('when having one value', () => {
-      const key = 0
-      const insertionTime = 2
-      const insertedValue = 5
-      const setValue = 10
+        const key = 0
+        const insertionTime = 2
+        const insertedValue = 5
+        const setValue = 10
 
-      const itSetsValuesProperly = (setTime, expectedInsertedValue) => {
-        beforeEach('insert value and set', async () => {
-          await tree.insert(insertionTime, insertedValue)
-          await tree.set(key, setTime, setValue)
+        const itSetsValuesProperly = (setTime, expectedInsertedValue) => {
+          beforeEach('insert value and set', async () => {
+            await tree.insert(insertionTime, insertedValue)
+            await tree.set(key, setTime, setValue)
+          })
+
+          it('sets the value of the given key', async () => {
+            assert.equal((await tree.item(key)).toString(), setValue, 'value does not match')
+            assert.equal((await tree.itemAt(key, 0)).toString(), 0, 'initial value does not match')
+            assert.equal((await tree.itemAt(key, insertionTime)).toString(), expectedInsertedValue, 'inserted value does not match')
+            assert.equal((await tree.itemAt(key, setTime)).toString(), setValue, 'set value does not match')
+          })
+
+          it('does not affect other keys', async () => {
+            assert.equal((await tree.item(key + 1)).toString(), 0, 'item with key #1 does not match')
+          })
+
+          it('does not update the next key or the height of the tree', async () => {
+            assert.equal((await tree.height()).toString(), 1, 'tree height does not match')
+            assert.equal((await tree.nextKey()).toString(), 1, 'next key does not match')
+          })
+
+          it('updates the total value stored in the root', async () => {
+            assert.equal((await tree.total()).toString(), setValue, 'last total stored in the root does not match')
+
+            const rootKey = 0
+            const rootLevel = await tree.height()
+            assert.equal((await tree.node(rootLevel, rootKey)).toString(), setValue, 'last value stored in the root does not match')
+            assert.equal((await tree.nodeAt(rootLevel, rootKey, 0)).toString(), 0, 'initial value stored in the root does not match')
+            assert.equal((await tree.nodeAt(rootLevel, rootKey, insertionTime)).toString(), expectedInsertedValue, 'value stored in the root at insertion time does not match')
+            assert.equal((await tree.nodeAt(rootLevel, rootKey, setTime)).toString(), setValue, 'value stored in the root at set time does not match')
+          })
+        }
+
+        context('when the set time is after to the insertion time', () => {
+          const setTime = insertionTime + 1
+          const expectedInsertedValue = insertedValue
+
+          itSetsValuesProperly(setTime, expectedInsertedValue)
         })
 
-        it('sets the value of the given key', async () => {
-          assert.equal((await tree.item(key)).toString(), setValue, 'value does not match')
-          assert.equal((await tree.itemAt(key, 0)).toString(), 0, 'initial value does not match')
-          assert.equal((await tree.itemAt(key, insertionTime)).toString(), expectedInsertedValue, 'inserted value does not match')
-          assert.equal((await tree.itemAt(key, setTime)).toString(), setValue, 'set value does not match')
+        context('when the set time is equal to the insertion time', () => {
+          const setTime = insertionTime
+          const expectedInsertedValue = setValue
+
+          itSetsValuesProperly(setTime, expectedInsertedValue)
         })
 
-        it('does not affect other keys', async () => {
-          assert.equal((await tree.item(key + 1)).toString(), 0, 'item with key #1 does not match')
+        context('when the set time is previous to the insertion time', () => {
+          const setTime = insertionTime - 1
+
+          it('reverts', async () => {
+            await tree.insert(insertionTime, insertedValue)
+            await assertRevert(tree.set(key, setTime, setValue), 'CHECKPOINT_CANNOT_ADD_PAST_VALUE')
+          })
         })
-
-        it('does not update the next key or the height of the tree', async () => {
-          assert.equal((await tree.height()).toString(), 1, 'tree height does not match')
-          assert.equal((await tree.nextKey()).toString(), 1, 'next key does not match')
-        })
-
-        it('updates the total value stored in the root', async () => {
-          assert.equal((await tree.total()).toString(), setValue, 'last total stored in the root does not match')
-
-          const rootKey = 0
-          const rootLevel = await tree.height()
-          assert.equal((await tree.node(rootLevel, rootKey)).toString(), setValue, 'last value stored in the root does not match')
-          assert.equal((await tree.nodeAt(rootLevel, rootKey, 0)).toString(), 0, 'initial value stored in the root does not match')
-          assert.equal((await tree.nodeAt(rootLevel, rootKey, insertionTime)).toString(), expectedInsertedValue, 'value stored in the root at insertion time does not match')
-          assert.equal((await tree.nodeAt(rootLevel, rootKey, setTime)).toString(), setValue, 'value stored in the root at set time does not match')
-        })
-      }
-
-      context('when the set time is after to the insertion time', () => {
-        const setTime = insertionTime + 1
-        const expectedInsertedValue = insertedValue
-
-        itSetsValuesProperly(setTime, expectedInsertedValue)
       })
-
-      context('when the set time is equal to the insertion time', () => {
-        const setTime = insertionTime
-        const expectedInsertedValue = setValue
-
-        itSetsValuesProperly(setTime, expectedInsertedValue)
-      })
-
-      context('when the set time is previous to the insertion time', () => {
-        const setTime = insertionTime - 1
-
-        it('reverts', async () => {
-          await tree.insert(insertionTime, insertedValue)
-          await assertRevert(tree.set(key, setTime, setValue), 'CHECKPOINT_CANNOT_ADD_PAST_VALUE')
-        })
-      })
-    })
 
       context('when having 40 values', () => {
         const insertionTime = 2
@@ -268,12 +268,12 @@ contract('HexSumTree', () => {
           // Final 8 set of remaining values will be  3^0, 3^1, 3^2, ..., 3^7 at time 2
           // All values will be incremented by 1 at time 5
 
-          for(let key = 0; key < 40; key++) await tree.insert(insertionTime, value(key))
+          for (let key = 0; key < 40; key++) await tree.insert(insertionTime, value(key))
 
           assert.equal((await tree.height()).toString(), 2, 'tree height does not match')
           assert.equal((await tree.nextKey()).toString(), 40, 'next key does not match')
 
-          for(let key = 0; key < 40; key++) await tree.set(key, setTime , value(key) + 1)
+          for (let key = 0; key < 40; key++) await tree.set(key, setTime, value(key) + 1)
         })
 
         const value = key => {
@@ -288,7 +288,7 @@ contract('HexSumTree', () => {
         })
 
         it('sets the values correctly', async () => {
-          for(let key = 0; key < 40; key++) {
+          for (let key = 0; key < 40; key++) {
             const expectedInsertedValue = value(key)
             const expectedSetValue = expectedInsertedValue + 1
 
@@ -309,7 +309,7 @@ contract('HexSumTree', () => {
           const rootLevel = await tree.heightAt(insertionTime) // Note that height does not change when setting
 
           let expectedInsertionTotal = 0, expectedSetTotal = 0
-          for(let key = 0; key < 40; key++) {
+          for (let key = 0; key < 40; key++) {
             const insertedValue = value(key)
             expectedInsertionTotal += insertedValue
             expectedSetTotal += (insertedValue + 1)
@@ -325,7 +325,7 @@ contract('HexSumTree', () => {
 
           const firstMiddleNodeKey = 0
           let firstMidNodeExpectedInsertionTotal = 0, firstMidNodeExpectedSetTotal = 0
-          for(let key = 0; key < 16; key++) {
+          for (let key = 0; key < 16; key++) {
             const insertedValue = value(key)
             firstMidNodeExpectedInsertionTotal += insertedValue
             firstMidNodeExpectedSetTotal += (insertedValue + 1)
@@ -335,7 +335,7 @@ contract('HexSumTree', () => {
 
           const secondMiddleNodeKey = 16
           let secondMidNodeExpectedInsertionTotal = 0, secondMidNodeExpectedSetTotal = 0
-          for(let key = 16; key < 32; key++) {
+          for (let key = 16; key < 32; key++) {
             const insertedValue = value(key)
             secondMidNodeExpectedInsertionTotal += insertedValue
             secondMidNodeExpectedSetTotal += (insertedValue + 1)
@@ -345,7 +345,7 @@ contract('HexSumTree', () => {
 
           const thirdMiddleNodeKey = 32
           let thirdMidNodeExpectedInsertionTotal = 0, thirdMidNodeExpectedSetTotal = 0
-          for(let key = 32; key < 40; key++) {
+          for (let key = 32; key < 40; key++) {
             const insertedValue = value(key)
             thirdMidNodeExpectedInsertionTotal += insertedValue
             thirdMidNodeExpectedSetTotal += (insertedValue + 1)
@@ -535,15 +535,15 @@ contract('HexSumTree', () => {
             // Final 8 set of remaining values will be  3^0, 3^1, 3^2, ..., 3^7  at time 2
             // All values will be incremented or decremented by 1 at time 5
 
-            for(let key = 0; key < 40; key++) await tree.insert(insertionTime, value(key))
+            for (let key = 0; key < 40; key++) await tree.insert(insertionTime, value(key))
 
             assert.equal((await tree.height()).toString(), 2, 'tree height does not match')
             assert.equal((await tree.nextKey()).toString(), 40, 'next key does not match')
 
             const delta = 1
-            for(let key = 0; key < 40; key++) {
+            for (let key = 0; key < 40; key++) {
               const positive = key % 2 === 0
-              await tree.update(key, updateTime , delta, positive)
+              await tree.update(key, updateTime, delta, positive)
             }
           })
 
@@ -559,7 +559,7 @@ contract('HexSumTree', () => {
           })
 
           it('updates the values correctly', async () => {
-            for(let key = 0; key < 40; key++) {
+            for (let key = 0; key < 40; key++) {
               const positive = key % 2 === 0
               const expectedInsertedValue = value(key)
               const expectedUpdatedValue = positive ? (expectedInsertedValue + 1) : (expectedInsertedValue - 1)
@@ -581,7 +581,7 @@ contract('HexSumTree', () => {
             const rootLevel = await tree.heightAt(insertionTime) // Note that height does not change when updating
 
             let expectedInsertionTotal = 0, expectedSetTotal = 0
-            for(let key = 0; key < 40; key++) {
+            for (let key = 0; key < 40; key++) {
               const positive = key % 2 === 0
               const insertedValue = value(key)
 
@@ -599,7 +599,7 @@ contract('HexSumTree', () => {
 
             const firstMiddleNodeKey = 0
             let firstMidNodeExpectedInsertionTotal = 0, firstMidNodeExpectedSetTotal = 0
-            for(let key = 0; key < 16; key++) {
+            for (let key = 0; key < 16; key++) {
               const positive = key % 2 === 0
               const insertedValue = value(key)
               firstMidNodeExpectedInsertionTotal += insertedValue
@@ -610,7 +610,7 @@ contract('HexSumTree', () => {
 
             const secondMiddleNodeKey = 16
             let secondMidNodeExpectedInsertionTotal = 0, secondMidNodeExpectedSetTotal = 0
-            for(let key = 16; key < 32; key++) {
+            for (let key = 16; key < 32; key++) {
               const positive = key % 2 === 0
               const insertedValue = value(key)
               secondMidNodeExpectedInsertionTotal += insertedValue
@@ -621,7 +621,7 @@ contract('HexSumTree', () => {
 
             const thirdMiddleNodeKey = 32
             let thirdMidNodeExpectedInsertionTotal = 0, thirdMidNodeExpectedSetTotal = 0
-            for(let key = 32; key < 40; key++) {
+            for (let key = 32; key < 40; key++) {
               const positive = key % 2 === 0
               const insertedValue = value(key)
               thirdMidNodeExpectedInsertionTotal += insertedValue

@@ -7,7 +7,7 @@ const { assertEvent, assertAmountOfEvents } = require('../helpers/assertEvent')
 const CRVoting = artifacts.require('CRVoting')
 const Court = artifacts.require('CourtMockForVoting')
 
-const ERROR_INVALID_OUTCOME = "CRV_INVALID_OUTCOME"
+const ERROR_INVALID_OUTCOME = 'CRV_INVALID_OUTCOME'
 
 contract('CRVoting reveal', ([_, voter]) => {
   let controller, voting, court
@@ -119,75 +119,6 @@ contract('CRVoting reveal', ([_, voter]) => {
                 })
 
                 context('when the given salt does not match the one used', () => {
-                  const salt = '0x'
-
-                  it('reverts', async () => {
-                    await assertRevert(voting.reveal(voteId, outcome, salt, { from: voter }), 'CRV_INVALID_COMMITMENT_SALT')
-                  })
-                })
-              })
-            })
-          })
-
-          context('when the owner reverts when checking the weight of the voter', () => {
-            beforeEach('mock the owner to revert', async () => {
-              await court.mockChecksFailing(true)
-            })
-
-            it('reverts', async () => {
-              await assertRevert(voting.reveal(voteId, committedOutcome, SALT, { from: voter }), 'CRV_OWNER_MOCK_REVEAL_CHECK_REVERTED')
-            })
-          })
-        }
-
-        const itHandlesInvalidRevealedVotesFor = committedOutcome => {
-          const commitment = encryptVote(committedOutcome)
-
-          beforeEach('commit a vote', async () => {
-            await court.mockVoterWeight(voter, 10)
-            await voting.commit(voteId, commitment, { from: voter })
-          })
-
-          context('when the owner does not revert when checking the weight of the voter', () => {
-            context('when the owner tells a weight greater than zero', () => {
-              const weight = 10
-
-              beforeEach('mock voter weight', async () => {
-                await court.mockVoterWeight(voter, weight)
-              })
-
-              context('when the given outcome matches the one committed by the voter', () => {
-                const outcome = committedOutcome
-
-                context('when the given salt matches the one used by the voter', () => {
-                  const salt = SALT
-
-                  it('reverts', async () => {
-                    await assertRevert(voting.reveal(voteId, outcome, salt, { from: voter }), 'CRV_INVALID_OUTCOME')
-                  })
-                })
-
-                context('when the given salt does not match the one used by the voter', () => {
-                  const salt = '0x'
-
-                  it('reverts', async () => {
-                    await assertRevert(voting.reveal(voteId, outcome, salt, { from: voter }), 'CRV_INVALID_COMMITMENT_SALT')
-                  })
-                })
-              })
-
-              context('when the given outcome does not match the one committed by the voter', () => {
-                const outcome = committedOutcome + 1
-
-                context('when the given salt matches the one used by the voter', () => {
-                  const salt = SALT
-
-                  it('reverts', async () => {
-                    await assertRevert(voting.reveal(voteId, outcome, salt, { from: voter }), 'CRV_INVALID_COMMITMENT_SALT')
-                  })
-                })
-
-                context('when the given salt does not match the one used by the voter', () => {
                   const salt = '0x'
 
                   it('reverts', async () => {

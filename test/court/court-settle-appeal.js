@@ -17,7 +17,7 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
     { address: juror4000, initialActiveBalance: bigExp(4000, 18) },
     { address: juror1500, initialActiveBalance: bigExp(1500, 18) },
     { address: juror3500, initialActiveBalance: bigExp(3500, 18) },
-    { address: juror2500, initialActiveBalance: bigExp(2500, 18) },
+    { address: juror2500, initialActiveBalance: bigExp(2500, 18) }
   ]
 
   beforeEach('create court', async () => {
@@ -43,7 +43,7 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
         const voters = [
           { address: juror1000, weight: 1, outcome: OUTCOMES.LEAKED },
           { address: juror2000, weight: 1, outcome: OUTCOMES.HIGH },
-          { address: juror4000, weight: 1, outcome: OUTCOMES.LOW },
+          { address: juror4000, weight: 1, outcome: OUTCOMES.LOW }
         ]
 
         const itIsAtState = (roundId, state) => {
@@ -391,7 +391,7 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
                       { address: juror2000, weight: 4, outcome: OUTCOMES.LOW },
                       { address: juror2500, weight: 1, outcome: OUTCOMES.HIGH },
                       { address: juror4000, weight: 2, outcome: OUTCOMES.LOW },
-                      { address: juror3000, weight: 1, outcome: OUTCOMES.LOW },
+                      { address: juror3000, weight: 1, outcome: OUTCOMES.LOW }
                     ]
 
                     draftAndVoteSecondRound(newRoundVoters)
@@ -404,7 +404,7 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
                       { address: juror2000, weight: 4, outcome: OUTCOMES.HIGH },
                       { address: juror2500, weight: 1, outcome: OUTCOMES.HIGH },
                       { address: juror4000, weight: 2, outcome: OUTCOMES.HIGH },
-                      { address: juror3000, weight: 1, outcome: OUTCOMES.HIGH },
+                      { address: juror3000, weight: 1, outcome: OUTCOMES.HIGH }
                     ]
 
                     draftAndVoteSecondRound(newRoundVoters)
@@ -417,7 +417,7 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
                       { address: juror2000, weight: 4, outcome: OUTCOMES.REFUSED },
                       { address: juror2500, weight: 1, outcome: OUTCOMES.REFUSED },
                       { address: juror4000, weight: 2, outcome: OUTCOMES.REFUSED },
-                      { address: juror3000, weight: 1, outcome: OUTCOMES.REFUSED },
+                      { address: juror3000, weight: 1, outcome: OUTCOMES.REFUSED }
                     ]
 
                     draftAndVoteSecondRound(newRoundVoters)
@@ -430,7 +430,7 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
                       { address: juror2000, weight: 4 },
                       { address: juror2500, weight: 1 },
                       { address: juror4000, weight: 2 },
-                      { address: juror3000, weight: 1 },
+                      { address: juror3000, weight: 1 }
                     ]
 
                     beforeEach('pass second round', async () => {
@@ -492,7 +492,7 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
                       { address: juror2000, outcome: OUTCOMES.LOW },
                       { address: juror2500, outcome: OUTCOMES.HIGH },
                       { address: juror4000, outcome: OUTCOMES.LOW },
-                      { address: juror3000, outcome: OUTCOMES.LOW },
+                      { address: juror3000, outcome: OUTCOMES.LOW }
                     ]
 
                     itHandlesRoundsSettlesProperly(finalRoundVoters, expectedFinalRuling)
@@ -505,7 +505,7 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
                       { address: juror2000, outcome: OUTCOMES.HIGH },
                       { address: juror2500, outcome: OUTCOMES.HIGH },
                       { address: juror4000, outcome: OUTCOMES.HIGH },
-                      { address: juror3000, outcome: OUTCOMES.HIGH },
+                      { address: juror3000, outcome: OUTCOMES.HIGH }
                     ]
 
                     itHandlesRoundsSettlesProperly(finalRoundVoters, expectedFinalRuling)
@@ -518,7 +518,7 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
                       { address: juror2000, outcome: OUTCOMES.REFUSED },
                       { address: juror2500, outcome: OUTCOMES.REFUSED },
                       { address: juror4000, outcome: OUTCOMES.REFUSED },
-                      { address: juror3000, outcome: OUTCOMES.REFUSED },
+                      { address: juror3000, outcome: OUTCOMES.REFUSED }
                     ]
 
                     itHandlesRoundsSettlesProperly(finalRoundVoters, expectedFinalRuling)

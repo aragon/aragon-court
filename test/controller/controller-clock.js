@@ -9,9 +9,9 @@ contract('Controller', () => {
 
   const EMPTY_RANDOMNESS = '0x0000000000000000000000000000000000000000000000000000000000000000'
 
-    beforeEach('build helper', () => {
-      controllerHelper = buildHelper()
-    })
+  beforeEach('build helper', () => {
+    controllerHelper = buildHelper()
+  })
 
   describe('constructor', () => {
     const termDuration = bn(ONE_DAY)

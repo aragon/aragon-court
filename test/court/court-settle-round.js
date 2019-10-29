@@ -23,7 +23,7 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
     { address: juror4000, initialActiveBalance: bigExp(4000, 18) },
     { address: juror1500, initialActiveBalance: bigExp(1500, 18) },
     { address: juror3500, initialActiveBalance: bigExp(3500, 18) },
-    { address: juror2500, initialActiveBalance: bigExp(2500, 18) },
+    { address: juror2500, initialActiveBalance: bigExp(2500, 18) }
   ]
 
   const BURN_ADDRESS = '0x000000000000000000000000000000000000dEaD'
@@ -51,7 +51,7 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
         const voters = [
           { address: juror1000, weight: 1, outcome: OUTCOMES.LEAKED },
           { address: juror2000, weight: 1, outcome: OUTCOMES.HIGH },
-          { address: juror4000, weight: 1, outcome: OUTCOMES.LOW },
+          { address: juror4000, weight: 1, outcome: OUTCOMES.LOW }
         ]
 
         const itIsAtState = (roundId, state) => {
@@ -117,7 +117,7 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
           beforeEach('load expected coherent jurors', async () => {
             // for final rounds compute voter's weight
             if (roundId >= courtHelper.maxRegularAppealRounds.toNumber()) {
-              for(const juror of expectedWinningJurors) {
+              for (const juror of expectedWinningJurors) {
                 juror.weight = (await courtHelper.getFinalRoundWeight(disputeId, roundId, juror.address)).toNumber()
               }
             }
@@ -149,7 +149,7 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
                   const roundLockedBalance = await courtHelper.getRoundLockBalance(disputeId, roundId, address)
 
                   const { locked: previousLockedBalance, active: previousActiveBalance } = previousBalances[address]
-                  const { active: currentActiveBalance, locked: currentLockedBalance } =await courtHelper.jurorsRegistry.balanceOf(address)
+                  const { active: currentActiveBalance, locked: currentLockedBalance } = await courtHelper.jurorsRegistry.balanceOf(address)
                   assert.equal(currentActiveBalance.toString(), previousActiveBalance.toString(), 'current active balance does not match')
 
                   // for the final round tokens are slashed before hand, thus they are not considered as locked tokens
@@ -252,7 +252,6 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
                 })
 
                 itSettlesPenaltiesProperly()
-
               } else {
                 it('reverts', async () => {
                   await court.settlePenalties(disputeId, roundId, 1)
@@ -271,7 +270,7 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
 
               if (expectedWinningJurors.length > 0) {
                 it('emits an event for each juror and cannot be settled twice', async () => {
-                  for(const { address } of expectedWinningJurors) {
+                  for (const { address } of expectedWinningJurors) {
                     const receipt = await court.settleReward(disputeId, roundId, address)
 
                     assertAmountOfEvents(receipt, 'RewardSettled')
@@ -282,7 +281,7 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
                 })
 
                 it('rewards the winning jurors with juror tokens', async () => {
-                  for(const { address, weight } of expectedWinningJurors) {
+                  for (const { address, weight } of expectedWinningJurors) {
                     await court.settleReward(disputeId, roundId, address)
 
                     const { weight: actualWeight, rewarded } = await courtHelper.getRoundJuror(disputeId, roundId, address)
@@ -301,7 +300,7 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
                   const { treasury, feeToken } = courtHelper
                   const { jurorFees } = await courtHelper.getRound(disputeId, roundId)
 
-                  for(const { address, weight } of expectedWinningJurors) {
+                  for (const { address, weight } of expectedWinningJurors) {
                     const previousJurorBalance = await treasury.balanceOf(feeToken.address, address)
 
                     await court.settleReward(disputeId, roundId, address)
@@ -313,7 +312,7 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
                 })
 
                 it('does not allow settling non-winning jurors', async () => {
-                  for(const { address } of expectedLosingJurors) {
+                  for (const { address } of expectedLosingJurors) {
                     await assertRevert(court.settleReward(disputeId, roundId, address), 'CT_WONT_REWARD_INCOHERENT_JUROR')
                   }
                 })
@@ -324,7 +323,7 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
                     const data = '0x00'
                     beforeEach('settle reward', async () => {
                       // settle reward and deactivate
-                      for(const juror of expectedWinningJurors) {
+                      for (const juror of expectedWinningJurors) {
                         await court.settleReward(disputeId, roundId, juror.address)
                         await courtHelper.jurorsRegistry.deactivate(0, { from: juror.address }) // deactivate all
                       }
@@ -333,24 +332,24 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
                     it('locks only after final round lock period', async () => {
                       // fails to withdraw on next term
                       await courtHelper.passTerms(bn(1))
-                      for(const juror of expectedWinningJurors) {
+                      for (const juror of expectedWinningJurors) {
                         await assertRevert(courtHelper.jurorsRegistry.unstake(amount, data, { from: juror.address }), ERROR_WITHDRAWALS_LOCK)
                       }
 
                       // fails to withdraw on last locked term
                       const { draftTerm } = await court.getRound(disputeId, roundId)
                       const lastLockedTermId = draftTerm
-                            .add(courtHelper.commitTerms)
-                            .add(courtHelper.revealTerms)
-                            .add(courtHelper.finalRoundLockTerms)
+                        .add(courtHelper.commitTerms)
+                        .add(courtHelper.revealTerms)
+                        .add(courtHelper.finalRoundLockTerms)
                       await courtHelper.setTerm(lastLockedTermId)
-                      for(const juror of expectedWinningJurors) {
+                      for (const juror of expectedWinningJurors) {
                         await assertRevert(courtHelper.jurorsRegistry.unstake(amount, data, { from: juror.address }), ERROR_WITHDRAWALS_LOCK)
                       }
 
                       // succeeds to withdraw after locked term
                       await courtHelper.passTerms(bn(1))
-                      for(const juror of expectedWinningJurors) {
+                      for (const juror of expectedWinningJurors) {
                         const receipt = await courtHelper.jurorsRegistry.unstake(amount, data, { from: juror.address })
                         assertAmountOfEvents(receipt, 'Unstaked')
                         assertEvent(receipt, 'Unstaked', { user: juror.address, amount: amount.toString() })
@@ -360,7 +359,7 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
                 }
               } else {
                 it('does not allow settling non-winning jurors', async () => {
-                  for(const { address } of expectedLosingJurors) {
+                  for (const { address } of expectedLosingJurors) {
                     await assertRevert(court.settleReward(disputeId, roundId, address), 'CT_WONT_REWARD_INCOHERENT_JUROR')
                   }
                 })
@@ -369,7 +368,7 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
               it('does not allow settling non-voting jurors', async () => {
                 const nonVoters = filterJurors(jurors, expectedWinningJurors.concat(expectedLosingJurors))
 
-                for(const { address } of nonVoters) {
+                for (const { address } of nonVoters) {
                   await assertRevert(court.settleReward(disputeId, roundId, address), 'CT_WONT_REWARD_NON_VOTER_JUROR')
                 }
               })
@@ -630,7 +629,7 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
                       { address: juror2000, weight: 4, outcome: OUTCOMES.LOW },
                       { address: juror2500, weight: 1, outcome: OUTCOMES.HIGH },
                       { address: juror4000, weight: 2, outcome: OUTCOMES.LOW },
-                      { address: juror3000, weight: 1, outcome: OUTCOMES.LOW },
+                      { address: juror3000, weight: 1, outcome: OUTCOMES.LOW }
                     ]
 
                     itHandlesRoundsSettlesProperly(newRoundVoters, expectedFinalRuling)
@@ -643,7 +642,7 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
                       { address: juror2000, weight: 4, outcome: OUTCOMES.HIGH },
                       { address: juror2500, weight: 1, outcome: OUTCOMES.HIGH },
                       { address: juror4000, weight: 2, outcome: OUTCOMES.HIGH },
-                      { address: juror3000, weight: 1, outcome: OUTCOMES.HIGH },
+                      { address: juror3000, weight: 1, outcome: OUTCOMES.HIGH }
                     ]
 
                     itHandlesRoundsSettlesProperly(newRoundVoters, expectedFinalRuling)
@@ -656,7 +655,7 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
                       { address: juror2000, weight: 4, outcome: OUTCOMES.REFUSED },
                       { address: juror2500, weight: 1, outcome: OUTCOMES.REFUSED },
                       { address: juror4000, weight: 2, outcome: OUTCOMES.REFUSED },
-                      { address: juror3000, weight: 1, outcome: OUTCOMES.REFUSED },
+                      { address: juror3000, weight: 1, outcome: OUTCOMES.REFUSED }
                     ]
 
                     itHandlesRoundsSettlesProperly(newRoundVoters, expectedFinalRuling)
@@ -670,7 +669,7 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
                       { address: juror2000, weight: 4 },
                       { address: juror2500, weight: 1 },
                       { address: juror4000, weight: 2 },
-                      { address: juror3000, weight: 1 },
+                      { address: juror3000, weight: 1 }
                     ]
 
                     beforeEach('pass second round', async () => {
@@ -749,7 +748,7 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
                       { address: juror2000, outcome: OUTCOMES.LOW },
                       { address: juror2500, outcome: OUTCOMES.HIGH },
                       { address: juror4000, outcome: OUTCOMES.LOW },
-                      { address: juror3000, outcome: OUTCOMES.LOW },
+                      { address: juror3000, outcome: OUTCOMES.LOW }
                     ]
 
                     itHandlesRoundsSettlesProperly(finalRoundVoters, expectedFinalRuling)
@@ -762,7 +761,7 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
                       { address: juror2000, outcome: OUTCOMES.HIGH },
                       { address: juror2500, outcome: OUTCOMES.HIGH },
                       { address: juror4000, outcome: OUTCOMES.HIGH },
-                      { address: juror3000, outcome: OUTCOMES.HIGH },
+                      { address: juror3000, outcome: OUTCOMES.HIGH }
                     ]
 
                     itHandlesRoundsSettlesProperly(finalRoundVoters, expectedFinalRuling)
@@ -775,7 +774,7 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
                       { address: juror2000, outcome: OUTCOMES.REFUSED },
                       { address: juror2500, outcome: OUTCOMES.REFUSED },
                       { address: juror4000, outcome: OUTCOMES.REFUSED },
-                      { address: juror3000, outcome: OUTCOMES.REFUSED },
+                      { address: juror3000, outcome: OUTCOMES.REFUSED }
                     ]
 
                     itHandlesRoundsSettlesProperly(finalRoundVoters, expectedFinalRuling)

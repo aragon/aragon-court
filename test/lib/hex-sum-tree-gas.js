@@ -42,7 +42,7 @@ contract('HexSumTree', () => {
 
             await tree.insert(0, 10)
             assert.equal((await tree.height()).toString(), 28, 'tree height does not match')
-            return await tree.insert(0, 10)
+            await tree.insert(0, 10)
           })
         })
       })
@@ -69,7 +69,7 @@ contract('HexSumTree', () => {
 
             await tree.insert(0, 10)
             assert.equal((await tree.height()).toString(), 29, 'tree height does not match')
-            return await tree.insert(0, 10)
+            await tree.insert(0, 10)
           })
         })
       })

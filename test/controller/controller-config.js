@@ -35,26 +35,26 @@ contract('Controller', ([_, sender, disputer, drafter, appealMaker, appealTaker,
       penaltyPct, finalRoundReduction,
       firstRoundJurorsNumber, appealStepFactor, maxRegularAppealRounds, finalRoundLockTerms,
       appealCollateralFactor, appealConfirmCollateralFactor,
-      minActiveBalance,
+      minActiveBalance
     } = await controllerHelper.getConfig(termId)
 
-    assert.equal(feeToken, newFeeTokenAddress, 'Fee token does not match')
-    assertBn(jurorFee, newJurorFee, 'Juror fee does not match')
-    assertBn(draftFee, newDraftFee, 'Draft fee does not match')
-    assertBn(settleFee, newSettleFee, 'Settle fee does not match')
-    assertBn(commitTerms, newCommitTerms, 'Commit terms number does not match')
-    assertBn(revealTerms, newRevealTerms, 'Reveal terms number does not match')
-    assertBn(appealTerms, newAppealTerms, 'Appeal terms number does not match')
-    assertBn(appealConfirmTerms, newAppealConfirmTerms, 'Appeal confirmation terms number does not match')
-    assertBn(penaltyPct, newPenaltyPct, 'Penalty permyriad does not match')
-    assertBn(finalRoundReduction, newFinalRoundReduction, 'Final round reduction does not match')
-    assertBn(firstRoundJurorsNumber, newFirstRoundJurorsNumber, 'First round jurors number does not match')
-    assertBn(appealStepFactor, newAppealStepFactor, 'Appeal step factor does not match')
-    assertBn(maxRegularAppealRounds, newMaxRegularAppealRounds, 'Number of max regular appeal rounds does not match')
-    assertBn(finalRoundLockTerms, newFinalRoundLockTerms, 'Number of final round lock terms does not match')
-    assertBn(appealCollateralFactor, newAppealCollateralFactor, 'Appeal collateral factor does not match')
-    assertBn(appealConfirmCollateralFactor, newAppealConfirmCollateralFactor, 'Appeal confirmation collateral factor does not match')
-    assertBn(minActiveBalance, newMinActiveBalance, 'Min active balance does not match')
+    assert.equal(feeToken, newFeeTokenAddress, 'fee token does not match')
+    assertBn(jurorFee, newJurorFee, 'juror fee does not match')
+    assertBn(draftFee, newDraftFee, 'draft fee does not match')
+    assertBn(settleFee, newSettleFee, 'settle fee does not match')
+    assertBn(commitTerms, newCommitTerms, 'commit terms number does not match')
+    assertBn(revealTerms, newRevealTerms, 'reveal terms number does not match')
+    assertBn(appealTerms, newAppealTerms, 'appeal terms number does not match')
+    assertBn(appealConfirmTerms, newAppealConfirmTerms, 'appeal confirmation terms number does not match')
+    assertBn(penaltyPct, newPenaltyPct, 'penalty permyriad does not match')
+    assertBn(finalRoundReduction, newFinalRoundReduction, 'final round reduction does not match')
+    assertBn(firstRoundJurorsNumber, newFirstRoundJurorsNumber, 'first round jurors number does not match')
+    assertBn(appealStepFactor, newAppealStepFactor, 'appeal step factor does not match')
+    assertBn(maxRegularAppealRounds, newMaxRegularAppealRounds, 'number of max regular appeal rounds does not match')
+    assertBn(finalRoundLockTerms, newFinalRoundLockTerms, 'number of final round lock terms does not match')
+    assertBn(appealCollateralFactor, newAppealCollateralFactor, 'appeal collateral factor does not match')
+    assertBn(appealConfirmCollateralFactor, newAppealConfirmCollateralFactor, 'appeal confirmation collateral factor does not match')
+    assertBn(minActiveBalance, newMinActiveBalance, 'min active balance does not match')
   }
 
   beforeEach('deploy court', async () => {
@@ -84,11 +84,21 @@ contract('Controller', ([_, sender, disputer, drafter, appealMaker, appealTaker,
 
     originalConfig = {
       feeToken,
-      jurorFee, draftFee, settleFee,
-      commitTerms, revealTerms, appealTerms, appealConfirmTerms,
-      penaltyPct, finalRoundReduction,
-      firstRoundJurorsNumber, appealStepFactor, maxRegularAppealRounds, finalRoundLockTerms,
-      appealCollateralFactor, appealConfirmCollateralFactor,
+      jurorFee,
+      draftFee,
+      settleFee,
+      commitTerms,
+      revealTerms,
+      appealTerms,
+      appealConfirmTerms,
+      penaltyPct,
+      finalRoundReduction,
+      firstRoundJurorsNumber,
+      appealStepFactor,
+      maxRegularAppealRounds,
+      finalRoundLockTerms,
+      appealCollateralFactor,
+      appealConfirmCollateralFactor,
       minActiveBalance
     }
 
@@ -117,11 +127,21 @@ contract('Controller', ([_, sender, disputer, drafter, appealMaker, appealTaker,
 
     await courtHelper.deploy({
       feeToken,
-      jurorFee,  draftFee, settleFee,
-      commitTerms, revealTerms, appealTerms, appealConfirmTerms,
-      penaltyPct, finalRoundReduction,
-      firstRoundJurorsNumber, appealStepFactor, maxRegularAppealRounds, finalRoundLockTerms,
-      appealCollateralFactor, appealConfirmCollateralFactor,
+      jurorFee,
+      draftFee,
+      settleFee,
+      commitTerms,
+      revealTerms,
+      appealTerms,
+      appealConfirmTerms,
+      penaltyPct,
+      finalRoundReduction,
+      firstRoundJurorsNumber,
+      appealStepFactor,
+      maxRegularAppealRounds,
+      finalRoundLockTerms,
+      appealCollateralFactor,
+      appealConfirmCollateralFactor,
       minActiveBalance
     })
   })
@@ -195,17 +215,17 @@ contract('Controller', ([_, sender, disputer, drafter, appealMaker, appealTaker,
     })
 
     context('overwriting changes at a later term', () => {
+      let newConfig
       const configChangeTermId1 = 3, configChangeTermId2 = 4
-      let newConfig1, newConfig2
 
       beforeEach('ask for the changes', async () => {
-        newConfig1 = await controllerHelper.changeConfig(originalConfig, configChangeTermId1)
-        newConfig2 = await controllerHelper.changeConfig(originalConfig, configChangeTermId2, 2)
+        await controllerHelper.changeConfig(originalConfig, configChangeTermId1)
+        newConfig = await controllerHelper.changeConfig(originalConfig, configChangeTermId2, 2)
       })
 
       it('check it from the past', async () => {
         await checkConfig(configChangeTermId1, initialConfig)
-        await checkConfig(configChangeTermId2, newConfig2)
+        await checkConfig(configChangeTermId2, newConfig)
       })
 
       it('check once the change term id for the first change has been reached', async () => {
@@ -213,7 +233,7 @@ contract('Controller', ([_, sender, disputer, drafter, appealMaker, appealTaker,
         await controllerHelper.setTerm(configChangeTermId1)
 
         await checkConfig(configChangeTermId1, initialConfig)
-        await checkConfig(configChangeTermId2, newConfig2)
+        await checkConfig(configChangeTermId2, newConfig)
       })
 
       it('check once the change term id for the second change has been reached', async () => {
@@ -221,38 +241,38 @@ contract('Controller', ([_, sender, disputer, drafter, appealMaker, appealTaker,
         await controllerHelper.setTerm(configChangeTermId2)
 
         await checkConfig(configChangeTermId1, initialConfig)
-        await checkConfig(configChangeTermId2, newConfig2)
+        await checkConfig(configChangeTermId2, newConfig)
       })
     })
 
     context('overwriting changes at a prior term', () => {
+      let newConfig
       const configChangeTermId1 = 4, configChangeTermId2 = 3
-      let newConfig1, newConfig2
 
       beforeEach('ask for the changes', async () => {
-        newConfig1 = await controllerHelper.changeConfig(originalConfig, configChangeTermId1)
-        newConfig2 = await controllerHelper.changeConfig(originalConfig, configChangeTermId2, 2)
+        await controllerHelper.changeConfig(originalConfig, configChangeTermId1)
+        newConfig = await controllerHelper.changeConfig(originalConfig, configChangeTermId2, 2)
       })
 
       it('check it from the past', async () => {
-        await checkConfig(configChangeTermId1, newConfig2)
-        await checkConfig(configChangeTermId2, newConfig2)
+        await checkConfig(configChangeTermId1, newConfig)
+        await checkConfig(configChangeTermId2, newConfig)
       })
 
       it('check once the change term id for the first change has been reached', async () => {
         // move forward
         await controllerHelper.setTerm(configChangeTermId1)
 
-        await checkConfig(configChangeTermId1, newConfig2)
-        await checkConfig(configChangeTermId2, newConfig2)
+        await checkConfig(configChangeTermId1, newConfig)
+        await checkConfig(configChangeTermId2, newConfig)
       })
 
       it('check once the change term id for the second change has been reached', async () => {
         // move forward
         await controllerHelper.setTerm(configChangeTermId2)
 
-        await checkConfig(configChangeTermId1, newConfig2)
-        await checkConfig(configChangeTermId2, newConfig2)
+        await checkConfig(configChangeTermId1, newConfig)
+        await checkConfig(configChangeTermId2, newConfig)
       })
     })
   })
@@ -264,8 +284,8 @@ contract('Controller', ([_, sender, disputer, drafter, appealMaker, appealTaker,
 
     const jurors = [
       { address: juror3000, initialActiveBalance: bigExp(3000, 18) },
-      { address: juror500,  initialActiveBalance: bigExp( 500, 18) },
-      { address: juror1000, initialActiveBalance: bigExp(1000, 18) },
+      { address: juror500,  initialActiveBalance: bigExp(500, 18) },
+      { address: juror1000, initialActiveBalance: bigExp(1000, 18) }
     ]
 
     beforeEach('activate jurors', async () => {
@@ -284,8 +304,8 @@ contract('Controller', ([_, sender, disputer, drafter, appealMaker, appealTaker,
 
       // check dispute config related info
       const { roundJurorsNumber, jurorFees } = await courtHelper.getRound(disputeId, 0)
-      assertBn(roundJurorsNumber, firstRoundJurorsNumber, 'Jurors Number doesn\'t match')
-      assertBn(jurorFees, firstRoundJurorsNumber.mul(jurorFee), 'Jurors Fees don\'t match')
+      assertBn(roundJurorsNumber, firstRoundJurorsNumber, 'jurors Number does not match')
+      assertBn(jurorFees, firstRoundJurorsNumber.mul(jurorFee), 'jurors Fees do not match')
 
       // draft
       await controllerHelper.advanceBlocks(1)
@@ -302,8 +322,8 @@ contract('Controller', ([_, sender, disputer, drafter, appealMaker, appealTaker,
 
       // check dispute config related info
       const { roundJurorsNumber: appealJurorsNumber, jurorFees: appealJurorFees } = await courtHelper.getRound(disputeId, 1)
-      assertBn(appealJurorsNumber, firstRoundJurorsNumber.mul(appealStepFactor), 'Jurors Number doesn\'t match')
-      assertBn(appealJurorFees, appealJurorsNumber.mul(jurorFee), 'Jurors Fees don\'t match')
+      assertBn(appealJurorsNumber, firstRoundJurorsNumber.mul(appealStepFactor), 'jurors Number does not match')
+      assertBn(appealJurorFees, appealJurorsNumber.mul(jurorFee), 'jurors Fees do not match')
     })
   })
 

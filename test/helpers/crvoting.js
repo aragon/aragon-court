@@ -6,7 +6,7 @@ const OUTCOMES = {
   LEAKED: bn(1),
   REFUSED: bn(2),
   LOW: bn(3),
-  HIGH: bn(4),
+  HIGH: bn(4)
 }
 
 const SALT = soliditySha3('passw0rd')
@@ -24,7 +24,7 @@ const outcomeFor = (n) => {
 }
 
 const oppositeOutcome = outcome => {
-  return outcome.eq(OUTCOMES.LOW) ? OUTCOMES.HIGH : OUTCOMES.LOW
+  return outcome.eq(OUTCOMES.LOW) ? OUTCOMES.HIGH : OUTCOMES.LOW
 }
 
 module.exports = {

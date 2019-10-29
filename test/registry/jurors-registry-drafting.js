@@ -37,7 +37,7 @@ contract('JurorsRegistry', ([_, juror500, juror1000, juror1500, juror2000, juror
     bigExp(2500, 18),
     bigExp(3000, 18),
     bigExp(3500, 18),
-    bigExp(4000, 18),
+    bigExp(4000, 18)
   ]
 
   const jurors = [
@@ -48,7 +48,7 @@ contract('JurorsRegistry', ([_, juror500, juror1000, juror1500, juror2000, juror
     { address: juror2500, initialActiveBalance: balances[4] },
     { address: juror3000, initialActiveBalance: balances[5] },
     { address: juror3500, initialActiveBalance: balances[6] },
-    { address: juror4000, initialActiveBalance: balances[7] },
+    { address: juror4000, initialActiveBalance: balances[7] }
   ]
 
   beforeEach('create base contracts', async () => {
@@ -211,7 +211,7 @@ contract('JurorsRegistry', ([_, juror500, juror1000, juror1500, juror2000, juror
 
         it('locks the corresponding amount of active balances for the expected jurors', async () => {
           const previousLockedBalances = {}
-          for(let i = 0; i < jurors.length; i++) {
+          for (let i = 0; i < jurors.length; i++) {
             const address = jurors[i].address
             const { locked } = await registry.balanceOf(address)
             previousLockedBalances[address] = locked
@@ -475,7 +475,7 @@ contract('JurorsRegistry', ([_, juror500, juror1000, juror1500, juror2000, juror
                       await draft({ batchRequestedJurors: 3, roundRequestedJurors: 3 })
                     })
 
-                    context('when jurors don\'t have deactivation requests', () => {
+                    context('when jurors do not have deactivation requests', () => {
                       context('for the first batch', () => {
                         const batchRequestedJurors = 3
                         const previousSelectedJurors = 0

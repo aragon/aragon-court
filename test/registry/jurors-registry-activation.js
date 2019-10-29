@@ -158,7 +158,6 @@ contract('JurorsRegistry', ([_, juror]) => {
       }
 
       context('when the juror did not activate any tokens yet', () => {
-
         const itCreatesAnIdForTheJuror = amount => {
           it('creates an id for the given juror', async () => {
             await registry.activate(amount, { from })

@@ -20,5 +20,5 @@ module.exports = {
   MAX_UINT64,
   MAX_UINT192,
   MAX_UINT256,
-  assertBn,
+  assertBn
 }

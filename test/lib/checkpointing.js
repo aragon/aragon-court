@@ -11,8 +11,7 @@ contract('Checkpointing', () => {
   })
 
   const assertFetchedValue = async (time, expectedValue) => {
-    for (const searchFn of ['get', 'getRecent'])
-      assert.equal((await checkpointing[searchFn](time)).toString(), expectedValue.toString(), 'value does not match')
+    for (const searchFn of ['get', 'getRecent']) { assert.equal((await checkpointing[searchFn](time)).toString(), expectedValue.toString(), 'value does not match') }
   }
 
   describe('add', () => {

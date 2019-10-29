@@ -12,7 +12,7 @@ const ERROR_VOTE_ALREADY_REVEALED = 'CRV_VOTE_ALREADY_REVEALED'
 const ERROR_INVALID_COMMITMENT_SALT = 'CRV_INVALID_COMMITMENT_SALT'
 
 contract('Court', ([_, disputer, drafter, juror100, juror500, juror1000, juror1500, juror2000, juror2500, juror3000, juror3500, juror4000]) => {
-  let courtHelper, court, voting
+  let courtHelper, voting
 
   const jurors = [
     { address: juror100,  initialActiveBalance: bigExp(100,  18) },
@@ -23,12 +23,12 @@ contract('Court', ([_, disputer, drafter, juror100, juror500, juror1000, juror15
     { address: juror4000, initialActiveBalance: bigExp(4000, 18) },
     { address: juror1500, initialActiveBalance: bigExp(1500, 18) },
     { address: juror3500, initialActiveBalance: bigExp(3500, 18) },
-    { address: juror2500, initialActiveBalance: bigExp(2500, 18) },
+    { address: juror2500, initialActiveBalance: bigExp(2500, 18) }
   ]
 
   beforeEach('create court', async () => {
     courtHelper = buildHelper()
-    court = await courtHelper.deploy()
+    await courtHelper.deploy()
     voting = courtHelper.voting
   })
 
@@ -54,11 +54,11 @@ contract('Court', ([_, disputer, drafter, juror100, juror500, juror1000, juror15
       it('fails to commit votes', async () => {
         const voterAddresses = voters.map(v => v.address.toLowerCase())
         for (const { address } of jurors) {
-          let error_msg = ERROR_INVALID_ADJUDICATION_STATE
-          if (commited && voterAddresses.includes(address.toLowerCase())) {
-            error_msg = ERROR_VOTE_ALREADY_COMMITTED
-          }
-          await assertRevert(voting.commit(voteId, encryptVote(OUTCOMES.LOW), { from: address }), error_msg)
+          const expectedErrorMessage = (commited && voterAddresses.includes(address.toLowerCase()))
+            ? ERROR_VOTE_ALREADY_COMMITTED
+            : ERROR_INVALID_ADJUDICATION_STATE
+
+          await assertRevert(voting.commit(voteId, encryptVote(OUTCOMES.LOW), { from: address }), expectedErrorMessage)
         }
       })
     }
@@ -67,15 +67,11 @@ contract('Court', ([_, disputer, drafter, juror100, juror500, juror1000, juror15
       it('fails to reveal votes', async () => {
         const voterAddresses = voters.map(v => v.address.toLowerCase())
         for (const { outcome, address } of voters) {
-          let error_msg = ERROR_INVALID_COMMITMENT_SALT
-          if (commited && voterAddresses.includes(address.toLowerCase())) {
-            if (revealed) {
-              error_msg = ERROR_VOTE_ALREADY_REVEALED
-            } else {
-              error_msg = ERROR_INVALID_ADJUDICATION_STATE
-            }
-          }
-          await assertRevert(voting.reveal(voteId, outcome, SALT, { from: address }), error_msg)
+          const expectedErrorMessage = (commited && voterAddresses.includes(address.toLowerCase()))
+            ? (revealed ? ERROR_VOTE_ALREADY_REVEALED : ERROR_INVALID_ADJUDICATION_STATE)
+            : ERROR_INVALID_COMMITMENT_SALT
+
+          await assertRevert(voting.reveal(voteId, outcome, SALT, { from: address }), expectedErrorMessage)
         }
       })
     }
@@ -277,7 +273,7 @@ contract('Court', ([_, disputer, drafter, juror100, juror500, juror1000, juror15
           { address: juror1000, outcome: OUTCOMES.LOW },
           { address: juror4000, outcome: OUTCOMES.LOW },
           { address: juror2000, outcome: OUTCOMES.HIGH },
-          { address: juror1500, outcome: OUTCOMES.REFUSED },
+          { address: juror1500, outcome: OUTCOMES.REFUSED }
         ]
         nonVoters = filterJurors(jurors, voters)
       })

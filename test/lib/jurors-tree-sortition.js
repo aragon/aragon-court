@@ -196,7 +196,7 @@ contract('JurorsTreeSortition', () => {
       const balances = Array.from(Array(100).keys()).map(x => bn(x))
 
       beforeEach('insert values', async () => {
-        for(let i = 0; i < 100; i++) await tree.insert(termId, balances[i])
+        for (let i = 0; i < 100; i++) await tree.insert(termId, balances[i])
       })
 
       context('when the requested number of jurors is zero', () => {

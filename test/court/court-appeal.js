@@ -1,6 +1,5 @@
 const { DEFAULTS } = require('../helpers/controller')(web3, artifacts)
 const { bn, bigExp } = require('../helpers/numbers')
-const { filterJurors } = require('../helpers/jurors')
 const { assertRevert } = require('../helpers/assertThrow')
 const { assertAmountOfEvents, assertEvent } = require('../helpers/assertEvent')
 const { buildHelper, ROUND_STATES, DISPUTE_STATES } = require('../helpers/court')(web3, artifacts)
@@ -19,7 +18,7 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
     { address: juror4000, initialActiveBalance: bigExp(4000, 18) },
     { address: juror1500, initialActiveBalance: bigExp(1500, 18) },
     { address: juror3500, initialActiveBalance: bigExp(3500, 18) },
-    { address: juror2500, initialActiveBalance: bigExp(2500, 18) },
+    { address: juror2500, initialActiveBalance: bigExp(2500, 18) }
   ]
 
   beforeEach('create court', async () => {
@@ -41,7 +40,7 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
       })
 
       context('when the given round is valid', () => {
-        let voteId, voters, nonVoters
+        let voteId, voters
 
         const itIsAtState = (roundId, state) => {
           it(`round is at state ${state}`, async () => {
@@ -57,12 +56,11 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
         }
 
         context('for a regular round', () => {
+          let draftedJurors
           const roundId = 0
-          let draftedJurors, nonDraftedJurors
 
           beforeEach('draft round', async () => {
             draftedJurors = await courtHelper.draft({ disputeId, drafter })
-            nonDraftedJurors = jurors.filter(juror => !draftedJurors.map(j => j.address).includes(juror.address))
           })
 
           beforeEach('define a group of voters', async () => {
@@ -70,7 +68,6 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
             // pick the first 3 drafted jurors to vote
             voters = draftedJurors.slice(0, 3)
             voters.forEach((voter, i) => voter.outcome = outcomeFor(i))
-            nonVoters = filterJurors(draftedJurors, voters)
           })
 
           context('during commit period', () => {
@@ -292,9 +289,8 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
               { address: juror1000, outcome: OUTCOMES.LOW },
               { address: juror4000, outcome: OUTCOMES.LOW },
               { address: juror2000, outcome: OUTCOMES.HIGH },
-              { address: juror1500, outcome: OUTCOMES.REFUSED },
+              { address: juror1500, outcome: OUTCOMES.REFUSED }
             ]
-            nonVoters = filterJurors(jurors, voters)
           })
 
           context('during commit period', () => {

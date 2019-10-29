@@ -57,7 +57,6 @@ contract('CourtTreasury', ([_, court, holder, someone]) => {
         const from = court
 
         context('when the account did not have previous balance', () => {
-
           context('when the given amount is zero', () => {
             const amount = bn(0)
 

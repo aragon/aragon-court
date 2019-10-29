@@ -1,0 +1,25 @@
+{
+  "env": {
+    "node": true,
+    "mocha": true
+  },
+  "globals": {
+    "artifacts": "readonly",
+    "assert": "readonly",
+    "contract": "readonly",
+    "web3": "readonly"
+  },
+  "extends": ["standard"],
+  "plugins": ["unused-imports"],
+  "rules": {
+    "semi": "error",
+    "one-var": "off",
+    "key-spacing": "off",
+    "no-var": "error",
+    "no-multi-spaces": "off",
+    "no-return-assign": "off",
+    "no-unused-vars": ["error", { "argsIgnorePattern": "^_" }],
+    "unused-imports/no-unused-imports": "error",
+    "linebreak-style": ["error", "unix"]
+  }
+}

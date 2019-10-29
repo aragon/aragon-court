@@ -29,5 +29,5 @@ module.exports = {
   countJuror,
   countEqualJurors,
   filterJurors,
-  filterWinningJurors,
+  filterWinningJurors
 }

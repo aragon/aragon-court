@@ -18,7 +18,7 @@ contract('Court', ([_, disputer, drafter, juror500, juror1000, juror1500, juror2
     { address: juror500,  initialActiveBalance: bigExp(500,  18) },
     { address: juror1000, initialActiveBalance: bigExp(1000, 18) },
     { address: juror1500, initialActiveBalance: bigExp(1500, 18) },
-    { address: juror2000, initialActiveBalance: bigExp(2000, 18) },
+    { address: juror2000, initialActiveBalance: bigExp(2000, 18) }
   ]
 
   beforeEach('create court', async () => {
@@ -48,7 +48,7 @@ contract('Court', ([_, disputer, drafter, juror500, juror1000, juror1500, juror2
           assertAmountOfEvents({ logs }, 'JurorDrafted', expectedDraftedJurors)
 
           const jurorsAddresses = jurors.map(j => j.address)
-          for(let i = 0; i < expectedDraftedJurors; i++) {
+          for (let i = 0; i < expectedDraftedJurors; i++) {
             const { disputeId: eventDisputeId, juror } = getEventAt({ logs }, 'JurorDrafted', i).args
             assert.equal(eventDisputeId.toString(), disputeId, 'dispute id does not match')
             assert.isTrue(jurorsAddresses.includes(toChecksumAddress(juror)), 'drafted juror is not included in the list')
@@ -108,7 +108,7 @@ contract('Court', ([_, disputer, drafter, juror500, juror1000, juror1500, juror2
           const logs = decodeEventsOfType(receipt, JurorsRegistry.abi, 'JurorDrafted')
           const events = getEvents({ logs }, 'JurorDrafted')
 
-          for(let i = 0; i < jurors.length; i++) {
+          for (let i = 0; i < jurors.length; i++) {
             const jurorAddress = jurors[i].address
             const expectedWeight = events.filter(({ args: { juror } }) => toChecksumAddress(juror) === jurorAddress).length
             const { weight, rewarded } = await courtHelper.getRoundJuror(disputeId, roundId, jurorAddress)
@@ -152,7 +152,7 @@ contract('Court', ([_, disputer, drafter, juror500, juror1000, juror1500, juror2
             const logs = decodeEventsOfType(receipt, JurorsRegistry.abi, 'JurorDrafted')
             assertAmountOfEvents({ logs }, 'JurorDrafted', expectedDraftedJurors)
 
-            for(let i = 0; i < expectedDraftedJurors; i++) {
+            for (let i = 0; i < expectedDraftedJurors; i++) {
               const { disputeId: eventDisputeId, juror } = getEventAt({ logs }, 'JurorDrafted', i).args
               assert.equal(eventDisputeId.toString(), disputeId, 'dispute id does not match')
               assert.isTrue(jurorsAddresses.includes(toChecksumAddress(juror)), 'drafted juror is not included in the list')
@@ -209,7 +209,7 @@ contract('Court', ([_, disputer, drafter, juror500, juror1000, juror1500, juror2
             const logs = decodeEventsOfType(receipt, JurorsRegistry.abi, 'JurorDrafted')
             const events = getEvents({ logs }, 'JurorDrafted')
 
-            for(let i = 0; i < jurors.length; i++) {
+            for (let i = 0; i < jurors.length; i++) {
               const jurorAddress = jurors[i].address
               const batchWeight = events.filter(({ args: { juror } }) => toChecksumAddress(juror) === jurorAddress).length
               expectedWeights[jurorAddress] = (expectedWeights[jurorAddress] || 0) + batchWeight
@@ -219,7 +219,7 @@ contract('Court', ([_, disputer, drafter, juror500, juror1000, juror1500, juror2
             if (batch + 1 < batches) await courtHelper.passRealTerms(1)
           }
 
-          for(let i = 0; i < jurors.length; i++) {
+          for (let i = 0; i < jurors.length; i++) {
             const jurorAddress = jurors[i].address
             const { weight, rewarded } = await court.getJuror(disputeId, roundId, jurorAddress)
 
@@ -384,11 +384,10 @@ contract('Court', ([_, disputer, drafter, juror500, juror1000, juror1500, juror2
             })
 
             context('when the heartbeat was executed', async () => {
-              let lastEnsuredTermId, previousBalance, receipt
+              let lastEnsuredTermId, receipt
 
               beforeEach('call heartbeat', async () => {
                 lastEnsuredTermId = await courtHelper.controller.getLastEnsuredTermId()
-                previousBalance = await courtHelper.treasury.balanceOf(courtHelper.feeToken.address, drafter)
                 receipt = await courtHelper.controller.heartbeat(1, { from: drafter })
               })
 
@@ -462,7 +461,7 @@ contract('Court', ([_, disputer, drafter, juror500, juror1000, juror1500, juror2
           await court.setMaxJurorsPerDraftBatch(newJurorsPerDraftBatch, { from })
 
           const maxJurorsPerDraftBatch = await court.maxJurorsPerDraftBatch()
-          assertBn(maxJurorsPerDraftBatch, newJurorsPerDraftBatch, 'Max draft batch size was not properly set')
+          assertBn(maxJurorsPerDraftBatch, newJurorsPerDraftBatch, 'max draft batch size was not properly set')
         })
 
         it('emits an event', async () => {

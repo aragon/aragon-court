@@ -1,6 +1,7 @@
 const { assertBn } = require('../helpers/asserts/assertBn')
 const { assertRevert } = require('../helpers/asserts/assertThrow')
 const { bn, MAX_UINT256, MAX_UINT192 } = require('../helpers/lib/numbers')
+const { TREE_ERRORS, CHECKPOINT_ERRORS, MATH_ERRORS } = require('../helpers/utils/errors')
 
 const HexSumTree = artifacts.require('HexSumTreeMock')
 
@@ -81,7 +82,7 @@ contract('HexSumTree', () => {
         it('does not allow adding another value before the insertion time', async () => {
           await tree.insert(time, value)
 
-          await assertRevert(tree.insert(time - 1, 10), 'CHECKPOINT_CANNOT_ADD_PAST_VALUE')
+          await assertRevert(tree.insert(time - 1, 10), CHECKPOINT_ERRORS.CANNOT_ADD_PAST_VALUE)
         })
 
         it('allows adding another value at the same time', async () => {
@@ -174,7 +175,7 @@ contract('HexSumTree', () => {
         const time = 1
 
         await tree.insert(time, value)
-        await assertRevert(tree.insert(time, 1), 'CHECKPOINT_VALUE_TOO_BIG')
+        await assertRevert(tree.insert(time, 1), CHECKPOINT_ERRORS.VALUE_TOO_BIG)
       })
     })
   })
@@ -190,7 +191,7 @@ contract('HexSumTree', () => {
       const value = 4
 
       it('reverts', async () => {
-        await assertRevert(tree.set(key, time, value), 'SUM_TREE_KEY_DOES_NOT_EXIST')
+        await assertRevert(tree.set(key, time, value), TREE_ERRORS.KEY_DOES_NOT_EXIST)
       })
     })
 
@@ -254,7 +255,7 @@ contract('HexSumTree', () => {
 
           it('reverts', async () => {
             await tree.insert(insertionTime, insertedValue)
-            await assertRevert(tree.set(key, setTime, setValue), 'CHECKPOINT_CANNOT_ADD_PAST_VALUE')
+            await assertRevert(tree.set(key, setTime, setValue), CHECKPOINT_ERRORS.CANNOT_ADD_PAST_VALUE)
           })
         })
       })
@@ -369,8 +370,8 @@ contract('HexSumTree', () => {
       const value = 4
 
       it('reverts', async () => {
-        await assertRevert(tree.update(key, time, value, true), 'SUM_TREE_KEY_DOES_NOT_EXIST')
-        await assertRevert(tree.update(key, time, value, false), 'SUM_TREE_KEY_DOES_NOT_EXIST')
+        await assertRevert(tree.update(key, time, value, true), TREE_ERRORS.KEY_DOES_NOT_EXIST)
+        await assertRevert(tree.update(key, time, value, false), TREE_ERRORS.KEY_DOES_NOT_EXIST)
       })
     })
 
@@ -387,9 +388,9 @@ contract('HexSumTree', () => {
           })
 
           it('reverts', async () => {
-            await assertRevert(tree.update(key, time + 1, MAX_UINT256, false), 'MATH_SUB_UNDERFLOW')
-            await assertRevert(tree.update(key, time + 1, value + 1, false), 'MATH_SUB_UNDERFLOW')
-            await assertRevert(tree.update(key, time + 1, MAX_UINT192, true), 'CHECKPOINT_VALUE_TOO_BIG')
+            await assertRevert(tree.update(key, time + 1, MAX_UINT256, false), MATH_ERRORS.SUB_UNDERFLOW)
+            await assertRevert(tree.update(key, time + 1, value + 1, false), MATH_ERRORS.SUB_UNDERFLOW)
+            await assertRevert(tree.update(key, time + 1, MAX_UINT192, true), CHECKPOINT_ERRORS.VALUE_TOO_BIG)
           })
         })
 
@@ -401,10 +402,10 @@ contract('HexSumTree', () => {
           })
 
           it('reverts', async () => {
-            await assertRevert(tree.update(key, time + 1, 2, true), 'CHECKPOINT_VALUE_TOO_BIG')
-            await assertRevert(tree.update(key, time + 1, MAX_UINT256, true), 'SUM_TREE_UPDATE_OVERFLOW')
-            await assertRevert(tree.update(key, time + 1, MAX_UINT256, false), 'MATH_SUB_UNDERFLOW')
-            await assertRevert(tree.update(key, time + 1, MAX_UINT256.sub(bn(1)), false), 'MATH_SUB_UNDERFLOW')
+            await assertRevert(tree.update(key, time + 1, 2, true), CHECKPOINT_ERRORS.VALUE_TOO_BIG)
+            await assertRevert(tree.update(key, time + 1, MAX_UINT256, true), TREE_ERRORS.UPDATE_OVERFLOW)
+            await assertRevert(tree.update(key, time + 1, MAX_UINT256, false), MATH_ERRORS.SUB_UNDERFLOW)
+            await assertRevert(tree.update(key, time + 1, MAX_UINT256.sub(bn(1)), false), MATH_ERRORS.SUB_UNDERFLOW)
           })
         })
       })
@@ -520,8 +521,8 @@ contract('HexSumTree', () => {
             it('reverts', async () => {
               await tree.insert(insertionTime, insertedValue)
 
-              await assertRevert(tree.update(key, updateTime, delta, true), 'CHECKPOINT_CANNOT_ADD_PAST_VALUE')
-              await assertRevert(tree.update(key, updateTime, delta, false), 'CHECKPOINT_CANNOT_ADD_PAST_VALUE')
+              await assertRevert(tree.update(key, updateTime, delta, true), CHECKPOINT_ERRORS.CANNOT_ADD_PAST_VALUE)
+              await assertRevert(tree.update(key, updateTime, delta, false), CHECKPOINT_ERRORS.CANNOT_ADD_PAST_VALUE)
             })
           })
         })
@@ -649,7 +650,7 @@ contract('HexSumTree', () => {
 
       context('when there was no value inserted in the tree', async () => {
         it('reverts', async () => {
-          await assertRevert(tree.search(searchValues, insertTime), 'SUM_TREE_SEARCH_OUT_OF_BOUNDS')
+          await assertRevert(tree.search(searchValues, insertTime), TREE_ERRORS.SEARCH_OUT_OF_BOUNDS)
         })
       })
 
@@ -663,7 +664,7 @@ contract('HexSumTree', () => {
             const searchTime = insertTime - 1
 
             it('reverts', async () => {
-              await assertRevert(tree.search(searchValues, searchTime), 'SUM_TREE_SEARCH_OUT_OF_BOUNDS')
+              await assertRevert(tree.search(searchValues, searchTime), TREE_ERRORS.SEARCH_OUT_OF_BOUNDS)
             })
           })
 
@@ -671,7 +672,7 @@ contract('HexSumTree', () => {
             const searchTime = insertTime
 
             it('reverts', async () => {
-              await assertRevert(tree.search(searchValues, searchTime), 'SUM_TREE_SEARCH_OUT_OF_BOUNDS')
+              await assertRevert(tree.search(searchValues, searchTime), TREE_ERRORS.SEARCH_OUT_OF_BOUNDS)
             })
           })
         })
@@ -685,7 +686,7 @@ contract('HexSumTree', () => {
             const searchTime = insertTime - 1
 
             it('reverts', async () => {
-              await assertRevert(tree.search(searchValues, searchTime), 'SUM_TREE_SEARCH_OUT_OF_BOUNDS')
+              await assertRevert(tree.search(searchValues, searchTime), TREE_ERRORS.SEARCH_OUT_OF_BOUNDS)
             })
           })
 
@@ -746,7 +747,7 @@ contract('HexSumTree', () => {
             const searchTime = insertTime - 1
 
             it('reverts', async () => {
-              await assertRevert(tree.search(searchValues, searchTime), 'SUM_TREE_SEARCH_OUT_OF_BOUNDS')
+              await assertRevert(tree.search(searchValues, searchTime), TREE_ERRORS.SEARCH_OUT_OF_BOUNDS)
             })
           })
 
@@ -796,7 +797,7 @@ contract('HexSumTree', () => {
             const searchTime = insertTime - 1
 
             it('reverts', async () => {
-              await assertRevert(tree.search(searchValues, searchTime), 'SUM_TREE_SEARCH_OUT_OF_BOUNDS')
+              await assertRevert(tree.search(searchValues, searchTime), TREE_ERRORS.SEARCH_OUT_OF_BOUNDS)
             })
           })
 
@@ -804,7 +805,7 @@ contract('HexSumTree', () => {
             const searchTime = insertTime
 
             it('reverts', async () => {
-              await assertRevert(tree.search(searchValues, searchTime), 'SUM_TREE_SEARCH_OUT_OF_BOUNDS')
+              await assertRevert(tree.search(searchValues, searchTime), TREE_ERRORS.SEARCH_OUT_OF_BOUNDS)
             })
           })
         })
@@ -824,7 +825,7 @@ contract('HexSumTree', () => {
             const searchTime = insertTime - 1
 
             it('reverts', async () => {
-              await assertRevert(tree.search(searchValues, searchTime), 'SUM_TREE_SEARCH_OUT_OF_BOUNDS')
+              await assertRevert(tree.search(searchValues, searchTime), TREE_ERRORS.SEARCH_OUT_OF_BOUNDS)
             })
           })
 
@@ -858,7 +859,7 @@ contract('HexSumTree', () => {
             const searchTime = insertTime - 1
 
             it('reverts', async () => {
-              await assertRevert(tree.search(searchValues, searchTime), 'SUM_TREE_SEARCH_OUT_OF_BOUNDS')
+              await assertRevert(tree.search(searchValues, searchTime), TREE_ERRORS.SEARCH_OUT_OF_BOUNDS)
             })
           })
 
@@ -897,7 +898,7 @@ contract('HexSumTree', () => {
             const searchTime = insertTime - 1
 
             it('reverts', async () => {
-              await assertRevert(tree.search(searchValues, searchTime), 'SUM_TREE_SEARCH_OUT_OF_BOUNDS')
+              await assertRevert(tree.search(searchValues, searchTime), TREE_ERRORS.SEARCH_OUT_OF_BOUNDS)
             })
           })
 
@@ -942,7 +943,7 @@ contract('HexSumTree', () => {
             const searchTime = insertTime - 1
 
             it('reverts', async () => {
-              await assertRevert(tree.search(searchValues, searchTime), 'SUM_TREE_SEARCH_OUT_OF_BOUNDS')
+              await assertRevert(tree.search(searchValues, searchTime), TREE_ERRORS.SEARCH_OUT_OF_BOUNDS)
             })
           })
 
@@ -950,7 +951,7 @@ contract('HexSumTree', () => {
             const searchTime = insertTime
 
             it('reverts', async () => {
-              await assertRevert(tree.search(searchValues, searchTime), 'SUM_TREE_SEARCH_OUT_OF_BOUNDS')
+              await assertRevert(tree.search(searchValues, searchTime), TREE_ERRORS.SEARCH_OUT_OF_BOUNDS)
             })
           })
         })

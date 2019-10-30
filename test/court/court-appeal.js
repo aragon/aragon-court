@@ -2,6 +2,7 @@ const { DEFAULTS } = require('../helpers/wrappers/controller')(web3, artifacts)
 const { assertBn } = require('../helpers/asserts/assertBn')
 const { bn, bigExp } = require('../helpers/lib/numbers')
 const { assertRevert } = require('../helpers/asserts/assertThrow')
+const { COURT_ERRORS } = require('../helpers/utils/errors')
 const { assertAmountOfEvents, assertEvent } = require('../helpers/asserts/assertEvent')
 const { buildHelper, ROUND_STATES, DISPUTE_STATES } = require('../helpers/wrappers/court')(web3, artifacts)
 const { getVoteId, oppositeOutcome, outcomeFor, OUTCOMES } = require('../helpers/utils/crvoting')
@@ -52,7 +53,7 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
 
         const itFailsToAppeal = (roundId) => {
           it('fails to appeal', async () => {
-            await assertRevert(court.createAppeal(disputeId, roundId, OUTCOMES.REFUSED), 'CT_INVALID_ADJUDICATION_STATE')
+            await assertRevert(court.createAppeal(disputeId, roundId, OUTCOMES.REFUSED), COURT_ERRORS.INVALID_ADJUDICATION_STATE)
           })
         }
 
@@ -151,7 +152,7 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
                   it('does not create a new round for the dispute', async () => {
                     await court.createAppeal(disputeId, roundId, appealMakerRuling, { from: appealMaker })
 
-                    await assertRevert(court.getRound(disputeId, roundId + 1), 'CT_ROUND_DOES_NOT_EXIST')
+                    await assertRevert(court.getRound(disputeId, roundId + 1), COURT_ERRORS.ROUND_DOES_NOT_EXIST)
                   })
 
                   it('does not modify the current round of the dispute', async () => {
@@ -180,13 +181,13 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
                   it('cannot be appealed twice', async () => {
                     await court.createAppeal(disputeId, roundId, appealMakerRuling, { from: appealMaker })
 
-                    await assertRevert(court.createAppeal(disputeId, roundId, appealMakerRuling, { from: appealMaker }), 'CT_INVALID_ADJUDICATION_STATE')
+                    await assertRevert(court.createAppeal(disputeId, roundId, appealMakerRuling, { from: appealMaker }), COURT_ERRORS.INVALID_ADJUDICATION_STATE)
                   })
                 })
 
                 context('when the appeal maker does not have enough balance', () => {
                   it('reverts', async () => {
-                    await assertRevert(court.createAppeal(disputeId, roundId, appealMakerRuling, { from: appealMaker }), 'CT_DEPOSIT_FAILED')
+                    await assertRevert(court.createAppeal(disputeId, roundId, appealMakerRuling, { from: appealMaker }), COURT_ERRORS.DEPOSIT_FAILED)
                   })
                 })
               })
@@ -197,7 +198,7 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
                 })
 
                 it('reverts', async () => {
-                  await assertRevert(court.createAppeal(disputeId, roundId, appealMakerRuling, { from: appealMaker }), 'CT_INVALID_APPEAL_RULING')
+                  await assertRevert(court.createAppeal(disputeId, roundId, appealMakerRuling, { from: appealMaker }), COURT_ERRORS.INVALID_APPEAL_RULING)
                 })
               })
             })
@@ -206,7 +207,7 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
               const invalidRuling = 10
 
               it('reverts', async () => {
-                await assertRevert(court.createAppeal(disputeId, roundId, invalidRuling, { from: appealMaker }), 'CT_INVALID_APPEAL_RULING')
+                await assertRevert(court.createAppeal(disputeId, roundId, invalidRuling, { from: appealMaker }), COURT_ERRORS.INVALID_APPEAL_RULING)
               })
             })
           })
@@ -346,14 +347,14 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
         const roundId = 5
 
         it('reverts', async () => {
-          await assertRevert(court.createAppeal(disputeId, roundId, OUTCOMES.LOW), 'CT_ROUND_DOES_NOT_EXIST')
+          await assertRevert(court.createAppeal(disputeId, roundId, OUTCOMES.LOW), COURT_ERRORS.ROUND_DOES_NOT_EXIST)
         })
       })
     })
 
     context('when the given dispute does not exist', () => {
       it('reverts', async () => {
-        await assertRevert(court.createAppeal(0, 0, OUTCOMES.LOW), 'CT_DISPUTE_DOES_NOT_EXIST')
+        await assertRevert(court.createAppeal(0, 0, OUTCOMES.LOW), COURT_ERRORS.DISPUTE_DOES_NOT_EXIST)
       })
     })
   })

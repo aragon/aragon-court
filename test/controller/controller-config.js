@@ -5,6 +5,7 @@ const { assertRevert } = require('../helpers/asserts/assertThrow')
 const { NOW, ONE_DAY } = require('../helpers/lib/time')
 const { assertConfig, buildNewConfig } = require('../helpers/utils/config')(artifacts)
 const { assertEvent, assertAmountOfEvents } = require('../helpers/assertEvent')
+const { CLOCK_ERRORS, CONFIG_ERRORS, CONTROLLER_ERRORS } = require('../helpers/utils/errors')
 
 contract('Controller', ([_, configGovernor, someone, disputer, drafter, appealMaker, appealTaker, juror500, juror1000, juror3000]) => {
   let courtHelper, controllerHelper
@@ -26,9 +27,6 @@ contract('Controller', ([_, configGovernor, someone, disputer, drafter, appealMa
   const appealCollateralFactor = bn(4)
   const appealConfirmCollateralFactor = bn(6)
   const minActiveBalance = bigExp(200, 18)
-
-  const ERROR_SENDER_NOT_CONFIG_GOVERNOR = 'CTR_SENDER_NOT_GOVERNOR'
-  const ERROR_TOO_OLD_TERM = 'CONF_TOO_OLD_TERM'
 
   const checkConfig = async (termId, expectedConfig) => assertConfig(await controllerHelper.getConfig(termId), expectedConfig)
 
@@ -73,61 +71,61 @@ contract('Controller', ([_, configGovernor, someone, disputer, drafter, appealMa
 
     context('when the initialization fails', () => {
       it('cannot use a term duration greater than the first term start time', async () => {
-        await assertRevert(courtHelper.deploy({ mockedTimestamp: NOW, firstTermStartTime: ONE_DAY, termDuration: ONE_DAY + 1 }), 'CLK_BAD_FIRST_TERM_START_TIME')
+        await assertRevert(courtHelper.deploy({ mockedTimestamp: NOW, firstTermStartTime: ONE_DAY, termDuration: ONE_DAY + 1 }), CLOCK_ERRORS.BAD_FIRST_TERM_START_TIME)
       })
 
       it('cannot use a first term start time in the past', async () => {
-        await assertRevert(courtHelper.deploy({ mockedTimestamp: NOW, firstTermStartTime: NOW - 1, termDuration: ONE_DAY }), 'CLK_BAD_FIRST_TERM_START_TIME')
+        await assertRevert(courtHelper.deploy({ mockedTimestamp: NOW, firstTermStartTime: NOW - 1, termDuration: ONE_DAY }), CLOCK_ERRORS.BAD_FIRST_TERM_START_TIME)
       })
 
       it('cannot use a penalty pct above 100%', async () => {
-        await assertRevert(controllerHelper.deploy({ penaltyPct: bn(10001) }), 'CONF_INVALID_PENALTY_PCT')
+        await assertRevert(controllerHelper.deploy({ penaltyPct: bn(10001) }), CONFIG_ERRORS.INVALID_PENALTY_PCT)
       })
 
       it('cannot use a final round reduction above 100%', async () => {
-        await assertRevert(controllerHelper.deploy({ finalRoundReduction: bn(10001) }), 'CONF_INVALID_FINAL_ROUND_RED_PCT')
+        await assertRevert(controllerHelper.deploy({ finalRoundReduction: bn(10001) }), CONFIG_ERRORS.INVALID_FINAL_ROUND_RED_PCT)
       })
 
       it('cannot use an appeal collateral factor zero', async () => {
-        await assertRevert(controllerHelper.deploy({ appealCollateralFactor: bn(0) }), 'CONF_ZERO_COLLATERAL_FACTOR')
+        await assertRevert(controllerHelper.deploy({ appealCollateralFactor: bn(0) }), CONFIG_ERRORS.ZERO_COLLATERAL_FACTOR)
       })
 
       it('cannot use an appeal confirmation collateral factor zero', async () => {
-        await assertRevert(controllerHelper.deploy({ appealConfirmCollateralFactor: bn(0) }), 'CONF_ZERO_COLLATERAL_FACTOR')
+        await assertRevert(controllerHelper.deploy({ appealConfirmCollateralFactor: bn(0) }), CONFIG_ERRORS.ZERO_COLLATERAL_FACTOR)
       })
 
       it('cannot use an initial jurors number zero', async () => {
-        await assertRevert(controllerHelper.deploy({ firstRoundJurorsNumber: bn(0) }), 'CONF_BAD_INITIAL_JURORS_NUMBER')
+        await assertRevert(controllerHelper.deploy({ firstRoundJurorsNumber: bn(0) }), CONFIG_ERRORS.BAD_INITIAL_JURORS_NUMBER)
       })
 
       it('cannot use an appeal step factor zero', async () => {
-        await assertRevert(controllerHelper.deploy({ appealStepFactor: bn(0) }), 'CONF_BAD_APPEAL_STEP_FACTOR')
+        await assertRevert(controllerHelper.deploy({ appealStepFactor: bn(0) }), CONFIG_ERRORS.BAD_APPEAL_STEP_FACTOR)
       })
 
       it('cannot use a max appeal rounds zero', async () => {
-        await assertRevert(controllerHelper.deploy({ maxRegularAppealRounds: bn(0) }), 'CONF_INVALID_MAX_APPEAL_ROUNDS')
+        await assertRevert(controllerHelper.deploy({ maxRegularAppealRounds: bn(0) }), CONFIG_ERRORS.INVALID_MAX_APPEAL_ROUNDS)
       })
 
       it('cannot use a max appeal rounds above 10', async () => {
-        await assertRevert(controllerHelper.deploy({ maxRegularAppealRounds: bn(11) }), 'CONF_INVALID_MAX_APPEAL_ROUNDS')
+        await assertRevert(controllerHelper.deploy({ maxRegularAppealRounds: bn(11) }), CONFIG_ERRORS.INVALID_MAX_APPEAL_ROUNDS)
       })
 
       it('cannot use a adjudication round durations zero', async () => {
-        await assertRevert(controllerHelper.deploy({ commitTerms: bn(0) }), 'CONF_LARGE_ROUND_PHASE_DURATION')
-        await assertRevert(controllerHelper.deploy({ revealTerms: bn(0) }), 'CONF_LARGE_ROUND_PHASE_DURATION')
-        await assertRevert(controllerHelper.deploy({ appealTerms: bn(0) }), 'CONF_LARGE_ROUND_PHASE_DURATION')
-        await assertRevert(controllerHelper.deploy({ appealConfirmTerms: bn(0) }), 'CONF_LARGE_ROUND_PHASE_DURATION')
+        await assertRevert(controllerHelper.deploy({ commitTerms: bn(0) }), CONFIG_ERRORS.LARGE_ROUND_PHASE_DURATION)
+        await assertRevert(controllerHelper.deploy({ revealTerms: bn(0) }), CONFIG_ERRORS.LARGE_ROUND_PHASE_DURATION)
+        await assertRevert(controllerHelper.deploy({ appealTerms: bn(0) }), CONFIG_ERRORS.LARGE_ROUND_PHASE_DURATION)
+        await assertRevert(controllerHelper.deploy({ appealConfirmTerms: bn(0) }), CONFIG_ERRORS.LARGE_ROUND_PHASE_DURATION)
       })
 
       it('cannot use a adjudication round durations bigger than 8670 terms', async () => {
-        await assertRevert(controllerHelper.deploy({ commitTerms: bn(8760) }), 'CONF_LARGE_ROUND_PHASE_DURATION')
-        await assertRevert(controllerHelper.deploy({ revealTerms: bn(8760) }), 'CONF_LARGE_ROUND_PHASE_DURATION')
-        await assertRevert(controllerHelper.deploy({ appealTerms: bn(8760) }), 'CONF_LARGE_ROUND_PHASE_DURATION')
-        await assertRevert(controllerHelper.deploy({ appealConfirmTerms: bn(8760) }), 'CONF_LARGE_ROUND_PHASE_DURATION')
+        await assertRevert(controllerHelper.deploy({ commitTerms: bn(8760) }), CONFIG_ERRORS.LARGE_ROUND_PHASE_DURATION)
+        await assertRevert(controllerHelper.deploy({ revealTerms: bn(8760) }), CONFIG_ERRORS.LARGE_ROUND_PHASE_DURATION)
+        await assertRevert(controllerHelper.deploy({ appealTerms: bn(8760) }), CONFIG_ERRORS.LARGE_ROUND_PHASE_DURATION)
+        await assertRevert(controllerHelper.deploy({ appealConfirmTerms: bn(8760) }), CONFIG_ERRORS.LARGE_ROUND_PHASE_DURATION)
       })
 
       it('cannot use a min active balance 0', async () => {
-        await assertRevert(controllerHelper.deploy({ minActiveBalance: bn(0) }), 'CONF_ZERO_MIN_ACTIVE_BALANCE')
+        await assertRevert(controllerHelper.deploy({ minActiveBalance: bn(0) }), CONFIG_ERRORS.ZERO_MIN_ACTIVE_BALANCE)
       })
     })
   })
@@ -209,75 +207,75 @@ contract('Controller', ([_, configGovernor, someone, disputer, drafter, appealMa
           context('when the new config is not valid', () => {
             it('cannot use a penalty pct above 100%', async () => {
               newConfig.penaltyPct = bn(10001)
-              await assertRevert(controllerHelper.setConfig(configChangeTermId, newConfig, { from }), 'CONF_INVALID_PENALTY_PCT')
+              await assertRevert(controllerHelper.setConfig(configChangeTermId, newConfig, { from }), CONFIG_ERRORS.INVALID_PENALTY_PCT)
             })
 
             it('cannot use a final round reduction above 100%', async () => {
               newConfig.finalRoundReduction = bn(10001)
-              await assertRevert(controllerHelper.setConfig(configChangeTermId, newConfig, { from }), 'CONF_INVALID_FINAL_ROUND_RED_PCT')
+              await assertRevert(controllerHelper.setConfig(configChangeTermId, newConfig, { from }), CONFIG_ERRORS.INVALID_FINAL_ROUND_RED_PCT)
             })
 
             it('cannot use an appeal collateral factor zero', async () => {
               newConfig.appealCollateralFactor = bn(0)
-              await assertRevert(controllerHelper.setConfig(configChangeTermId, newConfig, { from }), 'CONF_ZERO_COLLATERAL_FACTOR')
+              await assertRevert(controllerHelper.setConfig(configChangeTermId, newConfig, { from }), CONFIG_ERRORS.ZERO_COLLATERAL_FACTOR)
             })
 
             it('cannot use an appeal confirmation collateral factor zero', async () => {
               newConfig.appealConfirmCollateralFactor = bn(0)
-              await assertRevert(controllerHelper.setConfig(configChangeTermId, newConfig, { from }), 'CONF_ZERO_COLLATERAL_FACTOR')
+              await assertRevert(controllerHelper.setConfig(configChangeTermId, newConfig, { from }), CONFIG_ERRORS.ZERO_COLLATERAL_FACTOR)
             })
 
             it('cannot use an initial jurors number zero', async () => {
               newConfig.firstRoundJurorsNumber = bn(0)
-              await assertRevert(controllerHelper.setConfig(configChangeTermId, newConfig, { from }), 'CONF_BAD_INITIAL_JURORS_NUMBER')
+              await assertRevert(controllerHelper.setConfig(configChangeTermId, newConfig, { from }), CONFIG_ERRORS.BAD_INITIAL_JURORS_NUMBER)
             })
 
             it('cannot use an appeal step factor zero', async () => {
               newConfig.appealStepFactor = bn(0)
-              await assertRevert(controllerHelper.setConfig(configChangeTermId, newConfig, { from }), 'CONF_BAD_APPEAL_STEP_FACTOR')
+              await assertRevert(controllerHelper.setConfig(configChangeTermId, newConfig, { from }), CONFIG_ERRORS.BAD_APPEAL_STEP_FACTOR)
             })
 
             it('cannot use a max appeal rounds zero', async () => {
               newConfig.maxRegularAppealRounds = bn(0)
-              await assertRevert(controllerHelper.setConfig(configChangeTermId, newConfig, { from }), 'CONF_INVALID_MAX_APPEAL_ROUNDS')
+              await assertRevert(controllerHelper.setConfig(configChangeTermId, newConfig, { from }), CONFIG_ERRORS.INVALID_MAX_APPEAL_ROUNDS)
             })
 
             it('cannot use a max appeal rounds above 10', async () => {
               newConfig.maxRegularAppealRounds = bn(11)
-              await assertRevert(controllerHelper.setConfig(configChangeTermId, newConfig, { from }), 'CONF_INVALID_MAX_APPEAL_ROUNDS')
+              await assertRevert(controllerHelper.setConfig(configChangeTermId, newConfig, { from }), CONFIG_ERRORS.INVALID_MAX_APPEAL_ROUNDS)
             })
 
             it('cannot use a adjudication round durations zero', async () => {
               newConfig.commitTerms = bn(0)
-              await assertRevert(controllerHelper.setConfig(configChangeTermId, newConfig, { from }), 'CONF_LARGE_ROUND_PHASE_DURATION')
+              await assertRevert(controllerHelper.setConfig(configChangeTermId, newConfig, { from }), CONFIG_ERRORS.LARGE_ROUND_PHASE_DURATION)
 
               newConfig.revealTerms = bn(0)
-              await assertRevert(controllerHelper.setConfig(configChangeTermId, newConfig, { from }), 'CONF_LARGE_ROUND_PHASE_DURATION')
+              await assertRevert(controllerHelper.setConfig(configChangeTermId, newConfig, { from }), CONFIG_ERRORS.LARGE_ROUND_PHASE_DURATION)
 
               newConfig.appealTerms = bn(0)
-              await assertRevert(controllerHelper.setConfig(configChangeTermId, newConfig, { from }), 'CONF_LARGE_ROUND_PHASE_DURATION')
+              await assertRevert(controllerHelper.setConfig(configChangeTermId, newConfig, { from }), CONFIG_ERRORS.LARGE_ROUND_PHASE_DURATION)
 
               newConfig.appealConfirmTerms = bn(0)
-              await assertRevert(controllerHelper.setConfig(configChangeTermId, newConfig, { from }), 'CONF_LARGE_ROUND_PHASE_DURATION')
+              await assertRevert(controllerHelper.setConfig(configChangeTermId, newConfig, { from }), CONFIG_ERRORS.LARGE_ROUND_PHASE_DURATION)
             })
 
             it('cannot use a adjudication round durations bigger than 8670 terms', async () => {
               newConfig.commitTerms = bn(8760)
-              await assertRevert(controllerHelper.setConfig(configChangeTermId, newConfig, { from }), 'CONF_LARGE_ROUND_PHASE_DURATION')
+              await assertRevert(controllerHelper.setConfig(configChangeTermId, newConfig, { from }), CONFIG_ERRORS.LARGE_ROUND_PHASE_DURATION)
 
               newConfig.revealTerms = bn(8760)
-              await assertRevert(controllerHelper.setConfig(configChangeTermId, newConfig, { from }), 'CONF_LARGE_ROUND_PHASE_DURATION')
+              await assertRevert(controllerHelper.setConfig(configChangeTermId, newConfig, { from }), CONFIG_ERRORS.LARGE_ROUND_PHASE_DURATION)
 
               newConfig.appealTerms = bn(8760)
-              await assertRevert(controllerHelper.setConfig(configChangeTermId, newConfig, { from }), 'CONF_LARGE_ROUND_PHASE_DURATION')
+              await assertRevert(controllerHelper.setConfig(configChangeTermId, newConfig, { from }), CONFIG_ERRORS.LARGE_ROUND_PHASE_DURATION)
 
               newConfig.appealConfirmTerms = bn(8760)
-              await assertRevert(controllerHelper.setConfig(configChangeTermId, newConfig, { from }), 'CONF_LARGE_ROUND_PHASE_DURATION')
+              await assertRevert(controllerHelper.setConfig(configChangeTermId, newConfig, { from }), CONFIG_ERRORS.LARGE_ROUND_PHASE_DURATION)
             })
 
             it('cannot use a min active balance 0', async () => {
               newConfig.minActiveBalance = bn(0)
-              await assertRevert(controllerHelper.setConfig(configChangeTermId, newConfig, { from }), 'CONF_ZERO_MIN_ACTIVE_BALANCE')
+              await assertRevert(controllerHelper.setConfig(configChangeTermId, newConfig, { from }), CONFIG_ERRORS.ZERO_MIN_ACTIVE_BALANCE)
             })
           })
         })
@@ -387,7 +385,7 @@ contract('Controller', ([_, configGovernor, someone, disputer, drafter, appealMa
           const configChangeTermId = currentTerm + 1
 
           it('reverts', async () => {
-            await assertRevert(controllerHelper.setConfig(configChangeTermId, newConfig, { from }), ERROR_TOO_OLD_TERM)
+            await assertRevert(controllerHelper.setConfig(configChangeTermId, newConfig, { from }), CONFIG_ERRORS.TOO_OLD_TERM)
           })
         })
 
@@ -395,7 +393,7 @@ contract('Controller', ([_, configGovernor, someone, disputer, drafter, appealMa
           const configChangeTermId = currentTerm
 
           it('reverts', async () => {
-            await assertRevert(controllerHelper.setConfig(configChangeTermId, newConfig, { from }), ERROR_TOO_OLD_TERM)
+            await assertRevert(controllerHelper.setConfig(configChangeTermId, newConfig, { from }), CONFIG_ERRORS.TOO_OLD_TERM)
           })
         })
 
@@ -403,7 +401,7 @@ contract('Controller', ([_, configGovernor, someone, disputer, drafter, appealMa
           const configChangeTermId = currentTerm - 1
 
           it('reverts', async () => {
-            await assertRevert(controllerHelper.setConfig(configChangeTermId, newConfig, { from }), ERROR_TOO_OLD_TERM)
+            await assertRevert(controllerHelper.setConfig(configChangeTermId, newConfig, { from }), CONFIG_ERRORS.TOO_OLD_TERM)
           })
         })
       })
@@ -413,7 +411,7 @@ contract('Controller', ([_, configGovernor, someone, disputer, drafter, appealMa
       const from = someone
 
       it('reverts', async () => {
-        await assertRevert(controllerHelper.setConfig(0, newConfig, { from }), ERROR_SENDER_NOT_CONFIG_GOVERNOR)
+        await assertRevert(controllerHelper.setConfig(0, newConfig, { from }), CONTROLLER_ERRORS.SENDER_NOT_GOVERNOR)
       })
     })
   })

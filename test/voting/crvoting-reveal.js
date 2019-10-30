@@ -2,13 +2,12 @@ const { bn } = require('../helpers/lib/numbers')
 const { assertBn } = require('../helpers/asserts/assertBn')
 const { buildHelper } = require('../helpers/wrappers/controller')(web3, artifacts)
 const { assertRevert } = require('../helpers/asserts/assertThrow')
+const { VOTING_ERRORS } = require('../helpers/utils/errors')
 const { SALT, OUTCOMES, encryptVote } = require('../helpers/utils/crvoting')
 const { assertEvent, assertAmountOfEvents } = require('../helpers/asserts/assertEvent')
 
 const CRVoting = artifacts.require('CRVoting')
 const Court = artifacts.require('CourtMockForVoting')
-
-const ERROR_INVALID_OUTCOME = 'CRV_INVALID_OUTCOME'
 
 contract('CRVoting reveal', ([_, voter]) => {
   let controller, voting, court
@@ -35,7 +34,7 @@ contract('CRVoting reveal', ([_, voter]) => {
 
       context('when the given voter has not voted before', () => {
         it('reverts', async () => {
-          await assertRevert(voting.reveal(voteId, OUTCOMES.LOW, SALT, { from: voter }), 'CRV_INVALID_COMMITMENT_SALT')
+          await assertRevert(voting.reveal(voteId, OUTCOMES.LOW, SALT, { from: voter }), VOTING_ERRORS.INVALID_COMMITMENT_SALT)
         })
       })
 
@@ -103,7 +102,7 @@ contract('CRVoting reveal', ([_, voter]) => {
                   const salt = '0x'
 
                   it('reverts', async () => {
-                    await assertRevert(voting.reveal(voteId, outcome, salt, { from: voter }), 'CRV_INVALID_COMMITMENT_SALT')
+                    await assertRevert(voting.reveal(voteId, outcome, salt, { from: voter }), VOTING_ERRORS.INVALID_COMMITMENT_SALT)
                   })
                 })
               })
@@ -115,7 +114,7 @@ contract('CRVoting reveal', ([_, voter]) => {
                   const salt = SALT
 
                   it('reverts', async () => {
-                    await assertRevert(voting.reveal(voteId, outcome, salt, { from: voter }), 'CRV_INVALID_COMMITMENT_SALT')
+                    await assertRevert(voting.reveal(voteId, outcome, salt, { from: voter }), VOTING_ERRORS.INVALID_COMMITMENT_SALT)
                   })
                 })
 
@@ -123,7 +122,7 @@ contract('CRVoting reveal', ([_, voter]) => {
                   const salt = '0x'
 
                   it('reverts', async () => {
-                    await assertRevert(voting.reveal(voteId, outcome, salt, { from: voter }), 'CRV_INVALID_COMMITMENT_SALT')
+                    await assertRevert(voting.reveal(voteId, outcome, salt, { from: voter }), VOTING_ERRORS.INVALID_COMMITMENT_SALT)
                   })
                 })
               })
@@ -136,7 +135,7 @@ contract('CRVoting reveal', ([_, voter]) => {
             })
 
             it('reverts', async () => {
-              await assertRevert(voting.reveal(voteId, committedOutcome, SALT, { from: voter }), 'CRV_OWNER_MOCK_REVEAL_CHECK_REVERTED')
+              await assertRevert(voting.reveal(voteId, committedOutcome, SALT, { from: voter }), VOTING_ERRORS.OWNER_MOCK_REVEAL_CHECK_REVERTED)
             })
           })
         }
@@ -150,7 +149,7 @@ contract('CRVoting reveal', ([_, voter]) => {
           })
 
           it('reverts', async () => {
-            await assertRevert(voting.reveal(voteId, committedOutcome, SALT, { from: voter }), ERROR_INVALID_OUTCOME)
+            await assertRevert(voting.reveal(voteId, committedOutcome, SALT, { from: voter }), VOTING_ERRORS.INVALID_OUTCOME)
           })
         }
 
@@ -178,7 +177,7 @@ contract('CRVoting reveal', ([_, voter]) => {
 
     context('when the given vote ID is not valid', () => {
       it('reverts', async () => {
-        await assertRevert(voting.reveal(0, 0, '0x', { from: voter }), 'CRV_VOTE_DOES_NOT_EXIST')
+        await assertRevert(voting.reveal(0, 0, '0x', { from: voter }), VOTING_ERRORS.VOTE_DOES_NOT_EXIST)
       })
     })
   })

@@ -3,6 +3,7 @@ const { bn, bigExp } = require('../helpers/lib/numbers')
 const { buildHelper } = require('../helpers/wrappers/controller')(web3, artifacts)
 const { assertRevert } = require('../helpers/asserts/assertThrow')
 const { assertAmountOfEvents } = require('../helpers/asserts/assertEvent')
+const { SUBSCRIPTIONS_ERRORS } = require('../helpers/utils/errors')
 
 const CourtSubscriptions = artifacts.require('CourtSubscriptions')
 const ERC20 = artifacts.require('ERC20Mock')
@@ -16,10 +17,6 @@ contract('CourtSubscriptions', ([_, payer]) => {
   const PERIOD_DURATION = 24 * 30           // 30 days, assuming terms are 1h
   const GOVERNOR_SHARE_PCT = bn(100)        // 100‱ = 1%
   const LATE_PAYMENT_PENALTY_PCT = bn(1000) // 1000‱ = 10%
-
-  const ERROR_COURT_HAS_NOT_STARTED = 'CS_COURT_HAS_NOT_STARTED'
-  const ERROR_TOKEN_TRANSFER_FAILED = 'CS_TOKEN_TRANSFER_FAILED'
-  const ERROR_DONATION_AMOUNT_ZERO = 'CS_DONATION_AMOUNT_ZERO'
 
   beforeEach('create base contracts', async () => {
     controller = await buildHelper().deploy()
@@ -35,7 +32,7 @@ contract('CourtSubscriptions', ([_, payer]) => {
 
       context('when the court has not started yet', () => {
         it('reverts', async () => {
-          await assertRevert(subscriptions.donate(amount, { from: payer }), ERROR_COURT_HAS_NOT_STARTED)
+          await assertRevert(subscriptions.donate(amount, { from: payer }), SUBSCRIPTIONS_ERRORS.COURT_HAS_NOT_STARTED)
         })
       })
 
@@ -75,7 +72,7 @@ contract('CourtSubscriptions', ([_, payer]) => {
 
         context('when the sender does not have enough balance', () => {
           it('reverts', async () => {
-            await assertRevert(subscriptions.donate(1), ERROR_TOKEN_TRANSFER_FAILED)
+            await assertRevert(subscriptions.donate(1), SUBSCRIPTIONS_ERRORS.TOKEN_TRANSFER_FAILED)
           })
         })
       })
@@ -85,7 +82,7 @@ contract('CourtSubscriptions', ([_, payer]) => {
       const amount = bn(0)
 
       it('reverts', async () => {
-        await assertRevert(subscriptions.donate(amount), ERROR_DONATION_AMOUNT_ZERO)
+        await assertRevert(subscriptions.donate(amount), SUBSCRIPTIONS_ERRORS.DONATION_AMOUNT_ZERO)
       })
     })
   })

@@ -3,6 +3,7 @@ const { assertBn } = require('../helpers/asserts/assertBn')
 const { buildHelper } = require('../helpers/wrappers/controller')(web3, artifacts)
 const { assertRevert } = require('../helpers/asserts/assertThrow')
 const { OUTCOMES, encryptVote } = require('../helpers/utils/crvoting')
+const { COURT_ERRORS, VOTING_ERRORS } = require('../helpers/utils/errors')
 const { assertEvent, assertAmountOfEvents } = require('../helpers/asserts/assertEvent')
 
 const CRVoting = artifacts.require('CRVoting')
@@ -116,7 +117,7 @@ contract('CRVoting commit', ([_, voter]) => {
             })
 
             it('reverts', async () => {
-              await assertRevert(voting.commit(voteId, '0x', { from: voter }), 'CT_VOTER_WEIGHT_ZERO')
+              await assertRevert(voting.commit(voteId, '0x', { from: voter }), COURT_ERRORS.VOTER_WEIGHT_ZERO)
             })
           })
         })
@@ -127,7 +128,7 @@ contract('CRVoting commit', ([_, voter]) => {
           })
 
           it('reverts', async () => {
-            await assertRevert(voting.commit(voteId, '0x', { from: voter }), 'CRV_OWNER_MOCK_COMMIT_CHECK_REVERTED')
+            await assertRevert(voting.commit(voteId, '0x', { from: voter }), VOTING_ERRORS.OWNER_MOCK_COMMIT_CHECK_REVERTED)
           })
         })
       })
@@ -143,13 +144,13 @@ contract('CRVoting commit', ([_, voter]) => {
 
         context('when the new commitment is the same as the previous one', () => {
           it('reverts', async () => {
-            await assertRevert(voting.commit(voteId, commitment, { from: voter }), 'CRV_VOTE_ALREADY_COMMITTED')
+            await assertRevert(voting.commit(voteId, commitment, { from: voter }), VOTING_ERRORS.VOTE_ALREADY_COMMITTED)
           })
         })
 
         context('when the new commitment is different than the previous one', () => {
           it('reverts', async () => {
-            await assertRevert(voting.commit(voteId, encryptVote(100), { from: voter }), 'CRV_VOTE_ALREADY_COMMITTED')
+            await assertRevert(voting.commit(voteId, encryptVote(100), { from: voter }), VOTING_ERRORS.VOTE_ALREADY_COMMITTED)
           })
         })
       })
@@ -157,7 +158,7 @@ contract('CRVoting commit', ([_, voter]) => {
 
     context('when the given vote ID is not valid', () => {
       it('reverts', async () => {
-        await assertRevert(voting.commit(0, '0x', { from: voter }), 'CRV_VOTE_DOES_NOT_EXIST')
+        await assertRevert(voting.commit(0, '0x', { from: voter }), VOTING_ERRORS.VOTE_DOES_NOT_EXIST)
       })
     })
   })

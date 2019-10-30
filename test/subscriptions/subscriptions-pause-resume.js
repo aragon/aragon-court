@@ -1,7 +1,8 @@
-const { buildHelper } = require('../helpers/wrappers/controller')(web3, artifacts)
-const { assertRevert } = require('../helpers/asserts/assertThrow')
 const { assertBn } = require('../helpers/asserts/assertBn')
 const { bn, bigExp } = require('../helpers/lib/numbers')
+const { buildHelper } = require('../helpers/wrappers/controller')(web3, artifacts)
+const { assertRevert } = require('../helpers/asserts/assertThrow')
+const { SUBSCRIPTIONS_ERRORS } = require('../helpers/utils/errors')
 const { assertAmountOfEvents, assertEvent } = require('../helpers/asserts/assertEvent')
 
 const CourtSubscriptions = artifacts.require('CourtSubscriptions')
@@ -236,7 +237,7 @@ contract('CourtSubscriptions', ([_, subscriber]) => {
             const resumePaidPeriods = RESUME_PRE_PAID_PERIODS - 1
 
             it('reverts', async () => {
-              await assertRevert(subscriptions.resume(resumePaidPeriods, { from }), 'CS_LOW_RESUME_PERIODS_PAYMENT')
+              await assertRevert(subscriptions.resume(resumePaidPeriods, { from }), SUBSCRIPTIONS_ERRORS.LOW_RESUME_PERIODS_PAYMENT)
             })
           })
 
@@ -311,7 +312,7 @@ contract('CourtSubscriptions', ([_, subscriber]) => {
             const resumePaidPeriods = RESUME_PRE_PAID_PERIODS - 1
 
             it('reverts', async () => {
-              await assertRevert(subscriptions.resume(resumePaidPeriods, { from }), 'CS_LOW_RESUME_PERIODS_PAYMENT')
+              await assertRevert(subscriptions.resume(resumePaidPeriods, { from }), SUBSCRIPTIONS_ERRORS.LOW_RESUME_PERIODS_PAYMENT)
             })
           })
 
@@ -377,7 +378,7 @@ contract('CourtSubscriptions', ([_, subscriber]) => {
           const resumePaidPeriods = RESUME_PRE_PAID_PERIODS - 1
 
           it('reverts', async () => {
-            await assertRevert(subscriptions.resume(resumePaidPeriods, { from }), 'CS_LOW_RESUME_PERIODS_PAYMENT')
+            await assertRevert(subscriptions.resume(resumePaidPeriods, { from }), SUBSCRIPTIONS_ERRORS.LOW_RESUME_PERIODS_PAYMENT)
           })
         })
 
@@ -385,7 +386,7 @@ contract('CourtSubscriptions', ([_, subscriber]) => {
           const resumePaidPeriods = RESUME_PRE_PAID_PERIODS
 
           it('reverts', async () => {
-            await assertRevert(subscriptions.resume(resumePaidPeriods, { from }), 'CS_LOW_RESUME_PERIODS_PAYMENT')
+            await assertRevert(subscriptions.resume(resumePaidPeriods, { from }), SUBSCRIPTIONS_ERRORS.LOW_RESUME_PERIODS_PAYMENT)
           })
         })
 
@@ -415,7 +416,7 @@ contract('CourtSubscriptions', ([_, subscriber]) => {
 
     context('when the sender was not paused', () => {
       it('reverts', async () => {
-        await assertRevert(subscriptions.resume(1, { from }), 'CS_SUBSCRIPTION_NOT_PAUSED')
+        await assertRevert(subscriptions.resume(1, { from }), SUBSCRIPTIONS_ERRORS.SUBSCRIPTION_NOT_PAUSED)
       })
     })
   })

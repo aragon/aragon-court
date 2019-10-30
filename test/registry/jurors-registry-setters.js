@@ -3,6 +3,7 @@ const { bn, bigExp } = require('../helpers/lib/numbers')
 const { buildHelper } = require('../helpers/wrappers/controller')(web3, artifacts)
 const { assertRevert } = require('../helpers/asserts/assertThrow')
 const { assertEvent, assertAmountOfEvents } = require('../helpers/asserts/assertEvent')
+const { CONTROLLED_ERRORS, REGISTRY_ERRORS } = require('../helpers/utils/errors')
 
 const JurorsRegistry = artifacts.require('JurorsRegistry')
 const ERC20 = artifacts.require('ERC20Mock')
@@ -61,7 +62,7 @@ contract('JurorsRegistry', ([_, governor, someone]) => {
         const newTotalActiveBalanceLimit = bn(0)
 
         it('reverts', async () => {
-          await assertRevert(registry.setTotalActiveBalanceLimit(newTotalActiveBalanceLimit, { from }), 'JR_BAD_TOTAL_ACTIVE_BAL_LIMIT')
+          await assertRevert(registry.setTotalActiveBalanceLimit(newTotalActiveBalanceLimit, { from }), REGISTRY_ERRORS.BAD_TOTAL_ACTIVE_BALANCE_LIMIT)
         })
       })
     })
@@ -70,7 +71,7 @@ contract('JurorsRegistry', ([_, governor, someone]) => {
       const from = someone
 
       it('reverts', async () => {
-        await assertRevert(registry.setTotalActiveBalanceLimit(TOTAL_ACTIVE_BALANCE_LIMIT, { from }), 'CTD_SENDER_NOT_CONFIG_GOVERNOR')
+        await assertRevert(registry.setTotalActiveBalanceLimit(TOTAL_ACTIVE_BALANCE_LIMIT, { from }), CONTROLLED_ERRORS.SENDER_NOT_CONFIG_GOVERNOR)
       })
     })
   })

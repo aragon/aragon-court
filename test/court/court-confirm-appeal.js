@@ -2,6 +2,7 @@ const { DEFAULTS } = require('../helpers/wrappers/controller')(web3, artifacts)
 const { assertBn } = require('../helpers/asserts/assertBn')
 const { bn, bigExp } = require('../helpers/lib/numbers')
 const { assertRevert } = require('../helpers/asserts/assertThrow')
+const { COURT_ERRORS } = require('../helpers/utils/errors')
 const { assertAmountOfEvents, assertEvent } = require('../helpers/asserts/assertEvent')
 const { oppositeOutcome, outcomeFor, OUTCOMES } = require('../helpers/utils/crvoting')
 const { buildHelper, ROUND_STATES, DISPUTE_STATES } = require('../helpers/wrappers/court')(web3, artifacts)
@@ -251,7 +252,7 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
                       it('cannot be confirmed twice', async () => {
                         await court.confirmAppeal(disputeId, roundId, appealTakerRuling, { from: appealTaker })
 
-                        await assertRevert(court.confirmAppeal(disputeId, roundId, appealTakerRuling, { from: appealTaker }), 'CT_INVALID_ADJUDICATION_STATE')
+                        await assertRevert(court.confirmAppeal(disputeId, roundId, appealTakerRuling, { from: appealTaker }), COURT_ERRORS.INVALID_ADJUDICATION_STATE)
                       })
                     }
 
@@ -284,7 +285,7 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
 
                   context('when the appeal taker does not have enough balance', () => {
                     it('reverts', async () => {
-                      await assertRevert(court.confirmAppeal(disputeId, roundId, appealTakerRuling, { from: appealTaker }), 'CT_DEPOSIT_FAILED')
+                      await assertRevert(court.confirmAppeal(disputeId, roundId, appealTakerRuling, { from: appealTaker }), COURT_ERRORS.DEPOSIT_FAILED)
                     })
                   })
                 })
@@ -295,7 +296,7 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
                   })
 
                   it('reverts', async () => {
-                    await assertRevert(court.confirmAppeal(disputeId, roundId, appealMakerRuling, { from: appealTaker }), 'CT_INVALID_APPEAL_RULING')
+                    await assertRevert(court.confirmAppeal(disputeId, roundId, appealMakerRuling, { from: appealTaker }), COURT_ERRORS.INVALID_APPEAL_RULING)
                   })
                 })
               })
@@ -304,7 +305,7 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
                 const invalidRuling = 10
 
                 it('reverts', async () => {
-                  await assertRevert(court.confirmAppeal(disputeId, roundId, invalidRuling, { from: appealTaker }), 'CT_INVALID_APPEAL_RULING')
+                  await assertRevert(court.confirmAppeal(disputeId, roundId, invalidRuling, { from: appealTaker }), COURT_ERRORS.INVALID_APPEAL_RULING)
                 })
               })
             })
@@ -369,7 +370,7 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
 
           const itCannotComputeNextRoundDetails = () => {
             it('cannot compute next round details', async () => {
-              await assertRevert(court.getNextRoundDetails(disputeId, roundId), 'CT_ROUND_IS_FINAL')
+              await assertRevert(court.getNextRoundDetails(disputeId, roundId), COURT_ERRORS.ROUND_IS_FINAL)
             })
           }
 
@@ -430,14 +431,14 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
         const roundId = 5
 
         it('reverts', async () => {
-          await assertRevert(court.confirmAppeal(disputeId, roundId, OUTCOMES.LOW), 'CT_ROUND_DOES_NOT_EXIST')
+          await assertRevert(court.confirmAppeal(disputeId, roundId, OUTCOMES.LOW), COURT_ERRORS.ROUND_DOES_NOT_EXIST)
         })
       })
     })
 
     context('when the given dispute does not exist', () => {
       it('reverts', async () => {
-        await assertRevert(court.confirmAppeal(0, 0, OUTCOMES.LOW), 'CT_DISPUTE_DOES_NOT_EXIST')
+        await assertRevert(court.confirmAppeal(0, 0, OUTCOMES.LOW), COURT_ERRORS.DISPUTE_DOES_NOT_EXIST)
       })
     })
   })

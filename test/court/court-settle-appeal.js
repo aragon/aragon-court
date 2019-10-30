@@ -2,6 +2,7 @@ const { DEFAULTS } = require('../helpers/wrappers/controller')(web3, artifacts)
 const { assertBn } = require('../helpers/asserts/assertBn')
 const { bn, bigExp } = require('../helpers/lib/numbers')
 const { assertRevert } = require('../helpers/asserts/assertThrow')
+const { COURT_ERRORS } = require('../helpers/utils/errors')
 const { filterWinningJurors } = require('../helpers/utils/jurors')
 const { buildHelper, ROUND_STATES } = require('../helpers/wrappers/court')(web3, artifacts)
 const { assertAmountOfEvents, assertEvent } = require('../helpers/asserts/assertEvent')
@@ -56,7 +57,7 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
 
         const itFailsToSettleAppealDeposits = (roundId) => {
           it('fails to settle appeal deposits', async () => {
-            await assertRevert(court.settleAppealDeposit(disputeId, roundId), 'CT_ROUND_PENALTIES_NOT_SETTLED')
+            await assertRevert(court.settleAppealDeposit(disputeId, roundId), COURT_ERRORS.ROUND_PENALTIES_NOT_SETTLED)
           })
         }
 
@@ -68,13 +69,13 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
               })
 
               it('reverts', async () => {
-                await assertRevert(court.settleAppealDeposit(disputeId, roundId), 'CT_ROUND_NOT_APPEALED')
+                await assertRevert(court.settleAppealDeposit(disputeId, roundId), COURT_ERRORS.ROUND_NOT_APPEALED)
               })
             })
 
             context('when penalties have not been settled yet', () => {
               it('reverts', async () => {
-                await assertRevert(court.settleAppealDeposit(disputeId, roundId), 'CT_ROUND_PENALTIES_NOT_SETTLED')
+                await assertRevert(court.settleAppealDeposit(disputeId, roundId), COURT_ERRORS.ROUND_PENALTIES_NOT_SETTLED)
               })
             })
           })
@@ -205,13 +206,13 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
                 it('cannot be settled twice', async () => {
                   await court.settleAppealDeposit(disputeId, roundId)
 
-                  await assertRevert(court.settleAppealDeposit(disputeId, roundId), 'CT_APPEAL_ALREADY_SETTLED')
+                  await assertRevert(court.settleAppealDeposit(disputeId, roundId), COURT_ERRORS.APPEAL_ALREADY_SETTLED)
                 })
               })
 
               context('when penalties have not been settled yet', () => {
                 it('reverts', async () => {
-                  await assertRevert(court.settleAppealDeposit(disputeId, roundId), 'CT_ROUND_PENALTIES_NOT_SETTLED')
+                  await assertRevert(court.settleAppealDeposit(disputeId, roundId), COURT_ERRORS.ROUND_PENALTIES_NOT_SETTLED)
                 })
               })
             })
@@ -535,14 +536,14 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
         const roundId = 5
 
         it('reverts', async () => {
-          await assertRevert(court.createAppeal(disputeId, roundId, OUTCOMES.LOW), 'CT_ROUND_DOES_NOT_EXIST')
+          await assertRevert(court.createAppeal(disputeId, roundId, OUTCOMES.LOW), COURT_ERRORS.ROUND_DOES_NOT_EXIST)
         })
       })
     })
 
     context('when the given dispute does not exist', () => {
       it('reverts', async () => {
-        await assertRevert(court.createAppeal(0, 0, OUTCOMES.LOW), 'CT_DISPUTE_DOES_NOT_EXIST')
+        await assertRevert(court.createAppeal(0, 0, OUTCOMES.LOW), COURT_ERRORS.DISPUTE_DOES_NOT_EXIST)
       })
     })
   })

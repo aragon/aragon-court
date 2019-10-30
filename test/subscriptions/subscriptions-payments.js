@@ -1,7 +1,8 @@
-const { buildHelper } = require('../helpers/wrappers/controller')(web3, artifacts)
-const { assertRevert } = require('../helpers/asserts/assertThrow')
 const { assertBn } = require('../helpers/asserts/assertBn')
 const { bn, bigExp } = require('../helpers/lib/numbers')
+const { buildHelper } = require('../helpers/wrappers/controller')(web3, artifacts)
+const { assertRevert } = require('../helpers/asserts/assertThrow')
+const { SUBSCRIPTIONS_ERRORS } = require('../helpers/utils/errors')
 const { assertAmountOfEvents, assertEvent } = require('../helpers/asserts/assertEvent')
 
 const CourtSubscriptions = artifacts.require('CourtSubscriptions')
@@ -32,7 +33,7 @@ contract('CourtSubscriptions', ([_, governor, payer, subscriber, anotherSubscrib
 
       context('when the court has not started yet', () => {
         it('reverts', async () => {
-          await assertRevert(subscriptions.payFees(subscriber, periods), 'CS_COURT_HAS_NOT_STARTED')
+          await assertRevert(subscriptions.payFees(subscriber, periods), SUBSCRIPTIONS_ERRORS.COURT_HAS_NOT_STARTED)
         })
       })
 
@@ -139,7 +140,7 @@ contract('CourtSubscriptions', ([_, governor, payer, subscriber, anotherSubscrib
               })
 
               it('reverts', async () => {
-                await assertRevert(subscriptions.payFees(subscriber, periods, { from }), 'CS_PAYING_TOO_MANY_PERIODS')
+                await assertRevert(subscriptions.payFees(subscriber, periods, { from }), SUBSCRIPTIONS_ERRORS.PAYING_TOO_MANY_PERIODS)
               })
             })
           })
@@ -183,7 +184,7 @@ contract('CourtSubscriptions', ([_, governor, payer, subscriber, anotherSubscrib
                   })
 
                   it('reverts', async () => {
-                    await assertRevert(subscriptions.payFees(subscriber, periods, { from }), 'CS_PAYING_TOO_MANY_PERIODS')
+                    await assertRevert(subscriptions.payFees(subscriber, periods, { from }), SUBSCRIPTIONS_ERRORS.PAYING_TOO_MANY_PERIODS)
                   })
                 })
               })
@@ -216,7 +217,7 @@ contract('CourtSubscriptions', ([_, governor, payer, subscriber, anotherSubscrib
                   })
 
                   it('reverts', async () => {
-                    await assertRevert(subscriptions.payFees(subscriber, periods, { from }), 'CS_PAYING_TOO_MANY_PERIODS')
+                    await assertRevert(subscriptions.payFees(subscriber, periods, { from }), SUBSCRIPTIONS_ERRORS.PAYING_TOO_MANY_PERIODS)
                   })
                 })
               })
@@ -283,7 +284,7 @@ contract('CourtSubscriptions', ([_, governor, payer, subscriber, anotherSubscrib
                     })
 
                     it('reverts', async () => {
-                      await assertRevert(subscriptions.payFees(subscriber, periods, { from }), 'CS_PAYING_TOO_MANY_PERIODS')
+                      await assertRevert(subscriptions.payFees(subscriber, periods, { from }), SUBSCRIPTIONS_ERRORS.PAYING_TOO_MANY_PERIODS)
                     })
                   })
                 })
@@ -296,7 +297,7 @@ contract('CourtSubscriptions', ([_, governor, payer, subscriber, anotherSubscrib
               })
 
               it('reverts', async () => {
-                await assertRevert(subscriptions.payFees(subscriber, periods, { from }), 'CS_SUBSCRIPTION_PAUSED')
+                await assertRevert(subscriptions.payFees(subscriber, periods, { from }), SUBSCRIPTIONS_ERRORS.SUBSCRIPTION_PAUSED)
               })
             })
           })
@@ -304,7 +305,7 @@ contract('CourtSubscriptions', ([_, governor, payer, subscriber, anotherSubscrib
 
         context('when the sender does not have enough balance', () => {
           it('reverts', async () => {
-            await assertRevert(subscriptions.payFees(subscriber, 1), 'CS_TOKEN_TRANSFER_FAILED')
+            await assertRevert(subscriptions.payFees(subscriber, 1), SUBSCRIPTIONS_ERRORS.TOKEN_TRANSFER_FAILED)
           })
         })
       })
@@ -314,7 +315,7 @@ contract('CourtSubscriptions', ([_, governor, payer, subscriber, anotherSubscrib
       const periods = 0
 
       it('reverts', async () => {
-        await assertRevert(subscriptions.payFees(subscriber, periods), 'CS_PAYING_ZERO_PERIODS')
+        await assertRevert(subscriptions.payFees(subscriber, periods), SUBSCRIPTIONS_ERRORS.PAYING_ZERO_PERIODS)
       })
     })
   })
@@ -322,7 +323,7 @@ contract('CourtSubscriptions', ([_, governor, payer, subscriber, anotherSubscrib
   describe('transferFeesToGovernor', () => {
     context('when there are no accumulated fees', () => {
       it('reverts', async () => {
-        await assertRevert(subscriptions.transferFeesToGovernor(), 'CS_GOVERNOR_SHARE_FEES_ZERO')
+        await assertRevert(subscriptions.transferFeesToGovernor(), SUBSCRIPTIONS_ERRORS.GOVERNOR_SHARE_FEES_ZERO)
       })
     })
 

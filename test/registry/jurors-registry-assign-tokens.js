@@ -3,6 +3,7 @@ const { buildHelper } = require('../helpers/wrappers/controller')(web3, artifact
 const { assertRevert } = require('../helpers/asserts/assertThrow')
 const { decodeEventsOfType } = require('../helpers/lib/decodeEvent')
 const { bigExp, bn, MAX_UINT256 } = require('../helpers/lib/numbers')
+const { MATH_ERRORS, CONTROLLED_ERRORS } = require('../helpers/utils/errors')
 const { assertEvent, assertAmountOfEvents } = require('../helpers/asserts/assertEvent')
 
 const JurorsRegistry = artifacts.require('JurorsRegistry')
@@ -169,7 +170,7 @@ contract('JurorsRegistry', ([_, juror, someone]) => {
             const amount = MAX_UINT256
 
             it('reverts', async () => {
-              await assertRevert(court.assignTokens(juror, amount), 'MATH_ADD_OVERFLOW')
+              await assertRevert(court.assignTokens(juror, amount), MATH_ERRORS.ADD_OVERFLOW)
             })
           })
         })
@@ -180,7 +181,7 @@ contract('JurorsRegistry', ([_, juror, someone]) => {
       const from = someone
 
       it('reverts', async () => {
-        await assertRevert(registry.assignTokens(juror, bigExp(100, 18), { from }), 'CTD_SENDER_NOT_COURT_MODULE')
+        await assertRevert(registry.assignTokens(juror, bigExp(100, 18), { from }), CONTROLLED_ERRORS.SENDER_NOT_COURT_MODULE)
       })
     })
   })
@@ -215,7 +216,7 @@ contract('JurorsRegistry', ([_, juror, someone]) => {
             const amount = MAX_UINT256
 
             it('reverts', async () => {
-              await assertRevert(court.burnTokens(amount), 'MATH_ADD_OVERFLOW')
+              await assertRevert(court.burnTokens(amount), MATH_ERRORS.ADD_OVERFLOW)
             })
           })
         })
@@ -226,7 +227,7 @@ contract('JurorsRegistry', ([_, juror, someone]) => {
       const from = someone
 
       it('reverts', async () => {
-        await assertRevert(registry.burnTokens(bigExp(100, 18), { from }), 'CTD_SENDER_NOT_COURT_MODULE')
+        await assertRevert(registry.burnTokens(bigExp(100, 18), { from }), CONTROLLED_ERRORS.SENDER_NOT_COURT_MODULE)
       })
     })
   })

@@ -2,6 +2,7 @@ const { bigExp } = require('../helpers/lib/numbers')
 const { assertBn } = require('../helpers/asserts/assertBn')
 const { buildHelper } = require('../helpers/wrappers/controller')(web3, artifacts)
 const { assertRevert } = require('../helpers/asserts/assertThrow')
+const { CONTROLLED_ERRORS, REGISTRY_ERRORS } = require('../helpers/utils/errors')
 
 const JurorsRegistry = artifacts.require('JurorsRegistry')
 const ERC20 = artifacts.require('ERC20Mock')
@@ -35,7 +36,7 @@ contract('JurorsRegistry', ([_, something]) => {
         const token = ZERO_ADDRESS
 
         it('reverts', async () => {
-          await assertRevert(JurorsRegistry.new(controller.address, token, TOTAL_ACTIVE_BALANCE_LIMIT), 'JR_NOT_CONTRACT')
+          await assertRevert(JurorsRegistry.new(controller.address, token, TOTAL_ACTIVE_BALANCE_LIMIT), REGISTRY_ERRORS.NOT_CONTRACT)
         })
       })
 
@@ -43,7 +44,7 @@ contract('JurorsRegistry', ([_, something]) => {
         const token = something
 
         it('reverts', async () => {
-          await assertRevert(JurorsRegistry.new(controller.address, token, TOTAL_ACTIVE_BALANCE_LIMIT), 'JR_NOT_CONTRACT')
+          await assertRevert(JurorsRegistry.new(controller.address, token, TOTAL_ACTIVE_BALANCE_LIMIT), REGISTRY_ERRORS.NOT_CONTRACT)
         })
       })
 
@@ -51,7 +52,7 @@ contract('JurorsRegistry', ([_, something]) => {
         const totalActiveBalanceLimit = 0
 
         it('reverts', async () => {
-          await assertRevert(JurorsRegistry.new(controller.address, ANJ.address, totalActiveBalanceLimit), 'JR_BAD_TOTAL_ACTIVE_BAL_LIMIT')
+          await assertRevert(JurorsRegistry.new(controller.address, ANJ.address, totalActiveBalanceLimit), REGISTRY_ERRORS.BAD_TOTAL_ACTIVE_BAL_LIMIT)
         })
       })
 
@@ -59,7 +60,7 @@ contract('JurorsRegistry', ([_, something]) => {
         const controllerAddress = ZERO_ADDRESS
 
         it('reverts', async () => {
-          await assertRevert(JurorsRegistry.new(controllerAddress, ANJ.address, TOTAL_ACTIVE_BALANCE_LIMIT), 'CTD_CONTROLLER_NOT_CONTRACT')
+          await assertRevert(JurorsRegistry.new(controllerAddress, ANJ.address, TOTAL_ACTIVE_BALANCE_LIMIT), CONTROLLED_ERRORS.CONTROLLER_NOT_CONTRACT)
         })
       })
 
@@ -67,7 +68,7 @@ contract('JurorsRegistry', ([_, something]) => {
         const controllerAddress = something
 
         it('reverts', async () => {
-          await assertRevert(JurorsRegistry.new(controllerAddress, ANJ.address, TOTAL_ACTIVE_BALANCE_LIMIT), 'CTD_CONTROLLER_NOT_CONTRACT')
+          await assertRevert(JurorsRegistry.new(controllerAddress, ANJ.address, TOTAL_ACTIVE_BALANCE_LIMIT), CONTROLLED_ERRORS.CONTROLLER_NOT_CONTRACT)
         })
       })
     })

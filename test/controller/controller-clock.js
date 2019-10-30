@@ -2,6 +2,7 @@ const { bn } = require('../helpers/lib/numbers')
 const { assertBn } = require('../helpers/asserts/assertBn')
 const { buildHelper } = require('../helpers/wrappers/controller')(web3, artifacts)
 const { assertRevert } = require('../helpers/asserts/assertThrow')
+const { CLOCK_ERRORS } = require('../helpers/utils/errors')
 const { NEXT_WEEK, NOW, ONE_DAY } = require('../helpers/lib/time')
 const { assertAmountOfEvents, assertEvent } = require('../helpers/asserts/assertEvent')
 
@@ -21,7 +22,7 @@ contract('Controller', () => {
       const firstTermStartTime = bn(NOW - 1)
 
       it('reverts', async () => {
-        await assertRevert(controllerHelper.deploy({ termDuration, firstTermStartTime }), 'CLK_BAD_FIRST_TERM_START_TIME')
+        await assertRevert(controllerHelper.deploy({ termDuration, firstTermStartTime }), CLOCK_ERRORS.BAD_FIRST_TERM_START_TIME)
       })
     })
 
@@ -29,7 +30,7 @@ contract('Controller', () => {
       const firstTermStartTime = bn(NOW).add(termDuration.sub(bn(1)))
 
       it('reverts', async () => {
-        await assertRevert(controllerHelper.deploy({ termDuration, firstTermStartTime }), 'CLK_BAD_FIRST_TERM_START_TIME')
+        await assertRevert(controllerHelper.deploy({ termDuration, firstTermStartTime }), CLOCK_ERRORS.BAD_FIRST_TERM_START_TIME)
       })
     })
 
@@ -65,7 +66,7 @@ contract('Controller', () => {
 
     const itRevertsOnHeartbeat = maxTransitionTerms => {
       it('reverts', async () => {
-        await assertRevert(controller.heartbeat(maxTransitionTerms), 'CLK_INVALID_TRANSITION_TERMS')
+        await assertRevert(controller.heartbeat(maxTransitionTerms), CLOCK_ERRORS.INVALID_TRANSITION_TERMS)
       })
     }
 

@@ -1,5 +1,6 @@
 const { buildHelper } = require('../helpers/wrappers/controller')(web3, artifacts)
 const { assertRevert } = require('../helpers/asserts/assertThrow')
+const { CONTROLLER_ERRORS } = require('../helpers/utils/errors')
 const { assertAmountOfEvents, assertEvent } = require('../helpers/asserts/assertEvent')
 
 const Controlled = artifacts.require('Controlled')
@@ -56,7 +57,7 @@ contract('Controller', ([_, fundsGovernor, configGovernor, modulesGovernor, some
         const newFundsGovernor = ZERO_ADDRESS
 
         it('reverts', async () => {
-          await assertRevert(controller.changeFundsGovernor(newFundsGovernor, { from }), 'CTR_INVALID_GOVERNOR_ADDRESS')
+          await assertRevert(controller.changeFundsGovernor(newFundsGovernor, { from }), CONTROLLER_ERRORS.INVALID_GOVERNOR_ADDRESS)
         })
       })
     })
@@ -65,7 +66,7 @@ contract('Controller', ([_, fundsGovernor, configGovernor, modulesGovernor, some
       const from = modulesGovernor
 
       it('reverts', async () => {
-        await assertRevert(controller.changeFundsGovernor(someone, { from }), 'CTR_SENDER_NOT_GOVERNOR')
+        await assertRevert(controller.changeFundsGovernor(someone, { from }), CONTROLLER_ERRORS.SENDER_NOT_GOVERNOR)
       })
     })
   })
@@ -95,7 +96,7 @@ contract('Controller', ([_, fundsGovernor, configGovernor, modulesGovernor, some
         const newConfigGovernor = ZERO_ADDRESS
 
         it('reverts', async () => {
-          await assertRevert(controller.changeConfigGovernor(newConfigGovernor, { from }), 'CTR_INVALID_GOVERNOR_ADDRESS')
+          await assertRevert(controller.changeConfigGovernor(newConfigGovernor, { from }), CONTROLLER_ERRORS.INVALID_GOVERNOR_ADDRESS)
         })
       })
     })
@@ -104,7 +105,7 @@ contract('Controller', ([_, fundsGovernor, configGovernor, modulesGovernor, some
       const from = modulesGovernor
 
       it('reverts', async () => {
-        await assertRevert(controller.changeConfigGovernor(someone, { from }), 'CTR_SENDER_NOT_GOVERNOR')
+        await assertRevert(controller.changeConfigGovernor(someone, { from }), CONTROLLER_ERRORS.SENDER_NOT_GOVERNOR)
       })
     })
   })
@@ -134,7 +135,7 @@ contract('Controller', ([_, fundsGovernor, configGovernor, modulesGovernor, some
         const newModulesGovernor = ZERO_ADDRESS
 
         it('reverts', async () => {
-          await assertRevert(controller.changeModulesGovernor(newModulesGovernor, { from }), 'CTR_INVALID_GOVERNOR_ADDRESS')
+          await assertRevert(controller.changeModulesGovernor(newModulesGovernor, { from }), CONTROLLER_ERRORS.INVALID_GOVERNOR_ADDRESS)
         })
       })
     })
@@ -143,7 +144,7 @@ contract('Controller', ([_, fundsGovernor, configGovernor, modulesGovernor, some
       const from = configGovernor
 
       it('reverts', async () => {
-        await assertRevert(controller.changeModulesGovernor(someone, { from }), 'CTR_SENDER_NOT_GOVERNOR')
+        await assertRevert(controller.changeModulesGovernor(someone, { from }), CONTROLLER_ERRORS.SENDER_NOT_GOVERNOR)
       })
     })
   })
@@ -170,7 +171,7 @@ contract('Controller', ([_, fundsGovernor, configGovernor, modulesGovernor, some
       const from = configGovernor
 
       it('reverts', async () => {
-        await assertRevert(controller.ejectModulesGovernor({ from }), 'CTR_SENDER_NOT_GOVERNOR')
+        await assertRevert(controller.ejectModulesGovernor({ from }), CONTROLLER_ERRORS.SENDER_NOT_GOVERNOR)
       })
     })
   })
@@ -197,7 +198,7 @@ contract('Controller', ([_, fundsGovernor, configGovernor, modulesGovernor, some
       const from = configGovernor
 
       it('reverts', async () => {
-        await assertRevert(controller.ejectModulesGovernor({ from }), 'CTR_SENDER_NOT_GOVERNOR')
+        await assertRevert(controller.ejectModulesGovernor({ from }), CONTROLLER_ERRORS.SENDER_NOT_GOVERNOR)
       })
     })
   })
@@ -298,7 +299,7 @@ contract('Controller', ([_, fundsGovernor, configGovernor, modulesGovernor, some
         const module = someone
 
         it('reverts', async () => {
-          await assertRevert(controller.setModule('0x0', module, { from }), 'CTR_IMPLEMENTATION_NOT_CONTRACT')
+          await assertRevert(controller.setModule('0x0', module, { from }), CONTROLLER_ERRORS.IMPLEMENTATION_NOT_CONTRACT)
         })
       })
 
@@ -306,7 +307,7 @@ contract('Controller', ([_, fundsGovernor, configGovernor, modulesGovernor, some
         const module = ZERO_ADDRESS
 
         it('reverts', async () => {
-          await assertRevert(controller.setModule('0x0', module, { from }), 'CTR_IMPLEMENTATION_NOT_CONTRACT')
+          await assertRevert(controller.setModule('0x0', module, { from }), CONTROLLER_ERRORS.IMPLEMENTATION_NOT_CONTRACT)
         })
       })
     })
@@ -315,7 +316,7 @@ contract('Controller', ([_, fundsGovernor, configGovernor, modulesGovernor, some
       const from = someone
 
       it('reverts', async () => {
-        await assertRevert(controller.setModule('0x0', ZERO_ADDRESS, { from }), 'CTR_SENDER_NOT_GOVERNOR')
+        await assertRevert(controller.setModule('0x0', ZERO_ADDRESS, { from }), CONTROLLER_ERRORS.SENDER_NOT_GOVERNOR)
       })
     })
   })

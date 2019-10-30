@@ -1,4 +1,4 @@
-const { assertBn } = require('../helpers/lib/numbers')
+const { assertBn } = require('../helpers/asserts/assertBn')
 const { bn, bigExp } = require('../helpers/lib/numbers')
 const { printTable } = require('../helpers/lib/logging')
 const { buildHelper } = require('../helpers/wrappers/court')(web3, artifacts)

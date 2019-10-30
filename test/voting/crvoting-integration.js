@@ -1,4 +1,4 @@
-const { assertBn } = require('../helpers/lib/numbers')
+const { assertBn } = require('../helpers/asserts/assertBn')
 const { buildHelper } = require('../helpers/wrappers/controller')(web3, artifacts)
 const { SALT, OUTCOMES, encryptVote } = require('../helpers/utils/crvoting')
 

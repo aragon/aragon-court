@@ -1,5 +1,6 @@
 const { bn } = require('../helpers/lib/numbers')
 const { assertBn } = require('../helpers/asserts/assertBn')
+const { TREE_ERRORS } = require('../helpers/utils/errors')
 const { assertRevert } = require('../helpers/asserts/assertThrow')
 const { expectedBounds, simulateComputeSearchRandomBalances, simulateBatchedRandomSearch } = require('../helpers/utils/registry')
 
@@ -97,7 +98,7 @@ contract('JurorsTreeSortition', () => {
         const batchRequestedJurors = 200
 
         it('reverts', async () => {
-          await assertRevert(tree.computeSearchRandomBalances(termRandomness, disputeId, sortitionIteration, batchRequestedJurors, lowActiveBalanceBatchBound, highActiveBalanceBatchBound), 'TREE_INVALID_INTERVAL_SEARCH')
+          await assertRevert(tree.computeSearchRandomBalances(termRandomness, disputeId, sortitionIteration, batchRequestedJurors, lowActiveBalanceBatchBound, highActiveBalanceBatchBound), TREE_ERRORS.INVALID_INTERVAL_SEARCH)
         })
       })
 
@@ -105,7 +106,7 @@ contract('JurorsTreeSortition', () => {
         const batchRequestedJurors = 0
 
         it('reverts', async () => {
-          await assertRevert(tree.computeSearchRandomBalances(termRandomness, disputeId, sortitionIteration, batchRequestedJurors, lowActiveBalanceBatchBound, highActiveBalanceBatchBound), 'TREE_INVALID_INTERVAL_SEARCH')
+          await assertRevert(tree.computeSearchRandomBalances(termRandomness, disputeId, sortitionIteration, batchRequestedJurors, lowActiveBalanceBatchBound, highActiveBalanceBatchBound), TREE_ERRORS.INVALID_INTERVAL_SEARCH)
         })
       })
     })
@@ -119,7 +120,7 @@ contract('JurorsTreeSortition', () => {
           const batchRequestedJurors = 200
 
           it('reverts', async () => {
-            await assertRevert(tree.computeSearchRandomBalances(termRandomness, disputeId, sortitionIteration, batchRequestedJurors, lowActiveBalanceBatchBound, highActiveBalanceBatchBound), 'TREE_INVALID_INTERVAL_SEARCH')
+            await assertRevert(tree.computeSearchRandomBalances(termRandomness, disputeId, sortitionIteration, batchRequestedJurors, lowActiveBalanceBatchBound, highActiveBalanceBatchBound), TREE_ERRORS.INVALID_INTERVAL_SEARCH)
           })
         })
 
@@ -127,7 +128,7 @@ contract('JurorsTreeSortition', () => {
           const batchRequestedJurors = 0
 
           it('reverts', async () => {
-            await assertRevert(tree.computeSearchRandomBalances(termRandomness, disputeId, sortitionIteration, batchRequestedJurors, lowActiveBalanceBatchBound, highActiveBalanceBatchBound), 'TREE_INVALID_INTERVAL_SEARCH')
+            await assertRevert(tree.computeSearchRandomBalances(termRandomness, disputeId, sortitionIteration, batchRequestedJurors, lowActiveBalanceBatchBound, highActiveBalanceBatchBound), TREE_ERRORS.INVALID_INTERVAL_SEARCH)
           })
         })
       })
@@ -189,7 +190,7 @@ contract('JurorsTreeSortition', () => {
       const batchRequestedJurors = 5
 
       it('reverts', async () => {
-        await assertRevert(tree.batchedRandomSearch(termRandomness, disputeId, termId, selectedJurors, batchRequestedJurors, roundRequestedJurors, sortitionIteration), 'TREE_INVALID_INTERVAL_SEARCH')
+        await assertRevert(tree.batchedRandomSearch(termRandomness, disputeId, termId, selectedJurors, batchRequestedJurors, roundRequestedJurors, sortitionIteration), TREE_ERRORS.INVALID_INTERVAL_SEARCH)
       })
     })
 
@@ -205,7 +206,7 @@ contract('JurorsTreeSortition', () => {
         const batchRequestedJurors = 0
 
         it('reverts', async () => {
-          await assertRevert(tree.batchedRandomSearch(termRandomness, disputeId, termId, selectedJurors, batchRequestedJurors, roundRequestedJurors, sortitionIteration), 'TREE_INVALID_INTERVAL_SEARCH')
+          await assertRevert(tree.batchedRandomSearch(termRandomness, disputeId, termId, selectedJurors, batchRequestedJurors, roundRequestedJurors, sortitionIteration), TREE_ERRORS.INVALID_INTERVAL_SEARCH)
         })
       })
 

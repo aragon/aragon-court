@@ -1,4 +1,4 @@
-const { assertBn } = require('../helpers/lib/numbers')
+const { assertBn } = require('../helpers/asserts/assertBn')
 const { bn, bigExp } = require('../helpers/lib/numbers')
 const { assertRevert } = require('../helpers/asserts/assertThrow')
 const { advanceBlocks } = require('../helpers/lib/blocks')(web3)
@@ -7,6 +7,7 @@ const { decodeEventsOfType } = require('../helpers/lib/decodeEvent')
 const { getEventAt, getEvents } = require('@aragon/os/test/helpers/events')
 const { assertAmountOfEvents, assertEvent } = require('../helpers/asserts/assertEvent')
 const { buildHelper, DISPUTE_STATES, ROUND_STATES } = require('../helpers/wrappers/court')(web3, artifacts)
+const { CLOCK_ERRORS, COURT_ERRORS, CONTROLLED_ERRORS } = require('../helpers/utils/errors')
 
 const JurorsRegistry = artifacts.require('JurorsRegistry')
 
@@ -316,7 +317,7 @@ contract('Court', ([_, disputer, drafter, juror500, juror1000, juror1500, juror2
           })
 
           it('reverts', async () => {
-            await assertRevert(court.draft(disputeId, { from: drafter }), 'CLK_TERM_RANDOMNESS_NOT_YET')
+            await assertRevert(court.draft(disputeId, { from: drafter }), CLOCK_ERRORS.TERM_RANDOMNESS_NOT_YET)
           })
         })
 
@@ -349,7 +350,7 @@ contract('Court', ([_, disputer, drafter, juror500, juror1000, juror1500, juror2
           })
 
           it('reverts', async () => {
-            await assertRevert(court.draft(disputeId, { from: drafter }), 'CLK_TERM_RANDOMNESS_UNAVAILABLE')
+            await assertRevert(court.draft(disputeId, { from: drafter }), CLOCK_ERRORS.TERM_RANDOMNESS_UNAVAILABLE)
           })
         })
       }
@@ -379,7 +380,7 @@ contract('Court', ([_, disputer, drafter, juror500, juror1000, juror1500, juror2
 
             context('when the heartbeat was not executed', async () => {
               it('reverts', async () => {
-                await assertRevert(court.draft(disputeId, { from: drafter }), 'CT_TERM_OUTDATED')
+                await assertRevert(court.draft(disputeId, { from: drafter }), COURT_ERRORS.TERM_OUTDATED)
               })
             })
 
@@ -406,7 +407,7 @@ contract('Court', ([_, disputer, drafter, juror500, juror1000, juror1500, juror2
             })
 
             it('reverts', async () => {
-              await assertRevert(court.draft(disputeId, { from: drafter }), 'CT_TERM_OUTDATED')
+              await assertRevert(court.draft(disputeId, { from: drafter }), COURT_ERRORS.TERM_OUTDATED)
             })
           })
         })
@@ -419,14 +420,14 @@ contract('Court', ([_, disputer, drafter, juror500, juror1000, juror1500, juror2
           })
 
           it('reverts', async () => {
-            await assertRevert(court.draft(disputeId, { from: drafter }), 'CT_ROUND_ALREADY_DRAFTED')
+            await assertRevert(court.draft(disputeId, { from: drafter }), COURT_ERRORS.ROUND_ALREADY_DRAFTED)
           })
         })
       }
 
       context('when the current term is previous the draft term', () => {
         it('reverts', async () => {
-          await assertRevert(court.draft(disputeId, { from: drafter }), 'CLK_TERM_DOES_NOT_EXIST')
+          await assertRevert(court.draft(disputeId, { from: drafter }), CLOCK_ERRORS.TERM_DOES_NOT_EXIST)
         })
       })
 
@@ -445,7 +446,7 @@ contract('Court', ([_, disputer, drafter, juror500, juror1000, juror1500, juror2
 
     context('when the given dispute does not exist', () => {
       it('reverts', async () => {
-        await assertRevert(court.draft(0), 'CT_DISPUTE_DOES_NOT_EXIST')
+        await assertRevert(court.draft(0), COURT_ERRORS.DISPUTE_DOES_NOT_EXIST)
       })
     })
   })
@@ -478,7 +479,7 @@ contract('Court', ([_, disputer, drafter, juror500, juror1000, juror1500, juror2
         const newJurorsPerDraftBatch = bn(0)
 
         it('reverts', async () => {
-          await assertRevert(court.setMaxJurorsPerDraftBatch(newJurorsPerDraftBatch, { from }), 'CT_BAD_MAX_DRAFT_BATCH_SIZE')
+          await assertRevert(court.setMaxJurorsPerDraftBatch(newJurorsPerDraftBatch, { from }), COURT_ERRORS.BAD_MAX_DRAFT_BATCH_SIZE)
         })
       })
     })
@@ -487,7 +488,7 @@ contract('Court', ([_, disputer, drafter, juror500, juror1000, juror1500, juror2
       const from = someone
 
       it('reverts', async () => {
-        await assertRevert(court.setMaxJurorsPerDraftBatch(bn(0), { from }), 'CTD_SENDER_NOT_CONFIG_GOVERNOR')
+        await assertRevert(court.setMaxJurorsPerDraftBatch(bn(0), { from }), CONTROLLED_ERRORS.SENDER_NOT_CONFIG_GOVERNOR)
       })
     })
   })

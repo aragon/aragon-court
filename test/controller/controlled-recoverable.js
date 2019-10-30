@@ -2,6 +2,7 @@ const { bigExp } = require('../helpers/lib/numbers')
 const { assertBn } = require('../helpers/asserts/assertBn')
 const { buildHelper } = require('../helpers/wrappers/controller')(web3, artifacts)
 const { assertRevert } = require('../helpers/asserts/assertThrow')
+const { CONTROLLED_ERRORS } = require('../helpers/utils/errors')
 const { assertAmountOfEvents, assertEvent } = require('../helpers/asserts/assertEvent')
 
 const ERC20 = artifacts.require('ERC20Mock')
@@ -57,7 +58,7 @@ contract('ControlledRecoverable', ([_, fundsGovernor, configGovernor, modulesGov
 
       context('when the governed does not have funds', () => {
         it('reverts', async () => {
-          await assertRevert(recoverable.recoverFunds(token.address, recipient, { from }), 'CTD_INSUFFICIENT_RECOVER_FUNDS')
+          await assertRevert(recoverable.recoverFunds(token.address, recipient, { from }), CONTROLLED_ERRORS.INSUFFICIENT_RECOVER_FUNDS)
         })
       })
     })
@@ -67,7 +68,7 @@ contract('ControlledRecoverable', ([_, fundsGovernor, configGovernor, modulesGov
     const from = someone
 
     it('reverts', async () => {
-      await assertRevert(recoverable.recoverFunds(ZERO_ADDRESS, recipient, { from }), 'CTD_SENDER_NOT_FUNDS_GOVERNOR')
+      await assertRevert(recoverable.recoverFunds(ZERO_ADDRESS, recipient, { from }), CONTROLLED_ERRORS.SENDER_NOT_FUNDS_GOVERNOR)
     })
   })
 })

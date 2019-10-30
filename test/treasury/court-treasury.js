@@ -1,8 +1,9 @@
 const { assertBn } = require('../helpers/asserts/assertBn')
-const { assertRevert } = require('../helpers/asserts/assertThrow')
 const { buildHelper } = require('../helpers/wrappers/controller')(web3, artifacts)
+const { assertRevert } = require('../helpers/asserts/assertThrow')
 const { bn, bigExp, MAX_UINT256 } = require('../helpers/lib/numbers')
 const { assertEvent, assertAmountOfEvents } = require('../helpers/asserts/assertEvent')
+const { TREASURY_ERRORS, CONTROLLED_ERRORS, MATH_ERRORS } = require('../helpers/utils/errors')
 
 const CourtTreasury = artifacts.require('CourtTreasury')
 const ERC20 = artifacts.require('ERC20Mock')
@@ -33,7 +34,7 @@ contract('CourtTreasury', ([_, court, holder, someone]) => {
         const controllerAddress = ZERO_ADDRESS
 
         it('reverts', async () => {
-          await assertRevert(CourtTreasury.new(controllerAddress), 'CTD_CONTROLLER_NOT_CONTRACT')
+          await assertRevert(CourtTreasury.new(controllerAddress), CONTROLLED_ERRORS.CONTROLLER_NOT_CONTRACT)
         })
       })
 
@@ -41,7 +42,7 @@ contract('CourtTreasury', ([_, court, holder, someone]) => {
         const controllerAddress = someone
 
         it('reverts', async () => {
-          await assertRevert(CourtTreasury.new(controllerAddress), 'CTD_CONTROLLER_NOT_CONTRACT')
+          await assertRevert(CourtTreasury.new(controllerAddress), CONTROLLED_ERRORS.CONTROLLER_NOT_CONTRACT)
         })
       })
     })
@@ -62,7 +63,7 @@ contract('CourtTreasury', ([_, court, holder, someone]) => {
             const amount = bn(0)
 
             it('reverts', async () => {
-              await assertRevert(treasury.assign(DAI.address, account, amount, { from }), 'TREASURY_DEPOSIT_AMOUNT_ZERO')
+              await assertRevert(treasury.assign(DAI.address, account, amount, { from }), TREASURY_ERRORS.DEPOSIT_AMOUNT_ZERO)
             })
           })
 
@@ -94,7 +95,7 @@ contract('CourtTreasury', ([_, court, holder, someone]) => {
             const amount = bn(0)
 
             it('reverts', async () => {
-              await assertRevert(treasury.assign(DAI.address, account, amount, { from }), 'TREASURY_DEPOSIT_AMOUNT_ZERO')
+              await assertRevert(treasury.assign(DAI.address, account, amount, { from }), TREASURY_ERRORS.DEPOSIT_AMOUNT_ZERO)
             })
           })
 
@@ -132,7 +133,7 @@ contract('CourtTreasury', ([_, court, holder, someone]) => {
               const amount = MAX_UINT256
 
               it('reverts', async () => {
-                await assertRevert(treasury.assign(DAI.address, account, amount, { from }), 'MATH_ADD_OVERFLOW')
+                await assertRevert(treasury.assign(DAI.address, account, amount, { from }), MATH_ERRORS.ADD_OVERFLOW)
               })
             })
           })
@@ -143,7 +144,7 @@ contract('CourtTreasury', ([_, court, holder, someone]) => {
         const from = someone
 
         it('reverts', async () => {
-          await assertRevert(treasury.assign(DAI.address, account, bigExp(10, 18), { from }), 'CTD_SENDER_NOT_COURT_MODULE')
+          await assertRevert(treasury.assign(DAI.address, account, bigExp(10, 18), { from }), CONTROLLED_ERRORS.SENDER_NOT_COURT_MODULE)
         })
       })
     }
@@ -178,7 +179,7 @@ contract('CourtTreasury', ([_, court, holder, someone]) => {
           const amount = bn(0)
 
           it('reverts', async () => {
-            await assertRevert(treasury.withdraw(DAI.address, recipient, amount, { from }), 'TREASURY_WITHDRAW_AMOUNT_ZERO')
+            await assertRevert(treasury.withdraw(DAI.address, recipient, amount, { from }), TREASURY_ERRORS.WITHDRAW_AMOUNT_ZERO)
           })
         })
 
@@ -225,7 +226,7 @@ contract('CourtTreasury', ([_, court, holder, someone]) => {
 
           context('when the treasury contract does not have enough tokens', () => {
             it('reverts', async () => {
-              await assertRevert(treasury.withdraw(DAI.address, recipient, amount, { from }), 'TREASURY_WITHDRAW_FAILED')
+              await assertRevert(treasury.withdraw(DAI.address, recipient, amount, { from }), TREASURY_ERRORS.WITHDRAW_FAILED)
             })
           })
         })
@@ -271,7 +272,7 @@ contract('CourtTreasury', ([_, court, holder, someone]) => {
 
           context('when the treasury contract does not have enough tokens', () => {
             it('reverts', async () => {
-              await assertRevert(treasury.withdraw(DAI.address, recipient, amount, { from }), 'TREASURY_WITHDRAW_FAILED')
+              await assertRevert(treasury.withdraw(DAI.address, recipient, amount, { from }), TREASURY_ERRORS.WITHDRAW_FAILED)
             })
           })
         })
@@ -280,7 +281,7 @@ contract('CourtTreasury', ([_, court, holder, someone]) => {
           const amount = bigExp(201, 18)
 
           it('reverts', async () => {
-            await assertRevert(treasury.withdraw(DAI.address, recipient, amount, { from }), 'TREASURY_WITHDRAW_INVALID_AMOUNT')
+            await assertRevert(treasury.withdraw(DAI.address, recipient, amount, { from }), TREASURY_ERRORS.WITHDRAW_INVALID_AMOUNT)
           })
         })
       })
@@ -292,7 +293,7 @@ contract('CourtTreasury', ([_, court, holder, someone]) => {
           const amount = bn(0)
 
           it('reverts', async () => {
-            await assertRevert(treasury.withdraw(DAI.address, recipient, amount, { from }), 'TREASURY_WITHDRAW_AMOUNT_ZERO')
+            await assertRevert(treasury.withdraw(DAI.address, recipient, amount, { from }), TREASURY_ERRORS.WITHDRAW_AMOUNT_ZERO)
           })
         })
 
@@ -300,7 +301,7 @@ contract('CourtTreasury', ([_, court, holder, someone]) => {
           const amount = bigExp(10, 18)
 
           it('reverts', async () => {
-            await assertRevert(treasury.withdraw(DAI.address, recipient, amount, { from }), 'TREASURY_WITHDRAW_FAILED')
+            await assertRevert(treasury.withdraw(DAI.address, recipient, amount, { from }), TREASURY_ERRORS.WITHDRAW_FAILED)
           })
         })
 
@@ -308,7 +309,7 @@ contract('CourtTreasury', ([_, court, holder, someone]) => {
           const amount = bigExp(200, 18)
 
           it('reverts', async () => {
-            await assertRevert(treasury.withdraw(DAI.address, recipient, amount, { from }), 'TREASURY_WITHDRAW_FAILED')
+            await assertRevert(treasury.withdraw(DAI.address, recipient, amount, { from }), TREASURY_ERRORS.WITHDRAW_FAILED)
           })
         })
 
@@ -316,7 +317,7 @@ contract('CourtTreasury', ([_, court, holder, someone]) => {
           const amount = bigExp(201, 18)
 
           it('reverts', async () => {
-            await assertRevert(treasury.withdraw(DAI.address, recipient, amount, { from }), 'TREASURY_WITHDRAW_INVALID_AMOUNT')
+            await assertRevert(treasury.withdraw(DAI.address, recipient, amount, { from }), TREASURY_ERRORS.WITHDRAW_INVALID_AMOUNT)
           })
         })
       })
@@ -326,7 +327,7 @@ contract('CourtTreasury', ([_, court, holder, someone]) => {
       const from = holder
 
       it('reverts', async () => {
-        await assertRevert(treasury.withdraw(DAI.address, holder, bigExp(10, 18), { from }), 'TREASURY_WITHDRAW_INVALID_AMOUNT')
+        await assertRevert(treasury.withdraw(DAI.address, holder, bigExp(10, 18), { from }), TREASURY_ERRORS.WITHDRAW_INVALID_AMOUNT)
       })
     })
   })
@@ -391,7 +392,7 @@ contract('CourtTreasury', ([_, court, holder, someone]) => {
 
         context('when the treasury contract does not have enough tokens', () => {
           it('reverts', async () => {
-            await assertRevert(treasury.withdrawAll(DAI.address, recipient, { from }), 'TREASURY_WITHDRAW_FAILED')
+            await assertRevert(treasury.withdrawAll(DAI.address, recipient, { from }), TREASURY_ERRORS.WITHDRAW_FAILED)
           })
         })
       })
@@ -400,7 +401,7 @@ contract('CourtTreasury', ([_, court, holder, someone]) => {
         const from = holder
 
         it('reverts', async () => {
-          await assertRevert(treasury.withdrawAll(DAI.address, recipient, { from }), 'TREASURY_WITHDRAW_AMOUNT_ZERO')
+          await assertRevert(treasury.withdrawAll(DAI.address, recipient, { from }), TREASURY_ERRORS.WITHDRAW_AMOUNT_ZERO)
         })
       })
     })

@@ -6,6 +6,7 @@ const { assertRevert } = require('../helpers/asserts/assertThrow')
 const { decodeEventsOfType } = require('../helpers/lib/decodeEvent')
 const { ACTIVATE_DATA, countJuror } = require('../helpers/utils/jurors')
 const { assertEvent, assertAmountOfEvents } = require('../helpers/asserts/assertEvent')
+const { MATH_ERRORS, CONTROLLED_ERRORS, REGISTRY_ERRORS } = require('../helpers/utils/errors')
 
 const JurorsRegistry = artifacts.require('JurorsRegistryMock')
 const Court = artifacts.require('CourtMockForRegistry')
@@ -56,7 +57,7 @@ contract('JurorsRegistry', ([_, juror, secondJuror, thirdJuror, anyone]) => {
           const rewardedJurors = []
 
           it('reverts', async () => {
-            await assertRevert(court.slashOrUnlock(jurors, lockedAmounts, rewardedJurors), 'JR_INVALID_LOCKED_AMOUNTS_LEN')
+            await assertRevert(court.slashOrUnlock(jurors, lockedAmounts, rewardedJurors), REGISTRY_ERRORS.INVALID_LOCKED_AMOUNTS_LEN)
           })
         })
 
@@ -66,7 +67,7 @@ contract('JurorsRegistry', ([_, juror, secondJuror, thirdJuror, anyone]) => {
           const rewardedJurors = [true]
 
           it('reverts', async () => {
-            await assertRevert(court.slashOrUnlock(jurors, lockedAmounts, rewardedJurors), 'JR_INVALID_REWARDED_JURORS_LEN')
+            await assertRevert(court.slashOrUnlock(jurors, lockedAmounts, rewardedJurors), REGISTRY_ERRORS.INVALID_REWARDED_JURORS_LEN)
           })
         })
       })
@@ -182,7 +183,7 @@ contract('JurorsRegistry', ([_, juror, secondJuror, thirdJuror, anyone]) => {
             const lockedAmounts = [DRAFT_LOCK_AMOUNT.mul(bn(10)), bn(0), bn(0)]
 
             it('reverts', async () => {
-              await assertRevert(court.slashOrUnlock(jurors, lockedAmounts, rewardedJurors), 'MATH_SUB_UNDERFLOW')
+              await assertRevert(court.slashOrUnlock(jurors, lockedAmounts, rewardedJurors), MATH_ERRORS.SUB_UNDERFLOW)
             })
           })
         })
@@ -191,7 +192,7 @@ contract('JurorsRegistry', ([_, juror, secondJuror, thirdJuror, anyone]) => {
 
     context('when the sender is not the court', () => {
       it('reverts', async () => {
-        await assertRevert(registry.slashOrUnlock(0, [], [], []), 'CTD_SENDER_NOT_COURT_MODULE')
+        await assertRevert(registry.slashOrUnlock(0, [], [], []), CONTROLLED_ERRORS.SENDER_NOT_COURT_MODULE)
       })
     })
   })
@@ -491,7 +492,7 @@ contract('JurorsRegistry', ([_, juror, secondJuror, thirdJuror, anyone]) => {
       const from = anyone
 
       it('reverts', async () => {
-        await assertRevert(registry.collectTokens(juror, bigExp(100, 18), 0, { from }), 'CTD_SENDER_NOT_COURT_MODULE')
+        await assertRevert(registry.collectTokens(juror, bigExp(100, 18), 0, { from }), CONTROLLED_ERRORS.SENDER_NOT_COURT_MODULE)
       })
     })
   })

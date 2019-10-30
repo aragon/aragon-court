@@ -2,6 +2,7 @@ const { assertBn } = require('../helpers/asserts/assertBn')
 const { bn, bigExp } = require('../helpers/lib/numbers')
 const { buildHelper } = require('../helpers/wrappers/controller')(web3, artifacts)
 const { assertRevert } = require('../helpers/asserts/assertThrow')
+const { REGISTRY_ERRORS } = require('../helpers/utils/errors')
 const { assertEvent, assertAmountOfEvents } = require('../helpers/asserts/assertEvent')
 
 const JurorsRegistry = artifacts.require('JurorsRegistry')
@@ -33,7 +34,7 @@ contract('JurorsRegistry', ([_, juror]) => {
         const amount = bn(0)
 
         it('reverts', async () => {
-          await assertRevert(registry.activate(amount, { from }), 'JR_INVALID_ZERO_AMOUNT')
+          await assertRevert(registry.activate(amount, { from }), REGISTRY_ERRORS.INVALID_ZERO_AMOUNT)
         })
       })
 
@@ -41,7 +42,7 @@ contract('JurorsRegistry', ([_, juror]) => {
         const amount = MIN_ACTIVE_AMOUNT.sub(bn(1))
 
         it('reverts', async () => {
-          await assertRevert(registry.activate(amount, { from }), 'JR_INVALID_ACTIVATION_AMOUNT')
+          await assertRevert(registry.activate(amount, { from }), REGISTRY_ERRORS.INVALID_ACTIVATION_AMOUNT)
         })
       })
 
@@ -49,7 +50,7 @@ contract('JurorsRegistry', ([_, juror]) => {
         const amount = MIN_ACTIVE_AMOUNT.mul(bn(2))
 
         it('reverts', async () => {
-          await assertRevert(registry.activate(amount, { from }), 'JR_INVALID_ACTIVATION_AMOUNT')
+          await assertRevert(registry.activate(amount, { from }), REGISTRY_ERRORS.INVALID_ACTIVATION_AMOUNT)
         })
       })
     })
@@ -179,7 +180,7 @@ contract('JurorsRegistry', ([_, juror]) => {
           const amount = MIN_ACTIVE_AMOUNT.sub(bn(1))
 
           it('reverts', async () => {
-            await assertRevert(registry.activate(amount, { from }), 'JR_ACTIVE_BALANCE_BELOW_MIN')
+            await assertRevert(registry.activate(amount, { from }), REGISTRY_ERRORS.ACTIVE_BALANCE_BELOW_MIN)
           })
         })
 
@@ -198,7 +199,7 @@ contract('JurorsRegistry', ([_, juror]) => {
             await ANJ.generateTokens(from, 1)
             await ANJ.approveAndCall(registry.address, 1, '0x', { from })
 
-            await assertRevert(registry.activate(amount, { from }), 'JR_TOTAL_ACTIVE_BALANCE_EXCEEDED')
+            await assertRevert(registry.activate(amount, { from }), REGISTRY_ERRORS.TOTAL_ACTIVE_BALANCE_EXCEEDED)
           })
         })
       })
@@ -239,7 +240,7 @@ contract('JurorsRegistry', ([_, juror]) => {
               })
 
               it('reverts', async () => {
-                await assertRevert(registry.activate(amount, { from }), 'JR_ACTIVE_BALANCE_BELOW_MIN')
+                await assertRevert(registry.activate(amount, { from }), REGISTRY_ERRORS.ACTIVE_BALANCE_BELOW_MIN)
               })
             })
           })
@@ -270,7 +271,7 @@ contract('JurorsRegistry', ([_, juror]) => {
               })
 
               it('reverts', async () => {
-                await assertRevert(registry.activate(amount, { from }), 'JR_ACTIVE_BALANCE_BELOW_MIN')
+                await assertRevert(registry.activate(amount, { from }), REGISTRY_ERRORS.ACTIVE_BALANCE_BELOW_MIN)
               })
             })
           })
@@ -296,7 +297,7 @@ contract('JurorsRegistry', ([_, juror]) => {
               const amount = currentAvailableBalance.add(bn(1))
 
               it('reverts', async () => {
-                await assertRevert(registry.activate(amount, { from }), 'JR_INVALID_ACTIVATION_AMOUNT')
+                await assertRevert(registry.activate(amount, { from }), REGISTRY_ERRORS.INVALID_ACTIVATION_AMOUNT)
               })
             })
 
@@ -304,7 +305,7 @@ contract('JurorsRegistry', ([_, juror]) => {
               const amount = MIN_ACTIVE_AMOUNT.sub(bn(1))
 
               it('reverts', async () => {
-                await assertRevert(registry.activate(amount, { from }), 'JR_ACTIVE_BALANCE_BELOW_MIN')
+                await assertRevert(registry.activate(amount, { from }), REGISTRY_ERRORS.ACTIVE_BALANCE_BELOW_MIN)
               })
             })
 
@@ -332,7 +333,7 @@ contract('JurorsRegistry', ([_, juror]) => {
               const amount = currentAvailableBalance.add(bn(1))
 
               it('reverts', async () => {
-                await assertRevert(registry.activate(amount, { from }), 'JR_INVALID_ACTIVATION_AMOUNT')
+                await assertRevert(registry.activate(amount, { from }), REGISTRY_ERRORS.INVALID_ACTIVATION_AMOUNT)
               })
             })
 
@@ -340,7 +341,7 @@ contract('JurorsRegistry', ([_, juror]) => {
               const amount = MIN_ACTIVE_AMOUNT.sub(bn(1))
 
               it('reverts', async () => {
-                await assertRevert(registry.activate(amount, { from }), 'JR_ACTIVE_BALANCE_BELOW_MIN')
+                await assertRevert(registry.activate(amount, { from }), REGISTRY_ERRORS.ACTIVE_BALANCE_BELOW_MIN)
               })
             })
 
@@ -369,7 +370,7 @@ contract('JurorsRegistry', ([_, juror]) => {
               const amount = currentAvailableBalance.add(bn(1))
 
               it('reverts', async () => {
-                await assertRevert(registry.activate(amount, { from }), 'JR_INVALID_ACTIVATION_AMOUNT')
+                await assertRevert(registry.activate(amount, { from }), REGISTRY_ERRORS.INVALID_ACTIVATION_AMOUNT)
               })
             })
 
@@ -377,7 +378,7 @@ contract('JurorsRegistry', ([_, juror]) => {
               const amount = MIN_ACTIVE_AMOUNT.sub(bn(1))
 
               it('reverts', async () => {
-                await assertRevert(registry.activate(amount, { from }), 'JR_ACTIVE_BALANCE_BELOW_MIN')
+                await assertRevert(registry.activate(amount, { from }), REGISTRY_ERRORS.ACTIVE_BALANCE_BELOW_MIN)
               })
             })
 
@@ -400,7 +401,7 @@ contract('JurorsRegistry', ([_, juror]) => {
         const amount = bn(0)
 
         it('reverts', async () => {
-          await assertRevert(registry.deactivate(amount, { from }), 'JR_INVALID_ZERO_AMOUNT')
+          await assertRevert(registry.deactivate(amount, { from }), REGISTRY_ERRORS.INVALID_ZERO_AMOUNT)
         })
       })
 
@@ -408,7 +409,7 @@ contract('JurorsRegistry', ([_, juror]) => {
         const amount = MIN_ACTIVE_AMOUNT.sub(bn(1))
 
         it('reverts', async () => {
-          await assertRevert(registry.deactivate(amount, { from }), 'JR_INVALID_DEACTIVATION_AMOUNT')
+          await assertRevert(registry.deactivate(amount, { from }), REGISTRY_ERRORS.INVALID_DEACTIVATION_AMOUNT)
         })
       })
 
@@ -416,7 +417,7 @@ contract('JurorsRegistry', ([_, juror]) => {
         const amount = MIN_ACTIVE_AMOUNT.mul(bn(2))
 
         it('reverts', async () => {
-          await assertRevert(registry.deactivate(amount, { from }), 'JR_INVALID_DEACTIVATION_AMOUNT')
+          await assertRevert(registry.deactivate(amount, { from }), REGISTRY_ERRORS.INVALID_DEACTIVATION_AMOUNT)
         })
       })
     }
@@ -567,7 +568,7 @@ contract('JurorsRegistry', ([_, juror]) => {
             const amount = activeBalance.sub(MIN_ACTIVE_AMOUNT).add(bn(1))
 
             it('reverts', async () => {
-              await assertRevert(registry.deactivate(amount, { from }), 'JR_INVALID_DEACTIVATION_AMOUNT')
+              await assertRevert(registry.deactivate(amount, { from }), REGISTRY_ERRORS.INVALID_DEACTIVATION_AMOUNT)
             })
           })
 
@@ -603,7 +604,7 @@ contract('JurorsRegistry', ([_, juror]) => {
               const amount = currentActiveBalance.sub(MIN_ACTIVE_AMOUNT).add(bn(1))
 
               it('reverts', async () => {
-                await assertRevert(registry.deactivate(amount, { from }), 'JR_INVALID_DEACTIVATION_AMOUNT')
+                await assertRevert(registry.deactivate(amount, { from }), REGISTRY_ERRORS.INVALID_DEACTIVATION_AMOUNT)
               })
             })
 
@@ -635,7 +636,7 @@ contract('JurorsRegistry', ([_, juror]) => {
               const amount = currentActiveBalance.sub(MIN_ACTIVE_AMOUNT).add(bn(1))
 
               it('reverts', async () => {
-                await assertRevert(registry.deactivate(amount, { from }), 'JR_INVALID_DEACTIVATION_AMOUNT')
+                await assertRevert(registry.deactivate(amount, { from }), REGISTRY_ERRORS.INVALID_DEACTIVATION_AMOUNT)
               })
             })
 
@@ -668,7 +669,7 @@ contract('JurorsRegistry', ([_, juror]) => {
               const amount = currentActiveBalance.sub(MIN_ACTIVE_AMOUNT).add(bn(1))
 
               it('reverts', async () => {
-                await assertRevert(registry.deactivate(amount, { from }), 'JR_INVALID_DEACTIVATION_AMOUNT')
+                await assertRevert(registry.deactivate(amount, { from }), REGISTRY_ERRORS.INVALID_DEACTIVATION_AMOUNT)
               })
             })
 

@@ -1,8 +1,9 @@
-const { assertBn } = require('../helpers/lib/numbers')
+const { assertBn } = require('../helpers/asserts/assertBn')
 const { OUTCOMES } = require('../helpers/utils/crvoting')
 const { buildHelper } = require('../helpers/wrappers/controller')(web3, artifacts)
 const { assertRevert } = require('../helpers/asserts/assertThrow')
 const { decodeEventsOfType } = require('../helpers/lib/decodeEvent')
+const { CONTROLLED_ERRORS, VOTING_ERRORS } = require('../helpers/utils/errors')
 const { assertEvent, assertAmountOfEvents } = require('../helpers/asserts/assertEvent')
 
 const CRVoting = artifacts.require('CRVoting')
@@ -69,14 +70,14 @@ contract('CRVoting create', ([_, someone]) => {
 
         context('when the possible outcomes below the minimum', () => {
           it('reverts', async () => {
-            await assertRevert(court.create(voteId, 0), 'CRV_INVALID_OUTCOMES_AMOUNT')
-            await assertRevert(court.create(voteId, 1), 'CRV_INVALID_OUTCOMES_AMOUNT')
+            await assertRevert(court.create(voteId, 0), VOTING_ERRORS.INVALID_OUTCOMES_AMOUNT)
+            await assertRevert(court.create(voteId, 1), VOTING_ERRORS.INVALID_OUTCOMES_AMOUNT)
           })
         })
 
         context('when the possible outcomes above the maximum', () => {
           it('reverts', async () => {
-            await assertRevert(court.create(voteId, 510), 'CRV_INVALID_OUTCOMES_AMOUNT')
+            await assertRevert(court.create(voteId, 510), VOTING_ERRORS.INVALID_OUTCOMES_AMOUNT)
           })
         })
       })
@@ -87,7 +88,7 @@ contract('CRVoting create', ([_, someone]) => {
         })
 
         it('reverts', async () => {
-          await assertRevert(court.create(voteId, 2), 'CRV_VOTE_ALREADY_EXISTS')
+          await assertRevert(court.create(voteId, 2), VOTING_ERRORS.VOTE_ALREADY_EXISTS)
         })
       })
     })
@@ -96,7 +97,7 @@ contract('CRVoting create', ([_, someone]) => {
       const from = someone
 
       it('reverts', async () => {
-        await assertRevert(voting.create(1, 2, { from }), 'CTD_SENDER_NOT_COURT_MODULE')
+        await assertRevert(voting.create(1, 2, { from }), CONTROLLED_ERRORS.SENDER_NOT_COURT_MODULE)
       })
     })
   })

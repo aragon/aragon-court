@@ -6,6 +6,7 @@ const { buildHelper } = require('../helpers/wrappers/controller')(web3, artifact
 const { assertRevert } = require('../helpers/asserts/assertThrow')
 const { simulateDraft } = require('../helpers/utils/registry')
 const { decodeEventsOfType } = require('../helpers/lib/decodeEvent')
+const { CONTROLLED_ERRORS, TREE_ERRORS } = require('../helpers/utils/errors')
 const { ACTIVATE_DATA, countEqualJurors } = require('../helpers/utils/jurors')
 const { assertAmountOfEvents, assertEvent } = require('../helpers/asserts/assertEvent')
 
@@ -147,7 +148,7 @@ contract('JurorsRegistry', ([_, juror500, juror1000, juror1500, juror2000, juror
     context('when the sender is the court', () => {
       const itReverts = (previousSelectedJurors, batchRequestedJurors, roundRequestedJurors) => {
         it('reverts', async () => {
-          await assertRevert(draft({ selectedJurors: previousSelectedJurors, batchRequestedJurors, roundRequestedJurors }), 'TREE_INVALID_INTERVAL_SEARCH')
+          await assertRevert(draft({ selectedJurors: previousSelectedJurors, batchRequestedJurors, roundRequestedJurors }), TREE_ERRORS.INVALID_INTERVAL_SEARCH)
         })
       }
 
@@ -549,7 +550,7 @@ contract('JurorsRegistry', ([_, juror500, juror1000, juror1500, juror2000, juror
 
     context('when the sender is not the court', () => {
       it('reverts', async () => {
-        await assertRevert(registry.draft([0, 0, 0, 0, 0, 0, 0]), 'CTD_SENDER_NOT_COURT_MODULE')
+        await assertRevert(registry.draft([0, 0, 0, 0, 0, 0, 0]), CONTROLLED_ERRORS.SENDER_NOT_COURT_MODULE)
       })
     })
   })

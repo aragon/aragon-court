@@ -3,6 +3,7 @@ const { bn, bigExp } = require('../helpers/lib/numbers')
 const { assertRevert } = require('../helpers/asserts/assertThrow')
 const { NEXT_WEEK, ONE_DAY } = require('../helpers/lib/time')
 const { decodeEventsOfType } = require('../helpers/lib/decodeEvent')
+const { COURT_ERRORS, CLOCK_ERRORS } = require('../helpers/utils/errors')
 const { buildHelper, DISPUTE_STATES } = require('../helpers/wrappers/court')(web3, artifacts)
 const { assertAmountOfEvents, assertEvent } = require('../helpers/asserts/assertEvent')
 
@@ -114,7 +115,7 @@ contract('Court', ([_, sender]) => {
 
         context('when the creator does not have enough fee tokens approved', () => {
           it('reverts', async () => {
-            await assertRevert(court.createDispute(arbitrable.address, possibleRulings), 'CT_DEPOSIT_FAILED')
+            await assertRevert(court.createDispute(arbitrable.address, possibleRulings), COURT_ERRORS.DEPOSIT_FAILED)
           })
         })
       }
@@ -141,7 +142,7 @@ contract('Court', ([_, sender]) => {
         })
 
         it('reverts', async () => {
-          await assertRevert(court.createDispute(arbitrable.address, possibleRulings), 'CLK_TOO_MANY_TRANSITIONS')
+          await assertRevert(court.createDispute(arbitrable.address, possibleRulings), CLOCK_ERRORS.TOO_MANY_TRANSITIONS)
         })
       })
     })
@@ -149,9 +150,9 @@ contract('Court', ([_, sender]) => {
     context('when the given input is not valid', () => {
       context('when the possible rulings are invalid', () => {
         it('reverts', async () => {
-          await assertRevert(court.createDispute(arbitrable.address, 0), 'CT_INVALID_RULING_OPTIONS')
-          await assertRevert(court.createDispute(arbitrable.address, 1), 'CT_INVALID_RULING_OPTIONS')
-          await assertRevert(court.createDispute(arbitrable.address, 3), 'CT_INVALID_RULING_OPTIONS')
+          await assertRevert(court.createDispute(arbitrable.address, 0), COURT_ERRORS.INVALID_RULING_OPTIONS)
+          await assertRevert(court.createDispute(arbitrable.address, 1), COURT_ERRORS.INVALID_RULING_OPTIONS)
+          await assertRevert(court.createDispute(arbitrable.address, 3), COURT_ERRORS.INVALID_RULING_OPTIONS)
         })
       })
 
@@ -159,7 +160,7 @@ contract('Court', ([_, sender]) => {
         it('reverts', async () => {
           await courtHelper.subscriptions.setUpToDate(false)
 
-          await assertRevert(court.createDispute(arbitrable.address, 2), 'CT_SUBSCRIPTION_NOT_PAID')
+          await assertRevert(court.createDispute(arbitrable.address, 2), COURT_ERRORS.SUBSCRIPTION_NOT_PAID)
         })
       })
 
@@ -195,7 +196,7 @@ contract('Court', ([_, sender]) => {
 
     context('when the given dispute does not exist', () => {
       it('reverts', async () => {
-        await assertRevert(court.getDispute(0), 'CT_DISPUTE_DOES_NOT_EXIST')
+        await assertRevert(court.getDispute(0), COURT_ERRORS.DISPUTE_DOES_NOT_EXIST)
       })
     })
   })
@@ -231,14 +232,14 @@ contract('Court', ([_, sender]) => {
 
       context('when the given round is not valid', async () => {
         it('reverts', async () => {
-          await assertRevert(court.getRound(0, 1), 'CT_ROUND_DOES_NOT_EXIST')
+          await assertRevert(court.getRound(0, 1), COURT_ERRORS.ROUND_DOES_NOT_EXIST)
         })
       })
     })
 
     context('when the given dispute does not exist', () => {
       it('reverts', async () => {
-        await assertRevert(court.getRound(0, 0), 'CT_DISPUTE_DOES_NOT_EXIST')
+        await assertRevert(court.getRound(0, 0), COURT_ERRORS.DISPUTE_DOES_NOT_EXIST)
       })
     })
   })

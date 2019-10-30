@@ -4,6 +4,7 @@ const { buildHelper } = require('../helpers/wrappers/controller')(web3, artifact
 const { assertRevert } = require('../helpers/asserts/assertThrow')
 const { ACTIVATE_DATA } = require('../helpers/utils/jurors')
 const { padLeft, toHex } = require('web3-utils')
+const { SUBSCRIPTIONS_ERRORS } = require('../helpers/utils/errors')
 const { assertAmountOfEvents, assertEvent } = require('../helpers/asserts/assertEvent')
 
 const CourtSubscriptions = artifacts.require('CourtSubscriptions')
@@ -136,7 +137,7 @@ contract('CourtSubscriptions', ([_, payer, subscriberPeriod0, subscriberPeriod1,
               })
 
               it('reverts', async () => {
-                await assertRevert(subscriptions.claimFees(periodId, { from: juror }), 'CS_JUROR_NOTHING_TO_CLAIM')
+                await assertRevert(subscriptions.claimFees(periodId, { from: juror }), SUBSCRIPTIONS_ERRORS.JUROR_NOTHING_TO_CLAIM)
               })
             })
           })
@@ -220,9 +221,9 @@ contract('CourtSubscriptions', ([_, payer, subscriberPeriod0, subscriberPeriod1,
           const periodId = 1
 
           it('reverts', async () => {
-            await assertRevert(subscriptions.claimFees(periodId, { from: jurorPeriod0Term1 }), 'CS_NON_PAST_PERIOD')
-            await assertRevert(subscriptions.claimFees(periodId, { from: jurorPeriod0Term3 }), 'CS_NON_PAST_PERIOD')
-            await assertRevert(subscriptions.claimFees(periodId, { from: jurorMidPeriod1 }), 'CS_NON_PAST_PERIOD')
+            await assertRevert(subscriptions.claimFees(periodId, { from: jurorPeriod0Term1 }), SUBSCRIPTIONS_ERRORS.NON_PAST_PERIOD)
+            await assertRevert(subscriptions.claimFees(periodId, { from: jurorPeriod0Term3 }), SUBSCRIPTIONS_ERRORS.NON_PAST_PERIOD)
+            await assertRevert(subscriptions.claimFees(periodId, { from: jurorMidPeriod1 }), SUBSCRIPTIONS_ERRORS.NON_PAST_PERIOD)
           })
         })
 
@@ -230,9 +231,9 @@ contract('CourtSubscriptions', ([_, payer, subscriberPeriod0, subscriberPeriod1,
           const periodId = 2
 
           it('reverts', async () => {
-            await assertRevert(subscriptions.claimFees(periodId, { from: jurorPeriod0Term1 }), 'CS_NON_PAST_PERIOD')
-            await assertRevert(subscriptions.claimFees(periodId, { from: jurorPeriod0Term3 }), 'CS_NON_PAST_PERIOD')
-            await assertRevert(subscriptions.claimFees(periodId, { from: jurorMidPeriod1 }), 'CS_NON_PAST_PERIOD')
+            await assertRevert(subscriptions.claimFees(periodId, { from: jurorPeriod0Term1 }), SUBSCRIPTIONS_ERRORS.NON_PAST_PERIOD)
+            await assertRevert(subscriptions.claimFees(periodId, { from: jurorPeriod0Term3 }), SUBSCRIPTIONS_ERRORS.NON_PAST_PERIOD)
+            await assertRevert(subscriptions.claimFees(periodId, { from: jurorMidPeriod1 }), SUBSCRIPTIONS_ERRORS.NON_PAST_PERIOD)
           })
         })
       })
@@ -242,7 +243,7 @@ contract('CourtSubscriptions', ([_, payer, subscriberPeriod0, subscriberPeriod1,
           const period = 0
 
           it('reverts', async () => {
-            await assertRevert(subscriptions.claimFees(period, { from: jurorPeriod0Term1 }), 'CS_JUROR_NOTHING_TO_CLAIM')
+            await assertRevert(subscriptions.claimFees(period, { from: jurorPeriod0Term1 }), SUBSCRIPTIONS_ERRORS.JUROR_NOTHING_TO_CLAIM)
           })
         })
 
@@ -250,7 +251,7 @@ contract('CourtSubscriptions', ([_, payer, subscriberPeriod0, subscriberPeriod1,
           const period = 1
 
           it('reverts', async () => {
-            await assertRevert(subscriptions.claimFees(period, { from: jurorPeriod0Term1 }), 'CS_NON_PAST_PERIOD')
+            await assertRevert(subscriptions.claimFees(period, { from: jurorPeriod0Term1 }), SUBSCRIPTIONS_ERRORS.NON_PAST_PERIOD)
           })
         })
 
@@ -258,7 +259,7 @@ contract('CourtSubscriptions', ([_, payer, subscriberPeriod0, subscriberPeriod1,
           const period = 2
 
           it('reverts', async () => {
-            await assertRevert(subscriptions.claimFees(period, { from: jurorPeriod0Term1 }), 'CS_NON_PAST_PERIOD')
+            await assertRevert(subscriptions.claimFees(period, { from: jurorPeriod0Term1 }), SUBSCRIPTIONS_ERRORS.NON_PAST_PERIOD)
           })
         })
       })

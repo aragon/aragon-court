@@ -3,6 +3,7 @@ const { bn, bigExp } = require('../helpers/lib/numbers')
 const { buildHelper } = require('../helpers/wrappers/controller')(web3, artifacts)
 const { assertRevert } = require('../helpers/asserts/assertThrow')
 const { ACTIVATE_DATA } = require('../helpers/utils/jurors')
+const { REGISTRY_ERRORS } = require('../helpers/utils/errors')
 const { decodeEventsOfType } = require('../helpers/lib/decodeEvent')
 const { assertEvent, assertAmountOfEvents } = require('../helpers/asserts/assertEvent')
 
@@ -125,7 +126,7 @@ contract('JurorsRegistry', ([_, juror, anotherJuror]) => {
 
         context('when the juror does not have enough token balance', () => {
           it('reverts', async () => {
-            await assertRevert(registry.stake(amount, data, { from }), 'JR_TOKEN_TRANSFER_FAILED')
+            await assertRevert(registry.stake(amount, data, { from }), REGISTRY_ERRORS.TOKEN_TRANSFER_FAILED)
           })
         })
       }
@@ -135,7 +136,7 @@ contract('JurorsRegistry', ([_, juror, anotherJuror]) => {
           const amount = bn(0)
 
           it('reverts', async () => {
-            await assertRevert(registry.stake(amount, data, { from }), 'JR_INVALID_ZERO_AMOUNT')
+            await assertRevert(registry.stake(amount, data, { from }), REGISTRY_ERRORS.INVALID_ZERO_AMOUNT)
           })
         })
 
@@ -266,7 +267,7 @@ contract('JurorsRegistry', ([_, juror, anotherJuror]) => {
           const amount = bn(0)
 
           it('reverts', async () => {
-            await assertRevert(registry.stake(amount, data, { from }), 'JR_INVALID_ZERO_AMOUNT')
+            await assertRevert(registry.stake(amount, data, { from }), REGISTRY_ERRORS.INVALID_ZERO_AMOUNT)
           })
         })
 
@@ -280,13 +281,13 @@ contract('JurorsRegistry', ([_, juror, anotherJuror]) => {
             })
 
             it('reverts', async () => {
-              await assertRevert(registry.stake(amount, data, { from }), 'JR_ACTIVE_BALANCE_BELOW_MIN')
+              await assertRevert(registry.stake(amount, data, { from }), REGISTRY_ERRORS.ACTIVE_BALANCE_BELOW_MIN)
             })
           })
 
           context('when the juror does not have enough token balance', () => {
             it('reverts', async () => {
-              await assertRevert(registry.stake(amount, data, { from }), 'JR_ACTIVE_BALANCE_BELOW_MIN')
+              await assertRevert(registry.stake(amount, data, { from }), REGISTRY_ERRORS.ACTIVE_BALANCE_BELOW_MIN)
             })
           })
         })
@@ -305,7 +306,7 @@ contract('JurorsRegistry', ([_, juror, anotherJuror]) => {
 
           context('when the juror does not have enough token balance', () => {
             it('reverts', async () => {
-              await assertRevert(registry.stake(amount, data, { from }), 'JR_TOKEN_TRANSFER_FAILED')
+              await assertRevert(registry.stake(amount, data, { from }), REGISTRY_ERRORS.TOKEN_TRANSFER_FAILED)
             })
           })
         })
@@ -453,7 +454,7 @@ contract('JurorsRegistry', ([_, juror, anotherJuror]) => {
 
       context('when the juror does not have enough token balance', () => {
         it('reverts', async () => {
-          await assertRevert(registry.stakeFor(recipient, amount, data, { from }), 'JR_TOKEN_TRANSFER_FAILED')
+          await assertRevert(registry.stakeFor(recipient, amount, data, { from }), REGISTRY_ERRORS.TOKEN_TRANSFER_FAILED)
         })
       })
     }
@@ -463,7 +464,7 @@ contract('JurorsRegistry', ([_, juror, anotherJuror]) => {
         const amount = bn(0)
 
         it('reverts', async () => {
-          await assertRevert(registry.stakeFor(recipient, amount, data, { from }), 'JR_INVALID_ZERO_AMOUNT')
+          await assertRevert(registry.stakeFor(recipient, amount, data, { from }), REGISTRY_ERRORS.INVALID_ZERO_AMOUNT)
         })
       })
 
@@ -649,7 +650,7 @@ contract('JurorsRegistry', ([_, juror, anotherJuror]) => {
           const amount = bn(0)
 
           it('reverts', async () => {
-            await assertRevert(registry.stakeFor(recipient, amount, data, { from }), 'JR_INVALID_ZERO_AMOUNT')
+            await assertRevert(registry.stakeFor(recipient, amount, data, { from }), REGISTRY_ERRORS.INVALID_ZERO_AMOUNT)
           })
         })
 
@@ -663,13 +664,13 @@ contract('JurorsRegistry', ([_, juror, anotherJuror]) => {
             })
 
             it('reverts', async () => {
-              await assertRevert(registry.stakeFor(recipient, amount, data, { from }), 'JR_ACTIVE_BALANCE_BELOW_MIN')
+              await assertRevert(registry.stakeFor(recipient, amount, data, { from }), REGISTRY_ERRORS.ACTIVE_BALANCE_BELOW_MIN)
             })
           })
 
           context('when the juror does not have enough token balance', () => {
             it('reverts', async () => {
-              await assertRevert(registry.stakeFor(recipient, amount, data, { from }), 'JR_ACTIVE_BALANCE_BELOW_MIN')
+              await assertRevert(registry.stakeFor(recipient, amount, data, { from }), REGISTRY_ERRORS.ACTIVE_BALANCE_BELOW_MIN)
             })
           })
         })
@@ -688,7 +689,7 @@ contract('JurorsRegistry', ([_, juror, anotherJuror]) => {
 
           context('when the juror does not have enough token balance', () => {
             it('reverts', async () => {
-              await assertRevert(registry.stakeFor(recipient, amount, data, { from }), 'JR_TOKEN_TRANSFER_FAILED')
+              await assertRevert(registry.stakeFor(recipient, amount, data, { from }), REGISTRY_ERRORS.TOKEN_TRANSFER_FAILED)
             })
           })
         })
@@ -819,7 +820,7 @@ contract('JurorsRegistry', ([_, juror, anotherJuror]) => {
 
           context('when the juror does not have enough token balance', () => {
             it('reverts', async () => {
-              await assertRevert(registry.stake(amount, data, { from }), 'JR_TOKEN_TRANSFER_FAILED')
+              await assertRevert(registry.stake(amount, data, { from }), REGISTRY_ERRORS.TOKEN_TRANSFER_FAILED)
             })
           })
         }
@@ -829,7 +830,7 @@ contract('JurorsRegistry', ([_, juror, anotherJuror]) => {
             const amount = bn(0)
 
             it('reverts', async () => {
-              await assertRevert(registry.stake(amount, data, { from }), 'JR_INVALID_ZERO_AMOUNT')
+              await assertRevert(registry.stake(amount, data, { from }), REGISTRY_ERRORS.INVALID_ZERO_AMOUNT)
             })
           })
 
@@ -962,7 +963,7 @@ contract('JurorsRegistry', ([_, juror, anotherJuror]) => {
             const amount = bn(0)
 
             it('reverts', async () => {
-              await assertRevert(registry.stake(amount, data, { from }), 'JR_INVALID_ZERO_AMOUNT')
+              await assertRevert(registry.stake(amount, data, { from }), REGISTRY_ERRORS.INVALID_ZERO_AMOUNT)
             })
           })
 
@@ -975,13 +976,13 @@ contract('JurorsRegistry', ([_, juror, anotherJuror]) => {
               })
 
               it('reverts', async () => {
-                await assertRevert(registry.stake(amount, data, { from }), 'JR_ACTIVE_BALANCE_BELOW_MIN')
+                await assertRevert(registry.stake(amount, data, { from }), REGISTRY_ERRORS.ACTIVE_BALANCE_BELOW_MIN)
               })
             })
 
             context('when the juror does not have enough token balance', () => {
               it('reverts', async () => {
-                await assertRevert(registry.stake(amount, data, { from }), 'JR_ACTIVE_BALANCE_BELOW_MIN')
+                await assertRevert(registry.stake(amount, data, { from }), REGISTRY_ERRORS.ACTIVE_BALANCE_BELOW_MIN)
               })
             })
           })
@@ -999,7 +1000,7 @@ contract('JurorsRegistry', ([_, juror, anotherJuror]) => {
 
             context('when the juror does not have enough token balance', () => {
               it('reverts', async () => {
-                await assertRevert(registry.stake(amount, data, { from }), 'JR_TOKEN_TRANSFER_FAILED')
+                await assertRevert(registry.stake(amount, data, { from }), REGISTRY_ERRORS.TOKEN_TRANSFER_FAILED)
               })
             })
           })
@@ -1027,7 +1028,7 @@ contract('JurorsRegistry', ([_, juror, anotherJuror]) => {
         const jurorBalance = bigExp(100, 18)
         await anotherToken.generateTokens(juror, jurorBalance)
 
-        await assertRevert(anotherToken.approveAndCall(registry.address, jurorBalance, ACTIVATE_DATA, { from: juror }), 'JR_TOKEN_APPROVE_NOT_ALLOWED')
+        await assertRevert(anotherToken.approveAndCall(registry.address, jurorBalance, ACTIVATE_DATA, { from: juror }), REGISTRY_ERRORS.TOKEN_APPROVE_NOT_ALLOWED)
       })
     })
   })
@@ -1041,7 +1042,7 @@ contract('JurorsRegistry', ([_, juror, anotherJuror]) => {
         const amount = bn(0)
 
         it('reverts', async () => {
-          await assertRevert(registry.unstake(amount, data, { from }), 'JR_INVALID_ZERO_AMOUNT')
+          await assertRevert(registry.unstake(amount, data, { from }), REGISTRY_ERRORS.INVALID_ZERO_AMOUNT)
         })
       })
 
@@ -1049,7 +1050,7 @@ contract('JurorsRegistry', ([_, juror, anotherJuror]) => {
         const amount = MIN_ACTIVE_AMOUNT.sub(bn(1))
 
         it('reverts', async () => {
-          await assertRevert(registry.unstake(amount, data, { from }), 'JR_NOT_ENOUGH_AVAILABLE_BALANCE')
+          await assertRevert(registry.unstake(amount, data, { from }), REGISTRY_ERRORS.NOT_ENOUGH_AVAILABLE_BALANCE)
         })
       })
 
@@ -1057,7 +1058,7 @@ contract('JurorsRegistry', ([_, juror, anotherJuror]) => {
         const amount = MIN_ACTIVE_AMOUNT.mul(bn(2))
 
         it('reverts', async () => {
-          await assertRevert(registry.unstake(amount, data, { from }), 'JR_NOT_ENOUGH_AVAILABLE_BALANCE')
+          await assertRevert(registry.unstake(amount, data, { from }), REGISTRY_ERRORS.NOT_ENOUGH_AVAILABLE_BALANCE)
         })
       })
     }
@@ -1170,7 +1171,7 @@ contract('JurorsRegistry', ([_, juror, anotherJuror]) => {
           const amount = bn(0)
 
           it('reverts', async () => {
-            await assertRevert(registry.unstake(amount, data, { from }), 'JR_INVALID_ZERO_AMOUNT')
+            await assertRevert(registry.unstake(amount, data, { from }), REGISTRY_ERRORS.INVALID_ZERO_AMOUNT)
           })
         })
 
@@ -1184,7 +1185,7 @@ contract('JurorsRegistry', ([_, juror, anotherJuror]) => {
           const amount = stakedBalance.add(bn(1))
 
           it('reverts', async () => {
-            await assertRevert(registry.unstake(amount, data, { from }), 'JR_NOT_ENOUGH_AVAILABLE_BALANCE')
+            await assertRevert(registry.unstake(amount, data, { from }), REGISTRY_ERRORS.NOT_ENOUGH_AVAILABLE_BALANCE)
           })
         })
       })
@@ -1220,7 +1221,7 @@ contract('JurorsRegistry', ([_, juror, anotherJuror]) => {
               const amount = bn(0)
 
               it('reverts', async () => {
-                await assertRevert(registry.unstake(amount, data, { from }), 'JR_INVALID_ZERO_AMOUNT')
+                await assertRevert(registry.unstake(amount, data, { from }), REGISTRY_ERRORS.INVALID_ZERO_AMOUNT)
               })
             })
 
@@ -1234,7 +1235,7 @@ contract('JurorsRegistry', ([_, juror, anotherJuror]) => {
               const amount = stakedBalance.add(bn(1))
 
               it('reverts', async () => {
-                await assertRevert(registry.unstake(amount, data, { from }), 'JR_NOT_ENOUGH_AVAILABLE_BALANCE')
+                await assertRevert(registry.unstake(amount, data, { from }), REGISTRY_ERRORS.NOT_ENOUGH_AVAILABLE_BALANCE)
               })
             })
           })

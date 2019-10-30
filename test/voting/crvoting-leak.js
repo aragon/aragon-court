@@ -1,14 +1,13 @@
-const { buildHelper } = require('../helpers/wrappers/controller')(web3, artifacts)
-const { assertBn } = require('../helpers/asserts/assertBn')
 const { bn } = require('../helpers/lib/numbers')
+const { assertBn } = require('../helpers/asserts/assertBn')
+const { buildHelper } = require('../helpers/wrappers/controller')(web3, artifacts)
 const { assertRevert } = require('../helpers/asserts/assertThrow')
+const { VOTING_ERRORS } = require('../helpers/utils/errors')
 const { SALT, OUTCOMES, encryptVote } = require('../helpers/utils/crvoting')
 const { assertEvent, assertAmountOfEvents } = require('../helpers/asserts/assertEvent')
 
 const CRVoting = artifacts.require('CRVoting')
 const Court = artifacts.require('CourtMockForVoting')
-
-const ERROR_OWNER_MOCK_COMMIT_CHECK_REVERTED = 'CRV_OWNER_MOCK_COMMIT_CHECK_REVERTED'
 
 contract('CRVoting leak', ([_, voter, someone]) => {
   let controller, voting, court
@@ -35,7 +34,7 @@ contract('CRVoting leak', ([_, voter, someone]) => {
 
       context('when the given voter has not voted before', () => {
         it('reverts', async () => {
-          await assertRevert(voting.leak(voteId, voter, OUTCOMES.LOW, SALT, { from: someone }), 'CRV_INVALID_COMMITMENT_SALT')
+          await assertRevert(voting.leak(voteId, voter, OUTCOMES.LOW, SALT, { from: someone }), VOTING_ERRORS.INVALID_COMMITMENT_SALT)
         })
       })
 
@@ -110,7 +109,7 @@ contract('CRVoting leak', ([_, voter, someone]) => {
                   const salt = '0x'
 
                   it('reverts', async () => {
-                    await assertRevert(voting.leak(voteId, voter, outcome, salt, { from: someone }), 'CRV_INVALID_COMMITMENT_SALT')
+                    await assertRevert(voting.leak(voteId, voter, outcome, salt, { from: someone }), VOTING_ERRORS.INVALID_COMMITMENT_SALT)
                   })
                 })
               })
@@ -122,7 +121,7 @@ contract('CRVoting leak', ([_, voter, someone]) => {
                   const salt = SALT
 
                   it('reverts', async () => {
-                    await assertRevert(voting.leak(voteId, voter, outcome, salt, { from: someone }), 'CRV_INVALID_COMMITMENT_SALT')
+                    await assertRevert(voting.leak(voteId, voter, outcome, salt, { from: someone }), VOTING_ERRORS.INVALID_COMMITMENT_SALT)
                   })
                 })
 
@@ -130,7 +129,7 @@ contract('CRVoting leak', ([_, voter, someone]) => {
                   const salt = '0x'
 
                   it('reverts', async () => {
-                    await assertRevert(voting.leak(voteId, voter, outcome, salt, { from: someone }), 'CRV_INVALID_COMMITMENT_SALT')
+                    await assertRevert(voting.leak(voteId, voter, outcome, salt, { from: someone }), VOTING_ERRORS.INVALID_COMMITMENT_SALT)
                   })
                 })
               })
@@ -143,7 +142,7 @@ contract('CRVoting leak', ([_, voter, someone]) => {
             })
 
             it('reverts', async () => {
-              await assertRevert(voting.leak(voteId, voter, committedOutcome, SALT, { from: someone }), ERROR_OWNER_MOCK_COMMIT_CHECK_REVERTED)
+              await assertRevert(voting.leak(voteId, voter, committedOutcome, SALT, { from: someone }), VOTING_ERRORS.OWNER_MOCK_COMMIT_CHECK_REVERTED)
             })
           })
         }
@@ -172,7 +171,7 @@ contract('CRVoting leak', ([_, voter, someone]) => {
 
     context('when the given vote ID is not valid', () => {
       it('reverts', async () => {
-        await assertRevert(voting.leak(0, voter, 0, '0x', { from: someone }), 'CRV_VOTE_DOES_NOT_EXIST')
+        await assertRevert(voting.leak(0, voter, 0, '0x', { from: someone }), VOTING_ERRORS.VOTE_DOES_NOT_EXIST)
       })
     })
   })

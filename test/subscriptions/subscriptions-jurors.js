@@ -1,15 +1,15 @@
-const { buildHelper } = require('../helpers/controller')(web3, artifacts)
-const { assertRevert } = require('../helpers/assertThrow')
-const { sha3, padLeft, toHex } = require('web3-utils')
-const { assertBn, bn, bigExp } = require('../helpers/numbers')
-const { assertAmountOfEvents, assertEvent } = require('../helpers/assertEvent')
+const { assertBn } = require('../helpers/asserts/assertBn')
+const { bn, bigExp } = require('../helpers/lib/numbers')
+const { buildHelper } = require('../helpers/wrappers/controller')(web3, artifacts)
+const { assertRevert } = require('../helpers/asserts/assertThrow')
+const { ACTIVATE_DATA } = require('../helpers/utils/jurors')
+const { padLeft, toHex } = require('web3-utils')
+const { assertAmountOfEvents, assertEvent } = require('../helpers/asserts/assertEvent')
 
 const CourtSubscriptions = artifacts.require('CourtSubscriptions')
 const JurorsRegistry = artifacts.require('JurorsRegistry')
 const Court = artifacts.require('CourtMockForRegistry')
 const ERC20 = artifacts.require('ERC20Mock')
-
-const ACTIVATE_DATA = sha3('activate(uint256)').slice(0, 10)
 
 contract('CourtSubscriptions', ([_, payer, subscriberPeriod0, subscriberPeriod1, jurorPeriod0Term1, jurorPeriod0Term3, jurorMidPeriod1]) => {
   let controller, subscriptions, jurorsRegistry, feeToken, jurorToken

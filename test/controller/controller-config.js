@@ -1,8 +1,9 @@
-const { buildHelper } = require('../helpers/court')(web3, artifacts)
-const { NOW, ONE_DAY } = require('../helpers/time')
-const { assertRevert } = require('../helpers/assertThrow')
-const { bn, bigExp, assertBn } = require('../helpers/numbers')
-const { assertConfig, buildNewConfig } = require('../helpers/config')(artifacts)
+const { assertBn } = require('../helpers/asserts/assertBn')
+const { bn, bigExp } = require('../helpers/lib/numbers')
+const { buildHelper } = require('../helpers/wrappers/court')(web3, artifacts)
+const { assertRevert } = require('../helpers/asserts/assertThrow')
+const { NOW, ONE_DAY } = require('../helpers/lib/time')
+const { assertConfig, buildNewConfig } = require('../helpers/utils/config')(artifacts)
 const { assertEvent, assertAmountOfEvents } = require('../helpers/assertEvent')
 
 contract('Controller', ([_, configGovernor, someone, disputer, drafter, appealMaker, appealTaker, juror500, juror1000, juror3000]) => {

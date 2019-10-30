@@ -1,5 +1,6 @@
-const { assertRevert } = require('../helpers/assertThrow')
-const { assertBn, MAX_UINT256 } = require('../helpers/numbers')
+const { assertBn } = require('../helpers/asserts/assertBn')
+const { MAX_UINT256 } = require('../helpers/lib/numbers')
+const { assertRevert } = require('../helpers/asserts/assertThrow')
 
 const Checkpointing = artifacts.require('CheckpointingMock')
 

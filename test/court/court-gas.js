@@ -1,8 +1,8 @@
-const { assertBn } = require('../helpers/numbers')
-const { bn, bigExp } = require('../helpers/numbers')
-const { printTable } = require('../helpers/logging')
-const { buildHelper } = require('../helpers/court')(web3, artifacts)
-const { getVoteId, encryptVote, oppositeOutcome, SALT, OUTCOMES } = require('../helpers/crvoting')
+const { assertBn } = require('../helpers/lib/numbers')
+const { bn, bigExp } = require('../helpers/lib/numbers')
+const { printTable } = require('../helpers/lib/logging')
+const { buildHelper } = require('../helpers/wrappers/court')(web3, artifacts)
+const { getVoteId, encryptVote, oppositeOutcome, SALT, OUTCOMES } = require('../helpers/utils/crvoting')
 
 const Arbitrable = artifacts.require('ArbitrableMock')
 

@@ -1,8 +1,8 @@
-const { bn } = require('./numbers')
-const { sha3 } = require('web3-utils')
-const { decodeEventsOfType } = require('./decodeEvent')
+const { bn } = require('../lib/numbers')
+const { ACTIVATE_DATA } = require('../utils/jurors')
+const { decodeEventsOfType } = require('../lib/decodeEvent')
 const { getEvents, getEventArgument } = require('@aragon/os/test/helpers/events')
-const { SALT, OUTCOMES, getVoteId, encryptVote, oppositeOutcome, outcomeFor } = require('../helpers/crvoting')
+const { SALT, OUTCOMES, getVoteId, encryptVote, oppositeOutcome, outcomeFor } = require('../utils/crvoting')
 
 const PCT_BASE = bn(10000)
 
@@ -130,8 +130,6 @@ module.exports = (web3, artifacts) => {
     }
 
     async activate(jurors) {
-      const ACTIVATE_DATA = sha3('activate(uint256)').slice(0, 10)
-
       for (const { address, initialActiveBalance } of jurors) {
         await this.jurorToken.generateTokens(address, initialActiveBalance)
         await this.jurorToken.approveAndCall(this.jurorsRegistry.address, initialActiveBalance, ACTIVATE_DATA, { from: address })

@@ -1,10 +1,11 @@
-const { DEFAULTS } = require('../helpers/controller')(web3, artifacts)
-const { assertRevert } = require('../helpers/assertThrow')
-const { filterWinningJurors } = require('../helpers/jurors')
-const { assertBn, bn, bigExp } = require('../helpers/numbers')
-const { buildHelper, ROUND_STATES } = require('../helpers/court')(web3, artifacts)
-const { assertAmountOfEvents, assertEvent } = require('../helpers/assertEvent')
-const { getVoteId, oppositeOutcome, OUTCOMES } = require('../helpers/crvoting')
+const { DEFAULTS } = require('../helpers/wrappers/controller')(web3, artifacts)
+const { assertBn } = require('../helpers/asserts/assertBn')
+const { bn, bigExp } = require('../helpers/lib/numbers')
+const { assertRevert } = require('../helpers/asserts/assertThrow')
+const { filterWinningJurors } = require('../helpers/utils/jurors')
+const { buildHelper, ROUND_STATES } = require('../helpers/wrappers/court')(web3, artifacts)
+const { assertAmountOfEvents, assertEvent } = require('../helpers/asserts/assertEvent')
+const { getVoteId, oppositeOutcome, OUTCOMES } = require('../helpers/utils/crvoting')
 
 contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, juror1000, juror1500, juror2000, juror2500, juror3000, juror3500, juror4000]) => {
   let courtHelper, court, voting

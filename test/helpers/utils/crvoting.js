@@ -1,4 +1,4 @@
-const { bn } = require('./numbers')
+const { bn } = require('../lib/numbers')
 const { soliditySha3 } = require('web3-utils')
 
 const OUTCOMES = {

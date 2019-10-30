@@ -1,12 +1,13 @@
 const { sha3 } = require('web3-utils')
+const { assertBn } = require('../helpers/asserts/assertBn')
+const { bn, bigExp } = require('../helpers/lib/numbers')
 const { getEventAt } = require('@aragon/test-helpers/events')
-const { buildHelper } = require('../helpers/controller')(web3, artifacts)
-const { assertRevert } = require('../helpers/assertThrow')
-const { simulateDraft } = require('../helpers/registry')
-const { countEqualJurors } = require('../helpers/jurors')
-const { decodeEventsOfType } = require('../helpers/decodeEvent')
-const { assertBn, bn, bigExp } = require('../helpers/numbers')
-const { assertAmountOfEvents, assertEvent } = require('../helpers/assertEvent')
+const { buildHelper } = require('../helpers/wrappers/controller')(web3, artifacts)
+const { assertRevert } = require('../helpers/asserts/assertThrow')
+const { simulateDraft } = require('../helpers/utils/registry')
+const { decodeEventsOfType } = require('../helpers/lib/decodeEvent')
+const { ACTIVATE_DATA, countEqualJurors } = require('../helpers/utils/jurors')
+const { assertAmountOfEvents, assertEvent } = require('../helpers/asserts/assertEvent')
 
 const JurorsRegistry = artifacts.require('JurorsRegistryMock')
 const Court = artifacts.require('CourtMockForRegistry')
@@ -20,7 +21,6 @@ contract('JurorsRegistry', ([_, juror500, juror1000, juror1500, juror2000, juror
   const DRAFT_LOCK_PCT = bn(2000) // 20%
   const MIN_ACTIVE_AMOUNT = bigExp(100, 18)
   const TOTAL_ACTIVE_BALANCE_LIMIT = bigExp(100e6, 18)
-  const ACTIVATE_DATA = sha3('activate(uint256)').slice(0, 10)
   const DRAFT_LOCKED_AMOUNT = MIN_ACTIVE_AMOUNT.mul(DRAFT_LOCK_PCT).div(bn(10000))
 
   /** These tests are using a fixed seed to make sure we generate the same output on each run */

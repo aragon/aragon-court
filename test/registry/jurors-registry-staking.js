@@ -1,9 +1,10 @@
-const { sha3 } = require('web3-utils')
-const { buildHelper } = require('../helpers/controller')(web3, artifacts)
-const { assertRevert } = require('../helpers/assertThrow')
-const { decodeEventsOfType } = require('../helpers/decodeEvent')
-const { assertBn, bn, bigExp } = require('../helpers/numbers')
-const { assertEvent, assertAmountOfEvents } = require('../helpers/assertEvent')
+const { assertBn } = require('../helpers/asserts/assertBn')
+const { bn, bigExp } = require('../helpers/lib/numbers')
+const { buildHelper } = require('../helpers/wrappers/controller')(web3, artifacts)
+const { assertRevert } = require('../helpers/asserts/assertThrow')
+const { ACTIVATE_DATA } = require('../helpers/utils/jurors')
+const { decodeEventsOfType } = require('../helpers/lib/decodeEvent')
+const { assertEvent, assertAmountOfEvents } = require('../helpers/asserts/assertEvent')
 
 const JurorsRegistry = artifacts.require('JurorsRegistry')
 const Court = artifacts.require('CourtMockForRegistry')
@@ -16,7 +17,6 @@ contract('JurorsRegistry', ([_, juror, anotherJuror]) => {
 
   const MIN_ACTIVE_AMOUNT = bigExp(100, 18)
   const TOTAL_ACTIVE_BALANCE_LIMIT = bigExp(100e6, 18)
-  const ACTIVATE_DATA = sha3('activate(uint256)').slice(0, 10)
 
   beforeEach('create base contracts', async () => {
     controller = await buildHelper().deploy({ minActiveBalance: MIN_ACTIVE_AMOUNT })

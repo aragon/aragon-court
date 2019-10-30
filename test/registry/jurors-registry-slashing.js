@@ -1,11 +1,11 @@
-const { sha3 } = require('web3-utils')
-const { countJuror } = require('../helpers/jurors')
+const { assertBn } = require('../helpers/asserts/assertBn')
+const { bn, bigExp } = require('../helpers/lib/numbers')
 const { getEventAt } = require('@aragon/test-helpers/events')
-const { buildHelper } = require('../helpers/controller')(web3, artifacts)
-const { assertRevert } = require('../helpers/assertThrow')
-const { decodeEventsOfType } = require('../helpers/decodeEvent')
-const { assertBn, bn, bigExp } = require('../helpers/numbers')
-const { assertEvent, assertAmountOfEvents } = require('../helpers/assertEvent')
+const { buildHelper } = require('../helpers/wrappers/controller')(web3, artifacts)
+const { assertRevert } = require('../helpers/asserts/assertThrow')
+const { decodeEventsOfType } = require('../helpers/lib/decodeEvent')
+const { ACTIVATE_DATA, countJuror } = require('../helpers/utils/jurors')
+const { assertEvent, assertAmountOfEvents } = require('../helpers/asserts/assertEvent')
 
 const JurorsRegistry = artifacts.require('JurorsRegistryMock')
 const Court = artifacts.require('CourtMockForRegistry')
@@ -14,7 +14,6 @@ const ERC20 = artifacts.require('ERC20Mock')
 contract('JurorsRegistry', ([_, juror, secondJuror, thirdJuror, anyone]) => {
   let controller, registry, court, ANJ
 
-  const ACTIVATE_DATA = sha3('activate(uint256)').slice(0, 10)
   const MIN_ACTIVE_AMOUNT = bigExp(100, 18)
   const TOTAL_ACTIVE_BALANCE_LIMIT = bigExp(100e6, 18)
   const DRAFT_LOCK_PCT = bn(2000) // 20%

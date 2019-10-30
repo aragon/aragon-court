@@ -1,5 +1,6 @@
-const { assertRevert } = require('../helpers/assertThrow')
-const { assertBn, bn, MAX_UINT256, MAX_UINT192 } = require('../helpers/numbers')
+const { assertBn } = require('../helpers/asserts/assertBn')
+const { assertRevert } = require('../helpers/asserts/assertThrow')
+const { bn, MAX_UINT256, MAX_UINT192 } = require('../helpers/lib/numbers')
 
 const HexSumTree = artifacts.require('HexSumTreeMock')
 

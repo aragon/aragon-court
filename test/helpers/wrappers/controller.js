@@ -1,5 +1,5 @@
-const { NEXT_WEEK, ONE_DAY } = require('./time')
-const { MAX_UINT64, bn, bigExp } = require('./numbers')
+const { NEXT_WEEK, ONE_DAY } = require('../lib/time')
+const { MAX_UINT64, bn, bigExp } = require('../lib/numbers')
 
 const MODULE_IDS = {
   court: '0x26f3b895987e349a46d6d91132234924c6d45cfdc564b33427f53e3f9284955c',
@@ -10,7 +10,7 @@ const MODULE_IDS = {
 }
 
 module.exports = (web3, artifacts) => {
-  const { advanceBlocks } = require('../helpers/blocks')(web3)
+  const { advanceBlocks } = require('../lib/blocks')(web3)
 
   const DEFAULTS = {
     termDuration:                       bn(ONE_DAY),     //  terms lasts one day

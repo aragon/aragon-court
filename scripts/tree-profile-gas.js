@@ -1,5 +1,5 @@
-const { bigExp } = require('../test/helpers/numbers')(web3)
-const { printTable } = require('../test/helpers/logging')
+const { bigExp } = require('../test/helpers/lib/numbers')
+const { printTable } = require('../test/helpers/lib/logging')
 const { getEventArgument } = require('@aragon/test-helpers/events')
 
 const MAX_APPEAL_ROUNDS = 4

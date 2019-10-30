@@ -1,6 +1,7 @@
-const { assertBn, bn } = require('../helpers/numbers')
-const { assertRevert } = require('../helpers/assertThrow')
-const { expectedBounds, simulateComputeSearchRandomBalances, simulateBatchedRandomSearch } = require('../helpers/registry')
+const { bn } = require('../helpers/lib/numbers')
+const { assertBn } = require('../helpers/asserts/assertBn')
+const { assertRevert } = require('../helpers/asserts/assertThrow')
+const { expectedBounds, simulateComputeSearchRandomBalances, simulateBatchedRandomSearch } = require('../helpers/utils/registry')
 
 const JurorsTreeSortition = artifacts.require('JurorsTreeSortitionMock')
 

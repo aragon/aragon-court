@@ -1,4 +1,5 @@
-const { assertBn, bn, bigExp } = require('./numbers')
+const { assertBn } = require('../asserts/assertBn')
+const { bn, bigExp } = require('../lib/numbers')
 
 const PCT_BASE = bn(10000)
 

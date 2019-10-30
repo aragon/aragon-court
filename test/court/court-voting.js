@@ -1,10 +1,11 @@
-const { DEFAULTS } = require('../helpers/controller')(web3, artifacts)
-const { filterJurors } = require('../helpers/jurors')
-const { assertRevert } = require('../helpers/assertThrow')
-const { assertBn, bn, bigExp } = require('../helpers/numbers')
-const { buildHelper, ROUND_STATES } = require('../helpers/court')(web3, artifacts)
-const { assertAmountOfEvents, assertEvent } = require('../helpers/assertEvent')
-const { getVoteId, encryptVote, outcomeFor, SALT, OUTCOMES } = require('../helpers/crvoting')
+const { DEFAULTS } = require('../helpers/wrappers/controller')(web3, artifacts)
+const { assertBn } = require('../helpers/asserts/assertBn')
+const { bn, bigExp } = require('../helpers/lib/numbers')
+const { filterJurors } = require('../helpers/utils/jurors')
+const { assertRevert } = require('../helpers/asserts/assertThrow')
+const { buildHelper, ROUND_STATES } = require('../helpers/wrappers/court')(web3, artifacts)
+const { assertAmountOfEvents, assertEvent } = require('../helpers/asserts/assertEvent')
+const { getVoteId, encryptVote, outcomeFor, SALT, OUTCOMES } = require('../helpers/utils/crvoting')
 
 const ERROR_INVALID_ADJUDICATION_STATE = 'CT_INVALID_ADJUDICATION_STATE'
 const ERROR_VOTE_ALREADY_COMMITTED = 'CRV_VOTE_ALREADY_COMMITTED'

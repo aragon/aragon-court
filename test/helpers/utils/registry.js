@@ -1,4 +1,4 @@
-const { bn } = require('./numbers')
+const { bn } = require('../lib/numbers')
 const { soliditySha3, toBN } = require('web3-utils')
 
 const expectedBounds = ({ selectedJurors, batchRequestedJurors, balances, totalRequestedJurors }) => {

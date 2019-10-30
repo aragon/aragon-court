@@ -1,8 +1,9 @@
-const { buildHelper } = require('../helpers/controller')(web3, artifacts)
-const { assertBn, bn } = require('../helpers/numbers')
-const { assertRevert } = require('../helpers/assertThrow')
-const { NEXT_WEEK, NOW, ONE_DAY } = require('../helpers/time')
-const { assertAmountOfEvents, assertEvent } = require('../helpers/assertEvent')
+const { bn } = require('../helpers/lib/numbers')
+const { assertBn } = require('../helpers/asserts/assertBn')
+const { buildHelper } = require('../helpers/wrappers/controller')(web3, artifacts)
+const { assertRevert } = require('../helpers/asserts/assertThrow')
+const { NEXT_WEEK, NOW, ONE_DAY } = require('../helpers/lib/time')
+const { assertAmountOfEvents, assertEvent } = require('../helpers/asserts/assertEvent')
 
 contract('Controller', () => {
   let controllerHelper, controller

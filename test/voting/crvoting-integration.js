@@ -1,6 +1,6 @@
-const { assertBn } = require('../helpers/numbers')
-const { buildHelper } = require('../helpers/controller')(web3, artifacts)
-const { SALT, OUTCOMES, encryptVote } = require('../helpers/crvoting')
+const { assertBn } = require('../helpers/lib/numbers')
+const { buildHelper } = require('../helpers/wrappers/controller')(web3, artifacts)
+const { SALT, OUTCOMES, encryptVote } = require('../helpers/utils/crvoting')
 
 const CRVoting = artifacts.require('CRVoting')
 const Court = artifacts.require('CourtMockForVoting')

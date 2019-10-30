@@ -1,6 +1,6 @@
-const { buildHelper } = require('../helpers/controller')(web3, artifacts)
-const { assertRevert } = require('../helpers/assertThrow')
-const { assertAmountOfEvents } = require('../helpers/assertEvent')
+const { buildHelper } = require('../helpers/wrappers/controller')(web3, artifacts)
+const { assertRevert } = require('../helpers/asserts/assertThrow')
+const { assertAmountOfEvents } = require('../helpers/asserts/assertEvent')
 
 const Controlled = artifacts.require('ControlledMock')
 

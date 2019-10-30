@@ -1,7 +1,8 @@
-const { buildHelper } = require('../helpers/controller')(web3, artifacts)
-const { assertRevert } = require('../helpers/assertThrow')
-const { assertBn, bigExp } = require('../helpers/numbers')
-const { assertAmountOfEvents, assertEvent } = require('../helpers/assertEvent')
+const { bigExp } = require('../helpers/lib/numbers')
+const { assertBn } = require('../helpers/asserts/assertBn')
+const { buildHelper } = require('../helpers/wrappers/controller')(web3, artifacts)
+const { assertRevert } = require('../helpers/asserts/assertThrow')
+const { assertAmountOfEvents, assertEvent } = require('../helpers/asserts/assertEvent')
 
 const ERC20 = artifacts.require('ERC20Mock')
 const ControlledRecoverable = artifacts.require('ControlledRecoverableMock')

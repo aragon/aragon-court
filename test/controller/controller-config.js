@@ -1,88 +1,39 @@
-const { outcomeFor } = require('../helpers/crvoting')
 const { buildHelper } = require('../helpers/court')(web3, artifacts)
+const { NOW, ONE_DAY } = require('../helpers/time')
 const { assertRevert } = require('../helpers/assertThrow')
 const { bn, bigExp, assertBn } = require('../helpers/numbers')
+const { assertConfig, buildNewConfig } = require('../helpers/config')(artifacts)
 const { assertEvent, assertAmountOfEvents } = require('../helpers/assertEvent')
 
-contract('Controller', ([_, sender, disputer, drafter, appealMaker, appealTaker, juror500, juror1000, juror3000]) => {
+contract('Controller', ([_, configGovernor, someone, disputer, drafter, appealMaker, appealTaker, juror500, juror1000, juror3000]) => {
   let courtHelper, controllerHelper
-  let originalConfig, initialConfig
-  let feeToken
-  let jurorFee, draftFee, settleFee
-  let commitTerms, revealTerms, appealTerms, appealConfirmTerms
-  let penaltyPct, finalRoundReduction
-  let firstRoundJurorsNumber, appealStepFactor, maxRegularAppealRounds, finalRoundLockTerms
-  let appealCollateralFactor, appealConfirmCollateralFactor
-  let minActiveBalance
+
+  let initialConfig, feeToken
+  const jurorFee = bigExp(10, 18)
+  const draftFee = bigExp(30, 18)
+  const settleFee = bigExp(40, 18)
+  const commitTerms = bn(1)
+  const revealTerms = bn(2)
+  const appealTerms = bn(3)
+  const appealConfirmTerms = bn(4)
+  const penaltyPct = bn(100)
+  const finalRoundReduction = bn(3300)
+  const firstRoundJurorsNumber = bn(5)
+  const appealStepFactor = bn(3)
+  const maxRegularAppealRounds = bn(2)
+  const finalRoundLockTerms = bn(2)
+  const appealCollateralFactor = bn(4)
+  const appealConfirmCollateralFactor = bn(6)
+  const minActiveBalance = bigExp(200, 18)
 
   const ERROR_SENDER_NOT_CONFIG_GOVERNOR = 'CTR_SENDER_NOT_GOVERNOR'
   const ERROR_TOO_OLD_TERM = 'CONF_TOO_OLD_TERM'
 
-  const checkConfig = async (termId, newConfig) => {
-    const {
-      newFeeTokenAddress,
-      newJurorFee, newDraftFee, newSettleFee,
-      newCommitTerms, newRevealTerms, newAppealTerms, newAppealConfirmTerms,
-      newPenaltyPct, newFinalRoundReduction,
-      newFirstRoundJurorsNumber, newAppealStepFactor, newMaxRegularAppealRounds, newFinalRoundLockTerms,
-      newAppealCollateralFactor, newAppealConfirmCollateralFactor,
-      newMinActiveBalance
-    } = newConfig
-    const {
-      feeToken,
-      jurorFee, draftFee, settleFee,
-      commitTerms, revealTerms, appealTerms, appealConfirmTerms,
-      penaltyPct, finalRoundReduction,
-      firstRoundJurorsNumber, appealStepFactor, maxRegularAppealRounds, finalRoundLockTerms,
-      appealCollateralFactor, appealConfirmCollateralFactor,
-      minActiveBalance
-    } = await controllerHelper.getConfig(termId)
+  const checkConfig = async (termId, expectedConfig) => assertConfig(await controllerHelper.getConfig(termId), expectedConfig)
 
-    assert.equal(feeToken, newFeeTokenAddress, 'fee token does not match')
-    assertBn(jurorFee, newJurorFee, 'juror fee does not match')
-    assertBn(draftFee, newDraftFee, 'draft fee does not match')
-    assertBn(settleFee, newSettleFee, 'settle fee does not match')
-    assertBn(commitTerms, newCommitTerms, 'commit terms number does not match')
-    assertBn(revealTerms, newRevealTerms, 'reveal terms number does not match')
-    assertBn(appealTerms, newAppealTerms, 'appeal terms number does not match')
-    assertBn(appealConfirmTerms, newAppealConfirmTerms, 'appeal confirmation terms number does not match')
-    assertBn(penaltyPct, newPenaltyPct, 'penalty permyriad does not match')
-    assertBn(finalRoundReduction, newFinalRoundReduction, 'final round reduction does not match')
-    assertBn(firstRoundJurorsNumber, newFirstRoundJurorsNumber, 'first round jurors number does not match')
-    assertBn(appealStepFactor, newAppealStepFactor, 'appeal step factor does not match')
-    assertBn(maxRegularAppealRounds, newMaxRegularAppealRounds, 'number of max regular appeal rounds does not match')
-    assertBn(finalRoundLockTerms, newFinalRoundLockTerms, 'number of final round lock terms does not match')
-    assertBn(appealCollateralFactor, newAppealCollateralFactor, 'appeal collateral factor does not match')
-    assertBn(appealConfirmCollateralFactor, newAppealConfirmCollateralFactor, 'appeal confirmation collateral factor does not match')
-    assertBn(minActiveBalance, newMinActiveBalance, 'min active balance does not match')
-  }
-
-  beforeEach('deploy court', async () => {
+  before('set initial config', async () => {
     feeToken = await artifacts.require('ERC20Mock').new('Court Fee Token', 'CFT', 18)
-
-    jurorFee = bigExp(10, 18)
-    draftFee = bigExp(30, 18)
-    settleFee = bigExp(40, 18)
-
-    commitTerms = bn(1)
-    revealTerms = bn(2)
-    appealTerms = bn(3)
-    appealConfirmTerms = bn(4)
-
-    penaltyPct = bn(100)
-    finalRoundReduction = bn(3300)
-
-    firstRoundJurorsNumber = bn(5)
-    appealStepFactor = bn(3)
-    maxRegularAppealRounds = bn(2)
-    finalRoundLockTerms = bn(2)
-
-    appealCollateralFactor = bn(4)
-    appealConfirmCollateralFactor = bn(6)
-
-    minActiveBalance = bigExp(200, 18)
-
-    originalConfig = {
+    initialConfig = {
       feeToken,
       jurorFee,
       draftFee,
@@ -101,229 +52,368 @@ contract('Controller', ([_, sender, disputer, drafter, appealMaker, appealTaker,
       appealConfirmCollateralFactor,
       minActiveBalance
     }
+  })
 
-    initialConfig = {
-      newFeeTokenAddress: feeToken.address,
-      newJurorFee: jurorFee,
-      newDraftFee: draftFee,
-      newSettleFee: settleFee,
-      newCommitTerms: commitTerms,
-      newRevealTerms: revealTerms,
-      newAppealTerms: appealTerms,
-      newAppealConfirmTerms: appealConfirmTerms,
-      newPenaltyPct: penaltyPct,
-      newFinalRoundReduction: finalRoundReduction,
-      newFirstRoundJurorsNumber: firstRoundJurorsNumber,
-      newAppealStepFactor: appealStepFactor,
-      newMaxRegularAppealRounds: maxRegularAppealRounds,
-      newFinalRoundLockTerms: finalRoundLockTerms,
-      newAppealCollateralFactor: appealCollateralFactor,
-      newAppealConfirmCollateralFactor: appealConfirmCollateralFactor,
-      newMinActiveBalance: minActiveBalance
-    }
-
+  beforeEach('create helper', () => {
     courtHelper = buildHelper()
     controllerHelper = courtHelper.controllerHelper
-
-    await courtHelper.deploy({
-      feeToken,
-      jurorFee,
-      draftFee,
-      settleFee,
-      commitTerms,
-      revealTerms,
-      appealTerms,
-      appealConfirmTerms,
-      penaltyPct,
-      finalRoundReduction,
-      firstRoundJurorsNumber,
-      appealStepFactor,
-      maxRegularAppealRounds,
-      finalRoundLockTerms,
-      appealCollateralFactor,
-      appealConfirmCollateralFactor,
-      minActiveBalance
-    })
   })
 
-  context('initialization', () => {
-    it('config is properly set', async () => {
-      await checkConfig(0, initialConfig)
-    })
-  })
-
-  context('changes after init', () => {
-    beforeEach('move forward', async () => {
-      // move away from term zero
-      await controllerHelper.setTerm(1)
-    })
-
-    context('when the config change fails', () => {
-      it('fails setting config if no governor', async () => {
-        const from = sender
-        const configChangeTermId = 3
-
-        // make sure account used is not governor
-        assert.notEqual(controllerHelper.governor, from, 'it is actually governor!')
-
-        const { promise } = await controllerHelper.changeConfigPromise(originalConfig, configChangeTermId, sender)
-        await assertRevert(promise, ERROR_SENDER_NOT_CONFIG_GOVERNOR)
+  describe('constructor', () => {
+    context('when the initialization succeeds', () => {
+      beforeEach('deploy controller', async () => {
+        await courtHelper.deploy(initialConfig)
       })
 
-      it('fails setting config in the past', async () => {
-        const configChangeTermId = 3
-        // move forward
-        await controllerHelper.setTerm(configChangeTermId + 1)
-
-        const { promise } = await controllerHelper.changeConfigPromise(originalConfig, configChangeTermId, controllerHelper.configGovernor)
-        await assertRevert(promise, ERROR_TOO_OLD_TERM)
-      })
-
-      it('fails setting config with only one term in advance', async () => {
-        const configChangeTermId = 3
-        // move forward
-        await controllerHelper.setTerm(configChangeTermId - 1)
-
-        const { promise } = await controllerHelper.changeConfigPromise(originalConfig, configChangeTermId, controllerHelper.configGovernor)
-        await assertRevert(promise, ERROR_TOO_OLD_TERM)
+      it('sets configuration properly', async () => {
+        await checkConfig(0, initialConfig)
       })
     })
 
-    context('when the config change succeeds', () => {
-      const configChangeTermId = 3
-      let newConfig
-
-      beforeEach('schedule court config', async () => {
-        newConfig = await controllerHelper.changeConfig(originalConfig, configChangeTermId)
+    context('when the initialization fails', () => {
+      it('cannot use a term duration greater than the first term start time', async () => {
+        await assertRevert(courtHelper.deploy({ mockedTimestamp: NOW, firstTermStartTime: ONE_DAY, termDuration: ONE_DAY + 1 }), 'CLK_BAD_FIRST_TERM_START_TIME')
       })
 
-      it('check it from the past', async () => {
-        await checkConfig(configChangeTermId, newConfig)
+      it('cannot use a first term start time in the past', async () => {
+        await assertRevert(courtHelper.deploy({ mockedTimestamp: NOW, firstTermStartTime: NOW - 1, termDuration: ONE_DAY }), 'CLK_BAD_FIRST_TERM_START_TIME')
       })
 
-      it('schedules the new config properly', async () => {
-        const scheduledTermId = await controllerHelper.controller.getConfigChangeTermId()
-        assertBn(scheduledTermId, configChangeTermId, 'config change term id does not match')
+      it('cannot use a penalty pct above 100%', async () => {
+        await assertRevert(controllerHelper.deploy({ penaltyPct: bn(10001) }), 'CONF_INVALID_PENALTY_PCT')
       })
 
-      it('check once the change term id has been reached', async () => {
-        // move forward
-        await controllerHelper.setTerm(configChangeTermId)
-
-        await checkConfig(configChangeTermId, newConfig)
-      })
-    })
-
-    context('overwriting changes at a later term', () => {
-      let newConfig
-      const configChangeTermId1 = 3, configChangeTermId2 = 4
-
-      beforeEach('ask for the changes', async () => {
-        await controllerHelper.changeConfig(originalConfig, configChangeTermId1)
-        newConfig = await controllerHelper.changeConfig(originalConfig, configChangeTermId2, 2)
+      it('cannot use a final round reduction above 100%', async () => {
+        await assertRevert(controllerHelper.deploy({ finalRoundReduction: bn(10001) }), 'CONF_INVALID_FINAL_ROUND_RED_PCT')
       })
 
-      it('check it from the past', async () => {
-        await checkConfig(configChangeTermId1, initialConfig)
-        await checkConfig(configChangeTermId2, newConfig)
+      it('cannot use an appeal collateral factor zero', async () => {
+        await assertRevert(controllerHelper.deploy({ appealCollateralFactor: bn(0) }), 'CONF_ZERO_COLLATERAL_FACTOR')
       })
 
-      it('check once the change term id for the first change has been reached', async () => {
-        // move forward
-        await controllerHelper.setTerm(configChangeTermId1)
-
-        await checkConfig(configChangeTermId1, initialConfig)
-        await checkConfig(configChangeTermId2, newConfig)
+      it('cannot use an appeal confirmation collateral factor zero', async () => {
+        await assertRevert(controllerHelper.deploy({ appealConfirmCollateralFactor: bn(0) }), 'CONF_ZERO_COLLATERAL_FACTOR')
       })
 
-      it('check once the change term id for the second change has been reached', async () => {
-        // move forward
-        await controllerHelper.setTerm(configChangeTermId2)
-
-        await checkConfig(configChangeTermId1, initialConfig)
-        await checkConfig(configChangeTermId2, newConfig)
-      })
-    })
-
-    context('overwriting changes at a prior term', () => {
-      let newConfig
-      const configChangeTermId1 = 4, configChangeTermId2 = 3
-
-      beforeEach('ask for the changes', async () => {
-        await controllerHelper.changeConfig(originalConfig, configChangeTermId1)
-        newConfig = await controllerHelper.changeConfig(originalConfig, configChangeTermId2, 2)
+      it('cannot use an initial jurors number zero', async () => {
+        await assertRevert(controllerHelper.deploy({ firstRoundJurorsNumber: bn(0) }), 'CONF_BAD_INITIAL_JURORS_NUMBER')
       })
 
-      it('check it from the past', async () => {
-        await checkConfig(configChangeTermId1, newConfig)
-        await checkConfig(configChangeTermId2, newConfig)
+      it('cannot use an appeal step factor zero', async () => {
+        await assertRevert(controllerHelper.deploy({ appealStepFactor: bn(0) }), 'CONF_BAD_APPEAL_STEP_FACTOR')
       })
 
-      it('check once the change term id for the first change has been reached', async () => {
-        // move forward
-        await controllerHelper.setTerm(configChangeTermId1)
-
-        await checkConfig(configChangeTermId1, newConfig)
-        await checkConfig(configChangeTermId2, newConfig)
+      it('cannot use a max appeal rounds zero', async () => {
+        await assertRevert(controllerHelper.deploy({ maxRegularAppealRounds: bn(0) }), 'CONF_INVALID_MAX_APPEAL_ROUNDS')
       })
 
-      it('check once the change term id for the second change has been reached', async () => {
-        // move forward
-        await controllerHelper.setTerm(configChangeTermId2)
+      it('cannot use a max appeal rounds above 10', async () => {
+        await assertRevert(controllerHelper.deploy({ maxRegularAppealRounds: bn(11) }), 'CONF_INVALID_MAX_APPEAL_ROUNDS')
+      })
 
-        await checkConfig(configChangeTermId1, newConfig)
-        await checkConfig(configChangeTermId2, newConfig)
+      it('cannot use a adjudication round durations zero', async () => {
+        await assertRevert(controllerHelper.deploy({ commitTerms: bn(0) }), 'CONF_LARGE_ROUND_PHASE_DURATION')
+        await assertRevert(controllerHelper.deploy({ revealTerms: bn(0) }), 'CONF_LARGE_ROUND_PHASE_DURATION')
+        await assertRevert(controllerHelper.deploy({ appealTerms: bn(0) }), 'CONF_LARGE_ROUND_PHASE_DURATION')
+        await assertRevert(controllerHelper.deploy({ appealConfirmTerms: bn(0) }), 'CONF_LARGE_ROUND_PHASE_DURATION')
+      })
+
+      it('cannot use a adjudication round durations bigger than 8670 terms', async () => {
+        await assertRevert(controllerHelper.deploy({ commitTerms: bn(8760) }), 'CONF_LARGE_ROUND_PHASE_DURATION')
+        await assertRevert(controllerHelper.deploy({ revealTerms: bn(8760) }), 'CONF_LARGE_ROUND_PHASE_DURATION')
+        await assertRevert(controllerHelper.deploy({ appealTerms: bn(8760) }), 'CONF_LARGE_ROUND_PHASE_DURATION')
+        await assertRevert(controllerHelper.deploy({ appealConfirmTerms: bn(8760) }), 'CONF_LARGE_ROUND_PHASE_DURATION')
+      })
+
+      it('cannot use a min active balance 0', async () => {
+        await assertRevert(controllerHelper.deploy({ minActiveBalance: bn(0) }), 'CONF_ZERO_MIN_ACTIVE_BALANCE')
       })
     })
   })
 
-  context('changes during dispute', () => {
-    let disputeId
-    const draftTermId = 2
-    const configChangeTermId = draftTermId + 1
+  describe('setConfig', () => {
+    let newConfig
 
-    const jurors = [
-      { address: juror3000, initialActiveBalance: bigExp(3000, 18) },
-      { address: juror500,  initialActiveBalance: bigExp(500, 18) },
-      { address: juror1000, initialActiveBalance: bigExp(1000, 18) }
-    ]
-
-    beforeEach('activate jurors', async () => {
-      await courtHelper.activate(jurors)
+    beforeEach('deploy controller and build new config', async () => {
+      await courtHelper.deploy({ ...initialConfig, configGovernor })
+      newConfig = await buildNewConfig(initialConfig)
     })
 
-    it('does not affect a dispute during its lifetime', async () => {
-      // create dispute
-      disputeId = await courtHelper.dispute({ draftTermId, disputer })
+    context('when the sender is the governor', () => {
+      const from = configGovernor
 
-      // change config
-      await controllerHelper.changeConfig(originalConfig, configChangeTermId)
+      const itHandlesConfigChangesProperly = (configChangeTermId, handleDisputes) => {
+        context('when there was no config change scheduled before', () => {
+          context('when the new config is valid', () => {
+            beforeEach('change court config', async () => {
+              await controllerHelper.setConfig(configChangeTermId, newConfig, { from })
+            })
 
-      // move forward to dispute start
-      await controllerHelper.setTerm(draftTermId)
+            it('check it from the past', async () => {
+              await checkConfig(configChangeTermId, newConfig)
+            })
 
-      // check dispute config related info
-      const { roundJurorsNumber, jurorFees } = await courtHelper.getRound(disputeId, 0)
-      assertBn(roundJurorsNumber, firstRoundJurorsNumber, 'jurors Number does not match')
-      assertBn(jurorFees, firstRoundJurorsNumber.mul(jurorFee), 'jurors Fees do not match')
+            it('schedules the new config properly', async () => {
+              const scheduledTermId = await controllerHelper.controller.getConfigChangeTermId()
 
-      // draft
-      await controllerHelper.advanceBlocks(1)
-      const draftedJurors = await courtHelper.draft({ disputeId, drafter })
-      // commit and reveal
-      const voters = draftedJurors.slice(0, 3)
-      voters.forEach((voter, i) => voter.outcome = outcomeFor(i))
-      await courtHelper.commit({ disputeId, roundId: 0, voters })
-      await courtHelper.reveal({ disputeId, roundId: 0, voters })
-      // appeal
-      await courtHelper.appeal({ disputeId, roundId: 0, appealMaker })
-      // confirm appeal
-      await courtHelper.confirmAppeal({ disputeId, roundId: 0, appealTaker })
+              assertBn(scheduledTermId, configChangeTermId, 'config change term id does not match')
+            })
 
-      // check dispute config related info
-      const { roundJurorsNumber: appealJurorsNumber, jurorFees: appealJurorFees } = await courtHelper.getRound(disputeId, 1)
-      assertBn(appealJurorsNumber, firstRoundJurorsNumber.mul(appealStepFactor), 'jurors Number does not match')
-      assertBn(appealJurorFees, appealJurorsNumber.mul(jurorFee), 'jurors Fees do not match')
+            it('check once the change term id has been reached', async () => {
+              // move forward to the scheduled term
+              await controllerHelper.setTerm(configChangeTermId)
+
+              await checkConfig(configChangeTermId, newConfig)
+            })
+
+            if (handleDisputes) {
+              it('does not affect a dispute during its lifetime', async () => {
+                // activate jurors
+                await courtHelper.activate([
+                  { address: juror3000, initialActiveBalance: bigExp(3000, 18) },
+                  { address: juror500,  initialActiveBalance: bigExp(500, 18) },
+                  { address: juror1000, initialActiveBalance: bigExp(1000, 18) }
+                ])
+
+                // create dispute and move to dispute start term
+                const draftTermId = configChangeTermId - 1
+                const disputeId = await courtHelper.dispute({ draftTermId, disputer })
+                await controllerHelper.setTerm(draftTermId)
+
+                // check dispute config related info
+                const { roundJurorsNumber, jurorFees } = await courtHelper.getRound(disputeId, 0)
+                assertBn(roundJurorsNumber, firstRoundJurorsNumber, 'jurors Number does not match')
+                assertBn(jurorFees, firstRoundJurorsNumber.mul(jurorFee), 'jurors Fees do not match')
+
+                // draft
+                await controllerHelper.advanceBlocks(1)
+                const draftedJurors = await courtHelper.draft({ disputeId, drafter })
+
+                // commit and reveal
+                await courtHelper.commit({ disputeId, roundId: 0, voters: draftedJurors })
+                await courtHelper.reveal({ disputeId, roundId: 0, voters: draftedJurors })
+
+                // appeal and confirm
+                await courtHelper.appeal({ disputeId, roundId: 0, appealMaker })
+                await courtHelper.confirmAppeal({ disputeId, roundId: 0, appealTaker })
+
+                // check dispute config related info
+                const { roundJurorsNumber: appealJurorsNumber, jurorFees: appealJurorFees } = await courtHelper.getRound(disputeId, 1)
+                assertBn(appealJurorsNumber, firstRoundJurorsNumber.mul(appealStepFactor), 'jurors Number does not match')
+                assertBn(appealJurorFees, appealJurorsNumber.mul(jurorFee), 'jurors Fees do not match')
+              })
+            }
+          })
+
+          context('when the new config is not valid', () => {
+            it('cannot use a penalty pct above 100%', async () => {
+              newConfig.penaltyPct = bn(10001)
+              await assertRevert(controllerHelper.setConfig(configChangeTermId, newConfig, { from }), 'CONF_INVALID_PENALTY_PCT')
+            })
+
+            it('cannot use a final round reduction above 100%', async () => {
+              newConfig.finalRoundReduction = bn(10001)
+              await assertRevert(controllerHelper.setConfig(configChangeTermId, newConfig, { from }), 'CONF_INVALID_FINAL_ROUND_RED_PCT')
+            })
+
+            it('cannot use an appeal collateral factor zero', async () => {
+              newConfig.appealCollateralFactor = bn(0)
+              await assertRevert(controllerHelper.setConfig(configChangeTermId, newConfig, { from }), 'CONF_ZERO_COLLATERAL_FACTOR')
+            })
+
+            it('cannot use an appeal confirmation collateral factor zero', async () => {
+              newConfig.appealConfirmCollateralFactor = bn(0)
+              await assertRevert(controllerHelper.setConfig(configChangeTermId, newConfig, { from }), 'CONF_ZERO_COLLATERAL_FACTOR')
+            })
+
+            it('cannot use an initial jurors number zero', async () => {
+              newConfig.firstRoundJurorsNumber = bn(0)
+              await assertRevert(controllerHelper.setConfig(configChangeTermId, newConfig, { from }), 'CONF_BAD_INITIAL_JURORS_NUMBER')
+            })
+
+            it('cannot use an appeal step factor zero', async () => {
+              newConfig.appealStepFactor = bn(0)
+              await assertRevert(controllerHelper.setConfig(configChangeTermId, newConfig, { from }), 'CONF_BAD_APPEAL_STEP_FACTOR')
+            })
+
+            it('cannot use a max appeal rounds zero', async () => {
+              newConfig.maxRegularAppealRounds = bn(0)
+              await assertRevert(controllerHelper.setConfig(configChangeTermId, newConfig, { from }), 'CONF_INVALID_MAX_APPEAL_ROUNDS')
+            })
+
+            it('cannot use a max appeal rounds above 10', async () => {
+              newConfig.maxRegularAppealRounds = bn(11)
+              await assertRevert(controllerHelper.setConfig(configChangeTermId, newConfig, { from }), 'CONF_INVALID_MAX_APPEAL_ROUNDS')
+            })
+
+            it('cannot use a adjudication round durations zero', async () => {
+              newConfig.commitTerms = bn(0)
+              await assertRevert(controllerHelper.setConfig(configChangeTermId, newConfig, { from }), 'CONF_LARGE_ROUND_PHASE_DURATION')
+
+              newConfig.revealTerms = bn(0)
+              await assertRevert(controllerHelper.setConfig(configChangeTermId, newConfig, { from }), 'CONF_LARGE_ROUND_PHASE_DURATION')
+
+              newConfig.appealTerms = bn(0)
+              await assertRevert(controllerHelper.setConfig(configChangeTermId, newConfig, { from }), 'CONF_LARGE_ROUND_PHASE_DURATION')
+
+              newConfig.appealConfirmTerms = bn(0)
+              await assertRevert(controllerHelper.setConfig(configChangeTermId, newConfig, { from }), 'CONF_LARGE_ROUND_PHASE_DURATION')
+            })
+
+            it('cannot use a adjudication round durations bigger than 8670 terms', async () => {
+              newConfig.commitTerms = bn(8760)
+              await assertRevert(controllerHelper.setConfig(configChangeTermId, newConfig, { from }), 'CONF_LARGE_ROUND_PHASE_DURATION')
+
+              newConfig.revealTerms = bn(8760)
+              await assertRevert(controllerHelper.setConfig(configChangeTermId, newConfig, { from }), 'CONF_LARGE_ROUND_PHASE_DURATION')
+
+              newConfig.appealTerms = bn(8760)
+              await assertRevert(controllerHelper.setConfig(configChangeTermId, newConfig, { from }), 'CONF_LARGE_ROUND_PHASE_DURATION')
+
+              newConfig.appealConfirmTerms = bn(8760)
+              await assertRevert(controllerHelper.setConfig(configChangeTermId, newConfig, { from }), 'CONF_LARGE_ROUND_PHASE_DURATION')
+            })
+
+            it('cannot use a min active balance 0', async () => {
+              newConfig.minActiveBalance = bn(0)
+              await assertRevert(controllerHelper.setConfig(configChangeTermId, newConfig, { from }), 'CONF_ZERO_MIN_ACTIVE_BALANCE')
+            })
+          })
+        })
+
+        context('when there was a config change already scheduled', () => {
+          let previousScheduledConfig
+          const previousConfigChangeTermId = configChangeTermId + 1
+
+          beforeEach('schedule config and build new config change', async () => {
+            previousScheduledConfig = newConfig
+            newConfig = await buildNewConfig(previousScheduledConfig)
+            await controllerHelper.setConfig(previousConfigChangeTermId, newConfig, { from })
+          })
+
+          context('when overwriting changes at a later term', () => {
+            const newConfigChangeTermId = previousConfigChangeTermId + 1
+
+            beforeEach('change court config', async () => {
+              await controllerHelper.setConfig(newConfigChangeTermId, newConfig, { from })
+            })
+
+            it('check it from the past', async () => {
+              await checkConfig(previousConfigChangeTermId, initialConfig)
+              await checkConfig(newConfigChangeTermId, newConfig)
+            })
+
+            it('check once the change term id for the first change has been reached', async () => {
+              // move forward to the previous scheduled term ID
+              await controllerHelper.setTerm(previousConfigChangeTermId)
+
+              await checkConfig(previousConfigChangeTermId, initialConfig)
+              await checkConfig(newConfigChangeTermId, newConfig)
+            })
+
+            it('check once the change term id for the second change has been reached', async () => {
+              // move forward to the new scheduled term ID
+              await controllerHelper.setTerm(newConfigChangeTermId)
+
+              await checkConfig(previousConfigChangeTermId, initialConfig)
+              await checkConfig(newConfigChangeTermId, newConfig)
+            })
+          })
+
+          context('when overwriting changes at a prior term', () => {
+            const newConfigChangeTermId = previousConfigChangeTermId - 1
+
+            beforeEach('change court config', async () => {
+              await controllerHelper.setConfig(newConfigChangeTermId, newConfig, { from })
+            })
+
+            it('check it from the past', async () => {
+              await checkConfig(previousConfigChangeTermId, newConfig)
+              await checkConfig(newConfigChangeTermId, newConfig)
+            })
+
+            it('check once the change term id for the first change has been reached', async () => {
+              // move forward to the previous scheduled term ID
+              await controllerHelper.setTerm(previousConfigChangeTermId)
+
+              await checkConfig(previousConfigChangeTermId, newConfig)
+              await checkConfig(newConfigChangeTermId, newConfig)
+            })
+
+            it('check once the change term id for the second change has been reached', async () => {
+              // move forward to the new scheduled term ID
+              await controllerHelper.setTerm(newConfigChangeTermId)
+
+              await checkConfig(previousConfigChangeTermId, newConfig)
+              await checkConfig(newConfigChangeTermId, newConfig)
+            })
+          })
+        })
+      }
+
+      context('when the court is at term #0', () => {
+        const currentTerm = 0
+        const handleDisputes = false
+
+        context('when scheduling a config one term in the future', () => {
+          const configChangeTermId = currentTerm + 1
+
+          itHandlesConfigChangesProperly(configChangeTermId, handleDisputes)
+        })
+
+        context('when scheduling a config for the current term', () => {
+          const configChangeTermId = currentTerm
+
+          itHandlesConfigChangesProperly(configChangeTermId, handleDisputes)
+        })
+      })
+
+      context('when the court is after term #1', () => {
+        const currentTerm = 1
+
+        beforeEach('move to term #1', async () => {
+          await controllerHelper.setTerm(currentTerm)
+        })
+
+        context('when scheduling a config two terms in the future', () => {
+          const handleDisputes = true
+          const configChangeTermId = currentTerm + 2
+
+          itHandlesConfigChangesProperly(configChangeTermId, handleDisputes)
+        })
+
+        context('when scheduling a config one term in the future', () => {
+          const configChangeTermId = currentTerm + 1
+
+          it('reverts', async () => {
+            await assertRevert(controllerHelper.setConfig(configChangeTermId, newConfig, { from }), ERROR_TOO_OLD_TERM)
+          })
+        })
+
+        context('when scheduling a config for the current term', () => {
+          const configChangeTermId = currentTerm
+
+          it('reverts', async () => {
+            await assertRevert(controllerHelper.setConfig(configChangeTermId, newConfig, { from }), ERROR_TOO_OLD_TERM)
+          })
+        })
+
+        context('when scheduling a config for the previous term', () => {
+          const configChangeTermId = currentTerm - 1
+
+          it('reverts', async () => {
+            await assertRevert(controllerHelper.setConfig(configChangeTermId, newConfig, { from }), ERROR_TOO_OLD_TERM)
+          })
+        })
+      })
+    })
+
+    context('when the sender is not the governor', () => {
+      const from = someone
+
+      it('reverts', async () => {
+        await assertRevert(controllerHelper.setConfig(0, newConfig, { from }), ERROR_SENDER_NOT_CONFIG_GOVERNOR)
+      })
     })
   })
 

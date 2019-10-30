@@ -243,6 +243,7 @@ contract Controller is IsContract, CourtClock, CourtConfig {
 
     /**
     * @dev Get Court configuration parameters
+    * @param _termId Identification number of the term querying the Court config of
     * @return token Address of the token used to pay for fees
     * @return fees Array containing:
     *         0. jurorFee Amount of fee tokens that is paid per juror per dispute

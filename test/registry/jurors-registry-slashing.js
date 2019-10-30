@@ -3,6 +3,7 @@ const { bn, bigExp } = require('../helpers/lib/numbers')
 const { getEventAt } = require('@aragon/test-helpers/events')
 const { buildHelper } = require('../helpers/wrappers/controller')(web3, artifacts)
 const { assertRevert } = require('../helpers/asserts/assertThrow')
+const { REGISTRY_EVENTS } = require('../helpers/utils/events')
 const { decodeEventsOfType } = require('../helpers/lib/decodeEvent')
 const { ACTIVATE_DATA, countJuror } = require('../helpers/utils/jurors')
 const { assertEvent, assertAmountOfEvents } = require('../helpers/asserts/assertEvent')
@@ -80,7 +81,7 @@ contract('JurorsRegistry', ([_, juror, secondJuror, thirdJuror, anyone]) => {
 
           it('does not collect tokens', async () => {
             const receipt = await court.slashOrUnlock(jurors, lockedAmounts, rewardedJurors)
-            assertEvent(receipt, 'Slashed', { collected: 0 })
+            assertEvent(receipt, REGISTRY_EVENTS.SLASHED, { collected: 0 })
           })
 
           it('does not affect the balances of the jurors', async () => {
@@ -126,7 +127,7 @@ contract('JurorsRegistry', ([_, juror, secondJuror, thirdJuror, anyone]) => {
 
             it('collect tokens for all the slashed amounts', async () => {
               const receipt = await court.slashOrUnlock(jurors, lockedAmounts, rewardedJurors)
-              assertEvent(receipt, 'Slashed', { collected: DRAFT_LOCK_AMOUNT.mul(bn(9)) })
+              assertEvent(receipt, REGISTRY_EVENTS.SLASHED, { collected: DRAFT_LOCK_AMOUNT.mul(bn(9)) })
             })
 
             it('unlocks balances of the rewarded jurors', async () => {
@@ -202,14 +203,14 @@ contract('JurorsRegistry', ([_, juror, secondJuror, thirdJuror, anyone]) => {
       const itReturnsFalse = amount => {
         it('returns false', async () => {
           const receipt = await court.collect(juror, amount)
-          assertEvent(receipt, 'Collected', { collected: false })
+          assertEvent(receipt, REGISTRY_EVENTS.COLLECTED, { collected: false })
         })
       }
 
       const itHandlesTokensCollectionFor = (amount, deactivationReduced = bn(0)) => {
         it('returns true', async () => {
           const receipt = await court.collect(juror, amount)
-          assertEvent(receipt, 'Collected', { collected: true })
+          assertEvent(receipt, REGISTRY_EVENTS.COLLECTED, { collected: true })
         })
 
         it('decreases the active balance of the juror', async () => {
@@ -282,26 +283,26 @@ contract('JurorsRegistry', ([_, juror, secondJuror, thirdJuror, anyone]) => {
         if (amount.eq(bn(0))) {
           it('does not emit a juror tokens collected event', async () => {
             const receipt = await court.collect(juror, amount)
-            const logs = decodeEventsOfType(receipt, JurorsRegistry.abi, 'JurorTokensCollected')
+            const logs = decodeEventsOfType(receipt, JurorsRegistry.abi, REGISTRY_EVENTS.JUROR_TOKENS_COLLECTED)
 
-            assertAmountOfEvents({ logs }, 'JurorTokensCollected', 0)
+            assertAmountOfEvents({ logs }, REGISTRY_EVENTS.JUROR_TOKENS_COLLECTED, 0)
           })
         } else {
           it('emits a juror tokens collected event', async () => {
             const termId = await controller.getLastEnsuredTermId()
 
             const receipt = await court.collect(juror, amount)
-            const logs = decodeEventsOfType(receipt, JurorsRegistry.abi, 'JurorTokensCollected')
+            const logs = decodeEventsOfType(receipt, JurorsRegistry.abi, REGISTRY_EVENTS.JUROR_TOKENS_COLLECTED)
 
-            assertAmountOfEvents({ logs }, 'JurorTokensCollected')
-            assertEvent({ logs }, 'JurorTokensCollected', { juror, termId: termId.add(bn(1)), amount })
+            assertAmountOfEvents({ logs }, REGISTRY_EVENTS.JUROR_TOKENS_COLLECTED)
+            assertEvent({ logs }, REGISTRY_EVENTS.JUROR_TOKENS_COLLECTED, { juror, termId: termId.add(bn(1)), amount })
           })
         }
 
         it('does not process deactivation requests', async () => {
           const receipt = await court.collect(juror, amount)
 
-          assertAmountOfEvents(receipt, 'JurorDeactivationProcessed', 0)
+          assertAmountOfEvents(receipt, REGISTRY_EVENTS.JUROR_DEACTIVATION_PROCESSED, 0)
         })
 
         if (!deactivationReduced.eq(bn(0))) {
@@ -310,10 +311,10 @@ contract('JurorsRegistry', ([_, juror, secondJuror, thirdJuror, anyone]) => {
             const { pendingDeactivation: previousDeactivation } = await registry.balanceOf(juror)
 
             const receipt = await court.collect(juror, amount)
-            const logs = decodeEventsOfType(receipt, JurorsRegistry.abi, 'JurorDeactivationUpdated')
+            const logs = decodeEventsOfType(receipt, JurorsRegistry.abi, REGISTRY_EVENTS.JUROR_DEACTIVATION_UPDATED)
 
-            assertAmountOfEvents({ logs }, 'JurorDeactivationUpdated')
-            assertEvent({ logs }, 'JurorDeactivationUpdated', { juror, availableTermId: 2, updateTermId: termId, amount: previousDeactivation.sub(deactivationReduced) })
+            assertAmountOfEvents({ logs }, REGISTRY_EVENTS.JUROR_DEACTIVATION_UPDATED)
+            assertEvent({ logs }, REGISTRY_EVENTS.JUROR_DEACTIVATION_UPDATED, { juror, availableTermId: 2, updateTermId: termId, amount: previousDeactivation.sub(deactivationReduced) })
           })
         }
       }

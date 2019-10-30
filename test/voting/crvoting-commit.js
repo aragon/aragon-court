@@ -2,6 +2,7 @@ const { bn } = require('../helpers/lib/numbers')
 const { assertBn } = require('../helpers/asserts/assertBn')
 const { buildHelper } = require('../helpers/wrappers/controller')(web3, artifacts)
 const { assertRevert } = require('../helpers/asserts/assertThrow')
+const { VOTING_EVENTS } = require('../helpers/utils/events')
 const { OUTCOMES, encryptVote } = require('../helpers/utils/crvoting')
 const { COURT_ERRORS, VOTING_ERRORS } = require('../helpers/utils/errors')
 const { assertEvent, assertAmountOfEvents } = require('../helpers/asserts/assertEvent')
@@ -54,8 +55,8 @@ contract('CRVoting commit', ([_, voter]) => {
               it('emits an event', async () => {
                 const receipt = await voting.commit(voteId, commitment, { from: voter })
 
-                assertAmountOfEvents(receipt, 'VoteCommitted')
-                assertEvent(receipt, 'VoteCommitted', { voteId, voter, commitment })
+                assertAmountOfEvents(receipt, VOTING_EVENTS.VOTE_COMMITTED)
+                assertEvent(receipt, VOTING_EVENTS.VOTE_COMMITTED, { voteId, voter, commitment })
               })
 
               it('does not affect the outcomes tally', async () => {

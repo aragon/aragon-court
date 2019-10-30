@@ -3,6 +3,7 @@ const { assertBn } = require('../helpers/asserts/assertBn')
 const { bn, bigExp } = require('../helpers/lib/numbers')
 const { assertRevert } = require('../helpers/asserts/assertThrow')
 const { COURT_ERRORS } = require('../helpers/utils/errors')
+const { COURT_EVENTS } = require('../helpers/utils/events')
 const { filterWinningJurors } = require('../helpers/utils/jurors')
 const { buildHelper, ROUND_STATES } = require('../helpers/wrappers/court')(web3, artifacts)
 const { assertAmountOfEvents, assertEvent } = require('../helpers/asserts/assertEvent')
@@ -185,8 +186,8 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
                 it('emits an event', async () => {
                   const receipt = await court.settleAppealDeposit(disputeId, roundId)
 
-                  assertAmountOfEvents(receipt, 'AppealDepositSettled')
-                  assertEvent(receipt, 'AppealDepositSettled', { disputeId, roundId })
+                  assertAmountOfEvents(receipt, COURT_EVENTS.APPEAL_DEPOSIT_SETTLED)
+                  assertEvent(receipt, COURT_EVENTS.APPEAL_DEPOSIT_SETTLED, { disputeId, roundId })
                 })
 
                 it('does not affect the balances of the court', async () => {

@@ -2,6 +2,7 @@ const { assertBn } = require('../helpers/asserts/assertBn')
 const { bn, bigExp } = require('../helpers/lib/numbers')
 const { buildHelper } = require('../helpers/wrappers/controller')(web3, artifacts)
 const { assertRevert } = require('../helpers/asserts/assertThrow')
+const { REGISTRY_EVENTS } = require('../helpers/utils/events')
 const { REGISTRY_ERRORS } = require('../helpers/utils/errors')
 const { assertEvent, assertAmountOfEvents } = require('../helpers/asserts/assertEvent')
 
@@ -128,24 +129,24 @@ contract('JurorsRegistry', ([_, juror]) => {
 
           const receipt = await registry.activate(requestedAmount, { from })
 
-          assertAmountOfEvents(receipt, 'JurorActivated')
-          assertEvent(receipt, 'JurorActivated', { juror, fromTermId: termId.add(bn(1)), amount: expectedAmount })
+          assertAmountOfEvents(receipt, REGISTRY_EVENTS.JUROR_ACTIVATED)
+          assertEvent(receipt, REGISTRY_EVENTS.JUROR_ACTIVATED, { juror, fromTermId: termId.add(bn(1)), amount: expectedAmount })
         })
 
         if (deactivationAmount.eq(bn(0))) {
           it('emits one available balance changed events', async () => {
             const receipt = await registry.activate(requestedAmount, { from })
 
-            assertAmountOfEvents(receipt, 'JurorAvailableBalanceChanged')
-            assertEvent(receipt, 'JurorAvailableBalanceChanged', { juror, amount: expectedAmount, positive: false })
+            assertAmountOfEvents(receipt, REGISTRY_EVENTS.JUROR_AVAILABLE_BALANCE_CHANGED)
+            assertEvent(receipt, REGISTRY_EVENTS.JUROR_AVAILABLE_BALANCE_CHANGED, { juror, amount: expectedAmount, positive: false })
           })
         } else {
           it('emits two available balance changed events', async () => {
             const receipt = await registry.activate(requestedAmount, { from })
 
-            assertAmountOfEvents(receipt, 'JurorAvailableBalanceChanged', 2)
-            assertEvent(receipt, 'JurorAvailableBalanceChanged', { juror, amount: deactivationAmount, positive: true }, 0)
-            assertEvent(receipt, 'JurorAvailableBalanceChanged', { juror, amount: expectedAmount, positive: false }, 1)
+            assertAmountOfEvents(receipt, REGISTRY_EVENTS.JUROR_AVAILABLE_BALANCE_CHANGED, 2)
+            assertEvent(receipt, REGISTRY_EVENTS.JUROR_AVAILABLE_BALANCE_CHANGED, { juror, amount: deactivationAmount, positive: true }, 0)
+            assertEvent(receipt, REGISTRY_EVENTS.JUROR_AVAILABLE_BALANCE_CHANGED, { juror, amount: expectedAmount, positive: false }, 1)
           })
 
           it('emits a deactivation processed event', async () => {
@@ -153,8 +154,8 @@ contract('JurorsRegistry', ([_, juror]) => {
 
             const receipt = await registry.activate(requestedAmount, { from })
 
-            assertAmountOfEvents(receipt, 'JurorDeactivationProcessed')
-            assertEvent(receipt, 'JurorDeactivationProcessed', { juror, amount: deactivationAmount, availableTermId: 1, processedTermId: termId })
+            assertAmountOfEvents(receipt, REGISTRY_EVENTS.JUROR_DEACTIVATION_PROCESSED)
+            assertEvent(receipt, REGISTRY_EVENTS.JUROR_DEACTIVATION_PROCESSED, { juror, amount: deactivationAmount, availableTermId: 1, processedTermId: termId })
           })
         }
       }
@@ -516,8 +517,8 @@ contract('JurorsRegistry', ([_, juror]) => {
             const termId = await controller.getLastEnsuredTermId()
             const receipt = await registry.deactivate(requestedAmount, { from })
 
-            assertAmountOfEvents(receipt, 'JurorDeactivationRequested')
-            assertEvent(receipt, 'JurorDeactivationRequested', { juror: from, availableTermId: termId.add(bn(1)), amount: expectedAmount })
+            assertAmountOfEvents(receipt, REGISTRY_EVENTS.JUROR_DEACTIVATION_REQUESTED)
+            assertEvent(receipt, REGISTRY_EVENTS.JUROR_DEACTIVATION_REQUESTED, { juror: from, availableTermId: termId.add(bn(1)), amount: expectedAmount })
           })
 
           it('can be requested at the next term', async () => {
@@ -542,8 +543,8 @@ contract('JurorsRegistry', ([_, juror]) => {
             it('emits an available balance changed event', async () => {
               const receipt = await registry.deactivate(requestedAmount, { from })
 
-              assertAmountOfEvents(receipt, 'JurorAvailableBalanceChanged')
-              assertEvent(receipt, 'JurorAvailableBalanceChanged', { juror, amount: previousDeactivationAmount, positive: true })
+              assertAmountOfEvents(receipt, REGISTRY_EVENTS.JUROR_AVAILABLE_BALANCE_CHANGED)
+              assertEvent(receipt, REGISTRY_EVENTS.JUROR_AVAILABLE_BALANCE_CHANGED, { juror, amount: previousDeactivationAmount, positive: true })
             })
 
             it('emits a deactivation processed event', async () => {
@@ -551,8 +552,8 @@ contract('JurorsRegistry', ([_, juror]) => {
 
               const receipt = await registry.deactivate(requestedAmount, { from })
 
-              assertAmountOfEvents(receipt, 'JurorDeactivationProcessed')
-              assertEvent(receipt, 'JurorDeactivationProcessed', { juror, amount: previousDeactivationAmount, availableTermId: 1, processedTermId: termId })
+              assertAmountOfEvents(receipt, REGISTRY_EVENTS.JUROR_DEACTIVATION_PROCESSED)
+              assertEvent(receipt, REGISTRY_EVENTS.JUROR_DEACTIVATION_PROCESSED, { juror, amount: previousDeactivationAmount, availableTermId: 1, processedTermId: termId })
             })
           }
         }

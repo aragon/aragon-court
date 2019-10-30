@@ -1,6 +1,7 @@
 const { bn } = require('../lib/numbers')
 const { ACTIVATE_DATA } = require('../utils/jurors')
 const { decodeEventsOfType } = require('../lib/decodeEvent')
+const { COURT_EVENTS, REGISTRY_EVENTS } = require('../utils/events')
 const { getEvents, getEventArgument } = require('@aragon/os/test/helpers/events')
 const { SALT, OUTCOMES, getVoteId, encryptVote, oppositeOutcome, outcomeFor } = require('../utils/crvoting')
 
@@ -149,7 +150,7 @@ module.exports = (web3, artifacts) => {
 
       // create dispute and return id
       const receipt = await this.court.createDispute(arbitrable.address, possibleRulings, { from: disputer })
-      return getEventArgument(receipt, 'NewDispute', 'disputeId')
+      return getEventArgument(receipt, COURT_EVENTS.NEW_DISPUTE, 'disputeId')
     }
 
     async draft({ disputeId, draftedJurors = undefined, drafter = undefined }) {
@@ -172,8 +173,8 @@ module.exports = (web3, artifacts) => {
 
       // draft and flat jurors with their weights
       const receipt = await this.court.draft(disputeId, { from: drafter })
-      const logs = decodeEventsOfType(receipt, this.artifacts.require('JurorsRegistry').abi, 'JurorDrafted')
-      const weights = getEvents({ logs }, 'JurorDrafted').reduce((jurors, event) => {
+      const logs = decodeEventsOfType(receipt, this.artifacts.require('JurorsRegistry').abi, REGISTRY_EVENTS.JUROR_DRAFTED)
+      const weights = getEvents({ logs }, REGISTRY_EVENTS.JUROR_DRAFTED).reduce((jurors, event) => {
         const { juror } = event.args
         jurors[juror] = (jurors[juror] || bn(0)).add(bn(1))
         return jurors

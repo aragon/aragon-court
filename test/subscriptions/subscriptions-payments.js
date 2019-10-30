@@ -3,6 +3,7 @@ const { bn, bigExp } = require('../helpers/lib/numbers')
 const { buildHelper } = require('../helpers/wrappers/controller')(web3, artifacts)
 const { assertRevert } = require('../helpers/asserts/assertThrow')
 const { SUBSCRIPTIONS_ERRORS } = require('../helpers/utils/errors')
+const { SUBSCRIPTIONS_EVENTS } = require('../helpers/utils/events')
 const { assertAmountOfEvents, assertEvent } = require('../helpers/asserts/assertEvent')
 
 const CourtSubscriptions = artifacts.require('CourtSubscriptions')
@@ -108,8 +109,8 @@ contract('CourtSubscriptions', ([_, governor, payer, subscriber, anotherSubscrib
               assertBn(currentGovernorFees, previousGovernorFees.add(expectedGovernorFees), 'governor fees do not match')
 
               const expectedCollectedFees = expectedTotalPaidFees.sub(expectedGovernorFees)
-              assertAmountOfEvents(receipt, 'FeesPaid')
-              assertEvent(receipt, 'FeesPaid', { subscriber, periods, newLastPeriodId, collectedFees: expectedCollectedFees, governorFee: expectedGovernorFees })
+              assertAmountOfEvents(receipt, SUBSCRIPTIONS_EVENTS.FEES_PAID)
+              assertEvent(receipt, SUBSCRIPTIONS_EVENTS.FEES_PAID, { subscriber, periods, newLastPeriodId, collectedFees: expectedCollectedFees, governorFee: expectedGovernorFees })
             })
           }
 
@@ -359,8 +360,8 @@ contract('CourtSubscriptions', ([_, governor, payer, subscriber, anotherSubscrib
         const previousAccumulatedFees = await subscriptions.accumulatedGovernorFees()
         const receipt = await subscriptions.transferFeesToGovernor()
 
-        assertAmountOfEvents(receipt, 'GovernorFeesTransferred')
-        assertEvent(receipt, 'GovernorFeesTransferred', { amount: previousAccumulatedFees })
+        assertAmountOfEvents(receipt, SUBSCRIPTIONS_EVENTS.GOVERNOR_FEES_TRANSFERRED)
+        assertEvent(receipt, SUBSCRIPTIONS_EVENTS.GOVERNOR_FEES_TRANSFERRED, { amount: previousAccumulatedFees })
       })
     })
   })

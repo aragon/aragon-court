@@ -1,6 +1,7 @@
 const { buildHelper } = require('../helpers/wrappers/controller')(web3, artifacts)
 const { assertRevert } = require('../helpers/asserts/assertThrow')
 const { CONTROLLER_ERRORS } = require('../helpers/utils/errors')
+const { CONTROLLER_EVENTS } = require('../helpers/utils/events')
 const { assertAmountOfEvents, assertEvent } = require('../helpers/asserts/assertEvent')
 
 const Controlled = artifacts.require('Controlled')
@@ -48,8 +49,8 @@ contract('Controller', ([_, fundsGovernor, configGovernor, modulesGovernor, some
         it('emits an event', async () => {
           const receipt = await controller.changeFundsGovernor(newFundsGovernor, { from })
 
-          assertAmountOfEvents(receipt, 'FundsGovernorChanged')
-          assertEvent(receipt, 'FundsGovernorChanged', { previousGovernor: fundsGovernor, currentGovernor: newFundsGovernor })
+          assertAmountOfEvents(receipt, CONTROLLER_EVENTS.FUNDS_GOVERNOR_CHANGED)
+          assertEvent(receipt, CONTROLLER_EVENTS.FUNDS_GOVERNOR_CHANGED, { previousGovernor: fundsGovernor, currentGovernor: newFundsGovernor })
         })
       })
 
@@ -87,8 +88,8 @@ contract('Controller', ([_, fundsGovernor, configGovernor, modulesGovernor, some
         it('emits an event', async () => {
           const receipt = await controller.changeConfigGovernor(newConfigGovernor, { from })
 
-          assertAmountOfEvents(receipt, 'ConfigGovernorChanged')
-          assertEvent(receipt, 'ConfigGovernorChanged', { previousGovernor: configGovernor, currentGovernor: newConfigGovernor })
+          assertAmountOfEvents(receipt, CONTROLLER_EVENTS.CONFIG_GOVERNOR_CHANGED)
+          assertEvent(receipt, CONTROLLER_EVENTS.CONFIG_GOVERNOR_CHANGED, { previousGovernor: configGovernor, currentGovernor: newConfigGovernor })
         })
       })
 
@@ -126,8 +127,8 @@ contract('Controller', ([_, fundsGovernor, configGovernor, modulesGovernor, some
         it('emits an event', async () => {
           const receipt = await controller.changeModulesGovernor(newModulesGovernor, { from })
 
-          assertAmountOfEvents(receipt, 'ModulesGovernorChanged')
-          assertEvent(receipt, 'ModulesGovernorChanged', { previousGovernor: modulesGovernor, currentGovernor: newModulesGovernor })
+          assertAmountOfEvents(receipt, CONTROLLER_EVENTS.MODULES_GOVERNOR_CHANGED)
+          assertEvent(receipt, CONTROLLER_EVENTS.MODULES_GOVERNOR_CHANGED, { previousGovernor: modulesGovernor, currentGovernor: newModulesGovernor })
         })
       })
 
@@ -162,8 +163,8 @@ contract('Controller', ([_, fundsGovernor, configGovernor, modulesGovernor, some
       it('emits an event', async () => {
         const receipt = await controller.ejectFundsGovernor({ from })
 
-        assertAmountOfEvents(receipt, 'FundsGovernorChanged')
-        assertEvent(receipt, 'FundsGovernorChanged', { previousGovernor: fundsGovernor, currentGovernor: ZERO_ADDRESS })
+        assertAmountOfEvents(receipt, CONTROLLER_EVENTS.FUNDS_GOVERNOR_CHANGED)
+        assertEvent(receipt, CONTROLLER_EVENTS.FUNDS_GOVERNOR_CHANGED, { previousGovernor: fundsGovernor, currentGovernor: ZERO_ADDRESS })
       })
     })
 
@@ -189,8 +190,8 @@ contract('Controller', ([_, fundsGovernor, configGovernor, modulesGovernor, some
       it('emits an event', async () => {
         const receipt = await controller.ejectModulesGovernor({ from })
 
-        assertAmountOfEvents(receipt, 'ModulesGovernorChanged')
-        assertEvent(receipt, 'ModulesGovernorChanged', { previousGovernor: modulesGovernor, currentGovernor: ZERO_ADDRESS })
+        assertAmountOfEvents(receipt, CONTROLLER_EVENTS.MODULES_GOVERNOR_CHANGED)
+        assertEvent(receipt, CONTROLLER_EVENTS.MODULES_GOVERNOR_CHANGED, { previousGovernor: modulesGovernor, currentGovernor: ZERO_ADDRESS })
       })
     })
 
@@ -223,8 +224,8 @@ contract('Controller', ([_, fundsGovernor, configGovernor, modulesGovernor, some
 
               assert.equal(await controller.getModule(id), module.address, 'module address does not match')
 
-              assertAmountOfEvents(receipt, 'ModuleSet')
-              assertEvent(receipt, 'ModuleSet', { id, addr: module.address })
+              assertAmountOfEvents(receipt, CONTROLLER_EVENTS.MODULE_SET)
+              assertEvent(receipt, CONTROLLER_EVENTS.MODULE_SET, { id, addr: module.address })
             })
           })
 
@@ -243,8 +244,8 @@ contract('Controller', ([_, fundsGovernor, configGovernor, modulesGovernor, some
 
               assert.equal(await controller.getModule(id), module.address, 'module address does not match')
 
-              assertAmountOfEvents(receipt, 'ModuleSet')
-              assertEvent(receipt, 'ModuleSet', { id, addr: module.address })
+              assertAmountOfEvents(receipt, CONTROLLER_EVENTS.MODULE_SET)
+              assertEvent(receipt, CONTROLLER_EVENTS.MODULE_SET, { id, addr: module.address })
             })
           })
         })
@@ -266,8 +267,8 @@ contract('Controller', ([_, fundsGovernor, configGovernor, modulesGovernor, some
 
                   assert.equal(await controller[getter](), module.address, 'module address does not match')
 
-                  assertAmountOfEvents(receipt, 'ModuleSet')
-                  assertEvent(receipt, 'ModuleSet', { id, addr: module.address })
+                  assertAmountOfEvents(receipt, CONTROLLER_EVENTS.MODULE_SET)
+                  assertEvent(receipt, CONTROLLER_EVENTS.MODULE_SET, { id, addr: module.address })
                 })
               })
 
@@ -286,8 +287,8 @@ contract('Controller', ([_, fundsGovernor, configGovernor, modulesGovernor, some
 
                   assert.equal(await controller[getter](), module.address, 'module implementation does not match')
 
-                  assertAmountOfEvents(receipt, 'ModuleSet')
-                  assertEvent(receipt, 'ModuleSet', { id, addr: module.address })
+                  assertAmountOfEvents(receipt, CONTROLLER_EVENTS.MODULE_SET)
+                  assertEvent(receipt, CONTROLLER_EVENTS.MODULE_SET, { id, addr: module.address })
                 })
               })
             })

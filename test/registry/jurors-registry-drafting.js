@@ -5,6 +5,7 @@ const { getEventAt } = require('@aragon/test-helpers/events')
 const { buildHelper } = require('../helpers/wrappers/controller')(web3, artifacts)
 const { assertRevert } = require('../helpers/asserts/assertThrow')
 const { simulateDraft } = require('../helpers/utils/registry')
+const { REGISTRY_EVENTS } = require('../helpers/utils/events')
 const { decodeEventsOfType } = require('../helpers/lib/decodeEvent')
 const { CONTROLLED_ERRORS, TREE_ERRORS } = require('../helpers/utils/errors')
 const { ACTIVATE_DATA, countEqualJurors } = require('../helpers/utils/jurors')
@@ -164,9 +165,9 @@ contract('JurorsRegistry', ([_, juror500, juror1000, juror1500, juror2000, juror
 
         it('does not emit JurorDrafted events', async () => {
           const { receipt } = await draft({ batchRequestedJurors, roundRequestedJurors })
-          const logs = decodeEventsOfType(receipt, JurorsRegistry.abi, 'JurorDrafted')
+          const logs = decodeEventsOfType(receipt, JurorsRegistry.abi, REGISTRY_EVENTS.JUROR_DRAFTED)
 
-          assertAmountOfEvents({ logs }, 'JurorDrafted', 0)
+          assertAmountOfEvents({ logs }, REGISTRY_EVENTS.JUROR_DRAFTED, 0)
         })
       }
 
@@ -202,11 +203,11 @@ contract('JurorsRegistry', ([_, juror500, juror1000, juror1500, juror2000, juror
             roundRequestedJurors
           })
 
-          const logs = decodeEventsOfType(receipt, JurorsRegistry.abi, 'JurorDrafted')
-          assertAmountOfEvents({ logs }, 'JurorDrafted', length)
+          const logs = decodeEventsOfType(receipt, JurorsRegistry.abi, REGISTRY_EVENTS.JUROR_DRAFTED)
+          assertAmountOfEvents({ logs }, REGISTRY_EVENTS.JUROR_DRAFTED, length)
 
           for (let i = 0; i < length; i++) {
-            assertEvent({ logs }, 'JurorDrafted', { disputeId, juror: expectedJurors[i] }, i)
+            assertEvent({ logs }, REGISTRY_EVENTS.JUROR_DRAFTED, { disputeId, juror: expectedJurors[i] }, i)
           }
         })
 

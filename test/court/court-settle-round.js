@@ -8,6 +8,7 @@ const { filterJurors, filterWinningJurors } = require('../helpers/utils/jurors')
 const { assertAmountOfEvents, assertEvent } = require('../helpers/asserts/assertEvent')
 const { getVoteId, oppositeOutcome, OUTCOMES } = require('../helpers/utils/crvoting')
 const { buildHelper, ROUND_STATES, DISPUTE_STATES } = require('../helpers/wrappers/court')(web3, artifacts)
+const { ARBITRABLE_EVENTS, COURT_EVENTS, REGISTRY_EVENTS } = require('../helpers/utils/events')
 
 const Arbitrable = artifacts.require('IArbitrable')
 
@@ -74,8 +75,8 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
             it('marks the dispute as executed', async () => {
               const receipt = await court.executeRuling(disputeId)
 
-              assertAmountOfEvents(receipt, 'RulingExecuted')
-              assertEvent(receipt, 'RulingExecuted', { disputeId, ruling: expectedFinalRuling })
+              assertAmountOfEvents(receipt, COURT_EVENTS.RULING_EXECUTED)
+              assertEvent(receipt, COURT_EVENTS.RULING_EXECUTED, { disputeId, ruling: expectedFinalRuling })
 
               const { possibleRulings, state, finalRuling } = await courtHelper.getDispute(disputeId)
               assertBn(state, DISPUTE_STATES.EXECUTED, 'dispute state does not match')
@@ -86,9 +87,9 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
             it('executes the associated arbitrable and cannot be executed twice', async () => {
               const receipt = await court.executeRuling(disputeId)
 
-              const logs = decodeEventsOfType(receipt, Arbitrable.abi, 'CourtRuling')
-              assertAmountOfEvents({ logs }, 'CourtRuling')
-              assertEvent({ logs }, 'CourtRuling', { court: court.address, disputeId, ruling: expectedFinalRuling })
+              const logs = decodeEventsOfType(receipt, Arbitrable.abi, ARBITRABLE_EVENTS.COURT_RULING)
+              assertAmountOfEvents({ logs }, ARBITRABLE_EVENTS.COURT_RULING)
+              assertEvent({ logs }, ARBITRABLE_EVENTS.COURT_RULING, { court: court.address, disputeId, ruling: expectedFinalRuling })
 
               await assertRevert(court.executeRuling(disputeId), COURT_ERRORS.INVALID_DISPUTE_STATE)
             })
@@ -220,8 +221,8 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
               })
 
               it('updates the given round and cannot be settled twice', async () => {
-                assertAmountOfEvents(receipt, 'PenaltiesSettled')
-                assertEvent(receipt, 'PenaltiesSettled', { disputeId, roundId, collectedTokens: expectedCollectedTokens })
+                assertAmountOfEvents(receipt, COURT_EVENTS.PENALTIES_SETTLED)
+                assertEvent(receipt, COURT_EVENTS.PENALTIES_SETTLED, { disputeId, roundId, collectedTokens: expectedCollectedTokens })
 
                 const { settledPenalties, collectedTokens, coherentJurors } = await courtHelper.getRound(disputeId, roundId)
                 assert.equal(settledPenalties, true, 'current round penalties should be settled')
@@ -247,7 +248,7 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
                   for (let batch = 0; batch < batches; batch++) {
                     receipt = await court.settlePenalties(disputeId, roundId, 1)
                     // assert round is not settle in the middle batches
-                    if (batch < batches - 1) assertAmountOfEvents(receipt, 'PenaltiesSettled', 0)
+                    if (batch < batches - 1) assertAmountOfEvents(receipt, COURT_EVENTS.PENALTIES_SETTLED, 0)
                   }
                 })
 
@@ -273,8 +274,8 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
                   for (const { address } of expectedWinningJurors) {
                     const receipt = await court.settleReward(disputeId, roundId, address)
 
-                    assertAmountOfEvents(receipt, 'RewardSettled')
-                    assertEvent(receipt, 'RewardSettled', { disputeId, roundId, juror: address })
+                    assertAmountOfEvents(receipt, COURT_EVENTS.REWARD_SETTLED)
+                    assertEvent(receipt, COURT_EVENTS.REWARD_SETTLED, { disputeId, roundId, juror: address })
 
                     await assertRevert(court.settleReward(disputeId, roundId, address), COURT_ERRORS.JUROR_ALREADY_REWARDED)
                   }
@@ -351,8 +352,8 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
                       await courtHelper.passTerms(bn(1))
                       for (const juror of expectedWinningJurors) {
                         const receipt = await courtHelper.jurorsRegistry.unstake(amount, data, { from: juror.address })
-                        assertAmountOfEvents(receipt, 'Unstaked')
-                        assertEvent(receipt, 'Unstaked', { user: juror.address, amount: amount.toString() })
+                        assertAmountOfEvents(receipt, REGISTRY_EVENTS.UNSTAKED)
+                        assertEvent(receipt, REGISTRY_EVENTS.UNSTAKED, { user: juror.address, amount: amount.toString() })
                       }
                     })
                   })

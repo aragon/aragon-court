@@ -2,6 +2,7 @@ const { assertBn } = require('../helpers/asserts/assertBn')
 const { bn, bigExp } = require('../helpers/lib/numbers')
 const { buildHelper } = require('../helpers/wrappers/controller')(web3, artifacts)
 const { assertRevert } = require('../helpers/asserts/assertThrow')
+const { REGISTRY_EVENTS } = require('../helpers/utils/events')
 const { assertEvent, assertAmountOfEvents } = require('../helpers/asserts/assertEvent')
 const { CONTROLLED_ERRORS, REGISTRY_ERRORS } = require('../helpers/utils/errors')
 
@@ -40,8 +41,8 @@ contract('JurorsRegistry', ([_, governor, someone]) => {
 
             const receipt = await registry.setTotalActiveBalanceLimit(newTotalActiveBalanceLimit, { from })
 
-            assertAmountOfEvents(receipt, 'TotalActiveBalanceLimitChanged')
-            assertEvent(receipt, 'TotalActiveBalanceLimitChanged', { previousTotalActiveBalanceLimit, currentTotalActiveBalanceLimit: newTotalActiveBalanceLimit })
+            assertAmountOfEvents(receipt, REGISTRY_EVENTS.TOTAL_ACTIVE_BALANCE_LIMIT_CHANGED)
+            assertEvent(receipt, REGISTRY_EVENTS.TOTAL_ACTIVE_BALANCE_LIMIT_CHANGED, { previousTotalActiveBalanceLimit, currentTotalActiveBalanceLimit: newTotalActiveBalanceLimit })
           })
         }
 

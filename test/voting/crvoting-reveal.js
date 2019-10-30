@@ -3,6 +3,7 @@ const { assertBn } = require('../helpers/asserts/assertBn')
 const { buildHelper } = require('../helpers/wrappers/controller')(web3, artifacts)
 const { assertRevert } = require('../helpers/asserts/assertThrow')
 const { VOTING_ERRORS } = require('../helpers/utils/errors')
+const { VOTING_EVENTS } = require('../helpers/utils/events')
 const { SALT, OUTCOMES, encryptVote } = require('../helpers/utils/crvoting')
 const { assertEvent, assertAmountOfEvents } = require('../helpers/asserts/assertEvent')
 
@@ -71,8 +72,8 @@ contract('CRVoting reveal', ([_, voter]) => {
                   it('emits an event', async () => {
                     const receipt = await voting.reveal(voteId, outcome, salt, { from: voter })
 
-                    assertAmountOfEvents(receipt, 'VoteRevealed')
-                    assertEvent(receipt, 'VoteRevealed', { voteId, voter, outcome })
+                    assertAmountOfEvents(receipt, VOTING_EVENTS.VOTE_REVEALED)
+                    assertEvent(receipt, VOTING_EVENTS.VOTE_REVEALED, { voteId, voter, outcome })
                   })
 
                   it('updates the outcomes tally', async () => {

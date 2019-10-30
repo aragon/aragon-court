@@ -1,6 +1,7 @@
 const { assertBn } = require('../helpers/asserts/assertBn')
 const { buildHelper } = require('../helpers/wrappers/controller')(web3, artifacts)
 const { assertRevert } = require('../helpers/asserts/assertThrow')
+const { TREASURY_EVENTS } = require('../helpers/utils/events')
 const { bn, bigExp, MAX_UINT256 } = require('../helpers/lib/numbers')
 const { assertEvent, assertAmountOfEvents } = require('../helpers/asserts/assertEvent')
 const { TREASURY_ERRORS, CONTROLLED_ERRORS, MATH_ERRORS } = require('../helpers/utils/errors')
@@ -79,8 +80,8 @@ contract('CourtTreasury', ([_, court, holder, someone]) => {
             it('emits an event', async () => {
               const receipt = await treasury.assign(DAI.address, account, amount, { from })
 
-              assertAmountOfEvents(receipt, 'Assign')
-              assertEvent(receipt, 'Assign', { from: court, to: account, token: DAI.address, amount })
+              assertAmountOfEvents(receipt, TREASURY_EVENTS.ASSIGN)
+              assertEvent(receipt, TREASURY_EVENTS.ASSIGN, { from: court, to: account, token: DAI.address, amount })
             })
           })
         })
@@ -115,8 +116,8 @@ contract('CourtTreasury', ([_, court, holder, someone]) => {
               it('emits an event', async () => {
                 const receipt = await treasury.assign(DAI.address, account, amount, { from })
 
-                assertAmountOfEvents(receipt, 'Assign')
-                assertEvent(receipt, 'Assign', { from: court, to: account, token: DAI.address, amount })
+                assertAmountOfEvents(receipt, TREASURY_EVENTS.ASSIGN)
+                assertEvent(receipt, TREASURY_EVENTS.ASSIGN, { from: court, to: account, token: DAI.address, amount })
               })
 
               it('does not affect other token balances', async () => {
@@ -210,8 +211,8 @@ contract('CourtTreasury', ([_, court, holder, someone]) => {
             it('emits an event', async () => {
               const receipt = await treasury.withdraw(DAI.address, recipient, amount, { from })
 
-              assertAmountOfEvents(receipt, 'Withdraw')
-              assertEvent(receipt, 'Withdraw', { from, to: recipient, token: DAI.address, amount })
+              assertAmountOfEvents(receipt, TREASURY_EVENTS.WITHDRAW)
+              assertEvent(receipt, TREASURY_EVENTS.WITHDRAW, { from, to: recipient, token: DAI.address, amount })
             })
 
             it('does not affect other token balances', async () => {
@@ -256,8 +257,8 @@ contract('CourtTreasury', ([_, court, holder, someone]) => {
             it('emits an event', async () => {
               const receipt = await treasury.withdraw(DAI.address, recipient, amount, { from })
 
-              assertAmountOfEvents(receipt, 'Withdraw')
-              assertEvent(receipt, 'Withdraw', { from, to: recipient, token: DAI.address, amount })
+              assertAmountOfEvents(receipt, TREASURY_EVENTS.WITHDRAW)
+              assertEvent(receipt, TREASURY_EVENTS.WITHDRAW, { from, to: recipient, token: DAI.address, amount })
             })
 
             it('does not affect other token balances', async () => {
@@ -376,8 +377,8 @@ contract('CourtTreasury', ([_, court, holder, someone]) => {
           it('emits an event', async () => {
             const receipt = await treasury.withdrawAll(DAI.address, recipient, { from })
 
-            assertAmountOfEvents(receipt, 'Withdraw')
-            assertEvent(receipt, 'Withdraw', { from: recipient, to: recipient, token: DAI.address, amount: balance })
+            assertAmountOfEvents(receipt, TREASURY_EVENTS.WITHDRAW)
+            assertEvent(receipt, TREASURY_EVENTS.WITHDRAW, { from: recipient, to: recipient, token: DAI.address, amount: balance })
           })
 
           it('does not affect other token balances', async () => {

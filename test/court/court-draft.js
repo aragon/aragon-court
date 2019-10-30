@@ -7,6 +7,7 @@ const { decodeEventsOfType } = require('../helpers/lib/decodeEvent')
 const { getEventAt, getEvents } = require('@aragon/os/test/helpers/events')
 const { assertAmountOfEvents, assertEvent } = require('../helpers/asserts/assertEvent')
 const { buildHelper, DISPUTE_STATES, ROUND_STATES } = require('../helpers/wrappers/court')(web3, artifacts)
+const { COURT_EVENTS, CLOCK_EVENTS, REGISTRY_EVENTS } = require('../helpers/utils/events')
 const { CLOCK_ERRORS, COURT_ERRORS, CONTROLLED_ERRORS } = require('../helpers/utils/errors')
 
 const JurorsRegistry = artifacts.require('JurorsRegistry')
@@ -45,12 +46,12 @@ contract('Court', ([_, disputer, drafter, juror500, juror1000, juror1500, juror2
         it('selects random jurors for the last round of the dispute', async () => {
           const receipt = await court.draft(disputeId, { from: drafter })
 
-          const logs = decodeEventsOfType(receipt, JurorsRegistry.abi, 'JurorDrafted')
-          assertAmountOfEvents({ logs }, 'JurorDrafted', expectedDraftedJurors)
+          const logs = decodeEventsOfType(receipt, JurorsRegistry.abi, REGISTRY_EVENTS.JUROR_DRAFTED)
+          assertAmountOfEvents({ logs }, REGISTRY_EVENTS.JUROR_DRAFTED, expectedDraftedJurors)
 
           const jurorsAddresses = jurors.map(j => j.address)
           for (let i = 0; i < expectedDraftedJurors; i++) {
-            const { disputeId: eventDisputeId, juror } = getEventAt({ logs }, 'JurorDrafted', i).args
+            const { disputeId: eventDisputeId, juror } = getEventAt({ logs }, REGISTRY_EVENTS.JUROR_DRAFTED, i).args
             assertBn(eventDisputeId, disputeId, 'dispute id does not match')
             assert.isTrue(jurorsAddresses.includes(toChecksumAddress(juror)), 'drafted juror is not included in the list')
           }
@@ -60,8 +61,8 @@ contract('Court', ([_, disputer, drafter, juror500, juror1000, juror1500, juror2
           it('ends the dispute draft', async () => {
             const receipt = await court.draft(disputeId, { from: drafter })
 
-            assertAmountOfEvents(receipt, 'DisputeStateChanged')
-            assertEvent(receipt, 'DisputeStateChanged', { disputeId, state: DISPUTE_STATES.ADJUDICATING })
+            assertAmountOfEvents(receipt, COURT_EVENTS.DISPUTE_STATE_CHANGED)
+            assertEvent(receipt, COURT_EVENTS.DISPUTE_STATE_CHANGED, { disputeId, state: DISPUTE_STATES.ADJUDICATING })
 
             const { state, finalRuling } = await courtHelper.getDispute(disputeId)
             assertBn(state, DISPUTE_STATES.ADJUDICATING, 'dispute state does not match')
@@ -83,7 +84,7 @@ contract('Court', ([_, disputer, drafter, juror500, juror1000, juror1500, juror2
           it('does not end the dispute draft', async () => {
             const receipt = await court.draft(disputeId, { from: drafter })
 
-            assertAmountOfEvents(receipt, 'DisputeStateChanged', 0)
+            assertAmountOfEvents(receipt, COURT_EVENTS.DISPUTE_STATE_CHANGED, 0)
 
             const { state, finalRuling } = await courtHelper.getDispute(disputeId)
             assertBn(state, DISPUTE_STATES.PRE_DRAFT, 'dispute state does not match')
@@ -106,8 +107,8 @@ contract('Court', ([_, disputer, drafter, juror500, juror1000, juror1500, juror2
         it('sets the correct state for each juror', async () => {
           const receipt = await court.draft(disputeId, { from: drafter })
 
-          const logs = decodeEventsOfType(receipt, JurorsRegistry.abi, 'JurorDrafted')
-          const events = getEvents({ logs }, 'JurorDrafted')
+          const logs = decodeEventsOfType(receipt, JurorsRegistry.abi, REGISTRY_EVENTS.JUROR_DRAFTED)
+          const events = getEvents({ logs }, REGISTRY_EVENTS.JUROR_DRAFTED)
 
           for (let i = 0; i < jurors.length; i++) {
             const jurorAddress = jurors[i].address
@@ -150,11 +151,11 @@ contract('Court', ([_, disputer, drafter, juror500, juror1000, juror1500, juror2
             const pendingJurorsToBeDrafted = jurorsToBeDrafted - selectedJurors
             const expectedDraftedJurors = pendingJurorsToBeDrafted < jurorsPerBatch ? pendingJurorsToBeDrafted : jurorsPerBatch
 
-            const logs = decodeEventsOfType(receipt, JurorsRegistry.abi, 'JurorDrafted')
-            assertAmountOfEvents({ logs }, 'JurorDrafted', expectedDraftedJurors)
+            const logs = decodeEventsOfType(receipt, JurorsRegistry.abi, REGISTRY_EVENTS.JUROR_DRAFTED)
+            assertAmountOfEvents({ logs }, REGISTRY_EVENTS.JUROR_DRAFTED, expectedDraftedJurors)
 
             for (let i = 0; i < expectedDraftedJurors; i++) {
-              const { disputeId: eventDisputeId, juror } = getEventAt({ logs }, 'JurorDrafted', i).args
+              const { disputeId: eventDisputeId, juror } = getEventAt({ logs }, REGISTRY_EVENTS.JUROR_DRAFTED, i).args
               assertBn(eventDisputeId, disputeId, 'dispute id does not match')
               assert.isTrue(jurorsAddresses.includes(toChecksumAddress(juror)), 'drafted juror is not included in the list')
             }
@@ -173,8 +174,8 @@ contract('Court', ([_, disputer, drafter, juror500, juror1000, juror1500, juror2
             if (batch + 1 < batches) await courtHelper.passRealTerms(1)
           }
 
-          assertAmountOfEvents(lastReceipt, 'DisputeStateChanged')
-          assertEvent(lastReceipt, 'DisputeStateChanged', { disputeId, state: DISPUTE_STATES.ADJUDICATING })
+          assertAmountOfEvents(lastReceipt, COURT_EVENTS.DISPUTE_STATE_CHANGED)
+          assertEvent(lastReceipt, COURT_EVENTS.DISPUTE_STATE_CHANGED, { disputeId, state: DISPUTE_STATES.ADJUDICATING })
 
           const { state, finalRuling } = await courtHelper.getDispute(disputeId)
           assertBn(state, DISPUTE_STATES.ADJUDICATING, 'dispute state does not match')
@@ -207,8 +208,8 @@ contract('Court', ([_, disputer, drafter, juror500, juror1000, juror1500, juror2
           for (let batch = 0; batch < batches; batch++) {
             const receipt = await court.draft(disputeId, { from: drafter })
 
-            const logs = decodeEventsOfType(receipt, JurorsRegistry.abi, 'JurorDrafted')
-            const events = getEvents({ logs }, 'JurorDrafted')
+            const logs = decodeEventsOfType(receipt, JurorsRegistry.abi, REGISTRY_EVENTS.JUROR_DRAFTED)
+            const events = getEvents({ logs }, REGISTRY_EVENTS.JUROR_DRAFTED)
 
             for (let i = 0; i < jurors.length; i++) {
               const jurorAddress = jurors[i].address
@@ -393,8 +394,8 @@ contract('Court', ([_, disputer, drafter, juror500, juror1000, juror1500, juror2
               })
 
               it('transitions 1 term', async () => {
-                assertAmountOfEvents(receipt, 'Heartbeat', 1)
-                assertEvent(receipt, 'Heartbeat', { previousTermId: lastEnsuredTermId, currentTermId: lastEnsuredTermId.add(bn(1)) })
+                assertAmountOfEvents(receipt, CLOCK_EVENTS.HEARTBEAT, 1)
+                assertEvent(receipt, CLOCK_EVENTS.HEARTBEAT, { previousTermId: lastEnsuredTermId, currentTermId: lastEnsuredTermId.add(bn(1)) })
               })
 
               itHandlesDraftsProperly(term)
@@ -470,8 +471,8 @@ contract('Court', ([_, disputer, drafter, juror500, juror1000, juror1500, juror2
 
           const receipt = await court.setMaxJurorsPerDraftBatch(newJurorsPerDraftBatch, { from })
 
-          assertAmountOfEvents(receipt, 'MaxJurorsPerDraftBatchChanged')
-          assertEvent(receipt, 'MaxJurorsPerDraftBatchChanged', { previousMaxJurorsPerDraftBatch, currentMaxJurorsPerDraftBatch: newJurorsPerDraftBatch })
+          assertAmountOfEvents(receipt, COURT_EVENTS.MAX_JURORS_PER_DRAFT_BATCH_CHANGED)
+          assertEvent(receipt, COURT_EVENTS.MAX_JURORS_PER_DRAFT_BATCH_CHANGED, { previousMaxJurorsPerDraftBatch, currentMaxJurorsPerDraftBatch: newJurorsPerDraftBatch })
         })
       })
 

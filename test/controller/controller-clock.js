@@ -3,6 +3,7 @@ const { assertBn } = require('../helpers/asserts/assertBn')
 const { buildHelper } = require('../helpers/wrappers/controller')(web3, artifacts)
 const { assertRevert } = require('../helpers/asserts/assertThrow')
 const { CLOCK_ERRORS } = require('../helpers/utils/errors')
+const { CLOCK_EVENTS } = require('../helpers/utils/events')
 const { NEXT_WEEK, NOW, ONE_DAY } = require('../helpers/lib/time')
 const { assertAmountOfEvents, assertEvent } = require('../helpers/asserts/assertEvent')
 
@@ -96,8 +97,8 @@ contract('Controller', () => {
 
         const receipt = await controller.heartbeat(maxTransitionTerms)
 
-        assertAmountOfEvents(receipt, 'Heartbeat', 1)
-        assertEvent(receipt, 'Heartbeat', { previousTermId, currentTermId: previousTermId.add(bn(expectedTransitions)) })
+        assertAmountOfEvents(receipt, CLOCK_EVENTS.HEARTBEAT, 1)
+        assertEvent(receipt, CLOCK_EVENTS.HEARTBEAT, { previousTermId, currentTermId: previousTermId.add(bn(expectedTransitions)) })
       })
 
       it(`initializes ${expectedTransitions} new terms`, async () => {

@@ -38,12 +38,11 @@ contract('HexSumTree', () => {
 
           itCostsAtMost(expectedCost, async () => {
             // mock huge next key
-            const nextKey = BIG_KEY
-            await tree.mockNextKey(0, nextKey)
+            await tree.mockNextKey(0, BIG_KEY)
 
             await tree.insert(0, 10)
             assertBn((await tree.height()), 28, 'tree height does not match')
-            await tree.insert(0, 10)
+            return tree.insert(0, 10)
           })
         })
       })
@@ -70,7 +69,7 @@ contract('HexSumTree', () => {
 
             await tree.insert(0, 10)
             assertBn((await tree.height()), 29, 'tree height does not match')
-            await tree.insert(0, 10)
+            return tree.insert(0, 10)
           })
         })
       })
@@ -220,8 +219,7 @@ contract('HexSumTree', () => {
 
             itCostsAtMost(expectedCost, async () => {
               // mock huge next key
-              const nextKey = BIG_KEY
-              await tree.mockNextKey(0, nextKey)
+              await tree.mockNextKey(0, BIG_KEY)
               await tree.insert(0, value)
 
               return tree.search(searchedValue, 0)
@@ -285,8 +283,7 @@ contract('HexSumTree', () => {
 
             itCostsAtMost(expectedCost, async () => {
               // mock huge next key
-              const nextKey = BIG_KEY
-              await tree.mockNextKey(0, nextKey)
+              await tree.mockNextKey(0, BIG_KEY)
               await insertMany(value, insertTimes)
 
               return tree.search(searchValues, 0)

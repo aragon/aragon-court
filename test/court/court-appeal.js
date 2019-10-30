@@ -3,6 +3,7 @@ const { assertBn } = require('../helpers/asserts/assertBn')
 const { bn, bigExp } = require('../helpers/lib/numbers')
 const { assertRevert } = require('../helpers/asserts/assertThrow')
 const { COURT_ERRORS } = require('../helpers/utils/errors')
+const { COURT_EVENTS } = require('../helpers/utils/events')
 const { assertAmountOfEvents, assertEvent } = require('../helpers/asserts/assertEvent')
 const { buildHelper, ROUND_STATES, DISPUTE_STATES } = require('../helpers/wrappers/court')(web3, artifacts)
 const { getVoteId, oppositeOutcome, outcomeFor, OUTCOMES } = require('../helpers/utils/crvoting')
@@ -115,8 +116,8 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
                   it('emits an event', async () => {
                     const receipt = await court.createAppeal(disputeId, roundId, appealMakerRuling, { from: appealMaker })
 
-                    assertAmountOfEvents(receipt, 'RulingAppealed')
-                    assertEvent(receipt, 'RulingAppealed', { disputeId, roundId, ruling: appealMakerRuling })
+                    assertAmountOfEvents(receipt, COURT_EVENTS.RULING_APPEALED)
+                    assertEvent(receipt, COURT_EVENTS.RULING_APPEALED, { disputeId, roundId, ruling: appealMakerRuling })
                   })
 
                   it('appeals the given round', async () => {

@@ -2,6 +2,7 @@ const { assertBn } = require('../helpers/asserts/assertBn')
 const { OUTCOMES } = require('../helpers/utils/crvoting')
 const { buildHelper } = require('../helpers/wrappers/controller')(web3, artifacts)
 const { assertRevert } = require('../helpers/asserts/assertThrow')
+const { VOTING_EVENTS } = require('../helpers/utils/events')
 const { decodeEventsOfType } = require('../helpers/lib/decodeEvent')
 const { CONTROLLED_ERRORS, VOTING_ERRORS } = require('../helpers/utils/errors')
 const { assertEvent, assertAmountOfEvents } = require('../helpers/asserts/assertEvent')
@@ -39,10 +40,10 @@ contract('CRVoting create', ([_, someone]) => {
 
           it('emits an event', async () => {
             const receipt = await court.create(voteId, possibleOutcomes)
-            const logs = decodeEventsOfType(receipt, CRVoting.abi, 'VotingCreated')
+            const logs = decodeEventsOfType(receipt, CRVoting.abi, VOTING_EVENTS.VOTING_CREATED)
 
-            assertAmountOfEvents({ logs }, 'VotingCreated')
-            assertEvent({ logs }, 'VotingCreated', { voteId, possibleOutcomes })
+            assertAmountOfEvents({ logs }, VOTING_EVENTS.VOTING_CREATED)
+            assertEvent({ logs }, VOTING_EVENTS.VOTING_CREATED, { voteId, possibleOutcomes })
           })
 
           it('considers as valid outcomes any of the possible ones', async () => {

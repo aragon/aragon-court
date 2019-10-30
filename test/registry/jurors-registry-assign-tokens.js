@@ -1,6 +1,7 @@
 const { assertBn } = require('../helpers/asserts/assertBn')
 const { buildHelper } = require('../helpers/wrappers/controller')(web3, artifacts)
 const { assertRevert } = require('../helpers/asserts/assertThrow')
+const { REGISTRY_EVENTS } = require('../helpers/utils/events')
 const { decodeEventsOfType } = require('../helpers/lib/decodeEvent')
 const { bigExp, bn, MAX_UINT256 } = require('../helpers/lib/numbers')
 const { MATH_ERRORS, CONTROLLED_ERRORS } = require('../helpers/utils/errors')
@@ -73,9 +74,9 @@ contract('JurorsRegistry', ([_, juror, someone]) => {
 
     it('does not emit an available balance changed event', async () => {
       const receipt = await assignmentCall()
-      const logs = decodeEventsOfType(receipt, JurorsRegistry.abi, 'JurorAvailableBalanceChanged')
+      const logs = decodeEventsOfType(receipt, JurorsRegistry.abi, REGISTRY_EVENTS.JUROR_AVAILABLE_BALANCE_CHANGED)
 
-      assertAmountOfEvents({ logs }, 'JurorAvailableBalanceChanged', 0)
+      assertAmountOfEvents({ logs }, REGISTRY_EVENTS.JUROR_AVAILABLE_BALANCE_CHANGED, 0)
     })
   }
 
@@ -131,10 +132,10 @@ contract('JurorsRegistry', ([_, juror, someone]) => {
 
     it('emits an available balance changed event', async () => {
       const receipt = await assignmentCall()
-      const logs = decodeEventsOfType(receipt, JurorsRegistry.abi, 'JurorAvailableBalanceChanged')
+      const logs = decodeEventsOfType(receipt, JurorsRegistry.abi, REGISTRY_EVENTS.JUROR_AVAILABLE_BALANCE_CHANGED)
 
-      assertAmountOfEvents({ logs }, 'JurorAvailableBalanceChanged')
-      assertEvent({ logs }, 'JurorAvailableBalanceChanged', { juror: recipient, amount, positive: true })
+      assertAmountOfEvents({ logs }, REGISTRY_EVENTS.JUROR_AVAILABLE_BALANCE_CHANGED)
+      assertEvent({ logs }, REGISTRY_EVENTS.JUROR_AVAILABLE_BALANCE_CHANGED, { juror: recipient, amount, positive: true })
     })
   }
 

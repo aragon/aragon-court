@@ -3,6 +3,7 @@ const { assertBn } = require('../helpers/asserts/assertBn')
 const { bn, bigExp } = require('../helpers/lib/numbers')
 const { filterJurors } = require('../helpers/utils/jurors')
 const { assertRevert } = require('../helpers/asserts/assertThrow')
+const { VOTING_EVENTS } = require('../helpers/utils/events')
 const { buildHelper, ROUND_STATES } = require('../helpers/wrappers/court')(web3, artifacts)
 const { VOTING_ERRORS, COURT_ERRORS } = require('../helpers/utils/errors')
 const { assertAmountOfEvents, assertEvent } = require('../helpers/asserts/assertEvent')
@@ -101,7 +102,7 @@ contract('Court', ([_, disputer, drafter, juror100, juror500, juror1000, juror15
           it('allows to commit a vote', async () => {
             for (const { address } of draftedJurors) {
               const receipt = await voting.commit(voteId, vote, { from: address })
-              assertAmountOfEvents(receipt, 'VoteCommitted')
+              assertAmountOfEvents(receipt, VOTING_EVENTS.VOTE_COMMITTED)
             }
           })
         })
@@ -140,7 +141,7 @@ contract('Court', ([_, disputer, drafter, juror100, juror500, juror1000, juror15
             it('allows voters to reveal their vote', async () => {
               for (let i = 0; i < voters.length; i++) {
                 const { address, outcome } = voters[i]
-                assertEvent(receipts[i], 'VoteRevealed', { voteId, voter: address, outcome })
+                assertEvent(receipts[i], VOTING_EVENTS.VOTE_REVEALED, { voteId, voter: address, outcome })
               }
             })
 
@@ -283,7 +284,7 @@ contract('Court', ([_, disputer, drafter, juror100, juror500, juror1000, juror15
           it('allows to commit a vote', async () => {
             for (const { address, outcome } of voters) {
               const receipt = await voting.commit(voteId, encryptVote(outcome), { from: address })
-              assertAmountOfEvents(receipt, 'VoteCommitted')
+              assertAmountOfEvents(receipt, VOTING_EVENTS.VOTE_COMMITTED)
             }
           })
         })
@@ -320,7 +321,7 @@ contract('Court', ([_, disputer, drafter, juror100, juror500, juror1000, juror15
           it('allows voters to reveal their vote', async () => {
             for (let i = 0; i < voters.length; i++) {
               const { address, outcome } = voters[i]
-              assertEvent(receipts[i], 'VoteRevealed', { voteId, voter: address, outcome })
+              assertEvent(receipts[i], VOTING_EVENTS.VOTE_REVEALED, { voteId, voter: address, outcome })
             }
           })
 

@@ -4,6 +4,7 @@ const { assertRevert } = require('../helpers/asserts/assertThrow')
 const { NEXT_WEEK, ONE_DAY } = require('../helpers/lib/time')
 const { decodeEventsOfType } = require('../helpers/lib/decodeEvent')
 const { COURT_ERRORS, CLOCK_ERRORS } = require('../helpers/utils/errors')
+const { COURT_EVENTS, CLOCK_EVENTS } = require('../helpers/utils/events')
 const { buildHelper, DISPUTE_STATES } = require('../helpers/wrappers/court')(web3, artifacts)
 const { assertAmountOfEvents, assertEvent } = require('../helpers/asserts/assertEvent')
 
@@ -53,8 +54,8 @@ contract('Court', ([_, sender]) => {
             await courtHelper.setTerm(draftTermId - 1)
             const receipt = await court.createDispute(arbitrable.address, possibleRulings, { from: sender })
 
-            assertAmountOfEvents(receipt, 'NewDispute')
-            assertEvent(receipt, 'NewDispute', { disputeId: 0, subject: arbitrable.address, draftTermId, jurorsNumber: firstRoundJurorsNumber })
+            assertAmountOfEvents(receipt, COURT_EVENTS.NEW_DISPUTE)
+            assertEvent(receipt, COURT_EVENTS.NEW_DISPUTE, { disputeId: 0, subject: arbitrable.address, draftTermId, jurorsNumber: firstRoundJurorsNumber })
 
             const { subject, possibleRulings: rulings, state, finalRuling } = await courtHelper.getDispute(0)
             assert.equal(subject, arbitrable.address, 'dispute subject does not match')
@@ -105,8 +106,8 @@ contract('Court', ([_, sender]) => {
 
             const receipt = await court.createDispute(arbitrable.address, possibleRulings, { from: sender })
 
-            const logs = decodeEventsOfType(receipt, CourtClock.abi, 'Heartbeat')
-            assertAmountOfEvents({ logs }, 'Heartbeat', expectedTermTransitions)
+            const logs = decodeEventsOfType(receipt, CourtClock.abi, CLOCK_EVENTS.HEARTBEAT)
+            assertAmountOfEvents({ logs }, CLOCK_EVENTS.HEARTBEAT, expectedTermTransitions)
 
             const currentTermId = await courtHelper.controller.getLastEnsuredTermId()
             assertBn(previousTermId.add(bn(expectedTermTransitions)), currentTermId, 'term id does not match')

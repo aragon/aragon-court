@@ -4,6 +4,7 @@ const { buildHelper } = require('../helpers/wrappers/controller')(web3, artifact
 const { assertRevert } = require('../helpers/asserts/assertThrow')
 const { assertAmountOfEvents } = require('../helpers/asserts/assertEvent')
 const { SUBSCRIPTIONS_ERRORS } = require('../helpers/utils/errors')
+const { SUBSCRIPTIONS_EVENTS } = require('../helpers/utils/events')
 
 const CourtSubscriptions = artifacts.require('CourtSubscriptions')
 const ERC20 = artifacts.require('ERC20Mock')
@@ -57,7 +58,7 @@ contract('CourtSubscriptions', ([_, payer]) => {
             const { collectedFees } = await subscriptions.getCurrentPeriod()
 
             const receipt = await subscriptions.donate(amount, { from })
-            assertAmountOfEvents(receipt, 'FeesDonated')
+            assertAmountOfEvents(receipt, SUBSCRIPTIONS_EVENTS.FEES_DONATED)
 
             const currentSubscriptionsBalance = await feeToken.balanceOf(subscriptions.address)
             assertBn(currentSubscriptionsBalance, previousSubscriptionsBalance.add(amount), 'subscriptions balances do not match')

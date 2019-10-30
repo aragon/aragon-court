@@ -2,6 +2,7 @@ const { assertBn } = require('../helpers/asserts/assertBn')
 const { bn, bigExp } = require('../helpers/lib/numbers')
 const { buildHelper } = require('../helpers/wrappers/controller')(web3, artifacts)
 const { assertRevert } = require('../helpers/asserts/assertThrow')
+const { SUBSCRIPTIONS_EVENTS } = require('../helpers/utils/events')
 const { assertEvent, assertAmountOfEvents } = require('../helpers/asserts/assertEvent')
 const { CONTROLLED_ERRORS, SUBSCRIPTIONS_ERRORS } = require('../helpers/utils/errors')
 
@@ -46,8 +47,8 @@ contract('CourtSubscriptions', ([_, governor, someone, something, subscriber]) =
 
           const receipt = await subscriptions.setFeeAmount(newFeeAmount, { from })
 
-          assertAmountOfEvents(receipt, 'FeeAmountChanged')
-          assertEvent(receipt, 'FeeAmountChanged', { previousFeeAmount, currentFeeAmount: newFeeAmount })
+          assertAmountOfEvents(receipt, SUBSCRIPTIONS_EVENTS.FEE_AMOUNT_CHANGED)
+          assertEvent(receipt, SUBSCRIPTIONS_EVENTS.FEE_AMOUNT_CHANGED, { previousFeeAmount, currentFeeAmount: newFeeAmount })
         })
       })
 
@@ -97,11 +98,11 @@ contract('CourtSubscriptions', ([_, governor, someone, something, subscriber]) =
 
               const receipt = await subscriptions.setFeeToken(newFeeToken.address, newFeeAmount, { from })
 
-              assertAmountOfEvents(receipt, 'FeeTokenChanged')
-              assertEvent(receipt, 'FeeTokenChanged', { previousFeeToken, currentFeeToken: newFeeToken.address })
+              assertAmountOfEvents(receipt, SUBSCRIPTIONS_EVENTS.FEE_TOKEN_CHANGED)
+              assertEvent(receipt, SUBSCRIPTIONS_EVENTS.FEE_TOKEN_CHANGED, { previousFeeToken, currentFeeToken: newFeeToken.address })
 
-              assertAmountOfEvents(receipt, 'FeeAmountChanged')
-              assertEvent(receipt, 'FeeAmountChanged', { previousFeeAmount, currentFeeAmount: newFeeAmount })
+              assertAmountOfEvents(receipt, SUBSCRIPTIONS_EVENTS.FEE_AMOUNT_CHANGED)
+              assertEvent(receipt, SUBSCRIPTIONS_EVENTS.FEE_AMOUNT_CHANGED, { previousFeeAmount, currentFeeAmount: newFeeAmount })
             })
           }
 
@@ -135,8 +136,8 @@ contract('CourtSubscriptions', ([_, governor, someone, something, subscriber]) =
             it('emits a governor share fees transferred event', async () => {
               const receipt = await subscriptions.setFeeToken(newFeeToken.address, newFeeAmount, { from })
 
-              assertAmountOfEvents(receipt, 'GovernorFeesTransferred')
-              assertEvent(receipt, 'GovernorFeesTransferred', { amount: governorFees })
+              assertAmountOfEvents(receipt, SUBSCRIPTIONS_EVENTS.GOVERNOR_FEES_TRANSFERRED)
+              assertEvent(receipt, SUBSCRIPTIONS_EVENTS.GOVERNOR_FEES_TRANSFERRED, { amount: governorFees })
             })
           })
         })
@@ -192,8 +193,8 @@ contract('CourtSubscriptions', ([_, governor, someone, something, subscriber]) =
 
           const receipt = await subscriptions.setPrePaymentPeriods(newPrePaymentPeriods, { from })
 
-          assertAmountOfEvents(receipt, 'PrePaymentPeriodsChanged')
-          assertEvent(receipt, 'PrePaymentPeriodsChanged', { previousPrePaymentPeriods, currentPrePaymentPeriods: newPrePaymentPeriods })
+          assertAmountOfEvents(receipt, SUBSCRIPTIONS_EVENTS.PRE_PAYMENT_PERIODS_CHANGED)
+          assertEvent(receipt, SUBSCRIPTIONS_EVENTS.PRE_PAYMENT_PERIODS_CHANGED, { previousPrePaymentPeriods, currentPrePaymentPeriods: newPrePaymentPeriods })
         })
       }
 
@@ -257,8 +258,8 @@ contract('CourtSubscriptions', ([_, governor, someone, something, subscriber]) =
 
           const receipt = await subscriptions.setLatePaymentPenaltyPct(newLatePaymentPenaltyPct, { from })
 
-          assertAmountOfEvents(receipt, 'LatePaymentPenaltyPctChanged')
-          assertEvent(receipt, 'LatePaymentPenaltyPctChanged', { previousLatePaymentPenaltyPct, currentLatePaymentPenaltyPct: newLatePaymentPenaltyPct })
+          assertAmountOfEvents(receipt, SUBSCRIPTIONS_EVENTS.LATE_PAYMENT_PENALTY_CHANGED)
+          assertEvent(receipt, SUBSCRIPTIONS_EVENTS.LATE_PAYMENT_PENALTY_CHANGED, { previousLatePaymentPenaltyPct, currentLatePaymentPenaltyPct: newLatePaymentPenaltyPct })
         })
       }
 
@@ -306,8 +307,8 @@ contract('CourtSubscriptions', ([_, governor, someone, something, subscriber]) =
 
           const receipt = await subscriptions.setGovernorSharePct(newGovernorSharePct, { from })
 
-          assertAmountOfEvents(receipt, 'GovernorSharePctChanged')
-          assertEvent(receipt, 'GovernorSharePctChanged', { previousGovernorSharePct, currentGovernorSharePct: newGovernorSharePct })
+          assertAmountOfEvents(receipt, SUBSCRIPTIONS_EVENTS.GOVERNOR_SHARE_PCT_CHANGED)
+          assertEvent(receipt, SUBSCRIPTIONS_EVENTS.GOVERNOR_SHARE_PCT_CHANGED, { previousGovernorSharePct, currentGovernorSharePct: newGovernorSharePct })
         })
       }
 
@@ -357,8 +358,8 @@ contract('CourtSubscriptions', ([_, governor, someone, something, subscriber]) =
 
           const receipt = await subscriptions.setResumePrePaidPeriods(newResumePrePaidPeriods, { from })
 
-          assertAmountOfEvents(receipt, 'ResumePenaltiesChanged')
-          assertEvent(receipt, 'ResumePenaltiesChanged', { previousResumePrePaidPeriods, currentResumePrePaidPeriods: newResumePrePaidPeriods })
+          assertAmountOfEvents(receipt, SUBSCRIPTIONS_EVENTS.RESUME_PENALTIES_CHANGED)
+          assertEvent(receipt, SUBSCRIPTIONS_EVENTS.RESUME_PENALTIES_CHANGED, { previousResumePrePaidPeriods, currentResumePrePaidPeriods: newResumePrePaidPeriods })
         })
       }
 

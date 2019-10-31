@@ -28,7 +28,6 @@ interface ERC900 {
     */
     function unstake(uint256 _amount, bytes calldata _data) external;
 
-
     /**
     * @dev Tell the total amount of tokens staked for an address
     * @param _addr Address querying the total amount of tokens staked for

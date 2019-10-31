@@ -238,7 +238,7 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
         bytes32 draftTermRandomness = clock.ensureTermRandomness(draftTermId);
 
         // Draft jurors for the given dispute and reimburse fees
-        Config memory config = _getDisputeConfig(dispute);
+        DraftConfig memory config = _getDraftConfig(draftTermId);
         bool draftEnded = _draft(_disputeId, round, currentTermId, draftTermRandomness, config);
 
         // If the drafting is over, update its state
@@ -1203,7 +1203,7 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
     * @param _round Round of the dispute to be drafted
     * @param _currentTermId Identification number of the current term of the Court
     * @param _draftTermRandomness Randomness of the term in which the dispute was requested to be drafted
-    * @param _config Config of the Court at the draft term
+    * @param _config Draft config of the Court at the draft term
     * @return True if all the requested jurors for the given round were drafted, false otherwise
     */
     function _draft(
@@ -1211,7 +1211,7 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
         AdjudicationRound storage _round,
         uint64 _currentTermId,
         bytes32 _draftTermRandomness,
-        Config memory _config
+        DraftConfig memory _config
     )
         private
         returns (bool)
@@ -1232,7 +1232,7 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
             uint256(selectedJurors),
             uint256(requestedJurors),
             uint256(jurorsNumber),
-            uint256(_config.disputes.penaltyPct)
+            uint256(_config.penaltyPct)
         ];
 
         // Draft jurors for the requested round
@@ -1247,10 +1247,8 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
         bool draftEnded = newSelectedJurors == jurorsNumber;
 
         // Transfer fees corresponding to the actual number of drafted jurors
-        ITreasury treasury = _treasury();
-        FeesConfig memory feesConfig = _config.fees;
-        treasury.assign(feesConfig.token, msg.sender, feesConfig.draftFee.mul(draftedJurors));
-
+        uint256 draftFees = _config.draftFee.mul(draftedJurors);
+        _treasury().assign(_config.feeToken, msg.sender, draftFees);
         return draftEnded;
     }
 

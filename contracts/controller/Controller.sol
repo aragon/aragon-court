@@ -292,6 +292,18 @@ contract Controller is IsContract, CourtClock, CourtConfig {
     }
 
     /**
+    * @dev Tell the draft config at a certain term
+    * @param _termId Term querying the draft config of
+    * @return feeToken Address of the token used to pay for fees
+    * @return draftFee Amount of fee tokens per juror to cover the drafting cost
+    * @return penaltyPct Permyriad of min active tokens balance to be locked for each drafted juror (‱ - 1/10,000)
+    */
+    function getDraftConfig(uint64 _termId) external view returns (ERC20 feeToken, uint256 draftFee, uint16 penaltyPct) {
+        uint64 lastEnsuredTermId = _lastEnsuredTermId();
+        return _getDraftConfig(_termId, lastEnsuredTermId);
+    }
+
+    /**
     * @dev Tell the address of the funds governor
     * @return Address of the funds governor
     */

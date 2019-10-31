@@ -31,4 +31,10 @@ contract CourtConfigData {
         uint256 appealCollateralFactor;         // Permyriad multiple of juror fees required to appeal a preliminary ruling (‱ - 1/10,000)
         uint256 appealConfirmCollateralFactor;  // Permyriad multiple of juror fees required to confirm appeal (‱ - 1/10,000)
     }
+
+    struct DraftConfig {
+        ERC20 feeToken;                         // ERC20 token to be used for the fees of the Court
+        uint16 penaltyPct;                      // Permyriad of min active tokens balance to be locked for each drafted juror (‱ - 1/10,000)
+        uint256 draftFee;                       // Amount of tokens paid per round to cover the costs of drafting jurors
+    }
 }

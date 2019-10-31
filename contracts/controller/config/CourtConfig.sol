@@ -259,7 +259,7 @@ contract CourtConfig is IConfig, CourtConfigData {
             uint256 minActiveBalance
         )
     {
-        Config storage config = configs[_getConfigIdFor(_termId, _lastEnsuredTermId)];
+        Config storage config = _getConfigFor(_termId, _lastEnsuredTermId);
 
         FeesConfig storage feesConfig = config.fees;
         feeToken = feesConfig.token;
@@ -288,15 +288,41 @@ contract CourtConfig is IConfig, CourtConfigData {
     * @dev Internal function to get the min active balance config for a given term
     * @param _termId Identification number of the term querying the min active balance config of
     * @param _lastEnsuredTermId Identification number of the last ensured term of the Court
-    * @return Minimum amount of juror tokens that can be activated
+    * @return Minimum amount of juror tokens that can be activated at the given term
     */
     function _getMinActiveBalance(uint64 _termId, uint64 _lastEnsuredTermId) internal view returns (uint256) {
-        Config storage config = configs[_getConfigIdFor(_termId, _lastEnsuredTermId)];
+        Config storage config = _getConfigFor(_termId, _lastEnsuredTermId);
         return config.minActiveBalance;
     }
 
     /**
+    * @dev Tell the draft config at a certain term
+    * @param _termId Identification number of the term querying the draft config of
+    * @param _lastEnsuredTermId Identification number of the last ensured term of the Court
+    * @return feeToken Address of the token used to pay for fees
+    * @return draftFee Amount of fee tokens per juror to cover the drafting cost
+    * @return penaltyPct Permyriad of min active tokens balance to be locked for each drafted juror (‱ - 1/10,000)
+    */
+    function _getDraftConfig(uint64 _termId,  uint64 _lastEnsuredTermId) internal view
+        returns (ERC20 feeToken, uint256 draftFee, uint16 penaltyPct)
+    {
+        Config storage config = _getConfigFor(_termId, _lastEnsuredTermId);
+        return (config.fees.token, config.fees.draftFee, config.disputes.penaltyPct);
+    }
+
+    /**
     * @dev Internal function to get the Court config for a given term
+    * @param _termId Identification number of the term querying the min active balance config of
+    * @param _lastEnsuredTermId Identification number of the last ensured term of the Court
+    * @return Court config for the given term
+    */
+    function _getConfigFor(uint64 _termId, uint64 _lastEnsuredTermId) internal view returns (Config storage) {
+        uint256 id = _getConfigIdFor(_termId, _lastEnsuredTermId);
+        return configs[id];
+    }
+
+    /**
+    * @dev Internal function to get the Court config ID for a given term
     * @param _termId Identification number of the term querying the Court config of
     * @param _lastEnsuredTermId Identification number of the last ensured term of the Court
     * @return Identification number of the config for the given terms

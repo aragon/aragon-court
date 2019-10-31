@@ -83,7 +83,7 @@ contract('Court', ([_, sender, disputer, drafter, appealMaker, appealTaker, juro
         await controller.mockSetTermRandomness('0x0000000000000000000000000000000000000000000000000000000000000001')
       })
 
-      itCostsAtMost('draft', 337e3, () => court.draft(disputeId))
+      itCostsAtMost('draft', 325e3, () => court.draft(disputeId))
     })
 
     describe('commit', () => {

@@ -340,62 +340,74 @@ contract('CourtTreasury', ([_, court, holder, someone]) => {
       ANT = await ERC20.new('AN Token', 'ANT', 18)
     })
 
-    context('when the recipient has some assigned tokens', () => {
-      const balance = bigExp(200, 18)
-
-      beforeEach('deposit some tokens to the recipient', async () => {
-        await treasury.assign(DAI.address, recipient, balance, { from: court })
-        await treasury.assign(ANT.address, recipient, balance, { from: court })
+    context('when the holder accepts automatic withdraws', () => {
+      beforeEach('accept automatic withdraws', async () => {
+        await controller.setAutomaticWithdrawals(true, { from: recipient })
       })
 
-      context('when the treasury contract has enough tokens', () => {
-        beforeEach('mint tokens', async () => {
-          await DAI.generateTokens(treasury.address, balance)
+      context('when the recipient has some assigned tokens', () => {
+        const balance = bigExp(200, 18)
+
+        beforeEach('deposit some tokens to the recipient', async () => {
+          await treasury.assign(DAI.address, recipient, balance, { from: court })
+          await treasury.assign(ANT.address, recipient, balance, { from: court })
         })
 
-        it('subtracts the total balance from the recipient', async () => {
-          await treasury.withdrawAll(DAI.address, recipient, { from })
+        context('when the treasury contract has enough tokens', () => {
+          beforeEach('mint tokens', async () => {
+            await DAI.generateTokens(treasury.address, balance)
+          })
 
-          const currentBalance = await treasury.balanceOf(DAI.address, recipient)
-          assert.equal(currentBalance.toString(), 0, 'account balance do not match')
+          it('subtracts the total balance from the recipient', async () => {
+            await treasury.withdrawAll(DAI.address, recipient, { from })
+
+            const currentBalance = await treasury.balanceOf(DAI.address, recipient)
+            assert.equal(currentBalance.toString(), 0, 'account balance do not match')
+          })
+
+          it('transfers the total balance to the recipient', async () => {
+            await treasury.withdrawAll(DAI.address, recipient, { from })
+
+            const currentBalance = await DAI.balanceOf(recipient)
+            assert.equal(currentBalance.toString(), balance.toString(), 'token balance do not match')
+          })
+
+          it('emits an event', async () => {
+            const receipt = await treasury.withdrawAll(DAI.address, recipient, { from })
+
+            assertAmountOfEvents(receipt, 'Withdraw')
+            assertEvent(receipt, 'Withdraw', { from: recipient, to: recipient, token: DAI.address, amount: balance })
+          })
+
+          it('does not affect other token balances', async () => {
+            const previousANTBalance = await treasury.balanceOf(ANT.address, recipient)
+
+            await treasury.withdrawAll(DAI.address, recipient, { from })
+
+            const currentANTBalance = await treasury.balanceOf(ANT.address, recipient)
+            assert.equal(currentANTBalance.toString(), previousANTBalance.toString(), 'account balance do not match')
+          })
         })
 
-        it('transfers the total balance to the recipient', async () => {
-          await treasury.withdrawAll(DAI.address, recipient, { from })
-
-          const currentBalance = await DAI.balanceOf(recipient)
-          assert.equal(currentBalance.toString(), balance.toString(), 'token balance do not match')
-        })
-
-        it('emits an event', async () => {
-          const receipt = await treasury.withdrawAll(DAI.address, recipient, { from })
-
-          assertAmountOfEvents(receipt, 'Withdraw')
-          assertEvent(receipt, 'Withdraw', { from: recipient, to: recipient, token: DAI.address, amount: balance })
-        })
-
-        it('does not affect other token balances', async () => {
-          const previousANTBalance = await treasury.balanceOf(ANT.address, recipient)
-
-          await treasury.withdrawAll(DAI.address, recipient, { from })
-
-          const currentANTBalance = await treasury.balanceOf(ANT.address, recipient)
-          assert.equal(currentANTBalance.toString(), previousANTBalance.toString(), 'account balance do not match')
+        context('when the treasury contract does not have enough tokens', () => {
+          it('reverts', async () => {
+            await assertRevert(treasury.withdrawAll(DAI.address, recipient, { from }), 'TREASURY_WITHDRAW_FAILED')
+          })
         })
       })
 
-      context('when the treasury contract does not have enough tokens', () => {
+      context('when the recipient does not tokens assigned', () => {
+        const from = holder
+
         it('reverts', async () => {
-          await assertRevert(treasury.withdrawAll(DAI.address, recipient, { from }), 'TREASURY_WITHDRAW_FAILED')
+          await assertRevert(treasury.withdrawAll(DAI.address, recipient, { from }), 'TREASURY_WITHDRAW_AMOUNT_ZERO')
         })
       })
     })
 
-    context('when the recipient does not have balance', () => {
-      const from = holder
-
+    context('when the holder does not accept automatic withdraws', () => {
       it('reverts', async () => {
-        await assertRevert(treasury.withdrawAll(DAI.address, recipient, { from }), 'TREASURY_WITHDRAW_AMOUNT_ZERO')
+        await assertRevert(treasury.withdrawAll(DAI.address, recipient, { from }), 'TREASURY_WITHDRAWALS_DISALLOWED')
       })
     })
   })

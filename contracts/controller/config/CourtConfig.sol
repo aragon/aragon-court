@@ -35,7 +35,11 @@ contract CourtConfig is IConfig, CourtConfigData {
     // List of configs indexed by id
     mapping (uint64 => uint256) private configIdByTerm;
 
+    // Holders opt-in config for automatic withdrawals
+    mapping (address => bool) private withdrawalsAllowed;
+
     event NewConfig(uint64 fromTermId, uint64 courtConfigId);
+    event AutomaticWithdrawalsAllowedChanged(address indexed holder, bool allowed);
 
     /**
     * @dev Constructor function
@@ -86,6 +90,23 @@ contract CourtConfig is IConfig, CourtConfigData {
             _appealCollateralParams,
             _minActiveBalance
         );
+    }
+
+    /**
+    * @notice Set the automatic withdrawals config for the sender to `_allowed`
+    * @param _allowed Whether or not the automatic withdrawals are allowed by the sender
+    */
+    function setAutomaticWithdrawals(bool _allowed) external {
+        withdrawalsAllowed[msg.sender] = _allowed;
+        emit AutomaticWithdrawalsAllowedChanged(msg.sender, _allowed);
+    }
+
+    /**
+    * @dev Tell whether a certain holder accepts automatic withdrawals of tokens or not
+    * @return True if the given holder accepts automatic withdrawals of their tokens, false otherwise
+    */
+    function areWithdrawalsAllowedFor(address _holder) external view returns (bool) {
+        return withdrawalsAllowed[_holder];
     }
 
     /**

@@ -215,6 +215,15 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
     }
 
     /**
+    * @notice Process a token deactivation requested for `_juror` if there is any
+    * @param _juror Address of the juror to process the deactivation request of
+    */
+    function processDeactivationRequest(address _juror) external {
+        uint64 termId = _ensureCurrentTerm();
+        _processDeactivationRequest(_juror, termId);
+    }
+
+    /**
     * @notice Assign `@tokenAmount(self.token(), _amount)` to the available balance of `_juror`
     * @param _juror Juror to add an amount of tokens to
     * @param _amount Amount of tokens to be added to the available balance of a juror

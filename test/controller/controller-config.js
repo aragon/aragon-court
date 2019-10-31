@@ -2,6 +2,7 @@ const { outcomeFor } = require('../helpers/crvoting')
 const { buildHelper } = require('../helpers/court')(web3, artifacts)
 const { assertRevert } = require('../helpers/assertThrow')
 const { bn, bigExp, assertBn } = require('../helpers/numbers')
+const { assertEvent, assertAmountOfEvents } = require('../helpers/assertEvent')
 
 contract('Controller', ([_, sender, disputer, drafter, appealMaker, appealTaker, juror500, juror1000, juror3000]) => {
   let courtHelper, controllerHelper
@@ -303,6 +304,52 @@ contract('Controller', ([_, sender, disputer, drafter, appealMaker, appealTaker,
       const { roundJurorsNumber: appealJurorsNumber, jurorFees: appealJurorFees } = await courtHelper.getRound(disputeId, 1)
       assertBn(appealJurorsNumber, firstRoundJurorsNumber.mul(appealStepFactor), 'Jurors Number doesn\'t match')
       assertBn(appealJurorFees, appealJurorsNumber.mul(jurorFee), 'Jurors Fees don\'t match')
+    })
+  })
+
+  describe('setAutomaticWithdrawals', () => {
+    let controller
+
+    beforeEach('load controller', async () => {
+      controller = courtHelper.controller
+    })
+
+    it('are disallowed initially', async () => {
+      assert.isFalse(await controller.areWithdrawalsAllowedFor(sender), 'withdrawals are allowed')
+    })
+
+    context('when the automatic withdrawals were disallowed', () => {
+      it('allows the automatic withdrawals', async () => {
+        await controller.setAutomaticWithdrawals(true, { from: sender })
+
+        assert.isTrue(await controller.areWithdrawalsAllowedFor(sender), 'withdrawals are disallowed')
+      })
+
+      it('emits an event', async () => {
+        const receipt = await controller.setAutomaticWithdrawals(true, { from: sender })
+
+        assertAmountOfEvents(receipt, 'AutomaticWithdrawalsAllowedChanged')
+        assertEvent(receipt, 'AutomaticWithdrawalsAllowedChanged', { holder: sender, allowed: true })
+      })
+    })
+
+    context('when the automatic withdrawals were allowed', () => {
+      beforeEach('allow automatic withdrawals', async () => {
+        await controller.setAutomaticWithdrawals(true, { from: sender })
+      })
+
+      it('disallows the automatic withdrawals', async () => {
+        await controller.setAutomaticWithdrawals(false, { from: sender })
+
+        assert.isFalse(await controller.areWithdrawalsAllowedFor(sender), 'withdrawals are allowed')
+      })
+
+      it('emits an event', async () => {
+        const receipt = await controller.setAutomaticWithdrawals(false, { from: sender })
+
+        assertAmountOfEvents(receipt, 'AutomaticWithdrawalsAllowedChanged')
+        assertEvent(receipt, 'AutomaticWithdrawalsAllowedChanged', { holder: sender, allowed: false })
+      })
     })
   })
 })

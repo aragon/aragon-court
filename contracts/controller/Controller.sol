@@ -292,6 +292,30 @@ contract Controller is IsContract, CourtClock, CourtConfig {
     }
 
     /**
+    * @dev Tell the create-dispute config at a certain term
+    * @param _termId Identification number of the term querying the create-dispute config of
+    * @return token ERC20 token to be used for the fees of the Court
+    * @return finalRoundReduction Permyriad of fees reduction applied for final appeal round (‱ - 1/10,000)
+    * @return jurorFee Amount of tokens paid to draft a juror to adjudicate a dispute
+    * @return draftFee Amount of tokens paid per round to cover the costs of drafting jurors
+    * @return settleFee Amount of tokens paid per round to cover the costs of slashing jurors
+    * @return firstRoundJurorsNumber Number of jurors drafted on first round
+    */
+    function getCreateDisputeConfig(uint64 _termId) external view
+        returns (
+            ERC20 token,
+            uint16 finalRoundReduction,
+            uint256 jurorFee,
+            uint256 draftFee,
+            uint256 settleFee,
+            uint64 firstRoundJurorsNumber
+        )
+    {
+        uint64 lastEnsuredTermId = _lastEnsuredTermId();
+        return _getCreateDisputeConfig(_termId, lastEnsuredTermId);
+    }
+
+    /**
     * @dev Tell the draft config at a certain term
     * @param _termId Term querying the draft config of
     * @return feeToken Address of the token used to pay for fees

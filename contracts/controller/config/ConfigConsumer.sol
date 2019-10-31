@@ -66,6 +66,33 @@ contract ConfigConsumer is CourtConfigData {
     }
 
     /**
+    * @dev Internal function to get the create-dispute config for a given term
+    * @param _termId Identification number of the term querying the draft config of
+    * @return Create-dispute config for the given term
+    */
+    function _getCreateDisputeConfig(uint64 _termId) internal view returns (CreateDisputeConfig memory) {
+        (ERC20 token,
+        uint16 finalRoundReduction,
+        uint256 jurorFee,
+        uint256 draftFee,
+        uint256 settleFee,
+        uint64 firstRoundJurorsNumber) = _config().getCreateDisputeConfig(_termId);
+
+        CreateDisputeConfig memory config;
+
+        config.fees = FeesConfig({
+            token: token,
+            jurorFee: jurorFee,
+            draftFee: draftFee,
+            settleFee: settleFee,
+            finalRoundReduction: finalRoundReduction
+        });
+
+        config.firstRoundJurorsNumber = firstRoundJurorsNumber;
+        return config;
+    }
+
+    /**
     * @dev Internal function to get the draft config for a given term
     * @param _termId Identification number of the term querying the draft config of
     * @return Draft config for the given term

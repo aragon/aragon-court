@@ -55,7 +55,7 @@ contract('Court', ([_, sender, disputer, drafter, appealMaker, appealTaker, juro
           assertBn(neededTransitions, 0, 'needed transitions does not match')
         })
 
-        itCostsAtMost('createDispute', 217e3, () => court.createDispute(arbitrable.address, 2, { from: sender }))
+        itCostsAtMost('createDispute', 209e3, () => court.createDispute(arbitrable.address, 2, { from: sender }))
       })
 
       context('when the current term is outdated by one term', () => {
@@ -65,7 +65,7 @@ contract('Court', ([_, sender, disputer, drafter, appealMaker, appealTaker, juro
           assertBn(neededTransitions, 1, 'needed transitions does not match')
         })
 
-        itCostsAtMost('createDispute', 273e3, () => court.createDispute(arbitrable.address, 2, { from: sender }))
+        itCostsAtMost('createDispute', 265e3, () => court.createDispute(arbitrable.address, 2, { from: sender }))
       })
     })
 
@@ -117,7 +117,7 @@ contract('Court', ([_, sender, disputer, drafter, appealMaker, appealTaker, juro
           assertBn(neededTransitions, 1, 'needed transitions does not match')
         })
 
-        itCostsAtMost('commit', 150e3, () => voting.commit(voteId, vote, { from: draftedJurors[0].address }))
+        itCostsAtMost('commit', 135e3, () => voting.commit(voteId, vote, { from: draftedJurors[0].address }))
       })
     })
 

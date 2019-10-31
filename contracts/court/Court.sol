@@ -203,8 +203,8 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
         Dispute storage dispute = disputes[disputeId];
         dispute.subject = _subject;
         dispute.possibleRulings = _possibleRulings;
-        Config memory config = _getConfigAt(draftTermId);
-        uint64 jurorsNumber = config.disputes.firstRoundJurorsNumber;
+        CreateDisputeConfig memory config = _getCreateDisputeConfig(draftTermId);
+        uint64 jurorsNumber = config.firstRoundJurorsNumber;
         emit NewDispute(disputeId, address(_subject), draftTermId, jurorsNumber);
 
         // Create first adjudication round of the dispute

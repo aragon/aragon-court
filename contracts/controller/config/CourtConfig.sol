@@ -296,6 +296,38 @@ contract CourtConfig is IConfig, CourtConfigData {
     }
 
     /**
+    * @dev Tell the create-dispute config at a certain term
+    * @param _termId Identification number of the term querying the create-dispute config of
+    * @param _lastEnsuredTermId Identification number of the last ensured term of the Court
+    * @return token ERC20 token to be used for the fees of the Court
+    * @return finalRoundReduction Permyriad of fees reduction applied for final appeal round (‱ - 1/10,000)
+    * @return jurorFee Amount of tokens paid to draft a juror to adjudicate a dispute
+    * @return draftFee Amount of tokens paid per round to cover the costs of drafting jurors
+    * @return settleFee Amount of tokens paid per round to cover the costs of slashing jurors
+    * @return firstRoundJurorsNumber Number of jurors drafted on first round
+    */
+    function _getCreateDisputeConfig(uint64 _termId,  uint64 _lastEnsuredTermId) internal view
+        returns (
+            ERC20 token,
+            uint16 finalRoundReduction,
+            uint256 jurorFee,
+            uint256 draftFee,
+            uint256 settleFee,
+            uint64 firstRoundJurorsNumber
+        )
+    {
+        Config storage config = _getConfigFor(_termId, _lastEnsuredTermId);
+        FeesConfig storage feesConfig = config.fees;
+
+        token = feesConfig.token;
+        jurorFee = feesConfig.jurorFee;
+        draftFee = feesConfig.draftFee;
+        settleFee = feesConfig.settleFee;
+        finalRoundReduction = feesConfig.finalRoundReduction;
+        firstRoundJurorsNumber = config.disputes.firstRoundJurorsNumber;
+    }
+
+    /**
     * @dev Tell the draft config at a certain term
     * @param _termId Identification number of the term querying the draft config of
     * @param _lastEnsuredTermId Identification number of the last ensured term of the Court

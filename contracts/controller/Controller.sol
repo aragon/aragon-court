@@ -1,7 +1,7 @@
 pragma solidity ^0.5.8;
 
-import "@aragon/os/contracts/lib/token/ERC20.sol";
-import "@aragon/os/contracts/common/IsContract.sol";
+import "../lib/os/ERC20.sol";
+import "../lib/os/IsContract.sol";
 
 import "./clock/CourtClock.sol";
 import "./config/CourtConfig.sol";

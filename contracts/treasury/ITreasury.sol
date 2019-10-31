@@ -1,6 +1,6 @@
 pragma solidity ^0.5.8;
 
-import "@aragon/os/contracts/lib/token/ERC20.sol";
+import "../lib/os/ERC20.sol";
 
 
 interface ITreasury {

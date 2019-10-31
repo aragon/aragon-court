@@ -1,6 +1,6 @@
 pragma solidity ^0.5.8;
 
-import "@aragon/os/contracts/common/IsContract.sol";
+import "../lib/os/IsContract.sol";
 
 import "./Controller.sol";
 import "./clock/IClock.sol";

@@ -4,7 +4,7 @@ const { assertRevert } = require('../helpers/assertThrow')
 const { advanceBlocks } = require('../helpers/blocks')(web3)
 const { toChecksumAddress } = require('web3-utils')
 const { decodeEventsOfType } = require('../helpers/decodeEvent')
-const { getEventAt, getEvents } = require('@aragon/os/test/helpers/events')
+const { getEventAt, getEvents } = require('@aragon/test-helpers/events')
 const { assertAmountOfEvents, assertEvent } = require('../helpers/assertEvent')
 const { buildHelper, DISPUTE_STATES, ROUND_STATES } = require('../helpers/court')(web3, artifacts)
 

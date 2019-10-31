@@ -1,7 +1,7 @@
 const { bn } = require('./numbers')
 const { sha3 } = require('web3-utils')
 const { decodeEventsOfType } = require('./decodeEvent')
-const { getEvents, getEventArgument } = require('@aragon/os/test/helpers/events')
+const { getEvents, getEventArgument } = require('@aragon/test-helpers/events')
 const { SALT, OUTCOMES, getVoteId, encryptVote, oppositeOutcome, outcomeFor } = require('../helpers/crvoting')
 
 const PCT_BASE = bn(10000)

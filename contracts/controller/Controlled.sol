@@ -183,10 +183,20 @@ contract Controlled is IsContract, CourtConfigData {
             maxRegularAppealRounds: _roundParams[2],
             finalRoundLockTerms: _roundParams[3],
             appealCollateralFactor: _appealCollateralParams[0],
-            appealConfirmCollateralFactor: _appealCollateralParams[1],
-            minActiveBalance: _minActiveBalance
+            appealConfirmCollateralFactor: _appealCollateralParams[1]
         });
 
+        config.minActiveBalance = _minActiveBalance;
+
         return config;
+    }
+
+    /**
+    * @dev Internal function to get the min active balance config for a given term
+    * @param _termId Identification number of the term querying the min active balance config of
+    * @return Minimum amount of juror tokens that can be activated
+    */
+    function _getMinActiveBalance(uint64 _termId) internal view returns (uint256) {
+        return _config().getMinActiveBalance(_termId);
     }
 }

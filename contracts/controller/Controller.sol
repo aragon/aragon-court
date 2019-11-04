@@ -242,7 +242,8 @@ contract Controller is IsContract, CourtClock, CourtConfig {
     }
 
     /**
-    * @dev Get Court configuration parameters
+    * @dev Tell the full Court configuration parameters at a certain term
+    * @param _termId Term querying the Court config of
     * @return token Address of the token used to pay for fees
     * @return fees Array containing:
     *         0. jurorFee Amount of fee tokens that is paid per juror per dispute
@@ -278,6 +279,16 @@ contract Controller is IsContract, CourtClock, CourtConfig {
     {
         uint64 lastEnsuredTermId = _lastEnsuredTermId();
         return _getConfigAt(_termId, lastEnsuredTermId);
+    }
+
+    /**
+    * @dev Tell the min active balance config at a certain term
+    * @param _termId Term querying the Court config of
+    * @return Minimum amount of tokens jurors have to activate to participate in the Court
+    */
+    function getMinActiveBalance(uint64 _termId) external view returns (uint256) {
+        uint64 lastEnsuredTermId = _lastEnsuredTermId();
+        return _getMinActiveBalance(_termId, lastEnsuredTermId);
     }
 
     /**

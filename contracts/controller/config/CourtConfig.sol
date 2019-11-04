@@ -210,9 +210,10 @@ contract CourtConfig is IConfig, CourtConfigData {
             maxRegularAppealRounds: _maxRegularAppealRounds,
             finalRoundLockTerms: _roundParams[3],
             appealCollateralFactor: _appealCollateralParams[0],
-            appealConfirmCollateralFactor: _appealCollateralParams[1],
-            minActiveBalance: _minActiveBalance
+            appealConfirmCollateralFactor: _appealCollateralParams[1]
         });
+
+        config.minActiveBalance = _minActiveBalance;
 
         configIdByTerm[_fromTermId] = courtConfigId;
         configChangeTermId = _fromTermId;
@@ -279,7 +280,19 @@ contract CourtConfig is IConfig, CourtConfigData {
             disputesConfig.finalRoundLockTerms
         ];
         appealCollateralParams = [disputesConfig.appealCollateralFactor, disputesConfig.appealConfirmCollateralFactor];
-        minActiveBalance = disputesConfig.minActiveBalance;
+
+        minActiveBalance = config.minActiveBalance;
+    }
+
+    /**
+    * @dev Internal function to get the min active balance config for a given term
+    * @param _termId Identification number of the term querying the min active balance config of
+    * @param _lastEnsuredTermId Identification number of the last ensured term of the Court
+    * @return Minimum amount of juror tokens that can be activated
+    */
+    function _getMinActiveBalance(uint64 _termId, uint64 _lastEnsuredTermId) internal view returns (uint256) {
+        Config storage config = configs[_getConfigIdFor(_termId, _lastEnsuredTermId)];
+        return config.minActiveBalance;
     }
 
     /**

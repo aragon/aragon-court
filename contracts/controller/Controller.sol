@@ -242,7 +242,7 @@ contract Controller is IsContract, CourtClock, CourtConfig {
     }
 
     /**
-    * @dev Get Court configuration parameters
+    * @dev Tell the full Court configuration parameters at a certain term
     * @param _termId Identification number of the term querying the Court config of
     * @return token Address of the token used to pay for fees
     * @return fees Array containing:
@@ -279,6 +279,52 @@ contract Controller is IsContract, CourtClock, CourtConfig {
     {
         uint64 lastEnsuredTermId = _lastEnsuredTermId();
         return _getConfigAt(_termId, lastEnsuredTermId);
+    }
+
+    /**
+    * @dev Tell the min active balance config at a certain term
+    * @param _termId Term querying the Court config of
+    * @return Minimum amount of tokens jurors have to activate to participate in the Court
+    */
+    function getMinActiveBalance(uint64 _termId) external view returns (uint256) {
+        uint64 lastEnsuredTermId = _lastEnsuredTermId();
+        return _getMinActiveBalance(_termId, lastEnsuredTermId);
+    }
+
+    /**
+    * @dev Tell the create-dispute config at a certain term
+    * @param _termId Identification number of the term querying the create-dispute config of
+    * @return token ERC20 token to be used for the fees of the Court
+    * @return finalRoundReduction Permyriad of fees reduction applied for final appeal round (‱ - 1/10,000)
+    * @return jurorFee Amount of tokens paid to draft a juror to adjudicate a dispute
+    * @return draftFee Amount of tokens paid per round to cover the costs of drafting jurors
+    * @return settleFee Amount of tokens paid per round to cover the costs of slashing jurors
+    * @return firstRoundJurorsNumber Number of jurors drafted on first round
+    */
+    function getCreateDisputeConfig(uint64 _termId) external view
+        returns (
+            ERC20 token,
+            uint16 finalRoundReduction,
+            uint256 jurorFee,
+            uint256 draftFee,
+            uint256 settleFee,
+            uint64 firstRoundJurorsNumber
+        )
+    {
+        uint64 lastEnsuredTermId = _lastEnsuredTermId();
+        return _getCreateDisputeConfig(_termId, lastEnsuredTermId);
+    }
+
+    /**
+    * @dev Tell the draft config at a certain term
+    * @param _termId Term querying the draft config of
+    * @return feeToken Address of the token used to pay for fees
+    * @return draftFee Amount of fee tokens per juror to cover the drafting cost
+    * @return penaltyPct Permyriad of min active tokens balance to be locked for each drafted juror (‱ - 1/10,000)
+    */
+    function getDraftConfig(uint64 _termId) external view returns (ERC20 feeToken, uint256 draftFee, uint16 penaltyPct) {
+        uint64 lastEnsuredTermId = _lastEnsuredTermId();
+        return _getDraftConfig(_termId, lastEnsuredTermId);
     }
 
     /**

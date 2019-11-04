@@ -168,8 +168,8 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
 
         // No need for SafeMath: we already checked values above
         uint256 futureActiveBalance = unlockedActiveBalance - amountToDeactivate;
-        Config memory config = _getConfigAt(termId);
-        require(futureActiveBalance == 0 || futureActiveBalance >= config.disputes.minActiveBalance, ERROR_INVALID_DEACTIVATION_AMOUNT);
+        uint256 minActiveBalance = _getMinActiveBalance(termId);
+        require(futureActiveBalance == 0 || futureActiveBalance >= minActiveBalance, ERROR_INVALID_DEACTIVATION_AMOUNT);
 
         _createDeactivationRequest(msg.sender, amountToDeactivate);
     }
@@ -495,17 +495,16 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
         uint64 nextTermId = _termId + 1;
         _checkTotalActiveBalance(nextTermId, _amount);
         Juror storage juror = jurorsByAddress[_juror];
-
-        Config memory config = _getConfigAt(_termId);
+        uint256 minActiveBalance = _getMinActiveBalance(_termId);
 
         if (_existsJuror(juror)) {
             // Even though we are adding amounts, let's check the new active balance is greater than or equal to the
             // minimum active amount. Note that the juror might have been slashed.
             uint256 activeBalance = tree.getItem(juror.id);
-            require(activeBalance.add(_amount) >= config.disputes.minActiveBalance, ERROR_ACTIVE_BALANCE_BELOW_MIN);
+            require(activeBalance.add(_amount) >= minActiveBalance, ERROR_ACTIVE_BALANCE_BELOW_MIN);
             tree.update(juror.id, nextTermId, _amount, true);
         } else {
-            require(_amount >= config.disputes.minActiveBalance, ERROR_ACTIVE_BALANCE_BELOW_MIN);
+            require(_amount >= minActiveBalance, ERROR_ACTIVE_BALANCE_BELOW_MIN);
             juror.id = tree.insert(nextTermId, _amount);
             jurorsAddressById[juror.id] = _juror;
         }
@@ -858,7 +857,7 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
     */
     function _buildDraftParams(uint256[7] memory _params) private view returns (DraftParams memory) {
         uint64 termId = uint64(_params[2]);
-        Config memory config = _getConfigAt(termId);
+        uint256 minActiveBalance = _getMinActiveBalance(termId);
 
         return DraftParams({
             termRandomness: bytes32(_params[0]),
@@ -867,7 +866,7 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
             selectedJurors: _params[3],
             batchRequestedJurors: _params[4],
             roundRequestedJurors: _params[5],
-            draftLockAmount: config.disputes.minActiveBalance.pct(uint16(_params[6])),
+            draftLockAmount: minActiveBalance.pct(uint16(_params[6])),
             iteration: 0
         });
     }

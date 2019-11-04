@@ -4,7 +4,7 @@ const { assertRevert } = require('../helpers/assertThrow')
 const { NEXT_WEEK, NOW, ONE_DAY } = require('../helpers/time')
 const { assertAmountOfEvents, assertEvent } = require('../helpers/assertEvent')
 
-contract('Controller', ([_, court, someone]) => {
+contract('Controller', () => {
   let controllerHelper, controller
 
   const EMPTY_RANDOMNESS = '0x0000000000000000000000000000000000000000000000000000000000000000'

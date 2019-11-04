@@ -75,4 +75,10 @@ interface IConfig {
     * @return penaltyPct Permyriad of min active tokens balance to be locked for each drafted juror (‱ - 1/10,000)
     */
     function getDraftConfig(uint64 _termId) external view returns (ERC20 feeToken, uint256 draftFee, uint16 penaltyPct);
+
+    /**
+    * @dev Tell whether a certain holder accepts automatic withdrawals of tokens or not
+    * @return True if the given holder accepts automatic withdrawals of their tokens, false otherwise
+    */
+    function areWithdrawalsAllowedFor(address _holder) external view returns (bool);
 }

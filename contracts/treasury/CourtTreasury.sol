@@ -18,6 +18,7 @@ contract CourtTreasury is ControlledRecoverable, ITreasury {
     string private constant ERROR_WITHDRAW_FAILED = "TREASURY_WITHDRAW_FAILED";
     string private constant ERROR_WITHDRAW_AMOUNT_ZERO = "TREASURY_WITHDRAW_AMOUNT_ZERO";
     string private constant ERROR_WITHDRAW_INVALID_AMOUNT = "TREASURY_WITHDRAW_INVALID_AMOUNT";
+    string private constant ERROR_WITHDRAWS_DISALLOWED = "TREASURY_WITHDRAWALS_DISALLOWED";
 
     // List of balances indexed by token and holder address
     mapping (address => mapping (address => uint256)) internal balances;
@@ -64,7 +65,10 @@ contract CourtTreasury is ControlledRecoverable, ITreasury {
     * @param _to Address of the recipient that will receive their tokens
     */
     function withdrawAll(ERC20 _token, address _to) external {
-        uint256 amount = balanceOf(_token, _to);
+        IConfig config = _config();
+        require(config.areWithdrawalsAllowedFor(_to), ERROR_WITHDRAWS_DISALLOWED);
+
+        uint256 amount = _balanceOf(_token, _to);
         _withdraw(_token, _to, _to, amount);
     }
 
@@ -74,8 +78,8 @@ contract CourtTreasury is ControlledRecoverable, ITreasury {
     * @param _holder Address of the holder querying the balance of
     * @return Amount of tokens the holder owns
     */
-    function balanceOf(ERC20 _token, address _holder) public view returns (uint256) {
-        return balances[address(_token)][_holder];
+    function balanceOf(ERC20 _token, address _holder) external view returns (uint256) {
+        return _balanceOf(_token, _holder);
     }
 
     /**
@@ -87,7 +91,7 @@ contract CourtTreasury is ControlledRecoverable, ITreasury {
     */
     function _withdraw(ERC20 _token, address _from, address _to, uint256 _amount) internal {
         require(_amount > 0, ERROR_WITHDRAW_AMOUNT_ZERO);
-        uint256 balance = balanceOf(_token, _from);
+        uint256 balance = _balanceOf(_token, _from);
         require(balance >= _amount, ERROR_WITHDRAW_INVALID_AMOUNT);
 
         address tokenAddress = address(_token);
@@ -96,5 +100,15 @@ contract CourtTreasury is ControlledRecoverable, ITreasury {
         emit Withdraw(_token, _from, _to, _amount);
 
         require(_token.safeTransfer(_to, _amount), ERROR_WITHDRAW_FAILED);
+    }
+
+    /**
+    * @dev Internal function to tell the token balance of a certain holder
+    * @param _token ERC20 token balance being queried
+    * @param _holder Address of the holder querying the balance of
+    * @return Amount of tokens the holder owns
+    */
+    function _balanceOf(ERC20 _token, address _holder) internal view returns (uint256) {
+        return balances[address(_token)][_holder];
     }
 }

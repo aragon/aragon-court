@@ -203,6 +203,27 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
     }
 
     /**
+    * @dev Callback of approveAndCall, allows staking directly with a transaction to the token contract.
+    * @param _from Address making the transfer
+    * @param _amount Amount of tokens to transfer
+    * @param _token Address of the token
+    * @param _data Optional data that can be used to request the activation of the transferred tokens
+    */
+    function receiveApproval(address _from, uint256 _amount, address _token, bytes calldata _data) external {
+        require(msg.sender == _token && _token == address(jurorsToken), ERROR_TOKEN_APPROVE_NOT_ALLOWED);
+        _stake(_from, _from, _amount, _data);
+    }
+
+    /**
+    * @notice Process a token deactivation requested for `_juror` if there is any
+    * @param _juror Address of the juror to process the deactivation request of
+    */
+    function processDeactivationRequest(address _juror) external {
+        uint64 termId = _ensureCurrentTerm();
+        _processDeactivationRequest(_juror, termId);
+    }
+
+    /**
     * @notice Assign `@tokenAmount(self.token(), _amount)` to the available balance of `_juror`
     * @param _juror Juror to add an amount of tokens to
     * @param _amount Amount of tokens to be added to the available balance of a juror
@@ -346,14 +367,6 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
     }
 
     /**
-    * @dev ERC900 - Tell if the current registry supports historic information or not
-    * @return Always false
-    */
-    function supportsHistory() external pure returns (bool) {
-        return false;
-    }
-
-    /**
     * @dev ERC900 - Tell the total amount of juror tokens held by the registry contract
     * @return Amount of juror tokens held by the registry contract
     */
@@ -379,6 +392,48 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
     }
 
     /**
+    * @dev ERC900 - Tell the total amount of tokens of juror. This includes the active balance, the available
+    *      balances, and the pending balance for deactivation. Note that we don't have to include the locked
+    *      balances since these represent the amount of active tokens that are locked for drafts, i.e. these
+    *      are included in the active balance of the juror.
+    * @param _juror Address of the juror querying the total amount of tokens staked of
+    * @return Total amount of tokens of a juror
+    */
+    function totalStakedFor(address _juror) external view returns (uint256) {
+        return _totalStakedFor(_juror);
+    }
+
+    /**
+    * @dev Tell the balance information of a juror
+    * @param _juror Address of the juror querying the balance information of
+    * @return active Amount of active tokens of a juror
+    * @return available Amount of available tokens of a juror
+    * @return locked Amount of active tokens that are locked due to ongoing disputes
+    * @return pendingDeactivation Amount of active tokens that were requested for deactivation
+    */
+    function balanceOf(address _juror) external view returns (uint256 active, uint256 available, uint256 locked, uint256 pendingDeactivation) {
+        return _balanceOf(_juror);
+    }
+
+    /**
+    * @dev Tell the balance information of a juror, fecthing tree one at a given term
+    * @param _juror Address of the juror querying the balance information of
+    * @param _termId Term ID querying the active balance for
+    * @return active Amount of active tokens of a juror
+    * @return available Amount of available tokens of a juror
+    * @return locked Amount of active tokens that are locked due to ongoing disputes
+    * @return pendingDeactivation Amount of active tokens that were requested for deactivation
+    */
+    function balanceOfAt(address _juror, uint64 _termId) external view
+        returns (uint256 active, uint256 available, uint256 locked, uint256 pendingDeactivation)
+    {
+        Juror storage juror = jurorsByAddress[_juror];
+
+        active = _existsJuror(juror) ? tree.getItemAt(juror.id, _termId) : 0;
+        (available, locked, pendingDeactivation) = _getBalances(juror);
+    }
+
+    /**
     * @dev Tell the active balance of a juror for a given term id
     * @param _juror Address of the juror querying the active balance of
     * @param _termId Term ID querying the active balance for
@@ -386,23 +441,6 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
     */
     function activeBalanceOfAt(address _juror, uint64 _termId) external view returns (uint256) {
         return _activeBalanceOfAt(_juror, _termId);
-    }
-
-    /**
-    * @dev Tell the maximum amount of total active balance that can be hold in the registry
-    * @return Maximum amount of total active balance that can be hold in the registry
-    */
-    function totalJurorsActiveBalanceLimit() external view returns (uint256) {
-        return totalActiveBalanceLimit;
-    }
-
-    /**
-    * @dev Tell the identification number associated to a juror address
-    * @param _juror Address of the juror querying the identification number of
-    * @return Identification number associated to a juror address, zero in case it wasn't registered yet
-    */
-    function getJurorId(address _juror) external view returns (uint256) {
-        return jurorsByAddress[_juror].id;
     }
 
     /**
@@ -427,61 +465,28 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
     }
 
     /**
-    * @dev Callback of approveAndCall, allows staking directly with a transaction to the token contract.
-    * @param _from Address making the transfer
-    * @param _amount Amount of tokens to transfer
-    * @param _token Address of the token
-    * @param _data Optional data that can be used to request the activation of the transferred tokens
+    * @dev Tell the identification number associated to a juror address
+    * @param _juror Address of the juror querying the identification number of
+    * @return Identification number associated to a juror address, zero in case it wasn't registered yet
     */
-    function receiveApproval(address _from, uint256 _amount, address _token, bytes calldata _data) external {
-        require(msg.sender == _token && _token == address(jurorsToken), ERROR_TOKEN_APPROVE_NOT_ALLOWED);
-        _stake(_from, _from, _amount, _data);
+    function getJurorId(address _juror) external view returns (uint256) {
+        return jurorsByAddress[_juror].id;
     }
 
     /**
-    * @dev Tell the balance information of a juror
-    * @param _juror Address of the juror querying the balance information of
-    * @return active Amount of active tokens of a juror
-    * @return available Amount of available tokens of a juror
-    * @return locked Amount of active tokens that are locked due to ongoing disputes
-    * @return pendingDeactivation Amount of active tokens that were requested for deactivation
+    * @dev Tell the maximum amount of total active balance that can be hold in the registry
+    * @return Maximum amount of total active balance that can be hold in the registry
     */
-    function balanceOf(address _juror) public view returns (uint256 active, uint256 available, uint256 locked, uint256 pendingDeactivation) {
-        Juror storage juror = jurorsByAddress[_juror];
-
-        active = _existsJuror(juror) ? tree.getItem(juror.id) : 0;
-        (available, locked, pendingDeactivation) = _getBalances(juror);
+    function totalJurorsActiveBalanceLimit() external view returns (uint256) {
+        return totalActiveBalanceLimit;
     }
 
     /**
-    * @dev Tell the balance information of a juror, fecthing tree one at a given term
-    * @param _juror Address of the juror querying the balance information of
-    * @param _termId Term ID querying the active balance for
-    * @return active Amount of active tokens of a juror
-    * @return available Amount of available tokens of a juror
-    * @return locked Amount of active tokens that are locked due to ongoing disputes
-    * @return pendingDeactivation Amount of active tokens that were requested for deactivation
+    * @dev ERC900 - Tell if the current registry supports historic information or not
+    * @return Always false
     */
-    function balanceOfAt(address _juror, uint64 _termId) public view
-        returns (uint256 active, uint256 available, uint256 locked, uint256 pendingDeactivation)
-    {
-        Juror storage juror = jurorsByAddress[_juror];
-
-        active = _existsJuror(juror) ? tree.getItemAt(juror.id, _termId) : 0;
-        (available, locked, pendingDeactivation) = _getBalances(juror);
-    }
-
-    /**
-    * @dev ERC900 - Tell the total amount of tokens of juror. This includes the active balance, the available
-    *      balances, and the pending balance for deactivation. Note that we don't have to include the locked
-    *      balances since these represent the amount of active tokens that are locked for drafts, i.e. these
-    *      are included in the active balance of the juror.
-    * @param _juror Address of the juror querying the total amount of tokens staked of
-    * @return Total amount of tokens of a juror
-    */
-    function totalStakedFor(address _juror) public view returns (uint256) {
-        (uint256 active, uint256 available, , uint256 pendingDeactivation) = balanceOf(_juror);
-        return available.add(active).add(pendingDeactivation);
+    function supportsHistory() external pure returns (bool) {
+        return false;
     }
 
     /**
@@ -589,7 +594,7 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
     */
     function _stake(address _from, address _juror, uint256 _amount, bytes memory _data) internal {
         _deposit(_from, _juror, _amount, _data);
-        emit Staked(_juror, _amount, totalStakedFor(_juror), _data);
+        emit Staked(_juror, _amount, _totalStakedFor(_juror), _data);
     }
 
     /**
@@ -600,7 +605,7 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
     */
     function _unstake(address _juror, uint256 _amount, bytes memory _data) internal {
         _withdraw(_juror, _amount);
-        emit Unstaked(_juror, _amount, totalStakedFor(_juror), _data);
+        emit Unstaked(_juror, _amount, _totalStakedFor(_juror), _data);
     }
 
     /**
@@ -734,6 +739,31 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
         require(_totalActiveBalanceLimit > 0, ERROR_BAD_TOTAL_ACTIVE_BALANCE_LIMIT);
         emit TotalActiveBalanceLimitChanged(totalActiveBalanceLimit, _totalActiveBalanceLimit);
         totalActiveBalanceLimit = _totalActiveBalanceLimit;
+    }
+
+    /**
+    * @dev Internal function to tell the total amount of tokens of juror
+    * @param _juror Address of the juror querying the total amount of tokens staked of
+    * @return Total amount of tokens of a juror
+    */
+    function _totalStakedFor(address _juror) internal view returns (uint256) {
+        (uint256 active, uint256 available, , uint256 pendingDeactivation) = _balanceOf(_juror);
+        return available.add(active).add(pendingDeactivation);
+    }
+
+    /**
+    * @dev Internal function to tell the balance information of a juror
+    * @param _juror Address of the juror querying the balance information of
+    * @return active Amount of active tokens of a juror
+    * @return available Amount of available tokens of a juror
+    * @return locked Amount of active tokens that are locked due to ongoing disputes
+    * @return pendingDeactivation Amount of active tokens that were requested for deactivation
+    */
+    function _balanceOf(address _juror) internal view returns (uint256 active, uint256 available, uint256 locked, uint256 pendingDeactivation) {
+        Juror storage juror = jurorsByAddress[_juror];
+
+        active = _existsJuror(juror) ? tree.getItem(juror.id) : 0;
+        (available, locked, pendingDeactivation) = _getBalances(juror);
     }
 
     /**

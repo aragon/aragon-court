@@ -35,7 +35,11 @@ contract CourtConfig is IConfig, CourtConfigData {
     // List of configs indexed by id
     mapping (uint64 => uint256) private configIdByTerm;
 
+    // Holders opt-in config for automatic withdrawals
+    mapping (address => bool) private withdrawalsAllowed;
+
     event NewConfig(uint64 fromTermId, uint64 courtConfigId);
+    event AutomaticWithdrawalsAllowedChanged(address indexed holder, bool allowed);
 
     /**
     * @dev Constructor function
@@ -86,6 +90,23 @@ contract CourtConfig is IConfig, CourtConfigData {
             _appealCollateralParams,
             _minActiveBalance
         );
+    }
+
+    /**
+    * @notice Set the automatic withdrawals config for the sender to `_allowed`
+    * @param _allowed Whether or not the automatic withdrawals are allowed by the sender
+    */
+    function setAutomaticWithdrawals(bool _allowed) external {
+        withdrawalsAllowed[msg.sender] = _allowed;
+        emit AutomaticWithdrawalsAllowedChanged(msg.sender, _allowed);
+    }
+
+    /**
+    * @dev Tell whether a certain holder accepts automatic withdrawals of tokens or not
+    * @return True if the given holder accepts automatic withdrawals of their tokens, false otherwise
+    */
+    function areWithdrawalsAllowedFor(address _holder) external view returns (bool) {
+        return withdrawalsAllowed[_holder];
     }
 
     /**
@@ -210,9 +231,10 @@ contract CourtConfig is IConfig, CourtConfigData {
             maxRegularAppealRounds: _maxRegularAppealRounds,
             finalRoundLockTerms: _roundParams[3],
             appealCollateralFactor: _appealCollateralParams[0],
-            appealConfirmCollateralFactor: _appealCollateralParams[1],
-            minActiveBalance: _minActiveBalance
+            appealConfirmCollateralFactor: _appealCollateralParams[1]
         });
+
+        config.minActiveBalance = _minActiveBalance;
 
         configIdByTerm[_fromTermId] = courtConfigId;
         configChangeTermId = _fromTermId;
@@ -258,7 +280,7 @@ contract CourtConfig is IConfig, CourtConfigData {
             uint256 minActiveBalance
         )
     {
-        Config storage config = configs[_getConfigIdFor(_termId, _lastEnsuredTermId)];
+        Config storage config = _getConfigFor(_termId, _lastEnsuredTermId);
 
         FeesConfig storage feesConfig = config.fees;
         feeToken = feesConfig.token;
@@ -279,11 +301,81 @@ contract CourtConfig is IConfig, CourtConfigData {
             disputesConfig.finalRoundLockTerms
         ];
         appealCollateralParams = [disputesConfig.appealCollateralFactor, disputesConfig.appealConfirmCollateralFactor];
-        minActiveBalance = disputesConfig.minActiveBalance;
+
+        minActiveBalance = config.minActiveBalance;
+    }
+
+    /**
+    * @dev Internal function to get the min active balance config for a given term
+    * @param _termId Identification number of the term querying the min active balance config of
+    * @param _lastEnsuredTermId Identification number of the last ensured term of the Court
+    * @return Minimum amount of juror tokens that can be activated at the given term
+    */
+    function _getMinActiveBalance(uint64 _termId, uint64 _lastEnsuredTermId) internal view returns (uint256) {
+        Config storage config = _getConfigFor(_termId, _lastEnsuredTermId);
+        return config.minActiveBalance;
+    }
+
+    /**
+    * @dev Tell the create-dispute config at a certain term
+    * @param _termId Identification number of the term querying the create-dispute config of
+    * @param _lastEnsuredTermId Identification number of the last ensured term of the Court
+    * @return token ERC20 token to be used for the fees of the Court
+    * @return finalRoundReduction Permyriad of fees reduction applied for final appeal round (‱ - 1/10,000)
+    * @return jurorFee Amount of tokens paid to draft a juror to adjudicate a dispute
+    * @return draftFee Amount of tokens paid per round to cover the costs of drafting jurors
+    * @return settleFee Amount of tokens paid per round to cover the costs of slashing jurors
+    * @return firstRoundJurorsNumber Number of jurors drafted on first round
+    */
+    function _getCreateDisputeConfig(uint64 _termId,  uint64 _lastEnsuredTermId) internal view
+        returns (
+            ERC20 token,
+            uint16 finalRoundReduction,
+            uint256 jurorFee,
+            uint256 draftFee,
+            uint256 settleFee,
+            uint64 firstRoundJurorsNumber
+        )
+    {
+        Config storage config = _getConfigFor(_termId, _lastEnsuredTermId);
+        FeesConfig storage feesConfig = config.fees;
+
+        token = feesConfig.token;
+        jurorFee = feesConfig.jurorFee;
+        draftFee = feesConfig.draftFee;
+        settleFee = feesConfig.settleFee;
+        finalRoundReduction = feesConfig.finalRoundReduction;
+        firstRoundJurorsNumber = config.disputes.firstRoundJurorsNumber;
+    }
+
+    /**
+    * @dev Tell the draft config at a certain term
+    * @param _termId Identification number of the term querying the draft config of
+    * @param _lastEnsuredTermId Identification number of the last ensured term of the Court
+    * @return feeToken Address of the token used to pay for fees
+    * @return draftFee Amount of fee tokens per juror to cover the drafting cost
+    * @return penaltyPct Permyriad of min active tokens balance to be locked for each drafted juror (‱ - 1/10,000)
+    */
+    function _getDraftConfig(uint64 _termId,  uint64 _lastEnsuredTermId) internal view
+        returns (ERC20 feeToken, uint256 draftFee, uint16 penaltyPct)
+    {
+        Config storage config = _getConfigFor(_termId, _lastEnsuredTermId);
+        return (config.fees.token, config.fees.draftFee, config.disputes.penaltyPct);
     }
 
     /**
     * @dev Internal function to get the Court config for a given term
+    * @param _termId Identification number of the term querying the min active balance config of
+    * @param _lastEnsuredTermId Identification number of the last ensured term of the Court
+    * @return Court config for the given term
+    */
+    function _getConfigFor(uint64 _termId, uint64 _lastEnsuredTermId) internal view returns (Config storage) {
+        uint256 id = _getConfigIdFor(_termId, _lastEnsuredTermId);
+        return configs[id];
+    }
+
+    /**
+    * @dev Internal function to get the Court config ID for a given term
     * @param _termId Identification number of the term querying the Court config of
     * @param _lastEnsuredTermId Identification number of the last ensured term of the Court
     * @return Identification number of the config for the given terms

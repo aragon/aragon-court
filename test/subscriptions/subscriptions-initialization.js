@@ -1,6 +1,8 @@
-const { bn, bigExp } = require('../helpers/numbers')
-const { buildHelper } = require('../helpers/controller')(web3, artifacts)
-const { assertRevert } = require('../helpers/assertThrow')
+const { assertBn } = require('../helpers/asserts/assertBn')
+const { bn, bigExp } = require('../helpers/lib/numbers')
+const { buildHelper } = require('../helpers/wrappers/controller')(web3, artifacts)
+const { assertRevert } = require('../helpers/asserts/assertThrow')
+const { CONTROLLED_ERRORS, SUBSCRIPTIONS_ERRORS } = require('../helpers/utils/errors')
 
 const CourtSubscriptions = artifacts.require('CourtSubscriptions')
 const ERC20 = artifacts.require('ERC20Mock')
@@ -30,10 +32,10 @@ contract('CourtSubscriptions', ([_, someone]) => {
         assert.equal(await subscriptions.getController(), controller.address, 'subscriptions controller does not match')
         assert.equal(await subscriptions.periodDuration(), PERIOD_DURATION, 'subscriptions duration does not match')
         assert.equal(await subscriptions.currentFeeToken(), feeToken.address, 'fee token does not match')
-        assert.equal((await subscriptions.currentFeeAmount()).toString(), FEE_AMOUNT.toString(), 'fee amount does not match')
-        assert.equal((await subscriptions.prePaymentPeriods()).toString(), PREPAYMENT_PERIODS.toString(), 'pre payment periods does not match')
-        assert.equal((await subscriptions.latePaymentPenaltyPct()).toString(), LATE_PAYMENT_PENALTY_PCT.toString(), 'late payments penalty pct does not match')
-        assert.equal((await subscriptions.governorSharePct()).toString(), GOVERNOR_SHARE_PCT.toString(), 'governor share pct does not match')
+        assertBn((await subscriptions.currentFeeAmount()), FEE_AMOUNT, 'fee amount does not match')
+        assertBn((await subscriptions.prePaymentPeriods()), PREPAYMENT_PERIODS, 'pre payment periods does not match')
+        assertBn((await subscriptions.latePaymentPenaltyPct()), LATE_PAYMENT_PENALTY_PCT, 'late payments penalty pct does not match')
+        assertBn((await subscriptions.governorSharePct()), GOVERNOR_SHARE_PCT, 'governor share pct does not match')
       })
     })
 
@@ -42,7 +44,7 @@ contract('CourtSubscriptions', ([_, someone]) => {
         const controllerAddress = ZERO_ADDRESS
 
         it('reverts', async () => {
-          await assertRevert(CourtSubscriptions.new(controllerAddress, PERIOD_DURATION, feeToken.address, FEE_AMOUNT, PREPAYMENT_PERIODS, RESUME_PRE_PAID_PERIODS, LATE_PAYMENT_PENALTY_PCT, GOVERNOR_SHARE_PCT), 'CTD_CONTROLLER_NOT_CONTRACT')
+          await assertRevert(CourtSubscriptions.new(controllerAddress, PERIOD_DURATION, feeToken.address, FEE_AMOUNT, PREPAYMENT_PERIODS, RESUME_PRE_PAID_PERIODS, LATE_PAYMENT_PENALTY_PCT, GOVERNOR_SHARE_PCT), CONTROLLED_ERRORS.CONTROLLER_NOT_CONTRACT)
         })
       })
 
@@ -50,7 +52,7 @@ contract('CourtSubscriptions', ([_, someone]) => {
         const controllerAddress = someone
 
         it('reverts', async () => {
-          await assertRevert(CourtSubscriptions.new(controllerAddress, PERIOD_DURATION, feeToken.address, FEE_AMOUNT, PREPAYMENT_PERIODS, RESUME_PRE_PAID_PERIODS, LATE_PAYMENT_PENALTY_PCT, GOVERNOR_SHARE_PCT), 'CTD_CONTROLLER_NOT_CONTRACT')
+          await assertRevert(CourtSubscriptions.new(controllerAddress, PERIOD_DURATION, feeToken.address, FEE_AMOUNT, PREPAYMENT_PERIODS, RESUME_PRE_PAID_PERIODS, LATE_PAYMENT_PENALTY_PCT, GOVERNOR_SHARE_PCT), CONTROLLED_ERRORS.CONTROLLER_NOT_CONTRACT)
         })
       })
 
@@ -58,7 +60,7 @@ contract('CourtSubscriptions', ([_, someone]) => {
         const periodDuration = 0
 
         it('reverts', async () => {
-          await assertRevert(CourtSubscriptions.new(controller.address, periodDuration, feeToken.address, FEE_AMOUNT, PREPAYMENT_PERIODS, RESUME_PRE_PAID_PERIODS, LATE_PAYMENT_PENALTY_PCT, GOVERNOR_SHARE_PCT), 'CS_PERIOD_DURATION_ZERO')
+          await assertRevert(CourtSubscriptions.new(controller.address, periodDuration, feeToken.address, FEE_AMOUNT, PREPAYMENT_PERIODS, RESUME_PRE_PAID_PERIODS, LATE_PAYMENT_PENALTY_PCT, GOVERNOR_SHARE_PCT), SUBSCRIPTIONS_ERRORS.PERIOD_DURATION_ZERO)
         })
       })
 
@@ -66,7 +68,7 @@ contract('CourtSubscriptions', ([_, someone]) => {
         const feeTokenAddress = ZERO_ADDRESS
 
         it('reverts', async () => {
-          await assertRevert(CourtSubscriptions.new(controller.address, PERIOD_DURATION, feeTokenAddress, FEE_AMOUNT, PREPAYMENT_PERIODS, RESUME_PRE_PAID_PERIODS, LATE_PAYMENT_PENALTY_PCT, GOVERNOR_SHARE_PCT), 'CS_FEE_TOKEN_NOT_CONTRACT')
+          await assertRevert(CourtSubscriptions.new(controller.address, PERIOD_DURATION, feeTokenAddress, FEE_AMOUNT, PREPAYMENT_PERIODS, RESUME_PRE_PAID_PERIODS, LATE_PAYMENT_PENALTY_PCT, GOVERNOR_SHARE_PCT), SUBSCRIPTIONS_ERRORS.FEE_TOKEN_NOT_CONTRACT)
         })
       })
 
@@ -74,7 +76,7 @@ contract('CourtSubscriptions', ([_, someone]) => {
         const feeTokenAddress = someone
 
         it('reverts', async () => {
-          await assertRevert(CourtSubscriptions.new(controller.address, PERIOD_DURATION, feeTokenAddress, FEE_AMOUNT, PREPAYMENT_PERIODS, RESUME_PRE_PAID_PERIODS, LATE_PAYMENT_PENALTY_PCT, GOVERNOR_SHARE_PCT), 'CS_FEE_TOKEN_NOT_CONTRACT')
+          await assertRevert(CourtSubscriptions.new(controller.address, PERIOD_DURATION, feeTokenAddress, FEE_AMOUNT, PREPAYMENT_PERIODS, RESUME_PRE_PAID_PERIODS, LATE_PAYMENT_PENALTY_PCT, GOVERNOR_SHARE_PCT), SUBSCRIPTIONS_ERRORS.FEE_TOKEN_NOT_CONTRACT)
         })
       })
 
@@ -82,7 +84,7 @@ contract('CourtSubscriptions', ([_, someone]) => {
         const feeAmount = 0
 
         it('reverts', async () => {
-          await assertRevert(CourtSubscriptions.new(controller.address, PERIOD_DURATION, feeToken.address, feeAmount, PREPAYMENT_PERIODS, RESUME_PRE_PAID_PERIODS, LATE_PAYMENT_PENALTY_PCT, GOVERNOR_SHARE_PCT), 'CS_FEE_AMOUNT_ZERO')
+          await assertRevert(CourtSubscriptions.new(controller.address, PERIOD_DURATION, feeToken.address, feeAmount, PREPAYMENT_PERIODS, RESUME_PRE_PAID_PERIODS, LATE_PAYMENT_PENALTY_PCT, GOVERNOR_SHARE_PCT), SUBSCRIPTIONS_ERRORS.FEE_AMOUNT_ZERO)
         })
       })
 
@@ -90,7 +92,7 @@ contract('CourtSubscriptions', ([_, someone]) => {
         const prePaymentPeriods = 0
 
         it('reverts', async () => {
-          await assertRevert(CourtSubscriptions.new(controller.address, PERIOD_DURATION, feeToken.address, FEE_AMOUNT, prePaymentPeriods, RESUME_PRE_PAID_PERIODS, LATE_PAYMENT_PENALTY_PCT, GOVERNOR_SHARE_PCT), 'CS_PREPAYMENT_PERIODS_ZERO')
+          await assertRevert(CourtSubscriptions.new(controller.address, PERIOD_DURATION, feeToken.address, FEE_AMOUNT, prePaymentPeriods, RESUME_PRE_PAID_PERIODS, LATE_PAYMENT_PENALTY_PCT, GOVERNOR_SHARE_PCT), SUBSCRIPTIONS_ERRORS.PREPAYMENT_PERIODS_ZERO)
         })
       })
 
@@ -98,7 +100,7 @@ contract('CourtSubscriptions', ([_, someone]) => {
         const governorSharePct = bn(10001)
 
         it('reverts', async () => {
-          await assertRevert(CourtSubscriptions.new(controller.address, PERIOD_DURATION, feeToken.address, FEE_AMOUNT, PREPAYMENT_PERIODS, RESUME_PRE_PAID_PERIODS, LATE_PAYMENT_PENALTY_PCT, governorSharePct), 'CS_OVERRATED_GOVERNOR_SHARE_PCT')
+          await assertRevert(CourtSubscriptions.new(controller.address, PERIOD_DURATION, feeToken.address, FEE_AMOUNT, PREPAYMENT_PERIODS, RESUME_PRE_PAID_PERIODS, LATE_PAYMENT_PENALTY_PCT, governorSharePct), SUBSCRIPTIONS_ERRORS.OVERRATED_GOVERNOR_SHARE_PCT)
         })
       })
 
@@ -106,7 +108,7 @@ contract('CourtSubscriptions', ([_, someone]) => {
         const resumePrePaidPeriods = PREPAYMENT_PERIODS + 1
 
         it('reverts', async () => {
-          await assertRevert(CourtSubscriptions.new(controller.address, PERIOD_DURATION, feeToken.address, FEE_AMOUNT, PREPAYMENT_PERIODS, resumePrePaidPeriods, LATE_PAYMENT_PENALTY_PCT, GOVERNOR_SHARE_PCT), 'CS_RESUME_PRE_PAID_PERIODS_BIG')
+          await assertRevert(CourtSubscriptions.new(controller.address, PERIOD_DURATION, feeToken.address, FEE_AMOUNT, PREPAYMENT_PERIODS, resumePrePaidPeriods, LATE_PAYMENT_PENALTY_PCT, GOVERNOR_SHARE_PCT), SUBSCRIPTIONS_ERRORS.RESUME_PRE_PAID_PERIODS_BIG)
         })
       })
     })

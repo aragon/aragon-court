@@ -1,4 +1,6 @@
-const { toChecksumAddress } = require('web3-utils')
+const { sha3, toChecksumAddress } = require('web3-utils')
+
+const ACTIVATE_DATA = sha3('activate(uint256)').slice(0, 10)
 
 const filterJurors = (jurorsList, jurorsToFiler) => {
   const addressesToFiler = jurorsToFiler.map(j => toChecksumAddress(j.address))
@@ -26,8 +28,9 @@ const countEqualJurors = addresses => {
 }
 
 module.exports = {
+  ACTIVATE_DATA,
   countJuror,
   countEqualJurors,
   filterJurors,
-  filterWinningJurors,
+  filterWinningJurors
 }

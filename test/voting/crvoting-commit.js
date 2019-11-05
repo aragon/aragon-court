@@ -1,8 +1,11 @@
-const { bn } = require('../helpers/numbers')
-const { buildHelper } = require('../helpers/controller')(web3, artifacts)
-const { assertRevert } = require('../helpers/assertThrow')
-const { OUTCOMES, encryptVote } = require('../helpers/crvoting')
-const { assertEvent, assertAmountOfEvents } = require('../helpers/assertEvent')
+const { bn } = require('../helpers/lib/numbers')
+const { assertBn } = require('../helpers/asserts/assertBn')
+const { buildHelper } = require('../helpers/wrappers/controller')(web3, artifacts)
+const { assertRevert } = require('../helpers/asserts/assertThrow')
+const { VOTING_EVENTS } = require('../helpers/utils/events')
+const { OUTCOMES, encryptVote } = require('../helpers/utils/crvoting')
+const { COURT_ERRORS, VOTING_ERRORS } = require('../helpers/utils/errors')
+const { assertEvent, assertAmountOfEvents } = require('../helpers/asserts/assertEvent')
 
 const CRVoting = artifacts.require('CRVoting')
 const Court = artifacts.require('CourtMockForVoting')
@@ -46,14 +49,14 @@ contract('CRVoting commit', ([_, voter]) => {
                 await voting.commit(voteId, commitment, { from: voter })
 
                 const voterOutcome = await voting.getVoterOutcome(voteId, voter)
-                assert.equal(voterOutcome.toString(), OUTCOMES.MISSING, 'voter outcome should be missing')
+                assertBn(voterOutcome, OUTCOMES.MISSING, 'voter outcome should be missing')
               })
 
               it('emits an event', async () => {
                 const receipt = await voting.commit(voteId, commitment, { from: voter })
 
-                assertAmountOfEvents(receipt, 'VoteCommitted')
-                assertEvent(receipt, 'VoteCommitted', { voteId, voter, commitment })
+                assertAmountOfEvents(receipt, VOTING_EVENTS.VOTE_COMMITTED)
+                assertEvent(receipt, VOTING_EVENTS.VOTE_COMMITTED, { voteId, voter, commitment })
               })
 
               it('does not affect the outcomes tally', async () => {
@@ -62,7 +65,7 @@ contract('CRVoting commit', ([_, voter]) => {
                 await voting.commit(voteId, commitment, { from: voter })
 
                 const currentTally = await voting.getOutcomeTally(voteId, outcome)
-                assert.equal(previousTally.toString(), currentTally.toString(), 'tallies do not match')
+                assertBn(previousTally, currentTally, 'tallies do not match')
               })
 
               it('does not affect the winning outcome', async () => {
@@ -72,10 +75,10 @@ contract('CRVoting commit', ([_, voter]) => {
                 await voting.commit(voteId, commitment, { from: voter })
 
                 const currentWinningOutcome = await voting.getWinningOutcome(voteId)
-                assert.equal(previousWinningOutcome.toString(), currentWinningOutcome.toString(), 'winning outcomes do not match')
+                assertBn(previousWinningOutcome, currentWinningOutcome, 'winning outcomes do not match')
 
                 const currentWinningOutcomeTally = await voting.getOutcomeTally(voteId, currentWinningOutcome)
-                assert.equal(previousWinningOutcomeTally.toString(), currentWinningOutcomeTally.toString(), 'winning outcome tallies do not match')
+                assertBn(previousWinningOutcomeTally, currentWinningOutcomeTally, 'winning outcome tallies do not match')
               })
 
               it('does not consider the voter a winner', async () => {
@@ -115,7 +118,7 @@ contract('CRVoting commit', ([_, voter]) => {
             })
 
             it('reverts', async () => {
-              await assertRevert(voting.commit(voteId, '0x', { from: voter }), 'CT_VOTER_WEIGHT_ZERO')
+              await assertRevert(voting.commit(voteId, '0x', { from: voter }), COURT_ERRORS.VOTER_WEIGHT_ZERO)
             })
           })
         })
@@ -126,7 +129,7 @@ contract('CRVoting commit', ([_, voter]) => {
           })
 
           it('reverts', async () => {
-            await assertRevert(voting.commit(voteId, '0x', { from: voter }), 'CRV_OWNER_MOCK_COMMIT_CHECK_REVERTED')
+            await assertRevert(voting.commit(voteId, '0x', { from: voter }), VOTING_ERRORS.OWNER_MOCK_COMMIT_CHECK_REVERTED)
           })
         })
       })
@@ -142,13 +145,13 @@ contract('CRVoting commit', ([_, voter]) => {
 
         context('when the new commitment is the same as the previous one', () => {
           it('reverts', async () => {
-            await assertRevert(voting.commit(voteId, commitment, { from: voter }), 'CRV_VOTE_ALREADY_COMMITTED')
+            await assertRevert(voting.commit(voteId, commitment, { from: voter }), VOTING_ERRORS.VOTE_ALREADY_COMMITTED)
           })
         })
 
         context('when the new commitment is different than the previous one', () => {
           it('reverts', async () => {
-            await assertRevert(voting.commit(voteId, encryptVote(100), { from: voter }), 'CRV_VOTE_ALREADY_COMMITTED')
+            await assertRevert(voting.commit(voteId, encryptVote(100), { from: voter }), VOTING_ERRORS.VOTE_ALREADY_COMMITTED)
           })
         })
       })
@@ -156,7 +159,7 @@ contract('CRVoting commit', ([_, voter]) => {
 
     context('when the given vote ID is not valid', () => {
       it('reverts', async () => {
-        await assertRevert(voting.commit(0, '0x', { from: voter }), 'CRV_VOTE_DOES_NOT_EXIST')
+        await assertRevert(voting.commit(0, '0x', { from: voter }), VOTING_ERRORS.VOTE_DOES_NOT_EXIST)
       })
     })
   })

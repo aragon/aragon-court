@@ -1,7 +1,10 @@
-const { bn, bigExp } = require('../helpers/numbers')
-const { buildHelper } = require('../helpers/controller')(web3, artifacts)
-const { assertRevert } = require('../helpers/assertThrow')
-const { assertAmountOfEvents, assertEvent } = require('../helpers/assertEvent')
+const { assertBn } = require('../helpers/asserts/assertBn')
+const { bn, bigExp } = require('../helpers/lib/numbers')
+const { buildHelper } = require('../helpers/wrappers/controller')(web3, artifacts)
+const { assertRevert } = require('../helpers/asserts/assertThrow')
+const { SUBSCRIPTIONS_ERRORS } = require('../helpers/utils/errors')
+const { SUBSCRIPTIONS_EVENTS } = require('../helpers/utils/events')
+const { assertAmountOfEvents, assertEvent } = require('../helpers/asserts/assertEvent')
 
 const CourtSubscriptions = artifacts.require('CourtSubscriptions')
 const ERC20 = artifacts.require('ERC20Mock')
@@ -53,7 +56,7 @@ contract('CourtSubscriptions', ([_, subscriber]) => {
 
           assert.isTrue(subscribed, 'subscriber should be subscribed')
           assert.isFalse(paused, 'subscriber should not be paused')
-          assert.equal(previousDelayedPeriods.toString(), 0, 'previous delayed periods does not match')
+          assertBn(previousDelayedPeriods, 0, 'previous delayed periods does not match')
         })
       }
 
@@ -63,11 +66,11 @@ contract('CourtSubscriptions', ([_, subscriber]) => {
           const expectedLastPeriodId = currentPeriodId + expectedMovedPeriods
 
           const { newLastPeriodId } = await subscriptions.getPayFeesDetails(subscriber, resumePaidPeriods)
-          assert.equal(newLastPeriodId.toString(), expectedLastPeriodId, 'new last period id does not match')
+          assertBn(newLastPeriodId, expectedLastPeriodId, 'new last period id does not match')
 
           await subscriptions.resume(resumePaidPeriods, { from })
           const { lastPaymentPeriodId } = await subscriptions.getSubscriber(subscriber)
-          assert.equal(lastPaymentPeriodId.toString(), expectedLastPeriodId, 'new last period id does not match')
+          assertBn(lastPaymentPeriodId, expectedLastPeriodId, 'new last period id does not match')
         })
 
         it('computes number of delayed periods correctly', async () => {
@@ -76,7 +79,7 @@ contract('CourtSubscriptions', ([_, subscriber]) => {
           await subscriptions.resume(resumePaidPeriods, { from })
 
           const currentDelayedPeriods = await subscriptions.getDelayedPeriods(subscriber)
-          assert.equal(currentDelayedPeriods.toString(), previousDelayedPeriods.sub(bn(expectedDelayedPeriods)).toString(), 'number of delayed periods does not match')
+          assertBn(currentDelayedPeriods, previousDelayedPeriods.sub(bn(expectedDelayedPeriods)), 'number of delayed periods does not match')
         })
       }
 
@@ -91,15 +94,15 @@ contract('CourtSubscriptions', ([_, subscriber]) => {
           const previousSubscriptionsBalance = await feeToken.balanceOf(subscriptions.address)
 
           const { amountToPay } = await subscriptions.getPayFeesDetails(subscriber, resumePaidPeriods)
-          assert.equal(amountToPay.toString(), expectedTotalPaidFees.toString(), 'amount to be paid does not match')
+          assertBn(amountToPay, expectedTotalPaidFees, 'amount to be paid does not match')
 
           await subscriptions.resume(resumePaidPeriods, { from })
 
           const currentSubscriptionsBalance = await feeToken.balanceOf(subscriptions.address)
-          assert.equal(currentSubscriptionsBalance.toString(), previousSubscriptionsBalance.add(expectedTotalPaidFees).toString(), 'subscriptions balances do not match')
+          assertBn(currentSubscriptionsBalance, previousSubscriptionsBalance.add(expectedTotalPaidFees), 'subscriptions balances do not match')
 
           const currentPayerBalance = await feeToken.balanceOf(subscriber)
-          assert.equal(currentPayerBalance.toString(), previousPayerBalance.sub(expectedTotalPaidFees).toString(), 'payer balances do not match')
+          assertBn(currentPayerBalance, previousPayerBalance.sub(expectedTotalPaidFees), 'payer balances do not match')
         })
 
         it('pays the governor fees', async () => {
@@ -109,11 +112,11 @@ contract('CourtSubscriptions', ([_, subscriber]) => {
           const receipt = await subscriptions.resume(resumePaidPeriods, { from })
 
           const currentGovernorFees = await subscriptions.accumulatedGovernorFees()
-          assert.equal(currentGovernorFees.toString(), previousGovernorFees.add(expectedGovernorFees).toString(), 'governor fees do not match')
+          assertBn(currentGovernorFees, previousGovernorFees.add(expectedGovernorFees), 'governor fees do not match')
 
           const expectedCollectedFees = expectedTotalPaidFees.sub(expectedGovernorFees)
-          assertAmountOfEvents(receipt, 'FeesPaid')
-          assertEvent(receipt, 'FeesPaid', { subscriber, periods: resumePaidPeriods, newLastPeriodId, collectedFees: expectedCollectedFees, governorFee: expectedGovernorFees })
+          assertAmountOfEvents(receipt, SUBSCRIPTIONS_EVENTS.FEES_PAID)
+          assertEvent(receipt, SUBSCRIPTIONS_EVENTS.FEES_PAID, { subscriber, periods: resumePaidPeriods, newLastPeriodId, collectedFees: expectedCollectedFees, governorFee: expectedGovernorFees })
         })
       }
 
@@ -129,15 +132,15 @@ contract('CourtSubscriptions', ([_, subscriber]) => {
           const previousSubscriptionsBalance = await feeToken.balanceOf(subscriptions.address)
 
           const { amountToPay } = await subscriptions.getPayFeesDetails(subscriber, resumePaidPeriods)
-          assert.equal(amountToPay.toString(), expectedTotalPaidFees.toString(), 'amount to be paid does not match')
+          assertBn(amountToPay, expectedTotalPaidFees, 'amount to be paid does not match')
 
           await subscriptions.resume(resumePaidPeriods, { from })
 
           const currentSubscriptionsBalance = await feeToken.balanceOf(subscriptions.address)
-          assert.equal(currentSubscriptionsBalance.toString(), previousSubscriptionsBalance.add(expectedTotalPaidFees).toString(), 'subscriptions balances do not match')
+          assertBn(currentSubscriptionsBalance, previousSubscriptionsBalance.add(expectedTotalPaidFees), 'subscriptions balances do not match')
 
           const currentPayerBalance = await feeToken.balanceOf(subscriber)
-          assert.equal(currentPayerBalance.toString(), previousPayerBalance.sub(expectedTotalPaidFees).toString(), 'payer balances do not match')
+          assertBn(currentPayerBalance, previousPayerBalance.sub(expectedTotalPaidFees), 'payer balances do not match')
         })
 
         it('pays the governor fees', async () => {
@@ -147,11 +150,11 @@ contract('CourtSubscriptions', ([_, subscriber]) => {
           const receipt = await subscriptions.resume(resumePaidPeriods, { from })
 
           const currentGovernorFees = await subscriptions.accumulatedGovernorFees()
-          assert.equal(currentGovernorFees.toString(), previousGovernorFees.add(expectedGovernorFees).toString(), 'governor fees do not match')
+          assertBn(currentGovernorFees, previousGovernorFees.add(expectedGovernorFees), 'governor fees do not match')
 
           const expectedCollectedFees = expectedTotalPaidFees.sub(expectedGovernorFees)
-          assertAmountOfEvents(receipt, 'FeesPaid')
-          assertEvent(receipt, 'FeesPaid', { subscriber, periods: resumePaidPeriods, newLastPeriodId, collectedFees: expectedCollectedFees, governorFee: expectedGovernorFees })
+          assertAmountOfEvents(receipt, SUBSCRIPTIONS_EVENTS.FEES_PAID)
+          assertEvent(receipt, SUBSCRIPTIONS_EVENTS.FEES_PAID, { subscriber, periods: resumePaidPeriods, newLastPeriodId, collectedFees: expectedCollectedFees, governorFee: expectedGovernorFees })
         })
       }
 
@@ -164,7 +167,7 @@ contract('CourtSubscriptions', ([_, subscriber]) => {
 
           const { paused, previousDelayedPeriods } = await subscriptions.getSubscriber(subscriber)
           assert.isTrue(paused, 'subscriber should be paused')
-          assert.equal(previousDelayedPeriods.toString(), 0, 'delayed periods does not match')
+          assertBn(previousDelayedPeriods, 0, 'delayed periods does not match')
         })
 
         context('when the current period has not passed', () => {
@@ -235,7 +238,7 @@ contract('CourtSubscriptions', ([_, subscriber]) => {
             const resumePaidPeriods = RESUME_PRE_PAID_PERIODS - 1
 
             it('reverts', async () => {
-              await assertRevert(subscriptions.resume(resumePaidPeriods, { from }), 'CS_LOW_RESUME_PERIODS_PAYMENT')
+              await assertRevert(subscriptions.resume(resumePaidPeriods, { from }), SUBSCRIPTIONS_ERRORS.LOW_RESUME_PERIODS_PAYMENT)
             })
           })
 
@@ -269,7 +272,7 @@ contract('CourtSubscriptions', ([_, subscriber]) => {
 
           const { paused, previousDelayedPeriods } = await subscriptions.getSubscriber(subscriber)
           assert.isTrue(paused, 'subscriber should be paused')
-          assert.equal(previousDelayedPeriods.toString(), 0, 'delayed periods does not match')
+          assertBn(previousDelayedPeriods, 0, 'delayed periods does not match')
         })
 
         context('when the current period has not passed', () => {
@@ -310,7 +313,7 @@ contract('CourtSubscriptions', ([_, subscriber]) => {
             const resumePaidPeriods = RESUME_PRE_PAID_PERIODS - 1
 
             it('reverts', async () => {
-              await assertRevert(subscriptions.resume(resumePaidPeriods, { from }), 'CS_LOW_RESUME_PERIODS_PAYMENT')
+              await assertRevert(subscriptions.resume(resumePaidPeriods, { from }), SUBSCRIPTIONS_ERRORS.LOW_RESUME_PERIODS_PAYMENT)
             })
           })
 
@@ -351,7 +354,7 @@ contract('CourtSubscriptions', ([_, subscriber]) => {
 
           const { paused, previousDelayedPeriods } = await subscriptions.getSubscriber(subscriber)
           assert.isTrue(paused, 'subscriber should be paused')
-          assert.equal(previousDelayedPeriods.toString(), 0, 'delayed periods does not match')
+          assertBn(previousDelayedPeriods, 0, 'delayed periods does not match')
         })
 
         itIsUpToDate(resumePaidPeriods)
@@ -369,14 +372,14 @@ contract('CourtSubscriptions', ([_, subscriber]) => {
 
           const { paused, previousDelayedPeriods } = await subscriptions.getSubscriber(subscriber)
           assert.isTrue(paused, 'subscriber should be paused')
-          assert.equal(previousDelayedPeriods.toString(), delayedPeriods, 'delayed periods does not match')
+          assertBn(previousDelayedPeriods, delayedPeriods, 'delayed periods does not match')
         })
 
         context('when paying less than the corresponding pre-paid periods', () => {
           const resumePaidPeriods = RESUME_PRE_PAID_PERIODS - 1
 
           it('reverts', async () => {
-            await assertRevert(subscriptions.resume(resumePaidPeriods, { from }), 'CS_LOW_RESUME_PERIODS_PAYMENT')
+            await assertRevert(subscriptions.resume(resumePaidPeriods, { from }), SUBSCRIPTIONS_ERRORS.LOW_RESUME_PERIODS_PAYMENT)
           })
         })
 
@@ -384,7 +387,7 @@ contract('CourtSubscriptions', ([_, subscriber]) => {
           const resumePaidPeriods = RESUME_PRE_PAID_PERIODS
 
           it('reverts', async () => {
-            await assertRevert(subscriptions.resume(resumePaidPeriods, { from }), 'CS_LOW_RESUME_PERIODS_PAYMENT')
+            await assertRevert(subscriptions.resume(resumePaidPeriods, { from }), SUBSCRIPTIONS_ERRORS.LOW_RESUME_PERIODS_PAYMENT)
           })
         })
 
@@ -414,7 +417,7 @@ contract('CourtSubscriptions', ([_, subscriber]) => {
 
     context('when the sender was not paused', () => {
       it('reverts', async () => {
-        await assertRevert(subscriptions.resume(1, { from }), 'CS_SUBSCRIPTION_NOT_PAUSED')
+        await assertRevert(subscriptions.resume(1, { from }), SUBSCRIPTIONS_ERRORS.SUBSCRIPTION_NOT_PAUSED)
       })
     })
   })

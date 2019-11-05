@@ -1,4 +1,4 @@
-const { bn } = require('./numbers')
+const { bn } = require('../lib/numbers')
 const { soliditySha3, toBN } = require('web3-utils')
 
 const expectedBounds = ({ selectedJurors, batchRequestedJurors, balances, totalRequestedJurors }) => {
@@ -19,7 +19,7 @@ const simulateComputeSearchRandomBalances = ({
 }) => {
   let expectedSumTreeBalances = []
   const interval = highActiveBalanceBatchBound.sub(lowActiveBalanceBatchBound)
-  for(let i = 0; i < batchRequestedJurors; i++) {
+  for (let i = 0; i < batchRequestedJurors; i++) {
     if (interval.eq(bn(0))) expectedSumTreeBalances.push(lowActiveBalanceBatchBound)
     else {
       const seed = soliditySha3(termRandomness, disputeId, sortitionIteration, i)
@@ -81,7 +81,7 @@ const simulateDraft = ({
   let iteration = sortitionIteration
   let jurorsLeft = batchRequestedJurors
 
-  while(jurorsLeft > 0 && iteration < MAX_ITERATIONS) {
+  while (jurorsLeft > 0 && iteration < MAX_ITERATIONS) {
     const iterationDraftedKeys = simulateBatchedRandomSearch({
       termRandomness,
       disputeId,

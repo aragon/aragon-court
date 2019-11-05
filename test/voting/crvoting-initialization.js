@@ -1,5 +1,6 @@
-const { buildHelper } = require('../helpers/controller')(web3, artifacts)
-const { assertRevert } = require('../helpers/assertThrow')
+const { buildHelper } = require('../helpers/wrappers/controller')(web3, artifacts)
+const { assertRevert } = require('../helpers/asserts/assertThrow')
+const { CONTROLLED_ERRORS } = require('../helpers/utils/errors')
 
 const CRVoting = artifacts.require('CRVoting')
 
@@ -26,7 +27,7 @@ contract('CRVoting initialization', ([_, someone]) => {
         const controllerAddress = ZERO_ADDRESS
 
         it('reverts', async () => {
-          await assertRevert(CRVoting.new(controllerAddress), 'CTD_CONTROLLER_NOT_CONTRACT')
+          await assertRevert(CRVoting.new(controllerAddress), CONTROLLED_ERRORS.CONTROLLER_NOT_CONTRACT)
         })
       })
 
@@ -34,7 +35,7 @@ contract('CRVoting initialization', ([_, someone]) => {
         const controllerAddress = someone
 
         it('reverts', async () => {
-          await assertRevert(CRVoting.new(controllerAddress), 'CTD_CONTROLLER_NOT_CONTRACT')
+          await assertRevert(CRVoting.new(controllerAddress), CONTROLLED_ERRORS.CONTROLLER_NOT_CONTRACT)
         })
       })
     })

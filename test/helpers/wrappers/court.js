@@ -1,8 +1,9 @@
-const { bn } = require('./numbers')
-const { sha3 } = require('web3-utils')
-const { decodeEventsOfType } = require('./decodeEvent')
+const { bn } = require('../lib/numbers')
+const { ACTIVATE_DATA } = require('../utils/jurors')
+const { decodeEventsOfType } = require('../lib/decodeEvent')
 const { getEvents, getEventArgument } = require('@aragon/test-helpers/events')
-const { SALT, OUTCOMES, getVoteId, encryptVote, oppositeOutcome, outcomeFor } = require('../helpers/crvoting')
+const { COURT_EVENTS, REGISTRY_EVENTS } = require('../utils/events')
+const { SALT, OUTCOMES, getVoteId, encryptVote, oppositeOutcome, outcomeFor } = require('../utils/crvoting')
 
 const PCT_BASE = bn(10000)
 
@@ -86,7 +87,7 @@ module.exports = (web3, artifacts) => {
 
       const appealDeposit = appealFees.mul(this.appealCollateralFactor).div(PCT_BASE)
       const confirmAppealDeposit = appealFees.mul(this.appealConfirmCollateralFactor).div(PCT_BASE)
-      return { appealFees , appealDeposit, confirmAppealDeposit }
+      return { appealFees, appealDeposit, confirmAppealDeposit }
     }
 
     async getNextRoundStartTerm(disputeId, roundId) {
@@ -130,8 +131,6 @@ module.exports = (web3, artifacts) => {
     }
 
     async activate(jurors) {
-      const ACTIVATE_DATA = sha3('activate(uint256)').slice(0, 10)
-
       for (const { address, initialActiveBalance } of jurors) {
         await this.jurorToken.generateTokens(address, initialActiveBalance)
         await this.jurorToken.approveAndCall(this.jurorsRegistry.address, initialActiveBalance, ACTIVATE_DATA, { from: address })
@@ -151,7 +150,7 @@ module.exports = (web3, artifacts) => {
 
       // create dispute and return id
       const receipt = await this.court.createDispute(arbitrable.address, possibleRulings, { from: disputer })
-      return getEventArgument(receipt, 'NewDispute', 'disputeId')
+      return getEventArgument(receipt, COURT_EVENTS.NEW_DISPUTE, 'disputeId')
     }
 
     async draft({ disputeId, draftedJurors = undefined, drafter = undefined }) {
@@ -163,8 +162,8 @@ module.exports = (web3, artifacts) => {
         const { lastRoundId } = await this.getDispute(disputeId)
         const { roundJurorsNumber } = await this.getRound(disputeId, lastRoundId)
         const maxJurorsPerDraftBatch = await this.court.maxJurorsPerDraftBatch()
-        const jurorsToBeDrafted = roundJurorsNumber.lt(maxJurorsPerDraftBatch) ?
-              roundJurorsNumber.toNumber() : maxJurorsPerDraftBatch.toNumber()
+        const jurorsToBeDrafted = roundJurorsNumber.lt(maxJurorsPerDraftBatch)
+          ? roundJurorsNumber.toNumber() : maxJurorsPerDraftBatch.toNumber()
         const totalWeight = draftedJurors.reduce((total, { weight }) => total + weight, 0)
         if (totalWeight !== jurorsToBeDrafted) throw Error('Given jurors to be drafted do not fit the batch jurors number')
         const jurors = draftedJurors.map(j => j.address)
@@ -174,8 +173,8 @@ module.exports = (web3, artifacts) => {
 
       // draft and flat jurors with their weights
       const receipt = await this.court.draft(disputeId, { from: drafter })
-      const logs = decodeEventsOfType(receipt, this.artifacts.require('JurorsRegistry').abi, 'JurorDrafted')
-      const weights = getEvents({ logs }, 'JurorDrafted').reduce((jurors, event) => {
+      const logs = decodeEventsOfType(receipt, this.artifacts.require('JurorsRegistry').abi, REGISTRY_EVENTS.JUROR_DRAFTED)
+      const weights = getEvents({ logs }, REGISTRY_EVENTS.JUROR_DRAFTED).reduce((jurors, event) => {
         const { juror } = event.args
         jurors[juror] = (jurors[juror] || bn(0)).add(bn(1))
         return jurors
@@ -191,7 +190,7 @@ module.exports = (web3, artifacts) => {
         // if no outcome was set for the given outcome, pick one based on its index
         if (!outcome) outcome = outcomeFor(i)
         await this.voting.commit(voteId, encryptVote(outcome), { from: address })
-        if (outcome == OUTCOMES.LEAKED) {
+        if (outcome === OUTCOMES.LEAKED) {
           await this.voting.leak(voteId, address, outcome, SALT)
         }
       }
@@ -207,7 +206,7 @@ module.exports = (web3, artifacts) => {
         let { address, outcome } = voters[i]
         // if no outcome was set for the given outcome, pick one based on its index
         if (!outcome) outcome = outcomeFor(i)
-        if (outcome != OUTCOMES.LEAKED) {
+        if (outcome !== OUTCOMES.LEAKED) {
           await this.voting.reveal(voteId, outcome, SALT, { from: address })
         }
       }
@@ -303,6 +302,6 @@ module.exports = (web3, artifacts) => {
   return {
     DISPUTE_STATES,
     ROUND_STATES,
-    buildHelper: () => new CourtHelper(web3, artifacts),
+    buildHelper: () => new CourtHelper(web3, artifacts)
   }
 }

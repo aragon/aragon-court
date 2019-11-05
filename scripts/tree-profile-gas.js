@@ -1,5 +1,5 @@
-const { bigExp } = require('../test/helpers/numbers')(web3)
-const { printTable } = require('../test/helpers/logging')
+const { bigExp } = require('../test/helpers/lib/numbers')
+const { printTable } = require('../test/helpers/lib/logging')
 const { getEventArgument } = require('@aragon/test-helpers/events')
 
 const MAX_APPEAL_ROUNDS = 4
@@ -99,7 +99,7 @@ const logInsertStats = (title, gasCosts) => {
     ['', 'Total', 'Function'],
     ['Min', min('total'), min('function')],
     ['Max', max('total'), max('function')],
-    ['Average', avg('total'), avg('function')],
+    ['Average', avg('total'), avg('function')]
   ])
 }
 
@@ -118,4 +118,3 @@ module.exports = callback => {
     .then(callback)
     .catch(callback)
 }
-

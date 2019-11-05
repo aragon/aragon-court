@@ -1,13 +1,13 @@
-const { assertBn } = require('../helpers/numbers')
-const { bn, bigExp } = require('../helpers/numbers')
-const { printTable } = require('../helpers/logging')
-const { buildHelper } = require('../helpers/court')(web3, artifacts)
-const { getVoteId, encryptVote, oppositeOutcome, SALT, OUTCOMES } = require('../helpers/crvoting')
+const { assertBn } = require('../helpers/asserts/assertBn')
+const { bn, bigExp } = require('../helpers/lib/numbers')
+const { printTable } = require('../helpers/lib/logging')
+const { buildHelper } = require('../helpers/wrappers/court')(web3, artifacts)
+const { getVoteId, encryptVote, oppositeOutcome, SALT, OUTCOMES } = require('../helpers/utils/crvoting')
 
 const Arbitrable = artifacts.require('ArbitrableMock')
 
 contract('Court', ([_, sender, disputer, drafter, appealMaker, appealTaker, juror500, juror1000, juror1500, juror2000, juror2500, juror3000]) => {
-  let courtHelper, controllerHelper, court, voting, controller, costs = {}
+  let courtHelper, court, voting, controller, costs = {}
 
   const jurors = [
     { address: juror500,  initialActiveBalance: bigExp(500,  18) },
@@ -15,7 +15,7 @@ contract('Court', ([_, sender, disputer, drafter, appealMaker, appealTaker, juro
     { address: juror1500, initialActiveBalance: bigExp(1500, 18) },
     { address: juror2000, initialActiveBalance: bigExp(2000, 18) },
     { address: juror2500, initialActiveBalance: bigExp(2500, 18) },
-    { address: juror3000, initialActiveBalance: bigExp(3000, 18) },
+    { address: juror3000, initialActiveBalance: bigExp(3000, 18) }
   ]
 
   beforeEach('create court and activate jurors', async () => {
@@ -24,8 +24,6 @@ contract('Court', ([_, sender, disputer, drafter, appealMaker, appealTaker, juro
 
     voting = courtHelper.voting
     controller = courtHelper.controller
-    controllerHelper = courtHelper.controllerHelper
-
     await courtHelper.activate(jurors)
   })
 
@@ -55,7 +53,7 @@ contract('Court', ([_, sender, disputer, drafter, appealMaker, appealTaker, juro
           assertBn(neededTransitions, 0, 'needed transitions does not match')
         })
 
-        itCostsAtMost('createDispute', 217e3, () => court.createDispute(arbitrable.address, 2, { from: sender }))
+        itCostsAtMost('createDispute', 209e3, () => court.createDispute(arbitrable.address, 2, { from: sender }))
       })
 
       context('when the current term is outdated by one term', () => {
@@ -65,7 +63,7 @@ contract('Court', ([_, sender, disputer, drafter, appealMaker, appealTaker, juro
           assertBn(neededTransitions, 1, 'needed transitions does not match')
         })
 
-        itCostsAtMost('createDispute', 273e3, () => court.createDispute(arbitrable.address, 2, { from: sender }))
+        itCostsAtMost('createDispute', 265e3, () => court.createDispute(arbitrable.address, 2, { from: sender }))
       })
     })
 
@@ -78,9 +76,12 @@ contract('Court', ([_, sender, disputer, drafter, appealMaker, appealTaker, juro
 
         const lastEnsuredTermId = await controller.getLastEnsuredTermId()
         await courtHelper.passRealTerms(draftTermId - lastEnsuredTermId)
+
+        // Mock term randomness to make sure we always have the same output for the draft, otherwise this test won't be deterministic
+        await controller.mockSetTermRandomness('0x0000000000000000000000000000000000000000000000000000000000000001')
       })
 
-      itCostsAtMost('draft', 405e3, () => court.draft(disputeId))
+      itCostsAtMost('draft', 325e3, () => court.draft(disputeId))
     })
 
     describe('commit', () => {
@@ -104,7 +105,7 @@ contract('Court', ([_, sender, disputer, drafter, appealMaker, appealTaker, juro
           assertBn(neededTransitions, 0, 'needed transitions does not match')
         })
 
-        itCostsAtMost('commit', 93e3, () => voting.commit(voteId, vote, { from: draftedJurors[0].address }))
+        itCostsAtMost('commit', 78e3, () => voting.commit(voteId, vote, { from: draftedJurors[0].address }))
       })
 
       context('when the current term is outdated by one term', () => {
@@ -114,7 +115,7 @@ contract('Court', ([_, sender, disputer, drafter, appealMaker, appealTaker, juro
           assertBn(neededTransitions, 1, 'needed transitions does not match')
         })
 
-        itCostsAtMost('commit', 150e3, () => voting.commit(voteId, vote, { from: draftedJurors[0].address }))
+        itCostsAtMost('commit', 135e3, () => voting.commit(voteId, vote, { from: draftedJurors[0].address }))
       })
     })
 
@@ -141,7 +142,7 @@ contract('Court', ([_, sender, disputer, drafter, appealMaker, appealTaker, juro
           assertBn(neededTransitions, 0, 'needed transitions does not match')
         })
 
-        itCostsAtMost('reveal', 106e3, () => voting.reveal(voteId, outcome, SALT, { from: draftedJurors[0].address }))
+        itCostsAtMost('reveal', 104e3, () => voting.reveal(voteId, outcome, SALT, { from: draftedJurors[0].address }))
       })
 
       context('when the current term is outdated by one term', () => {
@@ -151,7 +152,7 @@ contract('Court', ([_, sender, disputer, drafter, appealMaker, appealTaker, juro
           assertBn(neededTransitions, 1, 'needed transitions does not match')
         })
 
-        itCostsAtMost('reveal', 162e3, () => voting.reveal(voteId, outcome, SALT, { from: draftedJurors[0].address }))
+        itCostsAtMost('reveal', 160e3, () => voting.reveal(voteId, outcome, SALT, { from: draftedJurors[0].address }))
       })
     })
 
@@ -186,7 +187,7 @@ contract('Court', ([_, sender, disputer, drafter, appealMaker, appealTaker, juro
           assertBn(neededTransitions, 0, 'needed transitions does not match')
         })
 
-        itCostsAtMost('createAppeal', 89e3, () => court.createAppeal(disputeId, roundId, appealMakerRuling, { from: appealMaker }))
+        itCostsAtMost('createAppeal', 74e3, () => court.createAppeal(disputeId, roundId, appealMakerRuling, { from: appealMaker }))
       })
 
       context('when the current term is outdated by one term', () => {
@@ -196,7 +197,7 @@ contract('Court', ([_, sender, disputer, drafter, appealMaker, appealTaker, juro
           assertBn(neededTransitions, 1, 'needed transitions does not match')
         })
 
-        itCostsAtMost('createAppeal', 145e3, () => court.createAppeal(disputeId, roundId, appealMakerRuling, { from: appealMaker }))
+        itCostsAtMost('createAppeal', 130e3, () => court.createAppeal(disputeId, roundId, appealMakerRuling, { from: appealMaker }))
       })
     })
 
@@ -231,7 +232,7 @@ contract('Court', ([_, sender, disputer, drafter, appealMaker, appealTaker, juro
           assertBn(neededTransitions, 0, 'needed transitions does not match')
         })
 
-        itCostsAtMost('confirmAppeal', 194e3, () => court.confirmAppeal(disputeId, roundId, appealTakerRuling, { from: appealTaker }))
+        itCostsAtMost('confirmAppeal', 179e3, () => court.confirmAppeal(disputeId, roundId, appealTakerRuling, { from: appealTaker }))
       })
 
       context('when the current term is outdated by one term', () => {
@@ -241,7 +242,7 @@ contract('Court', ([_, sender, disputer, drafter, appealMaker, appealTaker, juro
           assertBn(neededTransitions, 1, 'needed transitions does not match')
         })
 
-        itCostsAtMost('confirmAppeal', 250e3, () => court.confirmAppeal(disputeId, roundId, appealTakerRuling, { from: appealTaker }))
+        itCostsAtMost('confirmAppeal', 235e3, () => court.confirmAppeal(disputeId, roundId, appealTakerRuling, { from: appealTaker }))
       })
     })
 
@@ -268,7 +269,7 @@ contract('Court', ([_, sender, disputer, drafter, appealMaker, appealTaker, juro
           assertBn(neededTransitions, 0, 'needed transitions does not match')
         })
 
-        itCostsAtMost('executeRuling', 68e3, () => court.executeRuling(disputeId))
+        itCostsAtMost('executeRuling', 67e3, () => court.executeRuling(disputeId))
       })
 
       context('when the current term is outdated by one term', () => {
@@ -289,6 +290,9 @@ contract('Court', ([_, sender, disputer, drafter, appealMaker, appealTaker, juro
         const draftTermId = 2
         disputeId = await courtHelper.dispute({ draftTermId, disputer })
 
+        // Mock term randomness to make sure we always have the same output for the draft, otherwise this test won't be deterministic
+        await controller.mockSetTermRandomness('0x0000000000000000000000000000000000000000000000000000000000000001')
+
         // draft, court is already at term previous to dispute start
         await courtHelper.passTerms(bn(1))
         const draftedJurors = await courtHelper.draft({ disputeId, drafter })
@@ -305,7 +309,7 @@ contract('Court', ([_, sender, disputer, drafter, appealMaker, appealTaker, juro
           assertBn(neededTransitions, 0, 'needed transitions does not match')
         })
 
-        itCostsAtMost('settlePenalties', 212e3, () => court.settlePenalties(disputeId, roundId, 0))
+        itCostsAtMost('settlePenalties', 197e3, () => court.settlePenalties(disputeId, roundId, 0))
       })
 
       context('when the current term is outdated by one term', () => {
@@ -315,7 +319,7 @@ contract('Court', ([_, sender, disputer, drafter, appealMaker, appealTaker, juro
           assertBn(neededTransitions, 1, 'needed transitions does not match')
         })
 
-        itCostsAtMost('settlePenalties', 269e3, () => court.settlePenalties(disputeId, roundId, 0))
+        itCostsAtMost('settlePenalties', 253e3, () => court.settlePenalties(disputeId, roundId, 0))
       })
     })
 

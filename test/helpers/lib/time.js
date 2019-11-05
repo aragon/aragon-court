@@ -9,5 +9,5 @@ module.exports = {
   TOMORROW,
   NEXT_WEEK,
   ONE_DAY,
-  ONE_WEEK,
+  ONE_WEEK
 }

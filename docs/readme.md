@@ -13,4 +13,5 @@ The core of the document is organized around the external entry points to the sy
 3. [Trust assumptions](./3-trust-assumptions)
 4. [Entry points](./4-entry-points)
 5. [Data structures](./5-data-structures)
-6. [Additional documentation](./6-additional-documentation)
+6. [External interface](./6-external-interface)
+7. [Additional documentation](./7-additional-documentation)

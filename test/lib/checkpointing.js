@@ -1,5 +1,7 @@
-const { MAX_UINT256 } = require('../helpers/numbers')
-const { assertRevert } = require('../helpers/assertThrow')
+const { assertBn } = require('../helpers/asserts/assertBn')
+const { MAX_UINT256 } = require('../helpers/lib/numbers')
+const { assertRevert } = require('../helpers/asserts/assertThrow')
+const { CHECKPOINT_ERRORS } = require('../helpers/utils/errors')
 
 const Checkpointing = artifacts.require('CheckpointingMock')
 
@@ -11,8 +13,9 @@ contract('Checkpointing', () => {
   })
 
   const assertFetchedValue = async (time, expectedValue) => {
-    for (const searchFn of ['get', 'getRecent'])
-      assert.equal((await checkpointing[searchFn](time)).toString(), expectedValue.toString(), 'value does not match')
+    for (const searchFn of ['get', 'getRecent']) {
+      assertBn((await checkpointing[searchFn](time)), expectedValue, 'value does not match')
+    }
   }
 
   describe('add', () => {
@@ -52,7 +55,7 @@ contract('Checkpointing', () => {
           const time = 40
 
           it('reverts', async () => {
-            await assertRevert(checkpointing.add(time, value), 'CHECKPOINT_CANNOT_ADD_PAST_VALUE')
+            await assertRevert(checkpointing.add(time, value), CHECKPOINT_ERRORS.CANNOT_ADD_PAST_VALUE)
           })
         })
 
@@ -87,7 +90,7 @@ contract('Checkpointing', () => {
       const value = MAX_UINT256
 
       it('reverts', async () => {
-        await assertRevert(checkpointing.add(0, value), 'CHECKPOINT_VALUE_TOO_BIG')
+        await assertRevert(checkpointing.add(0, value), CHECKPOINT_ERRORS.VALUE_TOO_BIG)
       })
     })
   })
@@ -95,7 +98,7 @@ contract('Checkpointing', () => {
   describe('getLast', () => {
     context('when there are no values registered yet', () => {
       it('returns zero', async () => {
-        assert.equal((await checkpointing.getLast()).toString(), 0, 'value does not match')
+        assertBn((await checkpointing.getLast()), 0, 'value does not match')
       })
     })
 
@@ -107,7 +110,7 @@ contract('Checkpointing', () => {
       })
 
       it('returns the last registered value', async () => {
-        assert.equal((await checkpointing.getLast()).toString(), 3, 'value does not match')
+        assertBn((await checkpointing.getLast()), 3, 'value does not match')
       })
     })
   })

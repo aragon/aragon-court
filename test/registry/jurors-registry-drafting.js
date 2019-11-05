@@ -1,12 +1,15 @@
 const { sha3 } = require('web3-utils')
-const { bn, bigExp } = require('../helpers/numbers')
+const { assertBn } = require('../helpers/asserts/assertBn')
+const { bn, bigExp } = require('../helpers/lib/numbers')
 const { getEventAt } = require('@aragon/test-helpers/events')
-const { buildHelper } = require('../helpers/controller')(web3, artifacts)
-const { assertRevert } = require('../helpers/assertThrow')
-const { simulateDraft } = require('../helpers/registry')
-const { countEqualJurors } = require('../helpers/jurors')
-const { decodeEventsOfType } = require('../helpers/decodeEvent')
-const { assertAmountOfEvents, assertEvent } = require('../helpers/assertEvent')
+const { buildHelper } = require('../helpers/wrappers/controller')(web3, artifacts)
+const { assertRevert } = require('../helpers/asserts/assertThrow')
+const { simulateDraft } = require('../helpers/utils/registry')
+const { REGISTRY_EVENTS } = require('../helpers/utils/events')
+const { decodeEventsOfType } = require('../helpers/lib/decodeEvent')
+const { CONTROLLED_ERRORS, TREE_ERRORS } = require('../helpers/utils/errors')
+const { ACTIVATE_DATA, countEqualJurors } = require('../helpers/utils/jurors')
+const { assertAmountOfEvents, assertEvent } = require('../helpers/asserts/assertEvent')
 
 const JurorsRegistry = artifacts.require('JurorsRegistryMock')
 const Court = artifacts.require('CourtMockForRegistry')
@@ -20,7 +23,6 @@ contract('JurorsRegistry', ([_, juror500, juror1000, juror1500, juror2000, juror
   const DRAFT_LOCK_PCT = bn(2000) // 20%
   const MIN_ACTIVE_AMOUNT = bigExp(100, 18)
   const TOTAL_ACTIVE_BALANCE_LIMIT = bigExp(100e6, 18)
-  const ACTIVATE_DATA = sha3('activate(uint256)').slice(0, 10)
   const DRAFT_LOCKED_AMOUNT = MIN_ACTIVE_AMOUNT.mul(DRAFT_LOCK_PCT).div(bn(10000))
 
   /** These tests are using a fixed seed to make sure we generate the same output on each run */
@@ -37,7 +39,7 @@ contract('JurorsRegistry', ([_, juror500, juror1000, juror1500, juror2000, juror
     bigExp(2500, 18),
     bigExp(3000, 18),
     bigExp(3500, 18),
-    bigExp(4000, 18),
+    bigExp(4000, 18)
   ]
 
   const jurors = [
@@ -48,7 +50,7 @@ contract('JurorsRegistry', ([_, juror500, juror1000, juror1500, juror2000, juror
     { address: juror2500, initialActiveBalance: balances[4] },
     { address: juror3000, initialActiveBalance: balances[5] },
     { address: juror3500, initialActiveBalance: balances[6] },
-    { address: juror4000, initialActiveBalance: balances[7] },
+    { address: juror4000, initialActiveBalance: balances[7] }
   ]
 
   beforeEach('create base contracts', async () => {
@@ -128,14 +130,14 @@ contract('JurorsRegistry', ([_, juror500, juror1000, juror1500, juror2000, juror
       const juror = await getFirstExpectedJurorAddress({ disputeId, batchRequestedJurors, roundRequestedJurors })
       await registry.deactivate(0, { from: juror })
       const { active } = await registry.balanceOf(juror)
-      assert.equal(active.toString(), 0, 'first expected juror active balance does not match')
+      assertBn(active, 0, 'first expected juror active balance does not match')
     }
 
     const lockFirstExpectedJuror = async ({ disputeId, batchRequestedJurors, roundRequestedJurors, leftUnlockedAmount = bn(0) }) => {
       const juror = await getFirstExpectedJurorAddress({ disputeId, batchRequestedJurors, roundRequestedJurors })
       await registry.mockLock(juror, leftUnlockedAmount)
       const { active, locked } = await registry.balanceOfAt(juror, TERM_ID)
-      assert.equal(locked.toString(), active.sub(leftUnlockedAmount).toString(), 'juror locked balance does not match')
+      assertBn(locked, active.sub(leftUnlockedAmount), 'juror locked balance does not match')
     }
 
     beforeEach('initialize registry and mint ANJ for jurors', async () => {
@@ -147,7 +149,7 @@ contract('JurorsRegistry', ([_, juror500, juror1000, juror1500, juror2000, juror
     context('when the sender is the court', () => {
       const itReverts = (previousSelectedJurors, batchRequestedJurors, roundRequestedJurors) => {
         it('reverts', async () => {
-          await assertRevert(draft({ selectedJurors: previousSelectedJurors, batchRequestedJurors, roundRequestedJurors }), 'TREE_INVALID_INTERVAL_SEARCH')
+          await assertRevert(draft({ selectedJurors: previousSelectedJurors, batchRequestedJurors, roundRequestedJurors }), TREE_ERRORS.INVALID_INTERVAL_SEARCH)
         })
       }
 
@@ -155,7 +157,7 @@ contract('JurorsRegistry', ([_, juror500, juror1000, juror1500, juror2000, juror
         it('returns empty values', async () => {
           const { length, addresses } = await draft({ batchRequestedJurors, roundRequestedJurors })
 
-          assert.equal(length.toString(), 0, 'output length does not match')
+          assertBn(length, 0, 'output length does not match')
 
           const expectedAddresses = (batchRequestedJurors === 0) ? [] : Array.from(new Array(addresses.length)).map(() => ZERO_ADDRESS)
           assert.deepEqual(addresses, expectedAddresses, 'jurors address do not match')
@@ -163,9 +165,9 @@ contract('JurorsRegistry', ([_, juror500, juror1000, juror1500, juror2000, juror
 
         it('does not emit JurorDrafted events', async () => {
           const { receipt } = await draft({ batchRequestedJurors, roundRequestedJurors })
-          const logs = decodeEventsOfType(receipt, JurorsRegistry.abi, 'JurorDrafted')
+          const logs = decodeEventsOfType(receipt, JurorsRegistry.abi, REGISTRY_EVENTS.JUROR_DRAFTED)
 
-          assertAmountOfEvents({ logs }, 'JurorDrafted', 0)
+          assertAmountOfEvents({ logs }, REGISTRY_EVENTS.JUROR_DRAFTED, 0)
         })
       }
 
@@ -201,17 +203,17 @@ contract('JurorsRegistry', ([_, juror500, juror1000, juror1500, juror2000, juror
             roundRequestedJurors
           })
 
-          const logs = decodeEventsOfType(receipt, JurorsRegistry.abi, 'JurorDrafted')
-          assertAmountOfEvents({ logs }, 'JurorDrafted', length)
+          const logs = decodeEventsOfType(receipt, JurorsRegistry.abi, REGISTRY_EVENTS.JUROR_DRAFTED)
+          assertAmountOfEvents({ logs }, REGISTRY_EVENTS.JUROR_DRAFTED, length)
 
           for (let i = 0; i < length; i++) {
-            assertEvent({ logs }, 'JurorDrafted', { disputeId, juror: expectedJurors[i] }, i)
+            assertEvent({ logs }, REGISTRY_EVENTS.JUROR_DRAFTED, { disputeId, juror: expectedJurors[i] }, i)
           }
         })
 
         it('locks the corresponding amount of active balances for the expected jurors', async () => {
           const previousLockedBalances = {}
-          for(let i = 0; i < jurors.length; i++) {
+          for (let i = 0; i < jurors.length; i++) {
             const address = jurors[i].address
             const { locked } = await registry.balanceOf(address)
             previousLockedBalances[address] = locked
@@ -231,8 +233,8 @@ contract('JurorsRegistry', ([_, juror500, juror1000, juror1500, juror2000, juror
             const previousLockedBalance = previousLockedBalances[juror.address]
             const expectedLockedBalance = juror.count * DRAFT_LOCKED_AMOUNT
 
-            const actualLockedBalance = currentLockedBalance.sub(previousLockedBalance).toString()
-            assert.equal(actualLockedBalance, expectedLockedBalance, `locked balance for juror #${juror.address} does not match`)
+            const actualLockedBalance = currentLockedBalance.sub(previousLockedBalance)
+            assertBn(actualLockedBalance, expectedLockedBalance, `locked balance for juror #${juror.address} does not match`)
           }
         })
       }
@@ -475,7 +477,7 @@ contract('JurorsRegistry', ([_, juror500, juror1000, juror1500, juror2000, juror
                       await draft({ batchRequestedJurors: 3, roundRequestedJurors: 3 })
                     })
 
-                    context('when jurors don\'t have deactivation requests', () => {
+                    context('when jurors do not have deactivation requests', () => {
                       context('for the first batch', () => {
                         const batchRequestedJurors = 3
                         const previousSelectedJurors = 0
@@ -549,7 +551,7 @@ contract('JurorsRegistry', ([_, juror500, juror1000, juror1500, juror2000, juror
 
     context('when the sender is not the court', () => {
       it('reverts', async () => {
-        await assertRevert(registry.draft([0, 0, 0, 0, 0, 0, 0]), 'CTD_SENDER_NOT_COURT_MODULE')
+        await assertRevert(registry.draft([0, 0, 0, 0, 0, 0, 0]), CONTROLLED_ERRORS.SENDER_NOT_COURT_MODULE)
       })
     })
   })

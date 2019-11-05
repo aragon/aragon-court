@@ -1,4 +1,5 @@
-const { bn, bigExp } = require('../helpers/numbers')
+const { assertBn } = require('../helpers/asserts/assertBn')
+const { bn, bigExp } = require('../helpers/lib/numbers')
 const { getEventArgument } = require('@aragon/test-helpers/events')
 
 const HexSumTree = artifacts.require('HexSumTreeGasProfiler')
@@ -37,12 +38,11 @@ contract('HexSumTree', () => {
 
           itCostsAtMost(expectedCost, async () => {
             // mock huge next key
-            const nextKey = BIG_KEY
-            await tree.mockNextKey(0, nextKey)
+            await tree.mockNextKey(0, BIG_KEY)
 
             await tree.insert(0, 10)
-            assert.equal((await tree.height()).toString(), 28, 'tree height does not match')
-            return await tree.insert(0, 10)
+            assertBn((await tree.height()), 28, 'tree height does not match')
+            return tree.insert(0, 10)
           })
         })
       })
@@ -54,7 +54,7 @@ contract('HexSumTree', () => {
           itCostsAtMost(expectedCost, async () => {
             for (let i = 0; i < CHILDREN; i++) await tree.insert(0, 10)
             const receipt = await tree.insert(0, 10)
-            assert.equal((await tree.height()).toString(), 2, 'tree height does not match')
+            assertBn((await tree.height()), 2, 'tree height does not match')
             return receipt
           })
         })
@@ -68,8 +68,8 @@ contract('HexSumTree', () => {
             await tree.mockNextKey(0, nextKey)
 
             await tree.insert(0, 10)
-            assert.equal((await tree.height()).toString(), 29, 'tree height does not match')
-            return await tree.insert(0, 10)
+            assertBn((await tree.height()), 29, 'tree height does not match')
+            return tree.insert(0, 10)
           })
         })
       })
@@ -219,8 +219,7 @@ contract('HexSumTree', () => {
 
             itCostsAtMost(expectedCost, async () => {
               // mock huge next key
-              const nextKey = BIG_KEY
-              await tree.mockNextKey(0, nextKey)
+              await tree.mockNextKey(0, BIG_KEY)
               await tree.insert(0, value)
 
               return tree.search(searchedValue, 0)
@@ -284,8 +283,7 @@ contract('HexSumTree', () => {
 
             itCostsAtMost(expectedCost, async () => {
               // mock huge next key
-              const nextKey = BIG_KEY
-              await tree.mockNextKey(0, nextKey)
+              await tree.mockNextKey(0, BIG_KEY)
               await insertMany(value, insertTimes)
 
               return tree.search(searchValues, 0)

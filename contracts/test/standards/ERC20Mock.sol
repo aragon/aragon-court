@@ -1,6 +1,6 @@
 pragma solidity ^0.5.8;
 
-import "@aragon/os/contracts/lib/math/SafeMath.sol";
+import "../../lib/os/SafeMath.sol";
 
 import "../../standards/ApproveAndCall.sol";
 

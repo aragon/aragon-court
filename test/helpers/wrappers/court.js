@@ -1,8 +1,8 @@
 const { bn } = require('../lib/numbers')
 const { ACTIVATE_DATA } = require('../utils/jurors')
 const { decodeEventsOfType } = require('../lib/decodeEvent')
+const { getEvents, getEventArgument } = require('@aragon/test-helpers/events')
 const { COURT_EVENTS, REGISTRY_EVENTS } = require('../utils/events')
-const { getEvents, getEventArgument } = require('@aragon/os/test/helpers/events')
 const { SALT, OUTCOMES, getVoteId, encryptVote, oppositeOutcome, outcomeFor } = require('../utils/crvoting')
 
 const PCT_BASE = bn(10000)

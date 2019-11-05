@@ -1,6 +1,6 @@
 pragma solidity ^0.5.8;
 
-import "@aragon/os/contracts/common/TimeHelpers.sol";
+import "../../lib/os/TimeHelpers.sol";
 
 import "./IClock.sol";
 

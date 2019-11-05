@@ -1,11 +1,11 @@
 pragma solidity ^0.5.8;
 
 // Inspired by: Kleros.sol https://github.com/kleros/kleros @ 7281e69
-import "@aragon/os/contracts/lib/token/ERC20.sol";
-import "@aragon/os/contracts/common/SafeERC20.sol";
-import "@aragon/os/contracts/lib/math/SafeMath.sol";
-import "@aragon/os/contracts/lib/math/SafeMath64.sol";
-import "@aragon/os/contracts/common/Uint256Helpers.sol";
+import "../lib/os/ERC20.sol";
+import "../lib/os/SafeERC20.sol";
+import "../lib/os/SafeMath.sol";
+import "../lib/os/SafeMath64.sol";
+import "../lib/os/Uint256Helpers.sol";
 
 import "../lib/PctHelpers.sol";
 import "../voting/ICRVoting.sol";

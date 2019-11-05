@@ -1,20 +1,5 @@
-const aOSConfig = require("@aragon/os/truffle-config")
-delete aOSConfig.solc
+const TruffleConfig = require('@aragon/truffle-config-v5/truffle-config')
 
-const config = {
-  ...aOSConfig,
+TruffleConfig.compilers.solc.version = '0.5.8'
 
-  compilers: {
-    solc: {
-      version: '0.5.8',
-      settings: {
-        optimizer: {
-          enabled: true,
-          runs: 10000
-        },
-      },
-    },
-  }
-}
-
-module.exports = config
+module.exports = TruffleConfig

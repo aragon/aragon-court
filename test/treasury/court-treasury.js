@@ -409,7 +409,7 @@ contract('CourtTreasury', ([_, court, holder, someone]) => {
 
     context('when the holder does not accept automatic withdraws', () => {
       it('reverts', async () => {
-        await assertRevert(treasury.withdrawAll(DAI.address, recipient, { from }), 'TREASURY_WITHDRAWALS_DISALLOWED')
+        await assertRevert(treasury.withdrawAll(DAI.address, recipient, { from }), TREASURY_ERRORS.WITHDRAWALS_DISALLOWED)
       })
     })
   })

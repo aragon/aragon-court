@@ -66,7 +66,8 @@ const CONTROLLED_EVENTS = {
 }
 
 const CONFIG_EVENTS = {
-  CONFIG_CHANGED: 'NewConfig'
+  CONFIG_CHANGED: 'NewConfig',
+  AUTOMATIC_WITHDRAWALS_ALLOWED_CHANGED: 'AutomaticWithdrawalsAllowedChanged'
 }
 
 const CLOCK_EVENTS = {

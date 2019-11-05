@@ -233,8 +233,8 @@ contract('JurorsRegistry', ([_, juror500, juror1000, juror1500, juror2000, juror
             const previousLockedBalance = previousLockedBalances[juror.address]
             const expectedLockedBalance = juror.count * DRAFT_LOCKED_AMOUNT
 
-            const actualLockedBalance = currentLockedBalance.sub(previousLockedBalance).toString()
-            assert.equal(actualLockedBalance, expectedLockedBalance, `locked balance for juror #${juror.address} does not match`)
+            const actualLockedBalance = currentLockedBalance.sub(previousLockedBalance)
+            assertBn(actualLockedBalance, expectedLockedBalance, `locked balance for juror #${juror.address} does not match`)
           }
         })
       }

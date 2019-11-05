@@ -3,8 +3,9 @@ const { bn, bigExp } = require('../helpers/lib/numbers')
 const { buildHelper } = require('../helpers/wrappers/court')(web3, artifacts)
 const { assertRevert } = require('../helpers/asserts/assertThrow')
 const { NOW, ONE_DAY } = require('../helpers/lib/time')
+const { CONFIG_EVENTS } = require('../helpers/utils/events')
 const { assertConfig, buildNewConfig } = require('../helpers/utils/config')(artifacts)
-const { assertEvent, assertAmountOfEvents } = require('../helpers/assertEvent')
+const { assertEvent, assertAmountOfEvents } = require('../helpers/asserts/assertEvent')
 const { CLOCK_ERRORS, CONFIG_ERRORS, CONTROLLER_ERRORS } = require('../helpers/utils/errors')
 
 contract('Controller', ([_, configGovernor, someone, disputer, drafter, appealMaker, appealTaker, juror500, juror1000, juror3000]) => {
@@ -144,12 +145,19 @@ contract('Controller', ([_, configGovernor, someone, disputer, drafter, appealMa
       const itHandlesConfigChangesProperly = (configChangeTermId, handleDisputes) => {
         context('when there was no config change scheduled before', () => {
           context('when the new config is valid', () => {
+            let receipt
+
             beforeEach('change court config', async () => {
-              await controllerHelper.setConfig(configChangeTermId, newConfig, { from })
+              receipt = await controllerHelper.setConfig(configChangeTermId, newConfig, { from })
             })
 
             it('check it from the past', async () => {
               await checkConfig(configChangeTermId, newConfig)
+            })
+
+            it('emits an event', async () => {
+              assertAmountOfEvents(receipt, CONFIG_EVENTS.CONFIG_CHANGED)
+              assertEvent(receipt, CONFIG_EVENTS.CONFIG_CHANGED, { fromTermId: configChangeTermId, courtConfigId: 2 })
             })
 
             it('schedules the new config properly', async () => {
@@ -181,8 +189,8 @@ contract('Controller', ([_, configGovernor, someone, disputer, drafter, appealMa
 
                 // check dispute config related info
                 const { roundJurorsNumber, jurorFees } = await courtHelper.getRound(disputeId, 0)
-                assertBn(roundJurorsNumber, firstRoundJurorsNumber, 'jurors Number does not match')
-                assertBn(jurorFees, firstRoundJurorsNumber.mul(jurorFee), 'jurors Fees do not match')
+                assertBn(roundJurorsNumber, firstRoundJurorsNumber, 'jurors number does not match')
+                assertBn(jurorFees, firstRoundJurorsNumber.mul(jurorFee), 'jurors fees do not match')
 
                 // draft
                 await controllerHelper.advanceBlocks(1)
@@ -420,44 +428,45 @@ contract('Controller', ([_, configGovernor, someone, disputer, drafter, appealMa
     let controller
 
     beforeEach('load controller', async () => {
+      await courtHelper.deploy(initialConfig)
       controller = courtHelper.controller
     })
 
     it('are disallowed initially', async () => {
-      assert.isFalse(await controller.areWithdrawalsAllowedFor(sender), 'withdrawals are allowed')
+      assert.isFalse(await controller.areWithdrawalsAllowedFor(someone), 'withdrawals are allowed')
     })
 
     context('when the automatic withdrawals were disallowed', () => {
       it('allows the automatic withdrawals', async () => {
-        await controller.setAutomaticWithdrawals(true, { from: sender })
+        await controller.setAutomaticWithdrawals(true, { from: someone })
 
-        assert.isTrue(await controller.areWithdrawalsAllowedFor(sender), 'withdrawals are disallowed')
+        assert.isTrue(await controller.areWithdrawalsAllowedFor(someone), 'withdrawals are disallowed')
       })
 
       it('emits an event', async () => {
-        const receipt = await controller.setAutomaticWithdrawals(true, { from: sender })
+        const receipt = await controller.setAutomaticWithdrawals(true, { from: someone })
 
-        assertAmountOfEvents(receipt, 'AutomaticWithdrawalsAllowedChanged')
-        assertEvent(receipt, 'AutomaticWithdrawalsAllowedChanged', { holder: sender, allowed: true })
+        assertAmountOfEvents(receipt, CONFIG_EVENTS.AUTOMATIC_WITHDRAWALS_ALLOWED_CHANGED)
+        assertEvent(receipt, CONFIG_EVENTS.AUTOMATIC_WITHDRAWALS_ALLOWED_CHANGED, { holder: someone, allowed: true })
       })
     })
 
     context('when the automatic withdrawals were allowed', () => {
       beforeEach('allow automatic withdrawals', async () => {
-        await controller.setAutomaticWithdrawals(true, { from: sender })
+        await controller.setAutomaticWithdrawals(true, { from: someone })
       })
 
       it('disallows the automatic withdrawals', async () => {
-        await controller.setAutomaticWithdrawals(false, { from: sender })
+        await controller.setAutomaticWithdrawals(false, { from: someone })
 
-        assert.isFalse(await controller.areWithdrawalsAllowedFor(sender), 'withdrawals are allowed')
+        assert.isFalse(await controller.areWithdrawalsAllowedFor(someone), 'withdrawals are allowed')
       })
 
       it('emits an event', async () => {
-        const receipt = await controller.setAutomaticWithdrawals(false, { from: sender })
+        const receipt = await controller.setAutomaticWithdrawals(false, { from: someone })
 
-        assertAmountOfEvents(receipt, 'AutomaticWithdrawalsAllowedChanged')
-        assertEvent(receipt, 'AutomaticWithdrawalsAllowedChanged', { holder: sender, allowed: false })
+        assertAmountOfEvents(receipt, CONFIG_EVENTS.AUTOMATIC_WITHDRAWALS_ALLOWED_CHANGED)
+        assertEvent(receipt, CONFIG_EVENTS.AUTOMATIC_WITHDRAWALS_ALLOWED_CHANGED, { holder: someone, allowed: false })
       })
     })
   })

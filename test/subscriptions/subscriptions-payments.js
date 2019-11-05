@@ -1,7 +1,10 @@
-const { bn, bigExp } = require('../helpers/numbers')
-const { buildHelper } = require('../helpers/controller')(web3, artifacts)
-const { assertRevert } = require('../helpers/assertThrow')
-const { assertAmountOfEvents, assertEvent } = require('../helpers/assertEvent')
+const { assertBn } = require('../helpers/asserts/assertBn')
+const { bn, bigExp } = require('../helpers/lib/numbers')
+const { buildHelper } = require('../helpers/wrappers/controller')(web3, artifacts)
+const { assertRevert } = require('../helpers/asserts/assertThrow')
+const { SUBSCRIPTIONS_ERRORS } = require('../helpers/utils/errors')
+const { SUBSCRIPTIONS_EVENTS } = require('../helpers/utils/events')
+const { assertAmountOfEvents, assertEvent } = require('../helpers/asserts/assertEvent')
 
 const CourtSubscriptions = artifacts.require('CourtSubscriptions')
 const ERC20 = artifacts.require('ERC20Mock')
@@ -31,7 +34,7 @@ contract('CourtSubscriptions', ([_, governor, payer, subscriber, anotherSubscrib
 
       context('when the court has not started yet', () => {
         it('reverts', async () => {
-          await assertRevert(subscriptions.payFees(subscriber, periods), 'CS_COURT_HAS_NOT_STARTED')
+          await assertRevert(subscriptions.payFees(subscriber, periods), SUBSCRIPTIONS_ERRORS.COURT_HAS_NOT_STARTED)
         })
       })
 
@@ -60,7 +63,7 @@ contract('CourtSubscriptions', ([_, governor, payer, subscriber, anotherSubscrib
               const expectedLastPeriodId = currentPeriodId + expectedMovedPeriods
               const { newLastPeriodId } = await subscriptions.getPayFeesDetails(subscriber, periods)
 
-              assert.equal(newLastPeriodId.toString(), expectedLastPeriodId, 'new last period id does not match')
+              assertBn(newLastPeriodId, expectedLastPeriodId, 'new last period id does not match')
             })
 
             it('computes number of delayed periods correctly', async () => {
@@ -69,7 +72,7 @@ contract('CourtSubscriptions', ([_, governor, payer, subscriber, anotherSubscrib
               await subscriptions.payFees(subscriber, periods, { from })
 
               const currentDelayedPeriods = await subscriptions.getDelayedPeriods(subscriber)
-              assert.equal(currentDelayedPeriods.toString(), previousDelayedPeriods.sub(bn(expectedDelayedPeriods)).toString(), 'number of delayed periods does not match')
+              assertBn(currentDelayedPeriods, previousDelayedPeriods.sub(bn(expectedDelayedPeriods)), 'number of delayed periods does not match')
             })
 
             it('subscribes the requested periods', async () => {
@@ -85,15 +88,15 @@ contract('CourtSubscriptions', ([_, governor, payer, subscriber, anotherSubscrib
               const previousSubscriptionsBalance = await feeToken.balanceOf(subscriptions.address)
 
               const { amountToPay } = await subscriptions.getPayFeesDetails(subscriber, periods)
-              assert.equal(amountToPay.toString(), expectedTotalPaidFees.toString(), 'amount to be paid does not match')
+              assertBn(amountToPay, expectedTotalPaidFees, 'amount to be paid does not match')
 
               await subscriptions.payFees(subscriber, periods, { from })
 
               const currentSubscriptionsBalance = await feeToken.balanceOf(subscriptions.address)
-              assert.equal(currentSubscriptionsBalance.toString(), previousSubscriptionsBalance.add(expectedTotalPaidFees).toString(), 'subscriptions balances do not match')
+              assertBn(currentSubscriptionsBalance, previousSubscriptionsBalance.add(expectedTotalPaidFees), 'subscriptions balances do not match')
 
               const currentPayerBalance = await feeToken.balanceOf(from)
-              assert.equal(currentPayerBalance.toString(), previousPayerBalance.sub(expectedTotalPaidFees).toString(), 'payer balances do not match')
+              assertBn(currentPayerBalance, previousPayerBalance.sub(expectedTotalPaidFees), 'payer balances do not match')
             })
 
             it('pays the governor fees', async () => {
@@ -103,11 +106,11 @@ contract('CourtSubscriptions', ([_, governor, payer, subscriber, anotherSubscrib
               const receipt = await subscriptions.payFees(subscriber, periods, { from })
 
               const currentGovernorFees = await subscriptions.accumulatedGovernorFees()
-              assert.equal(currentGovernorFees.toString(), previousGovernorFees.add(expectedGovernorFees).toString(), 'governor fees do not match')
+              assertBn(currentGovernorFees, previousGovernorFees.add(expectedGovernorFees), 'governor fees do not match')
 
               const expectedCollectedFees = expectedTotalPaidFees.sub(expectedGovernorFees)
-              assertAmountOfEvents(receipt, 'FeesPaid')
-              assertEvent(receipt, 'FeesPaid', { subscriber, periods, newLastPeriodId, collectedFees: expectedCollectedFees, governorFee: expectedGovernorFees })
+              assertAmountOfEvents(receipt, SUBSCRIPTIONS_EVENTS.FEES_PAID)
+              assertEvent(receipt, SUBSCRIPTIONS_EVENTS.FEES_PAID, { subscriber, periods, newLastPeriodId, collectedFees: expectedCollectedFees, governorFee: expectedGovernorFees })
             })
           }
 
@@ -138,7 +141,7 @@ contract('CourtSubscriptions', ([_, governor, payer, subscriber, anotherSubscrib
               })
 
               it('reverts', async () => {
-                await assertRevert(subscriptions.payFees(subscriber, periods, { from }), 'CS_PAYING_TOO_MANY_PERIODS')
+                await assertRevert(subscriptions.payFees(subscriber, periods, { from }), SUBSCRIPTIONS_ERRORS.PAYING_TOO_MANY_PERIODS)
               })
             })
           })
@@ -182,7 +185,7 @@ contract('CourtSubscriptions', ([_, governor, payer, subscriber, anotherSubscrib
                   })
 
                   it('reverts', async () => {
-                    await assertRevert(subscriptions.payFees(subscriber, periods, { from }), 'CS_PAYING_TOO_MANY_PERIODS')
+                    await assertRevert(subscriptions.payFees(subscriber, periods, { from }), SUBSCRIPTIONS_ERRORS.PAYING_TOO_MANY_PERIODS)
                   })
                 })
               })
@@ -215,7 +218,7 @@ contract('CourtSubscriptions', ([_, governor, payer, subscriber, anotherSubscrib
                   })
 
                   it('reverts', async () => {
-                    await assertRevert(subscriptions.payFees(subscriber, periods, { from }), 'CS_PAYING_TOO_MANY_PERIODS')
+                    await assertRevert(subscriptions.payFees(subscriber, periods, { from }), SUBSCRIPTIONS_ERRORS.PAYING_TOO_MANY_PERIODS)
                   })
                 })
               })
@@ -282,7 +285,7 @@ contract('CourtSubscriptions', ([_, governor, payer, subscriber, anotherSubscrib
                     })
 
                     it('reverts', async () => {
-                      await assertRevert(subscriptions.payFees(subscriber, periods, { from }), 'CS_PAYING_TOO_MANY_PERIODS')
+                      await assertRevert(subscriptions.payFees(subscriber, periods, { from }), SUBSCRIPTIONS_ERRORS.PAYING_TOO_MANY_PERIODS)
                     })
                   })
                 })
@@ -295,7 +298,7 @@ contract('CourtSubscriptions', ([_, governor, payer, subscriber, anotherSubscrib
               })
 
               it('reverts', async () => {
-                await assertRevert(subscriptions.payFees(subscriber, periods, { from }), 'CS_SUBSCRIPTION_PAUSED')
+                await assertRevert(subscriptions.payFees(subscriber, periods, { from }), SUBSCRIPTIONS_ERRORS.SUBSCRIPTION_PAUSED)
               })
             })
           })
@@ -303,7 +306,7 @@ contract('CourtSubscriptions', ([_, governor, payer, subscriber, anotherSubscrib
 
         context('when the sender does not have enough balance', () => {
           it('reverts', async () => {
-            await assertRevert(subscriptions.payFees(subscriber, 1), 'CS_TOKEN_TRANSFER_FAILED')
+            await assertRevert(subscriptions.payFees(subscriber, 1), SUBSCRIPTIONS_ERRORS.TOKEN_TRANSFER_FAILED)
           })
         })
       })
@@ -313,7 +316,7 @@ contract('CourtSubscriptions', ([_, governor, payer, subscriber, anotherSubscrib
       const periods = 0
 
       it('reverts', async () => {
-        await assertRevert(subscriptions.payFees(subscriber, periods), 'CS_PAYING_ZERO_PERIODS')
+        await assertRevert(subscriptions.payFees(subscriber, periods), SUBSCRIPTIONS_ERRORS.PAYING_ZERO_PERIODS)
       })
     })
   })
@@ -321,7 +324,7 @@ contract('CourtSubscriptions', ([_, governor, payer, subscriber, anotherSubscrib
   describe('transferFeesToGovernor', () => {
     context('when there are no accumulated fees', () => {
       it('reverts', async () => {
-        await assertRevert(subscriptions.transferFeesToGovernor(), 'CS_GOVERNOR_SHARE_FEES_ZERO')
+        await assertRevert(subscriptions.transferFeesToGovernor(), SUBSCRIPTIONS_ERRORS.GOVERNOR_SHARE_FEES_ZERO)
       })
     })
 
@@ -347,18 +350,18 @@ contract('CourtSubscriptions', ([_, governor, payer, subscriber, anotherSubscrib
         await subscriptions.transferFeesToGovernor()
 
         const currentGovernorBalance = await feeToken.balanceOf(governor)
-        assert.equal(previousGovernorBalance.add(previousAccumulatedFees).toString(), currentGovernorBalance.toString(), 'governor shares do not match')
+        assertBn(previousGovernorBalance.add(previousAccumulatedFees), currentGovernorBalance, 'governor shares do not match')
 
         const currentAccumulatedFees = await subscriptions.accumulatedGovernorFees()
-        assert.equal(currentAccumulatedFees.toString(), 0, 'governor shares do not match')
+        assertBn(currentAccumulatedFees, 0, 'governor shares do not match')
       })
 
       it('emits an event', async () => {
         const previousAccumulatedFees = await subscriptions.accumulatedGovernorFees()
         const receipt = await subscriptions.transferFeesToGovernor()
 
-        assertAmountOfEvents(receipt, 'GovernorFeesTransferred')
-        assertEvent(receipt, 'GovernorFeesTransferred', { amount: previousAccumulatedFees })
+        assertAmountOfEvents(receipt, SUBSCRIPTIONS_EVENTS.GOVERNOR_FEES_TRANSFERRED)
+        assertEvent(receipt, SUBSCRIPTIONS_EVENTS.GOVERNOR_FEES_TRANSFERRED, { amount: previousAccumulatedFees })
       })
     })
   })

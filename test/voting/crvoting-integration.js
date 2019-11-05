@@ -1,5 +1,6 @@
-const { buildHelper } = require('../helpers/controller')(web3, artifacts)
-const { SALT, OUTCOMES, encryptVote } = require('../helpers/crvoting')
+const { assertBn } = require('../helpers/asserts/assertBn')
+const { buildHelper } = require('../helpers/wrappers/controller')(web3, artifacts)
+const { SALT, OUTCOMES, encryptVote } = require('../helpers/utils/crvoting')
 
 const CRVoting = artifacts.require('CRVoting')
 const Court = artifacts.require('CourtMockForVoting')
@@ -57,25 +58,25 @@ contract('CRVoting', ([_, voterWeighted1, voterWeighted2, voterWeighted3, voterW
       await submitVotes(votes)
 
       const missingOutcomeTally = await voting.getOutcomeTally(voteId, OUTCOMES.MISSING)
-      assert.equal(missingOutcomeTally.toString(), 0, 'missing outcome should be zero')
+      assertBn(missingOutcomeTally, 0, 'missing outcome should be zero')
 
       const leakedOutcomeTally = await voting.getOutcomeTally(voteId, OUTCOMES.LEAKED)
-      assert.equal(leakedOutcomeTally.toString(), 0, 'leaked outcome should be zero')
+      assertBn(leakedOutcomeTally, 0, 'leaked outcome should be zero')
 
       const lowOutcomeTally = await voting.getOutcomeTally(voteId, OUTCOMES.LOW)
-      assert.equal(lowOutcomeTally.toString(), expectedTallies[OUTCOMES.LOW], 'low outcome tallies do not match')
+      assertBn(lowOutcomeTally, expectedTallies[OUTCOMES.LOW], 'low outcome tallies do not match')
 
       const highOutcomeTally = await voting.getOutcomeTally(voteId, OUTCOMES.HIGH)
-      assert.equal(highOutcomeTally.toString(), expectedTallies[OUTCOMES.HIGH], 'high outcome tallies do not match')
+      assertBn(highOutcomeTally, expectedTallies[OUTCOMES.HIGH], 'high outcome tallies do not match')
 
       const refusedOutcomeTally = await voting.getOutcomeTally(voteId, OUTCOMES.REFUSED)
-      assert.equal(refusedOutcomeTally.toString(), expectedTallies[OUTCOMES.REFUSED], 'refused tallies do not match')
+      assertBn(refusedOutcomeTally, expectedTallies[OUTCOMES.REFUSED], 'refused tallies do not match')
 
       const winningOutcome = await voting.getWinningOutcome(voteId)
-      assert.equal(winningOutcome.toString(), expectedWinningOutcome, 'winning outcome does not match')
+      assertBn(winningOutcome, expectedWinningOutcome, 'winning outcome does not match')
 
       const winningOutcomeTally = await voting.getOutcomeTally(voteId, winningOutcome)
-      assert.equal(winningOutcomeTally.toString(), expectedTallies[expectedWinningOutcome], 'winning outcome tally does not match')
+      assertBn(winningOutcomeTally, expectedTallies[expectedWinningOutcome], 'winning outcome tally does not match')
     })
   }
 
@@ -84,25 +85,25 @@ contract('CRVoting', ([_, voterWeighted1, voterWeighted2, voterWeighted3, voterW
       await submitVotes(votes)
 
       const missingOutcomeTally = await voting.getOutcomeTally(voteId, OUTCOMES.MISSING)
-      assert.equal(missingOutcomeTally.toString(), 0, 'missing outcome should be zero')
+      assertBn(missingOutcomeTally, 0, 'missing outcome should be zero')
 
       const leakedOutcomeTally = await voting.getOutcomeTally(voteId, OUTCOMES.LEAKED)
-      assert.equal(leakedOutcomeTally.toString(), 0, 'leaked outcome should be zero')
+      assertBn(leakedOutcomeTally, 0, 'leaked outcome should be zero')
 
       const currentLowOutcomeTally = await voting.getOutcomeTally(voteId, OUTCOMES.LOW)
-      assert.equal(currentLowOutcomeTally.toString(), 0, 'low outcome tallies do not match')
+      assertBn(currentLowOutcomeTally, 0, 'low outcome tallies do not match')
 
       const currentHighOutcomeTally = await voting.getOutcomeTally(voteId, OUTCOMES.HIGH)
-      assert.equal(currentHighOutcomeTally.toString(), 0, 'high outcome tallies do not match')
+      assertBn(currentHighOutcomeTally, 0, 'high outcome tallies do not match')
 
       const currentRefusedOutcomeTally = await voting.getOutcomeTally(voteId, OUTCOMES.REFUSED)
-      assert.equal(currentRefusedOutcomeTally.toString(), 0, 'refused tallies do not match')
+      assertBn(currentRefusedOutcomeTally, 0, 'refused tallies do not match')
 
       const winningOutcome = await voting.getWinningOutcome(voteId)
-      assert.equal(winningOutcome.toString(), OUTCOMES.REFUSED.toString(), 'refused should be the winning outcome')
+      assertBn(winningOutcome, OUTCOMES.REFUSED, 'refused should be the winning outcome')
 
       const winningOutcomeTally = await voting.getOutcomeTally(voteId, winningOutcome)
-      assert.equal(winningOutcomeTally.toString(), 0, 'winning outcome tally should be zero')
+      assertBn(winningOutcomeTally, 0, 'winning outcome tally should be zero')
     })
   }
 
@@ -114,7 +115,7 @@ contract('CRVoting', ([_, voterWeighted1, voterWeighted2, voterWeighted3, voterW
         [voterWeighted3]:  { weight: 3,  outcome: undefined },
         [voterWeighted10]: { weight: 10, outcome: undefined },
         [voterWeighted12]: { weight: 12, outcome: undefined },
-        [voterWeighted13]: { weight: 13, outcome: undefined },
+        [voterWeighted13]: { weight: 13, outcome: undefined }
       }
 
       itDoesNotSetAWinningOutcome(votes)
@@ -128,7 +129,7 @@ contract('CRVoting', ([_, voterWeighted1, voterWeighted2, voterWeighted3, voterW
         [voterWeighted3]:  { weight: 3,  outcome: undefined },
         [voterWeighted10]: { weight: 10, outcome: undefined },
         [voterWeighted12]: { weight: 12, outcome: undefined },
-        [voterWeighted13]: { weight: 13, outcome: OUTCOMES.LOW },
+        [voterWeighted13]: { weight: 13, outcome: OUTCOMES.LOW }
       }
 
       itDoesNotSetAWinningOutcome(votes)
@@ -142,7 +143,7 @@ contract('CRVoting', ([_, voterWeighted1, voterWeighted2, voterWeighted3, voterW
         [voterWeighted3]:  { weight: 3,  outcome: OUTCOMES.LOW },
         [voterWeighted10]: { weight: 10, outcome: OUTCOMES.HIGH },
         [voterWeighted12]: { weight: 12, outcome: OUTCOMES.HIGH },
-        [voterWeighted13]: { weight: 13, outcome: OUTCOMES.REFUSED },
+        [voterWeighted13]: { weight: 13, outcome: OUTCOMES.REFUSED }
       }
 
       itDoesNotSetAWinningOutcome(votes)
@@ -156,7 +157,7 @@ contract('CRVoting', ([_, voterWeighted1, voterWeighted2, voterWeighted3, voterW
         [voterWeighted3]:  { weight: 3,  outcome: undefined },
         [voterWeighted10]: { weight: 10, outcome: undefined },
         [voterWeighted12]: { weight: 12, outcome: undefined },
-        [voterWeighted13]: { weight: 13, outcome: OUTCOMES.LOW, leak: true },
+        [voterWeighted13]: { weight: 13, outcome: OUTCOMES.LOW, leak: true }
       }
 
       itDoesNotSetAWinningOutcome(votes)
@@ -170,7 +171,7 @@ contract('CRVoting', ([_, voterWeighted1, voterWeighted2, voterWeighted3, voterW
         [voterWeighted3]:  { weight: 3,  outcome: OUTCOMES.LOW,     leak: true },
         [voterWeighted10]: { weight: 10, outcome: OUTCOMES.HIGH,    leak: true },
         [voterWeighted12]: { weight: 12, outcome: OUTCOMES.HIGH,    leak: true },
-        [voterWeighted13]: { weight: 13, outcome: OUTCOMES.REFUSED, leak: true },
+        [voterWeighted13]: { weight: 13, outcome: OUTCOMES.REFUSED, leak: true }
       }
 
       itDoesNotSetAWinningOutcome(votes)
@@ -184,7 +185,7 @@ contract('CRVoting', ([_, voterWeighted1, voterWeighted2, voterWeighted3, voterW
         [voterWeighted3]:  { weight: 3,  outcome: undefined },
         [voterWeighted10]: { weight: 10, outcome: undefined },
         [voterWeighted12]: { weight: 12, outcome: undefined },
-        [voterWeighted13]: { weight: 13, outcome: OUTCOMES.LOW, reveal: true },
+        [voterWeighted13]: { weight: 13, outcome: OUTCOMES.LOW, reveal: true }
       }
 
       const expectedTallies = { [OUTCOMES.LOW]: 13, [OUTCOMES.HIGH]: 0, [OUTCOMES.REFUSED]: 0 }
@@ -207,7 +208,7 @@ contract('CRVoting', ([_, voterWeighted1, voterWeighted2, voterWeighted3, voterW
             [voterWeighted3]:  { weight: 3,  outcome: OUTCOMES.REFUSED, reveal: true },
             [voterWeighted10]: { weight: 10, outcome: OUTCOMES.HIGH,    reveal: true },
             [voterWeighted12]: { weight: 12, outcome: undefined },
-            [voterWeighted13]: { weight: 13, outcome: OUTCOMES.LOW,     reveal: true },
+            [voterWeighted13]: { weight: 13, outcome: OUTCOMES.LOW,     reveal: true }
           }
 
           const expectedTallies = { [OUTCOMES.LOW]: 13, [OUTCOMES.HIGH]: 10, [OUTCOMES.REFUSED]: 3 }
@@ -228,7 +229,7 @@ contract('CRVoting', ([_, voterWeighted1, voterWeighted2, voterWeighted3, voterW
             [voterWeighted3]:  { weight: 3,  outcome: OUTCOMES.REFUSED, reveal: true },
             [voterWeighted10]: { weight: 10, outcome: OUTCOMES.HIGH,    leaked: true },
             [voterWeighted12]: { weight: 12, outcome: undefined },
-            [voterWeighted13]: { weight: 13, outcome: OUTCOMES.HIGH,    reveal: true },
+            [voterWeighted13]: { weight: 13, outcome: OUTCOMES.HIGH,    reveal: true }
           }
 
           const expectedTallies = { [OUTCOMES.LOW]: 3, [OUTCOMES.HIGH]: 13, [OUTCOMES.REFUSED]: 3 }
@@ -249,7 +250,7 @@ contract('CRVoting', ([_, voterWeighted1, voterWeighted2, voterWeighted3, voterW
             [voterWeighted3]:  { weight: 3,  outcome: OUTCOMES.HIGH,    reveal: true },
             [voterWeighted10]: { weight: 10, outcome: OUTCOMES.HIGH,    reveal: true },
             [voterWeighted12]: { weight: 12, outcome: OUTCOMES.REFUSED, reveal: true },
-            [voterWeighted13]: { weight: 13, outcome: OUTCOMES.LOW,     leaked: true },
+            [voterWeighted13]: { weight: 13, outcome: OUTCOMES.LOW,     leaked: true }
           }
 
           const expectedTallies = { [OUTCOMES.LOW]: 0, [OUTCOMES.HIGH]: 16, [OUTCOMES.REFUSED]: 12 }
@@ -270,7 +271,7 @@ contract('CRVoting', ([_, voterWeighted1, voterWeighted2, voterWeighted3, voterW
             [voterWeighted3]:  { weight: 3,  outcome: OUTCOMES.REFUSED, reveal: true },
             [voterWeighted10]: { weight: 10, outcome: OUTCOMES.HIGH,    leaked: true },
             [voterWeighted12]: { weight: 12, outcome: OUTCOMES.REFUSED, leaked: true },
-            [voterWeighted13]: { weight: 13, outcome: undefined },
+            [voterWeighted13]: { weight: 13, outcome: undefined }
           }
 
           const expectedTallies = { [OUTCOMES.LOW]: 2, [OUTCOMES.HIGH]: 1, [OUTCOMES.REFUSED]: 3 }
@@ -294,7 +295,7 @@ contract('CRVoting', ([_, voterWeighted1, voterWeighted2, voterWeighted3, voterW
               [voterWeighted3]:  { weight: 3,  outcome: undefined },
               [voterWeighted10]: { weight: 10, outcome: OUTCOMES.REFUSED, reveal: true },
               [voterWeighted12]: { weight: 12, outcome: OUTCOMES.HIGH,    reveal: true },
-              [voterWeighted13]: { weight: 13, outcome: OUTCOMES.LOW,     reveal: true },
+              [voterWeighted13]: { weight: 13, outcome: OUTCOMES.LOW,     reveal: true }
             }
 
             const expectedTallies = { [OUTCOMES.LOW]: 14, [OUTCOMES.HIGH]: 14, [OUTCOMES.REFUSED]: 10 }
@@ -315,7 +316,7 @@ contract('CRVoting', ([_, voterWeighted1, voterWeighted2, voterWeighted3, voterW
               [voterWeighted10]: { weight: 10, outcome: OUTCOMES.REFUSED, reveal: true },
               [voterWeighted3]:  { weight: 3,  outcome: undefined },
               [voterWeighted2]:  { weight: 2,  outcome: OUTCOMES.HIGH,    reveal: true },
-              [voterWeighted1]:  { weight: 1,  outcome: OUTCOMES.LOW,     reveal: true },
+              [voterWeighted1]:  { weight: 1,  outcome: OUTCOMES.LOW,     reveal: true }
             }
 
             const expectedTallies = { [OUTCOMES.LOW]: 14, [OUTCOMES.HIGH]: 14, [OUTCOMES.REFUSED]: 10 }
@@ -336,7 +337,7 @@ contract('CRVoting', ([_, voterWeighted1, voterWeighted2, voterWeighted3, voterW
               [voterWeighted10]: { weight: 10, outcome: OUTCOMES.REFUSED, reveal: true },
               [voterWeighted1]:  { weight: 1,  outcome: OUTCOMES.LOW,     reveal: true },
               [voterWeighted12]: { weight: 12, outcome: OUTCOMES.HIGH,    reveal: true },
-              [voterWeighted3]:  { weight: 3,  outcome: undefined },
+              [voterWeighted3]:  { weight: 3,  outcome: undefined }
             }
 
             const expectedTallies = { [OUTCOMES.LOW]: 14, [OUTCOMES.HIGH]: 14, [OUTCOMES.REFUSED]: 10 }
@@ -359,7 +360,7 @@ contract('CRVoting', ([_, voterWeighted1, voterWeighted2, voterWeighted3, voterW
               [voterWeighted3]:  { weight: 3,  outcome: undefined },
               [voterWeighted10]: { weight: 10, outcome: OUTCOMES.REFUSED, reveal: true },
               [voterWeighted12]: { weight: 12, outcome: OUTCOMES.LOW,     reveal: true },
-              [voterWeighted13]: { weight: 13, outcome: OUTCOMES.HIGH,    leaked: true },
+              [voterWeighted13]: { weight: 13, outcome: OUTCOMES.HIGH,    leaked: true }
             }
 
             const expectedTallies = { [OUTCOMES.LOW]: 12, [OUTCOMES.HIGH]: 0, [OUTCOMES.REFUSED]: 12 }
@@ -380,7 +381,7 @@ contract('CRVoting', ([_, voterWeighted1, voterWeighted2, voterWeighted3, voterW
               [voterWeighted10]: { weight: 10, outcome: OUTCOMES.REFUSED, reveal: true },
               [voterWeighted3]:  { weight: 3,  outcome: undefined },
               [voterWeighted2]:  { weight: 2,  outcome: OUTCOMES.REFUSED, reveal: true },
-              [voterWeighted1]:  { weight: 1,  outcome: undefined },
+              [voterWeighted1]:  { weight: 1,  outcome: undefined }
             }
 
             const expectedTallies = { [OUTCOMES.LOW]: 12, [OUTCOMES.HIGH]: 0, [OUTCOMES.REFUSED]: 12 }
@@ -401,7 +402,7 @@ contract('CRVoting', ([_, voterWeighted1, voterWeighted2, voterWeighted3, voterW
               [voterWeighted13]: { weight: 13, outcome: OUTCOMES.HIGH,    leaked: true },
               [voterWeighted2]:  { weight: 2,  outcome: OUTCOMES.REFUSED, reveal: true },
               [voterWeighted10]: { weight: 10, outcome: OUTCOMES.REFUSED, reveal: true },
-              [voterWeighted1]:  { weight: 1,  outcome: undefined },
+              [voterWeighted1]:  { weight: 1,  outcome: undefined }
             }
 
             const expectedTallies = { [OUTCOMES.LOW]: 12, [OUTCOMES.HIGH]: 0, [OUTCOMES.REFUSED]: 12 }
@@ -424,7 +425,7 @@ contract('CRVoting', ([_, voterWeighted1, voterWeighted2, voterWeighted3, voterW
               [voterWeighted3]:  { weight: 3,  outcome: undefined },
               [voterWeighted10]: { weight: 10, outcome: OUTCOMES.HIGH,    reveal: true },
               [voterWeighted12]: { weight: 12, outcome: OUTCOMES.REFUSED, reveal: true },
-              [voterWeighted13]: { weight: 13, outcome: OUTCOMES.HIGH,    leaked: true },
+              [voterWeighted13]: { weight: 13, outcome: OUTCOMES.HIGH,    leaked: true }
             }
 
             const expectedTallies = { [OUTCOMES.LOW]: 0, [OUTCOMES.HIGH]: 12, [OUTCOMES.REFUSED]: 12 }
@@ -445,7 +446,7 @@ contract('CRVoting', ([_, voterWeighted1, voterWeighted2, voterWeighted3, voterW
               [voterWeighted10]: { weight: 10, outcome: OUTCOMES.HIGH,    reveal: true },
               [voterWeighted3]:  { weight: 3,  outcome: undefined },
               [voterWeighted2]:  { weight: 2,  outcome: OUTCOMES.HIGH,    reveal: true },
-              [voterWeighted1]:  { weight: 1,  outcome: undefined },
+              [voterWeighted1]:  { weight: 1,  outcome: undefined }
             }
 
             const expectedTallies = { [OUTCOMES.LOW]: 0, [OUTCOMES.HIGH]: 12, [OUTCOMES.REFUSED]: 12 }
@@ -466,7 +467,7 @@ contract('CRVoting', ([_, voterWeighted1, voterWeighted2, voterWeighted3, voterW
               [voterWeighted1]:  { weight: 1,  outcome: undefined },
               [voterWeighted13]: { weight: 13, outcome: OUTCOMES.HIGH,    leaked: true },
               [voterWeighted2]:  { weight: 2,  outcome: OUTCOMES.HIGH,    reveal: true },
-              [voterWeighted10]: { weight: 10, outcome: OUTCOMES.HIGH,    reveal: true },
+              [voterWeighted10]: { weight: 10, outcome: OUTCOMES.HIGH,    reveal: true }
             }
 
             const expectedTallies = { [OUTCOMES.LOW]: 0, [OUTCOMES.HIGH]: 12, [OUTCOMES.REFUSED]: 12 }
@@ -489,7 +490,7 @@ contract('CRVoting', ([_, voterWeighted1, voterWeighted2, voterWeighted3, voterW
               [voterWeighted3]:  { weight: 3,  outcome: OUTCOMES.LOW,     reveal: true },
               [voterWeighted10]: { weight: 10, outcome: OUTCOMES.LOW,     reveal: true },
               [voterWeighted12]: { weight: 12, outcome: OUTCOMES.REFUSED, reveal: true },
-              [voterWeighted13]: { weight: 13, outcome: OUTCOMES.HIGH,    reveal: true },
+              [voterWeighted13]: { weight: 13, outcome: OUTCOMES.HIGH,    reveal: true }
             }
 
             const expectedTallies = { [OUTCOMES.LOW]: 13, [OUTCOMES.HIGH]: 13, [OUTCOMES.REFUSED]: 13 }
@@ -511,7 +512,7 @@ contract('CRVoting', ([_, voterWeighted1, voterWeighted2, voterWeighted3, voterW
             [voterWeighted10]: { weight: 10, outcome: OUTCOMES.LOW,     reveal: true },
             [voterWeighted3]:  { weight: 3,  outcome: OUTCOMES.LOW,     reveal: true },
             [voterWeighted2]:  { weight: 2,  outcome: undefined },
-            [voterWeighted1]:  { weight: 1,  outcome: OUTCOMES.REFUSED, reveal: true },
+            [voterWeighted1]:  { weight: 1,  outcome: OUTCOMES.REFUSED, reveal: true }
           }
 
           const expectedTallies = { [OUTCOMES.LOW]: 13, [OUTCOMES.HIGH]: 13, [OUTCOMES.REFUSED]: 13 }
@@ -532,7 +533,7 @@ contract('CRVoting', ([_, voterWeighted1, voterWeighted2, voterWeighted3, voterW
             [voterWeighted13]: { weight: 13, outcome: OUTCOMES.HIGH,    reveal: true },
             [voterWeighted3]:  { weight: 3,  outcome: OUTCOMES.LOW,     reveal: true },
             [voterWeighted12]: { weight: 12, outcome: OUTCOMES.REFUSED, reveal: true },
-            [voterWeighted1]:  { weight: 1,  outcome: OUTCOMES.REFUSED, reveal: true },
+            [voterWeighted1]:  { weight: 1,  outcome: OUTCOMES.REFUSED, reveal: true }
           }
 
           const expectedTallies = { [OUTCOMES.LOW]: 13, [OUTCOMES.HIGH]: 13, [OUTCOMES.REFUSED]: 13 }

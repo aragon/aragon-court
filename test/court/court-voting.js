@@ -1,18 +1,16 @@
-const { DEFAULTS } = require('../helpers/controller')(web3, artifacts)
-const { bn, bigExp } = require('../helpers/numbers')
-const { filterJurors } = require('../helpers/jurors')
-const { assertRevert } = require('../helpers/assertThrow')
-const { buildHelper, ROUND_STATES } = require('../helpers/court')(web3, artifacts)
-const { assertAmountOfEvents, assertEvent } = require('../helpers/assertEvent')
-const { getVoteId, encryptVote, outcomeFor, SALT, OUTCOMES } = require('../helpers/crvoting')
-
-const ERROR_INVALID_ADJUDICATION_STATE = 'CT_INVALID_ADJUDICATION_STATE'
-const ERROR_VOTE_ALREADY_COMMITTED = 'CRV_VOTE_ALREADY_COMMITTED'
-const ERROR_VOTE_ALREADY_REVEALED = 'CRV_VOTE_ALREADY_REVEALED'
-const ERROR_INVALID_COMMITMENT_SALT = 'CRV_INVALID_COMMITMENT_SALT'
+const { DEFAULTS } = require('../helpers/wrappers/controller')(web3, artifacts)
+const { assertBn } = require('../helpers/asserts/assertBn')
+const { bn, bigExp } = require('../helpers/lib/numbers')
+const { filterJurors } = require('../helpers/utils/jurors')
+const { assertRevert } = require('../helpers/asserts/assertThrow')
+const { VOTING_EVENTS } = require('../helpers/utils/events')
+const { buildHelper, ROUND_STATES } = require('../helpers/wrappers/court')(web3, artifacts)
+const { VOTING_ERRORS, COURT_ERRORS } = require('../helpers/utils/errors')
+const { assertAmountOfEvents, assertEvent } = require('../helpers/asserts/assertEvent')
+const { getVoteId, encryptVote, outcomeFor, SALT, OUTCOMES } = require('../helpers/utils/crvoting')
 
 contract('Court', ([_, disputer, drafter, juror100, juror500, juror1000, juror1500, juror2000, juror2500, juror3000, juror3500, juror4000]) => {
-  let courtHelper, court, voting
+  let courtHelper, voting
 
   const jurors = [
     { address: juror100,  initialActiveBalance: bigExp(100,  18) },
@@ -23,12 +21,12 @@ contract('Court', ([_, disputer, drafter, juror100, juror500, juror1000, juror15
     { address: juror4000, initialActiveBalance: bigExp(4000, 18) },
     { address: juror1500, initialActiveBalance: bigExp(1500, 18) },
     { address: juror3500, initialActiveBalance: bigExp(3500, 18) },
-    { address: juror2500, initialActiveBalance: bigExp(2500, 18) },
+    { address: juror2500, initialActiveBalance: bigExp(2500, 18) }
   ]
 
   beforeEach('create court', async () => {
     courtHelper = buildHelper()
-    court = await courtHelper.deploy()
+    await courtHelper.deploy()
     voting = courtHelper.voting
   })
 
@@ -46,7 +44,7 @@ contract('Court', ([_, disputer, drafter, juror100, juror500, juror1000, juror15
     const itIsAtState = (roundId, state) => {
       it(`round is at state ${state}`, async () => {
         const { roundState } = await courtHelper.getRound(disputeId, roundId)
-        assert.equal(roundState.toString(), state.toString(), 'round state does not match')
+        assertBn(roundState, state, 'round state does not match')
       })
     }
 
@@ -54,11 +52,11 @@ contract('Court', ([_, disputer, drafter, juror100, juror500, juror1000, juror15
       it('fails to commit votes', async () => {
         const voterAddresses = voters.map(v => v.address.toLowerCase())
         for (const { address } of jurors) {
-          let error_msg = ERROR_INVALID_ADJUDICATION_STATE
-          if (commited && voterAddresses.includes(address.toLowerCase())) {
-            error_msg = ERROR_VOTE_ALREADY_COMMITTED
-          }
-          await assertRevert(voting.commit(voteId, encryptVote(OUTCOMES.LOW), { from: address }), error_msg)
+          const expectedErrorMessage = (commited && voterAddresses.includes(address.toLowerCase()))
+            ? VOTING_ERRORS.VOTE_ALREADY_COMMITTED
+            : COURT_ERRORS.INVALID_ADJUDICATION_STATE
+
+          await assertRevert(voting.commit(voteId, encryptVote(OUTCOMES.LOW), { from: address }), expectedErrorMessage)
         }
       })
     }
@@ -67,15 +65,11 @@ contract('Court', ([_, disputer, drafter, juror100, juror500, juror1000, juror15
       it('fails to reveal votes', async () => {
         const voterAddresses = voters.map(v => v.address.toLowerCase())
         for (const { outcome, address } of voters) {
-          let error_msg = ERROR_INVALID_COMMITMENT_SALT
-          if (commited && voterAddresses.includes(address.toLowerCase())) {
-            if (revealed) {
-              error_msg = ERROR_VOTE_ALREADY_REVEALED
-            } else {
-              error_msg = ERROR_INVALID_ADJUDICATION_STATE
-            }
-          }
-          await assertRevert(voting.reveal(voteId, outcome, SALT, { from: address }), error_msg)
+          const expectedErrorMessage = (commited && voterAddresses.includes(address.toLowerCase()))
+            ? (revealed ? VOTING_ERRORS.VOTE_ALREADY_REVEALED : COURT_ERRORS.INVALID_ADJUDICATION_STATE)
+            : VOTING_ERRORS.INVALID_COMMITMENT_SALT
+
+          await assertRevert(voting.reveal(voteId, outcome, SALT, { from: address }), expectedErrorMessage)
         }
       })
     }
@@ -108,7 +102,7 @@ contract('Court', ([_, disputer, drafter, juror100, juror500, juror1000, juror15
           it('allows to commit a vote', async () => {
             for (const { address } of draftedJurors) {
               const receipt = await voting.commit(voteId, vote, { from: address })
-              assertAmountOfEvents(receipt, 'VoteCommitted')
+              assertAmountOfEvents(receipt, VOTING_EVENTS.VOTE_COMMITTED)
             }
           })
         })
@@ -116,7 +110,7 @@ contract('Court', ([_, disputer, drafter, juror100, juror500, juror1000, juror15
         context('when the sender was not drafted', () => {
           it('reverts', async () => {
             for (const { address } of nonDraftedJurors) {
-              await assertRevert(voting.commit(voteId, vote, { from: address }), 'CT_VOTER_WEIGHT_ZERO')
+              await assertRevert(voting.commit(voteId, vote, { from: address }), COURT_ERRORS.VOTER_WEIGHT_ZERO)
             }
           })
         })
@@ -147,27 +141,27 @@ contract('Court', ([_, disputer, drafter, juror100, juror500, juror1000, juror15
             it('allows voters to reveal their vote', async () => {
               for (let i = 0; i < voters.length; i++) {
                 const { address, outcome } = voters[i]
-                assertEvent(receipts[i], 'VoteRevealed', { voteId, voter: address, outcome })
+                assertEvent(receipts[i], VOTING_EVENTS.VOTE_REVEALED, { voteId, voter: address, outcome })
               }
             })
 
             it('computes tallies properly', async () => {
               const lowOutcomeTally = await voting.getOutcomeTally(voteId, OUTCOMES.LOW)
-              assert.equal(lowOutcomeTally.toString(), expectedTally[OUTCOMES.LOW], 'low outcome tally does not match')
+              assertBn(lowOutcomeTally, expectedTally[OUTCOMES.LOW], 'low outcome tally does not match')
 
               const highOutcomeTally = await voting.getOutcomeTally(voteId, OUTCOMES.HIGH)
-              assert.equal(highOutcomeTally.toString(), expectedTally[OUTCOMES.HIGH], 'high outcome tally does not match')
+              assertBn(highOutcomeTally, expectedTally[OUTCOMES.HIGH], 'high outcome tally does not match')
 
               const winningOutcome = await voting.getWinningOutcome(voteId)
               const expectedWinningOutcome = highOutcomeTally > lowOutcomeTally ? OUTCOMES.HIGH : OUTCOMES.LOW
-              assert.equal(winningOutcome.toString(), expectedWinningOutcome, 'winning outcome does not match')
+              assertBn(winningOutcome, expectedWinningOutcome, 'winning outcome does not match')
             })
           })
 
           context('when the sender did not vote', () => {
             it('reverts', async () => {
               for (const { address } of nonVoters) {
-                await assertRevert(voting.reveal(voteId, OUTCOMES.LOW, SALT, { from: address }), 'CRV_INVALID_COMMITMENT_SALT')
+                await assertRevert(voting.reveal(voteId, OUTCOMES.LOW, SALT, { from: address }), VOTING_ERRORS.INVALID_COMMITMENT_SALT)
               }
             })
           })
@@ -264,7 +258,7 @@ contract('Court', ([_, disputer, drafter, juror100, juror500, juror1000, juror15
         await courtHelper.passTerms(bn(1))
 
         const { active } = await courtHelper.jurorsRegistry.balanceOf(poorJuror)
-        assert.equal(active.toString(), bigExp(1, 18).toString(), 'poor juror active balance does not match')
+        assertBn(active, bigExp(1, 18), 'poor juror active balance does not match')
       })
 
       beforeEach('move to final round', async () => {
@@ -277,7 +271,7 @@ contract('Court', ([_, disputer, drafter, juror100, juror500, juror1000, juror15
           { address: juror1000, outcome: OUTCOMES.LOW },
           { address: juror4000, outcome: OUTCOMES.LOW },
           { address: juror2000, outcome: OUTCOMES.HIGH },
-          { address: juror1500, outcome: OUTCOMES.REFUSED },
+          { address: juror1500, outcome: OUTCOMES.REFUSED }
         ]
         nonVoters = filterJurors(jurors, voters)
       })
@@ -290,14 +284,14 @@ contract('Court', ([_, disputer, drafter, juror100, juror500, juror1000, juror15
           it('allows to commit a vote', async () => {
             for (const { address, outcome } of voters) {
               const receipt = await voting.commit(voteId, encryptVote(outcome), { from: address })
-              assertAmountOfEvents(receipt, 'VoteCommitted')
+              assertAmountOfEvents(receipt, VOTING_EVENTS.VOTE_COMMITTED)
             }
           })
         })
 
         context('when the sender does not have enough active balance', () => {
           it('reverts', async () => {
-            await assertRevert(voting.commit(voteId, encryptVote(OUTCOMES.LOW), { from: poorJuror }), 'CT_VOTER_WEIGHT_ZERO')
+            await assertRevert(voting.commit(voteId, encryptVote(OUTCOMES.LOW), { from: poorJuror }), COURT_ERRORS.VOTER_WEIGHT_ZERO)
           })
         })
       })
@@ -327,27 +321,27 @@ contract('Court', ([_, disputer, drafter, juror100, juror500, juror1000, juror15
           it('allows voters to reveal their vote', async () => {
             for (let i = 0; i < voters.length; i++) {
               const { address, outcome } = voters[i]
-              assertEvent(receipts[i], 'VoteRevealed', { voteId, voter: address, outcome })
+              assertEvent(receipts[i], VOTING_EVENTS.VOTE_REVEALED, { voteId, voter: address, outcome })
             }
           })
 
           it('computes tallies properly', async () => {
             const lowOutcomeTally = await voting.getOutcomeTally(voteId, OUTCOMES.LOW)
-            assert.equal(lowOutcomeTally.toString(), expectedTally[OUTCOMES.LOW], 'low outcome tally does not match')
+            assertBn(lowOutcomeTally, expectedTally[OUTCOMES.LOW], 'low outcome tally does not match')
 
             const highOutcomeTally = await voting.getOutcomeTally(voteId, OUTCOMES.HIGH)
-            assert.equal(highOutcomeTally.toString(), expectedTally[OUTCOMES.HIGH], 'high outcome tally does not match')
+            assertBn(highOutcomeTally, expectedTally[OUTCOMES.HIGH], 'high outcome tally does not match')
 
             const winningOutcome = await voting.getWinningOutcome(voteId)
             const expectedWinningOutcome = highOutcomeTally > lowOutcomeTally ? OUTCOMES.HIGH : OUTCOMES.LOW
-            assert.equal(winningOutcome.toString(), expectedWinningOutcome, 'winning outcome does not match')
+            assertBn(winningOutcome, expectedWinningOutcome, 'winning outcome does not match')
           })
         })
 
         context('when the sender did not vote', () => {
           it('reverts', async () => {
             for (const { address } of nonVoters) {
-              await assertRevert(voting.reveal(voteId, OUTCOMES.LOW, SALT, { from: address }), ERROR_INVALID_COMMITMENT_SALT)
+              await assertRevert(voting.reveal(voteId, OUTCOMES.LOW, SALT, { from: address }), VOTING_ERRORS.INVALID_COMMITMENT_SALT)
             }
           })
         })

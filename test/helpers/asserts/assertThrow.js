@@ -32,5 +32,5 @@ async function assertRevert(blockOrPromise, reason) {
 }
 
 module.exports = {
-  assertRevert,
+  assertRevert
 }

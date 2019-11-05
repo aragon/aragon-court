@@ -1,6 +1,8 @@
-const { assertBn, bn } = require('../helpers/numbers')
-const { assertRevert } = require('../helpers/assertThrow')
-const { expectedBounds, simulateComputeSearchRandomBalances, simulateBatchedRandomSearch } = require('../helpers/registry')
+const { bn } = require('../helpers/lib/numbers')
+const { assertBn } = require('../helpers/asserts/assertBn')
+const { TREE_ERRORS } = require('../helpers/utils/errors')
+const { assertRevert } = require('../helpers/asserts/assertThrow')
+const { expectedBounds, simulateComputeSearchRandomBalances, simulateBatchedRandomSearch } = require('../helpers/utils/registry')
 
 const JurorsTreeSortition = artifacts.require('JurorsTreeSortitionMock')
 
@@ -29,8 +31,8 @@ contract('JurorsTreeSortition', () => {
       it('returns zeroed values', async () => {
         const { low, high } = await tree.getSearchBatchBounds(termId, selectedJurors, batchRequestedJurors, totalRequestedJurors)
 
-        assert.equal(low.toString(), 0, 'low bound does not match')
-        assert.equal(high.toString(), 0, 'high bound does not match')
+        assertBn(low, 0, 'low bound does not match')
+        assertBn(high, 0, 'high bound does not match')
       })
     })
 
@@ -48,8 +50,8 @@ contract('JurorsTreeSortition', () => {
         it('includes the first juror', async () => {
           const { low, high } = await tree.getSearchBatchBounds(termId, selectedJurors, batchRequestedJurors, totalRequestedJurors)
 
-          assert.equal(low.toString(), expectedLowBound, 'low bound does not match')
-          assert.equal(high.toString(), expectedHighBound, 'high bound does not match')
+          assertBn(low, expectedLowBound, 'low bound does not match')
+          assertBn(high, expectedHighBound, 'high bound does not match')
         })
       })
 
@@ -62,8 +64,8 @@ contract('JurorsTreeSortition', () => {
         it('includes middle jurors', async () => {
           const { low, high } = await tree.getSearchBatchBounds(termId, selectedJurors, batchRequestedJurors, totalRequestedJurors)
 
-          assert.equal(low.toString(), expectedLowBound, 'low bound does not match')
-          assert.equal(high.toString(), expectedHighBound, 'high bound does not match')
+          assertBn(low, expectedLowBound, 'low bound does not match')
+          assertBn(high, expectedHighBound, 'high bound does not match')
         })
       })
 
@@ -76,8 +78,8 @@ contract('JurorsTreeSortition', () => {
         it('includes the last juror', async () => {
           const { low, high } = await tree.getSearchBatchBounds(termId, selectedJurors, batchRequestedJurors, totalRequestedJurors)
 
-          assert.equal(low.toString(), expectedLowBound, 'low bound does not match')
-          assert.equal(high.toString(), expectedHighBound, 'high bound does not match')
+          assertBn(low, expectedLowBound, 'low bound does not match')
+          assertBn(high, expectedHighBound, 'high bound does not match')
         })
       })
     })
@@ -96,7 +98,7 @@ contract('JurorsTreeSortition', () => {
         const batchRequestedJurors = 200
 
         it('reverts', async () => {
-          await assertRevert(tree.computeSearchRandomBalances(termRandomness, disputeId, sortitionIteration, batchRequestedJurors, lowActiveBalanceBatchBound, highActiveBalanceBatchBound), 'TREE_INVALID_INTERVAL_SEARCH')
+          await assertRevert(tree.computeSearchRandomBalances(termRandomness, disputeId, sortitionIteration, batchRequestedJurors, lowActiveBalanceBatchBound, highActiveBalanceBatchBound), TREE_ERRORS.INVALID_INTERVAL_SEARCH)
         })
       })
 
@@ -104,7 +106,7 @@ contract('JurorsTreeSortition', () => {
         const batchRequestedJurors = 0
 
         it('reverts', async () => {
-          await assertRevert(tree.computeSearchRandomBalances(termRandomness, disputeId, sortitionIteration, batchRequestedJurors, lowActiveBalanceBatchBound, highActiveBalanceBatchBound), 'TREE_INVALID_INTERVAL_SEARCH')
+          await assertRevert(tree.computeSearchRandomBalances(termRandomness, disputeId, sortitionIteration, batchRequestedJurors, lowActiveBalanceBatchBound, highActiveBalanceBatchBound), TREE_ERRORS.INVALID_INTERVAL_SEARCH)
         })
       })
     })
@@ -118,7 +120,7 @@ contract('JurorsTreeSortition', () => {
           const batchRequestedJurors = 200
 
           it('reverts', async () => {
-            await assertRevert(tree.computeSearchRandomBalances(termRandomness, disputeId, sortitionIteration, batchRequestedJurors, lowActiveBalanceBatchBound, highActiveBalanceBatchBound), 'TREE_INVALID_INTERVAL_SEARCH')
+            await assertRevert(tree.computeSearchRandomBalances(termRandomness, disputeId, sortitionIteration, batchRequestedJurors, lowActiveBalanceBatchBound, highActiveBalanceBatchBound), TREE_ERRORS.INVALID_INTERVAL_SEARCH)
           })
         })
 
@@ -126,7 +128,7 @@ contract('JurorsTreeSortition', () => {
           const batchRequestedJurors = 0
 
           it('reverts', async () => {
-            await assertRevert(tree.computeSearchRandomBalances(termRandomness, disputeId, sortitionIteration, batchRequestedJurors, lowActiveBalanceBatchBound, highActiveBalanceBatchBound), 'TREE_INVALID_INTERVAL_SEARCH')
+            await assertRevert(tree.computeSearchRandomBalances(termRandomness, disputeId, sortitionIteration, batchRequestedJurors, lowActiveBalanceBatchBound, highActiveBalanceBatchBound), TREE_ERRORS.INVALID_INTERVAL_SEARCH)
           })
         })
       })
@@ -188,7 +190,7 @@ contract('JurorsTreeSortition', () => {
       const batchRequestedJurors = 5
 
       it('reverts', async () => {
-        await assertRevert(tree.batchedRandomSearch(termRandomness, disputeId, termId, selectedJurors, batchRequestedJurors, roundRequestedJurors, sortitionIteration), 'TREE_INVALID_INTERVAL_SEARCH')
+        await assertRevert(tree.batchedRandomSearch(termRandomness, disputeId, termId, selectedJurors, batchRequestedJurors, roundRequestedJurors, sortitionIteration), TREE_ERRORS.INVALID_INTERVAL_SEARCH)
       })
     })
 
@@ -196,7 +198,7 @@ contract('JurorsTreeSortition', () => {
       const balances = Array.from(Array(100).keys()).map(x => bn(x))
 
       beforeEach('insert values', async () => {
-        for(let i = 0; i < 100; i++) await tree.insert(termId, balances[i])
+        for (let i = 0; i < 100; i++) await tree.insert(termId, balances[i])
       })
 
       context('when the requested number of jurors is zero', () => {
@@ -204,7 +206,7 @@ contract('JurorsTreeSortition', () => {
         const batchRequestedJurors = 0
 
         it('reverts', async () => {
-          await assertRevert(tree.batchedRandomSearch(termRandomness, disputeId, termId, selectedJurors, batchRequestedJurors, roundRequestedJurors, sortitionIteration), 'TREE_INVALID_INTERVAL_SEARCH')
+          await assertRevert(tree.batchedRandomSearch(termRandomness, disputeId, termId, selectedJurors, batchRequestedJurors, roundRequestedJurors, sortitionIteration), TREE_ERRORS.INVALID_INTERVAL_SEARCH)
         })
       })
 
@@ -231,8 +233,8 @@ contract('JurorsTreeSortition', () => {
             })
 
             for (let i = 0; i < batchRequestedJurors; i++) {
-              assert.equal(jurorsIds[i].toString(), expectedJurorIds[i], `result key ${i} does not match`)
-              assert.equal(activeBalances[i].toString(), expectedJurorIds[i], `result value ${i} does not match`)
+              assertBn(jurorsIds[i], expectedJurorIds[i], `result key ${i} does not match`)
+              assertBn(activeBalances[i], expectedJurorIds[i], `result value ${i} does not match`)
             }
           })
         })
@@ -259,8 +261,8 @@ contract('JurorsTreeSortition', () => {
             })
 
             for (let i = 0; i < batchRequestedJurors; i++) {
-              assert.equal(jurorsIds[i].toString(), expectedJurorIds[i], `result key ${i} does not match`)
-              assert.equal(activeBalances[i].toString(), expectedJurorIds[i], `result value ${i} does not match`)
+              assertBn(jurorsIds[i], expectedJurorIds[i], `result key ${i} does not match`)
+              assertBn(activeBalances[i], expectedJurorIds[i], `result value ${i} does not match`)
             }
           })
         })

@@ -1,7 +1,10 @@
-const { buildHelper } = require('../helpers/controller')(web3, artifacts)
-const { assertRevert } = require('../helpers/assertThrow')
-const { assertBn, bigExp } = require('../helpers/numbers')
-const { assertAmountOfEvents, assertEvent } = require('../helpers/assertEvent')
+const { bigExp } = require('../helpers/lib/numbers')
+const { assertBn } = require('../helpers/asserts/assertBn')
+const { buildHelper } = require('../helpers/wrappers/controller')(web3, artifacts)
+const { assertRevert } = require('../helpers/asserts/assertThrow')
+const { CONTROLLED_EVENTS } = require('../helpers/utils/events')
+const { CONTROLLED_ERRORS } = require('../helpers/utils/errors')
+const { assertAmountOfEvents, assertEvent } = require('../helpers/asserts/assertEvent')
 
 const ERC20 = artifacts.require('ERC20Mock')
 const ControlledRecoverable = artifacts.require('ControlledRecoverableMock')
@@ -49,14 +52,14 @@ contract('ControlledRecoverable', ([_, fundsGovernor, configGovernor, modulesGov
         it('emits an event', async () => {
           const receipt = await recoverable.recoverFunds(token.address, recipient, { from })
 
-          assertAmountOfEvents(receipt, 'RecoverFunds')
-          assertEvent(receipt, 'RecoverFunds', { token: token.address, recipient, balance: amount })
+          assertAmountOfEvents(receipt, CONTROLLED_EVENTS.RECOVER_FUNDS)
+          assertEvent(receipt, CONTROLLED_EVENTS.RECOVER_FUNDS, { token: token.address, recipient, balance: amount })
         })
       })
 
       context('when the governed does not have funds', () => {
         it('reverts', async () => {
-          await assertRevert(recoverable.recoverFunds(token.address, recipient, { from }), 'CTD_INSUFFICIENT_RECOVER_FUNDS')
+          await assertRevert(recoverable.recoverFunds(token.address, recipient, { from }), CONTROLLED_ERRORS.INSUFFICIENT_RECOVER_FUNDS)
         })
       })
     })
@@ -66,7 +69,7 @@ contract('ControlledRecoverable', ([_, fundsGovernor, configGovernor, modulesGov
     const from = someone
 
     it('reverts', async () => {
-      await assertRevert(recoverable.recoverFunds(ZERO_ADDRESS, recipient, { from }), 'CTD_SENDER_NOT_FUNDS_GOVERNOR')
+      await assertRevert(recoverable.recoverFunds(ZERO_ADDRESS, recipient, { from }), CONTROLLED_ERRORS.SENDER_NOT_FUNDS_GOVERNOR)
     })
   })
 })

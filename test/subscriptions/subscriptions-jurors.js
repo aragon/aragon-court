@@ -1,15 +1,17 @@
-const { bn, bigExp } = require('../helpers/numbers')
-const { buildHelper } = require('../helpers/controller')(web3, artifacts)
-const { assertRevert } = require('../helpers/assertThrow')
-const { sha3, padLeft, toHex } = require('web3-utils')
-const { assertAmountOfEvents, assertEvent } = require('../helpers/assertEvent')
+const { assertBn } = require('../helpers/asserts/assertBn')
+const { bn, bigExp } = require('../helpers/lib/numbers')
+const { buildHelper } = require('../helpers/wrappers/controller')(web3, artifacts)
+const { assertRevert } = require('../helpers/asserts/assertThrow')
+const { ACTIVATE_DATA } = require('../helpers/utils/jurors')
+const { padLeft, toHex } = require('web3-utils')
+const { SUBSCRIPTIONS_ERRORS } = require('../helpers/utils/errors')
+const { SUBSCRIPTIONS_EVENTS } = require('../helpers/utils/events')
+const { assertAmountOfEvents, assertEvent } = require('../helpers/asserts/assertEvent')
 
 const CourtSubscriptions = artifacts.require('CourtSubscriptions')
 const JurorsRegistry = artifacts.require('JurorsRegistry')
 const Court = artifacts.require('CourtMockForRegistry')
 const ERC20 = artifacts.require('ERC20Mock')
-
-const ACTIVATE_DATA = sha3('activate(uint256)').slice(0, 10)
 
 contract('CourtSubscriptions', ([_, payer, subscriberPeriod0, subscriberPeriod1, jurorPeriod0Term1, jurorPeriod0Term3, jurorMidPeriod1]) => {
   let controller, subscriptions, jurorsRegistry, feeToken, jurorToken
@@ -92,8 +94,8 @@ contract('CourtSubscriptions', ([_, payer, subscriberPeriod0, subscriberPeriod1,
             it('computes total active balance correctly', async () => {
               const { periodBalanceCheckpoint, totalActiveBalance } = await subscriptions.getPeriodBalanceDetails(periodId)
 
-              assert.equal(periodBalanceCheckpoint.toString(), 1, 'checkpoint does not match')
-              assert.equal(totalActiveBalance.toString(), expectedTotalActiveBalance.toString(), 'total active balance does not match')
+              assertBn(periodBalanceCheckpoint, 1, 'checkpoint does not match')
+              assertBn(totalActiveBalance, expectedTotalActiveBalance, 'total active balance does not match')
             })
 
             context('when the claiming juror was active at that term', async () => {
@@ -104,7 +106,7 @@ contract('CourtSubscriptions', ([_, payer, subscriberPeriod0, subscriberPeriod1,
                 const { feeToken: tokenAddress, jurorShare } = await subscriptions.getJurorShare(juror, periodId)
 
                 assert.equal(tokenAddress, feeToken.address, 'fee token address does not match')
-                assert.equal(jurorShare.toString(), expectedShareFees.toString(), 'juror share fees does not match')
+                assertBn(jurorShare, expectedShareFees, 'juror share fees does not match')
               })
 
               it('transfers share fees to the juror', async () => {
@@ -113,15 +115,15 @@ contract('CourtSubscriptions', ([_, payer, subscriberPeriod0, subscriberPeriod1,
                 await subscriptions.claimFees(periodId, { from: juror })
 
                 const currentBalance = await feeToken.balanceOf(juror)
-                assert.equal(previousBalance.add(expectedShareFees).toString(), currentBalance.toString(), 'juror balance does not match')
+                assertBn(previousBalance.add(expectedShareFees), currentBalance, 'juror balance does not match')
                 assert.isTrue(await subscriptions.hasJurorClaimed(juror, periodId))
               })
 
               it('emits an event', async () => {
                 const receipt = await subscriptions.claimFees(periodId, { from: juror })
 
-                assertAmountOfEvents(receipt, 'FeesClaimed')
-                assertEvent(receipt, 'FeesClaimed', { juror, periodId, jurorShare: expectedShareFees })
+                assertAmountOfEvents(receipt, SUBSCRIPTIONS_EVENTS.FEES_CLAIMED)
+                assertEvent(receipt, SUBSCRIPTIONS_EVENTS.FEES_CLAIMED, { juror, periodId, jurorShare: expectedShareFees })
               })
             })
 
@@ -132,11 +134,11 @@ contract('CourtSubscriptions', ([_, payer, subscriberPeriod0, subscriberPeriod1,
                 const { feeToken: tokenAddress, jurorShare } = await subscriptions.getJurorShare(juror, periodId)
 
                 assert.equal(tokenAddress, feeToken.address, 'fee token address does not match')
-                assert.equal(jurorShare.toString(), 0, 'juror share fees does not match')
+                assertBn(jurorShare, 0, 'juror share fees does not match')
               })
 
               it('reverts', async () => {
-                await assertRevert(subscriptions.claimFees(periodId, { from: juror }), 'CS_JUROR_NOTHING_TO_CLAIM')
+                await assertRevert(subscriptions.claimFees(periodId, { from: juror }), SUBSCRIPTIONS_ERRORS.JUROR_NOTHING_TO_CLAIM)
               })
             })
           })
@@ -152,8 +154,8 @@ contract('CourtSubscriptions', ([_, payer, subscriberPeriod0, subscriberPeriod1,
             it('computes total active balance correctly', async () => {
               const { periodBalanceCheckpoint, totalActiveBalance } = await subscriptions.getPeriodBalanceDetails(periodId)
 
-              assert.equal(periodBalanceCheckpoint.toString(), 3, 'checkpoint does not match')
-              assert.equal(totalActiveBalance.toString(), expectedTotalActiveBalance.toString(), 'total active balance does not match')
+              assertBn(periodBalanceCheckpoint, 3, 'checkpoint does not match')
+              assertBn(totalActiveBalance, expectedTotalActiveBalance, 'total active balance does not match')
             })
 
             context('when the claiming juror was active before that term', async () => {
@@ -164,7 +166,7 @@ contract('CourtSubscriptions', ([_, payer, subscriberPeriod0, subscriberPeriod1,
                 const { feeToken: tokenAddress, jurorShare } = await subscriptions.getJurorShare(juror, periodId)
 
                 assert.equal(tokenAddress, feeToken.address, 'fee token address does not match')
-                assert.equal(jurorShare.toString(), expectedShareFees.toString(), 'juror share fees does not match')
+                assertBn(jurorShare, expectedShareFees, 'juror share fees does not match')
               })
 
               it('transfers share fees to the juror', async () => {
@@ -173,15 +175,15 @@ contract('CourtSubscriptions', ([_, payer, subscriberPeriod0, subscriberPeriod1,
                 await subscriptions.claimFees(periodId, { from: juror })
 
                 const currentBalance = await feeToken.balanceOf(juror)
-                assert.equal(previousBalance.add(expectedShareFees).toString(), currentBalance.toString(), 'juror balance does not match')
+                assertBn(previousBalance.add(expectedShareFees), currentBalance, 'juror balance does not match')
                 assert.isTrue(await subscriptions.hasJurorClaimed(juror, periodId))
               })
 
               it('emits an event', async () => {
                 const receipt = await subscriptions.claimFees(periodId, { from: juror })
 
-                assertAmountOfEvents(receipt, 'FeesClaimed')
-                assertEvent(receipt, 'FeesClaimed', { juror, periodId, jurorShare: expectedShareFees })
+                assertAmountOfEvents(receipt, SUBSCRIPTIONS_EVENTS.FEES_CLAIMED)
+                assertEvent(receipt, SUBSCRIPTIONS_EVENTS.FEES_CLAIMED, { juror, periodId, jurorShare: expectedShareFees })
               })
             })
 
@@ -193,7 +195,7 @@ contract('CourtSubscriptions', ([_, payer, subscriberPeriod0, subscriberPeriod1,
                 const { feeToken: tokenAddress, jurorShare } = await subscriptions.getJurorShare(juror, periodId)
 
                 assert.equal(tokenAddress, feeToken.address, 'fee token address does not match')
-                assert.equal(jurorShare.toString(), expectedShareFees.toString(), 'juror share fees does not match')
+                assertBn(jurorShare, expectedShareFees, 'juror share fees does not match')
               })
 
               it('transfers share fees to the juror', async () => {
@@ -202,15 +204,15 @@ contract('CourtSubscriptions', ([_, payer, subscriberPeriod0, subscriberPeriod1,
                 await subscriptions.claimFees(periodId, { from: juror })
 
                 const currentBalance = await feeToken.balanceOf(juror)
-                assert.equal(previousBalance.add(expectedShareFees).toString(), currentBalance.toString(), 'juror balance does not match')
+                assertBn(previousBalance.add(expectedShareFees), currentBalance, 'juror balance does not match')
                 assert.isTrue(await subscriptions.hasJurorClaimed(juror, periodId))
               })
 
               it('emits an event', async () => {
                 const receipt = await subscriptions.claimFees(periodId, { from: juror })
 
-                assertAmountOfEvents(receipt, 'FeesClaimed')
-                assertEvent(receipt, 'FeesClaimed', { juror, periodId, jurorShare: expectedShareFees })
+                assertAmountOfEvents(receipt, SUBSCRIPTIONS_EVENTS.FEES_CLAIMED)
+                assertEvent(receipt, SUBSCRIPTIONS_EVENTS.FEES_CLAIMED, { juror, periodId, jurorShare: expectedShareFees })
               })
             })
           })
@@ -220,9 +222,9 @@ contract('CourtSubscriptions', ([_, payer, subscriberPeriod0, subscriberPeriod1,
           const periodId = 1
 
           it('reverts', async () => {
-            await assertRevert(subscriptions.claimFees(periodId, { from: jurorPeriod0Term1 }), 'CS_NON_PAST_PERIOD')
-            await assertRevert(subscriptions.claimFees(periodId, { from: jurorPeriod0Term3 }), 'CS_NON_PAST_PERIOD')
-            await assertRevert(subscriptions.claimFees(periodId, { from: jurorMidPeriod1 }), 'CS_NON_PAST_PERIOD')
+            await assertRevert(subscriptions.claimFees(periodId, { from: jurorPeriod0Term1 }), SUBSCRIPTIONS_ERRORS.NON_PAST_PERIOD)
+            await assertRevert(subscriptions.claimFees(periodId, { from: jurorPeriod0Term3 }), SUBSCRIPTIONS_ERRORS.NON_PAST_PERIOD)
+            await assertRevert(subscriptions.claimFees(periodId, { from: jurorMidPeriod1 }), SUBSCRIPTIONS_ERRORS.NON_PAST_PERIOD)
           })
         })
 
@@ -230,9 +232,9 @@ contract('CourtSubscriptions', ([_, payer, subscriberPeriod0, subscriberPeriod1,
           const periodId = 2
 
           it('reverts', async () => {
-            await assertRevert(subscriptions.claimFees(periodId, { from: jurorPeriod0Term1 }), 'CS_NON_PAST_PERIOD')
-            await assertRevert(subscriptions.claimFees(periodId, { from: jurorPeriod0Term3 }), 'CS_NON_PAST_PERIOD')
-            await assertRevert(subscriptions.claimFees(periodId, { from: jurorMidPeriod1 }), 'CS_NON_PAST_PERIOD')
+            await assertRevert(subscriptions.claimFees(periodId, { from: jurorPeriod0Term1 }), SUBSCRIPTIONS_ERRORS.NON_PAST_PERIOD)
+            await assertRevert(subscriptions.claimFees(periodId, { from: jurorPeriod0Term3 }), SUBSCRIPTIONS_ERRORS.NON_PAST_PERIOD)
+            await assertRevert(subscriptions.claimFees(periodId, { from: jurorMidPeriod1 }), SUBSCRIPTIONS_ERRORS.NON_PAST_PERIOD)
           })
         })
       })
@@ -242,7 +244,7 @@ contract('CourtSubscriptions', ([_, payer, subscriberPeriod0, subscriberPeriod1,
           const period = 0
 
           it('reverts', async () => {
-            await assertRevert(subscriptions.claimFees(period, { from: jurorPeriod0Term1 }), 'CS_JUROR_NOTHING_TO_CLAIM')
+            await assertRevert(subscriptions.claimFees(period, { from: jurorPeriod0Term1 }), SUBSCRIPTIONS_ERRORS.JUROR_NOTHING_TO_CLAIM)
           })
         })
 
@@ -250,7 +252,7 @@ contract('CourtSubscriptions', ([_, payer, subscriberPeriod0, subscriberPeriod1,
           const period = 1
 
           it('reverts', async () => {
-            await assertRevert(subscriptions.claimFees(period, { from: jurorPeriod0Term1 }), 'CS_NON_PAST_PERIOD')
+            await assertRevert(subscriptions.claimFees(period, { from: jurorPeriod0Term1 }), SUBSCRIPTIONS_ERRORS.NON_PAST_PERIOD)
           })
         })
 
@@ -258,7 +260,7 @@ contract('CourtSubscriptions', ([_, payer, subscriberPeriod0, subscriberPeriod1,
           const period = 2
 
           it('reverts', async () => {
-            await assertRevert(subscriptions.claimFees(period, { from: jurorPeriod0Term1 }), 'CS_NON_PAST_PERIOD')
+            await assertRevert(subscriptions.claimFees(period, { from: jurorPeriod0Term1 }), SUBSCRIPTIONS_ERRORS.NON_PAST_PERIOD)
           })
         })
       })

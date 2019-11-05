@@ -1,7 +1,10 @@
-const { bn, bigExp } = require('../helpers/numbers')
-const { buildHelper } = require('../helpers/controller')(web3, artifacts)
-const { assertRevert } = require('../helpers/assertThrow')
-const { assertEvent, assertAmountOfEvents } = require('../helpers/assertEvent')
+const { assertBn } = require('../helpers/asserts/assertBn')
+const { bn, bigExp } = require('../helpers/lib/numbers')
+const { buildHelper } = require('../helpers/wrappers/controller')(web3, artifacts)
+const { assertRevert } = require('../helpers/asserts/assertThrow')
+const { REGISTRY_EVENTS } = require('../helpers/utils/events')
+const { assertEvent, assertAmountOfEvents } = require('../helpers/asserts/assertEvent')
+const { CONTROLLED_ERRORS, REGISTRY_ERRORS } = require('../helpers/utils/errors')
 
 const JurorsRegistry = artifacts.require('JurorsRegistry')
 const ERC20 = artifacts.require('ERC20Mock')
@@ -30,7 +33,7 @@ contract('JurorsRegistry', ([_, governor, someone]) => {
             await registry.setTotalActiveBalanceLimit(newTotalActiveBalanceLimit, { from })
 
             const currentTotalActiveBalanceLimit = await registry.totalJurorsActiveBalanceLimit()
-            assert.equal(currentTotalActiveBalanceLimit.toString(), newTotalActiveBalanceLimit.toString(), 'total active balance limit does not match')
+            assertBn(currentTotalActiveBalanceLimit, newTotalActiveBalanceLimit, 'total active balance limit does not match')
           })
 
           it('emits an event', async () => {
@@ -38,8 +41,8 @@ contract('JurorsRegistry', ([_, governor, someone]) => {
 
             const receipt = await registry.setTotalActiveBalanceLimit(newTotalActiveBalanceLimit, { from })
 
-            assertAmountOfEvents(receipt, 'TotalActiveBalanceLimitChanged')
-            assertEvent(receipt, 'TotalActiveBalanceLimitChanged', { previousTotalActiveBalanceLimit, currentTotalActiveBalanceLimit: newTotalActiveBalanceLimit })
+            assertAmountOfEvents(receipt, REGISTRY_EVENTS.TOTAL_ACTIVE_BALANCE_LIMIT_CHANGED)
+            assertEvent(receipt, REGISTRY_EVENTS.TOTAL_ACTIVE_BALANCE_LIMIT_CHANGED, { previousTotalActiveBalanceLimit, currentTotalActiveBalanceLimit: newTotalActiveBalanceLimit })
           })
         }
 
@@ -60,7 +63,7 @@ contract('JurorsRegistry', ([_, governor, someone]) => {
         const newTotalActiveBalanceLimit = bn(0)
 
         it('reverts', async () => {
-          await assertRevert(registry.setTotalActiveBalanceLimit(newTotalActiveBalanceLimit, { from }), 'JR_BAD_TOTAL_ACTIVE_BAL_LIMIT')
+          await assertRevert(registry.setTotalActiveBalanceLimit(newTotalActiveBalanceLimit, { from }), REGISTRY_ERRORS.BAD_TOTAL_ACTIVE_BALANCE_LIMIT)
         })
       })
     })
@@ -69,7 +72,7 @@ contract('JurorsRegistry', ([_, governor, someone]) => {
       const from = someone
 
       it('reverts', async () => {
-        await assertRevert(registry.setTotalActiveBalanceLimit(TOTAL_ACTIVE_BALANCE_LIMIT, { from }), 'CTD_SENDER_NOT_CONFIG_GOVERNOR')
+        await assertRevert(registry.setTotalActiveBalanceLimit(TOTAL_ACTIVE_BALANCE_LIMIT, { from }), CONTROLLED_ERRORS.SENDER_NOT_CONFIG_GOVERNOR)
       })
     })
   })

@@ -1,13 +1,13 @@
-const { assertBn } = require('../helpers/numbers')
-const { bn, bigExp } = require('../helpers/numbers')
-const { printTable } = require('../helpers/logging')
-const { buildHelper } = require('../helpers/court')(web3, artifacts)
-const { getVoteId, encryptVote, oppositeOutcome, SALT, OUTCOMES } = require('../helpers/crvoting')
+const { assertBn } = require('../helpers/asserts/assertBn')
+const { bn, bigExp } = require('../helpers/lib/numbers')
+const { printTable } = require('../helpers/lib/logging')
+const { buildHelper } = require('../helpers/wrappers/court')(web3, artifacts)
+const { getVoteId, encryptVote, oppositeOutcome, SALT, OUTCOMES } = require('../helpers/utils/crvoting')
 
 const Arbitrable = artifacts.require('ArbitrableMock')
 
 contract('Court', ([_, sender, disputer, drafter, appealMaker, appealTaker, juror500, juror1000, juror1500, juror2000, juror2500, juror3000]) => {
-  let courtHelper, controllerHelper, court, voting, controller, costs = {}
+  let courtHelper, court, voting, controller, costs = {}
 
   const jurors = [
     { address: juror500,  initialActiveBalance: bigExp(500,  18) },
@@ -15,7 +15,7 @@ contract('Court', ([_, sender, disputer, drafter, appealMaker, appealTaker, juro
     { address: juror1500, initialActiveBalance: bigExp(1500, 18) },
     { address: juror2000, initialActiveBalance: bigExp(2000, 18) },
     { address: juror2500, initialActiveBalance: bigExp(2500, 18) },
-    { address: juror3000, initialActiveBalance: bigExp(3000, 18) },
+    { address: juror3000, initialActiveBalance: bigExp(3000, 18) }
   ]
 
   beforeEach('create court and activate jurors', async () => {
@@ -24,8 +24,6 @@ contract('Court', ([_, sender, disputer, drafter, appealMaker, appealTaker, juro
 
     voting = courtHelper.voting
     controller = courtHelper.controller
-    controllerHelper = courtHelper.controllerHelper
-
     await courtHelper.activate(jurors)
   })
 

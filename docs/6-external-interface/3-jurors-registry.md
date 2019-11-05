@@ -97,43 +97,14 @@ The following functions are state getters provided by the `JurorsRegistry`:
 - **Outputs:**
     - **Amount:** Total amount of active juror tokens at the given term ID
     
-#### 6.3.2.5. Active balance of at
+#### 6.3.2.5. Total staked for
 - **Inputs:** 
-    - **Juror:** Address of the juror querying the active balance of
-    - **Term ID:** Identification number of the term querying the total active balance of the given juror
+    - **Juror:** Address of the juror querying the total amount staked of
 - **Pre-flight checks:** None
 - **Outputs:**
-    - **Amount:** Amount of active tokens for juror in the requested term ID
+    - **Amount:** Total amount of tokens of a juror
     
-#### 6.3.2.6. Total active balance limit
-- **Inputs:** None 
-- **Pre-flight checks:** None
-- **Outputs:**
-    - **Total active balance limit:** Maximum amount of total active balance that can be hold in the registry
-    
-#### 6.3.2.7. Juror ID
-- **Inputs:** 
-    - **Juror:** Address of the juror querying the ID of
-- **Pre-flight checks:** None
-- **Outputs:**
-    - **Juror ID:** Identification number associated to a juror address, zero in case it wasn't registered yet
-    
-#### 6.3.2.8. Unlocked active balance of
-- **Inputs:** 
-    - **Juror:** Address of the juror querying the unlocked active balance of
-- **Pre-flight checks:** None
-- **Outputs:**
-    - **Amount:** Amount of active tokens of a juror that are not locked due to ongoing disputes
-    
-#### 6.3.2.9. Deactivation request
-- **Inputs:** 
-    - **Juror:** Address of the juror querying the deactivation request of
-- **Pre-flight checks:** None
-- **Outputs:**
-    - **Amount:** Amount of tokens to be deactivated
-    - **Available term ID:** Term in which the deactivated amount will be available
-    
-#### 6.3.2.10. Balance of
+#### 6.3.2.6. Balance of
 - **Inputs:** 
     - **Juror:** Address of the juror querying the balance information of
 - **Pre-flight checks:** None
@@ -142,10 +113,50 @@ The following functions are state getters provided by the `JurorsRegistry`:
     - **Available:** Amount of available tokens of a juror
     - **Locked:** Amount of active tokens that are locked due to ongoing disputes
     - **Pending deactivation:** Amount of active tokens that were requested for deactivation
-    
-#### 6.3.2.11. Total staked for
+
+#### 6.3.2.7. Balance of at
 - **Inputs:** 
-    - **Juror:** Address of the juror querying the total amount staked of
+    - **Juror:** Address of the juror querying the balance information of
+    - **Term ID:** Identification number of the term querying the balance information of the given juror
 - **Pre-flight checks:** None
 - **Outputs:**
-    - **Amount:** Total amount of tokens of a juror
+    - **Active:** Amount of active tokens of a juror at the requested term
+    - **Available:** Amount of available tokens of a juror
+    - **Locked:** Amount of active tokens that are locked due to ongoing disputes
+    - **Pending deactivation:** Amount of active tokens that were requested for deactivation
+    
+#### 6.3.2.8. Active balance of at
+- **Inputs:** 
+    - **Juror:** Address of the juror querying the active balance of
+    - **Term ID:** Identification number of the term querying the total active balance of the given juror
+- **Pre-flight checks:** None
+- **Outputs:**
+    - **Amount:** Amount of active tokens for juror in the requested term ID
+    
+#### 6.3.2.9. Unlocked active balance of
+- **Inputs:** 
+    - **Juror:** Address of the juror querying the unlocked active balance of
+- **Pre-flight checks:** None
+- **Outputs:**
+    - **Amount:** Amount of active tokens of a juror that are not locked due to ongoing disputes
+    
+#### 6.3.2.10. Deactivation request
+- **Inputs:** 
+    - **Juror:** Address of the juror querying the deactivation request of
+- **Pre-flight checks:** None
+- **Outputs:**
+    - **Amount:** Amount of tokens to be deactivated
+    - **Available term ID:** Term in which the deactivated amount will be available
+    
+#### 6.3.2.11. Total active balance limit
+- **Inputs:** None 
+- **Pre-flight checks:** None
+- **Outputs:**
+    - **Total active balance limit:** Maximum amount of total active balance that can be hold in the registry
+    
+#### 6.3.2.12. Juror ID
+- **Inputs:** 
+    - **Juror:** Address of the juror querying the ID of
+- **Pre-flight checks:** None
+- **Outputs:**
+    - **Juror ID:** Identification number associated to a juror address, zero in case it wasn't registered yet

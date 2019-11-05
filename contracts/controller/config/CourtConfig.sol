@@ -103,6 +103,7 @@ contract CourtConfig is IConfig, CourtConfigData {
 
     /**
     * @dev Tell whether a certain holder accepts automatic withdrawals of tokens or not
+    * @param _holder Address of the token holder querying if withdrawals are allowed for
     * @return True if the given holder accepts automatic withdrawals of their tokens, false otherwise
     */
     function areWithdrawalsAllowedFor(address _holder) external view returns (bool) {

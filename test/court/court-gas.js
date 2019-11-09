@@ -53,7 +53,7 @@ contract('Court', ([_, sender, disputer, drafter, appealMaker, appealTaker, juro
           assertBn(neededTransitions, 0, 'needed transitions does not match')
         })
 
-        itCostsAtMost('createDispute', 209e3, () => court.createDispute(arbitrable.address, 2, { from: sender }))
+        itCostsAtMost('createDispute', 210e3, () => court.createDispute(arbitrable.address, 2, '0x', { from: sender }))
       })
 
       context('when the current term is outdated by one term', () => {
@@ -63,7 +63,7 @@ contract('Court', ([_, sender, disputer, drafter, appealMaker, appealTaker, juro
           assertBn(neededTransitions, 1, 'needed transitions does not match')
         })
 
-        itCostsAtMost('createDispute', 265e3, () => court.createDispute(arbitrable.address, 2, { from: sender }))
+        itCostsAtMost('createDispute', 266e3, () => court.createDispute(arbitrable.address, 2, '0x', { from: sender }))
       })
     })
 

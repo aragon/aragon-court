@@ -137,7 +137,7 @@ module.exports = (web3, artifacts) => {
       }
     }
 
-    async dispute({ draftTermId, possibleRulings = bn(2), arbitrable = undefined, disputer = undefined }) {
+    async dispute({ draftTermId, possibleRulings = bn(2), metadata = '0x', arbitrable = undefined, disputer = undefined }) {
       // mint enough fee tokens for the disputer, if no disputer was given pick the second account
       if (!disputer) disputer = await this._getAccount(1)
       await this.setTerm(draftTermId - 1)
@@ -149,7 +149,7 @@ module.exports = (web3, artifacts) => {
       await this.subscriptions.setUpToDate(true)
 
       // create dispute and return id
-      const receipt = await this.court.createDispute(arbitrable.address, possibleRulings, { from: disputer })
+      const receipt = await this.court.createDispute(arbitrable.address, possibleRulings, metadata, { from: disputer })
       return getEventArgument(receipt, COURT_EVENTS.NEW_DISPUTE, 'disputeId')
     }
 

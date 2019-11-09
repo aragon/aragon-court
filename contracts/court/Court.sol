@@ -1162,7 +1162,7 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
         feeToken = _config.token;
         // For regular rounds the fees for each juror is constant and given by the config of the round
         jurorFees = uint256(_jurorsNumber).mul(_config.jurorFee);
-        // The total fees for regular rounds also considers the heartbeat, the number of drafts, and the number of settles
+        // The total fees for regular rounds also considers the number of drafts and settles
         uint256 draftAndSettleFees = (_config.draftFee.add(_config.settleFee)).mul(uint256(_jurorsNumber));
         totalFees = jurorFees.add(draftAndSettleFees);
     }
@@ -1182,7 +1182,7 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
         // For final rounds, the jurors number is computed as the number of times the registry's minimum active balance is held in the registry
         // itself, multiplied by a precision factor. To avoid requesting a huge amount of fees, a final round discount is applied for each juror.
         jurorFees = (uint256(_jurorsNumber).mul(_config.jurorFee) / FINAL_ROUND_WEIGHT_PRECISION).pct(_config.finalRoundReduction);
-        // The total fees for final rounds only considers the heartbeat, there is no draft and no extra settle fees considered
+        // There is no draft and no extra settle fees considered for final rounds
         totalFees = jurorFees;
     }
 

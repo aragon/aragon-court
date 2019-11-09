@@ -71,7 +71,8 @@ const CONFIG_EVENTS = {
 }
 
 const CLOCK_EVENTS = {
-  HEARTBEAT: 'Heartbeat'
+  HEARTBEAT: 'Heartbeat',
+  START_TIME_DELAYED: 'StartTimeDelayed'
 }
 
 module.exports = {

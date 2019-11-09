@@ -177,6 +177,14 @@ contract Controller is IsContract, CourtClock, CourtConfig {
     }
 
     /**
+    * @notice Delay the Court start time to `_newFirstTermStartTime`
+    * @param _newFirstTermStartTime New timestamp in seconds when the court will open
+    */
+    function delayStartTime(uint64 _newFirstTermStartTime) external onlyConfigGovernor {
+        _delayStartTime(_newFirstTermStartTime);
+    }
+
+    /**
     * @notice Change funds governor address to `_newFundsGovernor`
     * @param _newFundsGovernor Address of the new funds governor to be set
     */

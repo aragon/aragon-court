@@ -18,35 +18,42 @@ The following events are emitted by the `Controller`:
     - **Previous term ID:** Identification number of the Court term before the transition 
     - **Current term ID:** Identification number of the Court term after the transition 
 
-#### 6.1.1.3. Automatic withdrawals changed
+#### 6.1.1.3. Start time delayed
+
+- **Name:** `StartTimeDelayed`
+- **Args:**
+    - **Previous first term start time:** Previous timestamp in seconds when the Court will start 
+    - **Current first-term start time:** New timestamp in seconds when the Court will start 
+
+#### 6.1.1.4. Automatic withdrawals changed
 
 - **Name:** `AutomaticWithdrawalsAllowedChanged`
 - **Args:**
     - **Holder:** Address of the token holder whose automatic withdrawals config was changed 
     - **Allowed:** Whether automatic withdrawals are allowed or not for the given holder  
 
-#### 6.1.1.4. Module set
+#### 6.1.1.5. Module set
 
 - **Name:** `ModuleSet`
 - **Args:**
     - **Module ID:** ID of the module being set
     - **Address:** Address of the module being set
 
-#### 6.1.1.5. Funds governor changed
+#### 6.1.1.6. Funds governor changed
 
 - **Name:** `FundsGovernorChanged`
 - **Args:**
     - **Previous governor:** Address of the previous funds governor
     - **Current governor:** Address of the current funds governor
 
-#### 6.1.1.6. Config governor changed
+#### 6.1.1.7. Config governor changed
 
 - **Name:** `ConfigGovernorChanged`
 - **Args:**
     - **Previous governor:** Address of the previous config governor
     - **Current governor:** Address of the current config governor
 
-#### 6.1.1.7. Modules governor changed
+#### 6.1.1.8. Modules governor changed
 
 - **Name:** `ModulesGovernorChanged`
 - **Args:**

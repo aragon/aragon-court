@@ -2,12 +2,12 @@ const { bn } = require('../helpers/lib/numbers')
 const { assertBn } = require('../helpers/asserts/assertBn')
 const { buildHelper } = require('../helpers/wrappers/controller')(web3, artifacts)
 const { assertRevert } = require('../helpers/asserts/assertThrow')
-const { CLOCK_ERRORS } = require('../helpers/utils/errors')
 const { CLOCK_EVENTS } = require('../helpers/utils/events')
 const { NEXT_WEEK, NOW, ONE_DAY } = require('../helpers/lib/time')
+const { CLOCK_ERRORS, CONTROLLER_ERRORS } = require('../helpers/utils/errors')
 const { assertAmountOfEvents, assertEvent } = require('../helpers/asserts/assertEvent')
 
-contract('Controller', () => {
+contract('Controller', ([_, someone, configGovernor]) => {
   let controllerHelper, controller
 
   const EMPTY_RANDOMNESS = '0x0000000000000000000000000000000000000000000000000000000000000000'
@@ -245,6 +245,87 @@ contract('Controller', () => {
         const remainingTransitions = 0
 
         itUpdatesTermsSuccessfully(maxTransitionTerms, expectedTransitions, remainingTransitions)
+      })
+    })
+  })
+
+  describe('delayStartTime', () => {
+    const termDuration = bn(ONE_DAY)
+    const firstTermStartTime = bn(NEXT_WEEK)
+
+    beforeEach('create controller', async () => {
+      controller = await controllerHelper.deploy({ termDuration, firstTermStartTime, configGovernor })
+    })
+
+    context('when the sender is the config governor', () => {
+      const from = configGovernor
+
+      context('when the court has not started yet', () => {
+        beforeEach('assert the court has not started yet', async () => {
+          const currentTerm = await controller.getCurrentTermId()
+          assertBn(currentTerm, 0, 'court has already started')
+        })
+
+        context('when the given timestamp is in the future', () => {
+          const newStartTime = firstTermStartTime.add(bn(1))
+
+          it('updates the first term start time', async () => {
+            await controller.delayStartTime(newStartTime, { from })
+
+            const { startTime } = await controller.getTerm(0)
+
+            const expectedZeroTermStartTime = newStartTime.sub(termDuration)
+            assertBn(startTime, expectedZeroTermStartTime, 'start time does not match')
+          })
+
+          it('emits an event', async () => {
+            const receipt = await controller.delayStartTime(newStartTime, { from })
+
+            assertAmountOfEvents(receipt, CLOCK_EVENTS.START_TIME_DELAYED)
+            assertEvent(receipt, CLOCK_EVENTS.START_TIME_DELAYED, { previousStartTime: firstTermStartTime, currentStartTime: newStartTime })
+          })
+        })
+
+        context('when the given timestamp is in the past', () => {
+          const newStartTime = firstTermStartTime.sub(bn(1))
+
+          it('reverts', async () => {
+            await assertRevert(controller.delayStartTime(newStartTime, { from }), CLOCK_ERRORS.CANNOT_DELAY_PAST_START_TIME)
+          })
+        })
+      })
+
+      context('when the court has already started', () => {
+        beforeEach('start court', async () => {
+          await controllerHelper.setTerm(1)
+
+          const currentTerm = await controller.getCurrentTermId()
+          assertBn(currentTerm, 1, 'court has not started yet')
+        })
+
+        context('when the given timestamp is in the future', () => {
+          const newStartTime = firstTermStartTime.add(bn(1))
+
+          it('reverts', async () => {
+            await assertRevert(controller.delayStartTime(newStartTime, { from }), CLOCK_ERRORS.CANNOT_DELAY_STARTED_COURT)
+          })
+        })
+
+        context('when the given timestamp is in the past', () => {
+          const newStartTime = firstTermStartTime.sub(bn(1))
+
+          it('reverts', async () => {
+            await assertRevert(controller.delayStartTime(newStartTime, { from }), CLOCK_ERRORS.CANNOT_DELAY_STARTED_COURT)
+          })
+        })
+      })
+    })
+
+    context('when the sender is not the config governor', () => {
+      const from = someone
+
+      it('reverts', async () => {
+        await assertRevert(controller.delayStartTime(firstTermStartTime + 1, { from }), CONTROLLER_ERRORS.SENDER_NOT_GOVERNOR)
       })
     })
   })

@@ -45,4 +45,3 @@ The protocol settings should be always able to be tweaked to ensure the proper o
 
 Any other modules functionality that needs to be restricted is either relying on these governor addresses as well, or on any of the other modules. 
 No other external accounts apart from the `Governor` addresses belong to the protocol implementation.
-  

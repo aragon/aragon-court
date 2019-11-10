@@ -42,8 +42,8 @@ contract('Court', ([_, sender, drafter, appealMaker, appealTaker, juror500, juro
 
       beforeEach('create arbitrable and approve fee amount', async () => {
         await courtHelper.setTerm(1)
-        arbitrable = await Arbitrable.new(court.address)
-        await courtHelper.subscriptions.setUpToDate(true)
+        arbitrable = await Arbitrable.new(controller.address)
+        await courtHelper.subscriptions.mockUpToDate(true)
         const { disputeFees } = await courtHelper.getDisputeFees()
         await courtHelper.mintFeeTokens(arbitrable.address, disputeFees)
       })
@@ -54,7 +54,7 @@ contract('Court', ([_, sender, drafter, appealMaker, appealTaker, juror500, juro
           assertBn(neededTransitions, 0, 'needed transitions does not match')
         })
 
-        itCostsAtMost('createDispute', 251e3, () => arbitrable.createDispute(2, '0x', { from: sender }))
+        itCostsAtMost('createDispute', 239e3, () => arbitrable.createDispute(2, '0x', { from: sender }))
       })
 
       context('when the current term is outdated by one term', () => {
@@ -64,7 +64,7 @@ contract('Court', ([_, sender, drafter, appealMaker, appealTaker, juror500, juro
           assertBn(neededTransitions, 1, 'needed transitions does not match')
         })
 
-        itCostsAtMost('createDispute', 307e3, () => arbitrable.createDispute(2, '0x', { from: sender }))
+        itCostsAtMost('createDispute', 295e3, () => arbitrable.createDispute(2, '0x', { from: sender }))
       })
     })
 
@@ -233,7 +233,7 @@ contract('Court', ([_, sender, drafter, appealMaker, appealTaker, juror500, juro
           assertBn(neededTransitions, 0, 'needed transitions does not match')
         })
 
-        itCostsAtMost('confirmAppeal', 179e3, () => court.confirmAppeal(disputeId, roundId, appealTakerRuling, { from: appealTaker }))
+        itCostsAtMost('confirmAppeal', 159e3, () => court.confirmAppeal(disputeId, roundId, appealTakerRuling, { from: appealTaker }))
       })
 
       context('when the current term is outdated by one term', () => {
@@ -243,7 +243,7 @@ contract('Court', ([_, sender, drafter, appealMaker, appealTaker, juror500, juro
           assertBn(neededTransitions, 1, 'needed transitions does not match')
         })
 
-        itCostsAtMost('confirmAppeal', 235e3, () => court.confirmAppeal(disputeId, roundId, appealTakerRuling, { from: appealTaker }))
+        itCostsAtMost('confirmAppeal', 215e3, () => court.confirmAppeal(disputeId, roundId, appealTakerRuling, { from: appealTaker }))
       })
     })
 
@@ -270,7 +270,7 @@ contract('Court', ([_, sender, drafter, appealMaker, appealTaker, juror500, juro
           assertBn(neededTransitions, 0, 'needed transitions does not match')
         })
 
-        itCostsAtMost('executeRuling', 68e3, () => court.executeRuling(disputeId))
+        itCostsAtMost('executeRuling', 70e3, () => controller.executeRuling(disputeId))
       })
 
       context('when the current term is outdated by one term', () => {
@@ -280,7 +280,7 @@ contract('Court', ([_, sender, drafter, appealMaker, appealTaker, juror500, juro
           assertBn(neededTransitions, 1, 'needed transitions does not match')
         })
 
-        itCostsAtMost('executeRuling', 124e3, () => court.executeRuling(disputeId))
+        itCostsAtMost('executeRuling', 126e3, () => controller.executeRuling(disputeId))
       })
     })
 
@@ -320,7 +320,7 @@ contract('Court', ([_, sender, drafter, appealMaker, appealTaker, juror500, juro
           assertBn(neededTransitions, 1, 'needed transitions does not match')
         })
 
-        itCostsAtMost('settlePenalties', 253e3, () => court.settlePenalties(disputeId, roundId, 0))
+        itCostsAtMost('settlePenalties', 254e3, () => court.settlePenalties(disputeId, roundId, 0))
       })
     })
 

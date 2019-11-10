@@ -9,7 +9,7 @@ The dispute object includes the following fields:
 - **Subject:** Arbitrable instance associated to a dispute
 - **Possible rulings:** Number of possible rulings jurors can vote for each dispute
 - **Final ruling:** Winning ruling of a dispute
-- **Dispute state:** State of a dispute: pre-draft, adjudicating, or executed
+- **Dispute state:** State of a dispute: pre-draft, adjudicating, or ruled
 - **Adjudication rounds:** List of adjudication rounds for each dispute
 
 ### 5.2.2. Adjudication round
@@ -18,7 +18,6 @@ The adjudication round object includes the following fields:
 
 - **Draft term ID:** Term from which the jurors of a round can be drafted
 - **Jurors number:** Number of jurors drafted for a round
-- **Triggered by:** Address that triggered a round
 - **Settled penalties:** Whether or not penalties have been settled for a round
 - **Juror fees:** Total amount of fees to be distributed between the winning jurors of a round
 - **Jurors:** List of jurors drafted for a round

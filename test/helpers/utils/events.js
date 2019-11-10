@@ -1,5 +1,5 @@
 const ARBITRABLE_EVENTS = {
-  COURT_RULING: 'CourtRuling'
+  RULED: 'Ruled'
 }
 
 const COURT_EVENTS = {
@@ -7,7 +7,7 @@ const COURT_EVENTS = {
   NEW_DISPUTE: 'NewDispute',
   RULING_APPEALED: 'RulingAppealed',
   RULING_APPEAL_CONFIRMED: 'RulingAppealConfirmed',
-  RULING_EXECUTED: 'RulingExecuted',
+  RULING_COMPUTED: 'RulingComputed',
   PENALTIES_SETTLED: 'PenaltiesSettled',
   REWARD_SETTLED: 'RewardSettled',
   APPEAL_DEPOSIT_SETTLED: 'AppealDepositSettled',

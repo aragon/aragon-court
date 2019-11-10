@@ -157,17 +157,14 @@ contract('Court', ([_, drafter, appealMaker, appealTaker, juror500, juror1000, j
                   })
 
                   it('does not modify the current round of the dispute', async () => {
-                    const { triggeredBy: previousTrigger } = await courtHelper.getRound(disputeId, roundId)
-
                     await court.createAppeal(disputeId, roundId, appealMakerRuling, { from: appealMaker })
 
-                    const { draftTerm, delayedTerms, roundJurorsNumber, selectedJurors, triggeredBy, jurorFees, settledPenalties, collectedTokens } = await courtHelper.getRound(disputeId, roundId)
+                    const { draftTerm, delayedTerms, roundJurorsNumber, selectedJurors, jurorFees, settledPenalties, collectedTokens } = await courtHelper.getRound(disputeId, roundId)
                     assertBn(draftTerm, draftTermId, 'current round draft term does not match')
                     assertBn(delayedTerms, 0, 'current round delay term does not match')
                     assertBn(roundJurorsNumber, DEFAULTS.firstRoundJurorsNumber, 'current round jurors number does not match')
                     assertBn(selectedJurors, DEFAULTS.firstRoundJurorsNumber, 'current round selected jurors number does not match')
                     assertBn(jurorFees, courtHelper.jurorFee.mul(bn(DEFAULTS.firstRoundJurorsNumber)), 'current round juror fees do not match')
-                    assert.equal(triggeredBy, previousTrigger, 'current round trigger does not match')
                     assert.equal(settledPenalties, false, 'current round penalties should not be settled')
                     assertBn(collectedTokens, 0, 'current round collected tokens should be zero')
                   })

@@ -10,7 +10,7 @@ const PCT_BASE = bn(10000)
 const DISPUTE_STATES = {
   PRE_DRAFT: bn(0),
   ADJUDICATING: bn(1),
-  EXECUTED: bn(2)
+  RULED: bn(2)
 }
 
 const ROUND_STATES = {
@@ -38,8 +38,8 @@ module.exports = (web3, artifacts) => {
     }
 
     async getRound(disputeId, roundId) {
-      const { draftTerm, delayedTerms, jurorsNumber: roundJurorsNumber, selectedJurors, triggeredBy, settledPenalties, jurorFees, collectedTokens, coherentJurors, state: roundState } = await this.court.getRound(disputeId, roundId)
-      return { draftTerm, delayedTerms, roundJurorsNumber, selectedJurors, triggeredBy, settledPenalties, jurorFees, collectedTokens, coherentJurors, roundState }
+      const { draftTerm, delayedTerms, jurorsNumber: roundJurorsNumber, selectedJurors, settledPenalties, jurorFees, collectedTokens, coherentJurors, state: roundState } = await this.court.getRound(disputeId, roundId)
+      return { draftTerm, delayedTerms, roundJurorsNumber, selectedJurors, settledPenalties, jurorFees, collectedTokens, coherentJurors, roundState }
     }
 
     async getAppeal(disputeId, roundId) {
@@ -146,8 +146,8 @@ module.exports = (web3, artifacts) => {
       await this.setTerm(draftTermId - 1)
 
       // create an arbitrable if no one was given, and mock subscriptions
-      if (!arbitrable) arbitrable = await this.artifacts.require('ArbitrableMock').new(this.court.address)
-      await this.subscriptions.setUpToDate(true)
+      if (!arbitrable) arbitrable = await this.artifacts.require('ArbitrableMock').new(this.controller.address)
+      await this.subscriptions.mockUpToDate(true)
 
       // mint fee tokens for the arbitrable instance
       const { disputeFees } = await this.getDisputeFees()

@@ -182,6 +182,7 @@ module.exports = (web3, artifacts) => {
           this.feeToken.address,
           this.subscriptionFeeAmount,
           this.subscriptionPrePaymentPeriods,
+          this.subscriptionResumePrePaidPeriods,
           this.subscriptionLatePaymentPenaltyPct,
           this.subscriptionGovernorSharePct
         )

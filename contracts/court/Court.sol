@@ -7,6 +7,7 @@ import "../lib/os/SafeMath.sol";
 import "../lib/os/SafeMath64.sol";
 import "../lib/os/Uint256Helpers.sol";
 
+import "./ICourt.sol";
 import "../lib/PctHelpers.sol";
 import "../voting/ICRVoting.sol";
 import "../voting/ICRVotingOwner.sol";
@@ -17,7 +18,7 @@ import "../subscriptions/ISubscriptions.sol";
 import "../controller/ControlledRecoverable.sol";
 
 
-contract Court is ControlledRecoverable, ICRVotingOwner {
+contract Court is ControlledRecoverable, ICRVotingOwner, ICourt {
     using SafeERC20 for ERC20;
     using SafeMath for uint256;
     using SafeMath64 for uint64;
@@ -30,7 +31,6 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
 
     // Disputes-related error messages
     string private constant ERROR_TERM_OUTDATED = "CT_TERM_OUTDATED";
-    string private constant ERROR_SENDER_NOT_ARBITRABLE = "CT_SENDER_NOT_ARBITRABLE";
     string private constant ERROR_DISPUTE_DOES_NOT_EXIST = "CT_DISPUTE_DOES_NOT_EXIST";
     string private constant ERROR_INVALID_DISPUTE_STATE = "CT_INVALID_DISPUTE_STATE";
     string private constant ERROR_INVALID_RULING_OPTIONS = "CT_INVALID_RULING_OPTIONS";
@@ -64,13 +64,10 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
     // Precision factor used to improve rounding when computing weights for the final round
     uint256 internal constant FINAL_ROUND_WEIGHT_PRECISION = 1000;
 
-    // Arbitrable interface ID based on ERC-165
-    bytes4 private constant ARBITRABLE_INTERFACE_ID = bytes4(0x311a6c56);
-
     enum DisputeState {
         PreDraft,
         Adjudicating,
-        Executed
+        Ruled
     }
 
     enum AdjudicationState {
@@ -86,14 +83,13 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
         IArbitrable subject;           // Arbitrable associated to a dispute
         uint8 possibleRulings;         // Number of possible rulings jurors can vote for each dispute
         uint8 finalRuling;             // Winning ruling of a dispute
-        DisputeState state;            // State of a dispute: pre-draft, adjudicating, or executed
+        DisputeState state;            // State of a dispute: pre-draft, adjudicating, or ruled
         AdjudicationRound[] rounds;    // List of rounds for each dispute
     }
 
     struct AdjudicationRound {
         uint64 draftTermId;            // Term from which the jurors of a round can be drafted
         uint64 jurorsNumber;           // Number of jurors drafted for a round
-        address triggeredBy;           // Address that triggered a round
         bool settledPenalties;         // Whether or not penalties have been settled for a round
         uint256 jurorFees;             // Total amount of fees to be distributed between the winning jurors of a round
         address[] jurors;              // List of jurors drafted for a round
@@ -141,7 +137,7 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
     event NewDispute(uint256 indexed disputeId, IArbitrable indexed subject, uint64 indexed draftTermId, uint64 jurorsNumber, bytes metadata);
     event RulingAppealed(uint256 indexed disputeId, uint256 indexed roundId, uint8 ruling);
     event RulingAppealConfirmed(uint256 indexed disputeId, uint256 indexed roundId, uint64 indexed draftTermId, uint256 jurorsNumber);
-    event RulingExecuted(uint256 indexed disputeId, uint8 indexed ruling);
+    event RulingComputed(uint256 indexed disputeId, uint8 indexed ruling);
     event PenaltiesSettled(uint256 indexed disputeId, uint256 indexed roundId, uint256 collectedTokens);
     event RewardSettled(uint256 indexed disputeId, uint256 indexed roundId, address juror);
     event AppealDepositSettled(uint256 indexed disputeId, uint256 indexed roundId);
@@ -186,15 +182,13 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
     }
 
     /**
-    * @notice Create a dispute over the Arbitrable sender with `_possibleRulings` possible rulings for the next term
+    * @notice Create a dispute over `_subject` with `_possibleRulings` possible rulings for the next term
+    * @param _subject Arbitrable instance creating the dispute
     * @param _possibleRulings Number of possible rulings allowed for the drafted jurors to vote on the dispute
     * @param _metadata Optional metadata that can be used to provide additional information on the dispute to be created
     * @return Dispute identification number
     */
-    function createDispute(uint8 _possibleRulings, bytes calldata _metadata) external returns (uint256) {
-        IArbitrable subject = IArbitrable(msg.sender);
-        require(subject.supportsInterface(ARBITRABLE_INTERFACE_ID), ERROR_SENDER_NOT_ARBITRABLE);
-
+    function createDispute(IArbitrable _subject, uint8 _possibleRulings, bytes calldata _metadata) external onlyController returns (uint256) {
         uint64 termId = _ensureCurrentTerm();
         ISubscriptions subscriptions = _subscriptions();
         require(subscriptions.isUpToDate(address(msg.sender)), ERROR_SUBSCRIPTION_NOT_PAID);
@@ -204,18 +198,18 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
         uint64 draftTermId = termId + 1;
         uint256 disputeId = disputes.length++;
         Dispute storage dispute = disputes[disputeId];
-        dispute.subject = subject;
+        dispute.subject = _subject;
         dispute.possibleRulings = _possibleRulings;
         CreateDisputeConfig memory config = _getCreateDisputeConfig(draftTermId);
         uint64 jurorsNumber = config.firstRoundJurorsNumber;
-        emit NewDispute(disputeId, subject, draftTermId, jurorsNumber, _metadata);
+        emit NewDispute(disputeId, _subject, draftTermId, jurorsNumber, _metadata);
 
         // Create first adjudication round of the dispute
         (ERC20 feeToken, uint256 jurorFees, uint256 totalFees) = _getRegularRoundFees(config.fees, jurorsNumber);
         _createRound(disputeId, DisputeState.PreDraft, draftTermId, jurorsNumber, jurorFees);
 
         // Pay round fees and return dispute id
-        _depositSenderAmount(feeToken, totalFees);
+        _depositAmount(address(_subject), feeToken, totalFees);
         return disputeId;
     }
 
@@ -281,7 +275,7 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
 
         // Pay appeal deposit
         NextRoundDetails memory nextRound = _getNextRoundDetails(round, _roundId, config);
-        _depositSenderAmount(nextRound.feeToken, nextRound.appealDeposit);
+        _depositAmount(msg.sender, nextRound.feeToken, nextRound.appealDeposit);
     }
 
     /**
@@ -314,23 +308,26 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
         emit RulingAppealConfirmed(_disputeId, newRoundId, nextRound.startTerm, nextRound.jurorsNumber);
 
         // Pay appeal confirm deposit
-        _depositSenderAmount(nextRound.feeToken, nextRound.confirmAppealDeposit);
+        _depositAmount(msg.sender, nextRound.feeToken, nextRound.confirmAppealDeposit);
     }
 
     /**
-    * @notice Execute the arbitrable associated to dispute #`_disputeId` based on its final ruling
-    * @param _disputeId Identification number of the dispute to be executed
+    * @notice Compute the final ruling for the dispute #`_disputeId`
+    * @param _disputeId Identification number of the dispute to compute its final ruling
+    * @return subject Arbitrable instance associated to the dispute
+    * @return finalRuling Final ruling decided for the given dispute
     */
-    function executeRuling(uint256 _disputeId) external disputeExists(_disputeId) {
+    function computeRuling(uint256 _disputeId) external disputeExists(_disputeId) returns (IArbitrable subject, uint8 finalRuling) {
         Dispute storage dispute = disputes[_disputeId];
-        require(dispute.state != DisputeState.Executed, ERROR_INVALID_DISPUTE_STATE);
+        subject = dispute.subject;
 
         Config memory config = _getDisputeConfig(dispute);
-        uint8 finalRuling = _ensureFinalRuling(dispute, _disputeId, config);
+        finalRuling = _ensureFinalRuling(dispute, _disputeId, config);
 
-        dispute.state = DisputeState.Executed;
-        dispute.subject.rule(_disputeId, uint256(finalRuling));
-        emit RulingExecuted(_disputeId, finalRuling);
+        if (dispute.state != DisputeState.Ruled) {
+            dispute.state = DisputeState.Ruled;
+            emit RulingComputed(_disputeId, finalRuling);
+        }
     }
 
     /**
@@ -563,7 +560,7 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
     * @param _disputeId Identification number of the dispute being queried
     * @return subject Arbitrable subject being disputed
     * @return possibleRulings Number of possible rulings allowed for the drafted jurors to vote on the dispute
-    * @return state Current state of the dispute being queried: pre-draft, adjudicating, or executed
+    * @return state Current state of the dispute being queried: pre-draft, adjudicating, or ruled
     * @return finalRuling The winning ruling in case the dispute is finished
     * @return lastRoundId Identification number of the last round created for the dispute
     */
@@ -588,7 +585,6 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
     * @return delayedTerms Number of terms the given round was delayed based on its requested draft term id
     * @return jurorsNumber Number of jurors requested for the round
     * @return selectedJurors Number of jurors already selected for the requested round
-    * @return triggeredBy Address that triggered the requested round
     * @return settledPenalties Whether or not penalties have been settled for the requested round
     * @return collectedTokens Amount of juror tokens that were collected from slashed jurors for the requested round
     * @return coherentJurors Number of jurors that voted in favor of the final ruling in the requested round
@@ -600,7 +596,6 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
             uint64 delayedTerms,
             uint64 jurorsNumber,
             uint64 selectedJurors,
-            address triggeredBy,
             uint256 jurorFees,
             bool settledPenalties,
             uint256 collectedTokens,
@@ -616,7 +611,6 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
         delayedTerms = round.delayedTerms;
         jurorsNumber = round.jurorsNumber;
         selectedJurors = round.selectedJurors;
-        triggeredBy = round.triggeredBy;
         jurorFees = round.jurorFees;
         settledPenalties = round.settledPenalties;
         coherentJurors = round.coherentJurors;
@@ -736,7 +730,6 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
         round.draftTermId = _draftTermId;
         round.jurorsNumber = _jurorsNumber;
         round.jurorFees = _jurorFees;
-        round.triggeredBy = msg.sender;
 
         // Create new vote for the new round
         ICRVoting voting = _voting();
@@ -917,14 +910,15 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
     }
 
     /**
-    * @dev Internal function to execute a deposit of tokens from the msg.sender to the Court treasury contract
+    * @dev Internal function to execute a deposit of tokens from an account to the Court treasury contract
+    * @param _from Address transferring the amount of tokens
     * @param _token ERC20 token to execute a transfer from
-    * @param _amount Amount of tokens to be transferred from the msg.sender to the Court treasury
+    * @param _amount Amount of tokens to be transferred from the sender to the Court treasury
     */
-    function _depositSenderAmount(ERC20 _token, uint256 _amount) internal {
+    function _depositAmount(address _from, ERC20 _token, uint256 _amount) internal {
         if (_amount > 0) {
             ITreasury treasury = _treasury();
-            require(_token.safeTransferFrom(msg.sender, address(treasury), _amount), ERROR_DEPOSIT_FAILED);
+            require(_token.safeTransferFrom(_from, address(treasury), _amount), ERROR_DEPOSIT_FAILED);
         }
     }
 
@@ -1020,10 +1014,10 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
     {
         AdjudicationRound storage round = _dispute.rounds[_roundId];
 
-        // If the dispute is executed or the given round is not the last one, we consider it ended
+        // If the dispute is ruled or the given round is not the last one, we consider it ended
         uint256 numberOfRounds = _dispute.rounds.length;
         // No need for SafeMath: this function assumes the given round exists, and therfore length of rounds array is >= 1
-        if (_dispute.state == DisputeState.Executed || _roundId < numberOfRounds - 1) {
+        if (_dispute.state == DisputeState.Ruled || _roundId < numberOfRounds - 1) {
             return AdjudicationState.Ended;
         }
 
@@ -1328,10 +1322,10 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
             jurorsRegistry.burnTokens(_collectedTokens);
         }
 
-        // Reimburse juror fees to the disputer for round 0 or to the previous appeal parties for other rounds. Note that if the
-        // given round is not the first round, we can ensure there was an appeal in the previous round.
+        // Reimburse juror fees to the Arbtirable subject for round 0 or to the previous appeal parties for other rounds.
+        // Note that if the given round is not the first round, we can ensure there was an appeal in the previous round.
         if (_roundId == 0) {
-            _treasury.assign(_feeToken, _round.triggeredBy, _round.jurorFees);
+            _treasury.assign(_feeToken, address(_dispute.subject), _round.jurorFees);
         } else {
             uint256 refundFees = _round.jurorFees / 2;
             Appeal storage triggeringAppeal = _dispute.rounds[_roundId - 1].appeal;

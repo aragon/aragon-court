@@ -13,6 +13,7 @@ import "../subscriptions/ISubscriptions.sol";
 
 contract Controlled is IsContract, ConfigConsumer {
     string private constant ERROR_CONTROLLER_NOT_CONTRACT = "CTD_CONTROLLER_NOT_CONTRACT";
+    string private constant ERROR_SENDER_NOT_CONTROLLER = "CTD_SENDER_NOT_CONTROLLER";
     string private constant ERROR_SENDER_NOT_COURT_MODULE = "CTD_SENDER_NOT_COURT_MODULE";
     string private constant ERROR_SENDER_NOT_CONFIG_GOVERNOR = "CTD_SENDER_NOT_CONFIG_GOVERNOR";
 
@@ -32,6 +33,14 @@ contract Controlled is IsContract, ConfigConsumer {
     */
     modifier onlyConfigGovernor {
         require(msg.sender == _configGovernor(), ERROR_SENDER_NOT_CONFIG_GOVERNOR);
+        _;
+    }
+
+    /**
+    * @dev Ensure the msg.sender is the controller
+    */
+    modifier onlyController() {
+        require(msg.sender == address(controller), ERROR_SENDER_NOT_CONTROLLER);
         _;
     }
 

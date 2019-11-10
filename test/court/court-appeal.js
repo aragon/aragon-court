@@ -10,7 +10,7 @@ const { getVoteId, oppositeOutcome, outcomeFor, OUTCOMES } = require('../helpers
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
 
-contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, juror1000, juror1500, juror2000, juror2500, juror3000, juror3500, juror4000]) => {
+contract('Court', ([_, drafter, appealMaker, appealTaker, juror500, juror1000, juror1500, juror2000, juror2500, juror3000, juror3500, juror4000]) => {
   let courtHelper, court, voting
 
   const jurors = [
@@ -38,7 +38,7 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
       beforeEach('activate jurors and create dispute', async () => {
         await courtHelper.activate(jurors)
 
-        disputeId = await courtHelper.dispute({ draftTermId, disputer })
+        disputeId = await courtHelper.dispute({ draftTermId })
         await courtHelper.passTerms(bn(1)) // court is already at term previous to dispute start
       })
 
@@ -157,6 +157,8 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
                   })
 
                   it('does not modify the current round of the dispute', async () => {
+                    const { triggeredBy: previousTrigger } = await courtHelper.getRound(disputeId, roundId)
+
                     await court.createAppeal(disputeId, roundId, appealMakerRuling, { from: appealMaker })
 
                     const { draftTerm, delayedTerms, roundJurorsNumber, selectedJurors, triggeredBy, jurorFees, settledPenalties, collectedTokens } = await courtHelper.getRound(disputeId, roundId)
@@ -165,7 +167,7 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
                     assertBn(roundJurorsNumber, DEFAULTS.firstRoundJurorsNumber, 'current round jurors number does not match')
                     assertBn(selectedJurors, DEFAULTS.firstRoundJurorsNumber, 'current round selected jurors number does not match')
                     assertBn(jurorFees, courtHelper.jurorFee.mul(bn(DEFAULTS.firstRoundJurorsNumber)), 'current round juror fees do not match')
-                    assert.equal(triggeredBy, disputer, 'current round trigger does not match')
+                    assert.equal(triggeredBy, previousTrigger, 'current round trigger does not match')
                     assert.equal(settledPenalties, false, 'current round penalties should not be settled')
                     assertBn(collectedTokens, 0, 'current round collected tokens should be zero')
                   })

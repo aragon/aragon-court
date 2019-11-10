@@ -12,7 +12,7 @@ const { CLOCK_ERRORS, COURT_ERRORS, CONTROLLED_ERRORS } = require('../helpers/ut
 
 const JurorsRegistry = artifacts.require('JurorsRegistry')
 
-contract('Court', ([_, disputer, drafter, juror500, juror1000, juror1500, juror2000, configGovernor, someone]) => {
+contract('Court', ([_, drafter, juror500, juror1000, juror1500, juror2000, configGovernor, someone]) => {
   let courtHelper, court
 
   const firstRoundJurorsNumber = 5
@@ -37,7 +37,7 @@ contract('Court', ([_, disputer, drafter, juror500, juror1000, juror1500, juror2
 
       beforeEach('create dispute', async () => {
         await courtHelper.activate(jurors)
-        disputeId = await courtHelper.dispute({ draftTermId, disputer })
+        disputeId = await courtHelper.dispute({ draftTermId })
       })
 
       const itDraftsRequestedRoundInOneBatch = (term, jurorsToBeDrafted) => {

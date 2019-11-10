@@ -9,7 +9,7 @@ const { VOTING_ERRORS, COURT_ERRORS } = require('../helpers/utils/errors')
 const { assertAmountOfEvents, assertEvent } = require('../helpers/asserts/assertEvent')
 const { getVoteId, encryptVote, outcomeFor, SALT, OUTCOMES } = require('../helpers/utils/crvoting')
 
-contract('Court', ([_, disputer, drafter, juror100, juror500, juror1000, juror1500, juror2000, juror2500, juror3000, juror3500, juror4000]) => {
+contract('Court', ([_, drafter, juror100, juror500, juror1000, juror1500, juror2000, juror2500, juror3000, juror3500, juror4000]) => {
   let courtHelper, voting
 
   const jurors = [
@@ -37,7 +37,7 @@ contract('Court', ([_, disputer, drafter, juror100, juror500, juror1000, juror15
     beforeEach('activate jurors and create dispute', async () => {
       await courtHelper.activate(jurors)
 
-      disputeId = await courtHelper.dispute({ draftTermId, disputer })
+      disputeId = await courtHelper.dispute({ draftTermId })
       await courtHelper.passTerms(bn(1)) // court is already at term previous to dispute start
     })
 

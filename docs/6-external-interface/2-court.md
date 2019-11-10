@@ -81,13 +81,11 @@ The following functions are state getters provided by the `Court`:
 
 #### 6.2.2.1. Dispute fees
 
-- **Inputs:**
-    - **Draft term ID:** Identification number of the term in which the querying dispute will be drafted
+- **Inputs:** None
 - **Pre-flight checks:** None
 - **Outputs:**
     - **Fee token:** Address of the ERC20 token used for the fees
-    - **Juror fee:** Total amount of fees to be distributed between the winning jurors of a round
-    - **Total fee:** Total amount of fees for a regular round at the given term
+    - **Total fee:** Total amount of fees required to create a dispute in the next draft term
 
 #### 6.2.2.2. Dispute
 

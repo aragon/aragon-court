@@ -8,7 +8,7 @@ const { assertAmountOfEvents, assertEvent } = require('../helpers/asserts/assert
 const { oppositeOutcome, outcomeFor, OUTCOMES } = require('../helpers/utils/crvoting')
 const { buildHelper, ROUND_STATES, DISPUTE_STATES } = require('../helpers/wrappers/court')(web3, artifacts)
 
-contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, juror1000, juror1500, juror2000, juror2500, juror3000, juror3500, juror4000]) => {
+contract('Court', ([_, drafter, appealMaker, appealTaker, juror500, juror1000, juror1500, juror2000, juror2500, juror3000, juror3500, juror4000]) => {
   let courtHelper, court
 
   const jurors = [
@@ -35,7 +35,7 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
       beforeEach('activate jurors and create dispute', async () => {
         await courtHelper.activate(jurors)
 
-        disputeId = await courtHelper.dispute({ draftTermId, disputer })
+        disputeId = await courtHelper.dispute({ draftTermId })
         await courtHelper.passTerms(bn(1)) // court is already at term previous to dispute start
       })
 

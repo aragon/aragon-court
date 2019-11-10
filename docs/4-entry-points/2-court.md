@@ -21,12 +21,12 @@ It is also in charge of executing the associated `Arbitrables` once the dispute 
 
 - **Actor:** Proposal Agreements instances, entities that need a dispute adjudicated
 - **Inputs:**
-    - **Subject:** Address of the `Arbitrable` contract where the dispute originates
     - **Possible rulings:** Number of possible results for a dispute
     - **Metadata:** Optional metadata that can be used to provide additional information on the dispute to be created
 - **Authentication:** Open. Implicitly, only smart contracts that are up to date on their subscriptions in the `Subscription` module and that have open an ERC20 allowance with an amount of at least the dispute fee to the `Court` module can call this function
 - **Pre-flight checks:**
     - Ensure that the Court term is up-to-date. Otherwise, perform a heartbeat before continuing the execution.
+    - Ensure that the msg.sender supports the `IArbitrable` interface
     - Ensure that the subject is up to date on its subscription fees
     - Ensure that the number of possible rulings is within some reasonable bounds (hardcoded as constants)
 - **State transitions:**

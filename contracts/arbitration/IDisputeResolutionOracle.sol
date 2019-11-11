@@ -1,7 +1,8 @@
 pragma solidity ^0.5.8;
 
-import "../../lib/os/ERC20.sol";
-import "../../arbitration/IArbitrable.sol";
+import "../lib/os/ERC20.sol";
+
+import "./IArbitrable.sol";
 
 
 interface IDisputeResolutionOracle {

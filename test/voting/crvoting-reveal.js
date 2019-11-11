@@ -1,6 +1,6 @@
 const { bn } = require('../helpers/lib/numbers')
 const { assertBn } = require('../helpers/asserts/assertBn')
-const { buildHelper } = require('../helpers/wrappers/controller')(web3, artifacts)
+const { buildHelper } = require('../helpers/wrappers/court')(web3, artifacts)
 const { assertRevert } = require('../helpers/asserts/assertThrow')
 const { VOTING_ERRORS } = require('../helpers/utils/errors')
 const { VOTING_EVENTS } = require('../helpers/utils/events')
@@ -8,10 +8,10 @@ const { SALT, OUTCOMES, encryptVote } = require('../helpers/utils/crvoting')
 const { assertEvent, assertAmountOfEvents } = require('../helpers/asserts/assertEvent')
 
 const CRVoting = artifacts.require('CRVoting')
-const Court = artifacts.require('CourtMockForVoting')
+const Court = artifacts.require('DisputesManagerMockForVoting')
 
 contract('CRVoting reveal', ([_, voter]) => {
-  let controller, voting, court
+  let controller, voting, disputesManager
 
   const POSSIBLE_OUTCOMES = 2
 
@@ -21,8 +21,8 @@ contract('CRVoting reveal', ([_, voter]) => {
     voting = await CRVoting.new(controller.address)
     await controller.setVoting(voting.address)
 
-    court = await Court.new(controller.address)
-    await controller.setCourt(court.address)
+    disputesManager = await Court.new(controller.address)
+    await controller.setDisputesManager(disputesManager.address)
   })
 
   describe('reveal', () => {
@@ -30,7 +30,7 @@ contract('CRVoting reveal', ([_, voter]) => {
       const voteId = 0
 
       beforeEach('create voting', async () => {
-        await court.create(voteId, POSSIBLE_OUTCOMES)
+        await disputesManager.create(voteId, POSSIBLE_OUTCOMES)
       })
 
       context('when the given voter has not voted before', () => {
@@ -44,7 +44,7 @@ contract('CRVoting reveal', ([_, voter]) => {
           const commitment = encryptVote(committedOutcome)
 
           beforeEach('commit a vote', async () => {
-            await court.mockVoterWeight(voter, 10)
+            await disputesManager.mockVoterWeight(voter, 10)
             await voting.commit(voteId, commitment, { from: voter })
           })
 
@@ -53,7 +53,7 @@ contract('CRVoting reveal', ([_, voter]) => {
               const weight = 10
 
               beforeEach('mock voter weight', async () => {
-                await court.mockVoterWeight(voter, weight)
+                await disputesManager.mockVoterWeight(voter, weight)
               })
 
               context('when the given outcome matches the one committed', () => {
@@ -132,7 +132,7 @@ contract('CRVoting reveal', ([_, voter]) => {
 
           context('when the owner reverts when checking the weight of the voter', () => {
             beforeEach('mock the owner to revert', async () => {
-              await court.mockChecksFailing(true)
+              await disputesManager.mockChecksFailing(true)
             })
 
             it('reverts', async () => {
@@ -145,7 +145,7 @@ contract('CRVoting reveal', ([_, voter]) => {
           const commitment = encryptVote(committedOutcome)
 
           beforeEach('commit a vote', async () => {
-            await court.mockVoterWeight(voter, 10)
+            await disputesManager.mockVoterWeight(voter, 10)
             await voting.commit(voteId, commitment, { from: voter })
           })
 

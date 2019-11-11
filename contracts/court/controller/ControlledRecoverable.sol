@@ -1,7 +1,7 @@
 pragma solidity ^0.5.8;
 
-import "../lib/os/ERC20.sol";
-import "../lib/os/SafeERC20.sol";
+import "../../lib/os/ERC20.sol";
+import "../../lib/os/SafeERC20.sol";
 
 import "./Controlled.sol";
 

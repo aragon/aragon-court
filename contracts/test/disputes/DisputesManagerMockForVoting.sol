@@ -2,11 +2,11 @@ pragma solidity ^0.5.8;
 
 import "../../voting/ICRVoting.sol";
 import "../../voting/ICRVotingOwner.sol";
-import "../../controller/Controller.sol";
-import "../../controller/Controlled.sol";
+import "../../court/controller/Controller.sol";
+import "../../court/controller/Controlled.sol";
 
 
-contract CourtMockForVoting is ICRVotingOwner, Controlled {
+contract DisputesManagerMockForVoting is ICRVotingOwner, Controlled {
     string private constant ERROR_VOTER_WEIGHT_ZERO = "CT_VOTER_WEIGHT_ZERO";
     string private constant ERROR_OWNER_MOCK_COMMIT_CHECK_REVERTED = "CRV_OWNER_MOCK_COMMIT_CHECK_REVERTED";
     string private constant ERROR_OWNER_MOCK_REVEAL_CHECK_REVERTED = "CRV_OWNER_MOCK_REVEAL_CHECK_REVERTED";

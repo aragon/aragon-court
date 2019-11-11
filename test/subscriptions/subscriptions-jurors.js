@@ -1,6 +1,6 @@
 const { assertBn } = require('../helpers/asserts/assertBn')
 const { bn, bigExp } = require('../helpers/lib/numbers')
-const { buildHelper } = require('../helpers/wrappers/controller')(web3, artifacts)
+const { buildHelper } = require('../helpers/wrappers/court')(web3, artifacts)
 const { assertRevert } = require('../helpers/asserts/assertThrow')
 const { ACTIVATE_DATA } = require('../helpers/utils/jurors')
 const { padLeft, toHex } = require('web3-utils')
@@ -10,7 +10,7 @@ const { assertAmountOfEvents, assertEvent } = require('../helpers/asserts/assert
 
 const CourtSubscriptions = artifacts.require('CourtSubscriptions')
 const JurorsRegistry = artifacts.require('JurorsRegistry')
-const Court = artifacts.require('CourtMockForRegistry')
+const DisputesManager = artifacts.require('DisputesManagerMockForRegistry')
 const ERC20 = artifacts.require('ERC20Mock')
 
 contract('CourtSubscriptions', ([_, payer, subscriberPeriod0, subscriberPeriod1, jurorPeriod0Term1, jurorPeriod0Term3, jurorMidPeriod1]) => {
@@ -38,8 +38,8 @@ contract('CourtSubscriptions', ([_, payer, subscriberPeriod0, subscriberPeriod1,
     jurorsRegistry = await JurorsRegistry.new(controller.address, jurorToken.address, TOTAL_ACTIVE_BALANCE_LIMIT)
     await controller.setJurorsRegistry(jurorsRegistry.address)
 
-    const court = await Court.new(controller.address)
-    await controller.setCourt(court.address)
+    const disputesManager = await DisputesManager.new(controller.address)
+    await controller.setDisputesManager(disputesManager.address)
   })
 
   describe('claimFees', () => {

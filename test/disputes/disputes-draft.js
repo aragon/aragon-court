@@ -7,13 +7,13 @@ const { decodeEventsOfType } = require('../helpers/lib/decodeEvent')
 const { getEventAt, getEvents } = require('@aragon/test-helpers/events')
 const { assertAmountOfEvents, assertEvent } = require('../helpers/asserts/assertEvent')
 const { buildHelper, DISPUTE_STATES, ROUND_STATES } = require('../helpers/wrappers/court')(web3, artifacts)
-const { COURT_EVENTS, CLOCK_EVENTS, REGISTRY_EVENTS } = require('../helpers/utils/events')
-const { CLOCK_ERRORS, COURT_ERRORS, CONTROLLED_ERRORS } = require('../helpers/utils/errors')
+const { DISPUTES_MANAGER_EVENTS, CLOCK_EVENTS, REGISTRY_EVENTS } = require('../helpers/utils/events')
+const { CLOCK_ERRORS, DISPUTES_MANAGER_ERRORS, CONTROLLED_ERRORS } = require('../helpers/utils/errors')
 
 const JurorsRegistry = artifacts.require('JurorsRegistry')
 
-contract('Court', ([_, drafter, juror500, juror1000, juror1500, juror2000, configGovernor, someone]) => {
-  let courtHelper, court
+contract('DisputesManager', ([_, drafter, juror500, juror1000, juror1500, juror2000, configGovernor, someone]) => {
+  let courtHelper, court, disputesManager
 
   const firstRoundJurorsNumber = 5
   const jurors = [
@@ -26,6 +26,7 @@ contract('Court', ([_, drafter, juror500, juror1000, juror1500, juror2000, confi
   beforeEach('create court', async () => {
     courtHelper = buildHelper()
     court = await courtHelper.deploy({ configGovernor, firstRoundJurorsNumber })
+    disputesManager = courtHelper.disputesManager
   })
 
   describe('draft', () => {
@@ -44,7 +45,7 @@ contract('Court', ([_, drafter, juror500, juror1000, juror1500, juror2000, confi
         const expectedDraftedJurors = jurorsToBeDrafted > firstRoundJurorsNumber ? firstRoundJurorsNumber : jurorsToBeDrafted
 
         it('selects random jurors for the last round of the dispute', async () => {
-          const receipt = await court.draft(disputeId, { from: drafter })
+          const receipt = await disputesManager.draft(disputeId, { from: drafter })
 
           const logs = decodeEventsOfType(receipt, JurorsRegistry.abi, REGISTRY_EVENTS.JUROR_DRAFTED)
           assertAmountOfEvents({ logs }, REGISTRY_EVENTS.JUROR_DRAFTED, expectedDraftedJurors)
@@ -59,10 +60,10 @@ contract('Court', ([_, drafter, juror500, juror1000, juror1500, juror2000, confi
 
         if (expectedDraftedJurors === firstRoundJurorsNumber) {
           it('ends the dispute draft', async () => {
-            const receipt = await court.draft(disputeId, { from: drafter })
+            const receipt = await disputesManager.draft(disputeId, { from: drafter })
 
-            assertAmountOfEvents(receipt, COURT_EVENTS.DISPUTE_STATE_CHANGED)
-            assertEvent(receipt, COURT_EVENTS.DISPUTE_STATE_CHANGED, { disputeId, state: DISPUTE_STATES.ADJUDICATING })
+            assertAmountOfEvents(receipt, DISPUTES_MANAGER_EVENTS.DISPUTE_STATE_CHANGED)
+            assertEvent(receipt, DISPUTES_MANAGER_EVENTS.DISPUTE_STATE_CHANGED, { disputeId, state: DISPUTE_STATES.ADJUDICATING })
 
             const { state, finalRuling } = await courtHelper.getDispute(disputeId)
             assertBn(state, DISPUTE_STATES.ADJUDICATING, 'dispute state does not match')
@@ -70,7 +71,7 @@ contract('Court', ([_, drafter, juror500, juror1000, juror1500, juror2000, confi
           })
 
           it('updates last round information', async () => {
-            await court.draft(disputeId, { from: drafter })
+            await disputesManager.draft(disputeId, { from: drafter })
 
             const { draftTerm, delayedTerms, roundJurorsNumber, selectedJurors, jurorFees, roundState } = await courtHelper.getRound(disputeId, roundId)
             assertBn(draftTerm, draftTermId, 'round draft term does not match')
@@ -82,9 +83,9 @@ contract('Court', ([_, drafter, juror500, juror1000, juror1500, juror2000, confi
           })
         } else {
           it('does not end the dispute draft', async () => {
-            const receipt = await court.draft(disputeId, { from: drafter })
+            const receipt = await disputesManager.draft(disputeId, { from: drafter })
 
-            assertAmountOfEvents(receipt, COURT_EVENTS.DISPUTE_STATE_CHANGED, 0)
+            assertAmountOfEvents(receipt, DISPUTES_MANAGER_EVENTS.DISPUTE_STATE_CHANGED, 0)
 
             const { state, finalRuling } = await courtHelper.getDispute(disputeId)
             assertBn(state, DISPUTE_STATES.PRE_DRAFT, 'dispute state does not match')
@@ -92,7 +93,7 @@ contract('Court', ([_, drafter, juror500, juror1000, juror1500, juror2000, confi
           })
 
           it('updates last round information', async () => {
-            await court.draft(disputeId, { from: drafter })
+            await disputesManager.draft(disputeId, { from: drafter })
 
             const { draftTerm, delayedTerms, roundJurorsNumber, selectedJurors, jurorFees, roundState } = await courtHelper.getRound(disputeId, roundId)
             assertBn(draftTerm, draftTermId, 'round draft term does not match')
@@ -105,7 +106,7 @@ contract('Court', ([_, drafter, juror500, juror1000, juror1500, juror2000, confi
         }
 
         it('sets the correct state for each juror', async () => {
-          const receipt = await court.draft(disputeId, { from: drafter })
+          const receipt = await disputesManager.draft(disputeId, { from: drafter })
 
           const logs = decodeEventsOfType(receipt, JurorsRegistry.abi, REGISTRY_EVENTS.JUROR_DRAFTED)
           const events = getEvents({ logs }, REGISTRY_EVENTS.JUROR_DRAFTED)
@@ -124,20 +125,20 @@ contract('Court', ([_, drafter, juror500, juror1000, juror1500, juror2000, confi
           const { draftFee, treasury, feeToken } = courtHelper
           const expectedFee = draftFee.mul(bn(expectedDraftedJurors))
 
-          const previousCourtAmount = await feeToken.balanceOf(court.address)
+          const previousDisputesManagerBalance = await feeToken.balanceOf(disputesManager.address)
           const previousTreasuryAmount = await feeToken.balanceOf(treasury.address)
           const previousDrafterAmount = await treasury.balanceOf(feeToken.address, drafter)
 
-          await court.draft(disputeId, { from: drafter })
+          await disputesManager.draft(disputeId, { from: drafter })
 
-          const currentCourtAmount = await feeToken.balanceOf(court.address)
-          assertBn(previousCourtAmount, currentCourtAmount, 'court balances should remain the same')
+          const currentDisputesManagerBalance = await feeToken.balanceOf(disputesManager.address)
+          assertBn(currentDisputesManagerBalance, previousDisputesManagerBalance, 'disputes manager balances should remain the same')
 
-          const currentTreasuryAmount = await feeToken.balanceOf(treasury.address)
-          assertBn(previousTreasuryAmount, currentTreasuryAmount, 'treasury balances should remain the same')
+          const currentTreasuryBalance = await feeToken.balanceOf(treasury.address)
+          assertBn(currentTreasuryBalance, previousTreasuryAmount, 'treasury balances should remain the same')
 
-          const currentDrafterAmount = await treasury.balanceOf(feeToken.address, drafter)
-          assertBn(previousDrafterAmount.add(expectedFee), currentDrafterAmount, 'drafter amount does not match')
+          const currentDrafterBalance = await treasury.balanceOf(feeToken.address, drafter)
+          assertBn(currentDrafterBalance, previousDrafterAmount.add(expectedFee), 'drafter amount does not match')
         })
       }
 
@@ -146,7 +147,7 @@ contract('Court', ([_, drafter, juror500, juror1000, juror1500, juror2000, confi
           const jurorsAddresses = jurors.map(j => j.address)
 
           for (let batch = 0, selectedJurors = 0; batch < batches; batch++, selectedJurors += jurorsPerBatch) {
-            const receipt = await court.draft(disputeId, { from: drafter })
+            const receipt = await disputesManager.draft(disputeId, { from: drafter })
 
             const pendingJurorsToBeDrafted = jurorsToBeDrafted - selectedJurors
             const expectedDraftedJurors = pendingJurorsToBeDrafted < jurorsPerBatch ? pendingJurorsToBeDrafted : jurorsPerBatch
@@ -168,14 +169,14 @@ contract('Court', ([_, drafter, juror500, juror1000, juror1500, juror2000, confi
         it('ends the dispute draft', async () => {
           let lastReceipt
           for (let batch = 0; batch < batches; batch++) {
-            lastReceipt = await court.draft(disputeId, { from: drafter })
+            lastReceipt = await disputesManager.draft(disputeId, { from: drafter })
 
             // advance one term to avoid drafting all the batches in the same term
             if (batch + 1 < batches) await courtHelper.passRealTerms(1)
           }
 
-          assertAmountOfEvents(lastReceipt, COURT_EVENTS.DISPUTE_STATE_CHANGED)
-          assertEvent(lastReceipt, COURT_EVENTS.DISPUTE_STATE_CHANGED, { disputeId, state: DISPUTE_STATES.ADJUDICATING })
+          assertAmountOfEvents(lastReceipt, DISPUTES_MANAGER_EVENTS.DISPUTE_STATE_CHANGED)
+          assertEvent(lastReceipt, DISPUTES_MANAGER_EVENTS.DISPUTE_STATE_CHANGED, { disputeId, state: DISPUTE_STATES.ADJUDICATING })
 
           const { state, finalRuling } = await courtHelper.getDispute(disputeId)
           assertBn(state, DISPUTE_STATES.ADJUDICATING, 'dispute state does not match')
@@ -185,8 +186,8 @@ contract('Court', ([_, drafter, juror500, juror1000, juror1500, juror2000, confi
         it('updates last round information', async () => {
           let lastTerm
           for (let batch = 0; batch < batches; batch++) {
-            await court.draft(disputeId, { from: drafter })
-            lastTerm = await courtHelper.controller.getLastEnsuredTermId()
+            await disputesManager.draft(disputeId, { from: drafter })
+            lastTerm = await court.getLastEnsuredTermId()
 
             // advance one term to avoid drafting all the batches in the same term
             if (batch + 1 < batches) await courtHelper.passRealTerms(1)
@@ -206,7 +207,7 @@ contract('Court', ([_, drafter, juror500, juror1000, juror1500, juror2000, confi
           const expectedWeights = {}
 
           for (let batch = 0; batch < batches; batch++) {
-            const receipt = await court.draft(disputeId, { from: drafter })
+            const receipt = await disputesManager.draft(disputeId, { from: drafter })
 
             const logs = decodeEventsOfType(receipt, JurorsRegistry.abi, REGISTRY_EVENTS.JUROR_DRAFTED)
             const events = getEvents({ logs }, REGISTRY_EVENTS.JUROR_DRAFTED)
@@ -223,7 +224,7 @@ contract('Court', ([_, drafter, juror500, juror1000, juror1500, juror2000, confi
 
           for (let i = 0; i < jurors.length; i++) {
             const jurorAddress = jurors[i].address
-            const { weight, rewarded } = await court.getJuror(disputeId, roundId, jurorAddress)
+            const { weight, rewarded } = await disputesManager.getJuror(disputeId, roundId, jurorAddress)
 
             assertBn(weight, expectedWeights[jurorAddress], `juror ${jurorAddress} weight does not match`)
             assert.isFalse(rewarded, 'juror should not have been rewarded yet')
@@ -234,23 +235,23 @@ contract('Court', ([_, drafter, juror500, juror1000, juror1500, juror2000, confi
           const { draftFee, treasury, feeToken } = courtHelper
 
           for (let batch = 0, selectedJurors = 0; batch < batches; batch++, selectedJurors += jurorsPerBatch) {
-            const previousCourtAmount = await feeToken.balanceOf(court.address)
+            const previousDisputesManagerBalance = await feeToken.balanceOf(disputesManager.address)
             const previousTreasuryAmount = await feeToken.balanceOf(treasury.address)
             const previousDrafterAmount = await treasury.balanceOf(feeToken.address, drafter)
 
-            await court.draft(disputeId, { from: drafter })
+            await disputesManager.draft(disputeId, { from: drafter })
 
-            const currentCourtAmount = await feeToken.balanceOf(court.address)
-            assertBn(previousCourtAmount, currentCourtAmount, 'court balances should remain the same')
+            const currentDisputesManagerBalance = await feeToken.balanceOf(disputesManager.address)
+            assertBn(currentDisputesManagerBalance, previousDisputesManagerBalance, 'disputes manager balances should remain the same')
 
             const currentTreasuryAmount = await feeToken.balanceOf(treasury.address)
-            assertBn(previousTreasuryAmount, currentTreasuryAmount, 'treasury balances should remain the same')
+            assertBn(currentTreasuryAmount, previousTreasuryAmount, 'treasury balances should remain the same')
 
             const pendingJurorsToBeDrafted = jurorsToBeDrafted - selectedJurors
             const expectedDraftedJurors = pendingJurorsToBeDrafted < jurorsPerBatch ? pendingJurorsToBeDrafted : jurorsPerBatch
             const expectedFee = draftFee.mul(bn(expectedDraftedJurors))
             const currentDrafterAmount = await treasury.balanceOf(feeToken.address, drafter)
-            assertBn(previousDrafterAmount.add(expectedFee), currentDrafterAmount, 'drafter amount does not match')
+            assertBn(currentDrafterAmount, previousDrafterAmount.add(expectedFee), 'drafter amount does not match')
 
             // advance one term to avoid drafting all the batches in the same term
             if (batch + 1 < batches) await courtHelper.passRealTerms(1)
@@ -264,7 +265,7 @@ contract('Court', ([_, drafter, juror500, juror1000, juror1500, juror2000, confi
             const maxJurorsPerDraftBatch = firstRoundJurorsNumber
 
             beforeEach('set max number of jurors to be drafted per batch', async () => {
-              await court.setMaxJurorsPerDraftBatch(maxJurorsPerDraftBatch, { from: configGovernor })
+              await disputesManager.setMaxJurorsPerDraftBatch(maxJurorsPerDraftBatch, { from: configGovernor })
             })
 
             itDraftsRequestedRoundInOneBatch(term, maxJurorsPerDraftBatch)
@@ -274,7 +275,7 @@ contract('Court', ([_, drafter, juror500, juror1000, juror1500, juror2000, confi
             const batches = 2, maxJurorsPerDraftBatch = 4
 
             beforeEach('set max number of jurors to be drafted per batch', async () => {
-              await court.setMaxJurorsPerDraftBatch(maxJurorsPerDraftBatch, { from: configGovernor })
+              await disputesManager.setMaxJurorsPerDraftBatch(maxJurorsPerDraftBatch, { from: configGovernor })
             })
 
             itDraftsRequestedRoundInMultipleBatches(term, firstRoundJurorsNumber, batches, maxJurorsPerDraftBatch)
@@ -285,7 +286,7 @@ contract('Court', ([_, drafter, juror500, juror1000, juror1500, juror2000, confi
           const maxJurorsPerDraftBatch = Math.floor(firstRoundJurorsNumber / 2)
 
           beforeEach('set max number of jurors to be drafted per batch', async () => {
-            await court.setMaxJurorsPerDraftBatch(maxJurorsPerDraftBatch, { from: configGovernor })
+            await disputesManager.setMaxJurorsPerDraftBatch(maxJurorsPerDraftBatch, { from: configGovernor })
           })
 
           itDraftsRequestedRoundInOneBatch(term, maxJurorsPerDraftBatch)
@@ -295,7 +296,7 @@ contract('Court', ([_, drafter, juror500, juror1000, juror1500, juror2000, confi
           const maxJurorsPerDraftBatch = firstRoundJurorsNumber * 2
 
           beforeEach('set max number of jurors to be drafted per batch', async () => {
-            await court.setMaxJurorsPerDraftBatch(maxJurorsPerDraftBatch, { from: configGovernor })
+            await disputesManager.setMaxJurorsPerDraftBatch(maxJurorsPerDraftBatch, { from: configGovernor })
           })
 
           itDraftsRequestedRoundInOneBatch(term, maxJurorsPerDraftBatch)
@@ -305,20 +306,20 @@ contract('Court', ([_, drafter, juror500, juror1000, juror1500, juror2000, confi
       const itHandlesDraftsProperly = term => {
         const advanceBlocksAfterDraftBlockNumber = async blocks => {
           // NOTE: To test this scenario we cannot mock the blocknumber, we need a real block mining to have different blockhashes
-          const { randomnessBN } = await courtHelper.controller.getTerm(draftTermId)
-          const currentBlockNumber = await courtHelper.controller.getBlockNumberExt()
+          const { randomnessBN } = await court.getTerm(draftTermId)
+          const currentBlockNumber = await court.getBlockNumberExt()
           const outdatedBlocks = currentBlockNumber.toNumber() - randomnessBN.toNumber()
           if (outdatedBlocks <= blocks) await advanceBlocks(blocks - outdatedBlocks)
         }
 
         context('when the current block is the randomness block number', () => {
           beforeEach('mock current block number', async () => {
-            const { randomnessBN } = await courtHelper.controller.getTerm(draftTermId)
-            await courtHelper.controller.mockSetBlockNumber(randomnessBN)
+            const { randomnessBN } = await court.getTerm(draftTermId)
+            await court.mockSetBlockNumber(randomnessBN)
           })
 
           it('reverts', async () => {
-            await assertRevert(court.draft(disputeId, { from: drafter }), CLOCK_ERRORS.TERM_RANDOMNESS_NOT_YET)
+            await assertRevert(disputesManager.draft(disputeId, { from: drafter }), CLOCK_ERRORS.TERM_RANDOMNESS_NOT_YET)
           })
         })
 
@@ -351,7 +352,7 @@ contract('Court', ([_, drafter, juror500, juror1000, juror1500, juror2000, confi
           })
 
           it('reverts', async () => {
-            await assertRevert(court.draft(disputeId, { from: drafter }), CLOCK_ERRORS.TERM_RANDOMNESS_UNAVAILABLE)
+            await assertRevert(disputesManager.draft(disputeId, { from: drafter }), CLOCK_ERRORS.TERM_RANDOMNESS_UNAVAILABLE)
           })
         })
       }
@@ -365,8 +366,8 @@ contract('Court', ([_, drafter, juror500, juror1000, juror1500, juror2000, confi
         context('when the given dispute was not drafted', () => {
           context('when the court term is up-to-date', () => {
             beforeEach('ensure the draft term', async () => {
-              const neededTransitions = await courtHelper.controller.getNeededTermTransitions()
-              await courtHelper.controller.heartbeat(neededTransitions)
+              const neededTransitions = await court.getNeededTermTransitions()
+              await court.heartbeat(neededTransitions)
             })
 
             itHandlesDraftsProperly(term)
@@ -374,14 +375,14 @@ contract('Court', ([_, drafter, juror500, juror1000, juror1500, juror2000, confi
 
           context('when the court term is outdated by one term', () => {
             beforeEach('ensure previous term of the draft term', async () => {
-              const neededTransitions = (await courtHelper.controller.getNeededTermTransitions()).toNumber()
+              const neededTransitions = (await court.getNeededTermTransitions()).toNumber()
               assert.isAbove(neededTransitions, 0, 'no needed transitions')
-              if (neededTransitions > 1) await courtHelper.controller.heartbeat(bn(neededTransitions - 1))
+              if (neededTransitions > 1) await court.heartbeat(bn(neededTransitions - 1))
             })
 
             context('when the heartbeat was not executed', async () => {
               it('reverts', async () => {
-                await assertRevert(court.draft(disputeId, { from: drafter }), COURT_ERRORS.TERM_OUTDATED)
+                await assertRevert(disputesManager.draft(disputeId, { from: drafter }), DISPUTES_MANAGER_ERRORS.TERM_OUTDATED)
               })
             })
 
@@ -389,8 +390,8 @@ contract('Court', ([_, drafter, juror500, juror1000, juror1500, juror2000, confi
               let lastEnsuredTermId, receipt
 
               beforeEach('call heartbeat', async () => {
-                lastEnsuredTermId = await courtHelper.controller.getLastEnsuredTermId()
-                receipt = await courtHelper.controller.heartbeat(1, { from: drafter })
+                lastEnsuredTermId = await court.getLastEnsuredTermId()
+                receipt = await court.heartbeat(1, { from: drafter })
               })
 
               it('transitions 1 term', async () => {
@@ -408,27 +409,27 @@ contract('Court', ([_, drafter, juror500, juror1000, juror1500, juror2000, confi
             })
 
             it('reverts', async () => {
-              await assertRevert(court.draft(disputeId, { from: drafter }), COURT_ERRORS.TERM_OUTDATED)
+              await assertRevert(disputesManager.draft(disputeId, { from: drafter }), DISPUTES_MANAGER_ERRORS.TERM_OUTDATED)
             })
           })
         })
 
         context('when the given dispute was already drafted', () => {
           beforeEach('draft dispute', async () => {
-            await courtHelper.controller.heartbeat(term)
+            await court.heartbeat(term)
             await advanceBlocks(10) // advance some blocks to ensure term randomness
-            await court.draft(disputeId, { from: drafter })
+            await disputesManager.draft(disputeId, { from: drafter })
           })
 
           it('reverts', async () => {
-            await assertRevert(court.draft(disputeId, { from: drafter }), COURT_ERRORS.ROUND_ALREADY_DRAFTED)
+            await assertRevert(disputesManager.draft(disputeId, { from: drafter }), DISPUTES_MANAGER_ERRORS.ROUND_ALREADY_DRAFTED)
           })
         })
       }
 
       context('when the current term is previous the draft term', () => {
         it('reverts', async () => {
-          await assertRevert(court.draft(disputeId, { from: drafter }), CLOCK_ERRORS.TERM_DOES_NOT_EXIST)
+          await assertRevert(disputesManager.draft(disputeId, { from: drafter }), CLOCK_ERRORS.TERM_DOES_NOT_EXIST)
         })
       })
 
@@ -447,7 +448,7 @@ contract('Court', ([_, drafter, juror500, juror1000, juror1500, juror2000, confi
 
     context('when the given dispute does not exist', () => {
       it('reverts', async () => {
-        await assertRevert(court.draft(0), COURT_ERRORS.DISPUTE_DOES_NOT_EXIST)
+        await assertRevert(disputesManager.draft(0), DISPUTES_MANAGER_ERRORS.DISPUTE_DOES_NOT_EXIST)
       })
     })
   })
@@ -460,19 +461,19 @@ contract('Court', ([_, drafter, juror500, juror1000, juror1500, juror2000, confi
         const newJurorsPerDraftBatch = bn(20)
 
         it('updates the max number of jurors per draft batch', async () => {
-          await court.setMaxJurorsPerDraftBatch(newJurorsPerDraftBatch, { from })
+          await disputesManager.setMaxJurorsPerDraftBatch(newJurorsPerDraftBatch, { from })
 
-          const maxJurorsPerDraftBatch = await court.maxJurorsPerDraftBatch()
+          const maxJurorsPerDraftBatch = await disputesManager.maxJurorsPerDraftBatch()
           assertBn(maxJurorsPerDraftBatch, newJurorsPerDraftBatch, 'max draft batch size was not properly set')
         })
 
         it('emits an event', async () => {
-          const previousMaxJurorsPerDraftBatch = await court.maxJurorsPerDraftBatch()
+          const previousMaxJurorsPerDraftBatch = await disputesManager.maxJurorsPerDraftBatch()
 
-          const receipt = await court.setMaxJurorsPerDraftBatch(newJurorsPerDraftBatch, { from })
+          const receipt = await disputesManager.setMaxJurorsPerDraftBatch(newJurorsPerDraftBatch, { from })
 
-          assertAmountOfEvents(receipt, COURT_EVENTS.MAX_JURORS_PER_DRAFT_BATCH_CHANGED)
-          assertEvent(receipt, COURT_EVENTS.MAX_JURORS_PER_DRAFT_BATCH_CHANGED, { previousMaxJurorsPerDraftBatch, currentMaxJurorsPerDraftBatch: newJurorsPerDraftBatch })
+          assertAmountOfEvents(receipt, DISPUTES_MANAGER_EVENTS.MAX_JURORS_PER_DRAFT_BATCH_CHANGED)
+          assertEvent(receipt, DISPUTES_MANAGER_EVENTS.MAX_JURORS_PER_DRAFT_BATCH_CHANGED, { previousMaxJurorsPerDraftBatch, currentMaxJurorsPerDraftBatch: newJurorsPerDraftBatch })
         })
       })
 
@@ -480,7 +481,7 @@ contract('Court', ([_, drafter, juror500, juror1000, juror1500, juror2000, confi
         const newJurorsPerDraftBatch = bn(0)
 
         it('reverts', async () => {
-          await assertRevert(court.setMaxJurorsPerDraftBatch(newJurorsPerDraftBatch, { from }), COURT_ERRORS.BAD_MAX_DRAFT_BATCH_SIZE)
+          await assertRevert(disputesManager.setMaxJurorsPerDraftBatch(newJurorsPerDraftBatch, { from }), DISPUTES_MANAGER_ERRORS.BAD_MAX_DRAFT_BATCH_SIZE)
         })
       })
     })
@@ -489,7 +490,7 @@ contract('Court', ([_, drafter, juror500, juror1000, juror1500, juror2000, confi
       const from = someone
 
       it('reverts', async () => {
-        await assertRevert(court.setMaxJurorsPerDraftBatch(bn(0), { from }), CONTROLLED_ERRORS.SENDER_NOT_CONFIG_GOVERNOR)
+        await assertRevert(disputesManager.setMaxJurorsPerDraftBatch(bn(0), { from }), CONTROLLED_ERRORS.SENDER_NOT_CONFIG_GOVERNOR)
       })
     })
   })

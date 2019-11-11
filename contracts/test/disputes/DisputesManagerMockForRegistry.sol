@@ -1,10 +1,10 @@
 pragma solidity ^0.5.8;
 
-import "../../controller/Controlled.sol";
-import "../../controller/Controller.sol";
+import "../../court/controller/Controlled.sol";
+import "../../court/controller/Controller.sol";
 
 
-contract CourtMockForRegistry is Controlled {
+contract DisputesManagerMockForRegistry is Controlled {
     event Slashed(uint256 collected);
     event Collected(bool collected);
     event Drafted(address[] addresses, uint256 length);

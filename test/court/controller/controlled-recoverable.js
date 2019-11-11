@@ -1,13 +1,13 @@
-const { bigExp } = require('../helpers/lib/numbers')
-const { assertBn } = require('../helpers/asserts/assertBn')
-const { buildHelper } = require('../helpers/wrappers/controller')(web3, artifacts)
-const { assertRevert } = require('../helpers/asserts/assertThrow')
-const { CONTROLLED_EVENTS } = require('../helpers/utils/events')
-const { CONTROLLED_ERRORS } = require('../helpers/utils/errors')
-const { assertAmountOfEvents, assertEvent } = require('../helpers/asserts/assertEvent')
+const { bigExp } = require('../../helpers/lib/numbers')
+const { assertBn } = require('../../helpers/asserts/assertBn')
+const { buildHelper } = require('../../helpers/wrappers/court')(web3, artifacts)
+const { assertRevert } = require('../../helpers/asserts/assertThrow')
+const { CONTROLLED_EVENTS } = require('../../helpers/utils/events')
+const { CONTROLLED_ERRORS } = require('../../helpers/utils/errors')
+const { assertAmountOfEvents, assertEvent } = require('../../helpers/asserts/assertEvent')
 
 const ERC20 = artifacts.require('ERC20Mock')
-const ControlledRecoverable = artifacts.require('ControlledRecoverableMock')
+const ControlledRecoverable = artifacts.require('ControlledRecoverable')
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
 

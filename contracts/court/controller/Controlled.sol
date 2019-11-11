@@ -1,32 +1,25 @@
 pragma solidity ^0.5.8;
 
-import "../lib/os/IsContract.sol";
+import "../../lib/os/IsContract.sol";
 
 import "./Controller.sol";
-import "./clock/IClock.sol";
-import "./config/ConfigConsumer.sol";
-import "../voting/ICRVoting.sol";
-import "../treasury/ITreasury.sol";
-import "../registry/IJurorsRegistry.sol";
-import "../subscriptions/ISubscriptions.sol";
+import "../clock/IClock.sol";
+import "../config/ConfigConsumer.sol";
+import "../../voting/ICRVoting.sol";
+import "../../treasury/ITreasury.sol";
+import "../../registry/IJurorsRegistry.sol";
+import "../../disputes/IDisputesManager.sol";
+import "../../subscriptions/ISubscriptions.sol";
 
 
 contract Controlled is IsContract, ConfigConsumer {
     string private constant ERROR_CONTROLLER_NOT_CONTRACT = "CTD_CONTROLLER_NOT_CONTRACT";
     string private constant ERROR_SENDER_NOT_CONTROLLER = "CTD_SENDER_NOT_CONTROLLER";
-    string private constant ERROR_SENDER_NOT_COURT_MODULE = "CTD_SENDER_NOT_COURT_MODULE";
     string private constant ERROR_SENDER_NOT_CONFIG_GOVERNOR = "CTD_SENDER_NOT_CONFIG_GOVERNOR";
+    string private constant ERROR_SENDER_NOT_DISPUTES_MODULE = "CTD_SENDER_NOT_DISPUTES_MODULE";
 
     // Address of the controller
     Controller internal controller;
-
-    /**
-    * @dev Ensure the msg.sender is the court module
-    */
-    modifier onlyCourt() {
-        require(msg.sender == _court(), ERROR_SENDER_NOT_COURT_MODULE);
-        _;
-    }
 
     /**
     * @dev Ensure the msg.sender is the controller's config governor
@@ -41,6 +34,14 @@ contract Controlled is IsContract, ConfigConsumer {
     */
     modifier onlyController() {
         require(msg.sender == address(controller), ERROR_SENDER_NOT_CONTROLLER);
+        _;
+    }
+
+    /**
+    * @dev Ensure the msg.sender is the DisputesManager module
+    */
+    modifier onlyDisputesManager() {
+        require(msg.sender == address(_disputesManager()), ERROR_SENDER_NOT_DISPUTES_MODULE);
         _;
     }
 
@@ -94,6 +95,14 @@ contract Controlled is IsContract, ConfigConsumer {
     }
 
     /**
+    * @dev Internal function to fetch the address of the DisputesManager module from the controller
+    * @return Address of the DisputesManager module
+    */
+    function _disputesManager() internal view returns (IDisputesManager) {
+        return IDisputesManager(controller.getDisputesManager());
+    }
+
+    /**
     * @dev Internal function to fetch the address of the Treasury module implementation from the controller
     * @return Address of the Treasury module implementation
     */
@@ -114,7 +123,7 @@ contract Controlled is IsContract, ConfigConsumer {
     * @return Address of the Voting module owner
     */
     function _votingOwner() internal view returns (ICRVotingOwner) {
-        return ICRVotingOwner(_court());
+        return ICRVotingOwner(address(_disputesManager()));
     }
 
     /**
@@ -147,13 +156,5 @@ contract Controlled is IsContract, ConfigConsumer {
     */
     function _config() internal view returns (IConfig) {
         return IConfig(controller);
-    }
-
-    /**
-    * @dev Internal function to fetch the address of the Court module from the controller
-    * @return Address of the Court module
-    */
-    function _court() internal view returns (address) {
-        return controller.getCourt();
     }
 }

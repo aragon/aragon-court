@@ -1,16 +1,13 @@
 pragma solidity ^0.5.8;
 
-import "../lib/os/ERC20.sol";
-import "../lib/os/IsContract.sol";
+import "../../lib/os/IsContract.sol";
 
-import "./clock/CourtClock.sol";
-import "./config/CourtConfig.sol";
-import "./oracle/DisputeResolutionOracle.sol";
+import "../clock/CourtClock.sol";
+import "../config/CourtConfig.sol";
 
 
-contract Controller is IsContract, CourtClock, CourtConfig, DisputeResolutionOracle {
+contract Controller is IsContract, CourtClock, CourtConfig {
     string private constant ERROR_SENDER_NOT_GOVERNOR = "CTR_SENDER_NOT_GOVERNOR";
-    string private constant ERROR_SENDER_NOT_COURT_MODULE = "CTR_SENDER_NOT_COURT_MODULE";
     string private constant ERROR_INVALID_GOVERNOR_ADDRESS = "CTR_INVALID_GOVERNOR_ADDRESS";
     string private constant ERROR_ZERO_IMPLEMENTATION_OWNER = "CTR_ZERO_MODULE_OWNER";
     string private constant ERROR_IMPLEMENTATION_NOT_CONTRACT = "CTR_IMPLEMENTATION_NOT_CONTRACT";
@@ -18,8 +15,8 @@ contract Controller is IsContract, CourtClock, CourtConfig, DisputeResolutionOra
 
     address private constant ZERO_ADDRESS = address(0);
 
-    // Court module ID - keccak256(abi.encodePacked("COURT"))
-    bytes32 internal constant COURT = 0x26f3b895987e349a46d6d91132234924c6d45cfdc564b33427f53e3f9284955c;
+    // DisputesManager module ID - keccak256(abi.encodePacked("DISPUTES_MANAGER"))
+    bytes32 internal constant DISPUTES_MANAGER = 0x4f75facde613f96ba2104b7dd53dd8bb3ab08c2447eb15d3e3bd07f4829b68ea;
 
     // Treasury module ID - keccak256(abi.encodePacked("TREASURY"))
     bytes32 internal constant TREASURY = 0x06aa03964db1f7257357ef09714a5f0ca3633723df419e97015e0c7a3e83edb7;
@@ -37,7 +34,7 @@ contract Controller is IsContract, CourtClock, CourtConfig, DisputeResolutionOra
     * @dev Governor of the whole system. Set of three addresses to recover funds, change configuration settings and setup modules
     */
     struct Governor {
-        address funds;      // This address can be unset at any time. It is allowed to recover funds from the ERC20-Recoverable modules
+        address funds;      // This address can be unset at any time. It is allowed to recover funds from the ControlledRecoverable modules
         address config;     // This address is meant not to be unset. It is allowed to change the different configurations of the whole system
         address modules;    // This address can be unset at any time. It is allowed to plug/unplug modules from the system
     }
@@ -291,16 +288,6 @@ contract Controller is IsContract, CourtClock, CourtConfig, DisputeResolutionOra
     }
 
     /**
-    * @dev Tell the min active balance config at a certain term
-    * @param _termId Term querying the Court config of
-    * @return Minimum amount of tokens jurors have to activate to participate in the Court
-    */
-    function getMinActiveBalance(uint64 _termId) external view returns (uint256) {
-        uint64 lastEnsuredTermId = _lastEnsuredTermId();
-        return _getMinActiveBalance(_termId, lastEnsuredTermId);
-    }
-
-    /**
     * @dev Tell the create-dispute config at a certain term
     * @param _termId Identification number of the term querying the create-dispute config of
     * @return token ERC20 token to be used for the fees of the Court
@@ -337,6 +324,16 @@ contract Controller is IsContract, CourtClock, CourtConfig, DisputeResolutionOra
     }
 
     /**
+    * @dev Tell the min active balance config at a certain term
+    * @param _termId Term querying the Court config of
+    * @return Minimum amount of tokens jurors have to activate to participate in the Court
+    */
+    function getMinActiveBalance(uint64 _termId) external view returns (uint256) {
+        uint64 lastEnsuredTermId = _lastEnsuredTermId();
+        return _getMinActiveBalance(_termId, lastEnsuredTermId);
+    }
+
+    /**
     * @dev Tell the address of the funds governor
     * @return Address of the funds governor
     */
@@ -370,11 +367,11 @@ contract Controller is IsContract, CourtClock, CourtConfig, DisputeResolutionOra
     }
 
     /**
-    * @dev Tell the address of the Court module
-    * @return Address of the Court module
+    * @dev Tell the address of the DisputesManager module
+    * @return Address of the DisputesManager module
     */
-    function getCourt() external view returns (address) {
-        return _getCourt();
+    function getDisputesManager() external view returns (address) {
+        return _getDisputesManager();
     }
 
     /**
@@ -456,11 +453,11 @@ contract Controller is IsContract, CourtClock, CourtConfig, DisputeResolutionOra
     }
 
     /**
-    * @dev Internal function to tell the address of the Court module
-    * @return Address of the Court module
+    * @dev Internal function to tell the address of the DisputesManager module
+    * @return Address of the DisputesManager module
     */
-    function _getCourt() internal view returns (address) {
-        return _getModule(COURT);
+    function _getDisputesManager() internal view returns (address) {
+        return _getModule(DISPUTES_MANAGER);
     }
 
     /**

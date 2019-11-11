@@ -1,15 +1,14 @@
-const { DEFAULTS } = require('../helpers/wrappers/controller')(web3, artifacts)
 const { assertBn } = require('../helpers/asserts/assertBn')
 const { bn, bigExp } = require('../helpers/lib/numbers')
 const { filterJurors } = require('../helpers/utils/jurors')
 const { assertRevert } = require('../helpers/asserts/assertThrow')
 const { VOTING_EVENTS } = require('../helpers/utils/events')
-const { buildHelper, ROUND_STATES } = require('../helpers/wrappers/court')(web3, artifacts)
-const { VOTING_ERRORS, COURT_ERRORS } = require('../helpers/utils/errors')
+const { VOTING_ERRORS, DISPUTES_MANAGER_ERRORS } = require('../helpers/utils/errors')
 const { assertAmountOfEvents, assertEvent } = require('../helpers/asserts/assertEvent')
+const { buildHelper, ROUND_STATES, DEFAULTS } = require('../helpers/wrappers/court')(web3, artifacts)
 const { getVoteId, encryptVote, outcomeFor, SALT, OUTCOMES } = require('../helpers/utils/crvoting')
 
-contract('Court', ([_, drafter, juror100, juror500, juror1000, juror1500, juror2000, juror2500, juror3000, juror3500, juror4000]) => {
+contract('DisputesManager', ([_, drafter, juror100, juror500, juror1000, juror1500, juror2000, juror2500, juror3000, juror3500, juror4000]) => {
   let courtHelper, voting
 
   const jurors = [
@@ -54,7 +53,7 @@ contract('Court', ([_, drafter, juror100, juror500, juror1000, juror1500, juror2
         for (const { address } of jurors) {
           const expectedErrorMessage = (commited && voterAddresses.includes(address.toLowerCase()))
             ? VOTING_ERRORS.VOTE_ALREADY_COMMITTED
-            : COURT_ERRORS.INVALID_ADJUDICATION_STATE
+            : DISPUTES_MANAGER_ERRORS.INVALID_ADJUDICATION_STATE
 
           await assertRevert(voting.commit(voteId, encryptVote(OUTCOMES.LOW), { from: address }), expectedErrorMessage)
         }
@@ -66,7 +65,7 @@ contract('Court', ([_, drafter, juror100, juror500, juror1000, juror1500, juror2
         const voterAddresses = voters.map(v => v.address.toLowerCase())
         for (const { outcome, address } of voters) {
           const expectedErrorMessage = (commited && voterAddresses.includes(address.toLowerCase()))
-            ? (revealed ? VOTING_ERRORS.VOTE_ALREADY_REVEALED : COURT_ERRORS.INVALID_ADJUDICATION_STATE)
+            ? (revealed ? VOTING_ERRORS.VOTE_ALREADY_REVEALED : DISPUTES_MANAGER_ERRORS.INVALID_ADJUDICATION_STATE)
             : VOTING_ERRORS.INVALID_COMMITMENT_SALT
 
           await assertRevert(voting.reveal(voteId, outcome, SALT, { from: address }), expectedErrorMessage)
@@ -110,7 +109,7 @@ contract('Court', ([_, drafter, juror100, juror500, juror1000, juror1500, juror2
         context('when the sender was not drafted', () => {
           it('reverts', async () => {
             for (const { address } of nonDraftedJurors) {
-              await assertRevert(voting.commit(voteId, vote, { from: address }), COURT_ERRORS.VOTER_WEIGHT_ZERO)
+              await assertRevert(voting.commit(voteId, vote, { from: address }), DISPUTES_MANAGER_ERRORS.VOTER_WEIGHT_ZERO)
             }
           })
         })
@@ -291,7 +290,7 @@ contract('Court', ([_, drafter, juror100, juror500, juror1000, juror1500, juror2
 
         context('when the sender does not have enough active balance', () => {
           it('reverts', async () => {
-            await assertRevert(voting.commit(voteId, encryptVote(OUTCOMES.LOW), { from: poorJuror }), COURT_ERRORS.VOTER_WEIGHT_ZERO)
+            await assertRevert(voting.commit(voteId, encryptVote(OUTCOMES.LOW), { from: poorJuror }), DISPUTES_MANAGER_ERRORS.VOTER_WEIGHT_ZERO)
           })
         })
       })

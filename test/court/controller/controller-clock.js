@@ -1,19 +1,19 @@
-const { bn } = require('../helpers/lib/numbers')
-const { assertBn } = require('../helpers/asserts/assertBn')
-const { buildHelper } = require('../helpers/wrappers/controller')(web3, artifacts)
-const { assertRevert } = require('../helpers/asserts/assertThrow')
-const { CLOCK_EVENTS } = require('../helpers/utils/events')
-const { NEXT_WEEK, NOW, ONE_DAY } = require('../helpers/lib/time')
-const { CLOCK_ERRORS, CONTROLLER_ERRORS } = require('../helpers/utils/errors')
-const { assertAmountOfEvents, assertEvent } = require('../helpers/asserts/assertEvent')
+const { bn } = require('../../helpers/lib/numbers')
+const { assertBn } = require('../../helpers/asserts/assertBn')
+const { buildHelper } = require('../../helpers/wrappers/court')(web3, artifacts)
+const { assertRevert } = require('../../helpers/asserts/assertThrow')
+const { CLOCK_EVENTS } = require('../../helpers/utils/events')
+const { NEXT_WEEK, NOW, ONE_DAY } = require('../../helpers/lib/time')
+const { CLOCK_ERRORS, CONTROLLER_ERRORS } = require('../../helpers/utils/errors')
+const { assertAmountOfEvents, assertEvent } = require('../../helpers/asserts/assertEvent')
 
 contract('Controller', ([_, someone, configGovernor]) => {
-  let controllerHelper, controller
+  let courtHelper, controller
 
   const EMPTY_RANDOMNESS = '0x0000000000000000000000000000000000000000000000000000000000000000'
 
   beforeEach('build helper', () => {
-    controllerHelper = buildHelper()
+    courtHelper = buildHelper()
   })
 
   describe('constructor', () => {
@@ -23,7 +23,7 @@ contract('Controller', ([_, someone, configGovernor]) => {
       const firstTermStartTime = bn(NOW - 1)
 
       it('reverts', async () => {
-        await assertRevert(controllerHelper.deploy({ termDuration, firstTermStartTime }), CLOCK_ERRORS.BAD_FIRST_TERM_START_TIME)
+        await assertRevert(courtHelper.deploy({ termDuration, firstTermStartTime }), CLOCK_ERRORS.BAD_FIRST_TERM_START_TIME)
       })
     })
 
@@ -31,7 +31,7 @@ contract('Controller', ([_, someone, configGovernor]) => {
       const firstTermStartTime = bn(NOW).add(termDuration.sub(bn(1)))
 
       it('reverts', async () => {
-        await assertRevert(controllerHelper.deploy({ termDuration, firstTermStartTime }), CLOCK_ERRORS.BAD_FIRST_TERM_START_TIME)
+        await assertRevert(courtHelper.deploy({ termDuration, firstTermStartTime }), CLOCK_ERRORS.BAD_FIRST_TERM_START_TIME)
       })
     })
 
@@ -39,7 +39,7 @@ contract('Controller', ([_, someone, configGovernor]) => {
       const firstTermStartTime = bn(NEXT_WEEK)
 
       beforeEach('deploy controller', async () => {
-        controller = await controllerHelper.deploy({ termDuration, firstTermStartTime })
+        controller = await courtHelper.deploy({ termDuration, firstTermStartTime })
       })
 
       it('it must have already started term #0', async () => {
@@ -62,7 +62,7 @@ contract('Controller', ([_, someone, configGovernor]) => {
     const zeroTermStartTime = firstTermStartTime.sub(termDuration)
 
     beforeEach('create controller', async () => {
-      controller = await controllerHelper.deploy({ termDuration, firstTermStartTime })
+      controller = await courtHelper.deploy({ termDuration, firstTermStartTime })
     })
 
     const itRevertsOnHeartbeat = maxTransitionTerms => {

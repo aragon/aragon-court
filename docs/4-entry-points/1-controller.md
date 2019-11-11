@@ -63,7 +63,7 @@ To read more information about its responsibilities and structure, go to [sectio
     - Ensure that the msg.sender supports the `IArbitrable` interface
     - Ensure that the subject is up-to-date on its subscription fees
 - **State transitions:**
-    - Create a new dispute object in the Court module
+    - Create a new dispute object in the DisputesManager module
 
 ### 4.1.3. Execute dispute
 
@@ -76,7 +76,7 @@ To read more information about its responsibilities and structure, go to [sectio
     - Ensure that the dispute has not been executed yet
     - Ensure that the dispute's last round adjudication phase has ended
 - **State transitions:**
-    - Compute the final ruling in the Court module
+    - Compute the final ruling in the DisputesManager module
     - Execute the `Arbitrable` contract linked to the dispute based on the decided ruling
 
 ### 4.1.4. Set config

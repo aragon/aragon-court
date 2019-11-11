@@ -3,7 +3,7 @@ pragma solidity ^0.5.8;
 import "../../court/Court.sol";
 import "../../standards/ERC165.sol";
 import "../../arbitration/IArbitrable.sol";
-import "../../controller/oracle/IDisputeResolutionOracle.sol";
+import "../../arbitration/IDisputeResolutionOracle.sol";
 
 
 contract ArbitrableMock is IArbitrable, ERC165 {

@@ -1,8 +1,9 @@
-const { buildHelper } = require('../helpers/wrappers/controller')(web3, artifacts)
-const { assertRevert } = require('../helpers/asserts/assertThrow')
-const { CONTROLLER_ERRORS } = require('../helpers/utils/errors')
-const { CONTROLLER_EVENTS } = require('../helpers/utils/events')
-const { assertAmountOfEvents, assertEvent } = require('../helpers/asserts/assertEvent')
+const { sha3 } = require('web3-utils')
+const { buildHelper } = require('../../helpers/wrappers/court')(web3, artifacts)
+const { assertRevert } = require('../../helpers/asserts/assertThrow')
+const { CONTROLLER_ERRORS } = require('../../helpers/utils/errors')
+const { CONTROLLER_EVENTS } = require('../../helpers/utils/events')
+const { assertAmountOfEvents, assertEvent } = require('../../helpers/asserts/assertEvent')
 
 const Controlled = artifacts.require('Controlled')
 
@@ -252,14 +253,16 @@ contract('Controller', ([_, fundsGovernor, configGovernor, modulesGovernor, some
 
         context('when the given id is one of the known IDs', () => {
           const modules = [
-            { id: '0x26f3b895987e349a46d6d91132234924c6d45cfdc564b33427f53e3f9284955c', getter: 'getCourt' },
-            { id: '0x7cbb12e82a6d63ff16fe43977f43e3e2b247ecd4e62c0e340da8800a48c67346', getter: 'getVoting' },
-            { id: '0x06aa03964db1f7257357ef09714a5f0ca3633723df419e97015e0c7a3e83edb7', getter: 'getTreasury' },
-            { id: '0x3b21d36b36308c830e6c4053fb40a3b6d79dde78947fbf6b0accd30720ab5370', getter: 'getJurorsRegistry' },
-            { id: '0x2bfa3327fe52344390da94c32a346eeb1b65a8b583e4335a419b9471e88c1365', getter: 'getSubscriptions' }
+            { name: 'DISPUTES_MANAGER', getter: 'getDisputesManager' },
+            { name: 'VOTING', getter: 'getVoting' },
+            { name: 'TREASURY', getter: 'getTreasury' },
+            { name: 'JURORS_REGISTRY', getter: 'getJurorsRegistry' },
+            { name: 'SUBSCRIPTIONS', getter: 'getSubscriptions' }
           ]
 
-          for (const { id, getter } of modules) {
+          for (const { name, getter } of modules) {
+            const id = sha3(name)
+
             describe(getter, () => {
               context('when the module was not set yet', () => {
                 it('sets given module', async () => {

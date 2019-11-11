@@ -1,6 +1,7 @@
 pragma solidity ^0.5.8;
 
-import "../../controller/ControlledRecoverable.sol";
+import "../../../court/controller/Controller.sol";
+import "../../../court/controller/ControlledRecoverable.sol";
 
 
 contract ControlledRecoverableMock is ControlledRecoverable {

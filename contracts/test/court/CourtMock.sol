@@ -1,10 +1,10 @@
 pragma solidity ^0.5.8;
 
+import "../../court/Court.sol";
 import "../lib/TimeHelpersMock.sol";
-import "../../controller/Controller.sol";
 
 
-contract ControllerMock is Controller, TimeHelpersMock {
+contract CourtMock is Court, TimeHelpersMock {
     uint64 internal mockedTermId;
     bytes32 internal mockedTermRandomness;
 
@@ -19,7 +19,7 @@ contract ControllerMock is Controller, TimeHelpersMock {
         uint256[2] memory _appealCollateralParams,
         uint256 _minActiveBalance
     )
-        Controller(
+        Court(
             _termParams,
             _governors,
             _feeToken,
@@ -33,14 +33,14 @@ contract ControllerMock is Controller, TimeHelpersMock {
         public
     {}
 
-    function setCourt(address _addr) external {
-        _setModule(COURT, _addr);
+    function setDisputesManager(address _addr) external {
+        _setModule(DISPUTES_MANAGER, _addr);
     }
 
-    function setCourtMock(address _addr) external {
-        // This function allows setting any address as the court module
-        modules[COURT] = _addr;
-        emit ModuleSet(COURT, _addr);
+    function setDisputesManagerMock(address _addr) external {
+        // This function allows setting any address as the DisputesManager module
+        modules[DISPUTES_MANAGER] = _addr;
+        emit ModuleSet(DISPUTES_MANAGER, _addr);
     }
 
     function setTreasury(address _addr) external {

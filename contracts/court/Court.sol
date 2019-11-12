@@ -134,7 +134,7 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
     Dispute[] internal disputes;
 
     event DisputeStateChanged(uint256 indexed disputeId, DisputeState indexed state);
-    event NewDispute(uint256 indexed disputeId, address indexed subject, uint64 indexed draftTermId, uint64 jurorsNumber);
+    event NewDispute(uint256 indexed disputeId, address indexed subject, uint64 indexed draftTermId, uint64 jurorsNumber, bytes metadata);
     event RulingAppealed(uint256 indexed disputeId, uint256 indexed roundId, uint8 ruling);
     event RulingAppealConfirmed(uint256 indexed disputeId, uint256 indexed roundId, uint64 indexed draftTermId, uint256 jurorsNumber);
     event RulingExecuted(uint256 indexed disputeId, uint8 indexed ruling);
@@ -186,9 +186,10 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
     * @dev Create a dispute to be drafted in a future term
     * @param _subject Arbitrable subject being disputed
     * @param _possibleRulings Number of possible rulings allowed for the drafted jurors to vote on the dispute
+    * @param _metadata Optional metadata that can be used to provide additional information on the dispute to be created
     * @return Dispute identification number
     */
-    function createDispute(IArbitrable _subject, uint8 _possibleRulings) external returns (uint256) {
+    function createDispute(IArbitrable _subject, uint8 _possibleRulings, bytes calldata _metadata) external returns (uint256) {
         // TODO: Limit the min amount of terms before drafting (to allow for evidence submission)
         // TODO: ERC165 check that _subject conforms to the Arbitrable interface
         // TODO: require(address(_subject) == msg.sender, ERROR_INVALID_DISPUTE_CREATOR);
@@ -205,7 +206,7 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
         dispute.possibleRulings = _possibleRulings;
         CreateDisputeConfig memory config = _getCreateDisputeConfig(draftTermId);
         uint64 jurorsNumber = config.firstRoundJurorsNumber;
-        emit NewDispute(disputeId, address(_subject), draftTermId, jurorsNumber);
+        emit NewDispute(disputeId, address(_subject), draftTermId, jurorsNumber, _metadata);
 
         // Create first adjudication round of the dispute
         (ERC20 feeToken, uint256 jurorFees, uint256 totalFees) = _getRegularRoundFees(config.fees, jurorsNumber);

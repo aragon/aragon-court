@@ -12,6 +12,7 @@ The following events are emitted by the `Court`:
     - **Subject:** Address of the `Arbitrable` subject associated to the dispute
     - **Draft term ID:** Identification number of the term when the dispute will be able to be drafted
     - **Jurors number:** First round jurors number 
+    - **Metadata:** Optional metadata that can be used to provide additional information on the created dispute 
 
 #### 6.2.1.2. Dispute changed
 

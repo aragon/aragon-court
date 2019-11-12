@@ -794,6 +794,7 @@ contract DisputesManager is ControlledRecoverable, ICRVotingOwner, IDisputesMana
     * @param _finalRuling Winning ruling of the dispute corresponding to the given round
     * @param _penaltyPct Per ten thousand of the minimum active balance of a juror to be slashed
     * @param _jurorsToSettle Maximum number of jurors to be slashed in this call. It can be set to zero to slash all the losing jurors of the round.
+    * @param _minActiveBalance Minimum amount of juror tokens that can be activated
     * @return Number of jurors slashed for the given round
     */
     function _settleRegularRoundPenalties(
@@ -913,7 +914,7 @@ contract DisputesManager is ControlledRecoverable, ICRVotingOwner, IDisputesMana
     * @dev Internal function to execute a deposit of tokens from an account to the Court treasury contract
     * @param _from Address transferring the amount of tokens
     * @param _token ERC20 token to execute a transfer from
-    * @param _amount Amount of tokens to be transferred from the sender to the Court treasury
+    * @param _amount Amount of tokens to be transferred from the address transferring the funds to the Court treasury
     */
     function _depositAmount(address _from, ERC20 _token, uint256 _amount) internal {
         if (_amount > 0) {
@@ -1198,7 +1199,7 @@ contract DisputesManager is ControlledRecoverable, ICRVotingOwner, IDisputesMana
     *      each juror is equal to the number of times the min active balance the juror has, multiplied by a precision
     *      factor to deal with division rounding.
     * @param _activeBalance Juror's or total active balance
-    * @param _minActiveBalance Min active balance from config
+    * @param _minActiveBalance Minimum amount of juror tokens that can be activated
     * @return Number of times that the active balance contains the min active balance (multiplied by precision)
     */
     function _getMinActiveBalanceMultiple(uint256 _activeBalance, uint256 _minActiveBalance) internal pure returns (uint64) {

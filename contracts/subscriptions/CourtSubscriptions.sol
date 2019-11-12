@@ -369,7 +369,7 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
 
     /**
     * @dev Tell the amount to pay and resulting last paid period for a given subscriber paying for a certain number of periods
-    * @param _subscriber Address of the subscriber willing to pay
+    * @param _subscriber Address of the subscriber being queried
     * @param _periods Number of periods that would be paid
     * @return feeToken ERC20 token used for the subscription fees
     * @return amountToPay Amount of subscription fee tokens to be paid
@@ -388,9 +388,9 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
 
     /**
     * @dev Tell the minimum amount of fees to pay and resulting last paid period for a given subscriber in order to be up-to-date
-    * @param _subscriber Address of the subscriber willing to pay
+    * @param _subscriber Address of the subscriber being queried
     * @return feeToken ERC20 token used for the subscription fees
-    * @return amountToPay Amount of subscription fee tokens to be paid
+    * @return amountToPay Amount of subscription fee tokens to be paid for all the owed periods
     * @return newLastPeriodId Identification number of the resulting last paid period
     */
     function getOwedFeesDetails(address _subscriber) external view returns (ERC20 feeToken, uint256 amountToPay, uint256 newLastPeriodId) {

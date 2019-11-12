@@ -104,6 +104,7 @@ contract Controller is IsContract, CourtClock, CourtConfig {
     * @param _appealCollateralParams Array containing params for appeal collateral:
     *        1. appealCollateralFactor Permyriad multiple of juror fees required to appeal a preliminary ruling
     *        2. appealConfirmCollateralFactor Permyriad multiple of juror fees required to confirm appeal
+    * @param _minActiveBalance Minimum amount of juror tokens that can be activated
     */
     constructor(
         uint64[2] memory _termParams,
@@ -146,6 +147,7 @@ contract Controller is IsContract, CourtClock, CourtConfig {
     * @param _appealCollateralParams Array containing params for appeal collateral:
     *        _appealCollateralFactor Multiple of juror fees required to appeal a preliminary ruling
     *        _appealConfirmCollateralFactor Multiple of juror fees required to confirm appeal
+    * @param _minActiveBalance Minimum amount of juror tokens that can be activated
     */
     function setConfig(
         uint64 _fromTermId,

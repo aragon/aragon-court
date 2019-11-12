@@ -4,7 +4,7 @@ The following sections aim to describe deeply the functionality exposed by each 
 
 ## Table of Contents
 
-1. [Court](./1-court.md)
+1. [AragonCourt](./1-aragon-court.md)
 2. [Controller](./2-controller.md)
 3. [Dispute Manager](./3-dispute-manager.md)
 4. [Jurors Registry](./4-jurors-registry.md)

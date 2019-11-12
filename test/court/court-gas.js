@@ -6,7 +6,7 @@ const { getVoteId, encryptVote, oppositeOutcome, SALT, OUTCOMES } = require('../
 
 const Arbitrable = artifacts.require('ArbitrableMock')
 
-contract('Court', ([_, sender, drafter, appealMaker, appealTaker, juror500, juror1000, juror1500, juror2000, juror2500, juror3000]) => {
+contract('AragonCourt', ([_, sender, drafter, appealMaker, appealTaker, juror500, juror1000, juror1500, juror2000, juror2500, juror3000]) => {
   let courtHelper, disputeManager, voting, court, costs = {}
 
   const jurors = [
@@ -81,7 +81,7 @@ contract('Court', ([_, sender, drafter, appealMaker, appealTaker, juror500, juro
         await court.mockSetTermRandomness('0x0000000000000000000000000000000000000000000000000000000000000001')
       })
 
-      itCostsAtMost('draft', 325e3, () => disputeManager.draft(disputeId))
+      itCostsAtMost('draft', 326e3, () => disputeManager.draft(disputeId))
     })
 
     describe('commit', () => {

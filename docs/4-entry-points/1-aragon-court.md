@@ -1,7 +1,7 @@
-## 4.1. Court
+## 4.1. AragonCourt
 
-The `Court` is the main entry point of the whole Court protocol and is only responsible for providing a few entry points to the users of the protocol while orchestrating the rest of the modules to fulfill these request.
-Additionally, as shown in [section 2](../2-architecture), `Court` inherits from `Controller`. The inherited functionality is core to architecture of the protocol and can be found in the [next section](./2-controller.md).
+`AragonCourt` is the main entry point of the whole Court protocol and is only responsible for providing a few entry points to the users of the protocol while orchestrating the rest of the modules to fulfill these request.
+Additionally, as shown in [section 2](../2-architecture), `AragonCourt` inherits from `Controller`. The inherited functionality is core to architecture of the protocol and can be found in the [next section](./2-controller.md).
 To read more information about its responsibilities and how the whole architecture structure looks like, go to [section 2](../2-architecture).
 
 ### 4.1.1. Constructor

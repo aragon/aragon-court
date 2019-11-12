@@ -254,7 +254,7 @@ contract('Controller', ([_, someone, configGovernor]) => {
     const firstTermStartTime = bn(NEXT_WEEK)
 
     beforeEach('create controller', async () => {
-      controller = await controllerHelper.deploy({ termDuration, firstTermStartTime, configGovernor })
+      controller = await courtHelper.deploy({ termDuration, firstTermStartTime, configGovernor })
     })
 
     context('when the sender is the config governor', () => {
@@ -297,7 +297,7 @@ contract('Controller', ([_, someone, configGovernor]) => {
 
       context('when the court has already started', () => {
         beforeEach('start court', async () => {
-          await controllerHelper.setTerm(1)
+          await courtHelper.setTerm(1)
 
           const currentTerm = await controller.getCurrentTermId()
           assertBn(currentTerm, 1, 'court has not started yet')

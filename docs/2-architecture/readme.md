@@ -48,7 +48,7 @@ No other external accounts apart from the `Governor` addresses belong to the pro
 
 ## 2.4. Entry point
 
-The main entry point of the protocol is `Court`, this component inherits from `Controller`. 
-This allows to guarantee a single and immutable address to the users of the Court protocol. The `Court` component does not implement core logic, only the main entry points of the protocol where each request is forwarded to the corresponding modules of the `Controller` to be fulfilled.
+The main entry point of the protocol is `AragonCourt`, this component inherits from `Controller`. 
+This allows to guarantee a single and immutable address to the users of the Court protocol. `AragonCourt` does not implement core logic, only the main entry points of the protocol where each request is forwarded to the corresponding modules of the `Controller` to be fulfilled.
 
-Detailed information about the `Court` component can be found in [section 4](../4-entry-points).
+Detailed information about `AragonCourt` can be found in [section 4](../4-entry-points).

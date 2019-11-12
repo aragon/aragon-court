@@ -1,6 +1,5 @@
 pragma solidity ^0.5.8;
 
-import "../../court/Court.sol";
 import "../../standards/ERC165.sol";
 import "../../arbitration/IArbitrable.sol";
 import "../../arbitration/IArbitrator.sol";

@@ -361,7 +361,7 @@ module.exports = (web3, artifacts) => {
       if (!this.feeToken) this.feeToken = await this.artifacts.require('ERC20Mock').new('Court Fee Token', 'CFT', 18)
       if (!this.jurorToken) this.jurorToken = await this.artifacts.require('ERC20Mock').new('Aragon Network Juror Token', 'ANJ', 18)
 
-      this.court = await this.artifacts.require('CourtMock').new(
+      this.court = await this.artifacts.require('AragonCourtMock').new(
         [this.termDuration, this.firstTermStartTime],
         [this.fundsGovernor, this.configGovernor, this.modulesGovernor],
         this.feeToken.address,

@@ -14,6 +14,8 @@ contract CourtClock is IClock, TimeHelpers {
     string private constant ERROR_BAD_FIRST_TERM_START_TIME = "CLK_BAD_FIRST_TERM_START_TIME";
     string private constant ERROR_TOO_MANY_TRANSITIONS = "CLK_TOO_MANY_TRANSITIONS";
     string private constant ERROR_INVALID_TRANSITION_TERMS = "CLK_INVALID_TRANSITION_TERMS";
+    string private constant ERROR_CANNOT_DELAY_STARTED_COURT = "CLK_CANNOT_DELAY_STARTED_COURT";
+    string private constant ERROR_CANNOT_DELAY_PAST_START_TIME = "CLK_CANNOT_DELAY_PAST_START_TIME";
 
     // Maximum number of term transitions a callee may have to assume in order to call certain functions that require the Court being up-to-date
     uint64 internal constant MAX_AUTO_TERM_TRANSITIONS_ALLOWED = 1;
@@ -40,6 +42,7 @@ contract CourtClock is IClock, TimeHelpers {
     mapping (uint64 => Term) private terms;
 
     event Heartbeat(uint64 previousTermId, uint64 currentTermId);
+    event StartTimeDelayed(uint64 previousStartTime, uint64 currentStartTime);
 
     /**
     * @dev Ensure a certain term has already been processed
@@ -217,6 +220,23 @@ contract CourtClock is IClock, TimeHelpers {
         termId = currentTermId;
         emit Heartbeat(previousTermId, currentTermId);
         return currentTermId;
+    }
+
+    /**
+    * @dev Internal function to delay the first term start time only if it wasn't reached yet
+    * @param _newFirstTermStartTime New timestamp in seconds when the court will open
+    */
+    function _delayStartTime(uint64 _newFirstTermStartTime) internal {
+        Term storage term = terms[0];
+
+        // No need for SafeMath: term duration is capped at `MAX_TERM_DURATION`, first term start time by `MAX_FIRST_TERM_DELAY_PERIOD`
+        uint64 currentFirstTermStartTime = term.startTime + termDuration;
+        require(_currentTermId() == 0, ERROR_CANNOT_DELAY_STARTED_COURT);
+        require(_newFirstTermStartTime > currentFirstTermStartTime, ERROR_CANNOT_DELAY_PAST_START_TIME);
+
+        // No need for SafeMath: we already checked above that `_newFirstTermStartTime` > `currentFirstTermStartTime` >= `termDuration`
+        term.startTime = _newFirstTermStartTime - termDuration;
+        emit StartTimeDelayed(currentFirstTermStartTime, _newFirstTermStartTime);
     }
 
     /**

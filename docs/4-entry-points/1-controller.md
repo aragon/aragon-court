@@ -93,7 +93,19 @@ To read more information about its responsibilities and structure, go to [sectio
     - Create a new Court configuration object
     - Create a new future term object for the new configuration
 
-### 4.1.3. Heartbeat
+### 4.1.3. Delay start time
+
+- **Actor:** External entity in charge of maintaining the Court protocol
+- **Inputs:**
+    - **New first-term start time:** New timestamp in seconds when the Court will start
+- **Authentication:** Allowed only to the config governor
+- **Pre-flight checks:**
+    - Ensure that the Court has not started yet
+    - Ensure that the new proposed start time is in the future
+- **State transitions:**
+    - Update the court first term start time
+
+### 4.1.4. Heartbeat
 
 - **Actor:** Any entity incentivized to keep to Court term updated
 - **Inputs:**
@@ -105,7 +117,7 @@ To read more information about its responsibilities and structure, go to [sectio
     - Update the Court term
     - Create a new term object for each transitioned new term
 
-### 4.1.4. Ensure current term
+### 4.1.5. Ensure current term
 
 - **Actor:** Any entity incentivized to keep to Court term updated
 - **Inputs:** None
@@ -115,7 +127,7 @@ To read more information about its responsibilities and structure, go to [sectio
 - **State transitions:**
     - If necessary, update the Court term and create a new term object for each transitioned new term
 
-### 4.1.5. Ensure term randomness
+### 4.1.6. Ensure term randomness
 
 - **Actor:** Any entity incentivized to compute the term randomness for a certain term that has already been created
 - **Inputs:**
@@ -126,7 +138,7 @@ To read more information about its responsibilities and structure, go to [sectio
 - **State transitions:**
     - In case the term randomness has not been computed yet, set its randomness using the block hash of the following block when the term object was created
 
-### 4.1.6. Set automatic withdrawals
+### 4.1.7. Set automatic withdrawals
 
 - **Actor:** External entity holding funds in the Court protocol
 - **Inputs:**
@@ -136,7 +148,7 @@ To read more information about its responsibilities and structure, go to [sectio
 - **State transitions:**
     - Update the automatic withdrawals config of the sender
 
-### 4.1.7. Change funds governor
+### 4.1.8. Change funds governor
 
 - **Actor:** External entity in charge of maintaining the Court protocol
 - **Inputs:**
@@ -147,29 +159,29 @@ To read more information about its responsibilities and structure, go to [sectio
 - **State transitions:**
     - Update the funds governor address
 
-### 4.1.8. Change config governor
+### 4.1.9. Change config governor
 
 - **Actor:** External entity in charge of maintaining the Court protocol
 - **Inputs:**
     - **New config governor:** Address of the new config governor to be set
-- **Authentication:** allowed only to the config governor
+- **Authentication:** Allowed only to the config governor
 - **Pre-flight checks:**
     - Ensure that the new config governor address is not zero
 - **State transitions:**
     - Update the config governor address
 
-### 4.1.9. Change modules governor
+### 4.1.10. Change modules governor
 
 - **Actor:** External entity in charge of maintaining the Court protocol
 - **Inputs:**
     - **New modules governor:** Address of the new modules governor to be set
-- **Authentication:** allowed only to the modules governor
+- **Authentication:** Allowed only to the modules governor
 - **Pre-flight checks:**
     - Ensure that the new modules governor address is not zero
 - **State transitions:**
     - Update the modules governor address
 
-### 4.1.10. Eject funds governor
+### 4.1.11. Eject funds governor
 
 - **Actor:** External entity in charge of maintaining the Court protocol
 - **Inputs:** None
@@ -178,7 +190,7 @@ To read more information about its responsibilities and structure, go to [sectio
 - **State transitions:**
     - Unset the funds governor address
 
-### 4.1.11. Eject modules governor
+### 4.1.12. Eject modules governor
 
 - **Actor:** External entity in charge of maintaining the Court protocol
 - **Inputs:** None
@@ -187,7 +199,7 @@ To read more information about its responsibilities and structure, go to [sectio
 - **State transitions:**
     - Unset the modules governor address
 
-### 4.1.12. Set module
+### 4.1.13. Set module
 
 - **Actor:** External entity in charge of maintaining the Court protocol
 - **Inputs:**
@@ -199,7 +211,7 @@ To read more information about its responsibilities and structure, go to [sectio
 - **State transitions:**
     - Set the module address for the corresponding module ID
 
-### 4.1.13. Set modules
+### 4.1.14. Set modules
 
 - **Actor:** External entity in charge of maintaining the Court protocol
 - **Inputs:**

@@ -1,10 +1,10 @@
-## 4.6. Treasury
+## 4.7. Treasury
 
 The `Treasury` module is in charge of handling the token assets related to the disputes process. 
 The ANJ of the jurors and the subscription fees of the users are the only assets excluded from the `Treasury`. 
 Except from those, the rest of the fees, deposits, and collaterals required to back the different adjudication rounds of a dispute, are stored in the `Treasury`.  
 
-### 4.6.1. Constructor
+### 4.7.1. Constructor
 
 - **Actor:** Deployer account
 - **Inputs:**
@@ -15,20 +15,20 @@ Except from those, the rest of the fees, deposits, and collaterals required to b
 - **State transitions:**
     - Save the controller address
 
-### 4.6.2. Assign
+### 4.7.2. Assign
 
-- **Actor:** `Court` module
+- **Actor:** `DisputesManager` module
 - **Inputs:**
     - **Token:** Address of the ERC20-compatible token to be withdrawn
     - **Recipient:** Address that will receive the funds being withdrawn
     - **Amount:** Amount of tokens to be transferred to the recipient
-- **Authentication:** Only `Court` module
+- **Authentication:** Only `DisputesManager` module
 - **Pre-flight checks:**
     - Ensure that the requested amount is greater than zero
 - **State transitions:**
     - Increase the token balance of the recipient based on the requested amount
 
-### 4.6.3. Withdraw
+### 4.7.3. Withdraw
 
 - **Actor:** External entity owning a certain amount of tokens of the `Treasury` module
 - **Inputs:**
@@ -43,7 +43,7 @@ Except from those, the rest of the fees, deposits, and collaterals required to b
     - Reduce the token balance of the caller based on the requested amount
     - Transfer the requested token amount to the recipient address, revert if the ERC20-transfer wasn't successful
 
-### 4.6.4. Withdraw all
+### 4.7.4. Withdraw all
 
 - **Actor:** External entity incentivized in transfer the funds of a certain address
 - **Inputs:**
@@ -56,7 +56,7 @@ Except from those, the rest of the fees, deposits, and collaterals required to b
     - Set the token balance of the recipient to zero
     - Transfer the whole balance of the recipient address to it, revert if the ERC20-transfer wasn't successful
 
-### 4.6.5. Recover funds
+### 4.7.5. Recover funds
 
 - **Actor:** External entity in charge of maintaining the Court protocol
 - **Inputs:**

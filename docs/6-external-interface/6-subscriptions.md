@@ -1,10 +1,10 @@
-## 6.5. Subscriptions
+## 6.6. Subscriptions
 
-### 6.5.1 Events
+### 6.6.1 Events
 
 The following events are emitted by the `Subscriptions`:
 
-#### 6.5.1.1. Fees paid
+#### 6.6.1.1. Fees paid
 
 - **Name:** `FeesPaid`
 - **Args:**
@@ -14,14 +14,14 @@ The following events are emitted by the `Subscriptions`:
     - **Collected fees:** Part of the paid fees that went to the collected fees amount 
     - **Governor fees:** Part of the paid fees that went to the governor shares amount 
 
-#### 6.5.1.2. Fees donated
+#### 6.6.1.2. Fees donated
 
 - **Name:** `FeesDonated`
 - **Args:**
     - **Payer:** Address of the donner
     - **Amount:** Amount of fee tokens that were donated
     
-#### 6.5.1.3. Fees claimed
+#### 6.6.1.3. Fees claimed
 
 - **Name:** `FeesClaimed`
 - **Args:**
@@ -29,58 +29,58 @@ The following events are emitted by the `Subscriptions`:
     - **Period ID:** Identification number of the subscription period claimed by the juror
     - **Amount:** Amount of tokens the juror received for the requested period
     
-#### 6.5.1.4. Governor fees transferred
+#### 6.6.1.4. Governor fees transferred
 
 - **Name:** `GovernorFeesTransferred`
 - **Args:**
     - **Amount:** Amount of tokens transferred to the governor address
     
-#### 6.5.1.5. Fee token changed
+#### 6.6.1.5. Fee token changed
 
 - **Name:** `FeeTokenChanged`
 - **Args:**
     - **Previous token:** Previous address of the ERC20 used for the subscriptions fees
     - **Current token:** Current address of the ERC20 used for the subscriptions fees
     
-#### 6.5.1.6. Fee amount changed
+#### 6.6.1.6. Fee amount changed
 
 - **Name:** `FeeAmountChanged`
 - **Args:**
     - **Previous amount:** Previous amount of subscriptions token fees per period
     
-#### 6.5.1.7. Pre payment period changed
+#### 6.6.1.7. Pre payment period changed
 
 - **Name:** `PrePaymentPeriodsChanged`
 - **Args:**
     - **Previous pre-payment periods:** Previous number of pre-payment periods
     - **Current pre-payment periods:** Current number of pre-payment periods
     
-#### 6.5.1.8. Governor share changed
+#### 6.6.1.8. Governor share changed
 
 - **Name:** `GovernorSharePctChanged`
 - **Args:**
     - **Previous governor share:** Previous permyriad of subscription fees that was being allocated to the governor
     - **Current governor share:** Current permyriad of subscription fees that will be allocated to the governor
     
-#### 6.5.1.9. Late payment penalty changed
+#### 6.6.1.9. Late payment penalty changed
 
 - **Name:** `LatePaymentPenaltyPctChanged`
 - **Args:**
     - **Previous penalty:** Previous permyriad of subscription fees that was applied as penalty for not paying during proper period 
     - **Current penalty:** Current permyriad of subscription fees that will be applied as penalty for not paying during proper period
     
-#### 6.5.1.10. Resume penalty changed
+#### 6.6.1.10. Resume penalty changed
 
 - **Name:** `ResumePenaltiesChanged`
 - **Args:**
     - **Previous penalty:** Previous number of periods that was being pre-paid when resuming a paused subscription 
     - **Current penalty:** Current number of periods that will have to be pre-paid when resuming a paused subscription
     
-### 6.5.2. Getters
+### 6.6.2. Getters
 
 The following functions are state getters provided by the `Subscriptions`:
 
-#### 6.5.2.1. Is up to date
+#### 6.6.2.1. Is up to date
 
 - **Inputs:** 
     - **Subscriber:** Address of subscriber being checked 
@@ -88,63 +88,63 @@ The following functions are state getters provided by the `Subscriptions`:
 - **Outputs:**
     - **Up-to-date:** True if subscriber has paid all the fees up to current period, false otherwise
 
-#### 6.5.2.2. Period duration
+#### 6.6.2.2. Period duration
 
 - **Inputs:** None 
 - **Pre-flight checks:** None
 - **Outputs:**
     - **Duration:** Duration of a subscription period in Court terms
 
-#### 6.5.2.3. Late payment penalty
+#### 6.6.2.3. Late payment penalty
 
 - **Inputs:** None 
 - **Pre-flight checks:** None
 - **Outputs:**
     - **Late payment penalty:** Permyriad of subscription fees that will be applied as penalty for not paying during proper period (‱ - 1/10,000)
     
-#### 6.5.2.4. Governor share 
+#### 6.6.2.4. Governor share 
 
 - **Inputs:** None 
 - **Pre-flight checks:** None
 - **Outputs:**
     - **Governor share:** Permyriad of subscription fees that will be allocated to the governor of the Court (‱ - 1/10,000)
     
-#### 6.5.2.5. Current fee token 
+#### 6.6.2.5. Current fee token 
 
 - **Inputs:** None 
 - **Pre-flight checks:** None
 - **Outputs:**
     - **Fee token:** ERC20 token used for the subscription fees
     
-#### 6.5.2.6. Current fee amount 
+#### 6.6.2.6. Current fee amount 
 
 - **Inputs:** None 
 - **Pre-flight checks:** None
 - **Outputs:**
     - **Fee token:** Amount of fees to be paid for each subscription period
     
-#### 6.5.2.7. Pre payment periods 
+#### 6.6.2.7. Pre payment periods 
 
 - **Inputs:** None 
 - **Pre-flight checks:** None
 - **Outputs:**
     - **Pre payment periods:** Number of periods that can be paid in advance including the current period. Paying in advance has some drawbacks:
     
-#### 6.5.2.8. Resume pre paid periods 
+#### 6.6.2.8. Resume pre paid periods 
 
 - **Inputs:** None 
 - **Pre-flight checks:** None
 - **Outputs:**
     - **Resume pre paid periods:** Number of periods a subscriber must pre-pay in order to resume his activity after pausing
     
-#### 6.5.2.9. Accumulated governor fees 
+#### 6.6.2.9. Accumulated governor fees 
 
 - **Inputs:** None 
 - **Pre-flight checks:** None
 - **Outputs:**
     - **Governor fees:** Total amount of fees accumulated for the governor of the Court
 
-#### 6.5.2.10. Current period ID
+#### 6.6.2.10. Current period ID
 
 - **Inputs:** None 
 - **Pre-flight checks:** 
@@ -152,7 +152,7 @@ The following functions are state getters provided by the `Subscriptions`:
 - **Outputs:**
     - **Period ID:** Identification number of the current period
     
-#### 6.5.2.11. Current period 
+#### 6.6.2.11. Current period 
 
 - **Inputs:** None 
 - **Pre-flight checks:** 
@@ -164,7 +164,7 @@ The following functions are state getters provided by the `Subscriptions`:
     - **Total active balance:** Total amount of juror tokens active in the Court at the corresponding period checkpoint
     - **Collected fees:** Total amount of subscription fees collected during a period
     
-#### 6.5.2.12. Period balance details 
+#### 6.6.2.12. Period balance details 
 
 - **Inputs:** 
     - **Period ID:** Identification number of the period being queried
@@ -175,7 +175,7 @@ The following functions are state getters provided by the `Subscriptions`:
     - **Period balance checkpoint:** Court term ID used to fetch the total active balance of the jurors registry
     - **Total active balance:** Total amount of juror tokens active in the Court at the corresponding used checkpoint
     
-#### 6.5.2.13. Subscriber 
+#### 6.6.2.13. Subscriber 
 
 - **Inputs:** 
     - **Subscriber:** Address of the subscriber being queried
@@ -186,7 +186,7 @@ The following functions are state getters provided by the `Subscriptions`:
     - **Last payment period ID:** Identification number of the last period paid by the given subscriber
     - **Previous delayed periods:** Number of delayed periods the subscriber had before pausing
     
-#### 6.5.2.14. Delayed periods 
+#### 6.6.2.14. Delayed periods 
 
 - **Inputs:** 
     - **Subscriber:** Address of the subscriber being queried
@@ -195,11 +195,22 @@ The following functions are state getters provided by the `Subscriptions`:
 - **Outputs:**
     - **Periods:** Number of overdue payments for the requested subscriber
     
-#### 6.5.2.15. Delayed periods 
+#### 6.6.2.15. Pay fees details 
 
 - **Inputs:** 
-    - **Subscriber:** Address of the subscriber willing to pay
+    - **Subscriber:** Address of the subscriber being queried
     - **Periods:** Number of periods that would be paid
+- **Pre-flight checks:** 
+    - Ensure that the Court first term has already started
+- **Outputs:**
+    - **Token address:** Address of the token used for the subscription fees
+    - **Amount to pay:** Amount of subscription fee tokens to be paid for all the owed periods
+    - **New last period ID:** Identification number of the resulting last paid period
+    
+#### 6.6.2.16. Owed fees details 
+
+- **Inputs:** 
+    - **Subscriber:** Address of the subscriber being queried
 - **Pre-flight checks:** 
     - Ensure that the Court first term has already started
 - **Outputs:**
@@ -207,7 +218,7 @@ The following functions are state getters provided by the `Subscriptions`:
     - **Amount to pay:** Amount of subscription fee tokens to be paid
     - **New last period ID:** Identification number of the resulting last paid period
     
-#### 6.5.2.16. Juror share 
+#### 6.6.2.17. Juror share 
 
 - **Inputs:** 
     - **Juror:** Address of the juror querying the owed shared fees of
@@ -218,7 +229,7 @@ The following functions are state getters provided by the `Subscriptions`:
     - **Fee token:** Address of the token used for the subscription fees
     - **Amount:** Amount of share fees owed to the given juror for the requested period
      
-#### 6.5.2.17. Has juror claimed 
+#### 6.6.2.18. Has juror claimed 
 
 - **Inputs:** 
     - **Juror:** Address of the juror being queried

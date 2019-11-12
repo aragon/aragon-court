@@ -1,10 +1,10 @@
-## 6.6. Treasury
+## 6.7. Treasury
 
-### 6.6.1 Events
+### 6.7.1 Events
 
 The following events are emitted by the `Treasury`:
 
-#### 6.6.1.1. Assign
+#### 6.7.1.1. Assign
 
 - **Name:** `Assign`
 - **Args:**
@@ -13,7 +13,7 @@ The following events are emitted by the `Treasury`:
     - **To:** Address of the account that has received the tokens 
     - **Amount:** Number of tokens assigned to the recipient account 
 
-#### 6.6.1.2. Withdraw
+#### 6.7.1.2. Withdraw
 
 - **Name:** `Withdraw`
 - **Args:**
@@ -22,11 +22,11 @@ The following events are emitted by the `Treasury`:
     - **To:** Address of the account that has received the tokens 
     - **Amount:** Number of tokens withdrawn to the recipient account 
 
-### 6.6.2. Getters
+### 6.7.2. Getters
 
 The following functions are state getters provided by the `Treasury`:
 
-#### 6.6.2.1. Balance of
+#### 6.7.2.1. Balance of
 
 - **Inputs:** 
     - **Token:** Address of the ERC20 token querying a holder's the balance of 

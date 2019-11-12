@@ -1,8 +1,8 @@
-## 5.1. Controller
+## 5.2. Controller
 
 The following objects are the data-structures used by the `Controller`:
 
-### 5.1.1. Governor
+### 5.2.1. Governor
 
 The governor object includes the following fields:
 
@@ -10,7 +10,7 @@ The governor object includes the following fields:
 - **Config:** Address allowed to change the different configurations of the whole system
 - **Modules:** Address allowed to plug/unplug modules from the system
 
-### 5.1.2. Config
+### 5.2.2. Config
 
 The config object includes the following fields:
 
@@ -18,7 +18,7 @@ The config object includes the following fields:
 - **Disputes config:** Disputes config object
 - **Min active balance:** Minimum amount of tokens jurors have to activate to participate in the Court
 
-### 5.1.3. Fees config
+### 5.2.3. Fees config
 
 The fees config object includes the following fields:
 
@@ -28,7 +28,7 @@ The fees config object includes the following fields:
 - **Draft fee:** Amount of tokens paid per round to cover the costs of drafting jurors
 - **Settle fee:** Amount of tokens paid per round to cover the costs of slashing jurors
 
-### 5.1.4. Disputes config
+### 5.2.4. Disputes config
     
 The disputes config object includes the following fields:
 
@@ -44,7 +44,7 @@ The disputes config object includes the following fields:
 - **Appeal collateral factor:** Permyriad multiple of juror fees required to appeal a preliminary ruling (1/10,000)
 - **Appeal confirmation collateral factor:** Permyriad multiple of juror fees required to confirm appeal (1/10,000)
     
-### 5.1.5. Term
+### 5.2.5. Term
     
 The term object includes the following fields:
   

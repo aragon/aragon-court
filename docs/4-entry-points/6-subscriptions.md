@@ -1,9 +1,9 @@
-## 4.5. Subscriptions
+## 4.6. Subscriptions
 
 The `Subscriptions` module is in charge of handling the subscription fees paid by the users to use the Court. 
 This module is where fees are paid, stored, and redistributed to the corresponding parties: jurors and the governor.
 
-### 4.5.1. Constructor
+### 4.6.1. Constructor
 
 - **Actor:** Deployer account
 - **Inputs:**
@@ -35,7 +35,7 @@ This module is where fees are paid, stored, and redistributed to the correspondi
     - Save the governor share permyriad
     - Save the number of resume pre-paid periods
 
-### 4.5.2. Pay fees
+### 4.6.2. Pay fees
 
 - **Actor:** Users of the Court
 - **Inputs:**
@@ -51,7 +51,7 @@ This module is where fees are paid, stored, and redistributed to the correspondi
     - Update the total amount of collected governor shares
     - Pull the corresponding amount of fee tokens for the requested number of periods from the sender to be deposited in the `Subscriptions` module, revert if the ERC20-transfer wasn't successful
 
-### 4.5.3. Pause
+### 4.6.3. Pause
 
 - **Actor:** Users of the Court
 - **Inputs:** None
@@ -61,7 +61,7 @@ This module is where fees are paid, stored, and redistributed to the correspondi
 - **State transitions:**
     - Update the subscriber's state marking it as paused 
 
-### 4.5.4. Resume
+### 4.6.4. Resume
 
 - **Actor:** Users of the Court
 - **Inputs:** None
@@ -76,7 +76,7 @@ This module is where fees are paid, stored, and redistributed to the correspondi
     - Update the total amount of collected governor shares
     - Pull the corresponding amount of fee tokens for the owed number of periods from the sender to be deposited in the `Subscriptions` module, revert if the ERC20-transfer wasn't successful
 
-### 4.5.5. Donate
+### 4.6.5. Donate
 
 - **Actor:** External entity willing to contribute to the Court deposits to be distributed among the participating jurors
 - **Inputs:**
@@ -88,7 +88,7 @@ This module is where fees are paid, stored, and redistributed to the correspondi
     - Update the total amount of collected fees during the current period
     - Pull the corresponding amount of fee tokens from the sender to be deposited in the `Subscriptions` module, revert if the ERC20-transfer wasn't successful
 
-### 4.5.6. Claim fees
+### 4.6.6. Claim fees
 
 - **Actor:** Jurors of the Court
 - **Inputs:**
@@ -102,7 +102,7 @@ This module is where fees are paid, stored, and redistributed to the correspondi
     - Mark the sender has already claim their fees for the requested period
     - Transfer the corresponding portion of collected fees to the sender, revert if the ERC20-transfer wasn't successful
 
-### 4.5.7. Transfer governor fees
+### 4.6.7. Transfer governor fees
 
 - **Actor:** External entity in charge of maintaining the Court protocol
 - **Inputs:** None
@@ -113,7 +113,7 @@ This module is where fees are paid, stored, and redistributed to the correspondi
     - Reset the total amount of collected governor shares to zero
     - Transfer the governor shares to the config governor address, revert if the ERC20-transfer wasn't successful
 
-### 4.5.8. Ensure period balance details
+### 4.6.8. Ensure period balance details
 
 - **Actor:** External entity incentivized in updating the parameters to determine the jurors share fees for each period
 - **Inputs:**
@@ -124,7 +124,7 @@ This module is where fees are paid, stored, and redistributed to the correspondi
 - **State transitions:**
     - Pick a random term checkpoint included in the requested period using the next period's start term randomness, and save the total ANJ active balance in the `JurorsRegistry` at that term for the requested period
 
-### 4.5.9. Set fee amount
+### 4.6.9. Set fee amount
 
 - **Actor:** External entity in charge of maintaining the Court protocol
 - **Inputs:**
@@ -135,7 +135,7 @@ This module is where fees are paid, stored, and redistributed to the correspondi
 - **State transitions:**
     - Update the subscriptions fee token amount
 
-### 4.5.10. Set fee token
+### 4.6.10. Set fee token
 
 - **Actor:** External entity in charge of maintaining the Court protocol
 - **Inputs:**
@@ -149,7 +149,7 @@ This module is where fees are paid, stored, and redistributed to the correspondi
     - If there were any share fees accumulated for the governor, transfer them and reset the governor share fees accumulator
     - Update the subscriptions fee token address and amount
 
-### 4.5.11. Set pre payment periods
+### 4.6.11. Set pre payment periods
 
 - **Actor:** External entity in charge of maintaining the Court protocol
 - **Inputs:**
@@ -161,7 +161,7 @@ This module is where fees are paid, stored, and redistributed to the correspondi
 - **State transitions:**
     - Update the number of pre-payment periods
 
-### 4.5.12. Set late payment penalty permyriad
+### 4.6.12. Set late payment penalty permyriad
 
 - **Actor:** External entity in charge of maintaining the Court protocol
 - **Inputs:**
@@ -171,7 +171,7 @@ This module is where fees are paid, stored, and redistributed to the correspondi
 - **State transitions:**
     - Update the late payments penalty permyriad
 
-### 4.5.13. Set governor share permyriad
+### 4.6.13. Set governor share permyriad
 
 - **Actor:** External entity in charge of maintaining the Court protocol
 - **Inputs:**
@@ -182,7 +182,7 @@ This module is where fees are paid, stored, and redistributed to the correspondi
 - **State transitions:**
     - Update the governor share permyriad
 
-### 4.5.14. Set resume pre paid periods
+### 4.6.14. Set resume pre paid periods
 
 - **Actor:** External entity in charge of maintaining the Court protocol
 - **Inputs:**
@@ -193,7 +193,7 @@ This module is where fees are paid, stored, and redistributed to the correspondi
 - **State transitions:**
     - Update the number of resume pre-paid periods
 
-### 4.5.15. Recover funds
+### 4.6.15. Recover funds
 
 - **Actor:** External entity in charge of maintaining the Court protocol
 - **Inputs:**

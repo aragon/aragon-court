@@ -1,9 +1,9 @@
-## 4.4. Voting
+## 4.5. Voting
 
 The `Voting` module is in charge of handling all the votes submitted by the drafted jurors and computing the tallies to ensure the final ruling of a dispute once finished. 
 In particular, the first version of the Court protocol uses a commit-reveal mechanism. Therefore, the `Voting` module allows jurors to commit and reveal their votes, and leaked other jurors votes.
 
-### 4.4.1. Constructor
+### 4.5.1. Constructor
 
 - **Actor:** Deployer account
 - **Inputs:**
@@ -14,18 +14,18 @@ In particular, the first version of the Court protocol uses a commit-reveal mech
 - **State transitions:**
     - Save the controller address
 
-### 4.4.2. Create
+### 4.5.2. Create
 
-- **Actor:** `Court` module
+- **Actor:** `DisputesManager` module
 - **Inputs:**
     - **Vote ID:** Vote identification number 
-- **Authentication:** Only `Court` module
+- **Authentication:** Only `DisputesManager` module
 - **Pre-flight checks:**
     - Ensure there is no other existing vote for the given vote ID
 - **State transitions:**
     - Create a new vote object 
 
-### 4.4.3. Commit
+### 4.5.3. Commit
 
 - **Actor:** Juror drafted for an adjudication round
 - **Inputs:**
@@ -40,7 +40,7 @@ In particular, the first version of the Court protocol uses a commit-reveal mech
 - **State transitions:**
     - Create a cast vote object for the sender voter
 
-### 4.4.4. Leak
+### 4.5.4. Leak
 
 - **Actor:** External entity incentivized to slash a juror
 - **Inputs:**
@@ -55,7 +55,7 @@ In particular, the first version of the Court protocol uses a commit-reveal mech
 - **State transitions:**
     - Update the voter's cast vote object marking it as leaked
 
-### 4.4.5. Reveal
+### 4.5.5. Reveal
 
 - **Actor:** Juror drafted for an adjudication round
 - **Inputs:**

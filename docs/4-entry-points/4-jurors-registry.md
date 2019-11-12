@@ -1,9 +1,9 @@
-## 4.3. Jurors Registry
+## 4.4. Jurors Registry
 
 The `JurorsRegistry` module is in charge of handling the jurors activity and mainly the different states of their staked balances. 
 This module is in the one handling all the staking/unstaking logic for the jurors, all the ANJ staked into the Court is held by the registry.
 
-### 4.3.1. Constructor
+### 4.4.1. Constructor
 
 - **Actor:** Deployer account
 - **Inputs:**
@@ -20,7 +20,7 @@ This module is in the one handling all the staking/unstaking logic for the juror
     - Save the juror token address
     - Save the total active balance limit
 
-### 4.3.2. Activate
+### 4.4.2. Activate
 
 - **Actor:** Juror of the Court
 - **Inputs:**
@@ -38,7 +38,7 @@ This module is in the one handling all the staking/unstaking logic for the juror
     - Update the juror's active balance for the next term
     - Decrease the juror's available balance
 
-### 4.3.3. Deactivate
+### 4.4.3. Deactivate
 
 - **Actor:** Juror of the Court
 - **Inputs:**
@@ -53,7 +53,7 @@ This module is in the one handling all the staking/unstaking logic for the juror
     - Process previous deactivation requests if there is any, increase the juror's available balance
     - Create a new deactivation request object for the next term
 
-### 4.3.4. Stake
+### 4.4.4. Stake
 
 - **Actor:** Juror of the Court
 - **Inputs:**
@@ -67,7 +67,7 @@ This module is in the one handling all the staking/unstaking logic for the juror
     - Activate the staked amount if requested by the juror
     - Pull the corresponding amount of juror tokens from the sender to the `JurorsRegistry` module, revert if the ERC20-transfer wasn't successful
 
-### 4.3.5. Stake for
+### 4.4.5. Stake for
 
 - **Actor:** External entity incentivized to stake some tokens in favor of a juror of the Court
 - **Inputs:**
@@ -82,7 +82,7 @@ This module is in the one handling all the staking/unstaking logic for the juror
     - Activate the staked amount if requested by the juror
     - Pull the corresponding amount of juror tokens from the sender to the `JurorsRegistry` module, revert if the ERC20-transfer wasn't successful 
 
-### 4.3.6. Unstake
+### 4.4.6. Unstake
 
 - **Actor:** Juror of the Court
 - **Inputs:**
@@ -97,7 +97,7 @@ This module is in the one handling all the staking/unstaking logic for the juror
     - Process previous deactivation requests if there is any, increase the juror's available balance
     - Transfer the requested amount of juror tokens from the `JurorsRegistry` module to the juror, revert if the ERC20-transfer wasn't successful
 
-### 4.3.7. Receive approval
+### 4.4.7. Receive approval
 
 - **Actor:** ANJ token contract
 - **Inputs:**
@@ -113,7 +113,7 @@ This module is in the one handling all the staking/unstaking logic for the juror
     - Activate the staked amount if requested by the juror
     - Pull the corresponding amount of juror tokens from the sender to the `JurorsRegistry` module, revert if the ERC20-transfer wasn't successful
 
-### 4.3.8. Process deactivation request
+### 4.4.8. Process deactivation request
 
 - **Actor:** External entity incentivized to update jurors available balances
 - **Inputs:**
@@ -127,30 +127,30 @@ This module is in the one handling all the staking/unstaking logic for the juror
     - Increase the available balance of the juror
     - Reset the deactivation request of the juror
 
-### 4.3.9. Assign tokens
+### 4.4.9. Assign tokens
 
-- **Actor:** `Court` module
+- **Actor:** `DisputesManager` module
 - **Inputs:**
     - **Juror:** Address of the juror to add an amount of tokens to
     - **Amount:** Amount of tokens to be added to the available balance of a juror
-- **Authentication:** Only `Court` module
+- **Authentication:** Only `DisputesManager` module
 - **Pre-flight checks:** None
 - **State transitions:**
     - Increase the juror's available balance
 
-### 4.3.10. Burn tokens
+### 4.4.10. Burn tokens
 
-- **Actor:** `Court` module
+- **Actor:** `DisputesManager` module
 - **Inputs:**
     - **Amount:** Amount of tokens to be burned
-- **Authentication:** Only `Court` module
+- **Authentication:** Only `DisputesManager` module
 - **Pre-flight checks:** None 
 - **State transitions:**
     - Increase the burn address's available balance
 
-### 4.3.11. Draft
+### 4.4.11. Draft
 
-- **Actor:** `Court` module
+- **Actor:** `DisputesManager` module
 - **Inputs:**
     - **Draft params:** Object containing:
         - **Term randomness:** Randomness to compute the seed for the draft
@@ -160,7 +160,7 @@ This module is in the one handling all the staking/unstaking logic for the juror
         - **Batch requested jurors:** Number of jurors to be selected in the given batch of the draft
         - **Draft requested jurors:** Total number of jurors requested to be drafted
         - **Draft locking permyriad:** ‱ of the minimum active balance to be locked for the draft (1/10,000)
-- **Authentication:** Only `Court` module
+- **Authentication:** Only `DisputesManager` module
 - **Pre-flight checks:**
     - Ensure that the requested number of jurors to be drafted is greater than zero
     - Ensure each drafted juror has enough active balance to be locked for the draft
@@ -169,15 +169,15 @@ This module is in the one handling all the staking/unstaking logic for the juror
     - Update the locked active balance of each drafted juror
     - Decrease previous deactivation requests if there is any and needed to draft the juror
 
-### 4.3.12. Slash or unlock
+### 4.4.12. Slash or unlock
 
-- **Actor:** `Court` module
+- **Actor:** `DisputesManager` module
 - **Inputs:**
     - **Term ID:** Current term identification number
     - **Jurors:** List of juror addresses to be slashed
     - **Locked amounts:** List of amounts locked for each corresponding juror that will be either slashed or returned
     - **Rewarded jurors:** List of booleans to tell whether a juror's active balance has to be slashed or not
-- **Authentication:** Only `Court` module
+- **Authentication:** Only `DisputesManager` module
 - **Pre-flight checks:**
     - Ensure that both lists lengths match
     - Ensure that each juror has enough locked balance to be unlocked
@@ -185,32 +185,32 @@ This module is in the one handling all the staking/unstaking logic for the juror
     - Decrease the unlocked balance of each juror based on their corresponding given amounts
     - In case of a juror being slashed, decrease their active balance for the next term 
 
-### 4.3.13. Collect tokens
+### 4.4.13. Collect tokens
 
-- **Actor:** `Court` module
+- **Actor:** `DisputesManager` module
 - **Inputs:**
     - **Juror:** Address of the juror to collect the tokens from
     - **Amount:** Amount of tokens to be collected from the given juror and for the requested term id
     - **Term ID:** Current term identification number
-- **Authentication:** Only `Court` module
+- **Authentication:** Only `DisputesManager` module
 - **Pre-flight checks:**
     - Ensure the juror has enough active balance based on the requested amount
 - **State transitions:**
     - Decrease the active balance of the juror for the next term
     - Decrease previous deactivation requests if there is any and its necessary to collect the requested amount of tokens from a juror
 
-### 4.3.14. Lock withdrawals
+### 4.4.14. Lock withdrawals
 
-- **Actor:** `Court` module
+- **Actor:** `DisputesManager` module
 - **Inputs:**
     - **Juror:** Address of the juror to locked the withdrawals of
     - **Term ID:** Term identification number until which the juror's withdrawals will be locked
-- **Authentication:** Only `Court` module
+- **Authentication:** Only `DisputesManager` module
 - **Pre-flight checks:** None
 - **State transitions:**
     - Update the juror's state with the term ID until which their withdrawals will be locked
 
-### 4.3.15. Set total active balance limit
+### 4.4.15. Set total active balance limit
 
 - **Actor:** External entity in charge of maintaining the Court protocol
 - **Inputs:**
@@ -221,7 +221,7 @@ This module is in the one handling all the staking/unstaking logic for the juror
 - **State transitions:**
     - Update the total active balance limit
 
-### 4.3.16. Recover funds
+### 4.4.16. Recover funds
 
 - **Actor:** External entity in charge of maintaining the Court protocol
 - **Inputs:**

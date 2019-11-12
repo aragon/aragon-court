@@ -1,9 +1,9 @@
-## 4.1. Controller
+## 4.2. Controller
 
 The `Controller` is core component of the architecture whose main responsibilities are permissions, modules, Court terms, Court configurations management.
 To read more information about its responsibilities and structure, go to [section 2](../2-architecture).
 
-### 4.1.1. Constructor
+### 4.2.1. Constructor
 
 - **Actor:** Deployer account
 - **Inputs:**
@@ -52,34 +52,7 @@ To read more information about its responsibilities and structure, go to [sectio
     - Create the initial Court configuration object
     - Create the governor object
 
-### 4.1.2. Create dispute
-
-- **Actor:** Proposal Agreements instances, entities that need a dispute adjudicated
-- **Inputs:**
-    - **Possible rulings:** Number of possible results for a dispute
-    - **Metadata:** Optional metadata that can be used to provide additional information on the dispute to be created
-- **Authentication:** Open. Implicitly, only smart contracts that are up to date on their subscriptions in the `Subscription` module and that have open an ERC20 allowance with an amount of at least the dispute fee to the `Court` module can call this function
-- **Pre-flight checks:**
-    - Ensure that the msg.sender supports the `IArbitrable` interface
-    - Ensure that the subject is up-to-date on its subscription fees
-- **State transitions:**
-    - Create a new dispute object in the DisputesManager module
-
-### 4.1.3. Execute dispute
-
-- **Actor:** External entity incentivized to execute the final ruling decided for a dispute. Alternatively, an altruistic entity to make sure the dispute is ruled.
-- **Inputs:**
-    - **Dispute ID:** Dispute identification number
-- **Authentication:** Open
-- **Pre-flight checks:**
-    - Ensure a dispute object with that ID exists
-    - Ensure that the dispute has not been executed yet
-    - Ensure that the dispute's last round adjudication phase has ended
-- **State transitions:**
-    - Compute the final ruling in the DisputesManager module
-    - Execute the `Arbitrable` contract linked to the dispute based on the decided ruling
-
-### 4.1.4. Set config
+### 4.2.2. Set config
 
 - **Actor:** External entity in charge of maintaining the Court protocol
 - **Inputs:**
@@ -120,7 +93,7 @@ To read more information about its responsibilities and structure, go to [sectio
     - Create a new Court configuration object
     - Create a new future term object for the new configuration
 
-### 4.1.5. Delay start time
+### 4.2.3. Delay start time
 
 - **Actor:** External entity in charge of maintaining the Court protocol
 - **Inputs:**
@@ -132,7 +105,7 @@ To read more information about its responsibilities and structure, go to [sectio
 - **State transitions:**
     - Update the court first term start time
 
-### 4.1.6. Heartbeat
+### 4.2.4. Heartbeat
 
 - **Actor:** Any entity incentivized to keep to Court term updated
 - **Inputs:**
@@ -144,7 +117,7 @@ To read more information about its responsibilities and structure, go to [sectio
     - Update the Court term
     - Create a new term object for each transitioned new term
 
-### 4.1.7. Ensure current term
+### 4.2.5. Ensure current term
 
 - **Actor:** Any entity incentivized to keep to Court term updated
 - **Inputs:** None
@@ -154,7 +127,7 @@ To read more information about its responsibilities and structure, go to [sectio
 - **State transitions:**
     - If necessary, update the Court term and create a new term object for each transitioned new term
 
-### 4.1.8. Ensure term randomness
+### 4.2.6. Ensure term randomness
 
 - **Actor:** Any entity incentivized to compute the term randomness for a certain term that has already been created
 - **Inputs:**
@@ -165,7 +138,7 @@ To read more information about its responsibilities and structure, go to [sectio
 - **State transitions:**
     - In case the term randomness has not been computed yet, set its randomness using the block hash of the following block when the term object was created
 
-### 4.1.9. Set automatic withdrawals
+### 4.2.7. Set automatic withdrawals
 
 - **Actor:** External entity holding funds in the Court protocol
 - **Inputs:**
@@ -175,7 +148,7 @@ To read more information about its responsibilities and structure, go to [sectio
 - **State transitions:**
     - Update the automatic withdrawals config of the sender
 
-### 4.1.10. Change funds governor
+### 4.2.8. Change funds governor
 
 - **Actor:** External entity in charge of maintaining the Court protocol
 - **Inputs:**
@@ -186,7 +159,7 @@ To read more information about its responsibilities and structure, go to [sectio
 - **State transitions:**
     - Update the funds governor address
 
-### 4.1.11. Change config governor
+### 4.2.9. Change config governor
 
 - **Actor:** External entity in charge of maintaining the Court protocol
 - **Inputs:**
@@ -197,7 +170,7 @@ To read more information about its responsibilities and structure, go to [sectio
 - **State transitions:**
     - Update the config governor address
 
-### 4.1.12. Change modules governor
+### 4.2.10. Change modules governor
 
 - **Actor:** External entity in charge of maintaining the Court protocol
 - **Inputs:**
@@ -208,7 +181,7 @@ To read more information about its responsibilities and structure, go to [sectio
 - **State transitions:**
     - Update the modules governor address
 
-### 4.1.13. Eject funds governor
+### 4.2.11. Eject funds governor
 
 - **Actor:** External entity in charge of maintaining the Court protocol
 - **Inputs:** None
@@ -217,7 +190,7 @@ To read more information about its responsibilities and structure, go to [sectio
 - **State transitions:**
     - Unset the funds governor address
 
-### 4.1.14. Eject modules governor
+### 4.2.12. Eject modules governor
 
 - **Actor:** External entity in charge of maintaining the Court protocol
 - **Inputs:** None
@@ -226,7 +199,7 @@ To read more information about its responsibilities and structure, go to [sectio
 - **State transitions:**
     - Unset the modules governor address
 
-### 4.1.15. Set module
+### 4.2.13. Set module
 
 - **Actor:** External entity in charge of maintaining the Court protocol
 - **Inputs:**
@@ -238,7 +211,7 @@ To read more information about its responsibilities and structure, go to [sectio
 - **State transitions:**
     - Set the module address for the corresponding module ID
 
-### 4.1.16. Set modules
+### 4.2.14. Set modules
 
 - **Actor:** External entity in charge of maintaining the Court protocol
 - **Inputs:**

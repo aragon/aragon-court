@@ -1,9 +1,9 @@
-## 4.2. Court
+## 4.3. Disputes Manager
 
-The `Court` module is in charge of handling all the disputes-related behavior. This is where disputes are created and appealed. 
-It is also in charge of executing the associated `Arbitrables` once the dispute has been finished, and to settle all the parties involved in the dispute.
+The `DisputesManager` module is in charge of handling all the disputes-related behavior. This is where disputes are created and appealed. 
+It is also in charge of computing the final ruling for each dispute, and to settle the rewards and penalties of all the parties involved in the dispute.
 
-### 4.2.1. Constructor
+### 4.3.1. Constructor
 
 - **Actor:** Deployer account
 - **Inputs:**
@@ -17,7 +17,7 @@ It is also in charge of executing the associated `Arbitrables` once the dispute 
     - Save the controller address
     - Save the max number of jurors to be drafted per batch 
 
-### 4.2.2. Create dispute
+### 4.3.2. Create dispute
 
 - **Actor:** Controller
 - **Inputs:**
@@ -36,7 +36,7 @@ It is also in charge of executing the associated `Arbitrables` once the dispute 
     - Set the number of jurors to be drafted based on the Court configuration for the draft term  of the dispute (the next term)
     - Pull the required dispute fee amount from the sender to be deposited in the `Treasury` module, revert if the ERC20-transfer wasn't successful
 
-### 4.2.3. Draft
+### 4.3.3. Draft
 
 - **Actor:** External entity incentivized by the draft fee they will earn by performing this execution. Alternatively, an altruistic entity to make sure the dispute is drafted
 - **Inputs:**
@@ -49,45 +49,45 @@ It is also in charge of executing the associated `Arbitrables` once the dispute 
     - Ensure that the draft term for the last round has been reached
     - Ensure that the randomness seed for the current term is either available (current block number within a certain range) or was saved by another draft
 - **State transitions:**
-    - Search up to the maximum batch size of jurors in the `JurorRegistry` using the draft term's randomness seed for entropy, which will lock a certain amount of ANJ tokens to each of the drafted jurors based on the penalty permille of the `Court`. The maximum number of jurors to be drafted will depend on the maximum number allowed per batch set in the `Court` and the corresponding number of jurors for the dispute. Additionally, the `JurorsRegistry` could return fewer jurors than the requested number. To have a better understanding of how the sortition works go to **section X**.
+    - Search up to the maximum batch size of jurors in the `JurorRegistry` using the draft term's randomness seed for entropy, which will lock a certain amount of ANJ tokens to each of the drafted jurors based on the penalty permille of the Court. The maximum number of jurors to be drafted will depend on the maximum number allowed per batch set in the Court and the corresponding number of jurors for the dispute. Additionally, the `JurorsRegistry` could return fewer jurors than the requested number. To have a better understanding of how the sortition works go to **section X**.
     - Update the dispute object with the resultant jurors from the draft. If all the jurors of the dispute have been drafted, transition the dispute to the adjudication phase.
     - Reward the caller with draft fees for each juror drafted, using the configuration at the draft term of the dispute's first round.
 
-### 4.2.4. Create appeal
+### 4.3.4. Create appeal
 
 - **Actor:** External entity not in favor of the ruling decided by the drafted jurors during the adjudication phase
 - **Inputs:**
     - **Dispute ID:** dispute identification number
     - **Round ID:** adjudication round identification number
     - **Ruling:** Ruling number proposed by the appealer
-- **Authentication:** Open. Implicitly, only accounts that have open an ERC20 allowance with an amount of at least the required appeal collateral to the `Court` module can call this function
+- **Authentication:** Open. Implicitly, only accounts that have open an ERC20 allowance with an amount of at least the required appeal collateral to the `DisputesManager` module can call this function
 - **Pre-flight checks:**
     - Ensure that the Court term is up-to-date. Otherwise, perform a heartbeat before continuing the execution.
     - Ensure a dispute object with that ID exists
     - Ensure an adjudication round object with that ID exists for the given dispute
     - Ensure that the adjudication round can be appealed
     - Ensure that the given ruling is different from the one already decided by the drafted jurors
-    - Ensure that the given ruling is either refused or one of the possible rulings supported by the `Court` module
+    - Ensure that the given ruling is either refused or one of the possible rulings supported by the `DisputesManager` module
 - **State transitions:**
     - Update current Court term if needed
     - Create a new appeal object tracking the address and proposed ruling of the appealer
     - Pull the required appeal collateral from the sender to be deposited in the `Treasury` module, calculating it based on the Court configuration when the dispute's first round was drafted, revert if the ERC20-transfer wasn't successful
 
-### 4.2.5. Confirm appeal
+### 4.3.5. Confirm appeal
 
 - **Actor:** External entity not in favor of the ruling proposed by a previously submitted appeal
 - **Inputs:**
     - **Dispute ID:** dispute identification number
     - **Round ID:** adjudication round identification number
     - **Ruling:** Ruling number proposed by the entity confirming the appeal
-- **Authentication:** Open. Implicitly, only accounts that have open an ERC20 allowance with an amount of at least the required appeal confirmation collateral to the `Court` module can call this function
+- **Authentication:** Open. Implicitly, only accounts that have open an ERC20 allowance with an amount of at least the required appeal confirmation collateral to the `DisputesManager` module can call this function
 - **Pre-flight checks:**
     - Ensure that the Court term is up-to-date. Otherwise, perform a heartbeat before continuing the execution.
     - Ensure a dispute object with that ID exists
     - Ensure an adjudication round object with that ID exists for the given dispute
     - Ensure that the adjudication round was appeal and can still be confirmed
     - Ensure that the given ruling is different from the one proposed by the appealer
-    - Ensure that the given ruling is either refused or one of the possible rulings supported by the `Court` module
+    - Ensure that the given ruling is either refused or one of the possible rulings supported by the `DisputesManager` module
 - **State transitions:**
     - Update current Court term if needed
     - Create a new adjudication round object and set the draft term right after the end of the final adjudication phase of the current dispute round
@@ -101,7 +101,7 @@ It is also in charge of executing the associated `Arbitrables` once the dispute 
     - Calculate new round fees based on the Court configuration at the draft term of the dispute's first round
     - Pull the required appeal confirmation collateral, which includes the new round fees, from the sender to be deposited in the `Treasury` module, revert if the ERC20-transfer wasn't successful
 
-### 4.2.6. Compute ruling
+### 4.3.6. Compute ruling
 
 - **Actor:** External entity incentivized to execute the final ruling decided for a dispute. Alternatively, an altruistic entity to make sure the dispute is ruled.
 - **Inputs:**
@@ -113,7 +113,7 @@ It is also in charge of executing the associated `Arbitrables` once the dispute 
 - **State transitions:**
     - Update the final ruling of the dispute object based on the ruling decided by the jurors during the current round or the ruling proposed by the appealer of the previous round in case there was one but wasn't confirmed.
 
-### 4.2.7. Settle penalties
+### 4.3.7. Settle penalties
 
 - **Actor:** External entity incentivized to slash the losing jurors. Alternatively, an altruistic entity to make sure the dispute is settled.
 - **Inputs:**
@@ -141,7 +141,7 @@ It is also in charge of executing the associated `Arbitrables` once the dispute 
         - Ask the `JurorsRegistry` module to burn all the ANJ tokens that were collected during the adjudication round
         - Return the adjudication round fees to the dispute creator or the appeal parties depending on whether the adjudication round was triggered by the `Arbitrable` instance who created the dispute or due to a previous round that was appealed respectively.
 
-### 4.2.8. Settle reward
+### 4.3.8. Settle reward
 
 - **Actor:** External entity incentivized to reward the winning jurors. Alternatively, an altruistic entity to make sure the dispute is settled.
 - **Inputs:**
@@ -161,7 +161,7 @@ It is also in charge of executing the associated `Arbitrables` once the dispute 
     - Assign to the juror the corresponding portion of ANJ tokens slashed from the losing jurors
     - Deposit the corresponding portion of juror fees into the `Treasury` module to the juror
 
-### 4.2.9. Settle appeal deposit
+### 4.3.9. Settle appeal deposit
 
 - **Actor:** External entity incentivized to settle the appeal parties. Alternatively, an altruistic entity to make sure the dispute is settled.
 - **Inputs:**
@@ -178,7 +178,7 @@ It is also in charge of executing the associated `Arbitrables` once the dispute 
     - Mark the adjudication round's appeal as settled
     - Deposit the corresponding portions of the appeal deposits into the `Treasury` module to each party 
 
-### 4.2.10. Ensure can commit
+### 4.3.10. Ensure can commit
 
 - **Actor:** Any entity incentivized to check if it is possible to commit votes for a certain dispute adjudication round
 - **Inputs:**
@@ -192,7 +192,7 @@ It is also in charge of executing the associated `Arbitrables` once the dispute 
     - Update current Court term if needed
     
     
-### 4.2.11. Ensure voter can commit
+### 4.3.11. Ensure voter can commit
 
 - **Actor:** Any entity incentivized to check if it is possible to commit votes for a certain dispute adjudication round
 - **Inputs:**
@@ -207,7 +207,7 @@ It is also in charge of executing the associated `Arbitrables` once the dispute 
     - Update current Court term if needed
     - Update the juror's weight for the adjudication round if its a final round
 
-### 4.2.12. Ensure voter can reveal
+### 4.3.12. Ensure voter can reveal
 
 - **Actor:** Any entity incentivized to check if it is possible to reveal votes for a certain dispute adjudication round
 - **Inputs:**
@@ -220,7 +220,7 @@ It is also in charge of executing the associated `Arbitrables` once the dispute 
 - **State transitions:**
     - Update current Court term if needed
 
-### 4.2.13. Set max jurors per draft batch
+### 4.3.13. Set max jurors per draft batch
 
 - **Actor:** External entity in charge of maintaining the Court protocol
 - **Inputs:**
@@ -231,14 +231,14 @@ It is also in charge of executing the associated `Arbitrables` once the dispute 
 - **State transitions:**
     - Save the max number of jurors to be drafted per batch
 
-### 4.2.14. Recover funds
+### 4.3.14. Recover funds
 
 - **Actor:** External entity in charge of maintaining the Court protocol
 - **Inputs:**
-    - **Token:** Address of the ERC20-compatible token to be recovered from the `Court` module
-    - **Recipient:** Address that will receive the funds of the `Court` module
+    - **Token:** Address of the ERC20-compatible token to be recovered from the `DisputesManager` module
+    - **Recipient:** Address that will receive the funds of the `DisputesManager` module
 - **Authentication:** Only funds governor
 - **Pre-flight checks:**
-    - Ensure that the balance of the `Court` module is greater than zero
+    - Ensure that the balance of the `DisputesManager` module is greater than zero
 - **State transitions:**
-    - Transfer the whole balance of the `Court` module to the recipient address, revert if the ERC20-transfer wasn't successful
+    - Transfer the whole balance of the `DisputesManager` module to the recipient address, revert if the ERC20-transfer wasn't successful

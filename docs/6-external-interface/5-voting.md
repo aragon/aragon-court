@@ -1,17 +1,17 @@
-## 6.4. Voting
+## 6.5. Voting
 
-### 6.4.1 Events
+### 6.5.1 Events
 
 The following events are emitted by the `Voting`:
 
-#### 6.4.1.1. Voting created
+#### 6.5.1.1. Voting created
 
 - **Name:** `VotingCreated`
 - **Args:**
     - **Vote ID:** Identification number of the new vote instance that has been created
     - **Possible outcomes:** Number of possible outcomes of the new vote instance that has been created 
 
-#### 6.4.1.2. Vote committed
+#### 6.5.1.2. Vote committed
 
 - **Name:** `VoteCommitted`
 - **Args:**
@@ -19,7 +19,7 @@ The following events are emitted by the `Voting`:
     - **Voter:** Address of the voter that has committed the vote 
     - **Commitment:** Encrypted outcome of the committed vote 
 
-#### 6.4.1.3. Vote revealed
+#### 6.5.1.3. Vote revealed
 
 - **Name:** `VoteRevealed`
 - **Args:**
@@ -27,7 +27,7 @@ The following events are emitted by the `Voting`:
     - **Voter:** Address of the voter whose vote has been revealed
     - **Outcome:** Outcome of the vote that has been revealed
 
-#### 6.4.1.4. Vote leaked
+#### 6.5.1.4. Vote leaked
 
 - **Name:** `VoteLeaked`
 - **Args:**
@@ -36,11 +36,11 @@ The following events are emitted by the `Voting`:
     - **Outcome:** Outcome of the vote that has been leaked
     - **Leaker:** Address of the account that has leaked the vote
 
-### 6.4.2. Getters
+### 6.5.2. Getters
 
 The following functions are state getters provided by the `Voting`:
 
-#### 6.4.2.1. Max allowed outcome
+#### 6.5.2.1. Max allowed outcome
 
 - **Inputs:** 
     - **Vote ID:** Vote identification number 
@@ -49,7 +49,7 @@ The following functions are state getters provided by the `Voting`:
 - **Outputs:**
     - **Max outcome:** Max allowed outcome for the given vote instance
     
-#### 6.4.2.2. Winning outcome
+#### 6.5.2.2. Winning outcome
 
 - **Inputs:**  
     - **Vote ID:** Vote identification number 
@@ -58,7 +58,7 @@ The following functions are state getters provided by the `Voting`:
 - **Outputs:**
     - **Winning outcome:** Winning outcome of the given vote instance or refused in case it's missing
     
-#### 6.4.2.3. Outcome tally
+#### 6.5.2.3. Outcome tally
 
 - **Inputs:**  
     - **Vote ID:** Vote identification number 
@@ -68,7 +68,7 @@ The following functions are state getters provided by the `Voting`:
 - **Outputs:**
     - **Tally:** Tally of the outcome being queried for the given vote instance
     
-#### 6.4.2.4. Is valid outcome
+#### 6.5.2.4. Is valid outcome
 
 - **Inputs:**  
     - **Vote ID:** Vote identification number 
@@ -78,7 +78,7 @@ The following functions are state getters provided by the `Voting`:
 - **Outputs:**
     - **Valid:** True if the given outcome is valid for the requested vote instance, false otherwise
 
-#### 6.4.2.5. Voter outcome
+#### 6.5.2.5. Voter outcome
 
 - **Inputs:**  
     - **Vote ID:** Vote identification number querying the outcome of
@@ -88,7 +88,7 @@ The following functions are state getters provided by the `Voting`:
 - **Outputs:**
     - **Outcome:** Outcome of the voter for the given vote instance
     
-#### 6.4.2.6. Has voted in favor of
+#### 6.5.2.6. Has voted in favor of
 
 - **Inputs:**  
     - **Vote ID:** Vote identification number querying if a voter voted in favor of a certain outcome
@@ -99,7 +99,7 @@ The following functions are state getters provided by the `Voting`:
 - **Outputs:**
     - **In favor:** True if the given voter voted in favor of the given outcome, false otherwise
     
-#### 6.4.2.7. Voters in favor of
+#### 6.5.2.7. Voters in favor of
 
 - **Inputs:**  
     - **Vote ID:** Vote identification number querying if a voter voted in favor of a certain outcome

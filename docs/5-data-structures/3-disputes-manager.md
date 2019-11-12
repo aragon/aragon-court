@@ -1,8 +1,8 @@
-## 5.2. Court
+## 5.3. Disputes Manager
 
-The following objects are the data-structures used by the `Court`:
+The following objects are the data-structures used by the `DisputesManager`:
 
-### 5.2.1. Dispute
+### 5.3.1. Dispute
 
 The dispute object includes the following fields:
 
@@ -12,7 +12,7 @@ The dispute object includes the following fields:
 - **Dispute state:** State of a dispute: pre-draft, adjudicating, or ruled
 - **Adjudication rounds:** List of adjudication rounds for each dispute
 
-### 5.2.2. Adjudication round
+### 5.3.2. Adjudication round
 
 The adjudication round object includes the following fields:
 
@@ -29,14 +29,14 @@ The adjudication round object includes the following fields:
 - **Collected tokens:** Total amount of tokens collected from losing jurors
 - **Appeal:** Appeal-related information of a round
 
-### 5.2.3. Juror state
+### 5.3.3. Juror state
 
 The juror state object includes the following fields:
 
 - **Weight:** Weight computed for a juror on a round
 - **Rewarded:** Whether or not a drafted juror was rewarded
 
-### 5.2.4. Appeal
+### 5.3.4. Appeal
 
 The appeal object includes the following fields:
 

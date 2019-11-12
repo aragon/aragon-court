@@ -3,19 +3,19 @@ const { bn, bigExp } = require('../helpers/lib/numbers')
 const { assertRevert } = require('../helpers/asserts/assertThrow')
 const { NEXT_WEEK, ONE_DAY } = require('../helpers/lib/time')
 const { decodeEventsOfType } = require('../helpers/lib/decodeEvent')
-const { DISPUTES_MANAGER_ERRORS, CLOCK_ERRORS } = require('../helpers/utils/errors')
-const { DISPUTES_MANAGER_EVENTS, CLOCK_EVENTS } = require('../helpers/utils/events')
+const { DISPUTE_MANAGER_ERRORS, CLOCK_ERRORS } = require('../helpers/utils/errors')
+const { DISPUTE_MANAGER_EVENTS, CLOCK_EVENTS } = require('../helpers/utils/events')
 const { buildHelper, DISPUTE_STATES } = require('../helpers/wrappers/court')(web3, artifacts)
 const { assertAmountOfEvents, assertEvent } = require('../helpers/asserts/assertEvent')
 
 const ERC20 = artifacts.require('ERC20Mock')
-const DisputesManager = artifacts.require('DisputesManager')
+const DisputeManager = artifacts.require('DisputeManager')
 const CourtClock = artifacts.require('CourtClock')
 const Arbitrable = artifacts.require('ArbitrableMock')
 const FakeArbitrable = artifacts.require('FakeArbitrableMock')
 
-contract('DisputesManager', () => {
-  let courtHelper, court, disputesManager, feeToken, arbitrable
+contract('DisputeManager', () => {
+  let courtHelper, court, disputeManager, feeToken, arbitrable
 
   const termDuration = bn(ONE_DAY)
   const firstTermStartTime = bn(NEXT_WEEK)
@@ -28,7 +28,7 @@ contract('DisputesManager', () => {
     courtHelper = buildHelper()
     feeToken = await ERC20.new('Court Fee Token', 'CFT', 18)
     court = await courtHelper.deploy({ firstTermStartTime, termDuration, feeToken, jurorFee, draftFee, settleFee, firstRoundJurorsNumber })
-    disputesManager = courtHelper.disputesManager
+    disputeManager = courtHelper.disputeManager
   })
 
   beforeEach('mock arbitrable instance', async () => {
@@ -57,9 +57,9 @@ contract('DisputesManager', () => {
                 await courtHelper.setTerm(draftTermId - 1)
                 const receipt = await arbitrable.createDispute(possibleRulings, metadata)
 
-                const logs = decodeEventsOfType(receipt, DisputesManager.abi, DISPUTES_MANAGER_EVENTS.NEW_DISPUTE)
-                assertAmountOfEvents({ logs }, DISPUTES_MANAGER_EVENTS.NEW_DISPUTE)
-                assertEvent({ logs }, DISPUTES_MANAGER_EVENTS.NEW_DISPUTE, { disputeId: 0, subject: arbitrable.address, draftTermId, jurorsNumber: firstRoundJurorsNumber, metadata })
+                const logs = decodeEventsOfType(receipt, DisputeManager.abi, DISPUTE_MANAGER_EVENTS.NEW_DISPUTE)
+                assertAmountOfEvents({ logs }, DISPUTE_MANAGER_EVENTS.NEW_DISPUTE)
+                assertEvent({ logs }, DISPUTE_MANAGER_EVENTS.NEW_DISPUTE, { disputeId: 0, subject: arbitrable.address, draftTermId, jurorsNumber: firstRoundJurorsNumber, metadata })
 
                 const { subject, possibleRulings: rulings, state, finalRuling } = await courtHelper.getDispute(0)
                 assert.equal(subject, arbitrable.address, 'dispute subject does not match')
@@ -84,18 +84,18 @@ contract('DisputesManager', () => {
                 assertBn(collectedTokens, 0, 'round collected tokens should be zero')
               })
 
-              it('transfers fees to the disputes manager', async () => {
+              it('transfers fees to the dispute manager', async () => {
                 // move forward to the term before the desired start one for the dispute
                 await courtHelper.setTerm(draftTermId - 1)
                 const { disputeFees: expectedDisputeDeposit } = await courtHelper.getDisputeFees()
-                const previousDisputesManagerBalance = await feeToken.balanceOf(disputesManager.address)
+                const previousDisputeManagerBalance = await feeToken.balanceOf(disputeManager.address)
                 const previousTreasuryBalance = await feeToken.balanceOf(courtHelper.treasury.address)
                 const previousArbitrableBalance = await feeToken.balanceOf(arbitrable.address)
 
                 await arbitrable.createDispute(possibleRulings, metadata)
 
-                const currentDisputesManagerBalance = await feeToken.balanceOf(disputesManager.address)
-                assertBn(previousDisputesManagerBalance, currentDisputesManagerBalance, 'disputes manager balances do not match')
+                const currentDisputeManagerBalance = await feeToken.balanceOf(disputeManager.address)
+                assertBn(previousDisputeManagerBalance, currentDisputeManagerBalance, 'dispute manager balances do not match')
 
                 const currentTreasuryBalance = await feeToken.balanceOf(courtHelper.treasury.address)
                 assertBn(previousTreasuryBalance.add(expectedDisputeDeposit), currentTreasuryBalance, 'treasury balances do not match')
@@ -123,7 +123,7 @@ contract('DisputesManager', () => {
               })
 
               it('reverts', async () => {
-                await assertRevert(arbitrable.createDispute(possibleRulings, metadata), DISPUTES_MANAGER_ERRORS.DEPOSIT_FAILED)
+                await assertRevert(arbitrable.createDispute(possibleRulings, metadata), DISPUTE_MANAGER_ERRORS.DEPOSIT_FAILED)
               })
             })
           }
@@ -157,9 +157,9 @@ contract('DisputesManager', () => {
 
         context('when the given rulings is not valid', () => {
           it('reverts', async () => {
-            await assertRevert(arbitrable.createDispute(0, '0x'), DISPUTES_MANAGER_ERRORS.INVALID_RULING_OPTIONS)
-            await assertRevert(arbitrable.createDispute(1, '0x'), DISPUTES_MANAGER_ERRORS.INVALID_RULING_OPTIONS)
-            await assertRevert(arbitrable.createDispute(3, '0x'), DISPUTES_MANAGER_ERRORS.INVALID_RULING_OPTIONS)
+            await assertRevert(arbitrable.createDispute(0, '0x'), DISPUTE_MANAGER_ERRORS.INVALID_RULING_OPTIONS)
+            await assertRevert(arbitrable.createDispute(1, '0x'), DISPUTE_MANAGER_ERRORS.INVALID_RULING_OPTIONS)
+            await assertRevert(arbitrable.createDispute(3, '0x'), DISPUTE_MANAGER_ERRORS.INVALID_RULING_OPTIONS)
           })
         })
       })
@@ -170,7 +170,7 @@ contract('DisputesManager', () => {
         })
 
         it('reverts', async () => {
-          await assertRevert(arbitrable.createDispute(2, '0x'), DISPUTES_MANAGER_ERRORS.SUBSCRIPTION_NOT_PAID)
+          await assertRevert(arbitrable.createDispute(2, '0x'), DISPUTE_MANAGER_ERRORS.SUBSCRIPTION_NOT_PAID)
         })
       })
     })
@@ -183,7 +183,7 @@ contract('DisputesManager', () => {
       })
 
       it('reverts', async () => {
-        await assertRevert(fakeArbitrable.createDispute(2, '0x'), DISPUTES_MANAGER_ERRORS.SENDER_NOT_ARBITRABLE)
+        await assertRevert(fakeArbitrable.createDispute(2, '0x'), DISPUTE_MANAGER_ERRORS.SENDER_NOT_ARBITRABLE)
       })
     })
   })
@@ -212,7 +212,7 @@ contract('DisputesManager', () => {
 
     context('when the given dispute does not exist', () => {
       it('reverts', async () => {
-        await assertRevert(disputesManager.getDispute(0), DISPUTES_MANAGER_ERRORS.DISPUTE_DOES_NOT_EXIST)
+        await assertRevert(disputeManager.getDispute(0), DISPUTE_MANAGER_ERRORS.DISPUTE_DOES_NOT_EXIST)
       })
     })
   })
@@ -245,14 +245,14 @@ contract('DisputesManager', () => {
 
       context('when the given round is not valid', async () => {
         it('reverts', async () => {
-          await assertRevert(disputesManager.getRound(0, 1), DISPUTES_MANAGER_ERRORS.ROUND_DOES_NOT_EXIST)
+          await assertRevert(disputeManager.getRound(0, 1), DISPUTE_MANAGER_ERRORS.ROUND_DOES_NOT_EXIST)
         })
       })
     })
 
     context('when the given dispute does not exist', () => {
       it('reverts', async () => {
-        await assertRevert(disputesManager.getRound(0, 0), DISPUTES_MANAGER_ERRORS.DISPUTE_DOES_NOT_EXIST)
+        await assertRevert(disputeManager.getRound(0, 0), DISPUTE_MANAGER_ERRORS.DISPUTE_DOES_NOT_EXIST)
       })
     })
   })

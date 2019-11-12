@@ -12,13 +12,13 @@ const { ACTIVATE_DATA, countEqualJurors } = require('../helpers/utils/jurors')
 const { assertAmountOfEvents, assertEvent } = require('../helpers/asserts/assertEvent')
 
 const JurorsRegistry = artifacts.require('JurorsRegistryMock')
-const DisputesManager = artifacts.require('DisputesManagerMockForRegistry')
+const DisputeManager = artifacts.require('DisputeManagerMockForRegistry')
 const ERC20 = artifacts.require('ERC20Mock')
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
 
 contract('JurorsRegistry', ([_, juror500, juror1000, juror1500, juror2000, juror2500, juror3000, juror3500, juror4000]) => {
-  let controller, registry, disputesManager, ANJ
+  let controller, registry, disputeManager, ANJ
 
   const DRAFT_LOCK_PCT = bn(2000) // 20%
   const MIN_ACTIVE_AMOUNT = bigExp(100, 18)
@@ -60,8 +60,8 @@ contract('JurorsRegistry', ([_, juror500, juror1000, juror1500, juror2000, juror
     registry = await JurorsRegistry.new(controller.address, ANJ.address, TOTAL_ACTIVE_BALANCE_LIMIT)
     await controller.setJurorsRegistry(registry.address)
 
-    disputesManager = await DisputesManager.new(controller.address)
-    await controller.setDisputesManager(disputesManager.address)
+    disputeManager = await DisputeManager.new(controller.address)
+    await controller.setDisputeManager(disputeManager.address)
   })
 
   describe('draft', () => {
@@ -116,7 +116,7 @@ contract('JurorsRegistry', ([_, juror500, juror1000, juror1500, juror2000, juror
       roundRequestedJurors
     }) => {
       const expectedJurors = await computeExpectedJurors({ termRandomness, disputeId, selectedJurors, batchRequestedJurors, roundRequestedJurors })
-      const receipt = await disputesManager.draft(termRandomness, disputeId, selectedJurors, batchRequestedJurors, roundRequestedJurors, DRAFT_LOCK_PCT)
+      const receipt = await disputeManager.draft(termRandomness, disputeId, selectedJurors, batchRequestedJurors, roundRequestedJurors, DRAFT_LOCK_PCT)
       const { addresses, length } = getEventAt(receipt, 'Drafted').args
       return { receipt, addresses, length, expectedJurors }
     }
@@ -146,7 +146,7 @@ contract('JurorsRegistry', ([_, juror500, juror1000, juror1500, juror2000, juror
       }
     })
 
-    context('when the sender is the disputes manager', () => {
+    context('when the sender is the dispute manager', () => {
       const itReverts = (previousSelectedJurors, batchRequestedJurors, roundRequestedJurors) => {
         it('reverts', async () => {
           await assertRevert(draft({ selectedJurors: previousSelectedJurors, batchRequestedJurors, roundRequestedJurors }), TREE_ERRORS.INVALID_INTERVAL_SEARCH)
@@ -549,7 +549,7 @@ contract('JurorsRegistry', ([_, juror500, juror1000, juror1500, juror2000, juror
       })
     })
 
-    context('when the sender is not the disputes manager', () => {
+    context('when the sender is not the dispute manager', () => {
       it('reverts', async () => {
         await assertRevert(registry.draft([0, 0, 0, 0, 0, 0, 0]), CONTROLLED_ERRORS.SENDER_NOT_DISPUTES_MODULE)
       })

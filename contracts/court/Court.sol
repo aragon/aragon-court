@@ -6,7 +6,7 @@ import "./clock/CourtClock.sol";
 import "./config/CourtConfig.sol";
 import "./controller/Controller.sol";
 import "../arbitration/IArbitrable.sol";
-import "../disputes/IDisputesManager.sol";
+import "../disputes/IDisputeManager.sol";
 import "../subscriptions/ISubscriptions.sol";
 import "../arbitration/IDisputeResolutionOracle.sol";
 
@@ -92,8 +92,8 @@ contract Court is Controller, IDisputeResolutionOracle {
         ISubscriptions subscriptions = ISubscriptions(_getSubscriptions());
         require(subscriptions.isUpToDate(address(subject)), ERROR_SUBSCRIPTION_NOT_PAID);
 
-        IDisputesManager disputesManager = IDisputesManager(_getDisputesManager());
-        return disputesManager.createDispute(subject, _possibleRulings.toUint8(), _metadata);
+        IDisputeManager disputeManager = IDisputeManager(_getDisputeManager());
+        return disputeManager.createDispute(subject, _possibleRulings.toUint8(), _metadata);
     }
 
     /**
@@ -101,8 +101,8 @@ contract Court is Controller, IDisputeResolutionOracle {
     * @param _disputeId Identification number of the dispute to be executed
     */
     function executeRuling(uint256 _disputeId) external {
-        IDisputesManager disputesManager = IDisputesManager(_getDisputesManager());
-        (IArbitrable subject, uint8 ruling) = disputesManager.computeRuling(_disputeId);
+        IDisputeManager disputeManager = IDisputeManager(_getDisputeManager());
+        (IArbitrable subject, uint8 ruling) = disputeManager.computeRuling(_disputeId);
         subject.rule(_disputeId, uint256(ruling));
     }
 
@@ -113,9 +113,9 @@ contract Court is Controller, IDisputeResolutionOracle {
     * @return feeAmount Total amount of fees that must be allowed to the recipient
     */
     function getDisputeFees() external view returns (address recipient, ERC20 feeToken, uint256 feeAmount) {
-        recipient = _getDisputesManager();
-        IDisputesManager disputesManager = IDisputesManager(recipient);
-        (feeToken, feeAmount) = disputesManager.getDisputeFees();
+        recipient = _getDisputeManager();
+        IDisputeManager disputeManager = IDisputeManager(recipient);
+        (feeToken, feeAmount) = disputeManager.getDisputeFees();
     }
 
     /**

@@ -4,7 +4,7 @@ import "../lib/os/ERC20.sol";
 import "../arbitration/IArbitrable.sol";
 
 
-interface IDisputesManager {
+interface IDisputeManager {
     /**
     * @dev Create a dispute to be drafted in a future term
     * @param _subject Arbitrable instance creating the dispute

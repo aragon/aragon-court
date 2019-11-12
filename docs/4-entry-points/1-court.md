@@ -44,12 +44,12 @@ To read more information about its responsibilities and how the whole architectu
 - **Inputs:**
     - **Possible rulings:** Number of possible results for a dispute
     - **Metadata:** Optional metadata that can be used to provide additional information on the dispute to be created
-- **Authentication:** Open. Implicitly, only smart contracts that are up to date on their subscriptions in the `Subscription` module and that have open an ERC20 allowance with an amount of at least the dispute fee to the `DisputesManager` module can call this function
+- **Authentication:** Open. Implicitly, only smart contracts that are up to date on their subscriptions in the `Subscription` module and that have open an ERC20 allowance with an amount of at least the dispute fee to the `DisputeManager` module can call this function
 - **Pre-flight checks:**
     - Ensure that the msg.sender supports the `IArbitrable` interface
     - Ensure that the subject is up-to-date on its subscription fees
 - **State transitions:**
-    - Create a new dispute object in the DisputesManager module
+    - Create a new dispute object in the DisputeManager module
 
 ### 4.1.3. Execute dispute
 
@@ -62,5 +62,5 @@ To read more information about its responsibilities and how the whole architectu
     - Ensure that the dispute has not been executed yet
     - Ensure that the dispute's last round adjudication phase has ended
 - **State transitions:**
-    - Compute the final ruling in the DisputesManager module
+    - Compute the final ruling in the DisputeManager module
     - Execute the `IArbitrable` instance linked to the dispute based on the decided ruling

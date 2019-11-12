@@ -8,7 +8,7 @@ const { assertConfig, buildNewConfig } = require('../../helpers/utils/config')(a
 const { assertEvent, assertAmountOfEvents } = require('../../helpers/asserts/assertEvent')
 const { CLOCK_ERRORS, CONFIG_ERRORS, CONTROLLER_ERRORS } = require('../../helpers/utils/errors')
 
-contract.only('Controller', ([_, configGovernor, someone, drafter, appealMaker, appealTaker, juror500, juror1000, juror3000]) => {
+contract('Controller', ([_, configGovernor, someone, drafter, appealMaker, appealTaker, juror500, juror1000, juror3000]) => {
   let courtHelper, controller
 
   let initialConfig, feeToken

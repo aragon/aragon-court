@@ -10,11 +10,11 @@ const { assertEvent, assertAmountOfEvents } = require('../helpers/asserts/assert
 const { MATH_ERRORS, CONTROLLED_ERRORS, REGISTRY_ERRORS } = require('../helpers/utils/errors')
 
 const JurorsRegistry = artifacts.require('JurorsRegistryMock')
-const DisputesManager = artifacts.require('DisputesManagerMockForRegistry')
+const DisputeManager = artifacts.require('DisputeManagerMockForRegistry')
 const ERC20 = artifacts.require('ERC20Mock')
 
 contract('JurorsRegistry', ([_, juror, secondJuror, thirdJuror, anyone]) => {
-  let controller, registry, disputesManager, ANJ
+  let controller, registry, disputeManager, ANJ
 
   const MIN_ACTIVE_AMOUNT = bigExp(100, 18)
   const TOTAL_ACTIVE_BALANCE_LIMIT = bigExp(100e6, 18)
@@ -29,12 +29,12 @@ contract('JurorsRegistry', ([_, juror, secondJuror, thirdJuror, anyone]) => {
     registry = await JurorsRegistry.new(controller.address, ANJ.address, TOTAL_ACTIVE_BALANCE_LIMIT)
     await controller.setJurorsRegistry(registry.address)
 
-    disputesManager = await DisputesManager.new(controller.address)
-    await controller.setDisputesManager(disputesManager.address)
+    disputeManager = await DisputeManager.new(controller.address)
+    await controller.setDisputeManager(disputeManager.address)
   })
 
   describe('slashOrUnlock', () => {
-    context('when the sender is the disputes manager', () => {
+    context('when the sender is the dispute manager', () => {
       beforeEach('activate jurors', async () => {
         const firstJurorBalance = MIN_ACTIVE_AMOUNT.mul(bn(10))
         await ANJ.generateTokens(juror, firstJurorBalance)
@@ -58,7 +58,7 @@ contract('JurorsRegistry', ([_, juror, secondJuror, thirdJuror, anyone]) => {
           const rewardedJurors = []
 
           it('reverts', async () => {
-            await assertRevert(disputesManager.slashOrUnlock(jurors, lockedAmounts, rewardedJurors), REGISTRY_ERRORS.INVALID_LOCKED_AMOUNTS_LEN)
+            await assertRevert(disputeManager.slashOrUnlock(jurors, lockedAmounts, rewardedJurors), REGISTRY_ERRORS.INVALID_LOCKED_AMOUNTS_LEN)
           })
         })
 
@@ -68,7 +68,7 @@ contract('JurorsRegistry', ([_, juror, secondJuror, thirdJuror, anyone]) => {
           const rewardedJurors = [true]
 
           it('reverts', async () => {
-            await assertRevert(disputesManager.slashOrUnlock(jurors, lockedAmounts, rewardedJurors), REGISTRY_ERRORS.INVALID_REWARDED_JURORS_LEN)
+            await assertRevert(disputeManager.slashOrUnlock(jurors, lockedAmounts, rewardedJurors), REGISTRY_ERRORS.INVALID_REWARDED_JURORS_LEN)
           })
         })
       })
@@ -80,7 +80,7 @@ contract('JurorsRegistry', ([_, juror, secondJuror, thirdJuror, anyone]) => {
           const rewardedJurors = []
 
           it('does not collect tokens', async () => {
-            const receipt = await disputesManager.slashOrUnlock(jurors, lockedAmounts, rewardedJurors)
+            const receipt = await disputeManager.slashOrUnlock(jurors, lockedAmounts, rewardedJurors)
             assertEvent(receipt, REGISTRY_EVENTS.SLASHED, { collected: 0 })
           })
 
@@ -89,7 +89,7 @@ contract('JurorsRegistry', ([_, juror, secondJuror, thirdJuror, anyone]) => {
             const previousSecondJurorBalances = await registry.balanceOf(secondJuror)
             const previousThirdJurorBalances = await registry.balanceOf(thirdJuror)
 
-            await disputesManager.slashOrUnlock(jurors, lockedAmounts, rewardedJurors)
+            await disputeManager.slashOrUnlock(jurors, lockedAmounts, rewardedJurors)
 
             const currentJurorBalances = await registry.balanceOf(juror)
             const currentSecondJurorBalances = await registry.balanceOf(secondJuror)
@@ -114,7 +114,7 @@ contract('JurorsRegistry', ([_, juror, secondJuror, thirdJuror, anyone]) => {
             await registry.mockNextDraft(draftedJurors, draftedWeights)
 
             // Draft and make sure mock worked as expected
-            const receipt = await disputesManager.draft(EMPTY_RANDOMNESS, 1, 0, 10, 10, DRAFT_LOCK_PCT)
+            const receipt = await disputeManager.draft(EMPTY_RANDOMNESS, 1, 0, 10, 10, DRAFT_LOCK_PCT)
             const { addresses } = getEventAt(receipt, 'Drafted').args
 
             assert.equal(countJuror(addresses, juror), 3, 'first drafted juror weight does not match')
@@ -126,14 +126,14 @@ contract('JurorsRegistry', ([_, juror, secondJuror, thirdJuror, anyone]) => {
             const lockedAmounts = [DRAFT_LOCK_AMOUNT.mul(bn(3)), DRAFT_LOCK_AMOUNT, DRAFT_LOCK_AMOUNT.mul(bn(6))]
 
             it('collect tokens for all the slashed amounts', async () => {
-              const receipt = await disputesManager.slashOrUnlock(jurors, lockedAmounts, rewardedJurors)
+              const receipt = await disputeManager.slashOrUnlock(jurors, lockedAmounts, rewardedJurors)
               assertEvent(receipt, REGISTRY_EVENTS.SLASHED, { collected: DRAFT_LOCK_AMOUNT.mul(bn(9)) })
             })
 
             it('unlocks balances of the rewarded jurors', async () => {
               const { active: previousActiveBalance, available: previousAvailableBalance, locked: previousLockedBalance, pendingDeactivation: previousDeactivationBalance } = await registry.balanceOf(secondJuror)
 
-              await disputesManager.slashOrUnlock(jurors, lockedAmounts, rewardedJurors)
+              await disputeManager.slashOrUnlock(jurors, lockedAmounts, rewardedJurors)
 
               const { active: currentActiveBalance, available: currentAvailableBalance, locked: currentLockedBalance, pendingDeactivation: currentDeactivationBalance } = await registry.balanceOf(secondJuror)
               assertBn(previousLockedBalance.sub(DRAFT_LOCK_AMOUNT), currentLockedBalance, 'rewarded juror locked balance does not match')
@@ -146,7 +146,7 @@ contract('JurorsRegistry', ([_, juror, secondJuror, thirdJuror, anyone]) => {
               const { active: firstJurorPreviousActiveBalance, available: firstJurorPreviousAvailableBalance, locked: firstJurorPreviousLockedBalance, pendingDeactivation: firstJurorPreviousDeactivationBalance } = await registry.balanceOf(juror)
               const { active: thirdJurorPreviousActiveBalance, available: thirdJurorPreviousAvailableBalance, locked: thirdJurorPreviousLockedBalance, pendingDeactivation: thirdJurorPreviousDeactivationBalance } = await registry.balanceOf(thirdJuror)
 
-              await disputesManager.slashOrUnlock(jurors, lockedAmounts, rewardedJurors)
+              await disputeManager.slashOrUnlock(jurors, lockedAmounts, rewardedJurors)
 
               const { active: firstJurorCurrentActiveBalance, available: firstJurorCurrentAvailableBalance, locked: firstJurorCurrentLockedBalance, pendingDeactivation: firstJurorCurrentDeactivationBalance } = await registry.balanceOf(juror)
               assertBn(firstJurorPreviousLockedBalance.sub(DRAFT_LOCK_AMOUNT.mul(bn(3))), firstJurorCurrentLockedBalance, 'first slashed juror locked balance does not match')
@@ -167,7 +167,7 @@ contract('JurorsRegistry', ([_, juror, secondJuror, thirdJuror, anyone]) => {
               const secondJurorPreviousActiveBalance = await registry.activeBalanceOfAt(secondJuror, termId)
               const thirdJurorPreviousActiveBalance = await registry.activeBalanceOfAt(thirdJuror, termId)
 
-              await disputesManager.slashOrUnlock(jurors, lockedAmounts, rewardedJurors)
+              await disputeManager.slashOrUnlock(jurors, lockedAmounts, rewardedJurors)
 
               const firstJurorCurrentActiveBalance = await registry.activeBalanceOfAt(juror, termId)
               assertBn(firstJurorPreviousActiveBalance, firstJurorCurrentActiveBalance, 'first juror active balance does not match')
@@ -184,14 +184,14 @@ contract('JurorsRegistry', ([_, juror, secondJuror, thirdJuror, anyone]) => {
             const lockedAmounts = [DRAFT_LOCK_AMOUNT.mul(bn(10)), bn(0), bn(0)]
 
             it('reverts', async () => {
-              await assertRevert(disputesManager.slashOrUnlock(jurors, lockedAmounts, rewardedJurors), MATH_ERRORS.SUB_UNDERFLOW)
+              await assertRevert(disputeManager.slashOrUnlock(jurors, lockedAmounts, rewardedJurors), MATH_ERRORS.SUB_UNDERFLOW)
             })
           })
         })
       })
     })
 
-    context('when the sender is not the disputes manager', () => {
+    context('when the sender is not the dispute manager', () => {
       it('reverts', async () => {
         await assertRevert(registry.slashOrUnlock(0, [], [], []), CONTROLLED_ERRORS.SENDER_NOT_DISPUTES_MODULE)
       })
@@ -199,24 +199,24 @@ contract('JurorsRegistry', ([_, juror, secondJuror, thirdJuror, anyone]) => {
   })
 
   describe('collectTokens', () => {
-    context('when the sender is the disputes manager', () => {
+    context('when the sender is the dispute manager', () => {
       const itReturnsFalse = amount => {
         it('returns false', async () => {
-          const receipt = await disputesManager.collect(juror, amount)
+          const receipt = await disputeManager.collect(juror, amount)
           assertEvent(receipt, REGISTRY_EVENTS.COLLECTED, { collected: false })
         })
       }
 
       const itHandlesTokensCollectionFor = (amount, deactivationReduced = bn(0)) => {
         it('returns true', async () => {
-          const receipt = await disputesManager.collect(juror, amount)
+          const receipt = await disputeManager.collect(juror, amount)
           assertEvent(receipt, REGISTRY_EVENTS.COLLECTED, { collected: true })
         })
 
         it('decreases the active balance of the juror', async () => {
           const { active: previousActiveBalance, available: previousAvailableBalance, locked: previousLockedBalance, pendingDeactivation: previousDeactivationBalance } = await registry.balanceOf(juror)
 
-          await disputesManager.collect(juror, amount)
+          await disputeManager.collect(juror, amount)
 
           const { active: currentActiveBalance, available: currentAvailableBalance, locked: currentLockedBalance, pendingDeactivation: currentDeactivationBalance } = await registry.balanceOf(juror)
           assertBn(previousDeactivationBalance.sub(deactivationReduced), currentDeactivationBalance, 'deactivation balances do not match')
@@ -230,7 +230,7 @@ contract('JurorsRegistry', ([_, juror, secondJuror, thirdJuror, anyone]) => {
           const termId = await controller.getLastEnsuredTermId()
           const currentTermPreviousBalance = await registry.activeBalanceOfAt(juror, termId)
 
-          await disputesManager.collect(juror, amount)
+          await disputeManager.collect(juror, amount)
 
           const currentTermCurrentBalance = await registry.activeBalanceOfAt(juror, termId)
           assertBn(currentTermPreviousBalance, currentTermCurrentBalance, 'current term active balances do not match')
@@ -247,7 +247,7 @@ contract('JurorsRegistry', ([_, juror, secondJuror, thirdJuror, anyone]) => {
           // unlockedActivebalanceOf returns the balance for the current term, but there may be a deactivation scheduled for the next term
           const previousUnlockedActiveBalance = (await registry.unlockedActiveBalanceOf(juror)).sub(pendingDeactivationAmount)
 
-          await disputesManager.collect(juror, amount)
+          await disputeManager.collect(juror, amount)
 
           await controller.mockIncreaseTerm()
           const currentUnlockedActiveBalance = await registry.unlockedActiveBalanceOf(juror)
@@ -258,7 +258,7 @@ contract('JurorsRegistry', ([_, juror, secondJuror, thirdJuror, anyone]) => {
           const previousTotalStake = await registry.totalStaked()
           const previousJurorStake = await registry.totalStakedFor(juror)
 
-          await disputesManager.collect(juror, amount)
+          await disputeManager.collect(juror, amount)
 
           const currentTotalStake = await registry.totalStaked()
           assertBn(previousTotalStake, currentTotalStake, 'total stake amounts do not match')
@@ -271,7 +271,7 @@ contract('JurorsRegistry', ([_, juror, secondJuror, thirdJuror, anyone]) => {
           const previousJurorBalance = await ANJ.balanceOf(juror)
           const previousRegistryBalance = await ANJ.balanceOf(registry.address)
 
-          await disputesManager.collect(juror, amount)
+          await disputeManager.collect(juror, amount)
 
           const currentSenderBalance = await ANJ.balanceOf(juror)
           assertBn(previousJurorBalance, currentSenderBalance, 'juror balances do not match')
@@ -282,7 +282,7 @@ contract('JurorsRegistry', ([_, juror, secondJuror, thirdJuror, anyone]) => {
 
         if (amount.eq(bn(0))) {
           it('does not emit a juror tokens collected event', async () => {
-            const receipt = await disputesManager.collect(juror, amount)
+            const receipt = await disputeManager.collect(juror, amount)
             const logs = decodeEventsOfType(receipt, JurorsRegistry.abi, REGISTRY_EVENTS.JUROR_TOKENS_COLLECTED)
 
             assertAmountOfEvents({ logs }, REGISTRY_EVENTS.JUROR_TOKENS_COLLECTED, 0)
@@ -291,7 +291,7 @@ contract('JurorsRegistry', ([_, juror, secondJuror, thirdJuror, anyone]) => {
           it('emits a juror tokens collected event', async () => {
             const termId = await controller.getLastEnsuredTermId()
 
-            const receipt = await disputesManager.collect(juror, amount)
+            const receipt = await disputeManager.collect(juror, amount)
             const logs = decodeEventsOfType(receipt, JurorsRegistry.abi, REGISTRY_EVENTS.JUROR_TOKENS_COLLECTED)
 
             assertAmountOfEvents({ logs }, REGISTRY_EVENTS.JUROR_TOKENS_COLLECTED)
@@ -300,7 +300,7 @@ contract('JurorsRegistry', ([_, juror, secondJuror, thirdJuror, anyone]) => {
         }
 
         it('does not process deactivation requests', async () => {
-          const receipt = await disputesManager.collect(juror, amount)
+          const receipt = await disputeManager.collect(juror, amount)
 
           assertAmountOfEvents(receipt, REGISTRY_EVENTS.JUROR_DEACTIVATION_PROCESSED, 0)
         })
@@ -310,7 +310,7 @@ contract('JurorsRegistry', ([_, juror, secondJuror, thirdJuror, anyone]) => {
             const termId = await controller.getLastEnsuredTermId()
             const { pendingDeactivation: previousDeactivation } = await registry.balanceOf(juror)
 
-            const receipt = await disputesManager.collect(juror, amount)
+            const receipt = await disputeManager.collect(juror, amount)
             const logs = decodeEventsOfType(receipt, JurorsRegistry.abi, REGISTRY_EVENTS.JUROR_DEACTIVATION_UPDATED)
 
             assertAmountOfEvents({ logs }, REGISTRY_EVENTS.JUROR_DEACTIVATION_UPDATED)
@@ -489,7 +489,7 @@ contract('JurorsRegistry', ([_, juror, secondJuror, thirdJuror, anyone]) => {
       })
     })
 
-    context('when the sender is not the disputes manager', () => {
+    context('when the sender is not the dispute manager', () => {
       const from = anyone
 
       it('reverts', async () => {

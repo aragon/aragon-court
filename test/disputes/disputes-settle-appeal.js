@@ -1,15 +1,15 @@
 const { assertBn } = require('../helpers/asserts/assertBn')
 const { bn, bigExp } = require('../helpers/lib/numbers')
 const { assertRevert } = require('../helpers/asserts/assertThrow')
-const { DISPUTES_MANAGER_ERRORS } = require('../helpers/utils/errors')
-const { DISPUTES_MANAGER_EVENTS } = require('../helpers/utils/events')
+const { DISPUTE_MANAGER_ERRORS } = require('../helpers/utils/errors')
+const { DISPUTE_MANAGER_EVENTS } = require('../helpers/utils/events')
 const { filterWinningJurors } = require('../helpers/utils/jurors')
 const { assertAmountOfEvents, assertEvent } = require('../helpers/asserts/assertEvent')
 const { buildHelper, ROUND_STATES, DEFAULTS } = require('../helpers/wrappers/court')(web3, artifacts)
 const { getVoteId, oppositeOutcome, OUTCOMES } = require('../helpers/utils/crvoting')
 
-contract('DisputesManager', ([_, drafter, appealMaker, appealTaker, juror500, juror1000, juror1500, juror2000, juror2500, juror3000, juror3500, juror4000]) => {
-  let courtHelper, disputesManager, voting
+contract('DisputeManager', ([_, drafter, appealMaker, appealTaker, juror500, juror1000, juror1500, juror2000, juror2500, juror3000, juror3500, juror4000]) => {
+  let courtHelper, disputeManager, voting
 
   const jurors = [
     { address: juror3000, initialActiveBalance: bigExp(3000, 18) },
@@ -26,7 +26,7 @@ contract('DisputesManager', ([_, drafter, appealMaker, appealTaker, juror500, ju
     courtHelper = buildHelper()
     await courtHelper.deploy()
     voting = courtHelper.voting
-    disputesManager = courtHelper.disputesManager
+    disputeManager = courtHelper.disputeManager
   })
 
   describe('settle', () => {
@@ -58,7 +58,7 @@ contract('DisputesManager', ([_, drafter, appealMaker, appealTaker, juror500, ju
 
         const itFailsToSettleAppealDeposits = (roundId) => {
           it('fails to settle appeal deposits', async () => {
-            await assertRevert(disputesManager.settleAppealDeposit(disputeId, roundId), DISPUTES_MANAGER_ERRORS.ROUND_PENALTIES_NOT_SETTLED)
+            await assertRevert(disputeManager.settleAppealDeposit(disputeId, roundId), DISPUTE_MANAGER_ERRORS.ROUND_PENALTIES_NOT_SETTLED)
           })
         }
 
@@ -66,17 +66,17 @@ contract('DisputesManager', ([_, drafter, appealMaker, appealTaker, juror500, ju
           describe('settleAppealDeposit', () => {
             context('when penalties have been settled', () => {
               beforeEach('settle penalties', async () => {
-                await disputesManager.settlePenalties(disputeId, roundId, 0)
+                await disputeManager.settlePenalties(disputeId, roundId, 0)
               })
 
               it('reverts', async () => {
-                await assertRevert(disputesManager.settleAppealDeposit(disputeId, roundId), DISPUTES_MANAGER_ERRORS.ROUND_NOT_APPEALED)
+                await assertRevert(disputeManager.settleAppealDeposit(disputeId, roundId), DISPUTE_MANAGER_ERRORS.ROUND_NOT_APPEALED)
               })
             })
 
             context('when penalties have not been settled yet', () => {
               it('reverts', async () => {
-                await assertRevert(disputesManager.settleAppealDeposit(disputeId, roundId), DISPUTES_MANAGER_ERRORS.ROUND_PENALTIES_NOT_SETTLED)
+                await assertRevert(disputeManager.settleAppealDeposit(disputeId, roundId), DISPUTE_MANAGER_ERRORS.ROUND_PENALTIES_NOT_SETTLED)
               })
             })
           })
@@ -178,42 +178,42 @@ contract('DisputesManager', ([_, drafter, appealMaker, appealTaker, juror500, ju
             describe('settleAppealDeposit', () => {
               context('when penalties have been settled', () => {
                 beforeEach('settle penalties', async () => {
-                  await disputesManager.settlePenalties(disputeId, roundId, 0)
+                  await disputeManager.settlePenalties(disputeId, roundId, 0)
                 })
 
                 itTransferAppealsDeposits()
 
                 it('emits an event', async () => {
-                  const receipt = await disputesManager.settleAppealDeposit(disputeId, roundId)
+                  const receipt = await disputeManager.settleAppealDeposit(disputeId, roundId)
 
-                  assertAmountOfEvents(receipt, DISPUTES_MANAGER_EVENTS.APPEAL_DEPOSIT_SETTLED)
-                  assertEvent(receipt, DISPUTES_MANAGER_EVENTS.APPEAL_DEPOSIT_SETTLED, { disputeId, roundId })
+                  assertAmountOfEvents(receipt, DISPUTE_MANAGER_EVENTS.APPEAL_DEPOSIT_SETTLED)
+                  assertEvent(receipt, DISPUTE_MANAGER_EVENTS.APPEAL_DEPOSIT_SETTLED, { disputeId, roundId })
                 })
 
-                it('does not affect the balances of the disputes manager', async () => {
+                it('does not affect the balances of the dispute manager', async () => {
                   const { treasury, feeToken } = courtHelper
-                  const previousDisputesManagerBalance = await feeToken.balanceOf(disputesManager.address)
+                  const previousDisputeManagerBalance = await feeToken.balanceOf(disputeManager.address)
                   const previousTreasuryBalance = await feeToken.balanceOf(treasury.address)
 
-                  await disputesManager.settleAppealDeposit(disputeId, roundId)
+                  await disputeManager.settleAppealDeposit(disputeId, roundId)
 
-                  const currentDisputesManagerBalance = await feeToken.balanceOf(disputesManager.address)
-                  assertBn(previousDisputesManagerBalance, currentDisputesManagerBalance, 'disputes manager balances do not match')
+                  const currentDisputeManagerBalance = await feeToken.balanceOf(disputeManager.address)
+                  assertBn(previousDisputeManagerBalance, currentDisputeManagerBalance, 'dispute manager balances do not match')
 
                   const currentTreasuryBalance = await feeToken.balanceOf(treasury.address)
                   assertBn(previousTreasuryBalance, currentTreasuryBalance, 'treasury balances do not match')
                 })
 
                 it('cannot be settled twice', async () => {
-                  await disputesManager.settleAppealDeposit(disputeId, roundId)
+                  await disputeManager.settleAppealDeposit(disputeId, roundId)
 
-                  await assertRevert(disputesManager.settleAppealDeposit(disputeId, roundId), DISPUTES_MANAGER_ERRORS.APPEAL_ALREADY_SETTLED)
+                  await assertRevert(disputeManager.settleAppealDeposit(disputeId, roundId), DISPUTE_MANAGER_ERRORS.APPEAL_ALREADY_SETTLED)
                 })
               })
 
               context('when penalties have not been settled yet', () => {
                 it('reverts', async () => {
-                  await assertRevert(disputesManager.settleAppealDeposit(disputeId, roundId), DISPUTES_MANAGER_ERRORS.ROUND_PENALTIES_NOT_SETTLED)
+                  await assertRevert(disputeManager.settleAppealDeposit(disputeId, roundId), DISPUTE_MANAGER_ERRORS.ROUND_PENALTIES_NOT_SETTLED)
                 })
               })
             })
@@ -227,7 +227,7 @@ contract('DisputesManager', ([_, drafter, appealMaker, appealTaker, juror500, ju
 
                 const previousBalance = await treasury.balanceOf(feeToken.address, appealMaker)
 
-                await disputesManager.settleAppealDeposit(disputeId, roundId)
+                await disputeManager.settleAppealDeposit(disputeId, roundId)
 
                 const currentBalance = await treasury.balanceOf(feeToken.address, appealMaker)
                 assertBn(previousBalance.add(appealDeposit), currentBalance, 'appeal maker balances do not match')
@@ -244,7 +244,7 @@ contract('DisputesManager', ([_, drafter, appealMaker, appealTaker, juror500, ju
                 const expectedAppealReward = appealDeposit.add(confirmAppealDeposit).sub(appealFees)
                 const previousAppealTakerBalance = await treasury.balanceOf(feeToken.address, appealTaker)
 
-                await disputesManager.settleAppealDeposit(disputeId, roundId)
+                await disputeManager.settleAppealDeposit(disputeId, roundId)
 
                 const currentAppealTakerBalance = await treasury.balanceOf(feeToken.address, appealTaker)
                 assertBn(currentAppealTakerBalance, previousAppealTakerBalance.add(expectedAppealReward), 'appeal maker balances do not match')
@@ -261,7 +261,7 @@ contract('DisputesManager', ([_, drafter, appealMaker, appealTaker, juror500, ju
                 const expectedAppealReward = appealDeposit.add(confirmAppealDeposit).sub(appealFees)
                 const previousAppealMakerBalance = await treasury.balanceOf(feeToken.address, appealMaker)
 
-                await disputesManager.settleAppealDeposit(disputeId, roundId)
+                await disputeManager.settleAppealDeposit(disputeId, roundId)
 
                 const currentAppealMakerBalance = await treasury.balanceOf(feeToken.address, appealMaker)
                 assertBn(currentAppealMakerBalance, previousAppealMakerBalance.add(expectedAppealReward), 'appeal maker balances do not match')
@@ -281,7 +281,7 @@ contract('DisputesManager', ([_, drafter, appealMaker, appealTaker, juror500, ju
                 const expectedAppealTakerReward = confirmAppealDeposit.sub(appealFees.div(bn(2)))
                 const previousAppealTakerBalance = await treasury.balanceOf(feeToken.address, appealTaker)
 
-                await disputesManager.settleAppealDeposit(disputeId, roundId)
+                await disputeManager.settleAppealDeposit(disputeId, roundId)
 
                 const currentAppealMakerBalance = await treasury.balanceOf(feeToken.address, appealMaker)
                 assertBn(currentAppealMakerBalance, previousAppealMakerBalance.add(expectedAppealMakerReward), 'appeal maker balances do not match')
@@ -477,10 +477,10 @@ contract('DisputesManager', ([_, drafter, appealMaker, appealTaker, juror500, ju
 
                     beforeEach('settle previous rounds', async () => {
                       for (let nextRoundId = 0; nextRoundId < finalRoundId; nextRoundId++) {
-                        await disputesManager.settlePenalties(disputeId, nextRoundId, 0)
+                        await disputeManager.settlePenalties(disputeId, nextRoundId, 0)
                         const [winners] = filterWinningJurors(previousRoundsVoters[nextRoundId], expectedFinalRuling)
                         for (const { address } of winners) {
-                          await disputesManager.settleReward(disputeId, nextRoundId, address)
+                          await disputeManager.settleReward(disputeId, nextRoundId, address)
                         }
                       }
                     })
@@ -537,14 +537,14 @@ contract('DisputesManager', ([_, drafter, appealMaker, appealTaker, juror500, ju
         const roundId = 5
 
         it('reverts', async () => {
-          await assertRevert(disputesManager.createAppeal(disputeId, roundId, OUTCOMES.LOW), DISPUTES_MANAGER_ERRORS.ROUND_DOES_NOT_EXIST)
+          await assertRevert(disputeManager.createAppeal(disputeId, roundId, OUTCOMES.LOW), DISPUTE_MANAGER_ERRORS.ROUND_DOES_NOT_EXIST)
         })
       })
     })
 
     context('when the given dispute does not exist', () => {
       it('reverts', async () => {
-        await assertRevert(disputesManager.createAppeal(0, 0, OUTCOMES.LOW), DISPUTES_MANAGER_ERRORS.DISPUTE_DOES_NOT_EXIST)
+        await assertRevert(disputeManager.createAppeal(0, 0, OUTCOMES.LOW), DISPUTE_MANAGER_ERRORS.DISPUTE_DOES_NOT_EXIST)
       })
     })
   })

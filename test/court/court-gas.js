@@ -7,7 +7,7 @@ const { getVoteId, encryptVote, oppositeOutcome, SALT, OUTCOMES } = require('../
 const Arbitrable = artifacts.require('ArbitrableMock')
 
 contract('Court', ([_, sender, drafter, appealMaker, appealTaker, juror500, juror1000, juror1500, juror2000, juror2500, juror3000]) => {
-  let courtHelper, disputesManager, voting, court, costs = {}
+  let courtHelper, disputeManager, voting, court, costs = {}
 
   const jurors = [
     { address: juror500,  initialActiveBalance: bigExp(500,  18) },
@@ -22,7 +22,7 @@ contract('Court', ([_, sender, drafter, appealMaker, appealTaker, juror500, juro
     courtHelper = buildHelper()
     court = await courtHelper.deploy()
     voting = courtHelper.voting
-    disputesManager = courtHelper.disputesManager
+    disputeManager = courtHelper.disputeManager
     await courtHelper.activate(jurors)
   })
 
@@ -81,7 +81,7 @@ contract('Court', ([_, sender, drafter, appealMaker, appealTaker, juror500, juro
         await court.mockSetTermRandomness('0x0000000000000000000000000000000000000000000000000000000000000001')
       })
 
-      itCostsAtMost('draft', 325e3, () => disputesManager.draft(disputeId))
+      itCostsAtMost('draft', 325e3, () => disputeManager.draft(disputeId))
     })
 
     describe('commit', () => {
@@ -178,7 +178,7 @@ contract('Court', ([_, sender, drafter, appealMaker, appealTaker, juror500, juro
 
         // mint appeal fees
         const { appealDeposit } = await courtHelper.getAppealFees(disputeId, roundId)
-        await courtHelper.mintAndApproveFeeTokens(appealMaker, disputesManager.address, appealDeposit)
+        await courtHelper.mintAndApproveFeeTokens(appealMaker, disputeManager.address, appealDeposit)
       })
 
       context('when the current term is up-to-date', () => {
@@ -187,7 +187,7 @@ contract('Court', ([_, sender, drafter, appealMaker, appealTaker, juror500, juro
           assertBn(neededTransitions, 0, 'needed transitions does not match')
         })
 
-        itCostsAtMost('createAppeal', 74e3, () => disputesManager.createAppeal(disputeId, roundId, appealMakerRuling, { from: appealMaker }))
+        itCostsAtMost('createAppeal', 74e3, () => disputeManager.createAppeal(disputeId, roundId, appealMakerRuling, { from: appealMaker }))
       })
 
       context('when the current term is outdated by one term', () => {
@@ -197,7 +197,7 @@ contract('Court', ([_, sender, drafter, appealMaker, appealTaker, juror500, juro
           assertBn(neededTransitions, 1, 'needed transitions does not match')
         })
 
-        itCostsAtMost('createAppeal', 130e3, () => disputesManager.createAppeal(disputeId, roundId, appealMakerRuling, { from: appealMaker }))
+        itCostsAtMost('createAppeal', 130e3, () => disputeManager.createAppeal(disputeId, roundId, appealMakerRuling, { from: appealMaker }))
       })
     })
 
@@ -223,7 +223,7 @@ contract('Court', ([_, sender, drafter, appealMaker, appealTaker, juror500, juro
 
         // mint appeal confirmation fees
         const { confirmAppealDeposit } = await courtHelper.getAppealFees(disputeId, roundId)
-        await courtHelper.mintAndApproveFeeTokens(appealTaker, disputesManager.address, confirmAppealDeposit)
+        await courtHelper.mintAndApproveFeeTokens(appealTaker, disputeManager.address, confirmAppealDeposit)
       })
 
       context('when the current term is up-to-date', () => {
@@ -232,7 +232,7 @@ contract('Court', ([_, sender, drafter, appealMaker, appealTaker, juror500, juro
           assertBn(neededTransitions, 0, 'needed transitions does not match')
         })
 
-        itCostsAtMost('confirmAppeal', 159e3, () => disputesManager.confirmAppeal(disputeId, roundId, appealTakerRuling, { from: appealTaker }))
+        itCostsAtMost('confirmAppeal', 159e3, () => disputeManager.confirmAppeal(disputeId, roundId, appealTakerRuling, { from: appealTaker }))
       })
 
       context('when the current term is outdated by one term', () => {
@@ -242,7 +242,7 @@ contract('Court', ([_, sender, drafter, appealMaker, appealTaker, juror500, juro
           assertBn(neededTransitions, 1, 'needed transitions does not match')
         })
 
-        itCostsAtMost('confirmAppeal', 215e3, () => disputesManager.confirmAppeal(disputeId, roundId, appealTakerRuling, { from: appealTaker }))
+        itCostsAtMost('confirmAppeal', 215e3, () => disputeManager.confirmAppeal(disputeId, roundId, appealTakerRuling, { from: appealTaker }))
       })
     })
 
@@ -309,7 +309,7 @@ contract('Court', ([_, sender, drafter, appealMaker, appealTaker, juror500, juro
           assertBn(neededTransitions, 0, 'needed transitions does not match')
         })
 
-        itCostsAtMost('settlePenalties', 197e3, () => disputesManager.settlePenalties(disputeId, roundId, 0))
+        itCostsAtMost('settlePenalties', 197e3, () => disputeManager.settlePenalties(disputeId, roundId, 0))
       })
 
       context('when the current term is outdated by one term', () => {
@@ -319,7 +319,7 @@ contract('Court', ([_, sender, drafter, appealMaker, appealTaker, juror500, juro
           assertBn(neededTransitions, 1, 'needed transitions does not match')
         })
 
-        itCostsAtMost('settlePenalties', 254e3, () => disputesManager.settlePenalties(disputeId, roundId, 0))
+        itCostsAtMost('settlePenalties', 254e3, () => disputeManager.settlePenalties(disputeId, roundId, 0))
       })
     })
 
@@ -339,7 +339,7 @@ contract('Court', ([_, sender, drafter, appealMaker, appealTaker, juror500, juro
         await courtHelper.commit({ disputeId, roundId, voters: draftedJurors })
         await courtHelper.reveal({ disputeId, roundId, voters: draftedJurors })
         await courtHelper.passTerms(courtHelper.appealTerms)
-        await disputesManager.settlePenalties(disputeId, roundId, 0)
+        await disputeManager.settlePenalties(disputeId, roundId, 0)
       })
 
       context('when the current term is up-to-date', () => {
@@ -348,7 +348,7 @@ contract('Court', ([_, sender, drafter, appealMaker, appealTaker, juror500, juro
           assertBn(neededTransitions, 0, 'needed transitions does not match')
         })
 
-        itCostsAtMost('settleReward', 88e3, () => disputesManager.settleReward(disputeId, roundId, draftedJurors[0].address))
+        itCostsAtMost('settleReward', 88e3, () => disputeManager.settleReward(disputeId, roundId, draftedJurors[0].address))
       })
 
       context('when the current term is outdated by one term', () => {
@@ -358,7 +358,7 @@ contract('Court', ([_, sender, drafter, appealMaker, appealTaker, juror500, juro
           assertBn(neededTransitions, 1, 'needed transitions does not match')
         })
 
-        itCostsAtMost('settleReward', 88e3, () => disputesManager.settleReward(disputeId, roundId, draftedJurors[0].address))
+        itCostsAtMost('settleReward', 88e3, () => disputeManager.settleReward(disputeId, roundId, draftedJurors[0].address))
       })
     })
 
@@ -387,7 +387,7 @@ contract('Court', ([_, sender, drafter, appealMaker, appealTaker, juror500, juro
         await courtHelper.passTerms(courtHelper.appealTerms.add(courtHelper.appealConfirmTerms))
 
         // settle first round penalties
-        await disputesManager.settlePenalties(disputeId, roundId, 0)
+        await disputeManager.settlePenalties(disputeId, roundId, 0)
       })
 
       context('when the current term is up-to-date', () => {
@@ -396,7 +396,7 @@ contract('Court', ([_, sender, drafter, appealMaker, appealTaker, juror500, juro
           assertBn(neededTransitions, 0, 'needed transitions does not match')
         })
 
-        itCostsAtMost('settleAppealDeposit', 82e3, () => disputesManager.settleAppealDeposit(disputeId, roundId))
+        itCostsAtMost('settleAppealDeposit', 82e3, () => disputeManager.settleAppealDeposit(disputeId, roundId))
       })
 
       context('when the current term is outdated by one term', () => {
@@ -406,7 +406,7 @@ contract('Court', ([_, sender, drafter, appealMaker, appealTaker, juror500, juro
           assertBn(neededTransitions, 1, 'needed transitions does not match')
         })
 
-        itCostsAtMost('settleAppealDeposit', 82e3, () => disputesManager.settleAppealDeposit(disputeId, roundId))
+        itCostsAtMost('settleAppealDeposit', 82e3, () => disputeManager.settleAppealDeposit(disputeId, roundId))
       })
     })
   })

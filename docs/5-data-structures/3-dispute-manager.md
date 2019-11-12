@@ -1,6 +1,6 @@
-## 5.3. Disputes Manager
+## 5.3. Dispute Manager
 
-The following objects are the data-structures used by the `DisputesManager`:
+The following objects are the data-structures used by the `DisputeManager`:
 
 ### 5.3.1. Dispute
 

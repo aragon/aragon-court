@@ -10,7 +10,7 @@ const { assertAmountOfEvents, assertEvent } = require('../helpers/asserts/assert
 
 const CourtSubscriptions = artifacts.require('CourtSubscriptions')
 const JurorsRegistry = artifacts.require('JurorsRegistry')
-const DisputesManager = artifacts.require('DisputesManagerMockForRegistry')
+const DisputeManager = artifacts.require('DisputeManagerMockForRegistry')
 const ERC20 = artifacts.require('ERC20Mock')
 
 contract('CourtSubscriptions', ([_, payer, subscriberPeriod0, subscriberPeriod1, jurorPeriod0Term1, jurorPeriod0Term3, jurorMidPeriod1]) => {
@@ -38,8 +38,8 @@ contract('CourtSubscriptions', ([_, payer, subscriberPeriod0, subscriberPeriod1,
     jurorsRegistry = await JurorsRegistry.new(controller.address, jurorToken.address, TOTAL_ACTIVE_BALANCE_LIMIT)
     await controller.setJurorsRegistry(jurorsRegistry.address)
 
-    const disputesManager = await DisputesManager.new(controller.address)
-    await controller.setDisputesManager(disputesManager.address)
+    const disputeManager = await DisputeManager.new(controller.address)
+    await controller.setDisputeManager(disputeManager.address)
   })
 
   describe('claimFees', () => {

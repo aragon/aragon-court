@@ -7,7 +7,7 @@ import "../lib/os/SafeMath.sol";
 import "../lib/os/SafeMath64.sol";
 import "../lib/os/Uint256Helpers.sol";
 
-import "./IDisputesManager.sol";
+import "./IDisputeManager.sol";
 import "../lib/PctHelpers.sol";
 import "../voting/ICRVoting.sol";
 import "../voting/ICRVotingOwner.sol";
@@ -18,7 +18,7 @@ import "../subscriptions/ISubscriptions.sol";
 import "../court/controller/ControlledRecoverable.sol";
 
 
-contract DisputesManager is ControlledRecoverable, ICRVotingOwner, IDisputesManager {
+contract DisputeManager is ControlledRecoverable, ICRVotingOwner, IDisputeManager {
     using SafeERC20 for ERC20;
     using SafeMath for uint256;
     using SafeMath64 for uint64;

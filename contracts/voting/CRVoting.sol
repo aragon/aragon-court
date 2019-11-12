@@ -77,7 +77,7 @@ contract CRVoting is Controlled, ICRVoting {
     * @param _voteId ID of the new vote instance to be created
     * @param _possibleOutcomes Number of possible outcomes for the new vote instance to be created
     */
-    function create(uint256 _voteId, uint8 _possibleOutcomes) external onlyDisputesManager {
+    function create(uint256 _voteId, uint8 _possibleOutcomes) external onlyDisputeManager {
         require(_possibleOutcomes >= MIN_POSSIBLE_OUTCOMES && _possibleOutcomes <= MAX_POSSIBLE_OUTCOMES, ERROR_INVALID_OUTCOMES_AMOUNT);
 
         Vote storage vote = voteRecords[_voteId];

@@ -1,8 +1,8 @@
-## 6.3. Disputes Manager
+## 6.3. Dispute Manager
 
 ### 6.3.1 Events
 
-The following events are emitted by the `DisputesManager`:
+The following events are emitted by the `DisputeManager`:
 
 #### 6.3.1.1. New dispute
 
@@ -77,7 +77,7 @@ The following events are emitted by the `DisputesManager`:
 
 ### 6.3.2. Getters
 
-The following functions are state getters provided by the `DisputesManager`:
+The following functions are state getters provided by the `DisputeManager`:
 
 #### 6.3.2.1. Dispute fees
 

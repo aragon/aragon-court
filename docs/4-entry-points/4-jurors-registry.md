@@ -129,28 +129,28 @@ This module is in the one handling all the staking/unstaking logic for the juror
 
 ### 4.4.9. Assign tokens
 
-- **Actor:** `DisputesManager` module
+- **Actor:** `DisputeManager` module
 - **Inputs:**
     - **Juror:** Address of the juror to add an amount of tokens to
     - **Amount:** Amount of tokens to be added to the available balance of a juror
-- **Authentication:** Only `DisputesManager` module
+- **Authentication:** Only `DisputeManager` module
 - **Pre-flight checks:** None
 - **State transitions:**
     - Increase the juror's available balance
 
 ### 4.4.10. Burn tokens
 
-- **Actor:** `DisputesManager` module
+- **Actor:** `DisputeManager` module
 - **Inputs:**
     - **Amount:** Amount of tokens to be burned
-- **Authentication:** Only `DisputesManager` module
+- **Authentication:** Only `DisputeManager` module
 - **Pre-flight checks:** None 
 - **State transitions:**
     - Increase the burn address's available balance
 
 ### 4.4.11. Draft
 
-- **Actor:** `DisputesManager` module
+- **Actor:** `DisputeManager` module
 - **Inputs:**
     - **Draft params:** Object containing:
         - **Term randomness:** Randomness to compute the seed for the draft
@@ -160,7 +160,7 @@ This module is in the one handling all the staking/unstaking logic for the juror
         - **Batch requested jurors:** Number of jurors to be selected in the given batch of the draft
         - **Draft requested jurors:** Total number of jurors requested to be drafted
         - **Draft locking permyriad:** ‱ of the minimum active balance to be locked for the draft (1/10,000)
-- **Authentication:** Only `DisputesManager` module
+- **Authentication:** Only `DisputeManager` module
 - **Pre-flight checks:**
     - Ensure that the requested number of jurors to be drafted is greater than zero
     - Ensure each drafted juror has enough active balance to be locked for the draft
@@ -171,13 +171,13 @@ This module is in the one handling all the staking/unstaking logic for the juror
 
 ### 4.4.12. Slash or unlock
 
-- **Actor:** `DisputesManager` module
+- **Actor:** `DisputeManager` module
 - **Inputs:**
     - **Term ID:** Current term identification number
     - **Jurors:** List of juror addresses to be slashed
     - **Locked amounts:** List of amounts locked for each corresponding juror that will be either slashed or returned
     - **Rewarded jurors:** List of booleans to tell whether a juror's active balance has to be slashed or not
-- **Authentication:** Only `DisputesManager` module
+- **Authentication:** Only `DisputeManager` module
 - **Pre-flight checks:**
     - Ensure that both lists lengths match
     - Ensure that each juror has enough locked balance to be unlocked
@@ -187,12 +187,12 @@ This module is in the one handling all the staking/unstaking logic for the juror
 
 ### 4.4.13. Collect tokens
 
-- **Actor:** `DisputesManager` module
+- **Actor:** `DisputeManager` module
 - **Inputs:**
     - **Juror:** Address of the juror to collect the tokens from
     - **Amount:** Amount of tokens to be collected from the given juror and for the requested term id
     - **Term ID:** Current term identification number
-- **Authentication:** Only `DisputesManager` module
+- **Authentication:** Only `DisputeManager` module
 - **Pre-flight checks:**
     - Ensure the juror has enough active balance based on the requested amount
 - **State transitions:**
@@ -201,11 +201,11 @@ This module is in the one handling all the staking/unstaking logic for the juror
 
 ### 4.4.14. Lock withdrawals
 
-- **Actor:** `DisputesManager` module
+- **Actor:** `DisputeManager` module
 - **Inputs:**
     - **Juror:** Address of the juror to locked the withdrawals of
     - **Term ID:** Term identification number until which the juror's withdrawals will be locked
-- **Authentication:** Only `DisputesManager` module
+- **Authentication:** Only `DisputeManager` module
 - **Pre-flight checks:** None
 - **State transitions:**
     - Update the juror's state with the term ID until which their withdrawals will be locked

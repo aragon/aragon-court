@@ -4,14 +4,14 @@ const { buildHelper } = require('../helpers/wrappers/court')(web3, artifacts)
 const { assertRevert } = require('../helpers/asserts/assertThrow')
 const { VOTING_EVENTS } = require('../helpers/utils/events')
 const { OUTCOMES, encryptVote } = require('../helpers/utils/crvoting')
-const { DISPUTES_MANAGER_ERRORS, VOTING_ERRORS } = require('../helpers/utils/errors')
+const { DISPUTE_MANAGER_ERRORS, VOTING_ERRORS } = require('../helpers/utils/errors')
 const { assertEvent, assertAmountOfEvents } = require('../helpers/asserts/assertEvent')
 
 const CRVoting = artifacts.require('CRVoting')
-const DisputesManager = artifacts.require('DisputesManagerMockForVoting')
+const DisputeManager = artifacts.require('DisputeManagerMockForVoting')
 
 contract('CRVoting', ([_, voter]) => {
-  let controller, voting, disputesManager
+  let controller, voting, disputeManager
 
   const POSSIBLE_OUTCOMES = 2
 
@@ -21,8 +21,8 @@ contract('CRVoting', ([_, voter]) => {
     voting = await CRVoting.new(controller.address)
     await controller.setVoting(voting.address)
 
-    disputesManager = await DisputesManager.new(controller.address)
-    await controller.setDisputesManager(disputesManager.address)
+    disputeManager = await DisputeManager.new(controller.address)
+    await controller.setDisputeManager(disputeManager.address)
   })
 
   describe('commit', () => {
@@ -30,7 +30,7 @@ contract('CRVoting', ([_, voter]) => {
       const voteId = 0
 
       beforeEach('create voting', async () => {
-        await disputesManager.create(voteId, POSSIBLE_OUTCOMES)
+        await disputeManager.create(voteId, POSSIBLE_OUTCOMES)
       })
 
       context('when the voter has not voted before', () => {
@@ -39,7 +39,7 @@ contract('CRVoting', ([_, voter]) => {
             const weight = 10
 
             beforeEach('mock voter weight', async () => {
-              await disputesManager.mockVoterWeight(voter, weight)
+              await disputeManager.mockVoterWeight(voter, weight)
             })
 
             const itHandlesCommittedVotesFor = outcome => {
@@ -114,18 +114,18 @@ contract('CRVoting', ([_, voter]) => {
             const weight = 0
 
             beforeEach('mock voter weight', async () => {
-              await disputesManager.mockVoterWeight(voter, weight)
+              await disputeManager.mockVoterWeight(voter, weight)
             })
 
             it('reverts', async () => {
-              await assertRevert(voting.commit(voteId, '0x', { from: voter }), DISPUTES_MANAGER_ERRORS.VOTER_WEIGHT_ZERO)
+              await assertRevert(voting.commit(voteId, '0x', { from: voter }), DISPUTE_MANAGER_ERRORS.VOTER_WEIGHT_ZERO)
             })
           })
         })
 
         context('when the owner reverts when checking the weight of the voter', () => {
           beforeEach('mock the owner to revert', async () => {
-            await disputesManager.mockChecksFailing(true)
+            await disputeManager.mockChecksFailing(true)
           })
 
           it('reverts', async () => {
@@ -139,7 +139,7 @@ contract('CRVoting', ([_, voter]) => {
 
         beforeEach('mock voter weight and commit', async () => {
           const weight = 10
-          await disputesManager.mockVoterWeight(voter, weight)
+          await disputeManager.mockVoterWeight(voter, weight)
           await voting.commit(voteId, commitment, { from: voter })
         })
 

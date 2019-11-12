@@ -3,7 +3,7 @@ const { NEXT_WEEK, ONE_DAY } = require('../lib/time')
 const { decodeEventsOfType } = require('../lib/decodeEvent')
 const { MAX_UINT64, bn, bigExp } = require('../lib/numbers')
 const { getEvents, getEventArgument } = require('@aragon/test-helpers/events')
-const { DISPUTES_MANAGER_EVENTS, REGISTRY_EVENTS } = require('../utils/events')
+const { DISPUTE_MANAGER_EVENTS, REGISTRY_EVENTS } = require('../utils/events')
 const { SALT, OUTCOMES, getVoteId, encryptVote, oppositeOutcome, outcomeFor } = require('../utils/crvoting')
 
 const PCT_BASE = bn(10000)
@@ -24,7 +24,7 @@ const ROUND_STATES = {
 }
 
 const MODULE_IDS = {
-  disputes: '0x4f75facde613f96ba2104b7dd53dd8bb3ab08c2447eb15d3e3bd07f4829b68ea',
+  disputes: '0x14a6c70f0f6d449c014c7bbc9e68e31e79e8474fb03b7194df83109a2d888ae6',
   treasury: '0x06aa03964db1f7257357ef09714a5f0ca3633723df419e97015e0c7a3e83edb7',
   voting: '0x7cbb12e82a6d63ff16fe43977f43e3e2b247ecd4e62c0e340da8800a48c67346',
   registry: '0x3b21d36b36308c830e6c4053fb40a3b6d79dde78947fbf6b0accd30720ab5370',
@@ -93,22 +93,22 @@ module.exports = (web3, artifacts) => {
     }
 
     async getDispute(disputeId) {
-      const { subject, possibleRulings, state, finalRuling, lastRoundId } = await this.disputesManager.getDispute(disputeId)
+      const { subject, possibleRulings, state, finalRuling, lastRoundId } = await this.disputeManager.getDispute(disputeId)
       return { subject, possibleRulings, state, finalRuling, lastRoundId }
     }
 
     async getRound(disputeId, roundId) {
-      const { draftTerm, delayedTerms, jurorsNumber: roundJurorsNumber, selectedJurors, settledPenalties, jurorFees, collectedTokens, coherentJurors, state: roundState } = await this.disputesManager.getRound(disputeId, roundId)
+      const { draftTerm, delayedTerms, jurorsNumber: roundJurorsNumber, selectedJurors, settledPenalties, jurorFees, collectedTokens, coherentJurors, state: roundState } = await this.disputeManager.getRound(disputeId, roundId)
       return { draftTerm, delayedTerms, roundJurorsNumber, selectedJurors, settledPenalties, jurorFees, collectedTokens, coherentJurors, roundState }
     }
 
     async getAppeal(disputeId, roundId) {
-      const { maker: appealer, appealedRuling, taker, opposedRuling } = await this.disputesManager.getAppeal(disputeId, roundId)
+      const { maker: appealer, appealedRuling, taker, opposedRuling } = await this.disputeManager.getAppeal(disputeId, roundId)
       return { appealer, appealedRuling, taker, opposedRuling }
     }
 
     async getDisputeFees() {
-      const { feeToken, totalFees } = await this.disputesManager.getDisputeFees()
+      const { feeToken, totalFees } = await this.disputeManager.getDisputeFees()
       return { feeToken, disputeFees: totalFees }
     }
 
@@ -156,7 +156,7 @@ module.exports = (web3, artifacts) => {
     }
 
     async getRoundJuror(disputeId, roundId, juror) {
-      const { weight, rewarded } = await this.disputesManager.getJuror(disputeId, roundId, juror)
+      const { weight, rewarded } = await this.disputeManager.getJuror(disputeId, roundId, juror)
       return { weight, rewarded }
     }
 
@@ -215,8 +215,8 @@ module.exports = (web3, artifacts) => {
 
       // create dispute and return id
       const receipt = await arbitrable.createDispute(possibleRulings, metadata)
-      const logs = decodeEventsOfType(receipt, this.artifacts.require('DisputesManager').abi, DISPUTES_MANAGER_EVENTS.NEW_DISPUTE)
-      return getEventArgument({ logs }, DISPUTES_MANAGER_EVENTS.NEW_DISPUTE, 'disputeId')
+      const logs = decodeEventsOfType(receipt, this.artifacts.require('DisputeManager').abi, DISPUTE_MANAGER_EVENTS.NEW_DISPUTE)
+      return getEventArgument({ logs }, DISPUTE_MANAGER_EVENTS.NEW_DISPUTE, 'disputeId')
     }
 
     async draft({ disputeId, draftedJurors = undefined, drafter = undefined }) {
@@ -227,7 +227,7 @@ module.exports = (web3, artifacts) => {
       if (draftedJurors) {
         const { lastRoundId } = await this.getDispute(disputeId)
         const { roundJurorsNumber } = await this.getRound(disputeId, lastRoundId)
-        const maxJurorsPerDraftBatch = await this.disputesManager.maxJurorsPerDraftBatch()
+        const maxJurorsPerDraftBatch = await this.disputeManager.maxJurorsPerDraftBatch()
         const jurorsToBeDrafted = roundJurorsNumber.lt(maxJurorsPerDraftBatch)
           ? roundJurorsNumber.toNumber() : maxJurorsPerDraftBatch.toNumber()
         const totalWeight = draftedJurors.reduce((total, { weight }) => total + weight, 0)
@@ -238,7 +238,7 @@ module.exports = (web3, artifacts) => {
       }
 
       // draft and flat jurors with their weights
-      const receipt = await this.disputesManager.draft(disputeId, { from: drafter })
+      const receipt = await this.disputeManager.draft(disputeId, { from: drafter })
       const logs = decodeEventsOfType(receipt, this.artifacts.require('JurorsRegistry').abi, REGISTRY_EVENTS.JUROR_DRAFTED)
       const weights = getEvents({ logs }, REGISTRY_EVENTS.JUROR_DRAFTED).reduce((jurors, event) => {
         const { juror } = event.args
@@ -285,7 +285,7 @@ module.exports = (web3, artifacts) => {
       // mint fee tokens for the appealer, if no appealer was given pick the fourth account
       if (!appealMaker) appealMaker = await this._getAccount(3)
       const { appealDeposit } = await this.getAppealFees(disputeId, roundId)
-      await this.mintAndApproveFeeTokens(appealMaker, this.disputesManager.address, appealDeposit)
+      await this.mintAndApproveFeeTokens(appealMaker, this.disputeManager.address, appealDeposit)
 
       // use the opposite to the round winning ruling for the appeal if no one was given
       if (!ruling) {
@@ -295,7 +295,7 @@ module.exports = (web3, artifacts) => {
       }
 
       // appeal and move to confirm appeal period
-      await this.disputesManager.createAppeal(disputeId, roundId, ruling, { from: appealMaker })
+      await this.disputeManager.createAppeal(disputeId, roundId, ruling, { from: appealMaker })
       await this.passTerms(this.appealTerms)
     }
 
@@ -303,7 +303,7 @@ module.exports = (web3, artifacts) => {
       // mint fee tokens for the appeal taker, if no taker was given pick the fifth account
       if (!appealTaker) appealTaker = await this._getAccount(4)
       const { confirmAppealDeposit } = await this.getAppealFees(disputeId, roundId)
-      await this.mintAndApproveFeeTokens(appealTaker, this.disputesManager.address, confirmAppealDeposit)
+      await this.mintAndApproveFeeTokens(appealTaker, this.disputeManager.address, confirmAppealDeposit)
 
       // use the opposite ruling the one appealed if no one was given
       if (!ruling) {
@@ -312,7 +312,7 @@ module.exports = (web3, artifacts) => {
       }
 
       // confirm appeal and move to end of confirm appeal period
-      await this.disputesManager.confirmAppeal(disputeId, roundId, ruling, { from: appealTaker })
+      await this.disputeManager.confirmAppeal(disputeId, roundId, ruling, { from: appealTaker })
       await this.passTerms(this.appealConfirmTerms)
     }
 
@@ -373,7 +373,7 @@ module.exports = (web3, artifacts) => {
         this.minActiveBalance
       )
 
-      if (!this.disputesManager) this.disputesManager = await this.artifacts.require('DisputesManager').new(this.court.address, this.maxJurorsPerDraftBatch)
+      if (!this.disputeManager) this.disputeManager = await this.artifacts.require('DisputeManager').new(this.court.address, this.maxJurorsPerDraftBatch)
       if (!this.voting) this.voting = await this.artifacts.require('CRVoting').new(this.court.address)
       if (!this.treasury) this.treasury = await this.artifacts.require('CourtTreasury').new(this.court.address)
 
@@ -399,7 +399,7 @@ module.exports = (web3, artifacts) => {
       }
 
       const ids = Object.values(MODULE_IDS)
-      const implementations = [this.disputesManager, this.treasury, this.voting, this.jurorsRegistry, this.subscriptions].map(i => i.address)
+      const implementations = [this.disputeManager, this.treasury, this.voting, this.jurorsRegistry, this.subscriptions].map(i => i.address)
       await this.court.setModules(ids, implementations, { from: this.modulesGovernor })
 
       const zeroTermStartTime = this.firstTermStartTime.sub(this.termDuration)

@@ -1,14 +1,14 @@
 const { assertBn } = require('../helpers/asserts/assertBn')
 const { bn, bigExp } = require('../helpers/lib/numbers')
 const { assertRevert } = require('../helpers/asserts/assertThrow')
-const { DISPUTES_MANAGER_ERRORS } = require('../helpers/utils/errors')
-const { DISPUTES_MANAGER_EVENTS } = require('../helpers/utils/events')
+const { DISPUTE_MANAGER_ERRORS } = require('../helpers/utils/errors')
+const { DISPUTE_MANAGER_EVENTS } = require('../helpers/utils/events')
 const { assertAmountOfEvents, assertEvent } = require('../helpers/asserts/assertEvent')
 const { oppositeOutcome, outcomeFor, OUTCOMES } = require('../helpers/utils/crvoting')
 const { buildHelper, DEFAULTS, ROUND_STATES, DISPUTE_STATES } = require('../helpers/wrappers/court')(web3, artifacts)
 
-contract('DisputesManager', ([_, drafter, appealMaker, appealTaker, juror500, juror1000, juror1500, juror2000, juror2500, juror3000, juror3500, juror4000]) => {
-  let courtHelper, court, disputesManager
+contract('DisputeManager', ([_, drafter, appealMaker, appealTaker, juror500, juror1000, juror1500, juror2000, juror2500, juror3000, juror3500, juror4000]) => {
+  let courtHelper, court, disputeManager
 
   const jurors = [
     { address: juror3000, initialActiveBalance: bigExp(3000, 18) },
@@ -24,7 +24,7 @@ contract('DisputesManager', ([_, drafter, appealMaker, appealTaker, juror500, ju
   beforeEach('create court', async () => {
     courtHelper = buildHelper()
     court = await courtHelper.deploy()
-    disputesManager = courtHelper.disputesManager
+    disputeManager = courtHelper.disputeManager
   })
 
   describe('confirmAppeal', () => {
@@ -51,7 +51,7 @@ contract('DisputesManager', ([_, drafter, appealMaker, appealTaker, juror500, ju
 
         const itFailsToConfirmAppeal = (roundId, reason = 'CT_INVALID_ADJUDICATION_STATE') => {
           it('fails to confirm appeals', async () => {
-            await assertRevert(disputesManager.confirmAppeal(disputeId, roundId, OUTCOMES.REFUSED), reason)
+            await assertRevert(disputeManager.confirmAppeal(disputeId, roundId, OUTCOMES.REFUSED), reason)
           })
         }
 
@@ -128,12 +128,12 @@ contract('DisputesManager', ([_, drafter, appealMaker, appealTaker, juror500, ju
                   context('when the appeal taker has enough balance', () => {
                     beforeEach('mint fee tokens for appeal taker', async () => {
                       const { confirmAppealDeposit } = await courtHelper.getAppealFees(disputeId, roundId)
-                      await courtHelper.mintAndApproveFeeTokens(appealTaker, disputesManager.address, confirmAppealDeposit)
+                      await courtHelper.mintAndApproveFeeTokens(appealTaker, disputeManager.address, confirmAppealDeposit)
                     })
 
                     const itCreatesNewRoundSuccessfully = roundId => {
                       it('computes next round details successfully', async () => {
-                        const { nextRoundStartTerm, nextRoundJurorsNumber, newDisputeState, feeToken, totalFees, jurorFees, appealDeposit, confirmAppealDeposit } = await disputesManager.getNextRoundDetails(disputeId, roundId)
+                        const { nextRoundStartTerm, nextRoundJurorsNumber, newDisputeState, feeToken, totalFees, jurorFees, appealDeposit, confirmAppealDeposit } = await disputeManager.getNextRoundDetails(disputeId, roundId)
 
                         const expectedStartTerm = await courtHelper.getNextRoundStartTerm(disputeId, roundId)
                         assertBn(nextRoundStartTerm, expectedStartTerm, 'next round start term does not match')
@@ -178,13 +178,13 @@ contract('DisputesManager', ([_, drafter, appealMaker, appealTaker, juror500, ju
                       })
 
                       it('emits an event', async () => {
-                        const receipt = await disputesManager.confirmAppeal(disputeId, roundId, appealTakerRuling, { from: appealTaker })
+                        const receipt = await disputeManager.confirmAppeal(disputeId, roundId, appealTakerRuling, { from: appealTaker })
 
-                        assertAmountOfEvents(receipt, DISPUTES_MANAGER_EVENTS.RULING_APPEAL_CONFIRMED)
+                        assertAmountOfEvents(receipt, DISPUTE_MANAGER_EVENTS.RULING_APPEAL_CONFIRMED)
 
                         const nextRoundStartTerm = await courtHelper.getNextRoundStartTerm(disputeId, roundId)
                         const nextRoundJurorsNumber = await courtHelper.getNextRoundJurorsNumber(disputeId, roundId)
-                        assertEvent(receipt, DISPUTES_MANAGER_EVENTS.RULING_APPEAL_CONFIRMED, {
+                        assertEvent(receipt, DISPUTE_MANAGER_EVENTS.RULING_APPEAL_CONFIRMED, {
                           disputeId,
                           roundId: roundId + 1,
                           draftTermId: nextRoundStartTerm,
@@ -193,7 +193,7 @@ contract('DisputesManager', ([_, drafter, appealMaker, appealTaker, juror500, ju
                       })
 
                       it('confirms the given appealed round', async () => {
-                        await disputesManager.confirmAppeal(disputeId, roundId, appealTakerRuling, { from: appealTaker })
+                        await disputeManager.confirmAppeal(disputeId, roundId, appealTakerRuling, { from: appealTaker })
 
                         const { appealer, appealedRuling, taker, opposedRuling } = await courtHelper.getAppeal(disputeId, roundId)
                         assert.equal(appealer, appealMaker, 'appeal maker does not match')
@@ -203,7 +203,7 @@ contract('DisputesManager', ([_, drafter, appealMaker, appealTaker, juror500, ju
                       })
 
                       it('creates a new round for the given dispute', async () => {
-                        await disputesManager.confirmAppeal(disputeId, roundId, appealTakerRuling, { from: appealTaker })
+                        await disputeManager.confirmAppeal(disputeId, roundId, appealTakerRuling, { from: appealTaker })
 
                         const { draftTerm, delayedTerms, roundJurorsNumber, selectedJurors, settledPenalties, jurorFees, collectedTokens } = await courtHelper.getRound(disputeId, roundId + 1)
 
@@ -225,7 +225,7 @@ contract('DisputesManager', ([_, drafter, appealMaker, appealTaker, juror500, ju
                       it('does not modify the current round of the dispute', async () => {
                         const { draftTerm: previousDraftTerm, delayedTerms: previousDelayedTerms, roundJurorsNumber: previousJurorsNumber, jurorFees: previousJurorFees } = await courtHelper.getRound(disputeId, roundId)
 
-                        await disputesManager.confirmAppeal(disputeId, roundId, appealTakerRuling, { from: appealTaker })
+                        await disputeManager.confirmAppeal(disputeId, roundId, appealTakerRuling, { from: appealTaker })
 
                         const { draftTerm, delayedTerms, roundJurorsNumber, selectedJurors, jurorFees, settledPenalties, collectedTokens } = await courtHelper.getRound(disputeId, roundId)
                         assertBn(draftTerm, previousDraftTerm, 'current round draft term does not match')
@@ -238,7 +238,7 @@ contract('DisputesManager', ([_, drafter, appealMaker, appealTaker, juror500, ju
                       })
 
                       it('updates the dispute state', async () => {
-                        await disputesManager.confirmAppeal(disputeId, roundId, appealTakerRuling, { from: appealTaker })
+                        await disputeManager.confirmAppeal(disputeId, roundId, appealTakerRuling, { from: appealTaker })
 
                         const { possibleRulings, state, finalRuling } = await courtHelper.getDispute(disputeId)
 
@@ -249,9 +249,9 @@ contract('DisputesManager', ([_, drafter, appealMaker, appealTaker, juror500, ju
                       })
 
                       it('cannot be confirmed twice', async () => {
-                        await disputesManager.confirmAppeal(disputeId, roundId, appealTakerRuling, { from: appealTaker })
+                        await disputeManager.confirmAppeal(disputeId, roundId, appealTakerRuling, { from: appealTaker })
 
-                        await assertRevert(disputesManager.confirmAppeal(disputeId, roundId, appealTakerRuling, { from: appealTaker }), DISPUTES_MANAGER_ERRORS.INVALID_ADJUDICATION_STATE)
+                        await assertRevert(disputeManager.confirmAppeal(disputeId, roundId, appealTakerRuling, { from: appealTaker }), DISPUTE_MANAGER_ERRORS.INVALID_ADJUDICATION_STATE)
                       })
                     }
 
@@ -275,7 +275,7 @@ contract('DisputesManager', ([_, drafter, appealMaker, appealTaker, juror500, ju
 
                         // mint fee tokens for last appeal taker
                         const { confirmAppealDeposit } = await courtHelper.getAppealFees(disputeId, finalRoundId - 1)
-                        await courtHelper.mintAndApproveFeeTokens(appealTaker, disputesManager.address, confirmAppealDeposit)
+                        await courtHelper.mintAndApproveFeeTokens(appealTaker, disputeManager.address, confirmAppealDeposit)
                       })
 
                       itCreatesNewRoundSuccessfully(finalRoundId - 1)
@@ -284,7 +284,7 @@ contract('DisputesManager', ([_, drafter, appealMaker, appealTaker, juror500, ju
 
                   context('when the appeal taker does not have enough balance', () => {
                     it('reverts', async () => {
-                      await assertRevert(disputesManager.confirmAppeal(disputeId, roundId, appealTakerRuling, { from: appealTaker }), DISPUTES_MANAGER_ERRORS.DEPOSIT_FAILED)
+                      await assertRevert(disputeManager.confirmAppeal(disputeId, roundId, appealTakerRuling, { from: appealTaker }), DISPUTE_MANAGER_ERRORS.DEPOSIT_FAILED)
                     })
                   })
                 })
@@ -295,7 +295,7 @@ contract('DisputesManager', ([_, drafter, appealMaker, appealTaker, juror500, ju
                   })
 
                   it('reverts', async () => {
-                    await assertRevert(disputesManager.confirmAppeal(disputeId, roundId, appealMakerRuling, { from: appealTaker }), DISPUTES_MANAGER_ERRORS.INVALID_APPEAL_RULING)
+                    await assertRevert(disputeManager.confirmAppeal(disputeId, roundId, appealMakerRuling, { from: appealTaker }), DISPUTE_MANAGER_ERRORS.INVALID_APPEAL_RULING)
                   })
                 })
               })
@@ -304,7 +304,7 @@ contract('DisputesManager', ([_, drafter, appealMaker, appealTaker, juror500, ju
                 const invalidRuling = 10
 
                 it('reverts', async () => {
-                  await assertRevert(disputesManager.confirmAppeal(disputeId, roundId, invalidRuling, { from: appealTaker }), DISPUTES_MANAGER_ERRORS.INVALID_APPEAL_RULING)
+                  await assertRevert(disputeManager.confirmAppeal(disputeId, roundId, invalidRuling, { from: appealTaker }), DISPUTE_MANAGER_ERRORS.INVALID_APPEAL_RULING)
                 })
               })
             })
@@ -369,7 +369,7 @@ contract('DisputesManager', ([_, drafter, appealMaker, appealTaker, juror500, ju
 
           const itCannotComputeNextRoundDetails = () => {
             it('cannot compute next round details', async () => {
-              await assertRevert(disputesManager.getNextRoundDetails(disputeId, roundId), DISPUTES_MANAGER_ERRORS.ROUND_IS_FINAL)
+              await assertRevert(disputeManager.getNextRoundDetails(disputeId, roundId), DISPUTE_MANAGER_ERRORS.ROUND_IS_FINAL)
             })
           }
 
@@ -430,14 +430,14 @@ contract('DisputesManager', ([_, drafter, appealMaker, appealTaker, juror500, ju
         const roundId = 5
 
         it('reverts', async () => {
-          await assertRevert(disputesManager.confirmAppeal(disputeId, roundId, OUTCOMES.LOW), DISPUTES_MANAGER_ERRORS.ROUND_DOES_NOT_EXIST)
+          await assertRevert(disputeManager.confirmAppeal(disputeId, roundId, OUTCOMES.LOW), DISPUTE_MANAGER_ERRORS.ROUND_DOES_NOT_EXIST)
         })
       })
     })
 
     context('when the given dispute does not exist', () => {
       it('reverts', async () => {
-        await assertRevert(disputesManager.confirmAppeal(0, 0, OUTCOMES.LOW), DISPUTES_MANAGER_ERRORS.DISPUTE_DOES_NOT_EXIST)
+        await assertRevert(disputeManager.confirmAppeal(0, 0, OUTCOMES.LOW), DISPUTE_MANAGER_ERRORS.DISPUTE_DOES_NOT_EXIST)
       })
     })
   })

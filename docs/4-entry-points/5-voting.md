@@ -16,10 +16,10 @@ In particular, the first version of the Court protocol uses a commit-reveal mech
 
 ### 4.5.2. Create
 
-- **Actor:** `DisputesManager` module
+- **Actor:** `DisputeManager` module
 - **Inputs:**
     - **Vote ID:** Vote identification number 
-- **Authentication:** Only `DisputesManager` module
+- **Authentication:** Only `DisputeManager` module
 - **Pre-flight checks:**
     - Ensure there is no other existing vote for the given vote ID
 - **State transitions:**

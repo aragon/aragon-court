@@ -4,7 +4,7 @@ import "../../court/controller/Controlled.sol";
 import "../../court/controller/Controller.sol";
 
 
-contract DisputesManagerMockForRegistry is Controlled {
+contract DisputeManagerMockForRegistry is Controlled {
     event Slashed(uint256 collected);
     event Collected(bool collected);
     event Drafted(address[] addresses, uint256 length);

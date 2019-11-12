@@ -8,10 +8,10 @@ const { SALT, OUTCOMES, encryptVote } = require('../helpers/utils/crvoting')
 const { assertEvent, assertAmountOfEvents } = require('../helpers/asserts/assertEvent')
 
 const CRVoting = artifacts.require('CRVoting')
-const Court = artifacts.require('DisputesManagerMockForVoting')
+const Court = artifacts.require('DisputeManagerMockForVoting')
 
 contract('CRVoting leak', ([_, voter, someone]) => {
-  let controller, voting, disputesManager
+  let controller, voting, disputeManager
 
   const POSSIBLE_OUTCOMES = 2
 
@@ -21,8 +21,8 @@ contract('CRVoting leak', ([_, voter, someone]) => {
     voting = await CRVoting.new(controller.address)
     await controller.setVoting(voting.address)
 
-    disputesManager = await Court.new(controller.address)
-    await controller.setDisputesManager(disputesManager.address)
+    disputeManager = await Court.new(controller.address)
+    await controller.setDisputeManager(disputeManager.address)
   })
 
   describe('leak', () => {
@@ -30,7 +30,7 @@ contract('CRVoting leak', ([_, voter, someone]) => {
       const voteId = 0
 
       beforeEach('create voting', async () => {
-        await disputesManager.create(voteId, POSSIBLE_OUTCOMES)
+        await disputeManager.create(voteId, POSSIBLE_OUTCOMES)
       })
 
       context('when the given voter has not voted before', () => {
@@ -44,7 +44,7 @@ contract('CRVoting leak', ([_, voter, someone]) => {
           const commitment = encryptVote(committedOutcome)
 
           beforeEach('commit a vote', async () => {
-            await disputesManager.mockVoterWeight(voter, 10)
+            await disputeManager.mockVoterWeight(voter, 10)
             await voting.commit(voteId, commitment, { from: voter })
           })
 
@@ -53,7 +53,7 @@ contract('CRVoting leak', ([_, voter, someone]) => {
               const weight = 10
 
               beforeEach('mock voter weight', async () => {
-                await disputesManager.mockVoterWeight(voter, weight)
+                await disputeManager.mockVoterWeight(voter, weight)
               })
 
               context('when the given outcome matches the one committed by the voter', () => {
@@ -139,7 +139,7 @@ contract('CRVoting leak', ([_, voter, someone]) => {
 
           context('when the owner reverts when checking the weight of the voter', () => {
             beforeEach('mock the owner to revert', async () => {
-              await disputesManager.mockChecksFailing(true)
+              await disputeManager.mockChecksFailing(true)
             })
 
             it('reverts', async () => {

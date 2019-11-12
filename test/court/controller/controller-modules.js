@@ -253,7 +253,7 @@ contract('Controller', ([_, fundsGovernor, configGovernor, modulesGovernor, some
 
         context('when the given id is one of the known IDs', () => {
           const modules = [
-            { name: 'DISPUTES_MANAGER', getter: 'getDisputesManager' },
+            { name: 'DISPUTE_MANAGER', getter: 'getDisputeManager' },
             { name: 'VOTING', getter: 'getVoting' },
             { name: 'TREASURY', getter: 'getTreasury' },
             { name: 'JURORS_REGISTRY', getter: 'getJurorsRegistry' },

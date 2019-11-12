@@ -1,6 +1,6 @@
-## 4.3. Disputes Manager
+## 4.3. Dispute Manager
 
-The `DisputesManager` module is in charge of handling all the disputes-related behavior. This is where disputes are created and appealed. 
+The `DisputeManager` module is in charge of handling all the disputes-related behavior. This is where disputes are created and appealed. 
 It is also in charge of computing the final ruling for each dispute, and to settle the rewards and penalties of all the parties involved in the dispute.
 
 ### 4.3.1. Constructor
@@ -60,14 +60,14 @@ It is also in charge of computing the final ruling for each dispute, and to sett
     - **Dispute ID:** dispute identification number
     - **Round ID:** adjudication round identification number
     - **Ruling:** Ruling number proposed by the appealer
-- **Authentication:** Open. Implicitly, only accounts that have open an ERC20 allowance with an amount of at least the required appeal collateral to the `DisputesManager` module can call this function
+- **Authentication:** Open. Implicitly, only accounts that have open an ERC20 allowance with an amount of at least the required appeal collateral to the `DisputeManager` module can call this function
 - **Pre-flight checks:**
     - Ensure that the Court term is up-to-date. Otherwise, perform a heartbeat before continuing the execution.
     - Ensure a dispute object with that ID exists
     - Ensure an adjudication round object with that ID exists for the given dispute
     - Ensure that the adjudication round can be appealed
     - Ensure that the given ruling is different from the one already decided by the drafted jurors
-    - Ensure that the given ruling is either refused or one of the possible rulings supported by the `DisputesManager` module
+    - Ensure that the given ruling is either refused or one of the possible rulings supported by the `DisputeManager` module
 - **State transitions:**
     - Update current Court term if needed
     - Create a new appeal object tracking the address and proposed ruling of the appealer
@@ -80,14 +80,14 @@ It is also in charge of computing the final ruling for each dispute, and to sett
     - **Dispute ID:** dispute identification number
     - **Round ID:** adjudication round identification number
     - **Ruling:** Ruling number proposed by the entity confirming the appeal
-- **Authentication:** Open. Implicitly, only accounts that have open an ERC20 allowance with an amount of at least the required appeal confirmation collateral to the `DisputesManager` module can call this function
+- **Authentication:** Open. Implicitly, only accounts that have open an ERC20 allowance with an amount of at least the required appeal confirmation collateral to the `DisputeManager` module can call this function
 - **Pre-flight checks:**
     - Ensure that the Court term is up-to-date. Otherwise, perform a heartbeat before continuing the execution.
     - Ensure a dispute object with that ID exists
     - Ensure an adjudication round object with that ID exists for the given dispute
     - Ensure that the adjudication round was appeal and can still be confirmed
     - Ensure that the given ruling is different from the one proposed by the appealer
-    - Ensure that the given ruling is either refused or one of the possible rulings supported by the `DisputesManager` module
+    - Ensure that the given ruling is either refused or one of the possible rulings supported by the `DisputeManager` module
 - **State transitions:**
     - Update current Court term if needed
     - Create a new adjudication round object and set the draft term right after the end of the final adjudication phase of the current dispute round
@@ -235,10 +235,10 @@ It is also in charge of computing the final ruling for each dispute, and to sett
 
 - **Actor:** External entity in charge of maintaining the Court protocol
 - **Inputs:**
-    - **Token:** Address of the ERC20-compatible token to be recovered from the `DisputesManager` module
-    - **Recipient:** Address that will receive the funds of the `DisputesManager` module
+    - **Token:** Address of the ERC20-compatible token to be recovered from the `DisputeManager` module
+    - **Recipient:** Address that will receive the funds of the `DisputeManager` module
 - **Authentication:** Only funds governor
 - **Pre-flight checks:**
-    - Ensure that the balance of the `DisputesManager` module is greater than zero
+    - Ensure that the balance of the `DisputeManager` module is greater than zero
 - **State transitions:**
-    - Transfer the whole balance of the `DisputesManager` module to the recipient address, revert if the ERC20-transfer wasn't successful
+    - Transfer the whole balance of the `DisputeManager` module to the recipient address, revert if the ERC20-transfer wasn't successful

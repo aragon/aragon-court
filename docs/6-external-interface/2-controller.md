@@ -214,12 +214,12 @@ The following functions are state getters provided by the `Controller`:
 - **Outputs:**
     - **Module address:** Address of the module queried
 
-#### 6.2.2.19. Disputes Manager
+#### 6.2.2.19. Dispute Manager
 
 - **Inputs:** None 
 - **Pre-flight checks:** None
 - **Outputs:**
-    - **Court address:** Address of the `DisputesManager` module set
+    - **Court address:** Address of the `DisputeManager` module set
 
 #### 6.2.2.20. Jurors registry
 

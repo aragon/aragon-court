@@ -33,14 +33,14 @@ contract CourtMock is Court, TimeHelpersMock {
         public
     {}
 
-    function setDisputesManager(address _addr) external {
-        _setModule(DISPUTES_MANAGER, _addr);
+    function setDisputeManager(address _addr) external {
+        _setModule(DISPUTE_MANAGER, _addr);
     }
 
-    function setDisputesManagerMock(address _addr) external {
-        // This function allows setting any address as the DisputesManager module
-        modules[DISPUTES_MANAGER] = _addr;
-        emit ModuleSet(DISPUTES_MANAGER, _addr);
+    function setDisputeManagerMock(address _addr) external {
+        // This function allows setting any address as the DisputeManager module
+        modules[DISPUTE_MANAGER] = _addr;
+        emit ModuleSet(DISPUTE_MANAGER, _addr);
     }
 
     function setTreasury(address _addr) external {

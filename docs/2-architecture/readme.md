@@ -10,7 +10,7 @@ The `Controller` has four main responsibilities:
 - Court terms management
 - Court config management
 
-The Court protocol relies on five main modules: `DisputesManager`, `Voting`, `JurorsRegistry`, `Treasury`, and `Subscriptions`.
+The Court protocol relies on five main modules: `DisputeManager`, `Voting`, `JurorsRegistry`, `Treasury`, and `Subscriptions`.
 Each of these modules are only referenced by the `Controller`, centralizing them allows us to be able to plug or unplug modules easily.
 
 The Court terms management and reference is held in `Clock`, almost every functionality of the protocol needs to ensure the current Court term is up-to-date.

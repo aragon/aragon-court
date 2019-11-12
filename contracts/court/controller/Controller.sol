@@ -15,8 +15,8 @@ contract Controller is IsContract, CourtClock, CourtConfig {
 
     address private constant ZERO_ADDRESS = address(0);
 
-    // DisputesManager module ID - keccak256(abi.encodePacked("DISPUTES_MANAGER"))
-    bytes32 internal constant DISPUTES_MANAGER = 0x4f75facde613f96ba2104b7dd53dd8bb3ab08c2447eb15d3e3bd07f4829b68ea;
+    // DisputeManager module ID - keccak256(abi.encodePacked("DISPUTE_MANAGER"))
+    bytes32 internal constant DISPUTE_MANAGER = 0x14a6c70f0f6d449c014c7bbc9e68e31e79e8474fb03b7194df83109a2d888ae6;
 
     // Treasury module ID - keccak256(abi.encodePacked("TREASURY"))
     bytes32 internal constant TREASURY = 0x06aa03964db1f7257357ef09714a5f0ca3633723df419e97015e0c7a3e83edb7;
@@ -369,11 +369,11 @@ contract Controller is IsContract, CourtClock, CourtConfig {
     }
 
     /**
-    * @dev Tell the address of the DisputesManager module
-    * @return Address of the DisputesManager module
+    * @dev Tell the address of the DisputeManager module
+    * @return Address of the DisputeManager module
     */
-    function getDisputesManager() external view returns (address) {
-        return _getDisputesManager();
+    function getDisputeManager() external view returns (address) {
+        return _getDisputeManager();
     }
 
     /**
@@ -455,11 +455,11 @@ contract Controller is IsContract, CourtClock, CourtConfig {
     }
 
     /**
-    * @dev Internal function to tell the address of the DisputesManager module
-    * @return Address of the DisputesManager module
+    * @dev Internal function to tell the address of the DisputeManager module
+    * @return Address of the DisputeManager module
     */
-    function _getDisputesManager() internal view returns (address) {
-        return _getModule(DISPUTES_MANAGER);
+    function _getDisputeManager() internal view returns (address) {
+        return _getModule(DISPUTE_MANAGER);
     }
 
     /**

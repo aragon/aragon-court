@@ -8,7 +8,7 @@ import "../config/ConfigConsumer.sol";
 import "../../voting/ICRVoting.sol";
 import "../../treasury/ITreasury.sol";
 import "../../registry/IJurorsRegistry.sol";
-import "../../disputes/IDisputesManager.sol";
+import "../../disputes/IDisputeManager.sol";
 import "../../subscriptions/ISubscriptions.sol";
 
 
@@ -38,10 +38,10 @@ contract Controlled is IsContract, ConfigConsumer {
     }
 
     /**
-    * @dev Ensure the msg.sender is the DisputesManager module
+    * @dev Ensure the msg.sender is the DisputeManager module
     */
-    modifier onlyDisputesManager() {
-        require(msg.sender == address(_disputesManager()), ERROR_SENDER_NOT_DISPUTES_MODULE);
+    modifier onlyDisputeManager() {
+        require(msg.sender == address(_disputeManager()), ERROR_SENDER_NOT_DISPUTES_MODULE);
         _;
     }
 
@@ -95,11 +95,11 @@ contract Controlled is IsContract, ConfigConsumer {
     }
 
     /**
-    * @dev Internal function to fetch the address of the DisputesManager module from the controller
-    * @return Address of the DisputesManager module
+    * @dev Internal function to fetch the address of the DisputeManager module from the controller
+    * @return Address of the DisputeManager module
     */
-    function _disputesManager() internal view returns (IDisputesManager) {
-        return IDisputesManager(controller.getDisputesManager());
+    function _disputeManager() internal view returns (IDisputeManager) {
+        return IDisputeManager(controller.getDisputeManager());
     }
 
     /**
@@ -123,7 +123,7 @@ contract Controlled is IsContract, ConfigConsumer {
     * @return Address of the Voting module owner
     */
     function _votingOwner() internal view returns (ICRVotingOwner) {
-        return ICRVotingOwner(address(_disputesManager()));
+        return ICRVotingOwner(address(_disputeManager()));
     }
 
     /**

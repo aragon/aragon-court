@@ -16,7 +16,6 @@ To read more information about its responsibilities and structure, go to [sectio
     - **Settings:** Object containing
         - **Fee token:** Address of the token contract that is used to pay for the fees
         - **Juror fee:** Amount of fee tokens paid per drafted juror per dispute
-        - **Heartbeat fee:** Amount of fee tokens per dispute to cover terms update costs
         - **Draft fee:**  Amount of fee tokens per juror to cover the drafting costs
         - **Settle fee:** Amount of fee tokens per juror to cover round settlement costs
         - **Commit terms:** Duration of the commit phase in Court terms
@@ -61,7 +60,6 @@ To read more information about its responsibilities and structure, go to [sectio
     - **Settings:** Object containing
         - **Fee token:** Address of the token contract that is used to pay for the fees
         - **Juror fee:** Amount of fee tokens paid per drafted juror per dispute
-        - **Heartbeat fee:** Amount of fee tokens per dispute to cover terms update costs
         - **Draft fee:**  Amount of fee tokens per juror to cover the drafting costs
         - **Settle fee:** Amount of fee tokens per juror to cover round settlement costs
         - **Commit terms:** Duration of the commit phase in Court terms

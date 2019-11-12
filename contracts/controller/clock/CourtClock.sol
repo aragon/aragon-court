@@ -228,10 +228,13 @@ contract CourtClock is IClock, TimeHelpers {
     */
     function _delayStartTime(uint64 _newFirstTermStartTime) internal {
         Term storage term = terms[0];
+
+        // No need for SafeMath: term duration is capped at `MAX_TERM_DURATION`, first term start time by `MAX_FIRST_TERM_DELAY_PERIOD`
         uint64 currentFirstTermStartTime = term.startTime + termDuration;
         require(_currentTermId() == 0, ERROR_CANNOT_DELAY_STARTED_COURT);
         require(_newFirstTermStartTime > currentFirstTermStartTime, ERROR_CANNOT_DELAY_PAST_START_TIME);
 
+        // No need for SafeMath: we already checked above that `_newFirstTermStartTime` > `currentFirstTermStartTime` >= `termDuration`
         term.startTime = _newFirstTermStartTime - termDuration;
         emit StartTimeDelayed(currentFirstTermStartTime, _newFirstTermStartTime);
     }

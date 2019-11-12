@@ -5,7 +5,7 @@ import "../lib/os/ERC20.sol";
 import "./IArbitrable.sol";
 
 
-interface IDisputeResolutionOracle {
+interface IArbitrator {
     /**
     * @dev Create a dispute over the Arbitrable sender with a number of possible rulings
     * @param _possibleRulings Number of possible rulings allowed for the dispute

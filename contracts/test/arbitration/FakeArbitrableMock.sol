@@ -4,7 +4,7 @@ import "./ArbitrableMock.sol";
 
 
 contract FakeArbitrableMock is ArbitrableMock {
-    constructor (IDisputeResolutionOracle _court) ArbitrableMock(_court) public {}
+    constructor (IArbitrator _court) ArbitrableMock(_court) public {}
 
     function supportsInterface(bytes4 /* _interfaceId */) external pure returns (bool) {
         return false;

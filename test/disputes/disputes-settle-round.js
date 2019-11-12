@@ -95,7 +95,7 @@ contract('DisputeManager', ([_, drafter, appealMaker, appealTaker, juror500, jur
 
               const logs = decodeEventsOfType(receipt, Arbitrable.abi, ARBITRABLE_EVENTS.RULED)
               assertAmountOfEvents({ logs }, ARBITRABLE_EVENTS.RULED)
-              assertEvent({ logs }, ARBITRABLE_EVENTS.RULED, { oracle: court.address, disputeId, ruling: expectedFinalRuling })
+              assertEvent({ logs }, ARBITRABLE_EVENTS.RULED, { arbitrator: court.address, disputeId, ruling: expectedFinalRuling })
             })
           })
         }

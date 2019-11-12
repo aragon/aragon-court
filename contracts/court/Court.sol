@@ -5,13 +5,13 @@ import "../lib/os/Uint256Helpers.sol";
 import "./clock/CourtClock.sol";
 import "./config/CourtConfig.sol";
 import "./controller/Controller.sol";
+import "../arbitration/IArbitrator.sol";
 import "../arbitration/IArbitrable.sol";
 import "../disputes/IDisputeManager.sol";
 import "../subscriptions/ISubscriptions.sol";
-import "../arbitration/IDisputeResolutionOracle.sol";
 
 
-contract Court is Controller, IDisputeResolutionOracle {
+contract Court is Controller, IArbitrator {
     using Uint256Helpers for uint256;
 
     string private constant ERROR_SENDER_NOT_ARBITRABLE = "CT_SENDER_NOT_ARBITRABLE";

@@ -1,6 +1,5 @@
 pragma solidity ^0.5.8;
 
-// Inspired by: Kleros.sol https://github.com/kleros/kleros @ 7281e69
 import "../lib/os/ERC20.sol";
 import "../lib/os/SafeERC20.sol";
 import "../lib/os/SafeMath.sol";

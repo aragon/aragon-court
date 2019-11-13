@@ -280,7 +280,7 @@ contract('Court', ([_, sender, drafter, appealMaker, appealTaker, juror500, juro
           assertBn(neededTransitions, 1, 'needed transitions does not match')
         })
 
-        itCostsAtMost('executeRuling', 126e3, () => controller.executeRuling(disputeId))
+        itCostsAtMost('executeRuling', 127e3, () => controller.executeRuling(disputeId))
       })
     })
 

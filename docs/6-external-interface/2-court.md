@@ -19,7 +19,7 @@ The following events are emitted by the `Court`:
 - **Name:** `DisputeStateChanged`
 - **Args:**
     - **Dispute ID:** Identification number of the dispute that has changed 
-    - **State:** New dispute state: pre-draft, adjudicating, or executed 
+    - **State:** New dispute state: pre-draft, adjudicating, or ruled 
 
 #### 6.2.1.3. Ruling appealed
 
@@ -38,11 +38,11 @@ The following events are emitted by the `Court`:
     - **Draft term ID:** Identification number of the term when the next round will be able to be drafted
     - **Jurors number:** Next round jurors number
     
-#### 6.2.1.5. Ruling executed
+#### 6.2.1.5. Ruling computed
 
-- **Name:** `RulingExecuted`
+- **Name:** `RulingComputed`
 - **Args:**
-    - **Dispute ID:** Identification number of the dispute being executed
+    - **Dispute ID:** Identification number of the dispute being ruled
     - **Ruling:** Final ruling decided for the dispute
 
 #### 6.2.1.6. Penalties settled
@@ -96,7 +96,7 @@ The following functions are state getters provided by the `Court`:
 - **Outputs:**
     - **Subject:** Arbitrable subject being disputed
     - **Possible rulings:** Number of possible rulings allowed for the drafted jurors to vote on the dispute
-    - **State:** Current state of the dispute being queried: pre-draft, adjudicating, or executed
+    - **State:** Current state of the dispute being queried: pre-draft, adjudicating, or ruled
     - **Final ruling:** The winning ruling in case the dispute is finished
     - **Last round ID:** Identification number of the last round created for the dispute
 
@@ -113,7 +113,6 @@ The following functions are state getters provided by the `Court`:
     - **Delayed terms:** Number of terms the given round was delayed based on its requested draft term id
     - **Jurors number:** Number of jurors requested for the round
     - **Selected jurors:** Number of jurors already selected for the requested round
-    - **Triggered by:** Address that triggered the requested round
     - **Settled penalties:** Whether or not penalties have been settled for the requested round
     - **Collected tokens:** Amount of juror tokens that were collected from slashed jurors for the requested round
     - **Coherent jurors:** Number of jurors that voted in favor of the final ruling in the requested round

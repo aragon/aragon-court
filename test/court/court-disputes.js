@@ -31,8 +31,8 @@ contract('Court', () => {
   })
 
   beforeEach('mock arbitrable instance', async () => {
-    arbitrable = await Arbitrable.new(court.address)
-    await courtHelper.subscriptions.setUpToDate(true)
+    arbitrable = await Arbitrable.new(courtHelper.controller.address)
+    await courtHelper.subscriptions.mockUpToDate(true)
     const { disputeFees } = await courtHelper.getDisputeFees()
     await courtHelper.mintFeeTokens(arbitrable.address, disputeFees)
   })
@@ -72,14 +72,13 @@ contract('Court', () => {
                 await courtHelper.setTerm(draftTermId - 1)
                 await arbitrable.createDispute(possibleRulings, metadata)
 
-                const { draftTerm, delayedTerms, roundJurorsNumber, selectedJurors, jurorFees, triggeredBy, settledPenalties, collectedTokens } = await courtHelper.getRound(0, 0)
+                const { draftTerm, delayedTerms, roundJurorsNumber, selectedJurors, jurorFees, settledPenalties, collectedTokens } = await courtHelper.getRound(0, 0)
 
                 assertBn(draftTerm, draftTermId, 'round draft term does not match')
                 assertBn(delayedTerms, 0, 'round delay term does not match')
                 assertBn(roundJurorsNumber, firstRoundJurorsNumber, 'round jurors number does not match')
                 assertBn(selectedJurors, 0, 'round selected jurors number does not match')
                 assertBn(jurorFees, courtHelper.jurorFee.mul(bn(firstRoundJurorsNumber)), 'round juror fees do not match')
-                assert.equal(triggeredBy, arbitrable.address, 'round trigger does not match')
                 assert.equal(settledPenalties, false, 'round penalties should not be settled')
                 assertBn(collectedTokens, 0, 'round collected tokens should be zero')
               })
@@ -166,7 +165,7 @@ contract('Court', () => {
 
       context('when the sender is outdated with the subscriptions', () => {
         beforeEach('expire subscriptions', async () => {
-          await courtHelper.subscriptions.setUpToDate(false)
+          await courtHelper.subscriptions.mockUpToDate(false)
         })
 
         it('reverts', async () => {
@@ -179,7 +178,7 @@ contract('Court', () => {
       let fakeArbitrable
 
       beforeEach('mock non arbitrable', async () => {
-        fakeArbitrable = await FakeArbitrable.new(court.address)
+        fakeArbitrable = await FakeArbitrable.new(courtHelper.controller.address)
       })
 
       it('reverts', async () => {
@@ -231,14 +230,13 @@ contract('Court', () => {
 
       context('when the given round is valid', async () => {
         it('returns the requested round', async () => {
-          const { draftTerm, delayedTerms, roundJurorsNumber, selectedJurors, jurorFees, triggeredBy, settledPenalties, collectedTokens } = await courtHelper.getRound(0, 0)
+          const { draftTerm, delayedTerms, roundJurorsNumber, selectedJurors, jurorFees, settledPenalties, collectedTokens } = await courtHelper.getRound(0, 0)
 
           assertBn(draftTerm, draftTermId, 'round draft term does not match')
           assertBn(delayedTerms, 0, 'round delay term does not match')
           assertBn(roundJurorsNumber, firstRoundJurorsNumber, 'round jurors number does not match')
           assertBn(selectedJurors, 0, 'round selected jurors number does not match')
           assertBn(jurorFees, courtHelper.jurorFee.mul(bn(firstRoundJurorsNumber)), 'round juror fees do not match')
-          assert.equal(triggeredBy, arbitrable.address, 'round trigger does not match')
           assert.equal(settledPenalties, false, 'round penalties should not be settled')
           assertBn(collectedTokens, 0, 'round collected tokens should be zero')
         })

@@ -20,6 +20,8 @@ contract('CourtSubscriptions', ([_, governor, payer, subscriber, anotherSubscrib
   const GOVERNOR_SHARE_PCT = bn(100)        // 100‱ = 1%
   const LATE_PAYMENT_PENALTY_PCT = bn(1000) // 1000‱ = 10%
 
+  const penaltyFees = (n, pct) => n.mul(pct.add(PCT_BASE)).div(PCT_BASE)
+
   beforeEach('create base contracts', async () => {
     controller = await buildHelper().deploy({ configGovernor: governor })
     feeToken = await ERC20.new('Subscriptions Fee Token', 'SFT', 18)
@@ -54,7 +56,7 @@ contract('CourtSubscriptions', ([_, governor, payer, subscriber, anotherSubscrib
 
           const itHandleSubscriptionsSuccessfully = (expectedMovedPeriods, expectedRegularPeriods, expectedDelayedPeriods) => {
             const expectedRegularFees = FEE_AMOUNT.mul(bn(expectedRegularPeriods))
-            const expectedDelayedFees = FEE_AMOUNT.mul(bn(expectedDelayedPeriods)).mul(LATE_PAYMENT_PENALTY_PCT.add(PCT_BASE)).div(PCT_BASE)
+            const expectedDelayedFees = penaltyFees(FEE_AMOUNT.mul(bn(expectedDelayedPeriods)), LATE_PAYMENT_PENALTY_PCT)
             const expectedTotalPaidFees = expectedRegularFees.add(expectedDelayedFees)
             const expectedGovernorFees = GOVERNOR_SHARE_PCT.mul(expectedTotalPaidFees).div(PCT_BASE)
 
@@ -81,6 +83,16 @@ contract('CourtSubscriptions', ([_, governor, payer, subscriber, anotherSubscrib
               await subscriptions.payFees(subscriber, periods, { from })
 
               assert.equal(await subscriptions.isUpToDate(subscriber), periods > previousDelayedPeriods, 'subscriber up-to-date does not match')
+            })
+
+            it('updates the number of owed periods correctly', async () => {
+              const { amountToPay: previousAmountToPay } = await subscriptions.getOwedFeesDetails(subscriber)
+
+              await subscriptions.payFees(subscriber, periods, { from })
+
+              const { amountToPay: currentAmountToPay } = await subscriptions.getOwedFeesDetails(subscriber)
+              const expectedCurrentAmountToPay = expectedTotalPaidFees.gt(previousAmountToPay) ? 0 : previousAmountToPay.sub(expectedTotalPaidFees)
+              assertBn(currentAmountToPay, expectedCurrentAmountToPay, 'amount to pay does not match')
             })
 
             it('pays the requested periods subscriptions', async () => {
@@ -118,6 +130,13 @@ contract('CourtSubscriptions', ([_, governor, payer, subscriber, anotherSubscrib
             const expectedMovedPeriods = periods - 1
             const expectedRegularPeriods = periods
             const expectedDelayedPeriods = 0
+
+            it('owes the current period', async () => {
+              const { amountToPay, newLastPeriodId } = await subscriptions.getOwedFeesDetails(subscriber)
+
+              assertBn(newLastPeriodId, 0, 'last period does not match')
+              assertBn(amountToPay, FEE_AMOUNT, 'amount to pay does not match')
+            })
 
             context('when the number of pre-payment periods is not reached', () => {
               beforeEach('set number of pre-payment periods', async () => {
@@ -163,6 +182,13 @@ contract('CourtSubscriptions', ([_, governor, payer, subscriber, anotherSubscrib
                   await subscriptions.payFees(subscriber, prePaidPeriods, { from })
                 })
 
+                it('does not owe periods', async () => {
+                  const { amountToPay, newLastPeriodId } = await subscriptions.getOwedFeesDetails(subscriber)
+
+                  assertBn(newLastPeriodId, prePaidPeriods, 'last period does not match')
+                  assertBn(amountToPay, 0, 'amount to pay does not match')
+                })
+
                 context('when the number of pre-payment periods is not reached', () => {
                   beforeEach('set number of pre-payment periods', async () => {
                     await subscriptions.setPrePaymentPeriods(periods + previousPaidPeriods + 1, { from: governor })
@@ -195,6 +221,13 @@ contract('CourtSubscriptions', ([_, governor, payer, subscriber, anotherSubscrib
                 const expectedMovedPeriods = periods
                 const expectedRegularPeriods = periods
                 const expectedDelayedPeriods = 0
+
+                it('does not owe periods', async () => {
+                  const { amountToPay, newLastPeriodId } = await subscriptions.getOwedFeesDetails(subscriber)
+
+                  assertBn(newLastPeriodId, 0, 'last period does not match')
+                  assertBn(amountToPay, 0, 'amount to pay does not match')
+                })
 
                 context('when the number of pre-payment periods is not reached', () => {
                   beforeEach('set number of pre-payment periods', async () => {
@@ -235,6 +268,15 @@ contract('CourtSubscriptions', ([_, governor, payer, subscriber, anotherSubscrib
                     await controller.mockIncreaseTerms(PERIOD_DURATION * overduePeriods)
                   })
 
+                  it('ows some periods', async () => {
+                    const { amountToPay, newLastPeriodId } = await subscriptions.getOwedFeesDetails(subscriber)
+
+                    assertBn(newLastPeriodId, overduePeriods, 'last period does not match')
+
+                    const expectedAmountToPay = penaltyFees(FEE_AMOUNT.mul(bn(11)), LATE_PAYMENT_PENALTY_PCT).add(FEE_AMOUNT)
+                    assertBn(amountToPay, expectedAmountToPay, 'amount to pay does not match')
+                  })
+
                   itHandleSubscriptionsSuccessfully(expectedMovedPeriods, expectedRegularPeriods, expectedDelayedPeriods)
                 })
 
@@ -249,6 +291,15 @@ contract('CourtSubscriptions', ([_, governor, payer, subscriber, anotherSubscrib
                     await controller.mockIncreaseTerms(PERIOD_DURATION * overduePeriods)
                   })
 
+                  it('ows some periods', async () => {
+                    const { amountToPay, newLastPeriodId } = await subscriptions.getOwedFeesDetails(subscriber)
+
+                    assertBn(newLastPeriodId, overduePeriods, 'last period does not match')
+
+                    const expectedAmountToPay = penaltyFees(FEE_AMOUNT.mul(bn(9)), LATE_PAYMENT_PENALTY_PCT).add(FEE_AMOUNT)
+                    assertBn(amountToPay, expectedAmountToPay, 'amount to pay does not match')
+                  })
+
                   itHandleSubscriptionsSuccessfully(expectedMovedPeriods, expectedRegularPeriods, expectedDelayedPeriods)
                 })
 
@@ -261,6 +312,15 @@ contract('CourtSubscriptions', ([_, governor, payer, subscriber, anotherSubscrib
 
                   beforeEach('advance periods', async () => {
                     await controller.mockIncreaseTerms(PERIOD_DURATION * overduePeriods)
+                  })
+
+                  it('ows some periods', async () => {
+                    const { amountToPay, newLastPeriodId } = await subscriptions.getOwedFeesDetails(subscriber)
+
+                    assertBn(newLastPeriodId, overduePeriods, 'last period does not match')
+
+                    const expectedAmountToPay = penaltyFees(FEE_AMOUNT.mul(bn(7)), LATE_PAYMENT_PENALTY_PCT).add(FEE_AMOUNT)
+                    assertBn(amountToPay, expectedAmountToPay, 'amount to pay does not match')
                   })
 
                   context('when the number of pre-payment periods is not reached', () => {

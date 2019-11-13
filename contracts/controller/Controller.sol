@@ -5,9 +5,10 @@ import "../lib/os/IsContract.sol";
 
 import "./clock/CourtClock.sol";
 import "./config/CourtConfig.sol";
+import "./oracle/DisputeResolutionOracle.sol";
 
 
-contract Controller is IsContract, CourtClock, CourtConfig {
+contract Controller is IsContract, CourtClock, CourtConfig, DisputeResolutionOracle {
     string private constant ERROR_SENDER_NOT_GOVERNOR = "CTR_SENDER_NOT_GOVERNOR";
     string private constant ERROR_SENDER_NOT_COURT_MODULE = "CTR_SENDER_NOT_COURT_MODULE";
     string private constant ERROR_INVALID_GOVERNOR_ADDRESS = "CTR_INVALID_GOVERNOR_ADDRESS";
@@ -373,7 +374,7 @@ contract Controller is IsContract, CourtClock, CourtConfig {
     * @return Address of the Court module
     */
     function getCourt() external view returns (address) {
-        return _getModule(COURT);
+        return _getCourt();
     }
 
     /**
@@ -405,7 +406,7 @@ contract Controller is IsContract, CourtClock, CourtConfig {
     * @return Address of the Subscriptions module
     */
     function getSubscriptions() external view returns (address) {
-        return _getModule(SUBSCRIPTIONS);
+        return _getSubscriptions();
     }
 
     /**
@@ -452,6 +453,22 @@ contract Controller is IsContract, CourtClock, CourtConfig {
     */
     function _onTermTransitioned(uint64 _currentTermId) internal {
         _ensureTermConfig(_currentTermId);
+    }
+
+    /**
+    * @dev Internal function to tell the address of the Court module
+    * @return Address of the Court module
+    */
+    function _getCourt() internal view returns (address) {
+        return _getModule(COURT);
+    }
+
+    /**
+    * @dev Internal function to tell the address of the Subscriptions module
+    * @return Address of the Subscriptions module
+    */
+    function _getSubscriptions() internal view returns (address) {
+        return _getModule(SUBSCRIPTIONS);
     }
 
     /**

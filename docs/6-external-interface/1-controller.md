@@ -64,7 +64,26 @@ The following events are emitted by the `Controller`:
 
 The following functions are state getters provided by the `Controller`:
 
-#### 6.1.2.1. Config
+#### 6.1.2.1. Dispute fees
+
+- **Inputs:** None 
+- **Pre-flight checks:** None
+- **Outputs:**
+    **Recipient:** Address where the corresponding dispute fees must be transferred to
+    **Fee token:** ERC20 token used for the fees
+    **Fee amount:** Total amount of fees that must be allowed to the recipient
+
+#### 6.1.2.2. Subscription fees
+
+- **Inputs:** 
+    **Subscriber:** Address of the account paying the subscription fees for
+- **Pre-flight checks:** None
+- **Outputs:**
+    **Recipient:** Address where the corresponding subscriptions fees must be transferred to
+    **Fee token:** ERC20 token used for the subscription fees
+    **Fee amount:** Total amount of fees that must be allowed to the recipient
+
+#### 6.1.2.3. Config
 
 - **Inputs:**
     - **Term ID:** Identification number of the term querying the Court config of 
@@ -92,7 +111,7 @@ The following functions are state getters provided by the `Controller`:
         - **Appeal collateral factor:** Multiple of juror fees required to appeal a preliminary ruling
         - **Appeal confirm collateral factor:** Multiple of juror fees required to confirm appeal
 
-#### 6.1.2.2. Disputes config
+#### 6.1.2.4. Disputes config
 
 - **Inputs:**
     - **Term ID:** Identification number of the term querying the Court disputes config of
@@ -105,7 +124,7 @@ The following functions are state getters provided by the `Controller`:
     - **Settle fee:** Amount of tokens paid per round to cover the costs of slashing jurors
     - **First round jurors number:** Number of jurors drafted on first round
 
-#### 6.1.2.3. Drafts config
+#### 6.1.2.5. Drafts config
 
 - **Inputs:**
     - **Term ID:** Identification number of the term querying the Court drafts config of
@@ -115,7 +134,7 @@ The following functions are state getters provided by the `Controller`:
     - **Draft fee:** Amount of fee tokens per juror to cover the drafting cost
     - **Penalty pct:** Permyriad of min active tokens balance to be locked for each drafted juror (‱ - 1/10,000)
 
-#### 6.1.2.4. Minimum ANJ active balance
+#### 6.1.2.6. Minimum ANJ active balance
 
 - **Inputs:**
     - **Term ID:** Identification number of the term querying the Court min active balance of
@@ -123,42 +142,42 @@ The following functions are state getters provided by the `Controller`:
 - **Outputs:**
     - **Min active balance:** Minimum amount of juror tokens jurors have to activate to participate in the Court
 
-#### 6.1.2.5. Config change term ID
+#### 6.1.2.7. Config change term ID
 
 - **Inputs:** None 
 - **Pre-flight checks:** None
 - **Outputs:**
     - **Config change term ID:** Term identification number of the next scheduled config change
 
-#### 6.1.2.6. Term duration
+#### 6.1.2.8. Term duration
 
 - **Inputs:** None 
 - **Pre-flight checks:** None
 - **Outputs:**
     - **Term duration:** Duration in seconds of the Court term
 
-#### 6.1.2.7. Last ensured term ID
+#### 6.1.2.9. Last ensured term ID
 
 - **Inputs:** None 
 - **Pre-flight checks:** None
 - **Outputs:**
     - **Last ensured term ID:** Identification number of the last ensured term
 
-#### 6.1.2.8. Current term ID
+#### 6.1.2.10. Current term ID
 
 - **Inputs:** None 
 - **Pre-flight checks:** None
 - **Outputs:**
     - **Current term ID:** Identification number of the current term
 
-#### 6.1.2.9. Needed transitions
+#### 6.1.2.11. Needed transitions
 
 - **Inputs:** None 
 - **Pre-flight checks:** None  
 - **Outputs:**
     - **Needed transitions:** Number of terms the Court should transition to be up-to-date
     
-#### 6.1.2.10. Term
+#### 6.1.2.12. Term
 
 - **Inputs:** 
     - **Term ID:** Identification number of the term being queried
@@ -168,7 +187,7 @@ The following functions are state getters provided by the `Controller`:
     - **Randomness BN:** Block number used for randomness in the requested term
     - **Randomness:** Randomness computed for the requested term
     
-#### 6.1.2.11. Term randomness
+#### 6.1.2.13. Term randomness
 
 - **Inputs:** 
     - **Term ID:** Identification number of the term being queried
@@ -177,7 +196,7 @@ The following functions are state getters provided by the `Controller`:
 - **Outputs:**
     - **Term randomness:** Randomness of the requested term
 
-#### 6.1.2.12. Are withdrawals allowed for
+#### 6.1.2.14. Are withdrawals allowed for
 
 - **Inputs:** 
     - **Address:** Address of the token holder querying if withdrawals are allowed for
@@ -185,28 +204,28 @@ The following functions are state getters provided by the `Controller`:
 - **Outputs:**
     - **Allowed:** True if the given holder accepts automatic withdrawals of their tokens, false otherwise
 
-#### 6.1.2.13. Funds governor
+#### 6.1.2.15. Funds governor
 
 - **Inputs:** None 
 - **Pre-flight checks:** None
 - **Outputs:**
     - **Funds governor:** Address of the funds governor
 
-#### 6.1.2.14. Config governor
+#### 6.1.2.16. Config governor
 
 - **Inputs:** None 
 - **Pre-flight checks:** None
 - **Outputs:**
     - **Config governor:** Address of the config governor
 
-#### 6.1.2.15. Modules governor
+#### 6.1.2.17. Modules governor
 
 - **Inputs:** None 
 - **Pre-flight checks:** None
 - **Outputs:**
     - **Modules governor:** Address of the modules governor
 
-#### 6.1.2.16. Module
+#### 6.1.2.18. Module
 
 - **Inputs:** None 
 - **Pre-flight checks:** 
@@ -214,35 +233,35 @@ The following functions are state getters provided by the `Controller`:
 - **Outputs:**
     - **Module address:** Address of the module queried
 
-#### 6.1.2.17. Court
+#### 6.1.2.19. Court
 
 - **Inputs:** None 
 - **Pre-flight checks:** None
 - **Outputs:**
     - **Court address:** Address of the `Court` module set
 
-#### 6.1.2.18. Jurors registry
+#### 6.1.2.20. Jurors registry
 
 - **Inputs:** None 
 - **Pre-flight checks:** None
 - **Outputs:**
     - **Jurors registry address:** Address of the `JurorsRegistry` module set
 
-#### 6.1.2.19. Voting
+#### 6.1.2.21. Voting
 
 - **Inputs:** None 
 - **Pre-flight checks:** None
 - **Outputs:**
     - **Voting address:** Address of the `Voting` module set
 
-#### 6.1.2.20. Subscriptions
+#### 6.1.2.22. Subscriptions
 
 - **Inputs:** None 
 - **Pre-flight checks:** None
 - **Outputs:**
     - **Subscriptions address:** Address of the `Subscriptions` module set
 
-#### 6.1.2.21. Treasury
+#### 6.1.2.23. Treasury
 
 - **Inputs:** None 
 - **Pre-flight checks:** None

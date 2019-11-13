@@ -19,15 +19,14 @@ It is also in charge of executing the associated `Arbitrables` once the dispute 
 
 ### 4.2.2. Create dispute
 
-- **Actor:** Proposal Agreements instances, entities that need a dispute adjudicated
+- **Actor:** Controller
 - **Inputs:**
+    - **Subject:** Arbitrable instance creating the dispute
     - **Possible rulings:** Number of possible results for a dispute
     - **Metadata:** Optional metadata that can be used to provide additional information on the dispute to be created
-- **Authentication:** Open. Implicitly, only smart contracts that are up to date on their subscriptions in the `Subscription` module and that have open an ERC20 allowance with an amount of at least the dispute fee to the `Court` module can call this function
+- **Authentication:** Only the controller is allowed to call this function
 - **Pre-flight checks:**
     - Ensure that the Court term is up-to-date. Otherwise, perform a heartbeat before continuing the execution.
-    - Ensure that the msg.sender supports the `IArbitrable` interface
-    - Ensure that the subject is up to date on its subscription fees
     - Ensure that the number of possible rulings is within some reasonable bounds (hardcoded as constants)
 - **State transitions:**
     - Update current Court term if needed
@@ -102,19 +101,17 @@ It is also in charge of executing the associated `Arbitrables` once the dispute 
     - Calculate new round fees based on the Court configuration at the draft term of the dispute's first round
     - Pull the required appeal confirmation collateral, which includes the new round fees, from the sender to be deposited in the `Treasury` module, revert if the ERC20-transfer wasn't successful
 
-### 4.2.6. Execute ruling
+### 4.2.6. Compute ruling
 
-- **Actor:** External entity incentivized to execute the final ruling decided for a dispute. Alternatively, an altruistic entity to make sure the dispute is executed.
+- **Actor:** External entity incentivized to execute the final ruling decided for a dispute. Alternatively, an altruistic entity to make sure the dispute is ruled.
 - **Inputs:**
     - **Dispute ID:** Dispute identification number
 - **Authentication:** Open
 - **Pre-flight checks:**
     - Ensure a dispute object with that ID exists
-    - Ensure that the dispute has not been executed yet
     - Ensure that the dispute's last round adjudication phase has ended
 - **State transitions:**
     - Update the final ruling of the dispute object based on the ruling decided by the jurors during the current round or the ruling proposed by the appealer of the previous round in case there was one but wasn't confirmed.
-    - Execute the `Arbitrable` contract linked to the dispute based on the decided ruling
 
 ### 4.2.7. Settle penalties
 
@@ -142,7 +139,7 @@ It is also in charge of executing the associated `Arbitrables` once the dispute 
         - Update the adjudication round object to mark that all jurors' penalties were settled
     - In case all the jurors' penalties have been settled, and there was not even one juror voting in favor of the final ruling:
         - Ask the `JurorsRegistry` module to burn all the ANJ tokens that were collected during the adjudication round
-        - Return the adjudication round fees to the dispute creator or the appeal parties depending on whether the adjudication round was triggered by an external entity who created the dispute or due to a previous round that was appealed respectively.
+        - Return the adjudication round fees to the dispute creator or the appeal parties depending on whether the adjudication round was triggered by the `Arbitrable` instance who created the dispute or due to a previous round that was appealed respectively.
 
 ### 4.2.8. Settle reward
 

@@ -58,6 +58,13 @@ contract('CourtSubscriptions', ([_, subscriber]) => {
           assert.isFalse(paused, 'subscriber should not be paused')
           assertBn(previousDelayedPeriods, 0, 'previous delayed periods does not match')
         })
+
+        it('does not owe periods', async () => {
+          await subscriptions.resume(resumePaidPeriods, { from })
+
+          const { amountToPay } = await subscriptions.getOwedFeesDetails(subscriber)
+          assertBn(amountToPay, 0, 'amount to pay does not match')
+        })
       }
 
       const itComputesLastAndDelayedPeriodsCorrectly = (resumePaidPeriods, expectedMovedPeriods, expectedDelayedPeriods) => {
@@ -170,6 +177,13 @@ contract('CourtSubscriptions', ([_, subscriber]) => {
           assertBn(previousDelayedPeriods, 0, 'delayed periods does not match')
         })
 
+        it('does not owe periods', async () => {
+          const { amountToPay, newLastPeriodId } = await subscriptions.getOwedFeesDetails(subscriber)
+
+          assertBn(newLastPeriodId, prePaidPeriods, 'last period does not match')
+          assertBn(amountToPay, 0, 'amount to pay does not match')
+        })
+
         context('when the current period has not passed', () => {
           const resumePaidPeriods = 5
           const expectedMovedPeriods = resumePaidPeriods + prePaidPeriods
@@ -275,6 +289,13 @@ contract('CourtSubscriptions', ([_, subscriber]) => {
           assertBn(previousDelayedPeriods, 0, 'delayed periods does not match')
         })
 
+        it('does not owe periods', async () => {
+          const { amountToPay, newLastPeriodId } = await subscriptions.getOwedFeesDetails(subscriber)
+
+          assertBn(newLastPeriodId, 0, 'last period does not match')
+          assertBn(amountToPay, 0, 'amount to pay does not match')
+        })
+
         context('when the current period has not passed', () => {
           const resumePaidPeriods = 5
           const expectedMovedPeriods = resumePaidPeriods
@@ -357,6 +378,13 @@ contract('CourtSubscriptions', ([_, subscriber]) => {
           assertBn(previousDelayedPeriods, 0, 'delayed periods does not match')
         })
 
+        it('owes the current period', async () => {
+          const { amountToPay, newLastPeriodId } = await subscriptions.getOwedFeesDetails(subscriber)
+
+          assertBn(newLastPeriodId, 1, 'last period does not match')
+          assertBn(amountToPay, FEE_AMOUNT, 'amount to pay does not match')
+        })
+
         itIsUpToDate(resumePaidPeriods)
         itComputesLastAndDelayedPeriodsCorrectly(resumePaidPeriods, expectedMovedPeriods, expectedDelayedPeriods)
         itPaysNormalFees(resumePaidPeriods, expectedRegularPeriods, expectedDelayedPeriods)
@@ -373,6 +401,17 @@ contract('CourtSubscriptions', ([_, subscriber]) => {
           const { paused, previousDelayedPeriods } = await subscriptions.getSubscriber(subscriber)
           assert.isTrue(paused, 'subscriber should be paused')
           assertBn(previousDelayedPeriods, delayedPeriods, 'delayed periods does not match')
+        })
+
+        it('owes the delayed periods and the pre-paid resume penalty', async () => {
+          const { amountToPay, newLastPeriodId } = await subscriptions.getOwedFeesDetails(subscriber)
+
+          const resumePeriodsFees = FEE_AMOUNT.mul(bn(RESUME_PRE_PAID_PERIODS))
+          const delayedPeriodsFees = penaltyFees(FEE_AMOUNT.mul(bn(delayedPeriods)), LATE_PAYMENT_PENALTY_PCT)
+          const expectedAmountToPay = resumePeriodsFees.add(delayedPeriodsFees)
+
+          assertBn(amountToPay, expectedAmountToPay, 'amount to pay does not match')
+          assertBn(newLastPeriodId, 1 + overduePeriods + RESUME_PRE_PAID_PERIODS, 'last period does not match')
         })
 
         context('when paying less than the corresponding pre-paid periods', () => {

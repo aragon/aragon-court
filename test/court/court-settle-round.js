@@ -10,6 +10,7 @@ const { getVoteId, oppositeOutcome, OUTCOMES } = require('../helpers/utils/crvot
 const { buildHelper, ROUND_STATES, DISPUTE_STATES } = require('../helpers/wrappers/court')(web3, artifacts)
 const { ARBITRABLE_EVENTS, COURT_EVENTS, REGISTRY_EVENTS } = require('../helpers/utils/events')
 
+const Court = artifacts.require('Court')
 const Arbitrable = artifacts.require('ArbitrableMock')
 
 contract('Court', ([_, drafter, appealMaker, appealTaker, juror500, juror1000, juror1500, juror2000, juror2500, juror3000, juror3500, juror4000, anyone]) => {
@@ -62,9 +63,9 @@ contract('Court', ([_, drafter, appealMaker, appealTaker, juror500, juror1000, j
           })
         }
 
-        const itFailsToExecuteAndSettleRound = (roundId) => {
-          it('fails to execute ruling and settle round', async () => {
-            await assertRevert(court.executeRuling(disputeId), COURT_ERRORS.INVALID_ADJUDICATION_STATE)
+        const itFailsToRuleAndSettleRound = (roundId) => {
+          it('fails to compute ruling and settle round', async () => {
+            await assertRevert(court.computeRuling(disputeId), COURT_ERRORS.INVALID_ADJUDICATION_STATE)
             await assertRevert(court.settlePenalties(disputeId, roundId, DEFAULTS.firstRoundJurorsNumber), COURT_ERRORS.INVALID_ADJUDICATION_STATE)
             await assertRevert(court.settleReward(disputeId, roundId, anyone), COURT_ERRORS.ROUND_PENALTIES_NOT_SETTLED)
           })
@@ -72,26 +73,29 @@ contract('Court', ([_, drafter, appealMaker, appealTaker, juror500, juror1000, j
 
         const itExecutesFinalRulingProperly = expectedFinalRuling => {
           describe('executeRuling', () => {
-            it('marks the dispute as executed', async () => {
-              const receipt = await court.executeRuling(disputeId)
+            it('marks the dispute ruling as computed but not twice', async () => {
+              const receipt = await courtHelper.controller.executeRuling(disputeId)
 
-              assertAmountOfEvents(receipt, COURT_EVENTS.RULING_EXECUTED)
-              assertEvent(receipt, COURT_EVENTS.RULING_EXECUTED, { disputeId, ruling: expectedFinalRuling })
+              const logs = decodeEventsOfType(receipt, Court.abi, COURT_EVENTS.RULING_COMPUTED)
+              assertAmountOfEvents({ logs }, COURT_EVENTS.RULING_COMPUTED)
+              assertEvent({ logs }, COURT_EVENTS.RULING_COMPUTED, { disputeId, ruling: expectedFinalRuling })
 
               const { possibleRulings, state, finalRuling } = await courtHelper.getDispute(disputeId)
-              assertBn(state, DISPUTE_STATES.EXECUTED, 'dispute state does not match')
+              assertBn(state, DISPUTE_STATES.RULED, 'dispute state does not match')
               assertBn(possibleRulings, 2, 'dispute possible rulings do not match')
               assertBn(finalRuling, expectedFinalRuling, 'dispute final ruling does not match')
+
+              const anotherReceipt = await courtHelper.controller.executeRuling(disputeId)
+              const anotherLogs = decodeEventsOfType(anotherReceipt, Court.abi, COURT_EVENTS.RULING_COMPUTED)
+              assertAmountOfEvents({ logs: anotherLogs }, COURT_EVENTS.RULING_COMPUTED, 0)
             })
 
-            it('executes the associated arbitrable and cannot be executed twice', async () => {
-              const receipt = await court.executeRuling(disputeId)
+            it('executes the final ruling on the arbitrable', async () => {
+              const receipt = await courtHelper.controller.executeRuling(disputeId)
 
-              const logs = decodeEventsOfType(receipt, Arbitrable.abi, ARBITRABLE_EVENTS.COURT_RULING)
-              assertAmountOfEvents({ logs }, ARBITRABLE_EVENTS.COURT_RULING)
-              assertEvent({ logs }, ARBITRABLE_EVENTS.COURT_RULING, { court: court.address, disputeId, ruling: expectedFinalRuling })
-
-              await assertRevert(court.executeRuling(disputeId), COURT_ERRORS.INVALID_DISPUTE_STATE)
+              const logs = decodeEventsOfType(receipt, Arbitrable.abi, ARBITRABLE_EVENTS.RULED)
+              assertAmountOfEvents({ logs }, ARBITRABLE_EVENTS.RULED)
+              assertEvent({ logs }, ARBITRABLE_EVENTS.RULED, { oracle: courtHelper.controller.address, disputeId, ruling: expectedFinalRuling })
             })
           })
         }
@@ -393,7 +397,7 @@ contract('Court', ([_, drafter, appealMaker, appealTaker, juror500, juror1000, j
 
         context('during commit period', () => {
           itIsAtState(roundId, ROUND_STATES.COMMITTING)
-          itFailsToExecuteAndSettleRound(roundId)
+          itFailsToRuleAndSettleRound(roundId)
         })
 
         context('during reveal period', () => {
@@ -402,7 +406,7 @@ contract('Court', ([_, drafter, appealMaker, appealTaker, juror500, juror1000, j
           })
 
           itIsAtState(roundId, ROUND_STATES.REVEALING)
-          itFailsToExecuteAndSettleRound(roundId)
+          itFailsToRuleAndSettleRound(roundId)
         })
 
         context('during appeal period', () => {
@@ -412,7 +416,7 @@ contract('Court', ([_, drafter, appealMaker, appealTaker, juror500, juror1000, j
             })
 
             itIsAtState(roundId, ROUND_STATES.APPEALING)
-            itFailsToExecuteAndSettleRound(roundId)
+            itFailsToRuleAndSettleRound(roundId)
           })
 
           context('when there were some votes', () => {
@@ -422,7 +426,7 @@ contract('Court', ([_, drafter, appealMaker, appealTaker, juror500, juror1000, j
             })
 
             itIsAtState(roundId, ROUND_STATES.APPEALING)
-            itFailsToExecuteAndSettleRound(roundId)
+            itFailsToRuleAndSettleRound(roundId)
           })
         })
 
@@ -452,7 +456,7 @@ contract('Court', ([_, drafter, appealMaker, appealTaker, juror500, juror1000, j
               })
 
               itIsAtState(roundId, ROUND_STATES.CONFIRMING_APPEAL)
-              itFailsToExecuteAndSettleRound(roundId)
+              itFailsToRuleAndSettleRound(roundId)
             })
           })
 
@@ -482,7 +486,7 @@ contract('Court', ([_, drafter, appealMaker, appealTaker, juror500, juror1000, j
               })
 
               itIsAtState(roundId, ROUND_STATES.CONFIRMING_APPEAL)
-              itFailsToExecuteAndSettleRound(roundId)
+              itFailsToRuleAndSettleRound(roundId)
             })
           })
         })
@@ -534,7 +538,7 @@ contract('Court', ([_, drafter, appealMaker, appealTaker, juror500, juror1000, j
                 })
 
                 itIsAtState(roundId, ROUND_STATES.ENDED)
-                itFailsToExecuteAndSettleRound(roundId)
+                itFailsToRuleAndSettleRound(roundId)
               })
             })
           })
@@ -586,7 +590,7 @@ contract('Court', ([_, drafter, appealMaker, appealTaker, juror500, juror1000, j
                 })
 
                 itIsAtState(roundId, ROUND_STATES.ENDED)
-                itFailsToExecuteAndSettleRound(roundId)
+                itFailsToRuleAndSettleRound(roundId)
 
                 context('when the next round is a regular round', () => {
                   const newRoundId = roundId + 1

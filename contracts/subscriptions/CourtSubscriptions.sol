@@ -371,19 +371,42 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
     * @dev Tell the amount to pay and resulting last paid period for a given subscriber paying for a certain number of periods
     * @param _subscriber Address of the subscriber willing to pay
     * @param _periods Number of periods that would be paid
-    * @return tokenAddress Address of the token used for the subscription fees
+    * @return feeToken ERC20 token used for the subscription fees
     * @return amountToPay Amount of subscription fee tokens to be paid
     * @return newLastPeriodId Identification number of the resulting last paid period
     */
     function getPayFeesDetails(address _subscriber, uint256 _periods) external view
-        returns (address tokenAddress, uint256 amountToPay, uint256 newLastPeriodId)
+        returns (ERC20 feeToken, uint256 amountToPay, uint256 newLastPeriodId)
     {
         Subscriber storage subscriber = subscribers[_subscriber];
         uint256 currentPeriodId = _getCurrentPeriodId();
 
         (ERC20 feeToken, uint256 feeAmount) = _getPeriodFeeTokenAndAmount(periods[currentPeriodId]);
-        tokenAddress = address(feeToken);
-        (amountToPay, newLastPeriodId) = _getPayFeesDetails(subscriber, _periods, currentPeriodId, feeAmount);
+        (uint256 amountToPay, uint256 newLastPeriodId) = _getPayFeesDetails(subscriber, _periods, currentPeriodId, feeAmount);
+        return (feeToken, amountToPay, newLastPeriodId);
+    }
+
+    /**
+    * @dev Tell the minimum amount of fees to pay and resulting last paid period for a given subscriber in order to be up-to-date
+    * @param _subscriber Address of the subscriber willing to pay
+    * @return feeToken ERC20 token used for the subscription fees
+    * @return amountToPay Amount of subscription fee tokens to be paid
+    * @return newLastPeriodId Identification number of the resulting last paid period
+    */
+    function getOwedFeesDetails(address _subscriber) external view returns (ERC20 feeToken, uint256 amountToPay, uint256 newLastPeriodId) {
+        Subscriber storage subscriber = subscribers[_subscriber];
+        uint256 currentPeriodId = _getCurrentPeriodId();
+        uint256 owedPeriods = _getOwedPeriods(subscriber, currentPeriodId);
+        (ERC20 feeToken, uint256 feeAmount) = _getPeriodFeeTokenAndAmount(periods[currentPeriodId]);
+
+        if (owedPeriods == 0) {
+            amountToPay = 0;
+            newLastPeriodId = subscriber.lastPaymentPeriodId;
+        } else {
+            (amountToPay, newLastPeriodId) = _getPayFeesDetails(subscriber, owedPeriods, currentPeriodId, feeAmount);
+        }
+
+        return (feeToken, amountToPay, newLastPeriodId);
     }
 
     /**
@@ -681,7 +704,7 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
             newLastPeriodId = _currentPeriodId.add(_periods) - 1;
         } else {
             uint256 totalDelayedPeriods = _getDelayedPeriods(_subscriber, _currentPeriodId);
-            // Resume a subscription only if it was paused and the previous last period is overdue by more than one period
+            // Resume a subscription only if the subscriber was paused and the previous last period is overdue by more than one period
             if (_subscriber.paused && lastPaymentPeriodId + 1 < _currentPeriodId) {
                 // If the subscriber is resuming his activity he must pay the pre-paid periods penalty and the previous delayed periods
                 resumePeriods = resumePrePaidPeriods;
@@ -743,6 +766,37 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
         // If the given subscriber was already subscribed, then the current period is not considered delayed
         // No need for SafeMath: we already know last payment period is before current period
         return _currentPeriodId - lastPaymentPeriodId - 1;
+    }
+
+    /**
+    * @dev Internal function to tell the number of owed payments for a given subscriber
+    * @param _subscriber Subscriber querying the delayed periods of
+    * @param _currentPeriodId Identification number of the current period
+    * @return Number of owed payments for the requested subscriber
+    */
+    function _getOwedPeriods(Subscriber storage _subscriber, uint256 _currentPeriodId) internal view returns (uint256) {
+        // If the given subscriber was not subscribed yet, they must only pay the current period
+        if (!_subscriber.subscribed) {
+            return 1;
+        }
+
+        uint256 lastPaymentPeriodId = _subscriber.lastPaymentPeriodId;
+        uint256 totalDelayedPeriods = _getDelayedPeriods(_subscriber, _currentPeriodId);
+
+        // If the subscriber was paused and the previous last period is overdue by more than one period,
+        // the subscriber must pay the pre-paid resume penalty and their previous delayed periods
+        if (_subscriber.paused && lastPaymentPeriodId + 1 < _currentPeriodId) {
+            return resumePrePaidPeriods.add(totalDelayedPeriods);
+        }
+
+        // If the subscriber is not paused or the last period is not overdue by more than one period,
+        // check if they have paid in advance some periods
+        if (lastPaymentPeriodId >= _currentPeriodId) {
+            return 0;
+        }
+
+        // Otherwise, they simply need to pay the number of delayed periods and the current period
+        return totalDelayedPeriods + 1;
     }
 
     /**

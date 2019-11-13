@@ -240,7 +240,7 @@ contract DisputeManager is ControlledRecoverable, ICRVotingOwner, IDisputeManage
 
         // If the drafting is over, update its state
         if (draftEnded) {
-            // Note that we can avoid using SafeMath here since we already ensured `termId` is greater than or equal to `round.draftTermId`
+            // No need for SafeMath: we ensured `termId` is not less than `draftTermId` in modifier `termExists` of `ensureTermRandomness`
             round.delayedTerms = currentTermId - draftTermId;
             dispute.state = DisputeState.Adjudicating;
             emit DisputeStateChanged(_disputeId, DisputeState.Adjudicating);

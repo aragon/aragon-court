@@ -30,6 +30,7 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
 
     // Disputes-related error messages
     string private constant ERROR_TERM_OUTDATED = "CT_TERM_OUTDATED";
+    string private constant ERROR_SENDER_NOT_ARBITRABLE = "CT_SENDER_NOT_ARBITRABLE";
     string private constant ERROR_DISPUTE_DOES_NOT_EXIST = "CT_DISPUTE_DOES_NOT_EXIST";
     string private constant ERROR_INVALID_DISPUTE_STATE = "CT_INVALID_DISPUTE_STATE";
     string private constant ERROR_INVALID_RULING_OPTIONS = "CT_INVALID_RULING_OPTIONS";
@@ -62,6 +63,9 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
 
     // Precision factor used to improve rounding when computing weights for the final round
     uint256 internal constant FINAL_ROUND_WEIGHT_PRECISION = 1000;
+
+    // Arbitrable interface ID based on ERC-165
+    bytes4 private constant ARBITRABLE_INTERFACE_ID = bytes4(0x311a6c56);
 
     enum DisputeState {
         PreDraft,
@@ -134,7 +138,7 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
     Dispute[] internal disputes;
 
     event DisputeStateChanged(uint256 indexed disputeId, DisputeState indexed state);
-    event NewDispute(uint256 indexed disputeId, address indexed subject, uint64 indexed draftTermId, uint64 jurorsNumber, bytes metadata);
+    event NewDispute(uint256 indexed disputeId, IArbitrable indexed subject, uint64 indexed draftTermId, uint64 jurorsNumber, bytes metadata);
     event RulingAppealed(uint256 indexed disputeId, uint256 indexed roundId, uint8 ruling);
     event RulingAppealConfirmed(uint256 indexed disputeId, uint256 indexed roundId, uint64 indexed draftTermId, uint256 jurorsNumber);
     event RulingExecuted(uint256 indexed disputeId, uint8 indexed ruling);
@@ -182,31 +186,29 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
     }
 
     /**
-    * @notice Create a dispute over `_subject` with `_possibleRulings` possible rulings in next term
-    * @dev Create a dispute to be drafted in a future term
-    * @param _subject Arbitrable subject being disputed
+    * @notice Create a dispute over the Arbitrable sender with `_possibleRulings` possible rulings for the next term
     * @param _possibleRulings Number of possible rulings allowed for the drafted jurors to vote on the dispute
     * @param _metadata Optional metadata that can be used to provide additional information on the dispute to be created
     * @return Dispute identification number
     */
-    function createDispute(IArbitrable _subject, uint8 _possibleRulings, bytes calldata _metadata) external returns (uint256) {
-        // TODO: Limit the min amount of terms before drafting (to allow for evidence submission)
-        // TODO: ERC165 check that _subject conforms to the Arbitrable interface
-        // TODO: require(address(_subject) == msg.sender, ERROR_INVALID_DISPUTE_CREATOR);
+    function createDispute(uint8 _possibleRulings, bytes calldata _metadata) external returns (uint256) {
+        IArbitrable subject = IArbitrable(msg.sender);
+        require(subject.supportsInterface(ARBITRABLE_INTERFACE_ID), ERROR_SENDER_NOT_ARBITRABLE);
+
         uint64 termId = _ensureCurrentTerm();
         ISubscriptions subscriptions = _subscriptions();
-        require(subscriptions.isUpToDate(address(_subject)), ERROR_SUBSCRIPTION_NOT_PAID);
+        require(subscriptions.isUpToDate(address(msg.sender)), ERROR_SUBSCRIPTION_NOT_PAID);
         require(_possibleRulings >= MIN_RULING_OPTIONS && _possibleRulings <= MAX_RULING_OPTIONS, ERROR_INVALID_RULING_OPTIONS);
 
         // Create the dispute
         uint64 draftTermId = termId + 1;
         uint256 disputeId = disputes.length++;
         Dispute storage dispute = disputes[disputeId];
-        dispute.subject = _subject;
+        dispute.subject = subject;
         dispute.possibleRulings = _possibleRulings;
         CreateDisputeConfig memory config = _getCreateDisputeConfig(draftTermId);
         uint64 jurorsNumber = config.firstRoundJurorsNumber;
-        emit NewDispute(disputeId, address(_subject), draftTermId, jurorsNumber, _metadata);
+        emit NewDispute(disputeId, subject, draftTermId, jurorsNumber, _metadata);
 
         // Create first adjudication round of the dispute
         (ERC20 feeToken, uint256 jurorFees, uint256 totalFees) = _getRegularRoundFees(config.fees, jurorsNumber);
@@ -546,15 +548,14 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
 
     /**
     * @dev Tell the amount of token fees required to create a dispute
-    * @param _draftTermId Term ID in which the dispute will be drafted
     * @return feeToken ERC20 token used for the fees
-    * @return jurorFees Total amount of fees to be distributed between the winning jurors of a round
     * @return totalFees Total amount of fees for a regular round at the given term
     */
-    function getDisputeFees(uint64 _draftTermId) external view returns (ERC20 feeToken, uint256 jurorFees, uint256 totalFees) {
-        Config memory config = _getConfigAt(_draftTermId);
-        uint64 jurorsNumber = config.disputes.firstRoundJurorsNumber;
-        return _getRegularRoundFees(config.fees, jurorsNumber);
+    function getDisputeFees() external view returns (ERC20 feeToken, uint256 totalFees) {
+        uint64 currentTermId = _getCurrentTermId();
+        uint64 nextDraftTermId = currentTermId + 1;
+        CreateDisputeConfig memory config = _getCreateDisputeConfig(nextDraftTermId);
+        (feeToken,, totalFees) = _getRegularRoundFees(config.fees, config.firstRoundJurorsNumber);
     }
 
     /**
@@ -1242,7 +1243,7 @@ contract Court is ControlledRecoverable, ICRVotingOwner {
         uint64 maxJurorsPerDraftBatch_ = maxJurorsPerDraftBatch;
         // No need for SafeMath: selectedJurors is set in `_draft` function, by adding to it `requestedJurors`. The line below prevents underflow
         uint64 jurorsToBeDrafted = jurorsNumber - selectedJurors;
-        // Draft the min number of jurors between the one requested by the sender and the one requested by the disputer
+        // Draft the min number of jurors between the one requested by the sender and the one requested by the sender
         uint64 requestedJurors = jurorsToBeDrafted < maxJurorsPerDraftBatch_ ? jurorsToBeDrafted : maxJurorsPerDraftBatch_;
 
         // Pack draft params

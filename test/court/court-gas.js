@@ -6,7 +6,7 @@ const { getVoteId, encryptVote, oppositeOutcome, SALT, OUTCOMES } = require('../
 
 const Arbitrable = artifacts.require('ArbitrableMock')
 
-contract('Court', ([_, sender, disputer, drafter, appealMaker, appealTaker, juror500, juror1000, juror1500, juror2000, juror2500, juror3000]) => {
+contract('Court', ([_, sender, drafter, appealMaker, appealTaker, juror500, juror1000, juror1500, juror2000, juror2500, juror3000]) => {
   let courtHelper, court, voting, controller, costs = {}
 
   const jurors = [
@@ -41,10 +41,11 @@ contract('Court', ([_, sender, disputer, drafter, appealMaker, appealTaker, juro
       let arbitrable
 
       beforeEach('create arbitrable and approve fee amount', async () => {
-        arbitrable = await Arbitrable.new()
+        await courtHelper.setTerm(1)
+        arbitrable = await Arbitrable.new(court.address)
         await courtHelper.subscriptions.setUpToDate(true)
-        const { disputeFees } = await courtHelper.getDisputeFees(1)
-        await courtHelper.mintAndApproveFeeTokens(sender, court.address, disputeFees)
+        const { disputeFees } = await courtHelper.getDisputeFees()
+        await courtHelper.mintFeeTokens(arbitrable.address, disputeFees)
       })
 
       context('when the current term is up-to-date', () => {
@@ -53,7 +54,7 @@ contract('Court', ([_, sender, disputer, drafter, appealMaker, appealTaker, juro
           assertBn(neededTransitions, 0, 'needed transitions does not match')
         })
 
-        itCostsAtMost('createDispute', 210e3, () => court.createDispute(arbitrable.address, 2, '0x', { from: sender }))
+        itCostsAtMost('createDispute', 251e3, () => arbitrable.createDispute(2, '0x', { from: sender }))
       })
 
       context('when the current term is outdated by one term', () => {
@@ -63,7 +64,7 @@ contract('Court', ([_, sender, disputer, drafter, appealMaker, appealTaker, juro
           assertBn(neededTransitions, 1, 'needed transitions does not match')
         })
 
-        itCostsAtMost('createDispute', 266e3, () => court.createDispute(arbitrable.address, 2, '0x', { from: sender }))
+        itCostsAtMost('createDispute', 307e3, () => arbitrable.createDispute(2, '0x', { from: sender }))
       })
     })
 
@@ -72,7 +73,7 @@ contract('Court', ([_, sender, disputer, drafter, appealMaker, appealTaker, juro
 
       beforeEach('create dispute and advance to the draft term', async () => {
         const draftTermId = 2
-        disputeId = await courtHelper.dispute({ draftTermId, disputer })
+        disputeId = await courtHelper.dispute({ draftTermId })
 
         const lastEnsuredTermId = await controller.getLastEnsuredTermId()
         await courtHelper.passRealTerms(draftTermId - lastEnsuredTermId)
@@ -91,7 +92,7 @@ contract('Court', ([_, sender, disputer, drafter, appealMaker, appealTaker, juro
 
       beforeEach('create dispute and draft', async () => {
         const draftTermId = 2, roundId = 0
-        const disputeId = await courtHelper.dispute({ draftTermId, disputer })
+        const disputeId = await courtHelper.dispute({ draftTermId })
         voteId = getVoteId(disputeId, roundId)
 
         // draft, court is already at term previous to dispute start
@@ -126,7 +127,7 @@ contract('Court', ([_, sender, disputer, drafter, appealMaker, appealTaker, juro
 
       beforeEach('create dispute, draft and vote', async () => {
         const draftTermId = 2, roundId = 0
-        const disputeId = await courtHelper.dispute({ draftTermId, disputer })
+        const disputeId = await courtHelper.dispute({ draftTermId })
         voteId = getVoteId(disputeId, roundId)
 
         // draft, court is already at term previous to dispute start
@@ -161,7 +162,7 @@ contract('Court', ([_, sender, disputer, drafter, appealMaker, appealTaker, juro
 
       beforeEach('create dispute, draft and vote', async () => {
         const draftTermId = 2
-        disputeId = await courtHelper.dispute({ draftTermId, disputer })
+        disputeId = await courtHelper.dispute({ draftTermId })
         const voteId = getVoteId(disputeId, roundId)
 
         // draft, court is already at term previous to dispute start
@@ -206,7 +207,7 @@ contract('Court', ([_, sender, disputer, drafter, appealMaker, appealTaker, juro
 
       beforeEach('create dispute, draft, vote and appeal', async () => {
         const draftTermId = 2
-        disputeId = await courtHelper.dispute({ draftTermId, disputer })
+        disputeId = await courtHelper.dispute({ draftTermId })
 
         // draft, court is already at term previous to dispute start
         await courtHelper.passTerms(bn(1))
@@ -251,7 +252,7 @@ contract('Court', ([_, sender, disputer, drafter, appealMaker, appealTaker, juro
 
       beforeEach('create dispute, draft and vote', async () => {
         const draftTermId = 2, roundId = 0
-        disputeId = await courtHelper.dispute({ draftTermId, disputer })
+        disputeId = await courtHelper.dispute({ draftTermId })
 
         // draft, court is already at term previous to dispute start
         await courtHelper.passTerms(bn(1))
@@ -269,7 +270,7 @@ contract('Court', ([_, sender, disputer, drafter, appealMaker, appealTaker, juro
           assertBn(neededTransitions, 0, 'needed transitions does not match')
         })
 
-        itCostsAtMost('executeRuling', 67e3, () => court.executeRuling(disputeId))
+        itCostsAtMost('executeRuling', 68e3, () => court.executeRuling(disputeId))
       })
 
       context('when the current term is outdated by one term', () => {
@@ -288,7 +289,7 @@ contract('Court', ([_, sender, disputer, drafter, appealMaker, appealTaker, juro
 
       beforeEach('create dispute, draft and vote', async () => {
         const draftTermId = 2
-        disputeId = await courtHelper.dispute({ draftTermId, disputer })
+        disputeId = await courtHelper.dispute({ draftTermId })
 
         // Mock term randomness to make sure we always have the same output for the draft, otherwise this test won't be deterministic
         await controller.mockSetTermRandomness('0x0000000000000000000000000000000000000000000000000000000000000001')
@@ -328,7 +329,7 @@ contract('Court', ([_, sender, disputer, drafter, appealMaker, appealTaker, juro
 
       beforeEach('create dispute, draft and vote', async () => {
         const draftTermId = 2
-        disputeId = await courtHelper.dispute({ draftTermId, disputer })
+        disputeId = await courtHelper.dispute({ draftTermId })
 
         // draft, court is already at term previous to dispute start
         await courtHelper.passTerms(bn(1))
@@ -367,7 +368,7 @@ contract('Court', ([_, sender, disputer, drafter, appealMaker, appealTaker, juro
 
       beforeEach('create dispute, draft and vote', async () => {
         const draftTermId = 2
-        disputeId = await courtHelper.dispute({ draftTermId, disputer })
+        disputeId = await courtHelper.dispute({ draftTermId })
 
         // draft, court is already at term previous to dispute start
         await courtHelper.passTerms(bn(1))

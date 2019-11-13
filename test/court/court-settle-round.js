@@ -10,9 +10,9 @@ const { getVoteId, oppositeOutcome, OUTCOMES } = require('../helpers/utils/crvot
 const { buildHelper, ROUND_STATES, DISPUTE_STATES } = require('../helpers/wrappers/court')(web3, artifacts)
 const { ARBITRABLE_EVENTS, COURT_EVENTS, REGISTRY_EVENTS } = require('../helpers/utils/events')
 
-const Arbitrable = artifacts.require('IArbitrable')
+const Arbitrable = artifacts.require('ArbitrableMock')
 
-contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, juror1000, juror1500, juror2000, juror2500, juror3000, juror3500, juror4000, anyone]) => {
+contract('Court', ([_, drafter, appealMaker, appealTaker, juror500, juror1000, juror1500, juror2000, juror2500, juror3000, juror3500, juror4000, anyone]) => {
   let courtHelper, court, voting
   const maxRegularAppealRounds = bn(2)
 
@@ -43,7 +43,7 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
       beforeEach('activate jurors and create dispute', async () => {
         await courtHelper.activate(jurors)
 
-        disputeId = await courtHelper.dispute({ draftTermId, disputer })
+        disputeId = await courtHelper.dispute({ draftTermId })
         await courtHelper.passTerms(bn(1)) // court is already at term previous to dispute start
       })
 
@@ -97,7 +97,7 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
         }
 
         const itSettlesPenaltiesAndRewardsProperly = (roundId, expectedWinningJurors, expectedLosingJurors) => {
-          let previousBalances = {}, expectedCoherentJurors, expectedCollectedTokens
+          let arbitrable, previousBalances = {}, expectedCoherentJurors, expectedCollectedTokens
 
           beforeEach('load previous balances', async () => {
             previousBalances = {}
@@ -110,7 +110,8 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
             previousBalances[BURN_ADDRESS] = { active, available, locked }
 
             const { feeToken, treasury } = courtHelper
-            previousBalances[disputer] = { feeAmount: await treasury.balanceOf(feeToken.address, disputer) }
+            arbitrable = (await courtHelper.getDispute(disputeId)).subject
+            previousBalances[arbitrable] = { feeAmount: await treasury.balanceOf(feeToken.address, arbitrable) }
             previousBalances[appealMaker] = { feeAmount: await treasury.balanceOf(feeToken.address, appealMaker) }
             previousBalances[appealTaker] = { feeAmount: await treasury.balanceOf(feeToken.address, appealTaker) }
           })
@@ -196,12 +197,12 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
                 const { feeToken, treasury } = courtHelper
 
                 if (roundId === 0) {
-                  const { feeAmount: previousDisputerBalance } = previousBalances[disputer]
-                  const currentDisputerBalance = await treasury.balanceOf(feeToken.address, disputer)
+                  const { feeAmount: previousArbitrableBalance } = previousBalances[arbitrable]
+                  const currentArbitrableBalance = await treasury.balanceOf(feeToken.address, arbitrable)
 
                   expectedCoherentJurors === 0
-                    ? assertBn(currentDisputerBalance, previousDisputerBalance.add(jurorFees), 'disputer fee balance does not match')
-                    : assertBn(currentDisputerBalance, previousDisputerBalance, 'disputer fee balance does not match')
+                    ? assertBn(currentArbitrableBalance, previousArbitrableBalance.add(jurorFees), 'arbitrable fee balance does not match')
+                    : assertBn(currentArbitrableBalance, previousArbitrableBalance, 'arbitrable fee balance does not match')
                 } else {
                   const { feeAmount: previousAppealMakerBalance } = previousBalances[appealMaker]
                   const currentAppealMakerBalance = await treasury.balanceOf(feeToken.address, appealMaker)
@@ -211,11 +212,11 @@ contract('Court', ([_, disputer, drafter, appealMaker, appealTaker, juror500, ju
 
                   if (expectedCoherentJurors === 0) {
                     const refundFees = jurorFees.div(bn(2))
-                    assertBn(currentAppealMakerBalance, previousAppealMakerBalance.add(refundFees), 'disputer fee balance does not match')
-                    assertBn(currentAppealTakerBalance, previousAppealTakerBalance.add(refundFees), 'disputer fee balance does not match')
+                    assertBn(currentAppealMakerBalance, previousAppealMakerBalance.add(refundFees), 'appeal maker fee balance does not match')
+                    assertBn(currentAppealTakerBalance, previousAppealTakerBalance.add(refundFees), 'appeal taker fee balance does not match')
                   } else {
-                    assertBn(currentAppealMakerBalance, previousAppealMakerBalance, 'disputer fee balance does not match')
-                    assertBn(currentAppealTakerBalance, previousAppealTakerBalance, 'disputer fee balance does not match')
+                    assertBn(currentAppealMakerBalance, previousAppealMakerBalance, 'appeal maker fee balance does not match')
+                    assertBn(currentAppealTakerBalance, previousAppealTakerBalance, 'appeal taker fee balance does not match')
                   }
                 }
               })

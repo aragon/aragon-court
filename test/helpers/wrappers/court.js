@@ -47,9 +47,9 @@ module.exports = (web3, artifacts) => {
       return { appealer, appealedRuling, taker, opposedRuling }
     }
 
-    async getDisputeFees(draftTermId) {
-      const { feeToken, jurorFees, totalFees } = await this.court.getDisputeFees(draftTermId)
-      return { feeToken, jurorFees, disputeFees: totalFees }
+    async getDisputeFees() {
+      const { feeToken, totalFees } = await this.court.getDisputeFees()
+      return { feeToken, disputeFees: totalFees }
     }
 
     async getNextRoundJurorsNumber(disputeId, roundId) {
@@ -120,13 +120,17 @@ module.exports = (web3, artifacts) => {
       return draftActiveBalance.mul(this.finalRoundWeightPrecision).div(this.minActiveBalance)
     }
 
+    async mintFeeTokens(to, amount) {
+      await this.feeToken.generateTokens(to, amount)
+    }
+
     async mintAndApproveFeeTokens(from, to, amount) {
       // reset allowance in case allowed address has already been approved some balance
       const allowance = await this.feeToken.allowance(from, to)
       if (allowance.gt(bn(0))) await this.feeToken.approve(to, 0, { from })
 
       // mint and approve tokens
-      await this.feeToken.generateTokens(from, amount)
+      await this.mintFeeTokens(from, amount)
       await this.feeToken.approve(to, amount, { from })
     }
 
@@ -137,20 +141,22 @@ module.exports = (web3, artifacts) => {
       }
     }
 
-    async dispute({ draftTermId, possibleRulings = bn(2), metadata = '0x', arbitrable = undefined, disputer = undefined }) {
-      // mint enough fee tokens for the disputer, if no disputer was given pick the second account
-      if (!disputer) disputer = await this._getAccount(1)
+    async dispute({ draftTermId, arbitrable = undefined, possibleRulings = bn(2), metadata = '0x' }) {
+      // mock current term right before the requested draft term
       await this.setTerm(draftTermId - 1)
-      const { disputeFees } = await this.getDisputeFees(draftTermId)
-      await this.mintAndApproveFeeTokens(disputer, this.court.address, disputeFees)
 
       // create an arbitrable if no one was given, and mock subscriptions
-      if (!arbitrable) arbitrable = await this.artifacts.require('ArbitrableMock').new()
+      if (!arbitrable) arbitrable = await this.artifacts.require('ArbitrableMock').new(this.court.address)
       await this.subscriptions.setUpToDate(true)
 
+      // mint fee tokens for the arbitrable instance
+      const { disputeFees } = await this.getDisputeFees()
+      await this.mintFeeTokens(arbitrable.address, disputeFees)
+
       // create dispute and return id
-      const receipt = await this.court.createDispute(arbitrable.address, possibleRulings, metadata, { from: disputer })
-      return getEventArgument(receipt, COURT_EVENTS.NEW_DISPUTE, 'disputeId')
+      const receipt = await arbitrable.createDispute(possibleRulings, metadata)
+      const logs = decodeEventsOfType(receipt, this.artifacts.require('Court').abi, COURT_EVENTS.NEW_DISPUTE)
+      return getEventArgument({ logs }, COURT_EVENTS.NEW_DISPUTE, 'disputeId')
     }
 
     async draft({ disputeId, draftedJurors = undefined, drafter = undefined }) {

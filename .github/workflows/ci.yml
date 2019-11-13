@@ -1,0 +1,37 @@
+on: push
+name: CI
+jobs:
+  CI:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v1
+    - name: Install node
+      uses: actions/setup-node@v1
+      with:
+        node-version: 10
+    - name: Install
+      run: npm install
+    - name: Lint
+      run: npm run lint
+    - name: Court Basics
+      run: npm test test/treasury/court-treasury.js test/court/court-{draft,gas}.js
+    - name: Court Disputes
+      run: npm test test/court/court-{disputes,voting,appeal,confirm-appeal}.js
+    - name: Court Settle Rounds
+      run: npm test test/court/court-settle-round.js
+    - name: Court Settle Appeals
+      run: npm test test/court/court-settle-appeal.js
+    - name: Registry
+      run: npm test test/registry/*.js
+    - name: Lib
+      run: npm test test/lib/*.js
+    - name: "Voting"
+      run : npm test test/voting/*.js
+    - name: "Subscriptions"
+      run: npm test test/subscriptions/*.js
+    - name: "Controller"
+      run: npm test test/controller/*.js
+    env:
+      CI: true
+    strategy:
+      fail-fast: true

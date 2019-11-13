@@ -1,7 +1,7 @@
 on: push
 name: CI
 jobs:
-  install:
+  lint:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v1
@@ -11,32 +11,11 @@ jobs:
         node-version: 10
     - name: Install
       run: npm install
-    - name: Upload node_modules
-      uses: actions/upload-artifact@v1
-      with:
-        name: node_modules
-        path: node_modules/
-    env:
-      CI: true
-  lint:
-    needs: install
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v1
-    - name: Install node
-      uses: actions/setup-node@v1
-      with:
-        node-version: 10
-    - name: Download node_modules
-      uses: actions/download-artifact@v1
-      with:
-        name: node_modules
     - name: Lint
       run: npm run lint
     env:
       CI: true
   court_basics:
-    needs: install
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v1
@@ -44,16 +23,13 @@ jobs:
       uses: actions/setup-node@v1
       with:
         node-version: 10
-    - name: Download node_modules
-      uses: actions/download-artifact@v1
-      with:
-        name: node_modules
-    - name: Court Basics
+    - name: Install
+      run: npm install
+    - name: Test
       run: npm test test/treasury/court-treasury.js test/court/court-{draft,gas}.js
     env:
       CI: true
   court_disputes:
-    needs: install
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v1
@@ -61,16 +37,13 @@ jobs:
       uses: actions/setup-node@v1
       with:
         node-version: 10
-    - name: Download node_modules
-      uses: actions/download-artifact@v1
-      with:
-        name: node_modules
-    - name: Court Disputes
+    - name: Install
+      run: npm install
+    - name: Test
       run: npm test test/court/court-{disputes,voting,appeal,confirm-appeal}.js
     env:
       CI: true
   court_settle_rounds:
-    needs: install
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v1
@@ -78,16 +51,13 @@ jobs:
       uses: actions/setup-node@v1
       with:
         node-version: 10
-    - name: Download node_modules
-      uses: actions/download-artifact@v1
-      with:
-        name: node_modules
-    - name: Court Settle Rounds
+    - name: Install
+      run: npm install
+    - name: Test
       run: npm test test/court/court-settle-round.js
     env:
       CI: true
   court_settle_appeals:
-    needs: install
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v1
@@ -95,16 +65,13 @@ jobs:
       uses: actions/setup-node@v1
       with:
         node-version: 10
-    - name: Download node_modules
-      uses: actions/download-artifact@v1
-      with:
-        name: node_modules
-    - name: Court Settle Appeals
+    - name: Install
+      run: npm install
+    - name: Test
       run: npm test test/court/court-settle-appeal.js
     env:
       CI: true
   registry:
-    needs: install
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v1
@@ -112,16 +79,13 @@ jobs:
       uses: actions/setup-node@v1
       with:
         node-version: 10
-    - name: Download node_modules
-      uses: actions/download-artifact@v1
-      with:
-        name: node_modules
-    - name: Registry
+    - name: Install
+      run: npm install
+    - name: Test
       run: npm test test/registry/*.js
     env:
       CI: true
   lib:
-    needs: install
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v1
@@ -129,16 +93,13 @@ jobs:
       uses: actions/setup-node@v1
       with:
         node-version: 10
-    - name: Download node_modules
-      uses: actions/download-artifact@v1
-      with:
-        name: node_modules
-    - name: Lib
+    - name: Install
+      run: npm install
+    - name: Test
       run: npm test test/lib/*.js
     env:
       CI: true
   voting:
-    needs: install
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v1
@@ -146,16 +107,13 @@ jobs:
       uses: actions/setup-node@v1
       with:
         node-version: 10
-    - name: Download node_modules
-      uses: actions/download-artifact@v1
-      with:
-        name: node_modules
-    - name: Voting
+    - name: Install
+      run: npm install
+    - name: Test
       run : npm test test/voting/*.js
     env:
       CI: true
   subscriptions:
-    needs: install
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v1
@@ -163,16 +121,13 @@ jobs:
       uses: actions/setup-node@v1
       with:
         node-version: 10
-    - name: Download node_modules
-      uses: actions/download-artifact@v1
-      with:
-        name: node_modules
-    - name: Subscriptions
+    - name: Install
+      run: npm install
+    - name: Test
       run: npm test test/subscriptions/*.js
     env:
       CI: true
   controller:
-    needs: install
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v1
@@ -180,11 +135,9 @@ jobs:
       uses: actions/setup-node@v1
       with:
         node-version: 10
-    - name: Download node_modules
-      uses: actions/download-artifact@v1
-      with:
-        name: node_modules
-    - name: Controller
+    - name: Install
+      run: npm install
+    - name: Test
       run: npm test test/controller/*.js
     env:
       CI: true

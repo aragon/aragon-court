@@ -5,9 +5,8 @@ import "../lib/os/SafeMath.sol";
 import "../lib/os/SafeERC20.sol";
 
 import "./ITreasury.sol";
-import "../controller/Controlled.sol";
-import "../controller/Controller.sol";
-import "../controller/ControlledRecoverable.sol";
+import "../court/controller/Controller.sol";
+import "../court/controller/ControlledRecoverable.sol";
 
 
 contract CourtTreasury is ControlledRecoverable, ITreasury {
@@ -41,7 +40,7 @@ contract CourtTreasury is ControlledRecoverable, ITreasury {
     * @param _to Address of the recipient that will be assigned the tokens to
     * @param _amount Amount of tokens to be assigned to the recipient
     */
-    function assign(ERC20 _token, address _to, uint256 _amount) external onlyCourt {
+    function assign(ERC20 _token, address _to, uint256 _amount) external onlyDisputeManager {
         require(_amount > 0, ERROR_DEPOSIT_AMOUNT_ZERO);
 
         address tokenAddress = address(_token);

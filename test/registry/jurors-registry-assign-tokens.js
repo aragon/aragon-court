@@ -1,5 +1,5 @@
 const { assertBn } = require('../helpers/asserts/assertBn')
-const { buildHelper } = require('../helpers/wrappers/controller')(web3, artifacts)
+const { buildHelper } = require('../helpers/wrappers/court')(web3, artifacts)
 const { assertRevert } = require('../helpers/asserts/assertThrow')
 const { REGISTRY_EVENTS } = require('../helpers/utils/events')
 const { decodeEventsOfType } = require('../helpers/lib/decodeEvent')
@@ -8,24 +8,24 @@ const { MATH_ERRORS, CONTROLLED_ERRORS } = require('../helpers/utils/errors')
 const { assertEvent, assertAmountOfEvents } = require('../helpers/asserts/assertEvent')
 
 const JurorsRegistry = artifacts.require('JurorsRegistry')
-const Court = artifacts.require('CourtMockForRegistry')
+const DisputeManager = artifacts.require('DisputeManagerMockForRegistry')
 const ERC20 = artifacts.require('ERC20Mock')
 
 contract('JurorsRegistry', ([_, juror, someone]) => {
-  let controller, registry, court, ANJ
+  let controller, registry, disputeManager, ANJ
 
   const TOTAL_ACTIVE_BALANCE_LIMIT = bigExp(100e6, 18)
   const BURN_ADDRESS = '0x000000000000000000000000000000000000dead'
 
   beforeEach('create base contracts', async () => {
     controller = await buildHelper().deploy()
-    ANJ = await ERC20.new('ANJ Token', 'ANJ', 18)
 
+    ANJ = await ERC20.new('ANJ Token', 'ANJ', 18)
     registry = await JurorsRegistry.new(controller.address, ANJ.address, TOTAL_ACTIVE_BALANCE_LIMIT)
     await controller.setJurorsRegistry(registry.address)
 
-    court = await Court.new(controller.address)
-    await controller.setCourt(court.address)
+    disputeManager = await DisputeManager.new(controller.address)
+    await controller.setDisputeManager(disputeManager.address)
   })
 
   const itHandlesZeroTokenAssignmentsProperly = (assignmentCall, recipient) => {
@@ -140,18 +140,18 @@ contract('JurorsRegistry', ([_, juror, someone]) => {
   }
 
   describe('assignTokens', () => {
-    context('when the sender is the court', () => {
+    context('when the sender is the dispute manager', () => {
       context('when the given amount is zero', () => {
         const amount = bn(0)
 
-        itHandlesZeroTokenAssignmentsProperly(() => court.assignTokens(juror, amount), juror)
+        itHandlesZeroTokenAssignmentsProperly(() => disputeManager.assignTokens(juror, amount), juror)
       })
 
       context('when the given amount is greater than zero', () => {
         context('when the juror did not have balance', () => {
           const amount = bigExp(100, 18)
 
-          itHandlesTokenAssignmentsProperly(() => court.assignTokens(juror, amount), juror, amount)
+          itHandlesTokenAssignmentsProperly(() => disputeManager.assignTokens(juror, amount), juror, amount)
         })
 
         context('when the juror already had some balance', () => {
@@ -164,71 +164,71 @@ contract('JurorsRegistry', ([_, juror, someone]) => {
           context('when the given amount does not overflow', () => {
             const amount = bigExp(100, 18)
 
-            itHandlesTokenAssignmentsProperly(() => court.assignTokens(juror, amount), juror, amount)
+            itHandlesTokenAssignmentsProperly(() => disputeManager.assignTokens(juror, amount), juror, amount)
           })
 
           context('when the given amount does overflow', () => {
             const amount = MAX_UINT256
 
             it('reverts', async () => {
-              await assertRevert(court.assignTokens(juror, amount), MATH_ERRORS.ADD_OVERFLOW)
+              await assertRevert(disputeManager.assignTokens(juror, amount), MATH_ERRORS.ADD_OVERFLOW)
             })
           })
         })
       })
     })
 
-    context('when the sender is not the court', () => {
+    context('when the sender is not the dispute manager', () => {
       const from = someone
 
       it('reverts', async () => {
-        await assertRevert(registry.assignTokens(juror, bigExp(100, 18), { from }), CONTROLLED_ERRORS.SENDER_NOT_COURT_MODULE)
+        await assertRevert(registry.assignTokens(juror, bigExp(100, 18), { from }), CONTROLLED_ERRORS.SENDER_NOT_DISPUTES_MODULE)
       })
     })
   })
 
   describe('burnTokens', () => {
-    context('when the sender is the court', () => {
+    context('when the sender is the dispute manager', () => {
       context('when the given amount is zero', () => {
         const amount = bn(0)
 
-        itHandlesZeroTokenAssignmentsProperly(() => court.burnTokens(amount), BURN_ADDRESS)
+        itHandlesZeroTokenAssignmentsProperly(() => disputeManager.burnTokens(amount), BURN_ADDRESS)
       })
 
       context('when the given amount is greater than zero', () => {
         context('when the juror did not have balance', () => {
           const amount = bigExp(100, 18)
 
-          itHandlesTokenAssignmentsProperly(() => court.burnTokens(amount), BURN_ADDRESS, amount)
+          itHandlesTokenAssignmentsProperly(() => disputeManager.burnTokens(amount), BURN_ADDRESS, amount)
         })
 
         context('when the burn address already had some balance', () => {
           beforeEach('burn some balance', async () => {
-            await court.burnTokens(bigExp(50, 18))
+            await disputeManager.burnTokens(bigExp(50, 18))
           })
 
           context('when the given amount does not overflow', () => {
             const amount = bigExp(100, 18)
 
-            itHandlesTokenAssignmentsProperly(() => court.burnTokens(amount), BURN_ADDRESS, amount)
+            itHandlesTokenAssignmentsProperly(() => disputeManager.burnTokens(amount), BURN_ADDRESS, amount)
           })
 
           context('when the given amount does overflow', () => {
             const amount = MAX_UINT256
 
             it('reverts', async () => {
-              await assertRevert(court.burnTokens(amount), MATH_ERRORS.ADD_OVERFLOW)
+              await assertRevert(disputeManager.burnTokens(amount), MATH_ERRORS.ADD_OVERFLOW)
             })
           })
         })
       })
     })
 
-    context('when the sender is not the court', () => {
+    context('when the sender is not the dispute manager', () => {
       const from = someone
 
       it('reverts', async () => {
-        await assertRevert(registry.burnTokens(bigExp(100, 18), { from }), CONTROLLED_ERRORS.SENDER_NOT_COURT_MODULE)
+        await assertRevert(registry.burnTokens(bigExp(100, 18), { from }), CONTROLLED_ERRORS.SENDER_NOT_DISPUTES_MODULE)
       })
     })
   })

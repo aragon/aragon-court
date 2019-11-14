@@ -2,7 +2,7 @@ const ARBITRABLE_EVENTS = {
   RULED: 'Ruled'
 }
 
-const COURT_EVENTS = {
+const DISPUTE_MANAGER_EVENTS = {
   DISPUTE_STATE_CHANGED: 'DisputeStateChanged',
   NEW_DISPUTE: 'NewDispute',
   RULING_APPEALED: 'RulingAppealed',
@@ -76,7 +76,7 @@ const CLOCK_EVENTS = {
 }
 
 module.exports = {
-  COURT_EVENTS,
+  DISPUTE_MANAGER_EVENTS,
   VOTING_EVENTS,
   REGISTRY_EVENTS,
   TREASURY_EVENTS,

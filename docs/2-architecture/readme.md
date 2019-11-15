@@ -10,13 +10,13 @@ The `Controller` has four main responsibilities:
 - Court terms management
 - Court config management
 
-The Court protocol relies on five main modules: `Court`, `Voting`, `JurorsRegistry`, `Treasury`, and `Subscriptions`.
+The Court protocol relies on five main modules: `DisputeManager`, `Voting`, `JurorsRegistry`, `Treasury`, and `Subscriptions`.
 Each of these modules are only referenced by the `Controller`, centralizing them allows us to be able to plug or unplug modules easily.
 
 The Court terms management and reference is held in `Clock`, almost every functionality of the protocol needs to ensure the current Court term is up-to-date.
 
 Every protocol configuration variable that needs to be check-pointed based on the different terms of the Court is referenced in `Config`.
-Note that this is important to be able to guarantee to our users that certain actions they committed to the Court will always rely on the same configurations of the protocol that were there at the moment said actions where requested. 
+Note that this is important to be able to guarantee to our users that certain actions they committed to the Court will rely always on the same configurations of the protocol that were there at the moment said actions were requested. 
 On the other hand, there are some configuration variables that are related to instantaneous actions. In this case, since we don't need to ensure historic information, these are held on its corresponding module for gas-optimization reasons.  
 
 ## 2.2. Modules
@@ -45,3 +45,10 @@ The protocol settings should be always able to be tweaked to ensure the proper o
 
 Any other modules functionality that needs to be restricted is either relying on these governor addresses as well, or on any of the other modules. 
 No other external accounts apart from the `Governor` addresses belong to the protocol implementation.
+
+## 2.4. Entry point
+
+The main entry point of the protocol is `AragonCourt`, this component inherits from `Controller`. 
+This allows to guarantee a single and immutable address to the users of the Court protocol. `AragonCourt` does not implement core logic, only the main entry points of the protocol where each request is forwarded to the corresponding modules of the `Controller` to be fulfilled.
+
+Detailed information about `AragonCourt` can be found in [section 4](../4-entry-points).

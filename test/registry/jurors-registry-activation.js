@@ -1,30 +1,30 @@
 const { assertBn } = require('../helpers/asserts/assertBn')
 const { bn, bigExp } = require('../helpers/lib/numbers')
-const { buildHelper } = require('../helpers/wrappers/controller')(web3, artifacts)
+const { buildHelper } = require('../helpers/wrappers/court')(web3, artifacts)
 const { assertRevert } = require('../helpers/asserts/assertThrow')
 const { REGISTRY_EVENTS } = require('../helpers/utils/events')
 const { REGISTRY_ERRORS } = require('../helpers/utils/errors')
 const { assertEvent, assertAmountOfEvents } = require('../helpers/asserts/assertEvent')
 
 const JurorsRegistry = artifacts.require('JurorsRegistry')
-const Court = artifacts.require('CourtMockForRegistry')
+const DisputeManager = artifacts.require('DisputeManagerMockForRegistry')
 const ERC20 = artifacts.require('ERC20Mock')
 
 contract('JurorsRegistry', ([_, juror]) => {
-  let controller, registry, court, ANJ
+  let controller, registry, disputeManager, ANJ
 
   const MIN_ACTIVE_AMOUNT = bigExp(100, 18)
   const TOTAL_ACTIVE_BALANCE_LIMIT = bigExp(100e6, 18)
 
   beforeEach('create base contracts', async () => {
     controller = await buildHelper().deploy({ minActiveBalance: MIN_ACTIVE_AMOUNT })
-    ANJ = await ERC20.new('ANJ Token', 'ANJ', 18)
 
+    ANJ = await ERC20.new('ANJ Token', 'ANJ', 18)
     registry = await JurorsRegistry.new(controller.address, ANJ.address, TOTAL_ACTIVE_BALANCE_LIMIT)
     await controller.setJurorsRegistry(registry.address)
 
-    court = await Court.new(controller.address)
-    await controller.setCourt(court.address)
+    disputeManager = await DisputeManager.new(controller.address)
+    await controller.setDisputeManager(disputeManager.address)
   })
 
   describe('activate', () => {
@@ -227,7 +227,7 @@ contract('JurorsRegistry', ([_, juror]) => {
 
             context('when the juror was slashed and reaches the minimum active amount of tokens', () => {
               beforeEach('slash juror', async () => {
-                await court.collect(juror, bigExp(1, 18))
+                await disputeManager.collect(juror, bigExp(1, 18))
                 await controller.mockIncreaseTerm()
               })
 
@@ -236,7 +236,7 @@ contract('JurorsRegistry', ([_, juror]) => {
 
             context('when the juror was slashed and does not reach the minimum active amount of tokens', () => {
               beforeEach('slash juror', async () => {
-                await court.collect(juror, activeBalance)
+                await disputeManager.collect(juror, activeBalance)
                 await registry.unstake(maxPossibleBalance.sub(activeBalance).sub(bn(1)), '0x', { from })
               })
 
@@ -259,7 +259,7 @@ contract('JurorsRegistry', ([_, juror]) => {
 
             context('when the juror was slashed and reaches the minimum active amount of tokens', () => {
               beforeEach('slash juror', async () => {
-                await court.collect(juror, amount)
+                await disputeManager.collect(juror, amount)
                 await controller.mockIncreaseTerm()
               })
 
@@ -268,7 +268,7 @@ contract('JurorsRegistry', ([_, juror]) => {
 
             context('when the juror was slashed and does not reach the minimum active amount of tokens', () => {
               beforeEach('slash juror', async () => {
-                await court.collect(juror, activeBalance)
+                await disputeManager.collect(juror, activeBalance)
               })
 
               it('reverts', async () => {

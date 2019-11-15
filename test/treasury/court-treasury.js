@@ -1,5 +1,5 @@
 const { assertBn } = require('../helpers/asserts/assertBn')
-const { buildHelper } = require('../helpers/wrappers/controller')(web3, artifacts)
+const { buildHelper } = require('../helpers/wrappers/court')(web3, artifacts)
 const { assertRevert } = require('../helpers/asserts/assertThrow')
 const { TREASURY_EVENTS } = require('../helpers/utils/events')
 const { bn, bigExp, MAX_UINT256 } = require('../helpers/lib/numbers')
@@ -11,14 +11,14 @@ const ERC20 = artifacts.require('ERC20Mock')
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
 
-contract('CourtTreasury', ([_, court, holder, someone]) => {
+contract('CourtTreasury', ([_, disputeManager, holder, someone]) => {
   let controller, treasury, DAI, ANT
 
   beforeEach('create treasury', async () => {
     controller = await buildHelper().deploy()
     treasury = await CourtTreasury.new(controller.address)
     await controller.setTreasury(treasury.address)
-    await controller.setCourtMock(court)
+    await controller.setDisputeManagerMock(disputeManager)
   })
 
   describe('constructor', () => {
@@ -56,8 +56,8 @@ contract('CourtTreasury', ([_, court, holder, someone]) => {
     })
 
     const itHandlesDepositsProperly = account => {
-      context('when the sender is the court', () => {
-        const from = court
+      context('when the sender is the dispute manager', () => {
+        const from = disputeManager
 
         context('when the account did not have previous balance', () => {
           context('when the given amount is zero', () => {
@@ -81,15 +81,15 @@ contract('CourtTreasury', ([_, court, holder, someone]) => {
               const receipt = await treasury.assign(DAI.address, account, amount, { from })
 
               assertAmountOfEvents(receipt, TREASURY_EVENTS.ASSIGN)
-              assertEvent(receipt, TREASURY_EVENTS.ASSIGN, { from: court, to: account, token: DAI.address, amount })
+              assertEvent(receipt, TREASURY_EVENTS.ASSIGN, { from: disputeManager, to: account, token: DAI.address, amount })
             })
           })
         })
 
         context('when the account had previous balance', () => {
           beforeEach('deposit some tokens', async () => {
-            await treasury.assign(ANT.address, account, bigExp(100, 18), { from: court })
-            await treasury.assign(DAI.address, account, bigExp(200, 18), { from: court })
+            await treasury.assign(ANT.address, account, bigExp(100, 18), { from: disputeManager })
+            await treasury.assign(DAI.address, account, bigExp(200, 18), { from: disputeManager })
           })
 
           context('when the given amount is zero', () => {
@@ -117,7 +117,7 @@ contract('CourtTreasury', ([_, court, holder, someone]) => {
                 const receipt = await treasury.assign(DAI.address, account, amount, { from })
 
                 assertAmountOfEvents(receipt, TREASURY_EVENTS.ASSIGN)
-                assertEvent(receipt, TREASURY_EVENTS.ASSIGN, { from: court, to: account, token: DAI.address, amount })
+                assertEvent(receipt, TREASURY_EVENTS.ASSIGN, { from: disputeManager, to: account, token: DAI.address, amount })
               })
 
               it('does not affect other token balances', async () => {
@@ -141,11 +141,11 @@ contract('CourtTreasury', ([_, court, holder, someone]) => {
         })
       })
 
-      context('when the sender is not the court', () => {
+      context('when the sender is not the dispute manager', () => {
         const from = someone
 
         it('reverts', async () => {
-          await assertRevert(treasury.assign(DAI.address, account, bigExp(10, 18), { from }), CONTROLLED_ERRORS.SENDER_NOT_COURT_MODULE)
+          await assertRevert(treasury.assign(DAI.address, account, bigExp(10, 18), { from }), CONTROLLED_ERRORS.SENDER_NOT_DISPUTES_MODULE)
         })
       })
     }
@@ -169,8 +169,8 @@ contract('CourtTreasury', ([_, court, holder, someone]) => {
       const from = holder
 
       beforeEach('deposit some tokens', async () => {
-        await treasury.assign(ANT.address, holder, bigExp(100, 18), { from: court })
-        await treasury.assign(DAI.address, holder, bigExp(200, 18), { from: court })
+        await treasury.assign(ANT.address, holder, bigExp(100, 18), { from: disputeManager })
+        await treasury.assign(DAI.address, holder, bigExp(200, 18), { from: disputeManager })
       })
 
       context('when the given recipient is not the zero address', () => {
@@ -351,8 +351,8 @@ contract('CourtTreasury', ([_, court, holder, someone]) => {
         const balance = bigExp(200, 18)
 
         beforeEach('deposit some tokens to the recipient', async () => {
-          await treasury.assign(DAI.address, recipient, balance, { from: court })
-          await treasury.assign(ANT.address, recipient, balance, { from: court })
+          await treasury.assign(DAI.address, recipient, balance, { from: disputeManager })
+          await treasury.assign(ANT.address, recipient, balance, { from: disputeManager })
         })
 
         context('when the treasury contract has enough tokens', () => {

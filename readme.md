@@ -25,9 +25,6 @@ A design goal of the mechanism is to require very few jurors to adjudicate a dis
 
 Even though Aragon Court could theoretically resolve any type of binary dispute, in its first deployments it will be used to arbitrate **Proposal Agreements.** These agreements require entities creating a proposal in an organization to agree to its specific rules around proposal creation, putting some collateral at stake that could be lost if the Court finds the proposal invalid.
 
-This first version of Aragon Court was inspired by [Kleros protocol](https://github.com/kleros/kleros), although major changes to the mechanism were made to increase some important security aspects.
-
-
 ## Help shape Aragon Court
 - Discuss in [Aragon Forum](https://forum.aragon.org/tags/dispute-resolution)
 - Join the [#research channel](https://aragon.chat/channel/research) in [Aragon Chat](https://aragon.chat)

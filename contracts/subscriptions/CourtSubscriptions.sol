@@ -8,9 +8,9 @@ import "../lib/os/TimeHelpers.sol";
 
 import "./ISubscriptions.sol";
 import "../lib/PctHelpers.sol";
-import "../controller/Controlled.sol";
 import "../registry/IJurorsRegistry.sol";
-import "../controller/ControlledRecoverable.sol";
+import "../court/controller/Controller.sol";
+import "../court/controller/ControlledRecoverable.sol";
 
 
 contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscriptions {
@@ -369,7 +369,7 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
 
     /**
     * @dev Tell the amount to pay and resulting last paid period for a given subscriber paying for a certain number of periods
-    * @param _subscriber Address of the subscriber willing to pay
+    * @param _subscriber Address of the subscriber being queried
     * @param _periods Number of periods that would be paid
     * @return feeToken ERC20 token used for the subscription fees
     * @return amountToPay Amount of subscription fee tokens to be paid
@@ -381,23 +381,25 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
         Subscriber storage subscriber = subscribers[_subscriber];
         uint256 currentPeriodId = _getCurrentPeriodId();
 
-        (ERC20 feeToken, uint256 feeAmount) = _getPeriodFeeTokenAndAmount(periods[currentPeriodId]);
-        (uint256 amountToPay, uint256 newLastPeriodId) = _getPayFeesDetails(subscriber, _periods, currentPeriodId, feeAmount);
-        return (feeToken, amountToPay, newLastPeriodId);
+        uint256 feeAmount;
+        (feeToken, feeAmount) = _getPeriodFeeTokenAndAmount(periods[currentPeriodId]);
+        (amountToPay, newLastPeriodId) = _getPayFeesDetails(subscriber, _periods, currentPeriodId, feeAmount);
     }
 
     /**
     * @dev Tell the minimum amount of fees to pay and resulting last paid period for a given subscriber in order to be up-to-date
-    * @param _subscriber Address of the subscriber willing to pay
+    * @param _subscriber Address of the subscriber being queried
     * @return feeToken ERC20 token used for the subscription fees
-    * @return amountToPay Amount of subscription fee tokens to be paid
+    * @return amountToPay Amount of subscription fee tokens to be paid for all the owed periods
     * @return newLastPeriodId Identification number of the resulting last paid period
     */
     function getOwedFeesDetails(address _subscriber) external view returns (ERC20 feeToken, uint256 amountToPay, uint256 newLastPeriodId) {
         Subscriber storage subscriber = subscribers[_subscriber];
         uint256 currentPeriodId = _getCurrentPeriodId();
         uint256 owedPeriods = _getOwedPeriods(subscriber, currentPeriodId);
-        (ERC20 feeToken, uint256 feeAmount) = _getPeriodFeeTokenAndAmount(periods[currentPeriodId]);
+
+        uint256 feeAmount;
+        (feeToken, feeAmount) = _getPeriodFeeTokenAndAmount(periods[currentPeriodId]);
 
         if (owedPeriods == 0) {
             amountToPay = 0;
@@ -405,8 +407,6 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
         } else {
             (amountToPay, newLastPeriodId) = _getPayFeesDetails(subscriber, owedPeriods, currentPeriodId, feeAmount);
         }
-
-        return (feeToken, amountToPay, newLastPeriodId);
     }
 
     /**

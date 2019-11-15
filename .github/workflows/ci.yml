@@ -15,20 +15,6 @@ jobs:
       run: npm run lint
     env:
       CI: true
-  court_basics:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v1
-    - name: Install node
-      uses: actions/setup-node@v1
-      with:
-        node-version: 10
-    - name: Install
-      run: npm install
-    - name: Test
-      run: npm test test/treasury/court-treasury.js test/court/court-{draft,gas}.js
-    env:
-      CI: true
   court_disputes:
     runs-on: ubuntu-latest
     steps:
@@ -40,7 +26,21 @@ jobs:
     - name: Install
       run: npm install
     - name: Test
-      run: npm test test/court/court-{disputes,voting,appeal,confirm-appeal}.js
+      run: npm test test/disputes/disputes-{create,draft}.js
+    env:
+      CI: true
+  court_appeals:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v1
+    - name: Install node
+      uses: actions/setup-node@v1
+      with:
+        node-version: 10
+    - name: Install
+      run: npm install
+    - name: Test
+      run: npm test test/disputes/disputes-{voting,appeal,confirm-appeal}.js
     env:
       CI: true
   court_settle_rounds:
@@ -54,7 +54,7 @@ jobs:
     - name: Install
       run: npm install
     - name: Test
-      run: npm test test/court/court-settle-round.js
+      run: npm test test/disputes/disputes-settle-round.js
     env:
       CI: true
   court_settle_appeals:
@@ -68,7 +68,7 @@ jobs:
     - name: Install
       run: npm install
     - name: Test
-      run: npm test test/court/court-settle-appeal.js
+      run: npm test test/disputes/disputes-settle-appeal.js
     env:
       CI: true
   registry:
@@ -127,7 +127,7 @@ jobs:
       run: npm test test/subscriptions/*.js
     env:
       CI: true
-  controller:
+  treasury:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v1
@@ -138,6 +138,20 @@ jobs:
     - name: Install
       run: npm install
     - name: Test
-      run: npm test test/controller/*.js
+      run: npm test test/treasury/court-treasury.js
+    env:
+      CI: true
+  court:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v1
+    - name: Install node
+      uses: actions/setup-node@v1
+      with:
+        node-version: 10
+    - name: Install
+      run: npm install
+    - name: Test
+      run: npm test test/court/**/*.js test/court/*.js
     env:
       CI: true

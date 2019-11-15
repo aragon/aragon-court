@@ -35,6 +35,7 @@ const DEFAULTS = {
   termDuration:                       bn(ONE_DAY),     //  terms lasts one day
   firstTermStartTime:                 bn(NEXT_WEEK),   //  first term starts one week after mocked timestamp
   maxJurorsPerDraftBatch:             bn(10),          //  max number of jurors drafted per batch
+  evidenceTerms:                      bn(4),           //  evidence period lasts 4 terms maximum
   commitTerms:                        bn(2),           //  vote commits last 2 terms
   revealTerms:                        bn(2),           //  vote reveals last 2 terms
   appealTerms:                        bn(2),           //  appeals last 2 terms
@@ -76,10 +77,11 @@ module.exports = (web3, artifacts) => {
         jurorFee: fees[0],
         draftFee: fees[1],
         settleFee: fees[2],
-        commitTerms: roundStateDurations[0],
-        revealTerms: roundStateDurations[1],
-        appealTerms: roundStateDurations[2],
-        appealConfirmTerms: roundStateDurations[3],
+        evidenceTerms: roundStateDurations[0],
+        commitTerms: roundStateDurations[1],
+        revealTerms: roundStateDurations[2],
+        appealTerms: roundStateDurations[3],
+        appealConfirmTerms: roundStateDurations[4],
         penaltyPct: pcts[0],
         finalRoundReduction: pcts[1],
         firstRoundJurorsNumber: roundParams[0],
@@ -93,8 +95,8 @@ module.exports = (web3, artifacts) => {
     }
 
     async getDispute(disputeId) {
-      const { subject, possibleRulings, state, finalRuling, lastRoundId } = await this.disputeManager.getDispute(disputeId)
-      return { subject, possibleRulings, state, finalRuling, lastRoundId }
+      const { subject, possibleRulings, state, finalRuling, lastRoundId, createTermId } = await this.disputeManager.getDispute(disputeId)
+      return { subject, possibleRulings, state, finalRuling, lastRoundId, createTermId }
     }
 
     async getRound(disputeId, roundId) {
@@ -201,10 +203,7 @@ module.exports = (web3, artifacts) => {
       }
     }
 
-    async dispute({ draftTermId, arbitrable = undefined, possibleRulings = bn(2), metadata = '0x' }) {
-      // mock current term right before the requested draft term
-      await this.setTerm(draftTermId - 1)
-
+    async dispute({ arbitrable = undefined, possibleRulings = bn(2), metadata = '0x', closeEvidence = true } = {}) {
       // create an arbitrable if no one was given, and mock subscriptions
       if (!arbitrable) arbitrable = await this.artifacts.require('ArbitrableMock').new(this.court.address)
       await this.subscriptions.mockUpToDate(true)
@@ -216,17 +215,28 @@ module.exports = (web3, artifacts) => {
       // create dispute and return id
       const receipt = await arbitrable.createDispute(possibleRulings, metadata)
       const logs = decodeEventsOfType(receipt, this.artifacts.require('DisputeManager').abi, DISPUTE_MANAGER_EVENTS.NEW_DISPUTE)
-      return getEventArgument({ logs }, DISPUTE_MANAGER_EVENTS.NEW_DISPUTE, 'disputeId')
+      const disputeId = getEventArgument({ logs }, DISPUTE_MANAGER_EVENTS.NEW_DISPUTE, 'disputeId')
+
+      // close evidence submission if requested
+      if (closeEvidence) {
+        await this.passTerms(1)
+        const currentTerm = await this.court.getCurrentTermId()
+        const { draftTerm } = await this.getRound(disputeId, 0)
+        if (draftTerm.gt(currentTerm)) await arbitrable.submitEvidence(disputeId, '0x', true)
+      }
+
+      return disputeId
     }
 
     async draft({ disputeId, draftedJurors = undefined, drafter = undefined }) {
       // if no drafter was given pick the third account
       if (!drafter) drafter = await this._getAccount(2)
 
+      const { lastRoundId } = await this.getDispute(disputeId)
+      const { draftTerm, roundJurorsNumber } = await this.getRound(disputeId, lastRoundId)
+
       // mock draft if there was a jurors set to be drafted
       if (draftedJurors) {
-        const { lastRoundId } = await this.getDispute(disputeId)
-        const { roundJurorsNumber } = await this.getRound(disputeId, lastRoundId)
         const maxJurorsPerDraftBatch = await this.disputeManager.maxJurorsPerDraftBatch()
         const jurorsToBeDrafted = roundJurorsNumber.lt(maxJurorsPerDraftBatch)
           ? roundJurorsNumber.toNumber() : maxJurorsPerDraftBatch.toNumber()
@@ -236,6 +246,11 @@ module.exports = (web3, artifacts) => {
         const weights = draftedJurors.map(j => j.weight)
         await this.jurorsRegistry.mockNextDraft(jurors, weights)
       }
+
+      // move to draft term if needed
+      const currentTerm = await this.court.getCurrentTermId()
+      if (draftTerm.gt(currentTerm)) await this.passTerms(draftTerm.sub(currentTerm))
+      else await this.advanceBlocks(2) // to ensure term randomness
 
       // draft and flat jurors with their weights
       const receipt = await this.disputeManager.draft(disputeId, { from: drafter })
@@ -332,7 +347,7 @@ module.exports = (web3, artifacts) => {
       const {
         feeToken,
         jurorFee, draftFee, settleFee,
-        commitTerms, revealTerms, appealTerms, appealConfirmTerms,
+        evidenceTerms, commitTerms, revealTerms, appealTerms, appealConfirmTerms,
         penaltyPct, finalRoundReduction,
         firstRoundJurorsNumber, appealStepFactor, maxRegularAppealRounds, finalRoundLockTerms,
         appealCollateralFactor, appealConfirmCollateralFactor,
@@ -343,7 +358,7 @@ module.exports = (web3, artifacts) => {
         termId,
         feeToken.address,
         [jurorFee, draftFee, settleFee],
-        [commitTerms, revealTerms, appealTerms, appealConfirmTerms],
+        [evidenceTerms, commitTerms, revealTerms, appealTerms, appealConfirmTerms],
         [penaltyPct, finalRoundReduction],
         [firstRoundJurorsNumber, appealStepFactor, maxRegularAppealRounds, finalRoundLockTerms],
         [appealCollateralFactor, appealConfirmCollateralFactor],
@@ -366,7 +381,7 @@ module.exports = (web3, artifacts) => {
         [this.fundsGovernor, this.configGovernor, this.modulesGovernor],
         this.feeToken.address,
         [this.jurorFee, this.draftFee, this.settleFee],
-        [this.commitTerms, this.revealTerms, this.appealTerms, this.appealConfirmTerms],
+        [this.evidenceTerms, this.commitTerms, this.revealTerms, this.appealTerms, this.appealConfirmTerms],
         [this.penaltyPct, this.finalRoundReduction],
         [this.firstRoundJurorsNumber, this.appealStepFactor, this.maxRegularAppealRounds, this.finalRoundLockTerms],
         [this.appealCollateralFactor, this.appealConfirmCollateralFactor],

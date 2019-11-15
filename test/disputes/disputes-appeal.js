@@ -33,13 +33,10 @@ contract('DisputeManager', ([_, drafter, appealMaker, appealTaker, juror500, jur
   describe('createAppeal', () => {
     context('when the given dispute exists', () => {
       let disputeId
-      const draftTermId = 4
 
       beforeEach('activate jurors and create dispute', async () => {
         await courtHelper.activate(jurors)
-
-        disputeId = await courtHelper.dispute({ draftTermId })
-        await courtHelper.passTerms(bn(1)) // court is already at term previous to dispute start
+        disputeId = await courtHelper.dispute()
       })
 
       context('when the given round is valid', () => {
@@ -157,10 +154,12 @@ contract('DisputeManager', ([_, drafter, appealMaker, appealTaker, juror500, jur
                   })
 
                   it('does not modify the current round of the dispute', async () => {
+                    const { draftTerm: previousDraftTerm } = await courtHelper.getRound(disputeId, roundId)
+
                     await disputeManager.createAppeal(disputeId, roundId, appealMakerRuling, { from: appealMaker })
 
                     const { draftTerm, delayedTerms, roundJurorsNumber, selectedJurors, jurorFees, settledPenalties, collectedTokens } = await courtHelper.getRound(disputeId, roundId)
-                    assertBn(draftTerm, draftTermId, 'current round draft term does not match')
+                    assertBn(draftTerm, previousDraftTerm, 'current round draft term does not match')
                     assertBn(delayedTerms, 0, 'current round delay term does not match')
                     assertBn(roundJurorsNumber, DEFAULTS.firstRoundJurorsNumber, 'current round jurors number does not match')
                     assertBn(selectedJurors, DEFAULTS.firstRoundJurorsNumber, 'current round selected jurors number does not match')

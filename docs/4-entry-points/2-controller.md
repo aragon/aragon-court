@@ -18,6 +18,7 @@ To read more information about its responsibilities and structure, go to [sectio
         - **Juror fee:** Amount of fee tokens paid per drafted juror per dispute
         - **Draft fee:**  Amount of fee tokens per juror to cover the drafting costs
         - **Settle fee:** Amount of fee tokens per juror to cover round settlement costs
+        - **Evidence terms:** Max submitting evidence period duration in Court terms
         - **Commit terms:** Duration of the commit phase in Court terms
         - **Reveal terms:** Duration of the reveal phase in Court terms
         - **Appeal terms:** Duration of the appeal phase in Court terms
@@ -62,6 +63,7 @@ To read more information about its responsibilities and structure, go to [sectio
         - **Juror fee:** Amount of fee tokens paid per drafted juror per dispute
         - **Draft fee:**  Amount of fee tokens per juror to cover the drafting costs
         - **Settle fee:** Amount of fee tokens per juror to cover round settlement costs
+        - **Evidence terms:** Max submitting evidence period duration in Court terms
         - **Commit terms:** Duration of the commit phase in Court terms
         - **Reveal terms:** Duration of the reveal phase in Court terms
         - **Appeal terms:** Duration of the appeal phase in Court terms

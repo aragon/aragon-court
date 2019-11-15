@@ -32,6 +32,7 @@ The fees config object includes the following fields:
     
 The disputes config object includes the following fields:
 
+- **Evidence terms:** Max submitting evidence period duration in Court terms
 - **Commit terms:** Committing period duration in terms
 - **Reveal terms:** Revealing period duration in terms
 - **Appeal terms:** Appealing period duration in terms

@@ -19,6 +19,7 @@ contract CourtConfigData {
     }
 
     struct DisputesConfig {
+        uint64 evidenceTerms;                   // Max submitting evidence period duration in terms
         uint64 commitTerms;                     // Committing period duration in terms
         uint64 revealTerms;                     // Revealing period duration in terms
         uint64 appealTerms;                     // Appealing period duration in terms
@@ -30,11 +31,6 @@ contract CourtConfigData {
         uint256 maxRegularAppealRounds;         // Before the final appeal
         uint256 appealCollateralFactor;         // Permyriad multiple of juror fees required to appeal a preliminary ruling (‱ - 1/10,000)
         uint256 appealConfirmCollateralFactor;  // Permyriad multiple of juror fees required to confirm appeal (‱ - 1/10,000)
-    }
-
-    struct CreateDisputeConfig {
-        FeesConfig fees;                        // Full fees-related config
-        uint64 firstRoundJurorsNumber;          // Number of jurors drafted on first round
     }
 
     struct DraftConfig {

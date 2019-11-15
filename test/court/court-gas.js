@@ -1,5 +1,5 @@
+const { bigExp } = require('../helpers/lib/numbers')
 const { assertBn } = require('../helpers/asserts/assertBn')
-const { bn, bigExp } = require('../helpers/lib/numbers')
 const { printTable } = require('../helpers/lib/logging')
 const { buildHelper } = require('../helpers/wrappers/court')(web3, artifacts)
 const { getVoteId, encryptVote, oppositeOutcome, SALT, OUTCOMES } = require('../helpers/utils/crvoting')
@@ -53,7 +53,7 @@ contract('AragonCourt', ([_, sender, drafter, appealMaker, appealTaker, juror500
           assertBn(neededTransitions, 0, 'needed transitions does not match')
         })
 
-        itCostsAtMost('createDispute', 239e3, () => arbitrable.createDispute(2, '0x', { from: sender }))
+        itCostsAtMost('createDispute', 251e3, () => arbitrable.createDispute(2, '0x', { from: sender }))
       })
 
       context('when the current term is outdated by one term', () => {
@@ -63,7 +63,7 @@ contract('AragonCourt', ([_, sender, drafter, appealMaker, appealTaker, juror500
           assertBn(neededTransitions, 1, 'needed transitions does not match')
         })
 
-        itCostsAtMost('createDispute', 295e3, () => arbitrable.createDispute(2, '0x', { from: sender }))
+        itCostsAtMost('createDispute', 308e3, () => arbitrable.createDispute(2, '0x', { from: sender }))
       })
     })
 
@@ -71,13 +71,10 @@ contract('AragonCourt', ([_, sender, drafter, appealMaker, appealTaker, juror500
       let disputeId
 
       beforeEach('create dispute and advance to the draft term', async () => {
-        const draftTermId = 2
-        disputeId = await courtHelper.dispute({ draftTermId })
-
-        const lastEnsuredTermId = await court.getLastEnsuredTermId()
-        await courtHelper.passRealTerms(draftTermId - lastEnsuredTermId)
+        disputeId = await courtHelper.dispute()
 
         // Mock term randomness to make sure we always have the same output for the draft, otherwise this test won't be deterministic
+        await courtHelper.passRealTerms(1)
         await court.mockSetTermRandomness('0x0000000000000000000000000000000000000000000000000000000000000001')
       })
 
@@ -90,12 +87,9 @@ contract('AragonCourt', ([_, sender, drafter, appealMaker, appealTaker, juror500
       const vote = encryptVote(OUTCOMES.LOW)
 
       beforeEach('create dispute and draft', async () => {
-        const draftTermId = 2, roundId = 0
-        const disputeId = await courtHelper.dispute({ draftTermId })
+        const roundId = 0
+        const disputeId = await courtHelper.dispute()
         voteId = getVoteId(disputeId, roundId)
-
-        // draft, court is already at term previous to dispute start
-        await courtHelper.passTerms(bn(1))
         draftedJurors = await courtHelper.draft({ disputeId, drafter })
       })
 
@@ -105,7 +99,7 @@ contract('AragonCourt', ([_, sender, drafter, appealMaker, appealTaker, juror500
           assertBn(neededTransitions, 0, 'needed transitions does not match')
         })
 
-        itCostsAtMost('commit', 78e3, () => voting.commit(voteId, vote, { from: draftedJurors[0].address }))
+        itCostsAtMost('commit', 79e3, () => voting.commit(voteId, vote, { from: draftedJurors[0].address }))
       })
 
       context('when the current term is outdated by one term', () => {
@@ -125,14 +119,12 @@ contract('AragonCourt', ([_, sender, drafter, appealMaker, appealTaker, juror500
       const outcome = OUTCOMES.LOW
 
       beforeEach('create dispute, draft and vote', async () => {
-        const draftTermId = 2, roundId = 0
-        const disputeId = await courtHelper.dispute({ draftTermId })
+        const roundId = 0
+        const disputeId = await courtHelper.dispute()
         voteId = getVoteId(disputeId, roundId)
 
-        // draft, court is already at term previous to dispute start
-        await courtHelper.passTerms(bn(1))
+        // draft and commit
         draftedJurors = await courtHelper.draft({ disputeId, drafter })
-
         await courtHelper.commit({ disputeId, roundId, voters: draftedJurors })
       })
 
@@ -160,15 +152,11 @@ contract('AragonCourt', ([_, sender, drafter, appealMaker, appealTaker, juror500
       let disputeId, roundId = 0, appealMakerRuling
 
       beforeEach('create dispute, draft and vote', async () => {
-        const draftTermId = 2
-        disputeId = await courtHelper.dispute({ draftTermId })
+        disputeId = await courtHelper.dispute()
         const voteId = getVoteId(disputeId, roundId)
 
-        // draft, court is already at term previous to dispute start
-        await courtHelper.passTerms(bn(1))
+        // draft, commit, and reveal votes
         const draftedJurors = await courtHelper.draft({ disputeId, drafter })
-
-        // commit and reveal votes
         await courtHelper.commit({ disputeId, roundId, voters: draftedJurors })
         await courtHelper.reveal({ disputeId, roundId, voters: draftedJurors })
 
@@ -197,7 +185,7 @@ contract('AragonCourt', ([_, sender, drafter, appealMaker, appealTaker, juror500
           assertBn(neededTransitions, 1, 'needed transitions does not match')
         })
 
-        itCostsAtMost('createAppeal', 130e3, () => disputeManager.createAppeal(disputeId, roundId, appealMakerRuling, { from: appealMaker }))
+        itCostsAtMost('createAppeal', 131e3, () => disputeManager.createAppeal(disputeId, roundId, appealMakerRuling, { from: appealMaker }))
       })
     })
 
@@ -205,14 +193,10 @@ contract('AragonCourt', ([_, sender, drafter, appealMaker, appealTaker, juror500
       let disputeId, roundId = 0, appealTakerRuling
 
       beforeEach('create dispute, draft, vote and appeal', async () => {
-        const draftTermId = 2
-        disputeId = await courtHelper.dispute({ draftTermId })
+        disputeId = await courtHelper.dispute()
 
-        // draft, court is already at term previous to dispute start
-        await courtHelper.passTerms(bn(1))
+        // draft, vote and appeal
         const draftedJurors = await courtHelper.draft({ disputeId, drafter })
-
-        // vote and appeal
         await courtHelper.commit({ disputeId, roundId, voters: draftedJurors })
         await courtHelper.reveal({ disputeId, roundId, voters: draftedJurors })
         await courtHelper.appeal({ disputeId, roundId, appealMaker })
@@ -250,14 +234,11 @@ contract('AragonCourt', ([_, sender, drafter, appealMaker, appealTaker, juror500
       let disputeId
 
       beforeEach('create dispute, draft and vote', async () => {
-        const draftTermId = 2, roundId = 0
-        disputeId = await courtHelper.dispute({ draftTermId })
+        const roundId = 0
+        disputeId = await courtHelper.dispute()
 
-        // draft, court is already at term previous to dispute start
-        await courtHelper.passTerms(bn(1))
+        // draft, commit, and reveal votes
         const draftedJurors = await courtHelper.draft({ disputeId, drafter })
-
-        // commit and reveal votes
         await courtHelper.commit({ disputeId, roundId, voters: draftedJurors })
         await courtHelper.reveal({ disputeId, roundId, voters: draftedJurors })
         await courtHelper.passTerms(courtHelper.appealTerms)
@@ -287,17 +268,13 @@ contract('AragonCourt', ([_, sender, drafter, appealMaker, appealTaker, juror500
       let disputeId, roundId = 0
 
       beforeEach('create dispute, draft and vote', async () => {
-        const draftTermId = 2
-        disputeId = await courtHelper.dispute({ draftTermId })
+        disputeId = await courtHelper.dispute()
 
         // Mock term randomness to make sure we always have the same output for the draft, otherwise this test won't be deterministic
         await court.mockSetTermRandomness('0x0000000000000000000000000000000000000000000000000000000000000001')
 
-        // draft, court is already at term previous to dispute start
-        await courtHelper.passTerms(bn(1))
+        // draft, commit and reveal votes
         const draftedJurors = await courtHelper.draft({ disputeId, drafter })
-
-        // commit and reveal votes
         await courtHelper.commit({ disputeId, roundId, voters: draftedJurors })
         await courtHelper.reveal({ disputeId, roundId, voters: draftedJurors })
         await courtHelper.passTerms(courtHelper.appealTerms)
@@ -309,7 +286,7 @@ contract('AragonCourt', ([_, sender, drafter, appealMaker, appealTaker, juror500
           assertBn(neededTransitions, 0, 'needed transitions does not match')
         })
 
-        itCostsAtMost('settlePenalties', 197e3, () => disputeManager.settlePenalties(disputeId, roundId, 0))
+        itCostsAtMost('settlePenalties', 198e3, () => disputeManager.settlePenalties(disputeId, roundId, 0))
       })
 
       context('when the current term is outdated by one term', () => {
@@ -327,14 +304,10 @@ contract('AragonCourt', ([_, sender, drafter, appealMaker, appealTaker, juror500
       let disputeId, roundId = 0, draftedJurors
 
       beforeEach('create dispute, draft and vote', async () => {
-        const draftTermId = 2
-        disputeId = await courtHelper.dispute({ draftTermId })
+        disputeId = await courtHelper.dispute()
 
-        // draft, court is already at term previous to dispute start
-        await courtHelper.passTerms(bn(1))
+        // draft, vote and settle penalties
         draftedJurors = await courtHelper.draft({ disputeId, drafter })
-
-        // vote and settle penalties
         draftedJurors = draftedJurors.map(juror => ({ ...juror, outcome: OUTCOMES.LOW }))
         await courtHelper.commit({ disputeId, roundId, voters: draftedJurors })
         await courtHelper.reveal({ disputeId, roundId, voters: draftedJurors })
@@ -366,14 +339,10 @@ contract('AragonCourt', ([_, sender, drafter, appealMaker, appealTaker, juror500
       let disputeId, roundId = 0
 
       beforeEach('create dispute, draft and vote', async () => {
-        const draftTermId = 2
-        disputeId = await courtHelper.dispute({ draftTermId })
+        disputeId = await courtHelper.dispute()
 
-        // draft, court is already at term previous to dispute start
-        await courtHelper.passTerms(bn(1))
+        // draft, vote and appeal first round
         const draftedJurors = await courtHelper.draft({ disputeId, drafter })
-
-        // vote and appeal first round
         await courtHelper.commit({ disputeId, roundId, voters: draftedJurors })
         await courtHelper.reveal({ disputeId, roundId, voters: draftedJurors })
         await courtHelper.appeal({ disputeId, roundId, appealMaker })

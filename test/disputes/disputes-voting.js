@@ -30,13 +30,12 @@ contract('DisputeManager', ([_, drafter, juror100, juror500, juror1000, juror150
   })
 
   describe('voting', () => {
-    const draftTermId = 4
     let disputeId, voteId, voters, nonVoters
 
     beforeEach('activate jurors and create dispute', async () => {
       await courtHelper.activate(jurors)
 
-      disputeId = await courtHelper.dispute({ draftTermId })
+      disputeId = await courtHelper.dispute()
       await courtHelper.passTerms(bn(1)) // court is already at term previous to dispute start
     })
 

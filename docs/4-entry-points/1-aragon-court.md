@@ -20,6 +20,7 @@ To read more information about its responsibilities and how the whole architectu
         - **Heartbeat fee:** Amount of fee tokens per dispute to cover terms update costs
         - **Draft fee:**  Amount of fee tokens per juror to cover the drafting costs
         - **Settle fee:** Amount of fee tokens per juror to cover round settlement costs
+        - **Evidence terms:** Max submitting evidence period duration in Court terms
         - **Commit terms:** Duration of the commit phase in Court terms
         - **Reveal terms:** Duration of the reveal phase in Court terms
         - **Appeal terms:** Duration of the appeal phase in Court terms
@@ -40,7 +41,7 @@ To read more information about its responsibilities and how the whole architectu
 
 ### 4.1.2. Create dispute
 
-- **Actor:** Proposal Agreements instances, entities that need a dispute adjudicated
+- **Actor:** Arbitrable instances, entities that need a dispute adjudicated
 - **Inputs:**
     - **Possible rulings:** Number of possible results for a dispute
     - **Metadata:** Optional metadata that can be used to provide additional information on the dispute to be created
@@ -51,7 +52,20 @@ To read more information about its responsibilities and how the whole architectu
 - **State transitions:**
     - Create a new dispute object in the DisputeManager module
 
-### 4.1.3. Execute dispute
+### 4.1.3. Close evidence period
+
+- **Actor:** Arbitrable instances, entities that need a dispute adjudicated.
+- **Inputs:**
+    - **Dispute ID:** Dispute identification number
+- **Authentication:** Open. Implicitly, only the Arbitrable instance related to the given dispute
+- **Pre-flight checks:**
+    - Ensure a dispute object with that ID exists
+    - Ensure that the dispute subject is the Arbitrable calling the function
+    - Ensure that the dispute evidence period is still open
+- **State transitions:**
+    - Update the dispute to allow being drafted immediately
+
+### 4.1.4. Execute dispute
 
 - **Actor:** External entity incentivized to execute the final ruling decided for a dispute. Alternatively, an altruistic entity to make sure the dispute is ruled.
 - **Inputs:**

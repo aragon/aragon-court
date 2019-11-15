@@ -6,7 +6,7 @@ const { toChecksumAddress } = require('web3-utils')
 const { decodeEventsOfType } = require('../helpers/lib/decodeEvent')
 const { getEventAt, getEvents } = require('@aragon/test-helpers/events')
 const { assertAmountOfEvents, assertEvent } = require('../helpers/asserts/assertEvent')
-const { buildHelper, DISPUTE_STATES, ROUND_STATES } = require('../helpers/wrappers/court')(web3, artifacts)
+const { buildHelper, DEFAULTS, DISPUTE_STATES, ROUND_STATES } = require('../helpers/wrappers/court')(web3, artifacts)
 const { DISPUTE_MANAGER_EVENTS, CLOCK_EVENTS, REGISTRY_EVENTS } = require('../helpers/utils/events')
 const { CLOCK_ERRORS, DISPUTE_MANAGER_ERRORS, CONTROLLED_ERRORS } = require('../helpers/utils/errors')
 
@@ -32,16 +32,14 @@ contract('DisputeManager', ([_, drafter, juror500, juror1000, juror1500, juror20
   describe('draft', () => {
     context('when the given dispute exists', () => {
       let disputeId
-
       const roundId = 0
-      const draftTermId = 4
 
       beforeEach('create dispute', async () => {
         await courtHelper.activate(jurors)
-        disputeId = await courtHelper.dispute({ draftTermId })
+        disputeId = await courtHelper.dispute({ closeEvidence: false })
       })
 
-      const itDraftsRequestedRoundInOneBatch = (term, jurorsToBeDrafted) => {
+      const itDraftsRequestedRoundInOneBatch = (jurorsToBeDrafted) => {
         const expectedDraftedJurors = jurorsToBeDrafted > firstRoundJurorsNumber ? firstRoundJurorsNumber : jurorsToBeDrafted
 
         it('selects random jurors for the last round of the dispute', async () => {
@@ -71,11 +69,14 @@ contract('DisputeManager', ([_, drafter, juror500, juror1000, juror1500, juror20
           })
 
           it('updates last round information', async () => {
+            const currentTermId = await court.getCurrentTermId()
+            const { draftTerm: draftTermId } = await courtHelper.getRound(disputeId, roundId)
+
             await disputeManager.draft(disputeId, { from: drafter })
 
             const { draftTerm, delayedTerms, roundJurorsNumber, selectedJurors, jurorFees, roundState } = await courtHelper.getRound(disputeId, roundId)
             assertBn(draftTerm, draftTermId, 'round draft term does not match')
-            assertBn(delayedTerms, term - draftTermId, 'delayed terms do not match')
+            assertBn(delayedTerms, currentTermId.sub(draftTermId), 'delayed terms do not match')
             assertBn(roundJurorsNumber, firstRoundJurorsNumber, 'round jurors number does not match')
             assertBn(selectedJurors, firstRoundJurorsNumber, 'selected jurors does not match')
             assertBn(jurorFees, courtHelper.jurorFee.mul(bn(firstRoundJurorsNumber)), 'round juror fees do not match')
@@ -93,6 +94,8 @@ contract('DisputeManager', ([_, drafter, juror500, juror1000, juror1500, juror20
           })
 
           it('updates last round information', async () => {
+            const { draftTerm: draftTermId } = await courtHelper.getRound(disputeId, roundId)
+
             await disputeManager.draft(disputeId, { from: drafter })
 
             const { draftTerm, delayedTerms, roundJurorsNumber, selectedJurors, jurorFees, roundState } = await courtHelper.getRound(disputeId, roundId)
@@ -142,7 +145,7 @@ contract('DisputeManager', ([_, drafter, juror500, juror1000, juror1500, juror20
         })
       }
 
-      const itDraftsRequestedRoundInMultipleBatches = (term, jurorsToBeDrafted, batches, jurorsPerBatch) => {
+      const itDraftsRequestedRoundInMultipleBatches = (jurorsToBeDrafted, batches, jurorsPerBatch) => {
         it('selects random jurors for the last round of the dispute', async () => {
           const jurorsAddresses = jurors.map(j => j.address)
 
@@ -184,6 +187,8 @@ contract('DisputeManager', ([_, drafter, juror500, juror1000, juror1500, juror20
         })
 
         it('updates last round information', async () => {
+          const { draftTerm: draftTermId } = await courtHelper.getRound(disputeId, roundId)
+
           let lastTerm
           for (let batch = 0; batch < batches; batch++) {
             await disputeManager.draft(disputeId, { from: drafter })
@@ -259,7 +264,7 @@ contract('DisputeManager', ([_, drafter, juror500, juror1000, juror1500, juror20
         })
       }
 
-      const itHandlesDraftsProperlyForDifferentRequestedJurorsNumber = term => {
+      const itHandlesDraftsProperlyForDifferentRequestedJurorsNumber = () => {
         context('when drafting all the requested jurors', () => {
           context('when drafting in one batch', () => {
             const maxJurorsPerDraftBatch = firstRoundJurorsNumber
@@ -268,7 +273,7 @@ contract('DisputeManager', ([_, drafter, juror500, juror1000, juror1500, juror20
               await disputeManager.setMaxJurorsPerDraftBatch(maxJurorsPerDraftBatch, { from: configGovernor })
             })
 
-            itDraftsRequestedRoundInOneBatch(term, maxJurorsPerDraftBatch)
+            itDraftsRequestedRoundInOneBatch(maxJurorsPerDraftBatch)
           })
 
           context('when drafting in multiple batches', () => {
@@ -278,7 +283,7 @@ contract('DisputeManager', ([_, drafter, juror500, juror1000, juror1500, juror20
               await disputeManager.setMaxJurorsPerDraftBatch(maxJurorsPerDraftBatch, { from: configGovernor })
             })
 
-            itDraftsRequestedRoundInMultipleBatches(term, firstRoundJurorsNumber, batches, maxJurorsPerDraftBatch)
+            itDraftsRequestedRoundInMultipleBatches(firstRoundJurorsNumber, batches, maxJurorsPerDraftBatch)
           })
         })
 
@@ -289,7 +294,7 @@ contract('DisputeManager', ([_, drafter, juror500, juror1000, juror1500, juror20
             await disputeManager.setMaxJurorsPerDraftBatch(maxJurorsPerDraftBatch, { from: configGovernor })
           })
 
-          itDraftsRequestedRoundInOneBatch(term, maxJurorsPerDraftBatch)
+          itDraftsRequestedRoundInOneBatch(maxJurorsPerDraftBatch)
         })
 
         context('when drafting more than the requested jurors', () => {
@@ -299,14 +304,15 @@ contract('DisputeManager', ([_, drafter, juror500, juror1000, juror1500, juror20
             await disputeManager.setMaxJurorsPerDraftBatch(maxJurorsPerDraftBatch, { from: configGovernor })
           })
 
-          itDraftsRequestedRoundInOneBatch(term, maxJurorsPerDraftBatch)
+          itDraftsRequestedRoundInOneBatch(maxJurorsPerDraftBatch)
         })
       }
 
-      const itHandlesDraftsProperly = term => {
+      const itHandlesDraftsProperlyForDifferentBlockNumbers = () => {
         const advanceBlocksAfterDraftBlockNumber = async blocks => {
           // NOTE: To test this scenario we cannot mock the blocknumber, we need a real block mining to have different blockhashes
-          const { randomnessBN } = await court.getTerm(draftTermId)
+          const { draftTerm } = await courtHelper.getRound(disputeId, roundId)
+          const { randomnessBN } = await court.getTerm(draftTerm)
           const currentBlockNumber = await court.getBlockNumberExt()
           const outdatedBlocks = currentBlockNumber.toNumber() - randomnessBN.toNumber()
           if (outdatedBlocks <= blocks) await advanceBlocks(blocks - outdatedBlocks)
@@ -314,7 +320,8 @@ contract('DisputeManager', ([_, drafter, juror500, juror1000, juror1500, juror20
 
         context('when the current block is the randomness block number', () => {
           beforeEach('mock current block number', async () => {
-            const { randomnessBN } = await court.getTerm(draftTermId)
+            const { draftTerm } = await courtHelper.getRound(disputeId, roundId)
+            const { randomnessBN } = await court.getTerm(draftTerm)
             await court.mockSetBlockNumber(randomnessBN)
           })
 
@@ -326,7 +333,7 @@ contract('DisputeManager', ([_, drafter, juror500, juror1000, juror1500, juror20
         context('when the current block is the following block of the randomness block number', () => {
           // no need to move one block since the `beforeEach` block will hit the next block
 
-          itHandlesDraftsProperlyForDifferentRequestedJurorsNumber(term)
+          itHandlesDraftsProperlyForDifferentRequestedJurorsNumber()
         })
 
         context('when the current term is after the randomness block number by less than 256 blocks', () => {
@@ -334,7 +341,7 @@ contract('DisputeManager', ([_, drafter, juror500, juror1000, juror1500, juror20
             await advanceBlocksAfterDraftBlockNumber(15)
           })
 
-          itHandlesDraftsProperlyForDifferentRequestedJurorsNumber(term)
+          itHandlesDraftsProperlyForDifferentRequestedJurorsNumber()
         })
 
         context('when the current term is after the randomness block number by 256 blocks', () => {
@@ -343,7 +350,7 @@ contract('DisputeManager', ([_, drafter, juror500, juror1000, juror1500, juror20
             await advanceBlocksAfterDraftBlockNumber(254)
           })
 
-          itHandlesDraftsProperlyForDifferentRequestedJurorsNumber(term)
+          itHandlesDraftsProperlyForDifferentRequestedJurorsNumber()
         })
 
         context('when the current term is after the randomness block number by more than 256 blocks', () => {
@@ -357,27 +364,20 @@ contract('DisputeManager', ([_, drafter, juror500, juror1000, juror1500, juror20
         })
       }
 
-      const itHandlesDraftsProperlyForTerm = term => {
-        beforeEach('move to requested term', async () => {
-          // the term previous to the draft term was already ensured when creating the dispute
-          await courtHelper.increaseTimeInTerms(term - draftTermId + 1)
-        })
-
+      const itHandlesDraftsProperly = () => {
         context('when the given dispute was not drafted', () => {
-          context('when the court term is up-to-date', () => {
-            beforeEach('ensure the draft term', async () => {
-              const neededTransitions = await court.getNeededTermTransitions()
-              await court.heartbeat(neededTransitions)
-            })
+          beforeEach('move to the draft term', async () => {
+            const neededTransitions = await court.getNeededTermTransitions()
+            if (neededTransitions.gt(bn(0))) await court.heartbeat(neededTransitions)
+          })
 
-            itHandlesDraftsProperly(term)
+          context('when the court term is up-to-date', () => {
+            itHandlesDraftsProperlyForDifferentBlockNumbers()
           })
 
           context('when the court term is outdated by one term', () => {
-            beforeEach('ensure previous term of the draft term', async () => {
-              const neededTransitions = (await court.getNeededTermTransitions()).toNumber()
-              assert.isAbove(neededTransitions, 0, 'no needed transitions')
-              if (neededTransitions > 1) await court.heartbeat(bn(neededTransitions - 1))
+            beforeEach('increase one term', async () => {
+              await courtHelper.increaseTimeInTerms(1)
             })
 
             context('when the heartbeat was not executed', async () => {
@@ -399,13 +399,13 @@ contract('DisputeManager', ([_, drafter, juror500, juror1000, juror1500, juror20
                 assertEvent(receipt, CLOCK_EVENTS.HEARTBEAT, { previousTermId: lastEnsuredTermId, currentTermId: lastEnsuredTermId.add(bn(1)) })
               })
 
-              itHandlesDraftsProperly(term)
+              itHandlesDraftsProperlyForDifferentBlockNumbers()
             })
           })
 
           context('when the court term is outdated by more than one term', () => {
-            beforeEach('advance some blocks to ensure term randomness', async () => {
-              await advanceBlocks(10)
+            beforeEach('increase two terms', async () => {
+              await courtHelper.increaseTimeInTerms(2)
             })
 
             it('reverts', async () => {
@@ -416,8 +416,10 @@ contract('DisputeManager', ([_, drafter, juror500, juror1000, juror1500, juror20
 
         context('when the given dispute was already drafted', () => {
           beforeEach('draft dispute', async () => {
-            await court.heartbeat(term)
-            await advanceBlocks(10) // advance some blocks to ensure term randomness
+            const neededTransitions = await court.getNeededTermTransitions()
+            if (neededTransitions.gt(bn(0))) await court.heartbeat(neededTransitions)
+            await advanceBlocks(3) // advance some blocks to ensure term randomness
+
             await disputeManager.draft(disputeId, { from: drafter })
           })
 
@@ -427,22 +429,28 @@ contract('DisputeManager', ([_, drafter, juror500, juror1000, juror1500, juror20
         })
       }
 
-      context('when the current term is previous the draft term', () => {
+      context('when the evidence period is still open', () => {
         it('reverts', async () => {
           await assertRevert(disputeManager.draft(disputeId, { from: drafter }), CLOCK_ERRORS.TERM_DOES_NOT_EXIST)
         })
       })
 
-      context('when the current term is the draft term', () => {
-        const currentTerm = draftTermId
+      context('when the evidence period is closed', () => {
+        beforeEach('close evidence period', async () => {
+          await courtHelper.passRealTerms(DEFAULTS.evidenceTerms)
+        })
 
-        itHandlesDraftsProperlyForTerm(currentTerm)
-      })
+        context('when the current term is the draft term', () => {
+          itHandlesDraftsProperly()
+        })
 
-      context('when the current term is after the draft term', () => {
-        const currentTerm = draftTermId + 10
+        context('when the current term is after the draft term', () => {
+          beforeEach('delay some terms', async () => {
+            await courtHelper.increaseTimeInTerms(10)
+          })
 
-        itHandlesDraftsProperlyForTerm(currentTerm)
+          itHandlesDraftsProperly()
+        })
       })
     })
 

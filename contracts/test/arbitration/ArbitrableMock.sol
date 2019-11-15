@@ -6,9 +6,7 @@ import "../../arbitration/IArbitrator.sol";
 
 
 contract ArbitrableMock is IArbitrable, ERC165 {
-    bytes4 private constant ARBITRABLE_INTERFACE_ID = bytes4(0x311a6c56);
-
-    event Ruled(IArbitrator indexed arbitrator, uint256 indexed disputeId, uint256 ruling);
+    bytes4 public constant ARBITRABLE_INTERFACE_ID = bytes4(0x88f3ee69);
 
     IArbitrator internal arbitrator;
 
@@ -22,11 +20,21 @@ contract ArbitrableMock is IArbitrable, ERC165 {
         arbitrator.createDispute(_possibleRulings, _metadata);
     }
 
+    function submitEvidence(uint256 _disputeId, bytes calldata _evidence, bool _finished) external {
+        emit EvidenceSubmitted(_disputeId, _evidence, _finished);
+        if (_finished) arbitrator.closeEvidencePeriod(_disputeId);
+    }
+
     function rule(uint256 _disputeId, uint256 _ruling) external {
         emit Ruled(IArbitrator(msg.sender), _disputeId, _ruling);
     }
 
     function supportsInterface(bytes4 _interfaceId) external pure returns (bool) {
         return _interfaceId == ARBITRABLE_INTERFACE_ID;
+    }
+
+    function interfaceID() external pure returns (bytes4) {
+        IArbitrable arbitrable;
+        return arbitrable.submitEvidence.selector ^ arbitrable.rule.selector;
     }
 }

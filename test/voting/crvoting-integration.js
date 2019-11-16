@@ -10,14 +10,18 @@ const POSSIBLE_OUTCOMES = 2
 contract('CRVoting', ([_, voterWeighted1, voterWeighted2, voterWeighted3, voterWeighted10, voterWeighted12, voterWeighted13, someone]) => {
   let controller, voting, disputeManager, voteId = 0
 
-  beforeEach('create voting', async () => {
+  before('create base contracts', async () => {
     controller = await buildHelper().deploy()
-
-    voting = await CRVoting.new(controller.address)
-    await controller.setVoting(voting.address)
-
     disputeManager = await Court.new(controller.address)
     await controller.setDisputeManager(disputeManager.address)
+  })
+
+  beforeEach('create voting', async () => {
+    voting = await CRVoting.new(controller.address)
+    await controller.setVoting(voting.address)
+  })
+
+  beforeEach('create vote', async () => {
     await disputeManager.create(voteId, POSSIBLE_OUTCOMES)
   })
 

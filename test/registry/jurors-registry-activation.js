@@ -16,15 +16,16 @@ contract('JurorsRegistry', ([_, juror]) => {
   const MIN_ACTIVE_AMOUNT = bigExp(100, 18)
   const TOTAL_ACTIVE_BALANCE_LIMIT = bigExp(100e6, 18)
 
-  beforeEach('create base contracts', async () => {
+  before('create base contracts', async () => {
     controller = await buildHelper().deploy({ minActiveBalance: MIN_ACTIVE_AMOUNT })
-
-    ANJ = await ERC20.new('ANJ Token', 'ANJ', 18)
-    registry = await JurorsRegistry.new(controller.address, ANJ.address, TOTAL_ACTIVE_BALANCE_LIMIT)
-    await controller.setJurorsRegistry(registry.address)
-
     disputeManager = await DisputeManager.new(controller.address)
     await controller.setDisputeManager(disputeManager.address)
+    ANJ = await ERC20.new('ANJ Token', 'ANJ', 18)
+  })
+
+  beforeEach('create jurors registry module', async () => {
+    registry = await JurorsRegistry.new(controller.address, ANJ.address, TOTAL_ACTIVE_BALANCE_LIMIT)
+    await controller.setJurorsRegistry(registry.address)
   })
 
   describe('activate', () => {
@@ -150,12 +151,13 @@ contract('JurorsRegistry', ([_, juror]) => {
           })
 
           it('emits a deactivation processed event', async () => {
-            const termId = await controller.getLastEnsuredTermId()
+            const termId = await controller.getCurrentTermId()
+            const { availableTermId } = await registry.getDeactivationRequest(from)
 
             const receipt = await registry.activate(requestedAmount, { from })
 
             assertAmountOfEvents(receipt, REGISTRY_EVENTS.JUROR_DEACTIVATION_PROCESSED)
-            assertEvent(receipt, REGISTRY_EVENTS.JUROR_DEACTIVATION_PROCESSED, { juror, amount: deactivationAmount, availableTermId: 1, processedTermId: termId })
+            assertEvent(receipt, REGISTRY_EVENTS.JUROR_DEACTIVATION_PROCESSED, { juror, amount: deactivationAmount, availableTermId, processedTermId: termId })
           })
         }
       }
@@ -548,12 +550,13 @@ contract('JurorsRegistry', ([_, juror]) => {
             })
 
             it('emits a deactivation processed event', async () => {
-              const termId = await controller.getLastEnsuredTermId()
+              const termId = await controller.getCurrentTermId()
+              const { availableTermId } = await registry.getDeactivationRequest(from)
 
               const receipt = await registry.deactivate(requestedAmount, { from })
 
               assertAmountOfEvents(receipt, REGISTRY_EVENTS.JUROR_DEACTIVATION_PROCESSED)
-              assertEvent(receipt, REGISTRY_EVENTS.JUROR_DEACTIVATION_PROCESSED, { juror, amount: previousDeactivationAmount, availableTermId: 1, processedTermId: termId })
+              assertEvent(receipt, REGISTRY_EVENTS.JUROR_DEACTIVATION_PROCESSED, { juror, amount: previousDeactivationAmount, availableTermId, processedTermId: termId })
             })
           }
         }

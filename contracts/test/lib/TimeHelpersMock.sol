@@ -10,7 +10,8 @@ contract TimeHelpersMock is TimeHelpers {
     using SafeMath64 for uint64;
 
     uint256 private mockedTimestamp;
-    uint256 private mockedBlockNumber;
+    uint256 private mockedSetBlockNumber;
+    uint256 private mockedAdvancedBlockNumber;
 
     /**
     * @dev Tells the mocked block number in uint256, or the real block number if it wasn't mocked
@@ -30,15 +31,19 @@ contract TimeHelpersMock is TimeHelpers {
     * @dev Sets a mocked block number value, used only for testing purposes
     */
     function mockSetBlockNumber(uint256 _number) external {
-        mockedBlockNumber = _number;
+        mockedSetBlockNumber = _number;
     }
 
     /**
     * @dev Advances the mocked block number value, used only for testing purposes
     */
     function mockAdvanceBlocks(uint256 _number) external {
-        if (mockedBlockNumber != 0) mockedBlockNumber = mockedBlockNumber.add(_number);
-        else mockedBlockNumber = block.number.add(_number);
+        if (mockedSetBlockNumber != 0) {
+            mockedAdvancedBlockNumber = mockedSetBlockNumber.add(_number);
+            mockedSetBlockNumber = 0;
+        }
+        else if (mockedAdvancedBlockNumber != 0) mockedAdvancedBlockNumber = mockedAdvancedBlockNumber.add(_number);
+        else mockedAdvancedBlockNumber = block.number.add(_number);
     }
 
     /**
@@ -60,8 +65,9 @@ contract TimeHelpersMock is TimeHelpers {
     * @dev Internal function to get the mocked block number if it was set, or current `block.number`
     */
     function getBlockNumber() internal view returns (uint256) {
-        if (mockedBlockNumber != 0) return mockedBlockNumber;
-        return super.getBlockNumber();
+        if (mockedSetBlockNumber != 0) return mockedSetBlockNumber;
+        uint256 realBlockNumber = super.getBlockNumber();
+        return (mockedAdvancedBlockNumber > realBlockNumber) ? mockedAdvancedBlockNumber : realBlockNumber;
     }
 
     /**

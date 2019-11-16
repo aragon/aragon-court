@@ -22,15 +22,16 @@ contract('JurorsRegistry', ([_, juror, secondJuror, thirdJuror, anyone]) => {
   const DRAFT_LOCK_AMOUNT = MIN_ACTIVE_AMOUNT.mul(DRAFT_LOCK_PCT).div(bn(10000))
   const EMPTY_RANDOMNESS = '0x0000000000000000000000000000000000000000000000000000000000000000'
 
-  beforeEach('create base contracts', async () => {
+  before('create base contracts', async () => {
     controller = await buildHelper().deploy({ minActiveBalance: MIN_ACTIVE_AMOUNT })
-
-    ANJ = await ERC20.new('ANJ Token', 'ANJ', 18)
-    registry = await JurorsRegistry.new(controller.address, ANJ.address, TOTAL_ACTIVE_BALANCE_LIMIT)
-    await controller.setJurorsRegistry(registry.address)
-
     disputeManager = await DisputeManager.new(controller.address)
     await controller.setDisputeManager(disputeManager.address)
+    ANJ = await ERC20.new('ANJ Token', 'ANJ', 18)
+  })
+
+  beforeEach('create jurors registry module', async () => {
+    registry = await JurorsRegistry.new(controller.address, ANJ.address, TOTAL_ACTIVE_BALANCE_LIMIT)
+    await controller.setJurorsRegistry(registry.address)
   })
 
   describe('slashOrUnlock', () => {
@@ -307,14 +308,14 @@ contract('JurorsRegistry', ([_, juror, secondJuror, thirdJuror, anyone]) => {
 
         if (!deactivationReduced.eq(bn(0))) {
           it('emits a deactivation request updated event', async () => {
-            const termId = await controller.getLastEnsuredTermId()
-            const { pendingDeactivation: previousDeactivation } = await registry.balanceOf(juror)
+            const termId = await controller.getCurrentTermId()
+            const { amount: previousDeactivation, availableTermId } = await registry.getDeactivationRequest(juror)
 
             const receipt = await disputeManager.collect(juror, amount)
             const logs = decodeEventsOfType(receipt, JurorsRegistry.abi, REGISTRY_EVENTS.JUROR_DEACTIVATION_UPDATED)
 
             assertAmountOfEvents({ logs }, REGISTRY_EVENTS.JUROR_DEACTIVATION_UPDATED)
-            assertEvent({ logs }, REGISTRY_EVENTS.JUROR_DEACTIVATION_UPDATED, { juror, availableTermId: 2, updateTermId: termId, amount: previousDeactivation.sub(deactivationReduced) })
+            assertEvent({ logs }, REGISTRY_EVENTS.JUROR_DEACTIVATION_UPDATED, { juror, availableTermId, updateTermId: termId, amount: previousDeactivation.sub(deactivationReduced) })
           })
         }
       }

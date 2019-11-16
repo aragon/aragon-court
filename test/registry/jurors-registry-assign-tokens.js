@@ -17,15 +17,16 @@ contract('JurorsRegistry', ([_, juror, someone]) => {
   const TOTAL_ACTIVE_BALANCE_LIMIT = bigExp(100e6, 18)
   const BURN_ADDRESS = '0x000000000000000000000000000000000000dead'
 
-  beforeEach('create base contracts', async () => {
+  before('create base contracts', async () => {
     controller = await buildHelper().deploy()
-
-    ANJ = await ERC20.new('ANJ Token', 'ANJ', 18)
-    registry = await JurorsRegistry.new(controller.address, ANJ.address, TOTAL_ACTIVE_BALANCE_LIMIT)
-    await controller.setJurorsRegistry(registry.address)
-
     disputeManager = await DisputeManager.new(controller.address)
     await controller.setDisputeManager(disputeManager.address)
+    ANJ = await ERC20.new('ANJ Token', 'ANJ', 18)
+  })
+
+  beforeEach('create jurors registry module', async () => {
+    registry = await JurorsRegistry.new(controller.address, ANJ.address, TOTAL_ACTIVE_BALANCE_LIMIT)
+    await controller.setJurorsRegistry(registry.address)
   })
 
   const itHandlesZeroTokenAssignmentsProperly = (assignmentCall, recipient) => {

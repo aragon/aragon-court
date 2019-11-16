@@ -20,15 +20,16 @@ contract('JurorsRegistry', ([_, juror, anotherJuror]) => {
   const MIN_ACTIVE_AMOUNT = bigExp(100, 18)
   const TOTAL_ACTIVE_BALANCE_LIMIT = bigExp(100e6, 18)
 
-  beforeEach('create base contracts', async () => {
+  before('create court and custom disputes module', async () => {
     controller = await buildHelper().deploy({ minActiveBalance: MIN_ACTIVE_AMOUNT })
-    ANJ = await ERC20.new('ANJ Token', 'ANJ', 18)
-
-    registry = await JurorsRegistry.new(controller.address, ANJ.address, TOTAL_ACTIVE_BALANCE_LIMIT)
-    await controller.setJurorsRegistry(registry.address)
-
     disputeManager = await DisputeManager.new(controller.address)
     await controller.setDisputeManager(disputeManager.address)
+    ANJ = await ERC20.new('ANJ Token', 'ANJ', 18)
+  })
+
+  beforeEach('create jurors registry module', async () => {
+    registry = await JurorsRegistry.new(controller.address, ANJ.address, TOTAL_ACTIVE_BALANCE_LIMIT)
+    await controller.setJurorsRegistry(registry.address)
   })
 
   describe('stake', () => {
@@ -256,10 +257,12 @@ contract('JurorsRegistry', ([_, juror, anotherJuror]) => {
         })
 
         it('emits an activation event', async () => {
+          const termId = await controller.getCurrentTermId()
+
           const receipt = await registry.stake(amount, data, { from })
 
           assertAmountOfEvents(receipt, REGISTRY_EVENTS.JUROR_ACTIVATED)
-          assertEvent(receipt, REGISTRY_EVENTS.JUROR_ACTIVATED, { juror, fromTermId: 1, amount })
+          assertEvent(receipt, REGISTRY_EVENTS.JUROR_ACTIVATED, { juror, fromTermId: termId.add(bn(1)), amount })
         })
       }
 
@@ -639,10 +642,12 @@ contract('JurorsRegistry', ([_, juror, anotherJuror]) => {
         })
 
         it('emits an activation event', async () => {
+          const termId = await controller.getCurrentTermId()
+
           const receipt = await registry.stakeFor(recipient, amount, data, { from })
 
           assertAmountOfEvents(receipt, REGISTRY_EVENTS.JUROR_ACTIVATED)
-          assertEvent(receipt, REGISTRY_EVENTS.JUROR_ACTIVATED, { juror: recipient, fromTermId: 1, amount })
+          assertEvent(receipt, REGISTRY_EVENTS.JUROR_ACTIVATED, { juror: recipient, fromTermId: termId.add(bn(1)), amount })
         })
       }
 
@@ -951,11 +956,13 @@ contract('JurorsRegistry', ([_, juror, anotherJuror]) => {
           })
 
           it('emits an activation event', async () => {
+            const termId = await controller.getCurrentTermId()
+
             const receipt = await ANJ.approveAndCall(registry.address, amount, data, { from })
             const logs = decodeEventsOfType(receipt, JurorsRegistry.abi, REGISTRY_EVENTS.JUROR_ACTIVATED)
 
             assertAmountOfEvents({ logs }, REGISTRY_EVENTS.JUROR_ACTIVATED)
-            assertEvent({ logs }, REGISTRY_EVENTS.JUROR_ACTIVATED, { juror, fromTermId: 1, amount })
+            assertEvent({ logs }, REGISTRY_EVENTS.JUROR_ACTIVATED, { juror, fromTermId: termId.add(bn(1)), amount })
           })
         }
 
@@ -1157,12 +1164,13 @@ contract('JurorsRegistry', ([_, juror, anotherJuror]) => {
           })
 
           it('emits a deactivation processed event', async () => {
-            const termId = await controller.getLastEnsuredTermId()
+            const termId = await controller.getCurrentTermId()
+            const { availableTermId } = await registry.getDeactivationRequest(juror)
 
             const receipt = await registry.unstake(amount, data, { from })
 
             assertAmountOfEvents(receipt, REGISTRY_EVENTS.JUROR_DEACTIVATION_PROCESSED)
-            assertEvent(receipt, REGISTRY_EVENTS.JUROR_DEACTIVATION_PROCESSED, { juror, amount: deactivationAmount, availableTermId: 1, processedTermId: termId })
+            assertEvent(receipt, REGISTRY_EVENTS.JUROR_DEACTIVATION_PROCESSED, { juror, amount: deactivationAmount, availableTermId, processedTermId: termId })
           })
         }
       }

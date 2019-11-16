@@ -18,7 +18,7 @@ contract('AragonCourt', ([_, sender, drafter, appealMaker, appealTaker, juror500
     { address: juror3000, initialActiveBalance: bigExp(3000, 18) }
   ]
 
-  beforeEach('create court and activate jurors', async () => {
+  before('create court and activate jurors', async () => {
     courtHelper = buildHelper()
     court = await courtHelper.deploy()
     voting = courtHelper.voting
@@ -78,7 +78,7 @@ contract('AragonCourt', ([_, sender, drafter, appealMaker, appealTaker, juror500
         await court.mockSetTermRandomness('0x0000000000000000000000000000000000000000000000000000000000000001')
       })
 
-      itCostsAtMost('draft', 326e3, () => disputeManager.draft(disputeId))
+      itCostsAtMost('draft', 327e3, () => disputeManager.draft(disputeId))
     })
 
     describe('commit', () => {
@@ -144,7 +144,7 @@ contract('AragonCourt', ([_, sender, drafter, appealMaker, appealTaker, juror500
           assertBn(neededTransitions, 1, 'needed transitions does not match')
         })
 
-        itCostsAtMost('reveal', 160e3, () => voting.reveal(voteId, outcome, SALT, { from: draftedJurors[0].address }))
+        itCostsAtMost('reveal', 161e3, () => voting.reveal(voteId, outcome, SALT, { from: draftedJurors[0].address }))
       })
     })
 
@@ -286,7 +286,7 @@ contract('AragonCourt', ([_, sender, drafter, appealMaker, appealTaker, juror500
           assertBn(neededTransitions, 0, 'needed transitions does not match')
         })
 
-        itCostsAtMost('settlePenalties', 198e3, () => disputeManager.settlePenalties(disputeId, roundId, 0))
+        itCostsAtMost('settlePenalties', 221e3, () => disputeManager.settlePenalties(disputeId, roundId, 0))
       })
 
       context('when the current term is outdated by one term', () => {
@@ -296,7 +296,7 @@ contract('AragonCourt', ([_, sender, drafter, appealMaker, appealTaker, juror500
           assertBn(neededTransitions, 1, 'needed transitions does not match')
         })
 
-        itCostsAtMost('settlePenalties', 254e3, () => disputeManager.settlePenalties(disputeId, roundId, 0))
+        itCostsAtMost('settlePenalties', 269e3, () => disputeManager.settlePenalties(disputeId, roundId, 0))
       })
     })
 

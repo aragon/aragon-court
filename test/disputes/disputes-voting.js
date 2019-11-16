@@ -23,20 +23,18 @@ contract('DisputeManager', ([_, drafter, juror100, juror500, juror1000, juror150
     { address: juror2500, initialActiveBalance: bigExp(2500, 18) }
   ]
 
-  beforeEach('create court', async () => {
+  before('create base contracts and activate jurors', async () => {
     courtHelper = buildHelper()
     await courtHelper.deploy()
     voting = courtHelper.voting
+    await courtHelper.activate(jurors)
   })
 
   describe('voting', () => {
     let disputeId, voteId, voters, nonVoters
 
     beforeEach('activate jurors and create dispute', async () => {
-      await courtHelper.activate(jurors)
-
       disputeId = await courtHelper.dispute()
-      await courtHelper.passTerms(bn(1)) // court is already at term previous to dispute start
     })
 
     const itIsAtState = (roundId, state) => {
@@ -252,11 +250,16 @@ contract('DisputeManager', ([_, drafter, juror100, juror500, juror1000, juror150
       const roundId = DEFAULTS.maxRegularAppealRounds.toNumber(), poorJuror = juror100
 
       beforeEach('simulate juror without enough balance to vote on a final round', async () => {
-        await courtHelper.jurorsRegistry.collect(poorJuror, bigExp(99, 18))
-        await courtHelper.passTerms(bn(1))
+        const expectedActiveBalance = bigExp(1, 18)
+        const { active: previousActiveBalance } = await courtHelper.jurorsRegistry.balanceOf(poorJuror)
 
-        const { active } = await courtHelper.jurorsRegistry.balanceOf(poorJuror)
-        assertBn(active, bigExp(1, 18), 'poor juror active balance does not match')
+        if (previousActiveBalance.gt(expectedActiveBalance)) {
+          await courtHelper.jurorsRegistry.collect(poorJuror, previousActiveBalance.sub(expectedActiveBalance))
+          await courtHelper.passTerms(bn(1))
+        }
+
+        const { active: currentActiveBalance } = await courtHelper.jurorsRegistry.balanceOf(poorJuror)
+        assertBn(currentActiveBalance, expectedActiveBalance, 'poor juror active balance does not match')
       })
 
       beforeEach('move to final round', async () => {

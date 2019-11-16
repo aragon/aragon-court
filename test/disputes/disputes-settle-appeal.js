@@ -22,22 +22,20 @@ contract('DisputeManager', ([_, drafter, appealMaker, appealTaker, juror500, jur
     { address: juror2500, initialActiveBalance: bigExp(2500, 18) }
   ]
 
-  beforeEach('create court', async () => {
+  before('create court and activate jurors', async () => {
     courtHelper = buildHelper()
     await courtHelper.deploy()
     voting = courtHelper.voting
     disputeManager = courtHelper.disputeManager
+    await courtHelper.activate(jurors)
   })
 
   describe('settle', () => {
     context('when the given dispute exists', () => {
       let disputeId, voteId
 
-      beforeEach('activate jurors and create dispute', async () => {
-        await courtHelper.activate(jurors)
-
+      beforeEach('create dispute', async () => {
         disputeId = await courtHelper.dispute()
-        await courtHelper.passTerms(bn(1)) // court is already at term previous to dispute start
       })
 
       context('when the given round is valid', () => {
@@ -542,8 +540,10 @@ contract('DisputeManager', ([_, drafter, appealMaker, appealTaker, juror500, jur
     })
 
     context('when the given dispute does not exist', () => {
+      const disputeId = 1000
+
       it('reverts', async () => {
-        await assertRevert(disputeManager.createAppeal(0, 0, OUTCOMES.LOW), DISPUTE_MANAGER_ERRORS.DISPUTE_DOES_NOT_EXIST)
+        await assertRevert(disputeManager.createAppeal(disputeId, 0, OUTCOMES.LOW), DISPUTE_MANAGER_ERRORS.DISPUTE_DOES_NOT_EXIST)
       })
     })
   })

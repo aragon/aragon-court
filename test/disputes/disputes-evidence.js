@@ -14,21 +14,20 @@ const FakeArbitrable = artifacts.require('FakeArbitrableMock')
 contract('DisputeManager', ([_, juror500, juror1000, juror1500]) => {
   let courtHelper, court, disputeManager, arbitrable, disputeId
 
-  beforeEach('create court', async () => {
+  const jurors = [
+    { address: juror500, initialActiveBalance: bigExp(500, 18) },
+    { address: juror1000, initialActiveBalance: bigExp(1000, 18) },
+    { address: juror1500, initialActiveBalance: bigExp(1500, 18) }
+  ]
+
+  before('create base contracts and activate jurors', async () => {
     courtHelper = buildHelper()
     court = await courtHelper.deploy()
     disputeManager = courtHelper.disputeManager
+    await courtHelper.activate(jurors)
   })
 
-  beforeEach('activate jurors', async () => {
-    await courtHelper.activate([
-      { address: juror500, initialActiveBalance: bigExp(500, 18) },
-      { address: juror1000, initialActiveBalance: bigExp(1000, 18) },
-      { address: juror1500, initialActiveBalance: bigExp(1500, 18) }
-    ])
-  })
-
-  beforeEach('mock arbitrable instance', async () => {
+  beforeEach('create dispute', async () => {
     arbitrable = await Arbitrable.new(court.address)
     disputeId = await courtHelper.dispute({ arbitrable, closeEvidence: false })
   })
@@ -78,7 +77,7 @@ contract('DisputeManager', ([_, juror500, juror1000, juror1500]) => {
 
             const logs = decodeEventsOfType(receipt, DisputeManager.abi, DISPUTE_MANAGER_EVENTS.EVIDENCE_PERIOD_CLOSED)
             assertAmountOfEvents({ logs }, DISPUTE_MANAGER_EVENTS.EVIDENCE_PERIOD_CLOSED)
-            assertEvent({ logs }, DISPUTE_MANAGER_EVENTS.EVIDENCE_PERIOD_CLOSED, { disputeId: 0, termId: currentTermId })
+            assertEvent({ logs }, DISPUTE_MANAGER_EVENTS.EVIDENCE_PERIOD_CLOSED, { disputeId, termId: currentTermId })
           })
 
           it('cannot be called twice', async () => {
@@ -120,8 +119,10 @@ contract('DisputeManager', ([_, juror500, juror1000, juror1500]) => {
       })
 
       context('when the given dispute does not exist', () => {
+        const disputeId = 1000
+
         it('reverts', async () => {
-          await assertRevert(arbitrable.submitEvidence(1, '0x', true), DISPUTE_MANAGER_ERRORS.DISPUTE_DOES_NOT_EXIST)
+          await assertRevert(arbitrable.submitEvidence(disputeId, '0x', true), DISPUTE_MANAGER_ERRORS.DISPUTE_DOES_NOT_EXIST)
         })
       })
     })

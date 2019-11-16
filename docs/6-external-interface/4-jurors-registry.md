@@ -148,13 +148,20 @@ The following functions are state getters provided by the `JurorsRegistry`:
     - **Amount:** Amount of tokens to be deactivated
     - **Available term ID:** Term in which the deactivated amount will be available
     
-#### 6.4.2.11. Total active balance limit
+#### 6.4.2.11. Withdrawals lock term ID
+- **Inputs:** 
+    - **Juror:** Address of the juror querying the lock term ID of
+- **Pre-flight checks:** None
+- **Outputs:**
+    - **Term ID:** Term ID in which the juror's withdrawals will be unlocked (due to final rounds)
+    
+#### 6.4.2.12. Total active balance limit
 - **Inputs:** None 
 - **Pre-flight checks:** None
 - **Outputs:**
     - **Total active balance limit:** Maximum amount of total active balance that can be hold in the registry
     
-#### 6.4.2.12. Juror ID
+#### 6.4.2.13. Juror ID
 - **Inputs:** 
     - **Juror:** Address of the juror querying the ID of
 - **Pre-flight checks:** None

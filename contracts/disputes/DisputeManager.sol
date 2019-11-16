@@ -205,14 +205,12 @@ contract DisputeManager is ControlledRecoverable, ICRVotingOwner, IDisputeManage
     * @notice Close the evidence period of dispute #`_disputeId`
     * @param _disputeId Identification number of the dispute to close its evidence submitting period
     */
-    function closeEvidencePeriod(uint256 _disputeId) external onlyController {
-        uint256 roundId = 0;
-        _checkRoundExists(_disputeId, roundId);
+    function closeEvidencePeriod(uint256 _disputeId) external onlyController roundExists(_disputeId, 0) {
+        Dispute storage dispute = disputes[_disputeId];
+        AdjudicationRound storage round = dispute.rounds[0];
 
         // Check current term is within the evidence submission period
         uint64 termId = _ensureCurrentTerm();
-        Dispute storage dispute = disputes[_disputeId];
-        AdjudicationRound storage round = dispute.rounds[roundId];
         require(dispute.createTermId < termId, ERROR_CANNOT_CLOSE_EVIDENCE_PERIOD);
         require(termId < round.draftTermId, ERROR_EVIDENCE_PERIOD_IS_CLOSED);
 

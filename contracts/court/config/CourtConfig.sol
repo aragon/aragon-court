@@ -174,11 +174,9 @@ contract CourtConfig is IConfig, CourtConfigData {
     )
         internal
     {
-        // If the current term is not zero, changes must be scheduled at least after the next evidence period.
-        // This way we can ensure that disputes already scheduled won't have their config changed.
-        uint64 evidenceTerms = configs[configIdByTerm[_currentTermId]].disputes.evidenceTerms;
-        // No need for SafeMath: round state durations are safely capped
-        require(_currentTermId == 0 || _fromTermId > _currentTermId + evidenceTerms, ERROR_TOO_OLD_TERM);
+        // If the current term is not zero, changes must be scheduled at least after the current period.
+        // No need to ensure delays for on-going disputes since these already use their creation term for that.
+        require(_currentTermId == 0 || _fromTermId > _currentTermId, ERROR_TOO_OLD_TERM);
 
         // Make sure appeal collateral factors are greater than zero
         require(_appealCollateralParams[0] > 0 && _appealCollateralParams[1] > 0, ERROR_ZERO_COLLATERAL_FACTOR);

@@ -387,19 +387,11 @@ contract('Controller', ([_, configGovernor, someone, drafter, appealMaker, appea
           await courtHelper.setTerm(currentTerm)
         })
 
-        context('when scheduling a config two terms in the future', () => {
-          const handleDisputes = true
-          const configChangeTermId = currentTerm + 2
-
-          itHandlesConfigChangesProperly(configChangeTermId, handleDisputes)
-        })
-
         context('when scheduling a config one term in the future', () => {
+          const handleDisputes = true
           const configChangeTermId = currentTerm + 1
 
-          it('reverts', async () => {
-            await assertRevert(courtHelper.setConfig(configChangeTermId, newConfig, { from }), CONFIG_ERRORS.TOO_OLD_TERM)
-          })
+          itHandlesConfigChangesProperly(configChangeTermId, handleDisputes)
         })
 
         context('when scheduling a config for the current term', () => {

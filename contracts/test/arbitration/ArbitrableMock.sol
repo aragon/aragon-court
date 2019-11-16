@@ -21,7 +21,7 @@ contract ArbitrableMock is IArbitrable, ERC165 {
     }
 
     function submitEvidence(uint256 _disputeId, bytes calldata _evidence, bool _finished) external {
-        emit EvidenceSubmitted(_disputeId, _evidence, _finished);
+        emit EvidenceSubmitted(_disputeId, msg.sender, _evidence, _finished);
         if (_finished) arbitrator.closeEvidencePeriod(_disputeId);
     }
 

@@ -7,7 +7,7 @@ interface IArbitrable {
     // bytes4 constant INTERFACE_ID = 0x88f3ee69;
 
     event Ruled(IArbitrator indexed arbitrator, uint256 indexed disputeId, uint256 ruling);
-    event EvidenceSubmitted(uint256 indexed disputeId, bytes evidence, bool finished);
+    event EvidenceSubmitted(uint256 indexed disputeId, address indexed submitter, bytes evidence, bool finished);
 
     /**
     * @dev Submit evidence for a dispute

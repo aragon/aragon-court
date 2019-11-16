@@ -22,13 +22,14 @@ contract('CourtSubscriptions', ([_, subscriber]) => {
 
   const penaltyFees = (n, pct) => n.mul(pct.add(PCT_BASE)).div(PCT_BASE)
 
-  beforeEach('create base contracts', async () => {
+  before('create base contracts', async () => {
     controller = await buildHelper().deploy()
     feeToken = await ERC20.new('Subscriptions Fee Token', 'SFT', 18)
+  })
 
+  beforeEach('create subscriptions module', async () => {
     subscriptions = await CourtSubscriptions.new(controller.address, PERIOD_DURATION, feeToken.address, FEE_AMOUNT, PREPAYMENT_PERIODS, RESUME_PRE_PAID_PERIODS, LATE_PAYMENT_PENALTY_PCT, GOVERNOR_SHARE_PCT)
     await controller.setSubscriptions(subscriptions.address)
-
     await controller.mockSetTerm(PERIOD_DURATION)
   })
 

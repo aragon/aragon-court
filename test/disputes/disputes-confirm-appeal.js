@@ -46,7 +46,7 @@ contract('DisputeManager', ([_, drafter, appealMaker, appealTaker, juror500, jur
           })
         }
 
-        const itFailsToConfirmAppeal = (roundId, reason = 'CT_INVALID_ADJUDICATION_STATE') => {
+        const itFailsToConfirmAppeal = (roundId, reason = DISPUTE_MANAGER_ERRORS.INVALID_ADJUDICATION_STATE) => {
           it('fails to confirm appeals', async () => {
             await assertRevert(disputeManager.confirmAppeal(disputeId, roundId, OUTCOMES.REFUSED), reason)
           })

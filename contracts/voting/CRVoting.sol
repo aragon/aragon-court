@@ -11,9 +11,6 @@ import "../court/controller/Controller.sol";
 contract CRVoting is Controlled, ICRVoting {
     using SafeMath for uint256;
 
-    string private constant ERROR_OWNER_NOT_CONTRACT = "CRV_OWNER_NOT_CONTRACT";
-    string private constant ERROR_COMMIT_DENIED_BY_OWNER = "CT_VOTER_WEIGHT_ZERO";
-    string private constant ERROR_REVEAL_DENIED_BY_OWNER = "CRV_REVEAL_DENIED_BY_OWNER";
     string private constant ERROR_VOTE_ALREADY_EXISTS = "CRV_VOTE_ALREADY_EXISTS";
     string private constant ERROR_VOTE_DOES_NOT_EXIST = "CRV_VOTE_DOES_NOT_EXIST";
     string private constant ERROR_VOTE_ALREADY_COMMITTED = "CRV_VOTE_ALREADY_COMMITTED";

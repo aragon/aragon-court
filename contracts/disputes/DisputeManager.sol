@@ -29,9 +29,10 @@ contract DisputeManager is ControlledRecoverable, ICRVotingOwner, IDisputeManage
     string private constant ERROR_SENDER_NOT_VOTING = "CT_SENDER_NOT_VOTING";
 
     // Disputes-related error messages
+    string private constant ERROR_CANNOT_CLOSE_EVIDENCE_PERIOD = "CT_CANNOT_CLOSE_EVIDENCE_PERIOD";
+    string private constant ERROR_EVIDENCE_PERIOD_IS_CLOSED = "CT_EVIDENCE_PERIOD_IS_CLOSED";
     string private constant ERROR_TERM_OUTDATED = "CT_TERM_OUTDATED";
     string private constant ERROR_DISPUTE_DOES_NOT_EXIST = "CT_DISPUTE_DOES_NOT_EXIST";
-    string private constant ERROR_INVALID_DISPUTE_STATE = "CT_INVALID_DISPUTE_STATE";
     string private constant ERROR_INVALID_RULING_OPTIONS = "CT_INVALID_RULING_OPTIONS";
     string private constant ERROR_SUBSCRIPTION_NOT_PAID = "CT_SUBSCRIPTION_NOT_PAID";
     string private constant ERROR_DEPOSIT_FAILED = "CT_DEPOSIT_FAILED";
@@ -63,23 +64,9 @@ contract DisputeManager is ControlledRecoverable, ICRVotingOwner, IDisputeManage
     // Precision factor used to improve rounding when computing weights for the final round
     uint256 internal constant FINAL_ROUND_WEIGHT_PRECISION = 1000;
 
-    enum DisputeState {
-        PreDraft,
-        Adjudicating,
-        Ruled
-    }
-
-    enum AdjudicationState {
-        Invalid,
-        Committing,
-        Revealing,
-        Appealing,
-        ConfirmingAppeal,
-        Ended
-    }
-
     struct Dispute {
         IArbitrable subject;           // Arbitrable associated to a dispute
+        uint64 createTermId;           // Term ID when the dispute was created
         uint8 possibleRulings;         // Number of possible rulings jurors can vote for each dispute
         uint8 finalRuling;             // Winning ruling of a dispute
         DisputeState state;            // State of a dispute: pre-draft, adjudicating, or ruled
@@ -133,6 +120,7 @@ contract DisputeManager is ControlledRecoverable, ICRVotingOwner, IDisputeManage
     Dispute[] internal disputes;
 
     event DisputeStateChanged(uint256 indexed disputeId, DisputeState indexed state);
+    event EvidencePeriodClosed(uint256 indexed disputeId, uint64 indexed termId);
     event NewDispute(uint256 indexed disputeId, IArbitrable indexed subject, uint64 indexed draftTermId, uint64 jurorsNumber, bytes metadata);
     event RulingAppealed(uint256 indexed disputeId, uint256 indexed roundId, uint8 ruling);
     event RulingAppealConfirmed(uint256 indexed disputeId, uint256 indexed roundId, uint64 indexed draftTermId, uint256 jurorsNumber);
@@ -181,7 +169,7 @@ contract DisputeManager is ControlledRecoverable, ICRVotingOwner, IDisputeManage
     }
 
     /**
-    * @notice Create a dispute over `_subject` with `_possibleRulings` possible rulings for the next term
+    * @notice Create a dispute over `_subject` with `_possibleRulings` possible rulings
     * @param _subject Arbitrable instance creating the dispute
     * @param _possibleRulings Number of possible rulings allowed for the drafted jurors to vote on the dispute
     * @param _metadata Optional metadata that can be used to provide additional information on the dispute to be created
@@ -189,18 +177,19 @@ contract DisputeManager is ControlledRecoverable, ICRVotingOwner, IDisputeManage
     */
     function createDispute(IArbitrable _subject, uint8 _possibleRulings, bytes calldata _metadata) external onlyController returns (uint256) {
         uint64 termId = _ensureCurrentTerm();
-        ISubscriptions subscriptions = _subscriptions();
-        require(subscriptions.isUpToDate(address(msg.sender)), ERROR_SUBSCRIPTION_NOT_PAID);
         require(_possibleRulings >= MIN_RULING_OPTIONS && _possibleRulings <= MAX_RULING_OPTIONS, ERROR_INVALID_RULING_OPTIONS);
 
         // Create the dispute
-        uint64 draftTermId = termId + 1;
         uint256 disputeId = disputes.length++;
         Dispute storage dispute = disputes[disputeId];
         dispute.subject = _subject;
         dispute.possibleRulings = _possibleRulings;
-        CreateDisputeConfig memory config = _getCreateDisputeConfig(draftTermId);
-        uint64 jurorsNumber = config.firstRoundJurorsNumber;
+        dispute.createTermId = termId;
+
+        Config memory config = _getConfigAt(termId);
+        uint64 jurorsNumber = config.disputes.firstRoundJurorsNumber;
+        // No need for SafeMath: round state durations are safely capped
+        uint64 draftTermId = termId + config.disputes.evidenceTerms;
         emit NewDispute(disputeId, _subject, draftTermId, jurorsNumber, _metadata);
 
         // Create first adjudication round of the dispute
@@ -210,6 +199,24 @@ contract DisputeManager is ControlledRecoverable, ICRVotingOwner, IDisputeManage
         // Pay round fees and return dispute id
         _depositAmount(address(_subject), feeToken, totalFees);
         return disputeId;
+    }
+
+    /**
+    * @notice Close the evidence period of dispute #`_disputeId`
+    * @param _disputeId Identification number of the dispute to close its evidence submitting period
+    */
+    function closeEvidencePeriod(uint256 _disputeId) external onlyController roundExists(_disputeId, 0) {
+        Dispute storage dispute = disputes[_disputeId];
+        AdjudicationRound storage round = dispute.rounds[0];
+
+        // Check current term is within the evidence submission period
+        uint64 termId = _ensureCurrentTerm();
+        require(dispute.createTermId < termId, ERROR_CANNOT_CLOSE_EVIDENCE_PERIOD);
+        require(termId < round.draftTermId, ERROR_EVIDENCE_PERIOD_IS_CLOSED);
+
+        // Update the draft term of the first round to the next term
+        round.draftTermId = termId;
+        emit EvidencePeriodClosed(_disputeId, termId);
     }
 
     /**
@@ -311,7 +318,7 @@ contract DisputeManager is ControlledRecoverable, ICRVotingOwner, IDisputeManage
     }
 
     /**
-    * @notice Compute the final ruling for the dispute #`_disputeId`
+    * @notice Compute the final ruling for dispute #`_disputeId`
     * @param _disputeId Identification number of the dispute to compute its final ruling
     * @return subject Arbitrable instance associated to the dispute
     * @return finalRuling Final ruling decided for the given dispute
@@ -549,9 +556,8 @@ contract DisputeManager is ControlledRecoverable, ICRVotingOwner, IDisputeManage
     */
     function getDisputeFees() external view returns (ERC20 feeToken, uint256 totalFees) {
         uint64 currentTermId = _getCurrentTermId();
-        uint64 nextDraftTermId = currentTermId + 1;
-        CreateDisputeConfig memory config = _getCreateDisputeConfig(nextDraftTermId);
-        (feeToken,, totalFees) = _getRegularRoundFees(config.fees, config.firstRoundJurorsNumber);
+        Config memory config = _getConfigAt(currentTermId);
+        (feeToken,, totalFees) = _getRegularRoundFees(config.fees, config.disputes.firstRoundJurorsNumber);
     }
 
     /**
@@ -562,9 +568,10 @@ contract DisputeManager is ControlledRecoverable, ICRVotingOwner, IDisputeManage
     * @return state Current state of the dispute being queried: pre-draft, adjudicating, or ruled
     * @return finalRuling The winning ruling in case the dispute is finished
     * @return lastRoundId Identification number of the last round created for the dispute
+    * @return createTermId Identification number of the term when the dispute was created
     */
     function getDispute(uint256 _disputeId) external view disputeExists(_disputeId)
-        returns (IArbitrable subject, uint8 possibleRulings, DisputeState state, uint8 finalRuling, uint256 lastRoundId)
+        returns (IArbitrable subject, uint8 possibleRulings, DisputeState state, uint8 finalRuling, uint256 lastRoundId, uint64 createTermId)
     {
         Dispute storage dispute = disputes[_disputeId];
 
@@ -572,6 +579,7 @@ contract DisputeManager is ControlledRecoverable, ICRVotingOwner, IDisputeManage
         possibleRulings = dispute.possibleRulings;
         state = dispute.state;
         finalRuling = dispute.finalRuling;
+        createTermId = dispute.createTermId;
         // If a dispute exists, it has at least one round
         lastRoundId = dispute.rounds.length - 1;
     }
@@ -1075,14 +1083,13 @@ contract DisputeManager is ControlledRecoverable, ICRVotingOwner, IDisputeManage
     }
 
     /**
-    * @dev Internal function to get the Court config at the draft term of the first round of a certain round
-    * @param _dispute Dispute querying the court config at its first draft term
-    * @return Court config at the draft term of the given round
+    * @dev Internal function to get the Court config used for a dispute
+    * @param _dispute Dispute querying the Court config of
+    * @return Court config used for the given dispute
     */
     function _getDisputeConfig(Dispute storage _dispute) internal view returns (Config memory) {
-        // Note that it is safe to access a court config directly for a past term, no need to use `_getConfigAt`
-        AdjudicationRound storage round = _dispute.rounds[0];
-        return _getConfigAt(round.draftTermId);
+        // Note that it is safe to access a Court config directly for a past term
+        return _getConfigAt(_dispute.createTermId);
     }
 
     /**

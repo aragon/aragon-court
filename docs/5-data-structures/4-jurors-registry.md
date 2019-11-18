@@ -10,8 +10,8 @@ The juror object includes the following fields:
 - **Locked balance:** Maximum amount of tokens that can be slashed based on the juror's drafts
 - **Active balance:** Tokens activated for the Court that can be locked in case the juror is drafted
 - **Available balance:** Available tokens that can be withdrawn at any time
-- **Withdrawals lock term ID**: Term identification number until which juror's withdrawals will be locked
-- **Deactivation request**: Pending deactivation request of a juror
+- **Withdrawals lock term ID:** Term identification number until which juror's withdrawals will be locked
+- **Deactivation request:** Pending deactivation request of a juror
 
 ### 5.3.2. Deactivation request
 

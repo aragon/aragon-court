@@ -14,7 +14,7 @@ This module is where fees are paid, stored, and redistributed to the correspondi
     - **Pre-payment periods:** Initial number of periods that can be paid in advance including the current period
     - **Late payments penalty permyriad:** Initial ‱ of the subscriptions fees to be charged for each period being payed late (1/10,000)
     - **Governor share permyriad:** Initial ‱ of the subscriptions fees that will be saved for the governor (1/10,000)
-    - **Resume pre-paid periods:** initial number of periods that must be pre-paid to resume a previously paused subscription
+    - **Resume pre-paid periods:** Initial number of periods that must be pre-paid to resume a previously paused subscription
 - **Authentication:** Open
 - **Pre-flight checks:**
     - Ensure that the controller address is a contract

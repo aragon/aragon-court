@@ -3,10 +3,10 @@ const { bn, bigExp } = require('../helpers/lib/numbers')
 const { assertRevert } = require('../helpers/asserts/assertThrow')
 const { NEXT_WEEK, ONE_DAY } = require('../helpers/lib/time')
 const { decodeEventsOfType } = require('../helpers/lib/decodeEvent')
-const { DISPUTE_MANAGER_ERRORS, CLOCK_ERRORS } = require('../helpers/utils/errors')
-const { DISPUTE_MANAGER_EVENTS, CLOCK_EVENTS } = require('../helpers/utils/events')
-const { buildHelper, DISPUTE_STATES } = require('../helpers/wrappers/court')(web3, artifacts)
 const { assertAmountOfEvents, assertEvent } = require('../helpers/asserts/assertEvent')
+const { DISPUTE_MANAGER_EVENTS, CLOCK_EVENTS } = require('../helpers/utils/events')
+const { buildHelper, DEFAULTS, DISPUTE_STATES } = require('../helpers/wrappers/court')(web3, artifacts)
+const { ARAGON_COURT_ERRORS, CONTROLLED_ERRORS, DISPUTE_MANAGER_ERRORS, CLOCK_ERRORS } = require('../helpers/utils/errors')
 
 const ERC20 = artifacts.require('ERC20Mock')
 const DisputeManager = artifacts.require('DisputeManager')
@@ -46,31 +46,35 @@ contract('DisputeManager', () => {
     context('when the sender is an arbitrable', () => {
       context('when the sender is up-to-date with the subscriptions', () => {
         context('when the given rulings is valid', () => {
-          const draftTermId = 2
           const possibleRulings = 2
           const metadata = '0xabcdef'
 
           const itHandlesDisputesCreationProperly = expectedTermTransitions => {
             context('when the creator approves enough fee tokens', () => {
+              let draftTermId, currentTermId
+
+              beforeEach('compute draft term ID', async () => {
+                currentTermId = await court.getCurrentTermId()
+                draftTermId = currentTermId.add(DEFAULTS.evidenceTerms)
+              })
+
               it('creates a new dispute', async () => {
-                // move forward to the term before the desired start one for the dispute
-                await courtHelper.setTerm(draftTermId - 1)
                 const receipt = await arbitrable.createDispute(possibleRulings, metadata)
 
                 const logs = decodeEventsOfType(receipt, DisputeManager.abi, DISPUTE_MANAGER_EVENTS.NEW_DISPUTE)
                 assertAmountOfEvents({ logs }, DISPUTE_MANAGER_EVENTS.NEW_DISPUTE)
                 assertEvent({ logs }, DISPUTE_MANAGER_EVENTS.NEW_DISPUTE, { disputeId: 0, subject: arbitrable.address, draftTermId, jurorsNumber: firstRoundJurorsNumber, metadata })
 
-                const { subject, possibleRulings: rulings, state, finalRuling } = await courtHelper.getDispute(0)
+                const { subject, possibleRulings: rulings, state, finalRuling, createTermId } = await courtHelper.getDispute(0)
                 assert.equal(subject, arbitrable.address, 'dispute subject does not match')
                 assertBn(state, DISPUTE_STATES.PRE_DRAFT, 'dispute state does not match')
                 assertBn(rulings, possibleRulings, 'dispute possible rulings do not match')
                 assertBn(finalRuling, 0, 'dispute final ruling does not match')
+                assertBn(createTermId, currentTermId, 'dispute create term ID does not match')
               })
 
               it('creates a new adjudication round', async () => {
                 // move forward to the term before the desired start one for the dispute
-                await courtHelper.setTerm(draftTermId - 1)
                 await arbitrable.createDispute(possibleRulings, metadata)
 
                 const { draftTerm, delayedTerms, roundJurorsNumber, selectedJurors, jurorFees, settledPenalties, collectedTokens } = await courtHelper.getRound(0, 0)
@@ -80,13 +84,11 @@ contract('DisputeManager', () => {
                 assertBn(roundJurorsNumber, firstRoundJurorsNumber, 'round jurors number does not match')
                 assertBn(selectedJurors, 0, 'round selected jurors number does not match')
                 assertBn(jurorFees, courtHelper.jurorFee.mul(bn(firstRoundJurorsNumber)), 'round juror fees do not match')
-                assert.equal(settledPenalties, false, 'round penalties should not be settled')
                 assertBn(collectedTokens, 0, 'round collected tokens should be zero')
+                assert.equal(settledPenalties, false, 'round penalties should not be settled')
               })
 
               it('transfers fees to the dispute manager', async () => {
-                // move forward to the term before the desired start one for the dispute
-                await courtHelper.setTerm(draftTermId - 1)
                 const { disputeFees: expectedDisputeDeposit } = await courtHelper.getDisputeFees()
                 const previousDisputeManagerBalance = await feeToken.balanceOf(disputeManager.address)
                 const previousTreasuryBalance = await feeToken.balanceOf(courtHelper.treasury.address)
@@ -170,7 +172,7 @@ contract('DisputeManager', () => {
         })
 
         it('reverts', async () => {
-          await assertRevert(arbitrable.createDispute(2, '0x'), DISPUTE_MANAGER_ERRORS.SUBSCRIPTION_NOT_PAID)
+          await assertRevert(arbitrable.createDispute(2, '0x'), ARAGON_COURT_ERRORS.SUBSCRIPTION_NOT_PAID)
         })
       })
     })
@@ -183,30 +185,36 @@ contract('DisputeManager', () => {
       })
 
       it('reverts', async () => {
-        await assertRevert(fakeArbitrable.createDispute(2, '0x'), DISPUTE_MANAGER_ERRORS.SENDER_NOT_ARBITRABLE)
+        await assertRevert(fakeArbitrable.createDispute(2, '0x'), ARAGON_COURT_ERRORS.SENDER_NOT_ARBITRABLE)
+      })
+    })
+
+    context('when trying to call the disputes manager directly', () => {
+      it('reverts', async () => {
+        await assertRevert(disputeManager.createDispute(arbitrable.address, 2, '0x'), CONTROLLED_ERRORS.SENDER_NOT_CONTROLLER)
       })
     })
   })
 
   describe('getDispute', () => {
     context('when the dispute exists', async () => {
-      const draftTermId = 2
+      let currentTermId
       const possibleRulings = 2
       const metadata = '0xabcdef'
 
       beforeEach('create dispute', async () => {
-        // move forward to the term before the desired start one for the dispute
-        await courtHelper.setTerm(draftTermId - 1)
+        currentTermId = await court.getCurrentTermId()
         await arbitrable.createDispute(possibleRulings, metadata)
       })
 
       it('returns the requested dispute', async () => {
-        const { subject, possibleRulings: rulings, state, finalRuling } = await courtHelper.getDispute(0)
+        const { subject, possibleRulings: rulings, state, finalRuling, createTermId } = await courtHelper.getDispute(0)
 
         assert.equal(subject, arbitrable.address, 'dispute subject does not match')
         assertBn(state, DISPUTE_STATES.PRE_DRAFT, 'dispute state does not match')
         assertBn(rulings, possibleRulings, 'dispute possible rulings do not match')
         assertBn(finalRuling, 0, 'dispute final ruling does not match')
+        assertBn(createTermId, currentTermId, 'dispute create term ID does not match')
       })
     })
 
@@ -219,13 +227,13 @@ contract('DisputeManager', () => {
 
   describe('getRound', () => {
     context('when the dispute exists', async () => {
-      const draftTermId = 2
+      let draftTermId
       const possibleRulings = 2
       const metadata = '0xabcdef'
 
       beforeEach('create dispute', async () => {
-        // move forward to the term before the desired start one for the dispute
-        await courtHelper.setTerm(draftTermId - 1)
+        const currentTermId = await court.getCurrentTermId()
+        draftTermId = currentTermId.add(DEFAULTS.evidenceTerms)
         await arbitrable.createDispute(possibleRulings, metadata)
       })
 
@@ -238,8 +246,8 @@ contract('DisputeManager', () => {
           assertBn(roundJurorsNumber, firstRoundJurorsNumber, 'round jurors number does not match')
           assertBn(selectedJurors, 0, 'round selected jurors number does not match')
           assertBn(jurorFees, courtHelper.jurorFee.mul(bn(firstRoundJurorsNumber)), 'round juror fees do not match')
-          assert.equal(settledPenalties, false, 'round penalties should not be settled')
           assertBn(collectedTokens, 0, 'round collected tokens should be zero')
+          assert.equal(settledPenalties, false, 'round penalties should not be settled')
         })
       })
 

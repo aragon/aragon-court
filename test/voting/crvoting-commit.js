@@ -17,12 +17,13 @@ contract('CRVoting', ([_, voter]) => {
 
   beforeEach('create base contracts', async () => {
     controller = await buildHelper().deploy()
-
-    voting = await CRVoting.new(controller.address)
-    await controller.setVoting(voting.address)
-
     disputeManager = await DisputeManager.new(controller.address)
     await controller.setDisputeManager(disputeManager.address)
+  })
+
+  beforeEach('create voting module', async () => {
+    voting = await CRVoting.new(controller.address)
+    await controller.setVoting(voting.address)
   })
 
   describe('commit', () => {

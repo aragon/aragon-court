@@ -15,13 +15,13 @@ contract ConfigConsumer is CourtConfigData {
 
     /**
     * @dev Internal function to get the Court config for a certain term
-    * @param _termId Term querying the Court config of
+    * @param _termId Identification number of the term querying the Court config of
     * @return Court config for the given term
     */
     function _getConfigAt(uint64 _termId) internal view returns (Config memory) {
         (ERC20 _feeToken,
         uint256[3] memory _fees,
-        uint64[4] memory _roundStateDurations,
+        uint64[5] memory _roundStateDurations,
         uint16[2] memory _pcts,
         uint64[4] memory _roundParams,
         uint256[2] memory _appealCollateralParams,
@@ -38,10 +38,11 @@ contract ConfigConsumer is CourtConfigData {
         });
 
         config.disputes = DisputesConfig({
-            commitTerms: _roundStateDurations[0],
-            revealTerms: _roundStateDurations[1],
-            appealTerms: _roundStateDurations[2],
-            appealConfirmTerms: _roundStateDurations[3],
+            evidenceTerms: _roundStateDurations[0],
+            commitTerms: _roundStateDurations[1],
+            revealTerms: _roundStateDurations[2],
+            appealTerms: _roundStateDurations[3],
+            appealConfirmTerms: _roundStateDurations[4],
             penaltyPct: _pcts[0],
             firstRoundJurorsNumber: _roundParams[0],
             appealStepFactor: _roundParams[1],
@@ -57,42 +58,6 @@ contract ConfigConsumer is CourtConfigData {
     }
 
     /**
-    * @dev Internal function to get the min active balance config for a given term
-    * @param _termId Identification number of the term querying the min active balance config of
-    * @return Minimum amount of juror tokens that can be activated
-    */
-    function _getMinActiveBalance(uint64 _termId) internal view returns (uint256) {
-        return _config().getMinActiveBalance(_termId);
-    }
-
-    /**
-    * @dev Internal function to get the create-dispute config for a given term
-    * @param _termId Identification number of the term querying the draft config of
-    * @return Create-dispute config for the given term
-    */
-    function _getCreateDisputeConfig(uint64 _termId) internal view returns (CreateDisputeConfig memory) {
-        (ERC20 token,
-        uint16 finalRoundReduction,
-        uint256 jurorFee,
-        uint256 draftFee,
-        uint256 settleFee,
-        uint64 firstRoundJurorsNumber) = _config().getCreateDisputeConfig(_termId);
-
-        CreateDisputeConfig memory config;
-
-        config.fees = FeesConfig({
-            token: token,
-            jurorFee: jurorFee,
-            draftFee: draftFee,
-            settleFee: settleFee,
-            finalRoundReduction: finalRoundReduction
-        });
-
-        config.firstRoundJurorsNumber = firstRoundJurorsNumber;
-        return config;
-    }
-
-    /**
     * @dev Internal function to get the draft config for a given term
     * @param _termId Identification number of the term querying the draft config of
     * @return Draft config for the given term
@@ -100,5 +65,14 @@ contract ConfigConsumer is CourtConfigData {
     function _getDraftConfig(uint64 _termId) internal view returns (DraftConfig memory) {
         (ERC20 feeToken, uint256 draftFee, uint16 penaltyPct) = _config().getDraftConfig(_termId);
         return DraftConfig({ feeToken: feeToken, draftFee: draftFee, penaltyPct: penaltyPct });
+    }
+
+    /**
+    * @dev Internal function to get the min active balance config for a given term
+    * @param _termId Identification number of the term querying the min active balance config of
+    * @return Minimum amount of juror tokens that can be activated
+    */
+    function _getMinActiveBalance(uint64 _termId) internal view returns (uint256) {
+        return _config().getMinActiveBalance(_termId);
     }
 }

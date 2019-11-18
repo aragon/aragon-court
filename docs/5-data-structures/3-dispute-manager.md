@@ -8,6 +8,7 @@ The dispute object includes the following fields:
 
 - **Subject:** Arbitrable instance associated to a dispute
 - **Possible rulings:** Number of possible rulings jurors can vote for each dispute
+- **Creation term ID:** Identification number when the dispute was created
 - **Final ruling:** Winning ruling of a dispute
 - **Dispute state:** State of a dispute: pre-draft, adjudicating, or ruled
 - **Adjudication rounds:** List of adjudication rounds for each dispute

@@ -21,22 +21,19 @@ contract('DisputeManager', ([_, drafter, appealMaker, appealTaker, juror500, jur
     { address: juror2500, initialActiveBalance: bigExp(2500, 18) }
   ]
 
-  beforeEach('create court', async () => {
+  before('create base contracts and activate jurors', async () => {
     courtHelper = buildHelper()
     court = await courtHelper.deploy()
     disputeManager = courtHelper.disputeManager
+    await courtHelper.activate(jurors)
   })
 
   describe('confirmAppeal', () => {
     context('when the given dispute exists', () => {
       let disputeId
-      const draftTermId = 4
 
       beforeEach('activate jurors and create dispute', async () => {
-        await courtHelper.activate(jurors)
-
-        disputeId = await courtHelper.dispute({ draftTermId })
-        await courtHelper.passTerms(bn(1)) // court is already at term previous to dispute start
+        disputeId = await courtHelper.dispute()
       })
 
       context('when the given round is valid', () => {
@@ -165,15 +162,16 @@ contract('DisputeManager', ([_, drafter, appealMaker, appealTaker, juror500, jur
 
                         const currentTermId = await court.getCurrentTermId()
                         const currentActiveBalance = await courtHelper.jurorsRegistry.totalActiveBalanceAt(currentTermId)
-                        assertBn(currentActiveBalance, previousActiveBalance.mul(bn(2)), 'new total active balance does not match')
+                        const expectedIncrease = jurors.reduce((total, { initialActiveBalance }) => total.add(initialActiveBalance), bn(0))
+                        assertBn(currentActiveBalance, previousActiveBalance.add(expectedIncrease), 'new total active balance does not match')
 
                         if (roundId < DEFAULTS.maxRegularAppealRounds.toNumber() - 1) {
                           const currentJurorsNumber = await courtHelper.getNextRoundJurorsNumber(disputeId, roundId)
                           assertBn(currentJurorsNumber, previousJurorsNumber, 'next round jurors number does not match')
                         } else {
                           const currentJurorsNumber = await courtHelper.getNextRoundJurorsNumber(disputeId, roundId)
-                          // for the final round the number of activated tokens is contemplated, we are duplicating it above
-                          assertBn(currentJurorsNumber, previousJurorsNumber.mul(bn(2)), 'next round jurors number does not match')
+                          const expectedJurorsNumber = currentActiveBalance.mul(DEFAULTS.finalRoundWeightPrecision).div(DEFAULTS.minActiveBalance)
+                          assertBn(currentJurorsNumber, expectedJurorsNumber, 'next round jurors number does not match')
                         }
                       })
 
@@ -436,8 +434,10 @@ contract('DisputeManager', ([_, drafter, appealMaker, appealTaker, juror500, jur
     })
 
     context('when the given dispute does not exist', () => {
+      const disputeId = 1000
+
       it('reverts', async () => {
-        await assertRevert(disputeManager.confirmAppeal(0, 0, OUTCOMES.LOW), DISPUTE_MANAGER_ERRORS.DISPUTE_DOES_NOT_EXIST)
+        await assertRevert(disputeManager.confirmAppeal(disputeId, 0, OUTCOMES.LOW), DISPUTE_MANAGER_ERRORS.DISPUTE_DOES_NOT_EXIST)
       })
     })
   })

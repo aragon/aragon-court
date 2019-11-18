@@ -14,7 +14,10 @@ jobs:
       script: npm run lint
       name: "Lint"
     - stage: tests
-      script: npm test test/disputes/disputes-{create,draft}.js
+      script: npm test test/court/**/*.js test/court/*.js test/arbitration/*.js
+      name: "Court Controller"
+    - stage: tests
+      script: npm test test/disputes/disputes-{create,evidence,draft}.js
       name: "Court Disputes"
     - stage: tests
       script: npm test test/disputes/disputes-{voting,appeal,confirm-appeal}.js
@@ -40,6 +43,3 @@ jobs:
     - stage: tests
       script: npm test test/treasury/court-treasury.js
       name: "Treasury"
-    - stage: tests
-      script: npm test test/court/**/*.js test/court/*.js
-      name: "Court"

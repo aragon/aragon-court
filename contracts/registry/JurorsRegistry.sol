@@ -454,7 +454,7 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
     }
 
     /**
-    * @notice Get pending deactivation details for a juror
+    * @dev Tell the pending deactivation details for a juror
     * @param _juror Address of the juror whose info is requested
     * @return amount Amount to be deactivated
     * @return availableTermId Term in which the deactivated amount will be available
@@ -462,6 +462,15 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
     function getDeactivationRequest(address _juror) external view returns (uint256 amount, uint64 availableTermId) {
         DeactivationRequest storage request = jurorsByAddress[_juror].deactivationRequest;
         return (request.amount, request.availableTermId);
+    }
+
+    /**
+    * @dev Tell the withdrawals lock term ID for a juror
+    * @param _juror Address of the juror whose info is requested
+    * @return Term ID until which the juror's withdrawals will be locked
+    */
+    function getWithdrawalsLockTermId(address _juror) external view returns (uint64) {
+        return jurorsByAddress[_juror].withdrawalsLockTermId;
     }
 
     /**

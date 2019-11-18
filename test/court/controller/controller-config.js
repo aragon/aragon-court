@@ -15,6 +15,7 @@ contract('Controller', ([_, configGovernor, someone, drafter, appealMaker, appea
   const jurorFee = bigExp(10, 18)
   const draftFee = bigExp(30, 18)
   const settleFee = bigExp(40, 18)
+  const evidenceTerms = bn(1)
   const commitTerms = bn(1)
   const revealTerms = bn(2)
   const appealTerms = bn(3)
@@ -38,6 +39,7 @@ contract('Controller', ([_, configGovernor, someone, drafter, appealMaker, appea
       jurorFee,
       draftFee,
       settleFee,
+      evidenceTerms,
       commitTerms,
       revealTerms,
       appealTerms,
@@ -111,6 +113,7 @@ contract('Controller', ([_, configGovernor, someone, drafter, appealMaker, appea
       })
 
       it('cannot use a adjudication round durations zero', async () => {
+        await assertRevert(courtHelper.deploy({ evidenceTerms: bn(0) }), CONFIG_ERRORS.LARGE_ROUND_PHASE_DURATION)
         await assertRevert(courtHelper.deploy({ commitTerms: bn(0) }), CONFIG_ERRORS.LARGE_ROUND_PHASE_DURATION)
         await assertRevert(courtHelper.deploy({ revealTerms: bn(0) }), CONFIG_ERRORS.LARGE_ROUND_PHASE_DURATION)
         await assertRevert(courtHelper.deploy({ appealTerms: bn(0) }), CONFIG_ERRORS.LARGE_ROUND_PHASE_DURATION)
@@ -118,6 +121,7 @@ contract('Controller', ([_, configGovernor, someone, drafter, appealMaker, appea
       })
 
       it('cannot use a adjudication round durations bigger than 8670 terms', async () => {
+        await assertRevert(courtHelper.deploy({ evidenceTerms: bn(8760) }), CONFIG_ERRORS.LARGE_ROUND_PHASE_DURATION)
         await assertRevert(courtHelper.deploy({ commitTerms: bn(8760) }), CONFIG_ERRORS.LARGE_ROUND_PHASE_DURATION)
         await assertRevert(courtHelper.deploy({ revealTerms: bn(8760) }), CONFIG_ERRORS.LARGE_ROUND_PHASE_DURATION)
         await assertRevert(courtHelper.deploy({ appealTerms: bn(8760) }), CONFIG_ERRORS.LARGE_ROUND_PHASE_DURATION)
@@ -181,21 +185,17 @@ contract('Controller', ([_, configGovernor, someone, drafter, appealMaker, appea
                   { address: juror1000, initialActiveBalance: bigExp(1000, 18) }
                 ])
 
-                // create dispute and move to dispute start term
-                const draftTermId = configChangeTermId - 1
-                const disputeId = await courtHelper.dispute({ draftTermId })
-                await courtHelper.setTerm(draftTermId)
+                // move right before the config change and create a dispute
+                await courtHelper.setTerm(configChangeTermId - 1)
+                const disputeId = await courtHelper.dispute()
 
                 // check dispute config related info
                 const { roundJurorsNumber, jurorFees } = await courtHelper.getRound(disputeId, 0)
                 assertBn(roundJurorsNumber, firstRoundJurorsNumber, 'jurors number does not match')
                 assertBn(jurorFees, firstRoundJurorsNumber.mul(jurorFee), 'jurors fees do not match')
 
-                // draft
-                await courtHelper.advanceBlocks(1)
+                // draft, commit, and reveal
                 const draftedJurors = await courtHelper.draft({ disputeId, drafter })
-
-                // commit and reveal
                 await courtHelper.commit({ disputeId, roundId: 0, voters: draftedJurors })
                 await courtHelper.reveal({ disputeId, roundId: 0, voters: draftedJurors })
 
@@ -253,6 +253,9 @@ contract('Controller', ([_, configGovernor, someone, drafter, appealMaker, appea
             })
 
             it('cannot use a adjudication round durations zero', async () => {
+              newConfig.evidenceTerms = bn(0)
+              await assertRevert(courtHelper.setConfig(configChangeTermId, newConfig, { from }), CONFIG_ERRORS.LARGE_ROUND_PHASE_DURATION)
+
               newConfig.commitTerms = bn(0)
               await assertRevert(courtHelper.setConfig(configChangeTermId, newConfig, { from }), CONFIG_ERRORS.LARGE_ROUND_PHASE_DURATION)
 
@@ -267,6 +270,9 @@ contract('Controller', ([_, configGovernor, someone, drafter, appealMaker, appea
             })
 
             it('cannot use a adjudication round durations bigger than 8670 terms', async () => {
+              newConfig.evidenceTerms = bn(8760)
+              await assertRevert(courtHelper.setConfig(configChangeTermId, newConfig, { from }), CONFIG_ERRORS.LARGE_ROUND_PHASE_DURATION)
+
               newConfig.commitTerms = bn(8760)
               await assertRevert(courtHelper.setConfig(configChangeTermId, newConfig, { from }), CONFIG_ERRORS.LARGE_ROUND_PHASE_DURATION)
 
@@ -381,19 +387,11 @@ contract('Controller', ([_, configGovernor, someone, drafter, appealMaker, appea
           await courtHelper.setTerm(currentTerm)
         })
 
-        context('when scheduling a config two terms in the future', () => {
-          const handleDisputes = true
-          const configChangeTermId = currentTerm + 2
-
-          itHandlesConfigChangesProperly(configChangeTermId, handleDisputes)
-        })
-
         context('when scheduling a config one term in the future', () => {
+          const handleDisputes = true
           const configChangeTermId = currentTerm + 1
 
-          it('reverts', async () => {
-            await assertRevert(courtHelper.setConfig(configChangeTermId, newConfig, { from }), CONFIG_ERRORS.TOO_OLD_TERM)
-          })
+          itHandlesConfigChangesProperly(configChangeTermId, handleDisputes)
         })
 
         context('when scheduling a config for the current term', () => {

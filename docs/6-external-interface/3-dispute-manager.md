@@ -14,14 +14,21 @@ The following events are emitted by the `DisputeManager`:
     - **Jurors number:** First round jurors number 
     - **Metadata:** Optional metadata that can be used to provide additional information on the created dispute 
 
-#### 6.3.1.2. Dispute changed
+#### 6.3.1.2. Evidence period closed
+
+- **Name:** `EvidencePeriodClosed`
+- **Args:**
+    - **Dispute ID:** Identification number of the dispute that has changed 
+    - **Term ID:** Term ID in which the dispute evidence period has been closed 
+
+#### 6.3.1.3. Dispute changed
 
 - **Name:** `DisputeStateChanged`
 - **Args:**
     - **Dispute ID:** Identification number of the dispute that has changed 
     - **State:** New dispute state: pre-draft, adjudicating, or ruled 
 
-#### 6.3.1.3. Ruling appealed
+#### 6.3.1.4. Ruling appealed
 
 - **Name:** `RulingAppealed`
 - **Args:**
@@ -29,7 +36,7 @@ The following events are emitted by the `DisputeManager`:
     - **Round ID:** Identification number of the adjudication round appealed 
     - **Ruling:** Ruling appealed in favor of 
 
-#### 6.3.1.4. Ruling appeal confirmed
+#### 6.3.1.5. Ruling appeal confirmed
 
 - **Name:** `RulingAppealConfirmed`
 - **Args:**
@@ -38,14 +45,14 @@ The following events are emitted by the `DisputeManager`:
     - **Draft term ID:** Identification number of the term when the next round will be able to be drafted
     - **Jurors number:** Next round jurors number
     
-#### 6.3.1.5. Ruling computed
+#### 6.3.1.6. Ruling computed
 
 - **Name:** `RulingComputed`
 - **Args:**
     - **Dispute ID:** Identification number of the dispute being ruled
     - **Ruling:** Final ruling decided for the dispute
 
-#### 6.3.1.6. Penalties settled
+#### 6.3.1.7. Penalties settled
 
 - **Name:** `PenaltiesSettled`
 - **Args:**
@@ -53,7 +60,7 @@ The following events are emitted by the `DisputeManager`:
     - **Round ID:** Identification number of the adjudication round settled 
     - **Collected tokens:** Total amount of juror tokens that were collected from slashed jurors for the requested round
 
-#### 6.3.1.7. Reward settled
+#### 6.3.1.8. Reward settled
 
 - **Name:** `RewardSettled`
 - **Args:**
@@ -61,14 +68,14 @@ The following events are emitted by the `DisputeManager`:
     - **Round ID:** Identification number of the adjudication round settled 
     - **Juror:** Address of the juror rewarded
 
-#### 6.3.1.8. Appeal deposit settled
+#### 6.3.1.9. Appeal deposit settled
 
 - **Name:** `AppealDepositSettled`
 - **Args:**
     - **Dispute ID:** Identification number of the dispute whose round's appeal was settled
     - **Round ID:** Identification number of the adjudication round whose appeal was settled 
 
-#### 6.3.1.9. Max jurors per draft batch changed
+#### 6.3.1.10. Max jurors per draft batch changed
 
 - **Name:** `MaxJurorsPerDraftBatchChanged`
 - **Args:**

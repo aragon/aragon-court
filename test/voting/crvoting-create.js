@@ -10,17 +10,18 @@ const { assertEvent, assertAmountOfEvents } = require('../helpers/asserts/assert
 const CRVoting = artifacts.require('CRVoting')
 const DisputeManager = artifacts.require('DisputeManagerMockForVoting')
 
-contract('CRVoting create', ([_, someone]) => {
+contract('CRVoting', ([_, someone]) => {
   let controller, voting, disputeManager
 
   beforeEach('create base contracts', async () => {
     controller = await buildHelper().deploy()
-
-    voting = await CRVoting.new(controller.address)
-    await controller.setVoting(voting.address)
-
     disputeManager = await DisputeManager.new(controller.address)
     await controller.setDisputeManager(disputeManager.address)
+  })
+
+  beforeEach('create voting module', async () => {
+    voting = await CRVoting.new(controller.address)
+    await controller.setVoting(voting.address)
   })
 
   describe('create', () => {

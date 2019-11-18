@@ -15,6 +15,12 @@ interface IArbitrator {
     function createDispute(uint256 _possibleRulings, bytes calldata _metadata) external returns (uint256);
 
     /**
+    * @dev Close the evidence period of a dispute
+    * @param _disputeId Identification number of the dispute to close its evidence submitting period
+    */
+    function closeEvidencePeriod(uint256 _disputeId) external;
+
+    /**
     * @dev Execute the Arbitrable associated to a dispute based on its final ruling
     * @param _disputeId Identification number of the dispute to be executed
     */

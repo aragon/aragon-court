@@ -255,10 +255,8 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
     * @return length Size of the list of the draft result
     */
     function draft(uint256[7] calldata _params) external onlyDisputeManager returns (address[] memory jurors, uint256 length) {
-        uint256 batchRequestedJurors = _params[4];
-        jurors = new address[](batchRequestedJurors);
         DraftParams memory draftParams = _buildDraftParams(_params);
-        length = _draft(draftParams, jurors);
+        (length, jurors) = _draft(draftParams);
     }
 
     /**
@@ -679,11 +677,12 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
     /**
     * @dev Internal function to draft a set of jurors based on a given set of params
     * @param _params Params to be used for the jurors draft
-    * @param _jurors List of unique jurors selected for the draft
-    * @return Number of unique jurors selected for the draft. Note that this value may differ from the number of requested jurors
+    * @return length Number of unique jurors selected for the draft. Note that this value may differ from the number of requested jurors
+    * @return jurors List of jurors addresses selected for the draft
     */
-    function _draft(DraftParams memory _params, address[] memory _jurors) internal returns (uint256) {
-        uint256 length = 0;
+    function _draft(DraftParams memory _params) internal returns (uint256 length, address[] memory jurors) {
+        length = 0;
+        jurors = new address[](_params.batchRequestedJurors);
 
         // Jurors returned by the tree multi-sortition may not have enough unlocked active balance to be drafted. Thus,
         // we compute several sortitions until all the requested jurors are selected. To guarantee a different set of
@@ -721,13 +720,11 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
 
                     // Update the current active locked balance of the juror
                     juror.lockedBalance = newLockedBalance;
-                    _jurors[length++] = jurorAddress;
+                    jurors[length++] = jurorAddress;
                     emit JurorDrafted(_params.disputeId, jurorAddress);
                 }
             }
         }
-
-        return length;
     }
 
     /**

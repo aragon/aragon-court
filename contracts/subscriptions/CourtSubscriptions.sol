@@ -465,9 +465,8 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
         uint256 governorFee = amountToPay.pct(governorSharePct);
         accumulatedGovernorFees = accumulatedGovernorFees.add(governorFee);
 
-        // No need for SafeMath: the governor share cannot be above 100%. Thus, the highest governor fees we
-        // could have is equal to the amount to be paid.
-        uint256 collectedFees = amountToPay - governorFee;
+        // Update collected fees for the jurors
+        uint256 collectedFees = amountToPay.sub(governorFee);
         period.collectedFees = period.collectedFees.add(collectedFees);
 
         // Periods are measured in Court terms. Since Court terms are represented in uint64, we are safe to use uint64 for period ids too.
@@ -699,8 +698,8 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
             resumePeriods = 0;
             delayedPeriods = 0;
             regularPeriods = _periods;
-            // The number of periods to be paid includes the current period, thus we subtract one unit.
-            // No need for SafeMath: the number of periods is at least one.
+            // The number of periods to be paid includes the current period, thus we subtract one unit
+            // No need for SafeMath: the number of periods is at least one
             newLastPeriodId = _currentPeriodId.add(_periods) - 1;
         } else {
             uint256 totalDelayedPeriods = _getDelayedPeriods(_subscriber, _currentPeriodId);
@@ -711,10 +710,10 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
                 delayedPeriods = totalDelayedPeriods;
                 require(_periods >= resumePeriods.add(delayedPeriods), ERROR_LOW_RESUME_PERIODS_PAYMENT);
 
-                // No need for SafeMath: we already checked the number of given and resume periods.
+                // No need for SafeMath: we already checked the number of given and resume periods above
                 regularPeriods = _periods - resumePeriods - delayedPeriods;
                 // The new last period is computed including the current period
-                // No need for SafeMath: the number of periods is at least one.
+                // No need for SafeMath: the number of periods is at least one
                 newLastPeriodId = _currentPeriodId.add(_periods) - 1;
             } else {
                 // If the subscriber does not need to resume his activity, there are no resume periods, last period is simply updated
@@ -764,7 +763,7 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
         }
 
         // If the given subscriber was already subscribed, then the current period is not considered delayed
-        // No need for SafeMath: we already know last payment period is before current period
+        // No need for SafeMath: we already know last payment period is before current period from above
         return _currentPeriodId - lastPaymentPeriodId - 1;
     }
 
@@ -807,7 +806,7 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
     */
     function _getPeriodBalanceDetails(uint256 _periodId) internal view returns (uint64 periodBalanceCheckpoint, uint256 totalActiveBalance) {
         uint64 periodStartTermId = _getPeriodStartTermId(_periodId);
-        uint64 nextPeriodStartTermId = _getPeriodStartTermId(_periodId + 1); // No need for SafeMath: it's actually an uint64
+        uint64 nextPeriodStartTermId = _getPeriodStartTermId(_periodId.add(1));
 
         // Pick a random Court term during the next period of the requested one to get the total amount of juror tokens active in the Court
         IClock clock = _clock();
@@ -823,8 +822,7 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
 
         // Use randomness to choose a Court term of the requested period and query the total amount of juror tokens active at that term
         IJurorsRegistry jurorsRegistry = _jurorsRegistry();
-        // No need for SafeMath: terms are represented in uint64
-        periodBalanceCheckpoint = periodStartTermId + uint64(uint256(randomness) % periodDuration);
+        periodBalanceCheckpoint = periodStartTermId.add(uint64(uint256(randomness) % periodDuration));
         totalActiveBalance = jurorsRegistry.totalActiveBalanceAt(periodBalanceCheckpoint);
     }
 

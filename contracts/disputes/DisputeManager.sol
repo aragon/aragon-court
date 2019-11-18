@@ -189,8 +189,7 @@ contract DisputeManager is ControlledRecoverable, ICRVotingOwner, IDisputeManage
 
         Config memory config = _getConfigAt(termId);
         uint64 jurorsNumber = config.disputes.firstRoundJurorsNumber;
-        // No need for SafeMath: round state durations are safely capped
-        uint64 draftTermId = termId + config.disputes.evidenceTerms;
+        uint64 draftTermId = termId.add(config.disputes.evidenceTerms);
         emit NewDispute(disputeId, _subject, draftTermId, jurorsNumber, _metadata);
 
         // Create first adjudication round of the dispute
@@ -249,8 +248,7 @@ contract DisputeManager is ControlledRecoverable, ICRVotingOwner, IDisputeManage
 
         // If the drafting is over, update its state
         if (draftEnded) {
-            // No need for SafeMath: we ensured `termId` is not less than `draftTermId` in modifier `termExists` of `ensureTermRandomness`
-            round.delayedTerms = currentTermId - draftTermId;
+            round.delayedTerms = currentTermId.sub(draftTermId);
             dispute.state = DisputeState.Adjudicating;
             emit DisputeStateChanged(_disputeId, DisputeState.Adjudicating);
         }
@@ -485,16 +483,13 @@ contract DisputeManager is ControlledRecoverable, ICRVotingOwner, IDisputeManage
         uint8 finalRuling = dispute.finalRuling;
         uint256 totalDeposit = appealDeposit.add(confirmAppealDeposit);
         if (appeal.appealedRuling == finalRuling) {
-            // No need for SafeMath: collateral factors are greater than zero, then both appeal deposits are greater than `totalFees`
-            treasury.assign(feeToken, appeal.maker, totalDeposit - totalFees);
+            treasury.assign(feeToken, appeal.maker, totalDeposit.sub(totalFees));
         } else if (appeal.opposedRuling == finalRuling) {
-            // No need for SafeMath: collateral factors are greater than zero, then both appeal deposits are greater than `totalFees`
-            treasury.assign(feeToken, appeal.taker, totalDeposit - totalFees);
+            treasury.assign(feeToken, appeal.taker, totalDeposit.sub(totalFees));
         } else {
             uint256 feesRefund = totalFees / 2;
-            // No need for SafeMath: collateral factors are greater than zero, then both appeal deposits are greater than `totalFees`
-            treasury.assign(feeToken, appeal.maker, appealDeposit - feesRefund);
-            treasury.assign(feeToken, appeal.taker, confirmAppealDeposit - feesRefund);
+            treasury.assign(feeToken, appeal.maker, appealDeposit.sub(feesRefund));
+            treasury.assign(feeToken, appeal.taker, confirmAppealDeposit.sub(feesRefund));
         }
     }
 
@@ -823,8 +818,7 @@ contract DisputeManager is ControlledRecoverable, ICRVotingOwner, IDisputeManage
         uint256 roundSettledJurors = _round.settledJurors;
         // Compute the amount of jurors that are going to be settled in this batch, which is returned by the function for fees calculation
         // Initially we try to reach the end of the jurors array
-        // No need for SafeMath: `settledJurors` gets added `batchSettledJurors` itself (see few lines below).
-        uint256 batchSettledJurors = _round.jurors.length - roundSettledJurors;
+        uint256 batchSettledJurors = _round.jurors.length.sub(roundSettledJurors);
 
         // If the requested amount of jurors is not zero and it is lower that the remaining number of jurors to be settled for the given round,
         // we cap the number of jurors that are going to be settled in this batch to the requested amount. If not, we know we have reached the
@@ -836,8 +830,7 @@ contract DisputeManager is ControlledRecoverable, ICRVotingOwner, IDisputeManage
         }
 
         // Update the number of round settled jurors.
-        // No need for SafeMath: the highest number of jurors to be settled for a round could be the `jurorsNumber` itself, which is a uint64.
-        _round.settledJurors = uint64(roundSettledJurors + batchSettledJurors);
+        _round.settledJurors = uint64(roundSettledJurors.add(batchSettledJurors));
 
         // Prepare the list of jurors and penalties to either be slashed or returned based on their votes for the given round
         IJurorsRegistry jurorsRegistry = _jurorsRegistry();
@@ -959,15 +952,13 @@ contract DisputeManager is ControlledRecoverable, ICRVotingOwner, IDisputeManage
         NextRoundDetails memory nextRound;
         DisputesConfig memory disputesConfig = _config.disputes;
 
-        // No need for SafeMath: round state durations are safely capped and we assume that timestamps,
-        // and its derivatives like term ID, won't reach MAX_UINT64, which would be ~5.8e11 years.
-        uint64 currentRoundAppealStartTerm = _round.draftTermId + _round.delayedTerms + disputesConfig.commitTerms + disputesConfig.revealTerms;
         // Next round start term is current round end term
-        nextRound.startTerm = currentRoundAppealStartTerm + disputesConfig.appealTerms + disputesConfig.appealConfirmTerms;
+        uint64 delayedDraftTerm = _round.draftTermId.add(_round.delayedTerms);
+        uint64 currentRoundAppealStartTerm = delayedDraftTerm.add(disputesConfig.commitTerms).add(disputesConfig.revealTerms);
+        nextRound.startTerm = currentRoundAppealStartTerm.add(disputesConfig.appealTerms).add(disputesConfig.appealConfirmTerms);
 
         // Compute next round settings depending on if it will be the final round or not
-        // No need for SafeMath: maxRegularAppealRounds > 0 is checked on setting config
-        if (_roundId >= disputesConfig.maxRegularAppealRounds - 1) {
+        if (_roundId >= disputesConfig.maxRegularAppealRounds.sub(1)) {
             // If the next round is the final round, no draft is needed.
             nextRound.newDisputeState = DisputeState.Adjudicating;
             // The number of jurors will be the number of times the minimum stake is hold in the registry,
@@ -1027,28 +1018,24 @@ contract DisputeManager is ControlledRecoverable, ICRVotingOwner, IDisputeManage
 
         // If the dispute is ruled or the given round is not the last one, we consider it ended
         uint256 numberOfRounds = _dispute.rounds.length;
-        // No need for SafeMath: this function assumes the given round exists, and therfore length of rounds array is >= 1
-        if (_dispute.state == DisputeState.Ruled || _roundId < numberOfRounds - 1) {
+        if (_dispute.state == DisputeState.Ruled || _roundId < numberOfRounds.sub(1)) {
             return AdjudicationState.Ended;
         }
 
         // If given term is before the actual term when the last round was finally drafted, then the last round adjudication state is invalid
-        // No need for SafeMath: round state durations are safely capped at config
-        uint64 draftFinishedTermId = round.draftTermId + round.delayedTerms;
+        uint64 draftFinishedTermId = round.draftTermId.add(round.delayedTerms);
         if (_dispute.state == DisputeState.PreDraft || _termId < draftFinishedTermId) {
             return AdjudicationState.Invalid;
         }
 
         // If given term is before the reveal start term of the last round, then jurors are still allowed to commit votes for the last round
-        // No need for SafeMath: round state durations are safely capped at config
-        uint64 revealStartTerm = draftFinishedTermId + _config.commitTerms;
+        uint64 revealStartTerm = draftFinishedTermId.add(_config.commitTerms);
         if (_termId < revealStartTerm) {
             return AdjudicationState.Committing;
         }
 
         // If given term is before the appeal start term of the last round, then jurors are still allowed to reveal votes for the last round
-        // No need for SafeMath: round state durations are safely capped at config
-        uint64 appealStartTerm = revealStartTerm + _config.revealTerms;
+        uint64 appealStartTerm = revealStartTerm.add(_config.revealTerms);
         if (_termId < appealStartTerm) {
             return AdjudicationState.Revealing;
         }
@@ -1061,8 +1048,7 @@ contract DisputeManager is ControlledRecoverable, ICRVotingOwner, IDisputeManage
 
         // If the last round was not appealed yet, check if the confirmation period has started or not
         bool isLastRoundAppealed = _existsAppeal(round.appeal);
-        // No need for SafeMath: round state durations are safely capped at config
-        uint64 appealConfirmationStartTerm = appealStartTerm + _config.appealTerms;
+        uint64 appealConfirmationStartTerm = appealStartTerm.add(_config.appealTerms);
         if (!isLastRoundAppealed) {
             // If given term is before the appeal confirmation start term, then the last round can still be appealed. Otherwise, it is ended.
             if (_termId < appealConfirmationStartTerm) {
@@ -1075,8 +1061,7 @@ contract DisputeManager is ControlledRecoverable, ICRVotingOwner, IDisputeManage
         // If the last round was appealed and the given term is before the appeal confirmation end term, then the last round appeal can still be
         // confirmed. Note that if the round being checked was already appealed and confirmed, it won't be the last round, thus it will be caught
         // above by the first check and considered 'Ended'.
-        // No need for SafeMath: round state durations are safely capped at config
-        uint64 appealConfirmationEndTerm = appealConfirmationStartTerm + _config.appealConfirmTerms;
+        uint64 appealConfirmationEndTerm = appealConfirmationStartTerm.add(_config.appealConfirmTerms);
         if (_termId < appealConfirmationEndTerm) {
             return AdjudicationState.ConfirmingAppeal;
         }
@@ -1245,8 +1230,7 @@ contract DisputeManager is ControlledRecoverable, ICRVotingOwner, IDisputeManage
         uint64 jurorsNumber = _round.jurorsNumber;
         uint64 selectedJurors = _round.selectedJurors;
         uint64 maxJurorsPerDraftBatch_ = maxJurorsPerDraftBatch;
-        // No need for SafeMath: selectedJurors is set in `_draft` function, by adding to it `requestedJurors`. The line below prevents underflow
-        uint64 jurorsToBeDrafted = jurorsNumber - selectedJurors;
+        uint64 jurorsToBeDrafted = jurorsNumber.sub(selectedJurors);
         // Draft the min number of jurors between the one requested by the sender and the one requested by the sender
         uint64 requestedJurors = jurorsToBeDrafted < maxJurorsPerDraftBatch_ ? jurorsToBeDrafted : maxJurorsPerDraftBatch_;
 
@@ -1266,8 +1250,7 @@ contract DisputeManager is ControlledRecoverable, ICRVotingOwner, IDisputeManage
         (address[] memory jurors, uint256 draftedJurors) = jurorsRegistry.draft(draftParams);
 
         // Update round with drafted jurors information
-        // No need for SafeMath: this cannot be greater than `jurorsNumber`
-        uint64 newSelectedJurors = selectedJurors + uint64(draftedJurors);
+        uint64 newSelectedJurors = selectedJurors.add(uint64(draftedJurors));
         _round.selectedJurors = newSelectedJurors;
         _updateRoundDraftedJurors(_round, jurors, draftedJurors);
         bool draftEnded = newSelectedJurors == jurorsNumber;
@@ -1295,8 +1278,7 @@ contract DisputeManager is ControlledRecoverable, ICRVotingOwner, IDisputeManage
                 _round.jurors.push(juror);
             }
 
-            // No need for SafeMath: we assume a juror cannot be drafted 2^64 times for a round
-            jurorState.weight++;
+            jurorState.weight = jurorState.weight.add(1);
         }
     }
 

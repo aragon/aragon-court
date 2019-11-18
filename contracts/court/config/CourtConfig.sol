@@ -1,6 +1,7 @@
 pragma solidity ^0.5.8;
 
 import "../../lib/os/ERC20.sol";
+import "../../lib/os/SafeMath64.sol";
 
 import "./IConfig.sol";
 import "./CourtConfigData.sol";
@@ -8,6 +9,7 @@ import "../../lib/PctHelpers.sol";
 
 
 contract CourtConfig is IConfig, CourtConfigData {
+    using SafeMath64 for uint64;
     using PctHelpers for uint256;
 
     string private constant ERROR_TOO_OLD_TERM = "CONF_TOO_OLD_TERM";
@@ -127,8 +129,7 @@ contract CourtConfig is IConfig, CourtConfigData {
         // If the term being transitioned had no config change scheduled, keep the previous one
         uint256 currentConfigId = configIdByTerm[_termId];
         if (currentConfigId == 0) {
-            // No need for SafeMath: if there was a term transition we know the current term ID will be greater than zero
-            uint256 previousConfigId = configIdByTerm[_termId - 1];
+            uint256 previousConfigId = configIdByTerm[_termId.sub(1)];
             configIdByTerm[_termId] = previousConfigId;
         }
     }

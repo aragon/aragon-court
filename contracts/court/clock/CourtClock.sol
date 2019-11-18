@@ -1,11 +1,14 @@
 pragma solidity ^0.5.8;
 
+import "../../lib/os/SafeMath64.sol";
 import "../../lib/os/TimeHelpers.sol";
 
 import "./IClock.sol";
 
 
 contract CourtClock is IClock, TimeHelpers {
+    using SafeMath64 for uint64;
+
     string private constant ERROR_TERM_OUTDATED = "CLK_TERM_OUTDATED";
     string private constant ERROR_TERM_DOES_NOT_EXIST = "CLK_TERM_DOES_NOT_EXIST";
     string private constant ERROR_TERM_DURATION_TOO_LONG = "CLK_TERM_DURATION_TOO_LONG";
@@ -69,7 +72,7 @@ contract CourtClock is IClock, TimeHelpers {
 
         termDuration = _termDuration;
 
-        // No need for SafeMath: checked above
+        // No need for SafeMath: we already checked values above
         terms[0].startTime = _firstTermStartTime - _termDuration;
     }
 
@@ -208,9 +211,7 @@ contract CourtClock is IClock, TimeHelpers {
 
             // Set the start time of the new term. Note that we are using a constant term duration value to guarantee
             // equally long terms, regardless of heartbeats.
-            // No need for SafeMath: term duration is capped at `MAX_TERM_DURATION`, first term start time by `MAX_FIRST_TERM_DELAY_PERIOD`,
-            // and we assume that timestamps (and its derivatives like term ID) won't reach MAX_UINT64, which would be ~5.8e11 years.
-            currentTerm.startTime = previousTerm.startTime + termDuration;
+            currentTerm.startTime = previousTerm.startTime.add(termDuration);
 
             // In order to draft a random number of jurors in a term, we use a randomness factor for each term based on a
             // block number that is set once the term has started. Note that this information could not be known beforehand.
@@ -227,11 +228,10 @@ contract CourtClock is IClock, TimeHelpers {
     * @param _newFirstTermStartTime New timestamp in seconds when the court will open
     */
     function _delayStartTime(uint64 _newFirstTermStartTime) internal {
-        Term storage term = terms[0];
-
-        // No need for SafeMath: term duration is capped at `MAX_TERM_DURATION`, first term start time by `MAX_FIRST_TERM_DELAY_PERIOD`
-        uint64 currentFirstTermStartTime = term.startTime + termDuration;
         require(_currentTermId() == 0, ERROR_CANNOT_DELAY_STARTED_COURT);
+
+        Term storage term = terms[0];
+        uint64 currentFirstTermStartTime = term.startTime.add(termDuration);
         require(_newFirstTermStartTime > currentFirstTermStartTime, ERROR_CANNOT_DELAY_PAST_START_TIME);
 
         // No need for SafeMath: we already checked above that `_newFirstTermStartTime` > `currentFirstTermStartTime` >= `termDuration`
@@ -261,8 +261,7 @@ contract CourtClock is IClock, TimeHelpers {
     * @return Identification number of the current term
     */
     function _currentTermId() internal view returns (uint64) {
-        // No need for SafeMath: Court terms are assumed to always fit in uint64.
-        return termId + _neededTermTransitions();
+        return termId.add(_neededTermTransitions());
     }
 
     /**

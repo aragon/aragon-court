@@ -726,6 +726,7 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
                     // Next term deactivation amount should always be less than current active balance, but we make sure using SafeMath
                     uint256 nextTermActiveBalance = currentActiveBalance.sub(nextTermDeactivationRequestAmount);
                     if (nextTermActiveBalance < newLockedBalance) {
+                        // No need for SafeMath: we already checked values above
                         _reduceDeactivationRequest(jurorAddress, newLockedBalance - nextTermActiveBalance, _params.termId);
                     }
 

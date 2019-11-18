@@ -602,8 +602,18 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
     * @param _data Optional data that can be used to request the activation of the deposited tokens
     */
     function _stake(address _from, address _juror, uint256 _amount, bytes memory _data) internal {
-        _deposit(_from, _juror, _amount, _data);
+        require(_amount > 0, ERROR_INVALID_ZERO_AMOUNT);
+        _updateAvailableBalanceOf(_juror, _amount, true);
+
+        // Activate tokens if it was requested and the address depositing tokens is the juror. Note that there's
+        // no need to check the activation amount since we have just added it to the available balance of the juror.
+        if (_from == _juror && _data.toBytes4() == JurorsRegistry(this).activate.selector) {
+            uint64 termId = _ensureCurrentTerm();
+            _activateTokens(_juror, termId, _amount);
+        }
+
         emit Staked(_juror, _amount, _totalStakedFor(_juror), _data);
+        require(jurorsToken.safeTransferFrom(_from, address(this), _amount), ERROR_TOKEN_TRANSFER_FAILED);
     }
 
     /**
@@ -615,27 +625,6 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
     function _unstake(address _juror, uint256 _amount, bytes memory _data) internal {
         _withdraw(_juror, _amount);
         emit Unstaked(_juror, _amount, _totalStakedFor(_juror), _data);
-    }
-
-    /**
-    * @dev Internal function to deposit an amount of available tokens for a juror
-    * @param _from Address sending the amount of tokens to be deposited
-    * @param _juror Address of the juror to deposit the tokens to
-    * @param _amount Amount of tokens to be deposited (and optionally activated)
-    * @param _data Optional data that can be used to request the activation of the deposited tokens
-    */
-    function _deposit(address _from, address _juror, uint256 _amount, bytes memory _data) internal {
-        require(_amount > 0, ERROR_INVALID_ZERO_AMOUNT);
-        _updateAvailableBalanceOf(_juror, _amount, true);
-
-        // Activate tokens if it was requested and the address depositing tokens is the juror. Note that there's
-        // no need to check the activation amount since we have just added it to the available balance of the juror.
-        if (_from == _juror && _data.toBytes4() == JurorsRegistry(this).activate.selector) {
-            uint64 termId = _ensureCurrentTerm();
-            _activateTokens(_juror, termId, _amount);
-        }
-
-        require(jurorsToken.safeTransferFrom(_from, address(this), _amount), ERROR_TOKEN_TRANSFER_FAILED);
     }
 
     /**

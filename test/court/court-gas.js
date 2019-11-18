@@ -63,7 +63,7 @@ contract('AragonCourt', ([_, sender, drafter, appealMaker, appealTaker, juror500
           assertBn(neededTransitions, 1, 'needed transitions does not match')
         })
 
-        itCostsAtMost('createDispute', 308e3, () => arbitrable.createDispute(2, '0x', { from: sender }))
+        itCostsAtMost('createDispute', 274e3, () => arbitrable.createDispute(2, '0x', { from: sender }))
       })
     })
 
@@ -109,7 +109,7 @@ contract('AragonCourt', ([_, sender, drafter, appealMaker, appealTaker, juror500
           assertBn(neededTransitions, 1, 'needed transitions does not match')
         })
 
-        itCostsAtMost('commit', 136e3, () => voting.commit(voteId, vote, { from: draftedJurors[0].address }))
+        itCostsAtMost('commit', 131e3, () => voting.commit(voteId, vote, { from: draftedJurors[0].address }))
       })
     })
 
@@ -144,7 +144,7 @@ contract('AragonCourt', ([_, sender, drafter, appealMaker, appealTaker, juror500
           assertBn(neededTransitions, 1, 'needed transitions does not match')
         })
 
-        itCostsAtMost('reveal', 162e3, () => voting.reveal(voteId, outcome, SALT, { from: draftedJurors[0].address }))
+        itCostsAtMost('reveal', 156e3, () => voting.reveal(voteId, outcome, SALT, { from: draftedJurors[0].address }))
       })
     })
 
@@ -185,7 +185,7 @@ contract('AragonCourt', ([_, sender, drafter, appealMaker, appealTaker, juror500
           assertBn(neededTransitions, 1, 'needed transitions does not match')
         })
 
-        itCostsAtMost('createAppeal', 133e3, () => disputeManager.createAppeal(disputeId, roundId, appealMakerRuling, { from: appealMaker }))
+        itCostsAtMost('createAppeal', 128e3, () => disputeManager.createAppeal(disputeId, roundId, appealMakerRuling, { from: appealMaker }))
       })
     })
 
@@ -226,7 +226,7 @@ contract('AragonCourt', ([_, sender, drafter, appealMaker, appealTaker, juror500
           assertBn(neededTransitions, 1, 'needed transitions does not match')
         })
 
-        itCostsAtMost('confirmAppeal', 218e3, () => disputeManager.confirmAppeal(disputeId, roundId, appealTakerRuling, { from: appealTaker }))
+        itCostsAtMost('confirmAppeal', 213e3, () => disputeManager.confirmAppeal(disputeId, roundId, appealTakerRuling, { from: appealTaker }))
       })
     })
 
@@ -260,7 +260,7 @@ contract('AragonCourt', ([_, sender, drafter, appealMaker, appealTaker, juror500
           assertBn(neededTransitions, 1, 'needed transitions does not match')
         })
 
-        itCostsAtMost('executeRuling', 128e3, () => court.executeRuling(disputeId))
+        itCostsAtMost('executeRuling', 123e3, () => court.executeRuling(disputeId))
       })
     })
 
@@ -296,7 +296,7 @@ contract('AragonCourt', ([_, sender, drafter, appealMaker, appealTaker, juror500
           assertBn(neededTransitions, 1, 'needed transitions does not match')
         })
 
-        itCostsAtMost('settlePenalties', 271e3, () => disputeManager.settlePenalties(disputeId, roundId, 0))
+        itCostsAtMost('settlePenalties', 266e3, () => disputeManager.settlePenalties(disputeId, roundId, 0))
       })
     })
 

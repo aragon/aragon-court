@@ -199,6 +199,7 @@ contract CourtClock is IClock, TimeHelpers {
         uint256 transitions = uint256(_maxRequestedTransitions < neededTransitions ? _maxRequestedTransitions : neededTransitions);
         require(transitions > 0, ERROR_INVALID_TRANSITION_TERMS);
 
+        uint64 blockNumber = getBlockNumber64();
         uint64 previousTermId = termId;
         uint64 currentTermId = previousTermId;
         for (uint256 transition = 1; transition <= transitions; transition++) {
@@ -215,7 +216,7 @@ contract CourtClock is IClock, TimeHelpers {
 
             // In order to draft a random number of jurors in a term, we use a randomness factor for each term based on a
             // block number that is set once the term has started. Note that this information could not be known beforehand.
-            currentTerm.randomnessBN = getBlockNumber64() + 1;
+            currentTerm.randomnessBN = blockNumber + 1;
         }
 
         termId = currentTermId;

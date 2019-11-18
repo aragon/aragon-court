@@ -64,7 +64,7 @@ contract CourtTreasury is ControlledRecoverable, ITreasury {
     * @param _to Address of the recipient that will receive their tokens
     */
     function withdrawAll(ERC20 _token, address _to) external {
-        IConfig config = _config();
+        IConfig config = _courtConfig();
         require(config.areWithdrawalsAllowedFor(_to), ERROR_WITHDRAWS_DISALLOWED);
 
         uint256 amount = _balanceOf(_token, _to);

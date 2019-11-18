@@ -430,10 +430,10 @@ contract Controller is IsContract, CourtClock, CourtConfig {
 
     /**
     * @dev Internal function to notify when a term has been transitioned
-    * @param _currentTermId Identification number of the new current term that has been transitioned
+    * @param _termId Identification number of the new current term that has been transitioned
     */
-    function _onTermTransitioned(uint64 _currentTermId) internal {
-        _ensureTermConfig(_currentTermId);
+    function _onTermTransitioned(uint64 _termId) internal {
+        _ensureTermConfig(_termId);
     }
 
     /**

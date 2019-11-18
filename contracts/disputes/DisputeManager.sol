@@ -1227,7 +1227,7 @@ contract DisputeManager is ControlledRecoverable, ICRVotingOwner, IDisputeManage
     * @dev Private function to draft jurors for a given dispute and round. It assumes the given data is correct
     * @param _disputeId Identification number of the dispute to be drafted
     * @param _round Round of the dispute to be drafted
-    * @param _currentTermId Identification number of the current term of the Court
+    * @param _termId Identification number of the current term of the Court
     * @param _draftTermRandomness Randomness of the term in which the dispute was requested to be drafted
     * @param _config Draft config of the Court at the draft term
     * @return True if all the requested jurors for the given round were drafted, false otherwise
@@ -1235,7 +1235,7 @@ contract DisputeManager is ControlledRecoverable, ICRVotingOwner, IDisputeManage
     function _draft(
         uint256  _disputeId,
         AdjudicationRound storage _round,
-        uint64 _currentTermId,
+        uint64 _termId,
         bytes32 _draftTermRandomness,
         DraftConfig memory _config
     )
@@ -1254,7 +1254,7 @@ contract DisputeManager is ControlledRecoverable, ICRVotingOwner, IDisputeManage
         uint256[7] memory draftParams = [
             uint256(_draftTermRandomness),
             _disputeId,
-            uint256(_currentTermId),
+            uint256(_termId),
             uint256(selectedJurors),
             uint256(requestedJurors),
             uint256(jurorsNumber),
@@ -1305,7 +1305,7 @@ contract DisputeManager is ControlledRecoverable, ICRVotingOwner, IDisputeManage
     * @param _dispute Dispute to settle penalties for
     * @param _round Dispute round to settle penalties for
     * @param _roundId Identification number of the dispute round to settle penalties for
-    * @param _treasury treasury module to refund the corresponding juror fees
+    * @param _courtTreasury Treasury module to refund the corresponding juror fees
     * @param _feeToken ERC20 token to be used for the fees corresponding to the draft term of the given dispute round
     * @param _collectedTokens Amount of tokens collected during the given dispute round
     */
@@ -1313,7 +1313,7 @@ contract DisputeManager is ControlledRecoverable, ICRVotingOwner, IDisputeManage
         Dispute storage _dispute,
         AdjudicationRound storage _round,
         uint256 _roundId,
-        ITreasury _treasury,
+        ITreasury _courtTreasury,
         ERC20 _feeToken,
         uint256 _collectedTokens
     )
@@ -1335,12 +1335,12 @@ contract DisputeManager is ControlledRecoverable, ICRVotingOwner, IDisputeManage
         // Reimburse juror fees to the Arbtirable subject for round 0 or to the previous appeal parties for other rounds.
         // Note that if the given round is not the first round, we can ensure there was an appeal in the previous round.
         if (_roundId == 0) {
-            _treasury.assign(_feeToken, address(_dispute.subject), _round.jurorFees);
+            _courtTreasury.assign(_feeToken, address(_dispute.subject), _round.jurorFees);
         } else {
             uint256 refundFees = _round.jurorFees / 2;
             Appeal storage triggeringAppeal = _dispute.rounds[_roundId - 1].appeal;
-            _treasury.assign(_feeToken, triggeringAppeal.maker, refundFees);
-            _treasury.assign(_feeToken, triggeringAppeal.taker, refundFees);
+            _courtTreasury.assign(_feeToken, triggeringAppeal.maker, refundFees);
+            _courtTreasury.assign(_feeToken, triggeringAppeal.taker, refundFees);
         }
     }
 }

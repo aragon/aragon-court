@@ -11,7 +11,7 @@ contract ConfigConsumer is CourtConfigData {
     * @dev Internal function to fetch the address of the Config module from the controller
     * @return Address of the Config module
     */
-    function _config() internal view returns (IConfig);
+    function _courtConfig() internal view returns (IConfig);
 
     /**
     * @dev Internal function to get the Court config for a certain term
@@ -25,7 +25,7 @@ contract ConfigConsumer is CourtConfigData {
         uint16[2] memory _pcts,
         uint64[4] memory _roundParams,
         uint256[2] memory _appealCollateralParams,
-        uint256 _minActiveBalance) = _config().getConfig(_termId);
+        uint256 _minActiveBalance) = _courtConfig().getConfig(_termId);
 
         Config memory config;
 
@@ -63,7 +63,7 @@ contract ConfigConsumer is CourtConfigData {
     * @return Draft config for the given term
     */
     function _getDraftConfig(uint64 _termId) internal view returns (DraftConfig memory) {
-        (ERC20 feeToken, uint256 draftFee, uint16 penaltyPct) = _config().getDraftConfig(_termId);
+        (ERC20 feeToken, uint256 draftFee, uint16 penaltyPct) = _courtConfig().getDraftConfig(_termId);
         return DraftConfig({ feeToken: feeToken, draftFee: draftFee, penaltyPct: penaltyPct });
     }
 
@@ -73,6 +73,6 @@ contract ConfigConsumer is CourtConfigData {
     * @return Minimum amount of juror tokens that can be activated
     */
     function _getMinActiveBalance(uint64 _termId) internal view returns (uint256) {
-        return _config().getMinActiveBalance(_termId);
+        return _courtConfig().getMinActiveBalance(_termId);
     }
 }

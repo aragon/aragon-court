@@ -121,21 +121,21 @@ contract CourtConfig is IConfig, CourtConfigData {
 
     /**
     * @dev Internal to make sure to set a config for the new term, it will copy the previous term config if none
-    * @param _currentTermId Identification number of the new current term that has been transitioned
+    * @param _termId Identification number of the new current term that has been transitioned
     */
-    function _ensureTermConfig(uint64 _currentTermId) internal {
+    function _ensureTermConfig(uint64 _termId) internal {
         // If the term being transitioned had no config change scheduled, keep the previous one
-        uint256 currentConfigId = configIdByTerm[_currentTermId];
+        uint256 currentConfigId = configIdByTerm[_termId];
         if (currentConfigId == 0) {
             // No need for SafeMath: if there was a term transition we know the current term ID will be greater than zero
-            uint256 previousConfigId = configIdByTerm[_currentTermId - 1];
-            configIdByTerm[_currentTermId] = previousConfigId;
+            uint256 previousConfigId = configIdByTerm[_termId - 1];
+            configIdByTerm[_termId] = previousConfigId;
         }
     }
 
     /**
     * @dev Assumes that sender it's allowed (either it's from governor or it's on init)
-    * @param _currentTermId Identification number of the current Court term
+    * @param _termId Identification number of the current Court term
     * @param _fromTermId Identification number of the term in which the config will be effective at
     * @param _feeToken Address of the token contract that is used to pay for fees.
     * @param _fees Array containing:
@@ -162,7 +162,7 @@ contract CourtConfig is IConfig, CourtConfigData {
     * @param _minActiveBalance Minimum amount of juror tokens that can be activated
     */
     function _setConfig(
-        uint64 _currentTermId,
+        uint64 _termId,
         uint64 _fromTermId,
         ERC20 _feeToken,
         uint256[3] memory _fees,
@@ -176,7 +176,7 @@ contract CourtConfig is IConfig, CourtConfigData {
     {
         // If the current term is not zero, changes must be scheduled at least after the current period.
         // No need to ensure delays for on-going disputes since these already use their creation term for that.
-        require(_currentTermId == 0 || _fromTermId > _currentTermId, ERROR_TOO_OLD_TERM);
+        require(_termId == 0 || _fromTermId > _termId, ERROR_TOO_OLD_TERM);
 
         // Make sure appeal collateral factors are greater than zero
         require(_appealCollateralParams[0] > 0 && _appealCollateralParams[1] > 0, ERROR_ZERO_COLLATERAL_FACTOR);
@@ -206,7 +206,7 @@ contract CourtConfig is IConfig, CourtConfigData {
 
         // If there was a config change already scheduled, reset it (in that case we will overwrite last array item).
         // Otherwise, schedule a new config.
-        if (configChangeTermId > _currentTermId) {
+        if (configChangeTermId > _termId) {
             configIdByTerm[configChangeTermId] = 0;
         } else {
             configs.length++;

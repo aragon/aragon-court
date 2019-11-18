@@ -240,13 +240,10 @@ contract CourtClock is IClock, TimeHelpers {
     }
 
     /**
-    * @dev Internal function to notify when a term has been transitioned
+    * @dev Internal function to notify when a term has been transitioned. This function must be overridden to provide custom behavior.
     * @param _termId Identification number of the new current term that has been transitioned
     */
-    function _onTermTransitioned(uint64 _termId) internal {
-        // solium-disable-previous-line no-empty-blocks
-        // This function must be overridden to provide custom behavior
-    }
+    function _onTermTransitioned(uint64 _termId) internal;
 
     /**
     * @dev Internal function to tell the last ensured term identification number

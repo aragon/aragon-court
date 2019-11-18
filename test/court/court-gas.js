@@ -2,7 +2,7 @@ const { bigExp } = require('../helpers/lib/numbers')
 const { assertBn } = require('../helpers/asserts/assertBn')
 const { printTable } = require('../helpers/lib/logging')
 const { buildHelper } = require('../helpers/wrappers/court')(web3, artifacts)
-const { getVoteId, encryptVote, oppositeOutcome, SALT, OUTCOMES } = require('../helpers/utils/crvoting')
+const { getVoteId, hashVote, oppositeOutcome, SALT, OUTCOMES } = require('../helpers/utils/crvoting')
 
 const Arbitrable = artifacts.require('ArbitrableMock')
 
@@ -84,7 +84,7 @@ contract('AragonCourt', ([_, sender, drafter, appealMaker, appealTaker, juror500
     describe('commit', () => {
       let voteId, draftedJurors
 
-      const vote = encryptVote(OUTCOMES.LOW)
+      const vote = hashVote(OUTCOMES.LOW)
 
       beforeEach('create dispute and draft', async () => {
         const roundId = 0
@@ -321,7 +321,7 @@ contract('AragonCourt', ([_, sender, drafter, appealMaker, appealTaker, juror500
           assertBn(neededTransitions, 0, 'needed transitions does not match')
         })
 
-        itCostsAtMost('settleReward', 88e3, () => disputeManager.settleReward(disputeId, roundId, draftedJurors[0].address))
+        itCostsAtMost('settleReward', 89e3, () => disputeManager.settleReward(disputeId, roundId, draftedJurors[0].address))
       })
 
       context('when the current term is outdated by one term', () => {
@@ -331,7 +331,7 @@ contract('AragonCourt', ([_, sender, drafter, appealMaker, appealTaker, juror500
           assertBn(neededTransitions, 1, 'needed transitions does not match')
         })
 
-        itCostsAtMost('settleReward', 88e3, () => disputeManager.settleReward(disputeId, roundId, draftedJurors[0].address))
+        itCostsAtMost('settleReward', 89e3, () => disputeManager.settleReward(disputeId, roundId, draftedJurors[0].address))
       })
     })
 

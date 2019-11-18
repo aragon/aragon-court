@@ -1,6 +1,6 @@
 const { assertBn } = require('../helpers/asserts/assertBn')
 const { buildHelper } = require('../helpers/wrappers/court')(web3, artifacts)
-const { SALT, OUTCOMES, encryptVote } = require('../helpers/utils/crvoting')
+const { SALT, OUTCOMES, hashVote } = require('../helpers/utils/crvoting')
 
 const CRVoting = artifacts.require('CRVoting')
 const Court = artifacts.require('DisputeManagerMockForVoting')
@@ -29,7 +29,7 @@ contract('CRVoting', ([_, voterWeighted1, voterWeighted2, voterWeighted3, voterW
     for (const voter in votes) {
       const { weight, outcome, reveal, leak } = votes[voter]
       await disputeManager.mockVoterWeight(voter, weight)
-      if (outcome) await voting.commit(voteId, encryptVote(outcome), { from: voter })
+      if (outcome) await voting.commit(voteId, hashVote(outcome), { from: voter })
       if (reveal) await voting.reveal(voteId, outcome, SALT, { from: voter })
       if (leak) await voting.leak(voteId, voter, outcome, SALT, { from: someone })
     }

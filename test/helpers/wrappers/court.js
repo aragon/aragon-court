@@ -4,7 +4,7 @@ const { decodeEventsOfType } = require('../lib/decodeEvent')
 const { MAX_UINT64, bn, bigExp } = require('../lib/numbers')
 const { getEvents, getEventArgument } = require('@aragon/test-helpers/events')
 const { DISPUTE_MANAGER_EVENTS, REGISTRY_EVENTS } = require('../utils/events')
-const { SALT, OUTCOMES, getVoteId, encryptVote, oppositeOutcome, outcomeFor } = require('../utils/crvoting')
+const { SALT, OUTCOMES, getVoteId, hashVote, oppositeOutcome, outcomeFor } = require('../utils/crvoting')
 
 const PCT_BASE = bn(10000)
 
@@ -270,7 +270,7 @@ module.exports = (web3, artifacts) => {
         let { address, outcome } = voters[i]
         // if no outcome was set for the given outcome, pick one based on its index
         if (!outcome) outcome = outcomeFor(i)
-        await this.voting.commit(voteId, encryptVote(outcome), { from: address })
+        await this.voting.commit(voteId, hashVote(outcome), { from: address })
         if (outcome === OUTCOMES.LEAKED) {
           await this.voting.leak(voteId, address, outcome, SALT)
         }

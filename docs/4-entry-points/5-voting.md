@@ -30,7 +30,7 @@ In particular, the first version of the Court protocol uses a commit-reveal mech
 - **Actor:** Juror drafted for an adjudication round
 - **Inputs:**
     - **Vote ID:** Vote identification number
-    - **Commitment:** Encrypted outcome to be stored for future reveal 
+    - **Commitment:** Hashed outcome to be stored for future reveal 
 - **Authentication:** Open. Implicitly, only jurors that were drafted for the corresponding adjudication round can call this function
 - **Pre-flight checks:**
     - Ensure a vote object with that ID exists

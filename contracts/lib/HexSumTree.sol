@@ -70,7 +70,7 @@ library HexSumTree {
     *      - level: Level being analyzed for the search, it starts at the level under the root and decrements till the leaves
     *      - parentKey: Key of the parent of the nodes being analyzed at the given level for the search
     *      - foundValues: Number of values in the list being searched that were already found, it will go from 0 until the size of the list
-    *      - visitedTotal: Total sum of values that were already visited during the search, it will fo from 0 until the tree total
+    *      - visitedTotal: Total sum of values that were already visited during the search, it will go from 0 until the tree total
     */
     struct SearchParams {
         uint64 time;

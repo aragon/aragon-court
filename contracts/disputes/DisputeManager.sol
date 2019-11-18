@@ -340,8 +340,8 @@ contract DisputeManager is ControlledRecoverable, ICRVotingOwner, IDisputeManage
     /**
     * @notice Settle penalties for round #`_roundId` of dispute #`_disputeId`
     * @dev In case of a regular round, all the drafted jurors that didn't vote in favor of the final ruling of the given dispute will be slashed.
-    *      For final rounds, jurors are slashed when voting, thus it will considered these rounds settled at once. Rewards have to be manually
-    *      claimed through `settleReward` which will return pre-slashed tokens for the winning jurors of a final round as well.
+    *      In case of a final round, jurors are slashed when voting, thus it is considered these rounds settled at once. Rewards have to be
+    *      manually claimed through `settleReward` which will return pre-slashed tokens for the winning jurors of a final round as well.
     * @param _disputeId Identification number of the dispute to settle penalties for
     * @param _roundId Identification number of the dispute round to settle penalties for
     * @param _jurorsToSettle Maximum number of jurors to be slashed in this call. It can be set to zero to slash all the losing jurors of the
@@ -353,7 +353,7 @@ contract DisputeManager is ControlledRecoverable, ICRVotingOwner, IDisputeManage
         Dispute storage dispute = disputes[_disputeId];
         require(_roundId == 0 || dispute.rounds[_roundId - 1].settledPenalties, ERROR_PREV_ROUND_NOT_SETTLED);
 
-        // Ensure given round has not been settled yet
+        // Ensure given round has not been fully settled yet
         AdjudicationRound storage round = dispute.rounds[_roundId];
         require(!round.settledPenalties, ERROR_ROUND_ALREADY_SETTLED);
 
@@ -428,7 +428,7 @@ contract DisputeManager is ControlledRecoverable, ICRVotingOwner, IDisputeManage
             jurorsRegistry.assignTokens(_juror, uint256(jurorState.weight).mul(collectedTokens) / coherentJurors);
         }
 
-        // Reward the winning juror
+        // Reward the winning juror with fees
         Config memory config = _getDisputeConfig(dispute);
         _treasury().assign(config.fees.token, _juror, round.jurorFees.mul(jurorState.weight) / coherentJurors);
 
@@ -961,7 +961,7 @@ contract DisputeManager is ControlledRecoverable, ICRVotingOwner, IDisputeManage
         if (_roundId >= disputesConfig.maxRegularAppealRounds.sub(1)) {
             // If the next round is the final round, no draft is needed.
             nextRound.newDisputeState = DisputeState.Adjudicating;
-            // The number of jurors will be the number of times the minimum stake is hold in the registry,
+            // The number of jurors will be the number of times the minimum stake is held in the registry,
             // multiplied by a precision factor to help with division rounding.
             // Total active balance is guaranteed to never be greater than `2^64 * minActiveBalance / FINAL_ROUND_WEIGHT_PRECISION`.
             // Thus, the jurors number for a final round will always fit in uint64.
@@ -1229,10 +1229,10 @@ contract DisputeManager is ControlledRecoverable, ICRVotingOwner, IDisputeManage
     {
         uint64 jurorsNumber = _round.jurorsNumber;
         uint64 selectedJurors = _round.selectedJurors;
-        uint64 maxJurorsPerDraftBatch_ = maxJurorsPerDraftBatch;
+        uint64 maxJurorsPerBatch = maxJurorsPerDraftBatch;
         uint64 jurorsToBeDrafted = jurorsNumber.sub(selectedJurors);
         // Draft the min number of jurors between the one requested by the sender and the one requested by the sender
-        uint64 requestedJurors = jurorsToBeDrafted < maxJurorsPerDraftBatch_ ? jurorsToBeDrafted : maxJurorsPerDraftBatch_;
+        uint64 requestedJurors = jurorsToBeDrafted < maxJurorsPerBatch ? jurorsToBeDrafted : maxJurorsPerBatch;
 
         // Pack draft params
         uint256[7] memory draftParams = [

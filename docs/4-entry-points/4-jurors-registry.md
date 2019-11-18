@@ -9,7 +9,7 @@ This module is in the one handling all the staking/unstaking logic for the juror
 - **Inputs:**
     - **Controller:** Address of the `Controller` contract that centralizes all the modules being used
     - **Juror token:** Address of the ERC20 token to be used as juror token for the registry
-    - **Total active balance limit:** Maximum amount of total active balance that can be hold in the registry
+    - **Total active balance limit:** Maximum amount of total active balance that can be held in the registry
 - **Authentication:** Open
 - **Pre-flight checks:**
     - Ensure that the controller address is a contract

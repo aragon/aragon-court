@@ -90,8 +90,8 @@ The following functions are state getters provided by the `Controller`:
         - **Max regular appeal rounds:** Number of regular appeal rounds before the final round is triggered
         - **Final round lock terms:** Number of terms that a coherent juror in a final round is disallowed to withdraw (to prevent 51% attacks)
     - **Appeal collateral params:** Array containing params for appeal collateral:
-        - **Appeal collateral factor:** Multiple of dispute fees required to appeal a preliminary ruling
-        - **Appeal confirm collateral factor:** Multiple of dispute fees required to confirm appeal
+        - **Appeal collateral factor:** Multiple of dispute fees (jurors, draft, and settlements) required to appeal a preliminary ruling
+        - **Appeal confirm collateral factor:** Multiple of dispute fees (jurors, draft, and settlements) required to confirm appeal
 
 #### 6.2.2.4. Drafts config
 

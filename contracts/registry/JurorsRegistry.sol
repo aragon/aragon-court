@@ -91,7 +91,7 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
         uint256 iteration;                          // Sortition iteration number
     }
 
-    // Maximum amount of total active balance that can be hold in the registry
+    // Maximum amount of total active balance that can be held in the registry
     uint256 internal totalActiveBalanceLimit;
 
     // Juror ERC20 token
@@ -119,7 +119,7 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
     * @dev Constructor function
     * @param _controller Address of the controller
     * @param _jurorToken Address of the ERC20 token to be used as juror token for the registry
-    * @param _totalActiveBalanceLimit Maximum amount of total active balance that can be hold in the registry
+    * @param _totalActiveBalanceLimit Maximum amount of total active balance that can be held in the registry
     */
     constructor(Controller _controller, ERC20 _jurorToken, uint256 _totalActiveBalanceLimit)
         ControlledRecoverable(_controller)
@@ -481,8 +481,8 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
     }
 
     /**
-    * @dev Tell the maximum amount of total active balance that can be hold in the registry
-    * @return Maximum amount of total active balance that can be hold in the registry
+    * @dev Tell the maximum amount of total active balance that can be held in the registry
+    * @return Maximum amount of total active balance that can be held in the registry
     */
     function totalJurorsActiveBalanceLimit() external view returns (uint256) {
         return totalActiveBalanceLimit;

@@ -42,8 +42,8 @@ The disputes config object includes the following fields:
 - **Appeal step factor:** Factor in which the jurors number is increased on each appeal
 - **Final round lock terms:** Period a coherent juror in the final round will remain locked
 - **Max regular appeal rounds:** Before the final appeal
-- **Appeal collateral factor:** Permyriad multiple of dispute fees required to appeal a preliminary ruling (1/10,000)
-- **Appeal confirmation collateral factor:** Permyriad multiple of dispute fees required to confirm appeal (1/10,000)
+- **Appeal collateral factor:** Permyriad multiple of dispute fees (jurors, draft, and settlements) required to appeal a preliminary ruling (1/10,000)
+- **Appeal confirmation collateral factor:** Permyriad multiple of dispute fees (jurors, draft, and settlements) required to confirm appeal (1/10,000)
     
 ### 5.2.5. Term
     

@@ -3,10 +3,22 @@ pragma solidity ^0.5.8;
 import "./IArbitrator.sol";
 
 
-interface IArbitrable {
-    // bytes4 constant INTERFACE_ID = 0x88f3ee69;
-
+interface IArbitrable /* is ERC165 */ {
+    /**
+    * @dev Emitted when an IArbitrable instance's dispute is ruled by an IArbitrator
+    * @param arbitrator IArbitrator instance ruling the dispute
+    * @param disputeId Identification number of the dispute being ruled by the arbitrator
+    * @param ruling Ruling given by the arbitrator
+    */
     event Ruled(IArbitrator indexed arbitrator, uint256 indexed disputeId, uint256 ruling);
+
+    /**
+    * @dev Emitted when new evidence is submitted for the IArbitrable instance's dispute
+    * @param disputeId Identification number of the dispute receiving new evidence
+    * @param submitter Address of the account submitting the evidence
+    * @param evidence Data submitted for the evidence of the dispute
+    * @param finished Whether or not the submitter has finished submitting evidence
+    */
     event EvidenceSubmitted(uint256 indexed disputeId, address indexed submitter, bytes evidence, bool finished);
 
     /**
@@ -27,7 +39,7 @@ interface IArbitrable {
     /**
     * @dev ERC165 - Query if a contract implements a certain interface
     * @param _interfaceId The interface identifier being queried, as specified in ERC-165
-    * @return True if the given interface ID is equal to 0x311a6c56, false otherwise
+    * @return True if this contract supports the given interface, false otherwise
     */
     function supportsInterface(bytes4 _interfaceId) external pure returns (bool);
 }

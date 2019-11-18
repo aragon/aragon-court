@@ -1,12 +1,12 @@
 pragma solidity ^0.5.8;
 
-import "../../standards/ERC165.sol";
-import "../../arbitration/IArbitrable.sol";
+import "../../arbitration/Arbitrable.sol";
 import "../../arbitration/IArbitrator.sol";
 
 
-contract ArbitrableMock is IArbitrable, ERC165 {
-    bytes4 public constant ARBITRABLE_INTERFACE_ID = bytes4(0x88f3ee69);
+contract ArbitrableMock is Arbitrable {
+    bytes4 public constant ERC165_INTERFACE = ERC165_INTERFACE_ID;
+    bytes4 public constant ARBITRABLE_INTERFACE = ARBITRABLE_INTERFACE_ID;
 
     IArbitrator internal arbitrator;
 
@@ -27,10 +27,6 @@ contract ArbitrableMock is IArbitrable, ERC165 {
 
     function rule(uint256 _disputeId, uint256 _ruling) external {
         emit Ruled(IArbitrator(msg.sender), _disputeId, _ruling);
-    }
-
-    function supportsInterface(bytes4 _interfaceId) external pure returns (bool) {
-        return _interfaceId == ARBITRABLE_INTERFACE_ID;
     }
 
     function interfaceID() external pure returns (bytes4) {

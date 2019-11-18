@@ -53,7 +53,7 @@ contract('AragonCourt', ([_, sender, drafter, appealMaker, appealTaker, juror500
           assertBn(neededTransitions, 0, 'needed transitions does not match')
         })
 
-        itCostsAtMost('createDispute', 251e3, () => arbitrable.createDispute(2, '0x', { from: sender }))
+        itCostsAtMost('createDispute', 252e3, () => arbitrable.createDispute(2, '0x', { from: sender }))
       })
 
       context('when the current term is outdated by one term', () => {

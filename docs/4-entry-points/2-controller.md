@@ -29,8 +29,8 @@ To read more information about its responsibilities and structure, go to [sectio
         - **Appeal step factor:** Increasing factor for the number of jurors of each dispute round
         - **Max regular appeal rounds:** Number of regular appeal rounds before the final round is triggered
         - **Final round lock terms:** Number of terms that a coherent juror in a final round is disallowed to withdraw
-        - **Appeal collateral factor:** ‱ multiple of juror fees required to appeal a preliminary ruling (1/10,000)
-        - **Appeal confirmation collateral factor:** ‱ multiple of juror fees required to confirm an appeal (1/10,000)
+        - **Appeal collateral factor:** ‱ multiple of dispute fees required to appeal a preliminary ruling (1/10,000)
+        - **Appeal confirmation collateral factor:** ‱ multiple of dispute fees required to confirm an appeal (1/10,000)
         - **Min active balance:** Minimum amount of juror tokens that can be activated
 - **Authentication:** Open
 - **Pre-flight checks:**
@@ -74,8 +74,8 @@ To read more information about its responsibilities and structure, go to [sectio
         - **Appeal step factor:** Increasing factor for the number of jurors of each dispute round
         - **Max regular appeal rounds:** Number of regular appeal rounds before the final round is triggered
         - **Final round lock terms:** Number of terms that a coherent juror in a final round is disallowed to withdraw
-        - **Appeal collateral factor:** ‱ multiple of juror fees required to appeal a preliminary ruling (1/10,000)
-        - **Appeal confirmation collateral factor:** ‱ multiple of juror fees required to confirm an appeal (1/10,000)
+        - **Appeal collateral factor:** ‱ multiple of dispute fees required to appeal a preliminary ruling (1/10,000)
+        - **Appeal confirmation collateral factor:** ‱ multiple of dispute fees required to confirm an appeal (1/10,000)
         - **Min active balance:** Minimum amount of juror tokens that can be activated
 - **Authentication:** Only config governor
 - **Pre-flight checks:**

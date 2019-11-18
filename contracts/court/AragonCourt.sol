@@ -49,8 +49,8 @@ contract AragonCourt is Controller, IArbitrator {
     *        2. maxRegularAppealRounds Number of regular appeal rounds before the final round is triggered
     *        3. finalRoundLockTerms Number of terms that a coherent juror in a final round is disallowed to withdraw (to prevent 51% attacks)
     * @param _appealCollateralParams Array containing params for appeal collateral:
-    *        1. appealCollateralFactor Permyriad multiple of juror fees required to appeal a preliminary ruling
-    *        2. appealConfirmCollateralFactor Permyriad multiple of juror fees required to confirm appeal
+    *        1. appealCollateralFactor Permyriad multiple of dispute fees required to appeal a preliminary ruling
+    *        2. appealConfirmCollateralFactor Permyriad multiple of dispute fees required to confirm appeal
     * @param _minActiveBalance Minimum amount of juror tokens that can be activated
     */
     constructor(

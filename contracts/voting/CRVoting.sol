@@ -28,7 +28,7 @@ contract CRVoting is Controlled, ICRVoting {
     // Besides the options listed above, every vote instance must provide at least 2 outcomes
     uint8 internal constant MIN_POSSIBLE_OUTCOMES = uint8(2);
     // Max number of outcomes excluding the default ones
-    uint8 internal constant MAX_POSSIBLE_OUTCOMES = uint8(-1) - OUTCOME_REFUSED;
+    uint8 internal constant MAX_POSSIBLE_OUTCOMES = uint8(-1) - 3;
 
     struct CastVote {
         bytes32 commitment;                         // Hash of the outcome casted by the voter

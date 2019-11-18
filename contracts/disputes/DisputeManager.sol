@@ -25,35 +25,36 @@ contract DisputeManager is ControlledRecoverable, ICRVotingOwner, IDisputeManage
     using Uint256Helpers for uint256;
 
     // Voting-related error messages
-    string private constant ERROR_VOTER_WEIGHT_ZERO = "CT_VOTER_WEIGHT_ZERO";
-    string private constant ERROR_SENDER_NOT_VOTING = "CT_SENDER_NOT_VOTING";
+    string private constant ERROR_VOTER_WEIGHT_ZERO = "DM_VOTER_WEIGHT_ZERO";
+    string private constant ERROR_SENDER_NOT_VOTING = "DM_SENDER_NOT_VOTING";
 
     // Disputes-related error messages
-    string private constant ERROR_CANNOT_CLOSE_EVIDENCE_PERIOD = "CT_CANNOT_CLOSE_EVIDENCE_PERIOD";
-    string private constant ERROR_EVIDENCE_PERIOD_IS_CLOSED = "CT_EVIDENCE_PERIOD_IS_CLOSED";
-    string private constant ERROR_TERM_OUTDATED = "CT_TERM_OUTDATED";
-    string private constant ERROR_DISPUTE_DOES_NOT_EXIST = "CT_DISPUTE_DOES_NOT_EXIST";
-    string private constant ERROR_INVALID_RULING_OPTIONS = "CT_INVALID_RULING_OPTIONS";
-    string private constant ERROR_SUBSCRIPTION_NOT_PAID = "CT_SUBSCRIPTION_NOT_PAID";
-    string private constant ERROR_DEPOSIT_FAILED = "CT_DEPOSIT_FAILED";
-    string private constant ERROR_BAD_MAX_DRAFT_BATCH_SIZE = "CT_BAD_MAX_DRAFT_BATCH_SIZE";
+    string private constant ERROR_SENDER_NOT_DISPUTE_SUBJECT = "DM_SENDER_NOT_DISPUTE_SUBJECT";
+    string private constant ERROR_CANNOT_CLOSE_EVIDENCE_PERIOD = "DM_CANNOT_CLOSE_EVIDENCE_PERIOD";
+    string private constant ERROR_EVIDENCE_PERIOD_IS_CLOSED = "DM_EVIDENCE_PERIOD_IS_CLOSED";
+    string private constant ERROR_TERM_OUTDATED = "DM_TERM_OUTDATED";
+    string private constant ERROR_DISPUTE_DOES_NOT_EXIST = "DM_DISPUTE_DOES_NOT_EXIST";
+    string private constant ERROR_INVALID_RULING_OPTIONS = "DM_INVALID_RULING_OPTIONS";
+    string private constant ERROR_SUBSCRIPTION_NOT_PAID = "DM_SUBSCRIPTION_NOT_PAID";
+    string private constant ERROR_DEPOSIT_FAILED = "DM_DEPOSIT_FAILED";
+    string private constant ERROR_BAD_MAX_DRAFT_BATCH_SIZE = "DM_BAD_MAX_DRAFT_BATCH_SIZE";
 
     // Rounds-related error messages
-    string private constant ERROR_ROUND_IS_FINAL = "CT_ROUND_IS_FINAL";
-    string private constant ERROR_ROUND_DOES_NOT_EXIST = "CT_ROUND_DOES_NOT_EXIST";
-    string private constant ERROR_INVALID_ADJUDICATION_STATE = "CT_INVALID_ADJUDICATION_STATE";
-    string private constant ERROR_ROUND_ALREADY_DRAFTED = "CT_ROUND_ALREADY_DRAFTED";
-    string private constant ERROR_ROUND_NOT_APPEALED = "CT_ROUND_NOT_APPEALED";
-    string private constant ERROR_INVALID_APPEAL_RULING = "CT_INVALID_APPEAL_RULING";
+    string private constant ERROR_ROUND_IS_FINAL = "DM_ROUND_IS_FINAL";
+    string private constant ERROR_ROUND_DOES_NOT_EXIST = "DM_ROUND_DOES_NOT_EXIST";
+    string private constant ERROR_INVALID_ADJUDICATION_STATE = "DM_INVALID_ADJUDICATION_STATE";
+    string private constant ERROR_ROUND_ALREADY_DRAFTED = "DM_ROUND_ALREADY_DRAFTED";
+    string private constant ERROR_ROUND_NOT_APPEALED = "DM_ROUND_NOT_APPEALED";
+    string private constant ERROR_INVALID_APPEAL_RULING = "DM_INVALID_APPEAL_RULING";
 
     // Settlements-related error messages
-    string private constant ERROR_PREV_ROUND_NOT_SETTLED = "CT_PREVIOUS_ROUND_NOT_SETTLED";
-    string private constant ERROR_ROUND_ALREADY_SETTLED = "CT_ROUND_ALREADY_SETTLED";
-    string private constant ERROR_ROUND_NOT_SETTLED = "CT_ROUND_PENALTIES_NOT_SETTLED";
-    string private constant ERROR_JUROR_ALREADY_REWARDED = "CT_JUROR_ALREADY_REWARDED";
-    string private constant ERROR_WONT_REWARD_NON_VOTER_JUROR = "CT_WONT_REWARD_NON_VOTER_JUROR";
-    string private constant ERROR_WONT_REWARD_INCOHERENT_JUROR = "CT_WONT_REWARD_INCOHERENT_JUROR";
-    string private constant ERROR_ROUND_APPEAL_ALREADY_SETTLED = "CT_APPEAL_ALREADY_SETTLED";
+    string private constant ERROR_PREV_ROUND_NOT_SETTLED = "DM_PREVIOUS_ROUND_NOT_SETTLED";
+    string private constant ERROR_ROUND_ALREADY_SETTLED = "DM_ROUND_ALREADY_SETTLED";
+    string private constant ERROR_ROUND_NOT_SETTLED = "DM_ROUND_PENALTIES_NOT_SETTLED";
+    string private constant ERROR_JUROR_ALREADY_REWARDED = "DM_JUROR_ALREADY_REWARDED";
+    string private constant ERROR_WONT_REWARD_NON_VOTER_JUROR = "DM_WONT_REWARD_NON_VOTER_JUROR";
+    string private constant ERROR_WONT_REWARD_INCOHERENT_JUROR = "DM_WONT_REWARD_INCOHERENT_JUROR";
+    string private constant ERROR_ROUND_APPEAL_ALREADY_SETTLED = "DM_APPEAL_ALREADY_SETTLED";
 
     // Minimum possible rulings for a dispute
     uint8 internal constant MIN_RULING_OPTIONS = 2;
@@ -203,11 +204,13 @@ contract DisputeManager is ControlledRecoverable, ICRVotingOwner, IDisputeManage
 
     /**
     * @notice Close the evidence period of dispute #`_disputeId`
+    * @param _subject IArbitrable instance requesting to close the evidence submission period
     * @param _disputeId Identification number of the dispute to close its evidence submitting period
     */
-    function closeEvidencePeriod(uint256 _disputeId) external onlyController roundExists(_disputeId, 0) {
+    function closeEvidencePeriod(IArbitrable _subject, uint256 _disputeId) external onlyController roundExists(_disputeId, 0) {
         Dispute storage dispute = disputes[_disputeId];
         AdjudicationRound storage round = dispute.rounds[0];
+        require(dispute.subject == _subject, ERROR_SENDER_NOT_DISPUTE_SUBJECT);
 
         // Check current term is within the evidence submission period
         uint64 termId = _ensureCurrentTerm();

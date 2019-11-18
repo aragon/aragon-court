@@ -65,6 +65,9 @@ contract DisputeManager is ControlledRecoverable, ICRVotingOwner, IDisputeManage
     // Precision factor used to improve rounding when computing weights for the final round
     uint256 internal constant FINAL_ROUND_WEIGHT_PRECISION = 1000;
 
+    // Mask used to decode vote IDs
+    uint256 internal constant VOTE_ID_MASK = 0x00000000000000000000000000000000FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF;
+
     struct Dispute {
         IArbitrable subject;           // Arbitrable associated to a dispute
         uint64 createTermId;           // Term ID when the dispute was created
@@ -1124,7 +1127,7 @@ contract DisputeManager is ControlledRecoverable, ICRVotingOwner, IDisputeManage
     */
     function _decodeVoteId(uint256 _voteId) internal view returns (Dispute storage dispute, uint256 roundId) {
         uint256 disputeId = _voteId >> 128;
-        roundId = _voteId & 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF;
+        roundId = _voteId & VOTE_ID_MASK;
         _checkRoundExists(disputeId, roundId);
         dispute = disputes[disputeId];
     }

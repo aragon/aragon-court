@@ -16,7 +16,6 @@ contract AragonCourt is Controller, IArbitrator {
 
     string private constant ERROR_SUBSCRIPTION_NOT_PAID = "AC_SUBSCRIPTION_NOT_PAID";
     string private constant ERROR_SENDER_NOT_ARBITRABLE = "AC_SENDER_NOT_ARBITRABLE";
-    string private constant ERROR_SENDER_NOT_DISPUTE_SUBJECT = "AC_SENDER_NOT_DISPUTE_SUBJECT";
 
     // Arbitrable interface ID based on ERC-165
     bytes4 private constant ARBITRABLE_INTERFACE_ID = bytes4(0x88f3ee69);
@@ -103,10 +102,9 @@ contract AragonCourt is Controller, IArbitrator {
     * @param _disputeId Identification number of the dispute to close its evidence submitting period
     */
     function closeEvidencePeriod(uint256 _disputeId) external {
+        IArbitrable subject = IArbitrable(msg.sender);
         IDisputeManager disputeManager = IDisputeManager(_getDisputeManager());
-        (IArbitrable subject,,,,,) = disputeManager.getDispute(_disputeId);
-        require(subject == IArbitrable(msg.sender), ERROR_SENDER_NOT_DISPUTE_SUBJECT);
-        disputeManager.closeEvidencePeriod(_disputeId);
+        disputeManager.closeEvidencePeriod(subject, _disputeId);
     }
 
     /**

@@ -29,6 +29,7 @@ contract DisputeManager is ControlledRecoverable, ICRVotingOwner, IDisputeManage
     string private constant ERROR_SENDER_NOT_VOTING = "DM_SENDER_NOT_VOTING";
 
     // Disputes-related error messages
+    string private constant ERROR_SENDER_NOT_DISPUTE_SUBJECT = "DM_SENDER_NOT_DISPUTE_SUBJECT";
     string private constant ERROR_CANNOT_CLOSE_EVIDENCE_PERIOD = "DM_CANNOT_CLOSE_EVIDENCE_PERIOD";
     string private constant ERROR_EVIDENCE_PERIOD_IS_CLOSED = "DM_EVIDENCE_PERIOD_IS_CLOSED";
     string private constant ERROR_TERM_OUTDATED = "DM_TERM_OUTDATED";
@@ -203,11 +204,13 @@ contract DisputeManager is ControlledRecoverable, ICRVotingOwner, IDisputeManage
 
     /**
     * @notice Close the evidence period of dispute #`_disputeId`
+    * @param _subject IArbitrable instance requesting to close the evidence submission period
     * @param _disputeId Identification number of the dispute to close its evidence submitting period
     */
-    function closeEvidencePeriod(uint256 _disputeId) external onlyController roundExists(_disputeId, 0) {
+    function closeEvidencePeriod(IArbitrable _subject, uint256 _disputeId) external onlyController roundExists(_disputeId, 0) {
         Dispute storage dispute = disputes[_disputeId];
         AdjudicationRound storage round = dispute.rounds[0];
+        require(dispute.subject == _subject, ERROR_SENDER_NOT_DISPUTE_SUBJECT);
 
         // Check current term is within the evidence submission period
         uint64 termId = _ensureCurrentTerm();

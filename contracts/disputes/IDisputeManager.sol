@@ -31,9 +31,10 @@ interface IDisputeManager {
 
     /**
     * @dev Close the evidence period of a dispute
+    * @param _subject IArbitrable instance requesting to close the evidence submission period
     * @param _disputeId Identification number of the dispute to close its evidence submitting period
     */
-    function closeEvidencePeriod(uint256 _disputeId) external;
+    function closeEvidencePeriod(IArbitrable _subject, uint256 _disputeId) external;
 
     /**
     * @dev Draft jurors for the next round of a dispute

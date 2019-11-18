@@ -5,7 +5,7 @@ const { decodeEventsOfType } = require('../helpers/lib/decodeEvent')
 const { buildHelper, DEFAULTS } = require('../helpers/wrappers/court')(web3, artifacts)
 const { DISPUTE_MANAGER_EVENTS } = require('../helpers/utils/events')
 const { assertEvent, assertAmountOfEvents } = require('../helpers/asserts/assertEvent')
-const { ARAGON_COURT_ERRORS, DISPUTE_MANAGER_ERRORS, CONTROLLED_ERRORS } = require('../helpers/utils/errors')
+const { DISPUTE_MANAGER_ERRORS, CONTROLLED_ERRORS } = require('../helpers/utils/errors')
 
 const Arbitrable = artifacts.require('ArbitrableMock')
 const DisputeManager = artifacts.require('DisputeManager')
@@ -135,13 +135,13 @@ contract('DisputeManager', ([_, juror500, juror1000, juror1500]) => {
       })
 
       it('reverts', async () => {
-        await assertRevert(fakeArbitrable.submitEvidence(disputeId, '0x', true), ARAGON_COURT_ERRORS.SENDER_NOT_DISPUTE_SUBJECT)
+        await assertRevert(fakeArbitrable.submitEvidence(disputeId, '0x', true), DISPUTE_MANAGER_ERRORS.SENDER_NOT_DISPUTE_SUBJECT)
       })
     })
 
     context('when trying to call the disputes manager directly', () => {
       it('reverts', async () => {
-        await assertRevert(disputeManager.closeEvidencePeriod(disputeId), CONTROLLED_ERRORS.SENDER_NOT_CONTROLLER)
+        await assertRevert(disputeManager.closeEvidencePeriod(arbitrable.address, disputeId), CONTROLLED_ERRORS.SENDER_NOT_CONTROLLER)
       })
     })
   })

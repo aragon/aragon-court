@@ -265,7 +265,7 @@ contract DisputeManager is ControlledRecoverable, ICRVotingOwner, IDisputeManage
         // Note that if there was a final appeal the adjudication state will be 'Ended'.
         Dispute storage dispute = disputes[_disputeId];
         Config memory config = _getDisputeConfig(dispute);
-        _checkAdjudicationState(dispute, _roundId, AdjudicationState.Appealing, config.disputes);
+        _ensureAdjudicationState(dispute, _roundId, AdjudicationState.Appealing, config.disputes);
 
         // Ensure that the ruling being appealed in favor of is valid and different from the current winning ruling
         ICRVoting voting = _voting();
@@ -296,7 +296,7 @@ contract DisputeManager is ControlledRecoverable, ICRVotingOwner, IDisputeManage
         // Note that if there was a final appeal the adjudication state will be 'Ended'.
         Dispute storage dispute = disputes[_disputeId];
         Config memory config = _getDisputeConfig(dispute);
-        _checkAdjudicationState(dispute, _roundId, AdjudicationState.ConfirmingAppeal, config.disputes);
+        _ensureAdjudicationState(dispute, _roundId, AdjudicationState.ConfirmingAppeal, config.disputes);
 
         // Ensure that the ruling being confirmed in favor of is valid and different from the appealed ruling
         AdjudicationRound storage round = dispute.rounds[_roundId];
@@ -503,7 +503,7 @@ contract DisputeManager is ControlledRecoverable, ICRVotingOwner, IDisputeManage
         Config memory config = _getDisputeConfig(dispute);
 
         // Ensure current term and check that votes can still be committed for the given round
-        _checkAdjudicationState(dispute, roundId, AdjudicationState.Committing, config.disputes);
+        _ensureAdjudicationState(dispute, roundId, AdjudicationState.Committing, config.disputes);
     }
 
     /**
@@ -517,7 +517,7 @@ contract DisputeManager is ControlledRecoverable, ICRVotingOwner, IDisputeManage
         Config memory config = _getDisputeConfig(dispute);
 
         // Ensure current term and check that votes can still be committed for the given round
-        _checkAdjudicationState(dispute, roundId, AdjudicationState.Committing, config.disputes);
+        _ensureAdjudicationState(dispute, roundId, AdjudicationState.Committing, config.disputes);
         uint64 weight = _computeJurorWeight(dispute, roundId, _voter, config);
         require(weight > 0, ERROR_VOTER_WEIGHT_ZERO);
     }
@@ -534,7 +534,7 @@ contract DisputeManager is ControlledRecoverable, ICRVotingOwner, IDisputeManage
         Config memory config = _getDisputeConfig(dispute);
 
         // Ensure current term and check that votes can still be revealed for the given round
-        _checkAdjudicationState(dispute, roundId, AdjudicationState.Revealing, config.disputes);
+        _ensureAdjudicationState(dispute, roundId, AdjudicationState.Revealing, config.disputes);
         AdjudicationRound storage round = dispute.rounds[roundId];
         return _getJurorWeight(round, _voter);
     }
@@ -744,14 +744,14 @@ contract DisputeManager is ControlledRecoverable, ICRVotingOwner, IDisputeManage
     }
 
     /**
-    * @dev Internal function to check the adjudication state of a certain dispute round. It also ensures the court terms are updated.
+    * @dev Internal function to ensure the adjudication state of a certain dispute round. This function will make sure the court term is updated.
     *      This function assumes the given round exists.
     * @param _dispute Dispute to be checked
     * @param _roundId Identification number of the dispute round to be checked
     * @param _state Expected adjudication state for the given dispute round
     * @param _config Config at the draft term ID of the given dispute
     */
-    function _checkAdjudicationState(Dispute storage _dispute, uint256 _roundId, AdjudicationState _state, DisputesConfig memory _config)
+    function _ensureAdjudicationState(Dispute storage _dispute, uint256 _roundId, AdjudicationState _state, DisputesConfig memory _config)
         internal
     {
         uint64 termId = _ensureCurrentTerm();
@@ -775,7 +775,7 @@ contract DisputeManager is ControlledRecoverable, ICRVotingOwner, IDisputeManage
         // Ensure current term and check that the last adjudication round has ended.
         // Note that there will always be at least one round.
         uint256 lastRoundId = _dispute.rounds.length - 1;
-        _checkAdjudicationState(_dispute, lastRoundId, AdjudicationState.Ended, _config.disputes);
+        _ensureAdjudicationState(_dispute, lastRoundId, AdjudicationState.Ended, _config.disputes);
 
         // If the last adjudication round was appealed but no-one confirmed it, the final ruling is the outcome the
         // appealer vouched for. Otherwise, fetch the winning outcome from the voting app of the last round.

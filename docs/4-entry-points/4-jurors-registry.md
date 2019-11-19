@@ -64,7 +64,7 @@ This module is in the one handling all the staking/unstaking logic for the juror
     - Ensure that the given amount is greater than zero
 - **State transitions:**
     - Update the available balance of the juror
-    - Activate the staked amount if requested by the juror
+    - Activate the staked amount if requested by the juror. This includes processing pending deactivation requests.
     - Pull the corresponding amount of juror tokens from the sender to the `JurorsRegistry` module, revert if the ERC20-transfer wasn't successful
 
 ### 4.4.5. Stake for

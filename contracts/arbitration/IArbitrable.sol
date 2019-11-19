@@ -1,9 +1,13 @@
 pragma solidity ^0.5.8;
 
 import "./IArbitrator.sol";
+import "../standards/ERC165.sol";
 
 
-interface IArbitrable /* is ERC165 */ {
+contract IArbitrable is ERC165 {
+    bytes4 internal constant ERC165_INTERFACE_ID = bytes4(0x01ffc9a7);
+    bytes4 internal constant ARBITRABLE_INTERFACE_ID = bytes4(0x88f3ee69);
+
     /**
     * @dev Emitted when an IArbitrable instance's dispute is ruled by an IArbitrator
     * @param arbitrator IArbitrator instance ruling the dispute
@@ -41,5 +45,7 @@ interface IArbitrable /* is ERC165 */ {
     * @param _interfaceId The interface identifier being queried, as specified in ERC-165
     * @return True if this contract supports the given interface, false otherwise
     */
-    function supportsInterface(bytes4 _interfaceId) external pure returns (bool);
+    function supportsInterface(bytes4 _interfaceId) external pure returns (bool) {
+        return _interfaceId == ARBITRABLE_INTERFACE_ID || _interfaceId == ERC165_INTERFACE_ID;
+    }
 }

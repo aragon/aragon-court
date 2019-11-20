@@ -44,6 +44,7 @@ contract DisputeManager is ControlledRecoverable, ICRVotingOwner, IDisputeManage
     string private constant ERROR_ROUND_DOES_NOT_EXIST = "DM_ROUND_DOES_NOT_EXIST";
     string private constant ERROR_INVALID_ADJUDICATION_STATE = "DM_INVALID_ADJUDICATION_STATE";
     string private constant ERROR_ROUND_ALREADY_DRAFTED = "DM_ROUND_ALREADY_DRAFTED";
+    string private constant ERROR_DRAFT_TERM_NOT_REACHED = "DM_DRAFT_TERM_NOT_REACHED";
     string private constant ERROR_ROUND_NOT_APPEALED = "DM_ROUND_NOT_APPEALED";
     string private constant ERROR_INVALID_APPEAL_RULING = "DM_INVALID_APPEAL_RULING";
 
@@ -243,7 +244,8 @@ contract DisputeManager is ControlledRecoverable, ICRVotingOwner, IDisputeManage
         // Ensure draft term randomness can be computed for the current block number
         AdjudicationRound storage round = dispute.rounds[dispute.rounds.length - 1];
         uint64 draftTermId = round.draftTermId;
-        bytes32 draftTermRandomness = clock.ensureTermRandomness(draftTermId);
+        require(draftTermId <= currentTermId, ERROR_DRAFT_TERM_NOT_REACHED);
+        bytes32 draftTermRandomness = clock.ensureCurrentTermRandomness();
 
         // Draft jurors for the given dispute and reimburse fees
         DraftConfig memory config = _getDraftConfig(draftTermId);
@@ -251,7 +253,8 @@ contract DisputeManager is ControlledRecoverable, ICRVotingOwner, IDisputeManage
 
         // If the drafting is over, update its state
         if (draftEnded) {
-            round.delayedTerms = currentTermId.sub(draftTermId);
+            // No need for SafeMath: we ensured `currentTermId` is greater than or equal to `draftTermId` above
+            round.delayedTerms = currentTermId - draftTermId;
             dispute.state = DisputeState.Adjudicating;
             emit DisputeStateChanged(_disputeId, DisputeState.Adjudicating);
         }

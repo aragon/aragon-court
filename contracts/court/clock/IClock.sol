@@ -17,9 +17,9 @@ interface IClock {
 
     /**
     * @dev Ensure that a certain term has its randomness set
-    * @param _termId Identification number of the term to be ensured
+    * @return Randomness of the current term
     */
-    function ensureTermRandomness(uint64 _termId) external returns (bytes32);
+    function ensureCurrentTermRandomness() external returns (bytes32);
 
     /**
     * @dev Tell the last ensured term identification number

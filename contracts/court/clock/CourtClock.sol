@@ -97,18 +97,19 @@ contract CourtClock is IClock, TimeHelpers {
     * @notice Ensure that a certain term has its randomness set. As we allow to draft disputes requested for previous terms, if there
     *      were mined more than 256 blocks for the current term, the blockhash of its randomness BN is no longer available, given
     *      round will be able to be drafted in the following term.
-    * @param _termId Identification number of the term to be ensured
+    * @return Randomness of the current term
     */
-    function ensureTermRandomness(uint64 _termId) external termExists(_termId) returns (bytes32) {
+    function ensureCurrentTermRandomness() external returns (bytes32) {
         // If the randomness for the given term was already computed, return
-        Term storage term = terms[_termId];
+        uint64 currentTermId = termId;
+        Term storage term = terms[currentTermId];
         bytes32 termRandomness = term.randomness;
         if (termRandomness != bytes32(0)) {
             return termRandomness;
         }
 
         // Compute term randomness
-        bytes32 newRandomness = _computeTermRandomness(_termId);
+        bytes32 newRandomness = _computeTermRandomness(currentTermId);
         require(newRandomness != bytes32(0), ERROR_TERM_RANDOMNESS_UNAVAILABLE);
         term.randomness = newRandomness;
         return newRandomness;

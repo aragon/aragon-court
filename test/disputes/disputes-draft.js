@@ -311,8 +311,8 @@ contract('DisputeManager', ([_, drafter, juror500, juror1000, juror1500, juror20
       const itHandlesDraftsProperlyForDifferentBlockNumbers = () => {
         const advanceBlocksAfterDraftBlockNumber = async blocks => {
           // NOTE: To test this scenario we cannot mock the blocknumber, we need a real block mining to have different blockhashes
-          const { draftTerm } = await courtHelper.getRound(disputeId, roundId)
-          const { randomnessBN } = await court.getTerm(draftTerm)
+          const currentTermId = await court.getCurrentTermId()
+          const { randomnessBN } = await court.getTerm(currentTermId)
           const currentBlockNumber = await court.getBlockNumberExt()
           const outdatedBlocks = currentBlockNumber.toNumber() - randomnessBN.toNumber()
           if (outdatedBlocks <= blocks) await advanceBlocks(blocks - outdatedBlocks)
@@ -360,6 +360,14 @@ contract('DisputeManager', ([_, drafter, juror500, juror1000, juror1500, juror20
 
           it('reverts', async () => {
             await assertRevert(disputeManager.draft(disputeId, { from: drafter }), CLOCK_ERRORS.TERM_RANDOMNESS_UNAVAILABLE)
+          })
+
+          context('when the clock advances to the next term', () => {
+            beforeEach('move to the next term', async () => {
+              await courtHelper.passRealTerms(1)
+            })
+
+            itHandlesDraftsProperlyForDifferentRequestedJurorsNumber()
           })
         })
       }
@@ -431,7 +439,7 @@ contract('DisputeManager', ([_, drafter, juror500, juror1000, juror1500, juror20
 
       context('when the evidence period is still open', () => {
         it('reverts', async () => {
-          await assertRevert(disputeManager.draft(disputeId, { from: drafter }), CLOCK_ERRORS.TERM_DOES_NOT_EXIST)
+          await assertRevert(disputeManager.draft(disputeId, { from: drafter }), DISPUTE_MANAGER_ERRORS.ERROR_DRAFT_TERM_NOT_REACHED_DOES_NOT_EXIST)
         })
       })
 

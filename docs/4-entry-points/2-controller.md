@@ -129,11 +129,10 @@ To read more information about its responsibilities and structure, go to [sectio
 - **State transitions:**
     - If necessary, update the Court term and create a new term object for each transitioned new term
 
-### 4.2.6. Ensure term randomness
+### 4.2.6. Ensure current term randomness
 
-- **Actor:** Any entity incentivized to compute the term randomness for a certain term that has already been created
-- **Inputs:**
-    - **Term ID:** Term identification number
+- **Actor:** Any entity incentivized to compute the term randomness for the current term
+- **Inputs:** None
 - **Authentication:** Open
 - **Pre-flight checks:**
     - Ensure a term object with that ID exists

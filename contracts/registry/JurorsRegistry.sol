@@ -141,17 +141,12 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
     * @param _amount Amount of juror tokens to be activated for the next term
     */
     function activate(uint256 _amount) external {
-        uint64 termId = _ensureCurrentTerm();
-
-        // Try to clean a previous deactivation request if any
-        _processDeactivationRequest(msg.sender, termId);
-
         uint256 availableBalance = jurorsByAddress[msg.sender].availableBalance;
         uint256 amountToActivate = _amount == 0 ? availableBalance : _amount;
         require(amountToActivate > 0, ERROR_INVALID_ZERO_AMOUNT);
         require(amountToActivate <= availableBalance, ERROR_INVALID_ACTIVATION_AMOUNT);
 
-        _activateTokens(msg.sender, termId, amountToActivate);
+        _activateTokens(msg.sender, amountToActivate);
     }
 
     /**
@@ -500,14 +495,18 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
     * @dev Internal function to activate a given amount of tokens for a juror.
     *      This function assumes that the given term is the current term and has already been ensured.
     * @param _juror Address of the juror to activate tokens
-    * @param _termId Current term id
     * @param _amount Amount of juror tokens to be activated
     */
-    function _activateTokens(address _juror, uint64 _termId, uint256 _amount) internal {
-        uint64 nextTermId = _termId + 1;
+    function _activateTokens(address _juror, uint256 _amount) internal {
+        uint64 termId = _ensureCurrentTerm();
+
+        // Try to clean a previous deactivation request if any
+        _processDeactivationRequest(msg.sender, termId);
+
+        uint64 nextTermId = termId + 1;
         _checkTotalActiveBalance(nextTermId, _amount);
         Juror storage juror = jurorsByAddress[_juror];
-        uint256 minActiveBalance = _getMinActiveBalance(_termId);
+        uint256 minActiveBalance = _getMinActiveBalance(nextTermId);
 
         if (_existsJuror(juror)) {
             // Even though we are adding amounts, let's check the new active balance is greater than or equal to the
@@ -606,8 +605,7 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
         // Activate tokens if it was requested and the address depositing tokens is the juror. Note that there's
         // no need to check the activation amount since we have just added it to the available balance of the juror.
         if (_from == _juror && _data.toBytes4() == JurorsRegistry(this).activate.selector) {
-            uint64 termId = _ensureCurrentTerm();
-            _activateTokens(_juror, termId, _amount);
+            _activateTokens(_juror, _amount);
         }
 
         emit Staked(_juror, _amount, _totalStakedFor(_juror), _data);

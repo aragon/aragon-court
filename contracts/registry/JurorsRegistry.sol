@@ -251,7 +251,52 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
     */
     function draft(uint256[7] calldata _params) external onlyDisputeManager returns (address[] memory jurors, uint256 length) {
         DraftParams memory draftParams = _buildDraftParams(_params);
-        (length, jurors) = _draft(draftParams);
+        jurors = new address[](draftParams.batchRequestedJurors);
+
+        // Jurors returned by the tree multi-sortition may not have enough unlocked active balance to be drafted. Thus,
+        // we compute several sortitions until all the requested jurors are selected. To guarantee a different set of
+        // jurors on each sortition, the iteration number will be part of the random seed to be used in the sortition.
+        // Note that we are capping the number of iterations to avoid an OOG error, which means that this function could
+        // return less jurors than the requested number.
+
+        for (draftParams.iteration = 0;
+             length < draftParams.batchRequestedJurors && draftParams.iteration < MAX_DRAFT_ITERATIONS;
+             draftParams.iteration++
+        ) {
+            (uint256[] memory jurorIds, uint256[] memory activeBalances) = _treeSearch(draftParams);
+
+            for (uint256 i = 0; i < jurorIds.length && length < draftParams.batchRequestedJurors; i++) {
+                // We assume the selected jurors are registered in the registry, we are not checking their addresses exist
+                address jurorAddress = jurorsAddressById[jurorIds[i]];
+                Juror storage juror = jurorsByAddress[jurorAddress];
+
+                // Compute new locked balance for a juror based on the penalty applied when being drafted
+                uint256 newLockedBalance = juror.lockedBalance.add(draftParams.draftLockAmount);
+
+                // Check if there is any deactivation requests for the next term. Drafts are always computed for the current term
+                // but we have to make sure we are locking an amount that will exist in the next term.
+                uint256 nextTermDeactivationRequestAmount = _deactivationRequestedAmountForTerm(juror, draftParams.termId + 1);
+
+                // Check if juror has enough active tokens to lock the requested amount for the draft, skip it otherwise.
+                uint256 currentActiveBalance = activeBalances[i];
+                if (currentActiveBalance >= newLockedBalance) {
+
+                    // Check if the amount of active tokens for the next term is enough to lock the required amount for
+                    // the draft. Otherwise, reduce the requested deactivation amount of the next term.
+                    // Next term deactivation amount should always be less than current active balance, but we make sure using SafeMath
+                    uint256 nextTermActiveBalance = currentActiveBalance.sub(nextTermDeactivationRequestAmount);
+                    if (nextTermActiveBalance < newLockedBalance) {
+                        // No need for SafeMath: we already checked values above
+                        _reduceDeactivationRequest(jurorAddress, newLockedBalance - nextTermActiveBalance, draftParams.termId);
+                    }
+
+                    // Update the current active locked balance of the juror
+                    juror.lockedBalance = newLockedBalance;
+                    jurors[length++] = jurorAddress;
+                    emit JurorDrafted(draftParams.disputeId, jurorAddress);
+                }
+            }
+        }
     }
 
     /**
@@ -670,59 +715,6 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
             juror.availableBalance -= _amount;
         }
         emit JurorAvailableBalanceChanged(_juror, _amount, _positive);
-    }
-
-    /**
-    * @dev Internal function to draft a set of jurors based on a given set of params
-    * @param _params Params to be used for the jurors draft
-    * @return length Number of unique jurors selected for the draft. Note that this value may differ from the number of requested jurors
-    * @return jurors List of jurors addresses selected for the draft
-    */
-    function _draft(DraftParams memory _params) internal returns (uint256 length, address[] memory jurors) {
-        length = 0;
-        jurors = new address[](_params.batchRequestedJurors);
-
-        // Jurors returned by the tree multi-sortition may not have enough unlocked active balance to be drafted. Thus,
-        // we compute several sortitions until all the requested jurors are selected. To guarantee a different set of
-        // jurors on each sortition, the iteration number will be part of the random seed to be used in the sortition.
-        // Note that we are capping the number of iterations to avoid an OOG error, which means that this function could
-        // return less jurors than the requested number.
-
-        for (_params.iteration = 0; length < _params.batchRequestedJurors && _params.iteration < MAX_DRAFT_ITERATIONS; _params.iteration++) {
-            (uint256[] memory jurorIds, uint256[] memory activeBalances) = _treeSearch(_params);
-
-            for (uint256 i = 0; i < jurorIds.length && length < _params.batchRequestedJurors; i++) {
-                // We assume the selected jurors are registered in the registry, we are not checking their addresses exist
-                address jurorAddress = jurorsAddressById[jurorIds[i]];
-                Juror storage juror = jurorsByAddress[jurorAddress];
-
-                // Compute new locked balance for a juror based on the penalty applied when being drafted
-                uint256 newLockedBalance = juror.lockedBalance.add(_params.draftLockAmount);
-
-                // Check if there is any deactivation requests for the next term. Drafts are always computed for the current term
-                // but we have to make sure we are locking an amount that will exist in the next term.
-                uint256 nextTermDeactivationRequestAmount = _deactivationRequestedAmountForTerm(juror, _params.termId + 1);
-
-                // Check if juror has enough active tokens to lock the requested amount for the draft, skip it otherwise.
-                uint256 currentActiveBalance = activeBalances[i];
-                if (currentActiveBalance >= newLockedBalance) {
-
-                    // Check if the amount of active tokens for the next term is enough to lock the required amount for
-                    // the draft. Otherwise, reduce the requested deactivation amount of the next term.
-                    // Next term deactivation amount should always be less than current active balance, but we make sure using SafeMath
-                    uint256 nextTermActiveBalance = currentActiveBalance.sub(nextTermDeactivationRequestAmount);
-                    if (nextTermActiveBalance < newLockedBalance) {
-                        // No need for SafeMath: we already checked values above
-                        _reduceDeactivationRequest(jurorAddress, newLockedBalance - nextTermActiveBalance, _params.termId);
-                    }
-
-                    // Update the current active locked balance of the juror
-                    juror.lockedBalance = newLockedBalance;
-                    jurors[length++] = jurorAddress;
-                    emit JurorDrafted(_params.disputeId, jurorAddress);
-                }
-            }
-        }
     }
 
     /**

@@ -1,14 +1,18 @@
-# Aragon Court <img align="right" src="https://raw.githubusercontent.com/aragon/design/master/readme-logo.png" height="80px" /> [![Travis branch](https://img.shields.io/travis/aragon/aragon-court/development.svg?style=for-the-badge)](https://travis-ci.com/aragon/aragon-court/)
+![Aragon Court](./docs/aragon-court.png)
+
+<img align="right" src="https://img.shields.io/travis/aragon/aragon-court/master.svg?style=for-the-badge">
+  <a href="https://travis-ci.com/aragon/aragon-court/"/>
+</img>
 
 #### 📓 [Read the full documentation](/docs)
 
 Aragon Court is a dispute resolution protocol that runs on Ethereum. It's one of the core components of the [Aragon Network](https://aragon.org/network/).
 
 #### 🚧 Project stage: v1 implementation
-After a long research and development phase, Aragon Court's v1 implementation has been frozen. We don't foresee major changes to the mechanism except for security reasons.
+After a long research and development phase, Aragon Court's v1 implementation has been [released](https://www.npmjs.com/package/@aragon/court).
 
-#### ⚠️ Security review status: auditing
-The current implementation has been sent out for auditing to an independent security professional. We expect the first audit report to arrive mid-November 2019.
+#### ✅ Security review status: audited
+Aragon Court v1 has already been audited by an independent security professional. You can read the audit report [here](https://github.com/gakonst/publications/blob/master/aragon_court_audit.pdf). 
 
 #### 👋 Get started contributing with a [good first issue](https://github.com/aragon/aragon-court/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22)
 Don't be shy to contribute even the smallest tweak. Everyone will be especially nice and helpful to beginners to help you get started!

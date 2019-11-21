@@ -2,8 +2,6 @@ pragma solidity ^0.5.8;
 
 import "../lib/os/ERC20.sol";
 
-import "./IArbitrable.sol";
-
 
 interface IArbitrator {
     /**

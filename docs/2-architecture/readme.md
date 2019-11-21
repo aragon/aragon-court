@@ -46,6 +46,9 @@ The protocol settings should be always able to be tweaked to ensure the proper o
 Any other modules functionality that needs to be restricted is either relying on these governor addresses as well, or on any of the other modules. 
 No other external accounts apart from the `Governor` addresses belong to the protocol implementation.
 
+As described in the [launch process](https://forum.aragon.org/t/aragon-network-launch-phases-and-target-dates/1263) of Aragon Court, the governor will be a DAO properly called Aragon Network DAO managed by ANT holders. 
+Initially, the Aragon Network DAO will be formed by a reduced council with a group trusted members from the community and will be transitioned to the ANT holders as at the end of the launch process. 
+
 ## 2.4. Entry point
 
 The main entry point of the protocol is `AragonCourt`, this component inherits from `Controller`. 

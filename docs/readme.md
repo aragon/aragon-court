@@ -10,7 +10,7 @@ The core of the document is organized around the external entry points to the sy
 
 1. [Mechanism](./1-mechanism)
 2. [Architecture](./2-architecture)
-3. [Trust assumptions](./3-trust-assumptions)
+3. [Crypto-economic considerations](./3-cryptoeconomic-considerations)
 4. [Entry points](./4-entry-points)
 5. [Data structures](./5-data-structures)
 6. [External interface](./6-external-interface)

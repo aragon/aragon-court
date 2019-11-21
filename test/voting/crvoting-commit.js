@@ -3,7 +3,7 @@ const { assertBn } = require('../helpers/asserts/assertBn')
 const { buildHelper } = require('../helpers/wrappers/court')(web3, artifacts)
 const { assertRevert } = require('../helpers/asserts/assertThrow')
 const { VOTING_EVENTS } = require('../helpers/utils/events')
-const { OUTCOMES, encryptVote } = require('../helpers/utils/crvoting')
+const { OUTCOMES, hashVote } = require('../helpers/utils/crvoting')
 const { DISPUTE_MANAGER_ERRORS, VOTING_ERRORS } = require('../helpers/utils/errors')
 const { assertEvent, assertAmountOfEvents } = require('../helpers/asserts/assertEvent')
 
@@ -44,7 +44,7 @@ contract('CRVoting', ([_, voter]) => {
             })
 
             const itHandlesCommittedVotesFor = outcome => {
-              const commitment = encryptVote(outcome)
+              const commitment = hashVote(outcome)
 
               it('does not affect the voter outcome yet', async () => {
                 await voting.commit(voteId, commitment, { from: voter })
@@ -136,7 +136,7 @@ contract('CRVoting', ([_, voter]) => {
       })
 
       context('when the voter has already voted', () => {
-        const commitment = encryptVote(0)
+        const commitment = hashVote(0)
 
         beforeEach('mock voter weight and commit', async () => {
           const weight = 10
@@ -152,7 +152,7 @@ contract('CRVoting', ([_, voter]) => {
 
         context('when the new commitment is different than the previous one', () => {
           it('reverts', async () => {
-            await assertRevert(voting.commit(voteId, encryptVote(100), { from: voter }), VOTING_ERRORS.VOTE_ALREADY_COMMITTED)
+            await assertRevert(voting.commit(voteId, hashVote(100), { from: voter }), VOTING_ERRORS.VOTE_ALREADY_COMMITTED)
           })
         })
       })

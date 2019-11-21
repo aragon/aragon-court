@@ -11,7 +11,7 @@ const OUTCOMES = {
 
 const SALT = soliditySha3('passw0rd')
 
-const encryptVote = (outcome, salt = SALT) => {
+const hashVote = (outcome, salt = SALT) => {
   return soliditySha3({ t: 'uint8', v: outcome }, { t: 'bytes32', v: salt })
 }
 
@@ -30,7 +30,7 @@ const oppositeOutcome = outcome => {
 module.exports = {
   SALT,
   OUTCOMES,
-  encryptVote,
+  hashVote,
   getVoteId,
   outcomeFor,
   oppositeOutcome

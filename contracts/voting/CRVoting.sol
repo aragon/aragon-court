@@ -28,7 +28,7 @@ contract CRVoting is Controlled, ICRVoting {
     // Besides the options listed above, every vote instance must provide at least 2 outcomes
     uint8 internal constant MIN_POSSIBLE_OUTCOMES = uint8(2);
     // Max number of outcomes excluding the default ones
-    uint8 internal constant MAX_POSSIBLE_OUTCOMES = uint8(-1) - OUTCOME_REFUSED;
+    uint8 internal constant MAX_POSSIBLE_OUTCOMES = uint8(-1) - 3;
 
     struct CastVote {
         bytes32 commitment;                         // Hash of the outcome casted by the voter
@@ -88,7 +88,7 @@ contract CRVoting is Controlled, ICRVoting {
     /**
     * @notice Commit a vote for vote #`_voteId`
     * @param _voteId ID of the vote instance to commit a vote to
-    * @param _commitment Encrypted outcome to be stored for future reveal
+    * @param _commitment Hashed outcome to be stored for future reveal
     */
     function commit(uint256 _voteId, bytes32 _commitment) external voteExists(_voteId) {
         CastVote storage castVote = voteRecords[_voteId].votes[msg.sender];
@@ -227,13 +227,13 @@ contract CRVoting is Controlled, ICRVoting {
     }
 
     /**
-    * @dev Encrypt a vote outcome using a given salt
-    * @param _outcome Outcome to be encrypted
+    * @dev Hash a vote outcome using a given salt
+    * @param _outcome Outcome to be hashed
     * @param _salt Encryption salt
-    * @return Encrypted outcome
+    * @return Hashed outcome
     */
-    function encryptVote(uint8 _outcome, bytes32 _salt) public pure returns (bytes32) {
-        return keccak256(abi.encodePacked(_outcome, _salt));
+    function hashVote(uint8 _outcome, bytes32 _salt) external pure returns (bytes32) {
+        return _hashVote(_outcome, _salt);
     }
 
     /**
@@ -276,7 +276,7 @@ contract CRVoting is Controlled, ICRVoting {
     */
     function _checkValidSalt(CastVote storage _castVote, uint8 _outcome, bytes32 _salt) internal view {
         require(_castVote.outcome == OUTCOME_MISSING, ERROR_VOTE_ALREADY_REVEALED);
-        require(_castVote.commitment == encryptVote(_outcome, _salt), ERROR_INVALID_COMMITMENT_SALT);
+        require(_castVote.commitment == _hashVote(_outcome, _salt), ERROR_INVALID_COMMITMENT_SALT);
     }
 
     /**
@@ -298,6 +298,16 @@ contract CRVoting is Controlled, ICRVoting {
     */
     function _existsVote(Vote storage _vote) internal view returns (bool) {
         return _vote.maxAllowedOutcome != OUTCOME_MISSING;
+    }
+
+    /**
+    * @dev Internal function to hash a vote outcome using a given salt
+    * @param _outcome Outcome to be hashed
+    * @param _salt Encryption salt
+    * @return Hashed outcome
+    */
+    function _hashVote(uint8 _outcome, bytes32 _salt) internal pure returns (bytes32) {
+        return keccak256(abi.encodePacked(_outcome, _salt));
     }
 
     /**

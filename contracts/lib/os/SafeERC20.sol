@@ -11,9 +11,6 @@ library SafeERC20 {
     // https://github.com/ethereum/solidity/issues/3544
     bytes4 private constant TRANSFER_SELECTOR = 0xa9059cbb;
 
-    string private constant ERROR_TOKEN_BALANCE_REVERTED = "SAFE_ERC_20_BALANCE_REVERTED";
-    string private constant ERROR_TOKEN_ALLOWANCE_REVERTED = "SAFE_ERC_20_ALLOWANCE_REVERTED";
-
     /**
     * @dev Same as a standards-compliant ERC20.transfer() that never reverts (returns false).
     *      Note that this makes an external call to the token.

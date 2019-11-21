@@ -154,7 +154,7 @@ contract Controlled is IsContract, ConfigConsumer {
     * @dev Internal function to fetch the address of the Config module from the controller
     * @return Address of the Config module
     */
-    function _config() internal view returns (IConfig) {
+    function _courtConfig() internal view returns (IConfig) {
         return IConfig(controller);
     }
 }

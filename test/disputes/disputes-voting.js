@@ -6,7 +6,7 @@ const { VOTING_EVENTS } = require('../helpers/utils/events')
 const { VOTING_ERRORS, DISPUTE_MANAGER_ERRORS } = require('../helpers/utils/errors')
 const { assertAmountOfEvents, assertEvent } = require('../helpers/asserts/assertEvent')
 const { buildHelper, ROUND_STATES, DEFAULTS } = require('../helpers/wrappers/court')(web3, artifacts)
-const { getVoteId, encryptVote, outcomeFor, SALT, OUTCOMES } = require('../helpers/utils/crvoting')
+const { getVoteId, hashVote, outcomeFor, SALT, OUTCOMES } = require('../helpers/utils/crvoting')
 
 contract('DisputeManager', ([_, drafter, juror100, juror500, juror1000, juror1500, juror2000, juror2500, juror3000, juror3500, juror4000]) => {
   let courtHelper, voting
@@ -52,7 +52,7 @@ contract('DisputeManager', ([_, drafter, juror100, juror500, juror1000, juror150
             ? VOTING_ERRORS.VOTE_ALREADY_COMMITTED
             : DISPUTE_MANAGER_ERRORS.INVALID_ADJUDICATION_STATE
 
-          await assertRevert(voting.commit(voteId, encryptVote(OUTCOMES.LOW), { from: address }), expectedErrorMessage)
+          await assertRevert(voting.commit(voteId, hashVote(OUTCOMES.LOW), { from: address }), expectedErrorMessage)
         }
       })
     }
@@ -89,7 +89,7 @@ contract('DisputeManager', ([_, drafter, juror100, juror500, juror1000, juror150
 
       context('during commit period', () => {
         const outcome = OUTCOMES.LOW
-        const vote = encryptVote(outcome)
+        const vote = hashVote(outcome)
 
         itIsAtState(roundId, ROUND_STATES.COMMITTING)
         itFailsToRevealVotes(false, false)
@@ -284,7 +284,7 @@ contract('DisputeManager', ([_, drafter, juror100, juror500, juror1000, juror150
         context('when the sender has enough active balance', () => {
           it('allows to commit a vote', async () => {
             for (const { address, outcome } of voters) {
-              const receipt = await voting.commit(voteId, encryptVote(outcome), { from: address })
+              const receipt = await voting.commit(voteId, hashVote(outcome), { from: address })
               assertAmountOfEvents(receipt, VOTING_EVENTS.VOTE_COMMITTED)
             }
           })
@@ -292,7 +292,7 @@ contract('DisputeManager', ([_, drafter, juror100, juror500, juror1000, juror150
 
         context('when the sender does not have enough active balance', () => {
           it('reverts', async () => {
-            await assertRevert(voting.commit(voteId, encryptVote(OUTCOMES.LOW), { from: poorJuror }), DISPUTE_MANAGER_ERRORS.VOTER_WEIGHT_ZERO)
+            await assertRevert(voting.commit(voteId, hashVote(OUTCOMES.LOW), { from: poorJuror }), DISPUTE_MANAGER_ERRORS.VOTER_WEIGHT_ZERO)
           })
         })
       })

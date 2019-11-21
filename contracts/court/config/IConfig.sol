@@ -27,8 +27,8 @@ interface IConfig {
     *         1. appealStepFactor Increasing factor for the number of jurors of each round of a dispute
     *         2. maxRegularAppealRounds Number of regular appeal rounds before the final round is triggered
     * @return appealCollateralParams Array containing params for appeal collateral:
-    *         0. appealCollateralFactor Multiple of juror fees required to appeal a preliminary ruling
-    *         1. appealConfirmCollateralFactor Multiple of juror fees required to confirm appeal
+    *         0. appealCollateralFactor Multiple of dispute fees required to appeal a preliminary ruling
+    *         1. appealConfirmCollateralFactor Multiple of dispute fees required to confirm appeal
     * @return minActiveBalance Minimum amount of tokens jurors have to activate to participate in the Court
     */
     function getConfig(uint64 _termId) external view

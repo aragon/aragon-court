@@ -79,6 +79,7 @@ contract('CRVoting', ([_, someone]) => {
 
         context('when the possible outcomes above the maximum', () => {
           it('reverts', async () => {
+            await assertRevert(disputeManager.create(voteId, 254), VOTING_ERRORS.INVALID_OUTCOMES_AMOUNT)
             await assertRevert(disputeManager.create(voteId, 510), VOTING_ERRORS.INVALID_OUTCOMES_AMOUNT)
           })
         })

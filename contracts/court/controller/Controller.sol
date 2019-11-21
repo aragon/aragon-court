@@ -9,7 +9,6 @@ import "../config/CourtConfig.sol";
 contract Controller is IsContract, CourtClock, CourtConfig {
     string private constant ERROR_SENDER_NOT_GOVERNOR = "CTR_SENDER_NOT_GOVERNOR";
     string private constant ERROR_INVALID_GOVERNOR_ADDRESS = "CTR_INVALID_GOVERNOR_ADDRESS";
-    string private constant ERROR_ZERO_IMPLEMENTATION_OWNER = "CTR_ZERO_MODULE_OWNER";
     string private constant ERROR_IMPLEMENTATION_NOT_CONTRACT = "CTR_IMPLEMENTATION_NOT_CONTRACT";
     string private constant ERROR_INVALID_IMPLS_INPUT_LENGTH = "CTR_INVALID_IMPLS_INPUT_LENGTH";
 
@@ -103,8 +102,8 @@ contract Controller is IsContract, CourtClock, CourtConfig {
     *        2. maxRegularAppealRounds Number of regular appeal rounds before the final round is triggered
     *        3. finalRoundLockTerms Number of terms that a coherent juror in a final round is disallowed to withdraw (to prevent 51% attacks)
     * @param _appealCollateralParams Array containing params for appeal collateral:
-    *        1. appealCollateralFactor Permyriad multiple of juror fees required to appeal a preliminary ruling
-    *        2. appealConfirmCollateralFactor Permyriad multiple of juror fees required to confirm appeal
+    *        1. appealCollateralFactor Permyriad multiple of dispute fees required to appeal a preliminary ruling
+    *        2. appealConfirmCollateralFactor Permyriad multiple of dispute fees required to confirm appeal
     * @param _minActiveBalance Minimum amount of juror tokens that can be activated
     */
     constructor(
@@ -150,8 +149,8 @@ contract Controller is IsContract, CourtClock, CourtConfig {
     *        2. maxRegularAppealRounds Number of regular appeal rounds before the final round is triggered
     *        3. finalRoundLockTerms Number of terms that a coherent juror in a final round is disallowed to withdraw (to prevent 51% attacks)
     * @param _appealCollateralParams Array containing params for appeal collateral:
-    *        1. appealCollateralFactor Permyriad multiple of juror fees required to appeal a preliminary ruling
-    *        2. appealConfirmCollateralFactor Permyriad multiple of juror fees required to confirm appeal
+    *        1. appealCollateralFactor Permyriad multiple of dispute fees required to appeal a preliminary ruling
+    *        2. appealConfirmCollateralFactor Permyriad multiple of dispute fees required to confirm appeal
     * @param _minActiveBalance Minimum amount of juror tokens that can be activated
     */
     function setConfig(
@@ -277,8 +276,8 @@ contract Controller is IsContract, CourtClock, CourtConfig {
     *         2. maxRegularAppealRounds Number of regular appeal rounds before the final round is triggered
     *         3. finalRoundLockTerms Number of terms that a coherent juror in a final round is disallowed to withdraw (to prevent 51% attacks)
     * @return appealCollateralParams Array containing params for appeal collateral:
-    *         0. appealCollateralFactor Multiple of juror fees required to appeal a preliminary ruling
-    *         1. appealConfirmCollateralFactor Multiple of juror fees required to confirm appeal
+    *         0. appealCollateralFactor Multiple of dispute fees required to appeal a preliminary ruling
+    *         1. appealConfirmCollateralFactor Multiple of dispute fees required to confirm appeal
     */
     function getConfig(uint64 _termId) external view
         returns (
@@ -430,10 +429,10 @@ contract Controller is IsContract, CourtClock, CourtConfig {
 
     /**
     * @dev Internal function to notify when a term has been transitioned
-    * @param _currentTermId Identification number of the new current term that has been transitioned
+    * @param _termId Identification number of the new current term that has been transitioned
     */
-    function _onTermTransitioned(uint64 _currentTermId) internal {
-        _ensureTermConfig(_currentTermId);
+    function _onTermTransitioned(uint64 _termId) internal {
+        _ensureTermConfig(_termId);
     }
 
     /**

@@ -4,7 +4,7 @@ const { decodeEventsOfType } = require('../lib/decodeEvent')
 const { MAX_UINT64, bn, bigExp } = require('../lib/numbers')
 const { getEvents, getEventArgument } = require('@aragon/test-helpers/events')
 const { DISPUTE_MANAGER_EVENTS, REGISTRY_EVENTS } = require('../utils/events')
-const { SALT, OUTCOMES, getVoteId, encryptVote, oppositeOutcome, outcomeFor } = require('../utils/crvoting')
+const { SALT, OUTCOMES, getVoteId, hashVote, oppositeOutcome, outcomeFor } = require('../utils/crvoting')
 
 const PCT_BASE = bn(10000)
 
@@ -49,8 +49,8 @@ const DEFAULTS = {
   appealStepFactor:                   bn(3),           //  each time a new appeal occurs, the amount of jurors to be drafted will be incremented 3 times
   maxRegularAppealRounds:             bn(2),           //  there can be up to 2 appeals in total per dispute
   finalRoundLockTerms:                bn(10),          //  coherent jurors in the final round won't be able to withdraw for 10 terms
-  appealCollateralFactor:             bn(25000),       //  permyriad multiple of juror fees required to appeal a preliminary ruling (1/10,000)
-  appealConfirmCollateralFactor:      bn(35000),       //  permyriad multiple of juror fees required to confirm appeal (1/10,000)
+  appealCollateralFactor:             bn(25000),       //  permyriad multiple of dispute fees required to appeal a preliminary ruling (1/10,000)
+  appealConfirmCollateralFactor:      bn(35000),       //  permyriad multiple of dispute fees required to confirm appeal (1/10,000)
   minActiveBalance:                   bigExp(100, 18), //  100 ANJ is the minimum balance jurors must activate to participate in the Court
   finalRoundWeightPrecision:          bn(1000),        //  use to improve division rounding for final round maths
   subscriptionPeriodDuration:         bn(10),          //  each subscription period lasts 10 terms
@@ -270,7 +270,7 @@ module.exports = (web3, artifacts) => {
         let { address, outcome } = voters[i]
         // if no outcome was set for the given outcome, pick one based on its index
         if (!outcome) outcome = outcomeFor(i)
-        await this.voting.commit(voteId, encryptVote(outcome), { from: address })
+        await this.voting.commit(voteId, hashVote(outcome), { from: address })
         if (outcome === OUTCOMES.LEAKED) {
           await this.voting.leak(voteId, address, outcome, SALT)
         }

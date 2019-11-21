@@ -159,7 +159,7 @@ The following functions are state getters provided by the `JurorsRegistry`:
 - **Inputs:** None 
 - **Pre-flight checks:** None
 - **Outputs:**
-    - **Total active balance limit:** Maximum amount of total active balance that can be hold in the registry
+    - **Total active balance limit:** Maximum amount of total active balance that can be held in the registry
     
 #### 6.4.2.13. Juror ID
 - **Inputs:** 

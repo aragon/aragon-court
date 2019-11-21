@@ -1,6 +1,7 @@
 pragma solidity ^0.5.8;
 
 import "../../lib/os/ERC20.sol";
+import "../../lib/os/SafeMath64.sol";
 
 import "./IConfig.sol";
 import "./CourtConfigData.sol";
@@ -8,6 +9,7 @@ import "../../lib/PctHelpers.sol";
 
 
 contract CourtConfig is IConfig, CourtConfigData {
+    using SafeMath64 for uint64;
     using PctHelpers for uint256;
 
     string private constant ERROR_TOO_OLD_TERM = "CONF_TOO_OLD_TERM";
@@ -63,8 +65,8 @@ contract CourtConfig is IConfig, CourtConfigData {
     *        2. maxRegularAppealRounds Number of regular appeal rounds before the final round is triggered
     *        3. finalRoundLockTerms Number of terms that a coherent juror in a final round is disallowed to withdraw (to prevent 51% attacks)
     * @param _appealCollateralParams Array containing params for appeal collateral:
-    *        0. appealCollateralFactor Multiple of juror fees required to appeal a preliminary ruling
-    *        1. appealConfirmCollateralFactor Multiple of juror fees required to confirm appeal
+    *        0. appealCollateralFactor Multiple of dispute fees required to appeal a preliminary ruling
+    *        1. appealConfirmCollateralFactor Multiple of dispute fees required to confirm appeal
     * @param _minActiveBalance Minimum amount of juror tokens that can be activated
     */
     constructor(
@@ -103,6 +105,59 @@ contract CourtConfig is IConfig, CourtConfigData {
     }
 
     /**
+    * @dev Tell the full Court configuration parameters at a certain term
+    * @param _termId Identification number of the term querying the Court config of
+    * @return token Address of the token used to pay for fees
+    * @return fees Array containing:
+    *         0. jurorFee Amount of fee tokens that is paid per juror per dispute
+    *         1. draftFee Amount of fee tokens per juror to cover the drafting cost
+    *         2. settleFee Amount of fee tokens per juror to cover round settlement cost
+    * @return roundStateDurations Array containing the durations in terms of the different phases of a dispute:
+    *         0. evidenceTerms Max submitting evidence period duration in terms
+    *         1. commitTerms Commit period duration in terms
+    *         2. revealTerms Reveal period duration in terms
+    *         3. appealTerms Appeal period duration in terms
+    *         4. appealConfirmationTerms Appeal confirmation period duration in terms
+    * @return pcts Array containing:
+    *         0. penaltyPct Permyriad of min active tokens balance to be locked for each drafted juror (‱ - 1/10,000)
+    *         1. finalRoundReduction Permyriad of fee reduction for the last appeal round (‱ - 1/10,000)
+    * @return roundParams Array containing params for rounds:
+    *         0. firstRoundJurorsNumber Number of jurors to be drafted for the first round of disputes
+    *         1. appealStepFactor Increasing factor for the number of jurors of each round of a dispute
+    *         2. maxRegularAppealRounds Number of regular appeal rounds before the final round is triggered
+    * @return appealCollateralParams Array containing params for appeal collateral:
+    *         0. appealCollateralFactor Multiple of dispute fees required to appeal a preliminary ruling
+    *         1. appealConfirmCollateralFactor Multiple of dispute fees required to confirm appeal
+    * @return minActiveBalance Minimum amount of tokens jurors have to activate to participate in the Court
+    */
+    function getConfig(uint64 _termId) external view
+        returns (
+            ERC20 feeToken,
+            uint256[3] memory fees,
+            uint64[5] memory roundStateDurations,
+            uint16[2] memory pcts,
+            uint64[4] memory roundParams,
+            uint256[2] memory appealCollateralParams,
+            uint256 minActiveBalance
+        );
+
+    /**
+    * @dev Tell the draft config at a certain term
+    * @param _termId Identification number of the term querying the draft config of
+    * @return feeToken Address of the token used to pay for fees
+    * @return draftFee Amount of fee tokens per juror to cover the drafting cost
+    * @return penaltyPct Permyriad of min active tokens balance to be locked for each drafted juror (‱ - 1/10,000)
+    */
+    function getDraftConfig(uint64 _termId) external view returns (ERC20 feeToken, uint256 draftFee, uint16 penaltyPct);
+
+    /**
+    * @dev Tell the min active balance config at a certain term
+    * @param _termId Term querying the min active balance config of
+    * @return Minimum amount of tokens jurors have to activate to participate in the Court
+    */
+    function getMinActiveBalance(uint64 _termId) external view returns (uint256);
+
+    /**
     * @dev Tell whether a certain holder accepts automatic withdrawals of tokens or not
     * @param _holder Address of the token holder querying if withdrawals are allowed for
     * @return True if the given holder accepts automatic withdrawals of their tokens, false otherwise
@@ -121,21 +176,20 @@ contract CourtConfig is IConfig, CourtConfigData {
 
     /**
     * @dev Internal to make sure to set a config for the new term, it will copy the previous term config if none
-    * @param _currentTermId Identification number of the new current term that has been transitioned
+    * @param _termId Identification number of the new current term that has been transitioned
     */
-    function _ensureTermConfig(uint64 _currentTermId) internal {
+    function _ensureTermConfig(uint64 _termId) internal {
         // If the term being transitioned had no config change scheduled, keep the previous one
-        uint256 currentConfigId = configIdByTerm[_currentTermId];
+        uint256 currentConfigId = configIdByTerm[_termId];
         if (currentConfigId == 0) {
-            // No need for SafeMath: if there was a term transition we know the current term ID will be greater than zero
-            uint256 previousConfigId = configIdByTerm[_currentTermId - 1];
-            configIdByTerm[_currentTermId] = previousConfigId;
+            uint256 previousConfigId = configIdByTerm[_termId.sub(1)];
+            configIdByTerm[_termId] = previousConfigId;
         }
     }
 
     /**
     * @dev Assumes that sender it's allowed (either it's from governor or it's on init)
-    * @param _currentTermId Identification number of the current Court term
+    * @param _termId Identification number of the current Court term
     * @param _fromTermId Identification number of the term in which the config will be effective at
     * @param _feeToken Address of the token contract that is used to pay for fees.
     * @param _fees Array containing:
@@ -157,12 +211,12 @@ contract CourtConfig is IConfig, CourtConfigData {
     *        2. maxRegularAppealRounds Number of regular appeal rounds before the final round is triggered
     *        3. finalRoundLockTerms Number of terms that a coherent juror in a final round is disallowed to withdraw (to prevent 51% attacks)
     * @param _appealCollateralParams Array containing params for appeal collateral:
-    *        0. appealCollateralFactor Multiple of juror fees required to appeal a preliminary ruling
-    *        1. appealConfirmCollateralFactor Multiple of juror fees required to confirm appeal
+    *        0. appealCollateralFactor Multiple of dispute fees required to appeal a preliminary ruling
+    *        1. appealConfirmCollateralFactor Multiple of dispute fees required to confirm appeal
     * @param _minActiveBalance Minimum amount of juror tokens that can be activated
     */
     function _setConfig(
-        uint64 _currentTermId,
+        uint64 _termId,
         uint64 _fromTermId,
         ERC20 _feeToken,
         uint256[3] memory _fees,
@@ -176,7 +230,7 @@ contract CourtConfig is IConfig, CourtConfigData {
     {
         // If the current term is not zero, changes must be scheduled at least after the current period.
         // No need to ensure delays for on-going disputes since these already use their creation term for that.
-        require(_currentTermId == 0 || _fromTermId > _currentTermId, ERROR_TOO_OLD_TERM);
+        require(_termId == 0 || _fromTermId > _termId, ERROR_TOO_OLD_TERM);
 
         // Make sure appeal collateral factors are greater than zero
         require(_appealCollateralParams[0] > 0 && _appealCollateralParams[1] > 0, ERROR_ZERO_COLLATERAL_FACTOR);
@@ -206,7 +260,7 @@ contract CourtConfig is IConfig, CourtConfigData {
 
         // If there was a config change already scheduled, reset it (in that case we will overwrite last array item).
         // Otherwise, schedule a new config.
-        if (configChangeTermId > _currentTermId) {
+        if (configChangeTermId > _termId) {
             configIdByTerm[configChangeTermId] = 0;
         } else {
             configs.length++;
@@ -270,8 +324,8 @@ contract CourtConfig is IConfig, CourtConfigData {
     *         2. maxRegularAppealRounds Number of regular appeal rounds before the final round is triggered
     *         3. finalRoundLockTerms Number of terms that a coherent juror in a final round is disallowed to withdraw (to prevent 51% attacks)
     * @return appealCollateralParams Array containing params for appeal collateral:
-    *         0. appealCollateralFactor Multiple of juror fees required to appeal a preliminary ruling
-    *         1. appealConfirmCollateralFactor Multiple of juror fees required to confirm appeal
+    *         0. appealCollateralFactor Multiple of dispute fees required to appeal a preliminary ruling
+    *         1. appealConfirmCollateralFactor Multiple of dispute fees required to confirm appeal
     * @return minActiveBalance Minimum amount of juror tokens that can be activated
     */
     function _getConfigAt(uint64 _termId, uint64 _lastEnsuredTermId) internal view

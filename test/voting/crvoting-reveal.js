@@ -4,7 +4,7 @@ const { buildHelper } = require('../helpers/wrappers/court')(web3, artifacts)
 const { assertRevert } = require('../helpers/asserts/assertThrow')
 const { VOTING_ERRORS } = require('../helpers/utils/errors')
 const { VOTING_EVENTS } = require('../helpers/utils/events')
-const { SALT, OUTCOMES, encryptVote } = require('../helpers/utils/crvoting')
+const { SALT, OUTCOMES, hashVote } = require('../helpers/utils/crvoting')
 const { assertEvent, assertAmountOfEvents } = require('../helpers/asserts/assertEvent')
 
 const CRVoting = artifacts.require('CRVoting')
@@ -41,7 +41,7 @@ contract('CRVoting reveal', ([_, voter]) => {
 
       context('when the given voter has already voted', () => {
         const itHandlesValidRevealedVotesFor = committedOutcome => {
-          const commitment = encryptVote(committedOutcome)
+          const commitment = hashVote(committedOutcome)
 
           beforeEach('commit a vote', async () => {
             await disputeManager.mockVoterWeight(voter, 10)
@@ -142,7 +142,7 @@ contract('CRVoting reveal', ([_, voter]) => {
         }
 
         const itHandlesInvalidOutcomeRevealedVotesFor = committedOutcome => {
-          const commitment = encryptVote(committedOutcome)
+          const commitment = hashVote(committedOutcome)
 
           beforeEach('commit a vote', async () => {
             await disputeManager.mockVoterWeight(voter, 10)

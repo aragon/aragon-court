@@ -6,6 +6,7 @@ package-lock.json
 
 # Production
 build/
+abi/
 
 # coverage
 coverage/

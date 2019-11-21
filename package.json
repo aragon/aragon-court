@@ -4,6 +4,14 @@
   "description": "Aragon Court",
   "author": "Aragon Association",
   "license": "GPL-3.0",
+  "files": [
+    "/abi",
+    "/build",
+    "/contracts",
+    "/docs",
+    "/scripts",
+    "/test"
+  ],
   "scripts": {
     "compile": "truffle compile",
     "lint": "npm run lint:solidity && npm run lint:js",
@@ -12,7 +20,9 @@
     "test": "npm run ganache-cli:test",
     "test:gas": "GAS_REPORTER=true npm test",
     "coverage": "SOLIDITY_COVERAGE=true npm run ganache-cli:test",
-    "ganache-cli:test": "./node_modules/@aragon/test-helpers/ganache-cli.sh"
+    "ganache-cli:test": "./node_modules/@aragon/test-helpers/ganache-cli.sh",
+    "abi:extract": "truffle-extract --output abi/ --keys abi",
+    "prepublishOnly": "truffle compile --all && npm run abi:extract -- --no-compile"
   },
   "pre-push": [
     "lint"
@@ -34,6 +44,7 @@
     "solidity-coverage": "0.5.8",
     "solium": "^1.2.3",
     "truffle": "^5.0.34",
+    "truffle-extract": "^1.2.1",
     "web3": "^1.2.1",
     "web3-eth-abi": "1.0.0-beta.33"
   }

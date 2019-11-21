@@ -1,10 +1,10 @@
 pragma solidity ^0.5.8;
 
-import "../../arbitration/Arbitrable.sol";
+import "../../arbitration/IArbitrable.sol";
 import "../../arbitration/IArbitrator.sol";
 
 
-contract ArbitrableMock is Arbitrable {
+contract ArbitrableMock is IArbitrable {
     bytes4 public constant ERC165_INTERFACE = ERC165_INTERFACE_ID;
     bytes4 public constant ARBITRABLE_INTERFACE = ARBITRABLE_INTERFACE_ID;
 

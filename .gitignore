@@ -1,0 +1,9 @@
+# See https://help.github.com/ignore-files/ for more about ignoring files.
+
+# Dependencies
+node_modules
+package-lock.json
+
+# Production
+build
+types

@@ -1,0 +1,12 @@
+type ANJBalance @entity {
+  id: ID!
+  owner: Bytes!
+  amount: BigInt!
+}
+
+type ANJTransfer @entity {
+  id: ID!
+  from: Bytes!
+  to: Bytes!
+  amount: BigInt!
+}

@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "scripts": {
     "build": "graph build",
-    "codegen": "graph codegen -o ./types",
+    "codegen": "rm -rf types && graph codegen -o ./types",
     "create:rpc": "graph create aragon/court-subgraph --node http://127.0.0.1:8020",
     "create:mainnet": "graph create aragon/court-subgraph --node https://api.thegraph.com/deploy/",
     "deploy:rpc": "graph deploy aragon/court-subgraph --ipfs http://localhost:5001 --node http://127.0.0.1:8020",
@@ -12,5 +12,9 @@
   "devDependencies": {
     "@graphprotocol/graph-cli": "^0.16.0",
     "@graphprotocol/graph-ts": "^0.16.0"
+  },
+  "dependencies": {
+    "@aragon/court": "^1.0.0",
+    "@aragon/minime": "^1.0.0"
   }
 }

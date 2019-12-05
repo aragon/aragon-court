@@ -1,3 +1,37 @@
+type CourtConfig @entity {
+  id: ID!
+  currentTerm: BigInt
+  termDuration: BigInt
+  feeToken: Bytes
+  jurorFee: BigInt
+  draftFee: BigInt
+  settleFee: BigInt
+  evidenceTerms: BigInt
+  commitTerms: BigInt
+  revealTerms: BigInt
+  appealTerms: BigInt
+  appealConfirmationTerms: BigInt
+  penaltyPct: Int
+  finalRoundReduction: Int
+  firstRoundJurorsNumber: BigInt
+  appealStepFactor: BigInt
+  maxRegularAppealRounds: BigInt
+  finalRoundLockTerms: BigInt
+  appealCollateralFactor: BigInt
+  appealConfirmCollateralFactor: BigInt
+  minActiveBalance: BigInt
+  fundsGovernor: Bytes
+  configGovernor: Bytes
+  modulesGovernor: Bytes
+  modules: [CourtModule!] @derivedFrom(field: "court")
+}
+
+type CourtModule @entity {
+  id: ID!
+  address: Bytes!
+  court: CourtConfig!
+}
+
 type ANJBalance @entity {
   id: ID!
   owner: Bytes!

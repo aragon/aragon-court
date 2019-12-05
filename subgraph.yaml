@@ -5,18 +5,46 @@ schema:
   file: ./schema.graphql
 dataSources:
   - kind: ethereum/contract
+    name: AragonCourt
+    network: mainnet
+    source:
+      address: '0xEC5d4F247aF81A843612eb1371CBCfa88b762119'
+      abi: AragonCourt
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.3
+      language: wasm/assemblyscript
+      entities:
+        - CourtConfig
+        - CourtModule
+      abis:
+        - name: AragonCourt
+          file: ./node_modules/@aragon/court/abi/AragonCourt.json
+      eventHandlers:
+        - event: Heartbeat(uint64,uint64)
+          handler: handleHeartbeat
+        - event: FundsGovernorChanged(address,address)
+          handler: handleFundsGovernorChanged
+        - event: ConfigGovernorChanged(address,address)
+          handler: handleConfigGovernorChanged
+        - event: ModulesGovernorChanged(address,address)
+          handler: handleModulesGovernorChanged
+        - event: ModuleSet(bytes32,address)
+          handler: handleModuleSet
+      file: ./src/AragonCourt.ts
+  - kind: ethereum/contract
     name: ANJ
     network: mainnet
     source:
-      address: '0x254dffcd3277C0b1660F6d42EFbB754edaBAbC2B'
+      address: '0xaf5C4C6C7920B4883bC6252e9d9B8fE27187Cf68'
       abi: ANJ
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.3
       language: wasm/assemblyscript
       entities:
-        - Transfer
-        - Approval
+        - ANJBalance
+        - ANJTransfer
       abis:
         - name: ANJ
           file: ./node_modules/@aragon/minime/abi/MiniMeToken.json

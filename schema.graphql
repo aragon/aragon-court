@@ -32,6 +32,75 @@ type CourtModule @entity {
   court: CourtConfig!
 }
 
+type Dispute @entity {
+  id: ID!
+  subject: Arbitrable!
+  createTermId: BigInt!
+  possibleRulings: Int!
+  finalRuling: Int!
+  lastRoundId: BigInt!
+  state: DisputeState!
+  metadata: String!
+  rounds: [AdjudicationRound!] @derivedFrom(field: "dispute")
+}
+
+enum DisputeState {
+  PreDraft
+  Adjudicating
+  Ruled
+}
+
+type Arbitrable @entity {
+  id: ID!
+  disputes: [Dispute!] @derivedFrom(field: "subject")
+  evidence: [Bytes!]
+}
+
+type AdjudicationRound @entity {
+  id: ID!
+  number: BigInt!
+  dispute: Dispute!
+  state: AdjudicationState!
+  draftTermId: BigInt!
+  jurorsNumber: BigInt!
+  settledPenalties: Boolean!
+  jurorFees: BigInt!
+  jurors: [JurorRound!] @derivedFrom(field: "round")
+  delayedTerms: BigInt!
+  selectedJurors: BigInt!
+  coherentJurors: BigInt!
+  settledJurors: BigInt!
+  collectedTokens: BigInt!
+  appeal: Appeal @derivedFrom(field: "round")
+}
+
+enum AdjudicationState {
+  Invalid
+  Committing
+  Revealing
+  Appealing
+  ConfirmingAppeal
+  Ended
+}
+
+type Appeal @entity {
+  id: ID!
+  round: AdjudicationRound!
+  maker: Bytes!
+  appealedRuling: BigInt!
+  taker: Bytes!
+  opposedRuling: BigInt!
+  settled: Boolean!
+}
+
+type JurorRound @entity {
+  id: ID!
+  round: AdjudicationRound!
+  address: Bytes!
+  weight: BigInt!
+  rewarded: Boolean!
+}
+
 type ANJBalance @entity {
   id: ID!
   owner: Bytes!

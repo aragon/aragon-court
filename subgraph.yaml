@@ -33,6 +33,45 @@ dataSources:
           handler: handleModuleSet
       file: ./src/AragonCourt.ts
   - kind: ethereum/contract
+    name: DisputeManager
+    network: mainnet
+    source:
+      address: '0xDDb64fE46a91D46ee29420539FC25FD07c5FEa3E'
+      abi: DisputeManager
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.3
+      language: wasm/assemblyscript
+      entities:
+        - Arbitrable
+        - Dispute
+        - AdjudicationRound
+        - JurorRound
+        - Appeal
+      abis:
+        - name: Arbitrable
+          file: ./node_modules/@aragon/court/abi/Arbitrable.json
+        - name: DisputeManager
+          file: ./node_modules/@aragon/court/abi/DisputeManager.json
+      eventHandlers:
+        - event: NewDispute(indexed uint256,indexed address,indexed uint64,uint64,bytes)
+          handler: handleNewDispute
+        - event: DisputeStateChanged(indexed uint256,indexed uint8)
+          handler: handleDisputeStateChanged
+        - event: RulingAppealed(indexed uint256,indexed uint256,uint8)
+          handler: handleRulingAppealed
+        - event: RulingAppealConfirmed(indexed uint256,indexed uint256,indexed uint64,uint256)
+          handler: handleRulingAppealConfirmed
+        - event: PenaltiesSettled(indexed uint256,indexed uint256,uint256)
+          handler: handlePenaltiesSettled
+        - event: RewardSettled(indexed uint256,indexed uint256,address)
+          handler: handleRewardSettled
+        - event: AppealDepositSettled(indexed uint256,indexed uint256)
+          handler: handleAppealDepositSettled
+        - event: RulingComputed(indexed uint256,indexed uint8)
+          handler: handleRulingComputed
+      file: ./src/DisputeManager.ts
+  - kind: ethereum/contract
     name: ANJ
     network: mainnet
     source:

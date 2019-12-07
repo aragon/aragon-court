@@ -106,6 +106,14 @@ contract DisputeManager is ControlledRecoverable, ICRVotingOwner, IDisputeManage
         bool settled;                  // Whether or not an appeal has been settled
     }
 
+    struct DraftParams {
+        uint256 disputeId;            // Identification number of the dispute to be drafted
+        uint256 roundId;              // Identification number of the round to be drafted
+        uint64 termId;                // Identification number of the current term of the Court
+        bytes32 draftTermRandomness;  // Randomness of the term in which the dispute was requested to be drafted
+        DraftConfig config;           // Draft config of the Court at the draft term
+    }
+
     struct NextRoundDetails {
         uint64 startTerm;              // Term ID from which the next round will start
         uint64 jurorsNumber;           // Jurors number for the next round
@@ -127,6 +135,7 @@ contract DisputeManager is ControlledRecoverable, ICRVotingOwner, IDisputeManage
     event DisputeStateChanged(uint256 indexed disputeId, DisputeState indexed state);
     event EvidencePeriodClosed(uint256 indexed disputeId, uint64 indexed termId);
     event NewDispute(uint256 indexed disputeId, IArbitrable indexed subject, uint64 indexed draftTermId, uint64 jurorsNumber, bytes metadata);
+    event JurorDrafted(uint256 indexed disputeId, uint256 indexed roundId, address indexed juror);
     event RulingAppealed(uint256 indexed disputeId, uint256 indexed roundId, uint8 ruling);
     event RulingAppealConfirmed(uint256 indexed disputeId, uint256 indexed roundId, uint64 indexed draftTermId, uint256 jurorsNumber);
     event RulingComputed(uint256 indexed disputeId, uint8 indexed ruling);
@@ -242,14 +251,15 @@ contract DisputeManager is ControlledRecoverable, ICRVotingOwner, IDisputeManage
         require(dispute.state == DisputeState.PreDraft, ERROR_ROUND_ALREADY_DRAFTED);
 
         // Ensure draft term randomness can be computed for the current block number
-        AdjudicationRound storage round = dispute.rounds[dispute.rounds.length - 1];
+        uint256 roundId = dispute.rounds.length - 1;
+        AdjudicationRound storage round = dispute.rounds[roundId];
         uint64 draftTermId = round.draftTermId;
         require(draftTermId <= currentTermId, ERROR_DRAFT_TERM_NOT_REACHED);
         bytes32 draftTermRandomness = clock.ensureCurrentTermRandomness();
 
         // Draft jurors for the given dispute and reimburse fees
         DraftConfig memory config = _getDraftConfig(draftTermId);
-        bool draftEnded = _draft(_disputeId, round, currentTermId, draftTermRandomness, config);
+        bool draftEnded = _draft(round, _buildDraftParams(_disputeId, roundId, currentTermId, draftTermRandomness, config));
 
         // If the drafting is over, update its state
         if (draftEnded) {
@@ -1215,24 +1225,35 @@ contract DisputeManager is ControlledRecoverable, ICRVotingOwner, IDisputeManage
     }
 
     /**
-    * @dev Private function to draft jurors for a given dispute and round. It assumes the given data is correct
+    * @dev Private function to build params to call for a draft. It assumes the given data is correct.
     * @param _disputeId Identification number of the dispute to be drafted
-    * @param _round Round of the dispute to be drafted
+    * @param _roundId Identification number of the round to be drafted
     * @param _termId Identification number of the current term of the Court
     * @param _draftTermRandomness Randomness of the term in which the dispute was requested to be drafted
     * @param _config Draft config of the Court at the draft term
+    * @return Draft params object
+    */
+    function _buildDraftParams(uint256 _disputeId, uint256 _roundId, uint64 _termId, bytes32 _draftTermRandomness, DraftConfig memory _config)
+        private
+        pure
+        returns (DraftParams memory)
+    {
+        return DraftParams({
+            disputeId: _disputeId,
+            roundId: _roundId,
+            termId: _termId,
+            draftTermRandomness: _draftTermRandomness,
+            config: _config
+        });
+    }
+
+    /**
+    * @dev Private function to draft jurors for a given dispute and round. It assumes the given data is correct.
+    * @param _round Round of the dispute to be drafted
+    * @param _draftParams Draft params to be used for the draft
     * @return True if all the requested jurors for the given round were drafted, false otherwise
     */
-    function _draft(
-        uint256  _disputeId,
-        AdjudicationRound storage _round,
-        uint64 _termId,
-        bytes32 _draftTermRandomness,
-        DraftConfig memory _config
-    )
-        private
-        returns (bool)
-    {
+    function _draft(AdjudicationRound storage _round, DraftParams memory _draftParams) private returns (bool) {
         uint64 jurorsNumber = _round.jurorsNumber;
         uint64 selectedJurors = _round.selectedJurors;
         uint64 maxJurorsPerBatch = maxJurorsPerDraftBatch;
@@ -1241,40 +1262,50 @@ contract DisputeManager is ControlledRecoverable, ICRVotingOwner, IDisputeManage
         uint64 requestedJurors = jurorsToBeDrafted < maxJurorsPerBatch ? jurorsToBeDrafted : maxJurorsPerBatch;
 
         // Pack draft params
-        uint256[7] memory draftParams = [
-            uint256(_draftTermRandomness),
-            _disputeId,
-            uint256(_termId),
+        uint256[7] memory params = [
+            uint256(_draftParams.draftTermRandomness),
+            _draftParams.disputeId,
+            uint256(_draftParams.termId),
             uint256(selectedJurors),
             uint256(requestedJurors),
             uint256(jurorsNumber),
-            uint256(_config.penaltyPct)
+            uint256(_draftParams.config.penaltyPct)
         ];
 
         // Draft jurors for the requested round
         IJurorsRegistry jurorsRegistry = _jurorsRegistry();
-        (address[] memory jurors, uint256 draftedJurors) = jurorsRegistry.draft(draftParams);
+        (address[] memory jurors, uint256 draftedJurors) = jurorsRegistry.draft(params);
 
         // Update round with drafted jurors information
         uint64 newSelectedJurors = selectedJurors.add(uint64(draftedJurors));
         _round.selectedJurors = newSelectedJurors;
-        _updateRoundDraftedJurors(_round, jurors, draftedJurors);
+        _updateRoundDraftedJurors(_draftParams.disputeId, _draftParams.roundId, _round, jurors, draftedJurors);
         bool draftEnded = newSelectedJurors == jurorsNumber;
 
         // Transfer fees corresponding to the actual number of drafted jurors
-        uint256 draftFees = _config.draftFee.mul(draftedJurors);
-        _treasury().assign(_config.feeToken, msg.sender, draftFees);
+        uint256 draftFees = _draftParams.config.draftFee.mul(draftedJurors);
+        _treasury().assign(_draftParams.config.feeToken, msg.sender, draftFees);
         return draftEnded;
     }
 
     /**
     * @dev Private function to update the drafted jurors' weight for the given round
-    * @param _round Adjudication round that needs to be updated
+    * @param _disputeId Identification number of the dispute being drafted
+    * @param _roundId Identification number of the round being drafted
+    * @param _round Adjudication round that was drafted
     * @param _jurors List of jurors addresses that were drafted for the given round
     * @param _draftedJurors Number of jurors that were drafted for the given round. Note that this number may not necessarily be equal to the
     *        given list of jurors since the draft could potentially return less jurors than the requested amount.
     */
-    function _updateRoundDraftedJurors(AdjudicationRound storage _round, address[] memory _jurors, uint256 _draftedJurors) private {
+    function _updateRoundDraftedJurors(
+        uint256 _disputeId,
+        uint256 _roundId,
+        AdjudicationRound storage _round,
+        address[] memory _jurors,
+        uint256 _draftedJurors
+    )
+        private
+    {
         for (uint256 i = 0; i < _draftedJurors; i++) {
             address juror = _jurors[i];
             JurorState storage jurorState = _round.jurorsStates[juror];
@@ -1285,6 +1316,7 @@ contract DisputeManager is ControlledRecoverable, ICRVotingOwner, IDisputeManage
             }
 
             jurorState.weight = jurorState.weight.add(1);
+            emit JurorDrafted(_disputeId, _roundId, juror);
         }
     }
 

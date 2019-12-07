@@ -2,8 +2,8 @@ const { ACTIVATE_DATA } = require('../utils/jurors')
 const { NEXT_WEEK, ONE_DAY } = require('../lib/time')
 const { decodeEventsOfType } = require('../lib/decodeEvent')
 const { MAX_UINT64, bn, bigExp } = require('../lib/numbers')
+const { DISPUTE_MANAGER_EVENTS } = require('../utils/events')
 const { getEvents, getEventArgument } = require('@aragon/test-helpers/events')
-const { DISPUTE_MANAGER_EVENTS, REGISTRY_EVENTS } = require('../utils/events')
 const { SALT, OUTCOMES, getVoteId, hashVote, oppositeOutcome, outcomeFor } = require('../utils/crvoting')
 
 const PCT_BASE = bn(10000)
@@ -254,8 +254,8 @@ module.exports = (web3, artifacts) => {
 
       // draft and flat jurors with their weights
       const receipt = await this.disputeManager.draft(disputeId, { from: drafter })
-      const logs = decodeEventsOfType(receipt, this.artifacts.require('JurorsRegistry').abi, REGISTRY_EVENTS.JUROR_DRAFTED)
-      const weights = getEvents({ logs }, REGISTRY_EVENTS.JUROR_DRAFTED).reduce((jurors, event) => {
+      const logs = decodeEventsOfType(receipt, this.artifacts.require('DisputeManager').abi, DISPUTE_MANAGER_EVENTS.JUROR_DRAFTED)
+      const weights = getEvents({ logs }, DISPUTE_MANAGER_EVENTS.JUROR_DRAFTED).reduce((jurors, event) => {
         const { juror } = event.args
         jurors[juror] = (jurors[juror] || bn(0)).add(bn(1))
         return jurors

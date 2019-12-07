@@ -78,7 +78,7 @@ contract('AragonCourt', ([_, sender, drafter, appealMaker, appealTaker, juror500
         await court.mockSetTermRandomness('0x0000000000000000000000000000000000000000000000000000000000000001')
       })
 
-      itCostsAtMost('draft', 332e3, () => disputeManager.draft(disputeId))
+      itCostsAtMost('draft', 338e3, () => disputeManager.draft(disputeId))
     })
 
     describe('commit', () => {
@@ -286,7 +286,7 @@ contract('AragonCourt', ([_, sender, drafter, appealMaker, appealTaker, juror500
           assertBn(neededTransitions, 0, 'needed transitions does not match')
         })
 
-        itCostsAtMost('settlePenalties', 222e3, () => disputeManager.settlePenalties(disputeId, roundId, 0))
+        itCostsAtMost('settlePenalties', 227e3, () => disputeManager.settlePenalties(disputeId, roundId, 0))
       })
 
       context('when the current term is outdated by one term', () => {
@@ -296,7 +296,7 @@ contract('AragonCourt', ([_, sender, drafter, appealMaker, appealTaker, juror500
           assertBn(neededTransitions, 1, 'needed transitions does not match')
         })
 
-        itCostsAtMost('settlePenalties', 266e3, () => disputeManager.settlePenalties(disputeId, roundId, 0))
+        itCostsAtMost('settlePenalties', 269e3, () => disputeManager.settlePenalties(disputeId, roundId, 0))
       })
     })
 

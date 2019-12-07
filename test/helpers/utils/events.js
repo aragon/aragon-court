@@ -5,6 +5,7 @@ const ARBITRABLE_EVENTS = {
 const DISPUTE_MANAGER_EVENTS = {
   DISPUTE_STATE_CHANGED: 'DisputeStateChanged',
   NEW_DISPUTE: 'NewDispute',
+  JUROR_DRAFTED: 'JurorDrafted',
   EVIDENCE_PERIOD_CLOSED: 'EvidencePeriodClosed',
   RULING_APPEALED: 'RulingAppealed',
   RULING_APPEAL_CONFIRMED: 'RulingAppealConfirmed',

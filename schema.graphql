@@ -42,6 +42,7 @@ type Dispute @entity {
   state: DisputeState!
   metadata: String!
   rounds: [AdjudicationRound!] @derivedFrom(field: "dispute")
+  createdAt: BigInt!
 }
 
 enum DisputeState {
@@ -54,6 +55,7 @@ type Arbitrable @entity {
   id: ID!
   disputes: [Dispute!] @derivedFrom(field: "subject")
   evidence: [Bytes!]
+  createdAt: BigInt!
 }
 
 type AdjudicationRound @entity {
@@ -65,13 +67,14 @@ type AdjudicationRound @entity {
   jurorsNumber: BigInt!
   settledPenalties: Boolean!
   jurorFees: BigInt!
-  jurors: [JurorRound!] @derivedFrom(field: "round")
+  jurors: [JurorDraft!] @derivedFrom(field: "round")
   delayedTerms: BigInt!
   selectedJurors: BigInt!
   coherentJurors: BigInt!
   settledJurors: BigInt!
   collectedTokens: BigInt!
   appeal: Appeal @derivedFrom(field: "round")
+  createdAt: BigInt!
 }
 
 enum AdjudicationState {
@@ -91,14 +94,49 @@ type Appeal @entity {
   taker: Bytes!
   opposedRuling: BigInt!
   settled: Boolean!
+  createdAt: BigInt!
 }
 
-type JurorRound @entity {
+type Juror @entity {
+  id: ID!
+  activeBalance: BigInt!
+  lockedBalance: BigInt!
+  availableBalance: BigInt!
+  deactivationBalance: BigInt!
+  withdrawalsLockTermId: BigInt!
+  drafts: [JurorDraft!] @derivedFrom(field: "juror")
+  movements: [ANJMovement!] @derivedFrom(field: "juror")
+  createdAt: BigInt!
+}
+
+type JurorDraft @entity {
   id: ID!
   round: AdjudicationRound!
-  address: Bytes!
+  juror: Juror!
   weight: BigInt!
+  locked: BigInt!
   rewarded: Boolean!
+  createdAt: BigInt!
+}
+
+type ANJMovement @entity {
+  id: ID!
+  juror: Juror!
+  type: ANJMovementType!
+  amount: BigInt!
+  effectiveTermId: BigInt
+  createdAt: BigInt!
+}
+
+enum ANJMovementType {
+  Stake
+  Unstake
+  Activation
+  Deactivation
+  Lock
+  Unlock
+  Reward
+  Slash
 }
 
 type ANJBalance @entity {

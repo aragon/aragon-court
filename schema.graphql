@@ -154,3 +154,17 @@ type ANJTransfer @entity {
   to: Bytes!
   amount: BigInt!
 }
+
+type FeeMovement @entity {
+  id: ID!
+  juror: Juror!
+  type: FeeMovementType!
+  amount: BigInt!
+  createdAt: BigInt!
+}
+
+enum FeeMovementType {
+  Assign
+  Withdraw
+  Subscriptions
+}

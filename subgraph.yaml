@@ -142,6 +142,46 @@ dataSources:
           handler: handleVoteRevealed
       file: ./src/Voting.ts
   - kind: ethereum/contract
+    name: Treasury
+    network: mainnet
+    source:
+      address: '0x7C728214be9A0049e6a86f2137ec61030D0AA964'
+      abi: Treasury
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.3
+      language: wasm/assemblyscript
+      entities:
+        - FeeMovement
+      abis:
+        - name: Treasury
+          file: ./node_modules/@aragon/court/abi/CourtTreasury.json
+      eventHandlers:
+        - event: Assign(indexed address,indexed address,indexed address,uint256)
+          handler: handleAssign
+        - event: Withdraw(indexed address,indexed address,indexed address,uint256)
+          handler: handleWithdraw
+      file: ./src/Treasury.ts
+  - kind: ethereum/contract
+    name: Subscriptions
+    network: mainnet
+    source:
+      address: '0x5017A545b09ab9a30499DE7F431DF0855bCb7275'
+      abi: Subscriptions
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.3
+      language: wasm/assemblyscript
+      entities:
+        - FeeMovement
+      abis:
+        - name: Subscriptions
+          file: ./node_modules/@aragon/court/abi/CourtSubscriptions.json
+      eventHandlers:
+        - event: FeesClaimed(indexed address,indexed uint256,uint256)
+          handler: handleSubscriptionPaid
+      file: ./src/Treasury.ts
+  - kind: ethereum/contract
     name: ANJ
     network: mainnet
     source:

@@ -4,14 +4,25 @@
 
 The following events are emitted by the `JurorsRegistry`:
 
-#### 6.4.1.1. Juror drafted
+#### 6.4.1.1. Staked
 
-- **Name:** `JurorDrafted`
+- **Name:** `Staked` (ERC900)
 - **Args:**
-    - **Dispute ID:** Identification number of the dispute that was drafted
-    - **Juror:** Address of the juror drafted for the dispute
+    - **User:** Address of the juror to stake the tokens to
+    - **Amount:** Amount of tokens to be staked
+    - **Total:** Total staked balance on the registry
+    - **Data:** Optional data that can be used to request the activation of the deposited tokens
+    
+#### 6.4.1.2. Unstaked
 
-#### 6.4.1.2. Juror activated
+- **Name:** `Unstaked` (ERC900)
+- **Args:**
+    - **User:** Address of the juror to unstake the tokens of
+    - **Amount:** Amount of tokens to be unstaked
+    - **Total:** Total staked balance on the registry
+    - **Data:** Optional data that can be used to log certain information
+
+#### 6.4.1.3. Juror activated
 
 - **Name:** `JurorActivated`
 - **Args:**
@@ -19,7 +30,7 @@ The following events are emitted by the `JurorsRegistry`:
     - **Amount:** Amount of juror tokens activated
     - **From term ID:** Identification number of the term in which the juror tokens will be activated
     
-#### 6.4.1.3. Juror deactivation requested
+#### 6.4.1.4. Juror deactivation requested
 
 - **Name:** `JurorDeactivationRequested`
 - **Args:**
@@ -27,7 +38,7 @@ The following events are emitted by the `JurorsRegistry`:
     - **Amount:** Amount of juror tokens to be deactivated
     - **Available term ID:** Identification number of the term in which the requested tokens will be deactivated
     
-#### 6.4.1.4. Juror deactivation processed
+#### 6.4.1.5. Juror deactivation processed
 
 - **Name:** `JurorDeactivationProcessed`
 - **Args:**
@@ -36,7 +47,7 @@ The following events are emitted by the `JurorsRegistry`:
     - **Available term ID:** Identification number of the term in which the requested tokens will be deactivated
     - **Processed term ID:** Identification number of the term in which the given deactivation was processed
     
-#### 6.4.1.5. Juror deactivation updated
+#### 6.4.1.6. Juror deactivation updated
 
 - **Name:** `JurorDeactivationUpdated`
 - **Args:**
@@ -45,23 +56,36 @@ The following events are emitted by the `JurorsRegistry`:
     - **Available term ID:** Identification number of the term in which the requested tokens will be deactivated
     - **Updated term ID:** Identification number of the term in which the given deactivation was updated
     
-#### 6.4.1.6. Juror available balance changed
+#### 6.4.1.7. Juror balance locked
 
-- **Name:** `JurorAvailableBalanceChanged`
+- **Name:** `JurorBalanceLocked`
 - **Args:**
-    - **Juror:** Address of the juror whose available balance was updated
-    - **Amount:** Amount of juror tokens updated to the available balance of the juror
-    - **Positive:** Whether the updated amount was subtracted or added to the available balance of the juror
+    - **Juror:** Address of the juror whose active balance was locked
+    - **Amount:** New amount locked to the juror
+    
+#### 6.4.1.8. Juror balance unlocked
 
-#### 6.4.1.7. Juror tokens collected
+- **Name:** `JurorBalanceUnlocked`
+- **Args:**
+    - **Juror:** Address of the juror whose active balance was unlocked
+    - **Amount:** Amount of active locked that was unlocked to the juror
 
-- **Name:** `JurorTokensCollected`
+#### 6.4.1.9. Juror rewarded
+
+- **Name:** `JurorRewarded`
+- **Args:**
+    - **Juror:** Address of the juror receiving tokens
+    - **Amount:** Amount of juror tokens assigned to the staked balance of the juror
+
+#### 6.4.1.10. Juror slashed
+
+- **Name:** `JurorSlashed`
 - **Args:**
     - **Juror:** Address of the juror whose active tokens were collected
     - **Amount:** Amount of juror tokens collected from the juror active tokens
-    - **Term ID:** Identification number of the term when the juror tokens were collected
+    - **Effective term ID:** Identification number of the term when the juror active balance will be updated
 
-#### 6.4.1.8. Total active balance limit changed
+#### 6.4.1.11. Total active balance limit changed
 
 - **Name:** `TotalActiveBalanceLimitChanged`
 - **Args:**

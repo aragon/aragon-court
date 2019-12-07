@@ -28,13 +28,15 @@ const REGISTRY_EVENTS = {
   UNSTAKED: 'Unstaked',
   SLASHED: 'Slashed',
   COLLECTED: 'Collected',
-  JUROR_DRAFTED: 'JurorDrafted',
   JUROR_ACTIVATED: 'JurorActivated',
   JUROR_DEACTIVATION_REQUESTED: 'JurorDeactivationRequested',
   JUROR_DEACTIVATION_PROCESSED: 'JurorDeactivationProcessed',
   JUROR_DEACTIVATION_UPDATED: 'JurorDeactivationUpdated',
-  JUROR_AVAILABLE_BALANCE_CHANGED: 'JurorAvailableBalanceChanged',
-  JUROR_TOKENS_COLLECTED: 'JurorTokensCollected',
+  JUROR_BALANCE_LOCKED: 'JurorBalanceLocked',
+  JUROR_BALANCE_UNLOCKED: 'JurorBalanceUnlocked',
+  JUROR_REWARDED: 'JurorRewarded',
+  JUROR_SLASHED: 'JurorSlashed',
+  BURNED_TOKENS: 'BurnedTokens',
   TOTAL_ACTIVE_BALANCE_LIMIT_CHANGED: 'TotalActiveBalanceLimitChanged'
 }
 

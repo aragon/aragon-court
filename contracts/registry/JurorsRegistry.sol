@@ -106,13 +106,15 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
     // Tree to store jurors active balance by term for the drafting process
     HexSumTree.Tree internal tree;
 
-    event JurorDrafted(uint256 indexed disputeId, address juror);
     event JurorActivated(address indexed juror, uint64 fromTermId, uint256 amount);
     event JurorDeactivationRequested(address indexed juror, uint64 availableTermId, uint256 amount);
     event JurorDeactivationProcessed(address indexed juror, uint64 availableTermId, uint256 amount, uint64 processedTermId);
     event JurorDeactivationUpdated(address indexed juror, uint64 availableTermId, uint256 amount, uint64 updateTermId);
-    event JurorAvailableBalanceChanged(address indexed juror, uint256 amount, bool positive);
-    event JurorTokensCollected(address indexed juror, uint256 amount, uint64 termId);
+    event JurorBalanceLocked(address indexed juror, uint256 amount);
+    event JurorBalanceUnlocked(address indexed juror, uint256 amount);
+    event JurorRewarded(address indexed juror, uint256 amount);
+    event JurorSlashed(address indexed juror, uint256 amount, uint64 effectiveTermId);
+    event BurnedTokens(uint256 amount);
     event TotalActiveBalanceLimitChanged(uint256 previousTotalActiveBalanceLimit, uint256 currentTotalActiveBalanceLimit);
 
     /**
@@ -224,7 +226,10 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
     * @param _amount Amount of tokens to be added to the available balance of a juror
     */
     function assignTokens(address _juror, uint256 _amount) external onlyDisputeManager {
-        _updateAvailableBalanceOf(_juror, _amount, true);
+        if (_amount > 0) {
+            _updateAvailableBalanceOf(_juror, _amount, true);
+            emit JurorRewarded(_juror, _amount);
+        }
     }
 
     /**
@@ -232,7 +237,10 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
     * @param _amount Amount of tokens to be burned
     */
     function burnTokens(uint256 _amount) external onlyDisputeManager {
-        _updateAvailableBalanceOf(BURN_ACCOUNT, _amount, true);
+        if (_amount > 0) {
+            _updateAvailableBalanceOf(BURN_ACCOUNT, _amount, true);
+            emit BurnedTokens(_amount);
+        }
     }
 
     /**
@@ -293,7 +301,7 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
                     // Update the current active locked balance of the juror
                     juror.lockedBalance = newLockedBalance;
                     jurors[length++] = jurorAddress;
-                    emit JurorDrafted(draftParams.disputeId, jurorAddress);
+                    emit JurorBalanceLocked(jurorAddress, draftParams.draftLockAmount);
                 }
             }
         }
@@ -301,7 +309,7 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
 
     /**
     * @notice Slash a set of jurors based on their votes compared to the winning ruling. This function will unlock the
-    *      corresponding locked balances of those jurors that are set to be slashed.
+    *         corresponding locked balances of those jurors that are set to be slashed.
     * @param _termId Current term id
     * @param _jurors List of juror addresses to be slashed
     * @param _lockedAmounts List of amounts locked for each corresponding juror that will be either slashed or returned
@@ -321,14 +329,18 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
 
         for (uint256 i = 0; i < _jurors.length; i++) {
             uint256 lockedAmount = _lockedAmounts[i];
-            Juror storage juror = jurorsByAddress[_jurors[i]];
+            address jurorAddress = _jurors[i];
+            Juror storage juror = jurorsByAddress[jurorAddress];
             juror.lockedBalance = juror.lockedBalance.sub(lockedAmount);
 
             // Slash juror if requested. Note that there's no need to check if there was a deactivation
             // request since we're working with already locked balances.
-            if (!_rewardedJurors[i]) {
+            if (_rewardedJurors[i]) {
+                emit JurorBalanceUnlocked(jurorAddress, lockedAmount);
+            } else {
                 collectedTokens = collectedTokens.add(lockedAmount);
                 tree.update(juror.id, nextTermId, lockedAmount, false);
+                emit JurorSlashed(jurorAddress, lockedAmount, nextTermId);
             }
         }
 
@@ -373,7 +385,7 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
             tree.update(juror.id, nextTermId, _amount, false);
         }
 
-        emit JurorTokensCollected(_juror, _amount, nextTermId);
+        emit JurorSlashed(_juror, _amount, nextTermId);
         return true;
     }
 
@@ -664,16 +676,6 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
     * @param _data Optional data is never used by this function, only logged
     */
     function _unstake(address _juror, uint256 _amount, bytes memory _data) internal {
-        _withdraw(_juror, _amount);
-        emit Unstaked(_juror, _amount, _totalStakedFor(_juror), _data);
-    }
-
-    /**
-    * @dev Internal function to withdraw an amount of available tokens from a juror
-    * @param _juror Address of the juror to withdraw the tokens from
-    * @param _amount Amount of available tokens to be withdrawn
-    */
-    function _withdraw(address _juror, uint256 _amount) internal {
         require(_amount > 0, ERROR_INVALID_ZERO_AMOUNT);
 
         // Try to process a deactivation request for the current term if there is one. Note that we don't need to ensure
@@ -689,6 +691,7 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
         _processDeactivationRequest(_juror, lastEnsuredTermId);
 
         _updateAvailableBalanceOf(_juror, _amount, false);
+        emit Unstaked(_juror, _amount, _totalStakedFor(_juror), _data);
         require(jurorsToken.safeTransfer(_juror, _amount), ERROR_TOKEN_TRANSFER_FAILED);
     }
 
@@ -714,7 +717,6 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
             // No need for SafeMath: we already checked values right above
             juror.availableBalance -= _amount;
         }
-        emit JurorAvailableBalanceChanged(_juror, _amount, _positive);
     }
 
     /**

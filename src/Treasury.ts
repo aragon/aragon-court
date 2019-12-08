@@ -39,5 +39,5 @@ export function handleSubscriptionPaid(event: FeesClaimed): void {
 
 function buildFeeMovementId(juror: Address, type: string, event: EthereumEvent): string {
   let eventId = event.transaction.hash.toHex() + event.logIndex.toString()
-  return `${juror.toHex()}-${type.toLowerCase()}-${eventId}`
+  return juror.toHex() + '-' + type + '-' + eventId
 }

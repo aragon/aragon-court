@@ -8,7 +8,7 @@
     "create:mainnet": "graph create aragon/court-subgraph --node https://api.thegraph.com/deploy/",
     "deploy:rpc": "graph deploy aragon/court-subgraph --ipfs http://localhost:5001 --node http://127.0.0.1:8020",
     "deploy:mainnet": "graph deploy aragon/court-subgraph --ipfs https://api.thegraph.com/ipfs/ --node https://api.thegraph.com/deploy/",
-    "postinstall": "cd node_modules/@aragon/court && npm i && cp ../../../truffle-config truffle-config.js && npm run prepublishOnly"
+    "postinstall": "cd node_modules/@aragon/court && npm i && cp ../../../court-truffle-config truffle-config.js && npm run prepublishOnly"
   },
   "devDependencies": {},
   "dependencies": {

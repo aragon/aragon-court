@@ -55,7 +55,6 @@ type Arbitrable @entity {
   id: ID!
   disputes: [Dispute!] @derivedFrom(field: "subject")
   evidence: [Bytes!]
-  createdAt: BigInt!
 }
 
 type AdjudicationRound @entity {
@@ -71,7 +70,6 @@ type AdjudicationRound @entity {
   delayedTerms: BigInt!
   selectedJurors: BigInt!
   coherentJurors: BigInt!
-  settledJurors: BigInt!
   collectedTokens: BigInt!
   appeal: Appeal @derivedFrom(field: "round")
   createdAt: BigInt!

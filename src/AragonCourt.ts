@@ -1,14 +1,54 @@
-import { BigInt } from '@graphprotocol/graph-ts'
 import { AragonCourt } from '../types/AragonCourt/AragonCourt'
 import { CourtModule, CourtConfig } from '../types/schema'
+import { BigInt, Address, EthereumEvent } from '@graphprotocol/graph-ts'
 import { Heartbeat, ModuleSet, FundsGovernorChanged, ConfigGovernorChanged, ModulesGovernorChanged } from '../types/AragonCourt/AragonCourt'
 
 export function handleHeartbeat(event: Heartbeat): void {
-  let court = AragonCourt.bind(event.address)
-  let config = new CourtConfig(event.address.toHex())
-
+  let config = loadOrCreateConfig(event.address, event)
   config.currentTerm = event.params.currentTermId
-  config.termDuration = court.getTermDuration()
+
+  let court = AragonCourt.bind(event.address)
+  config.fundsGovernor = court.getFundsGovernor()
+  config.configGovernor = court.getConfigGovernor()
+  config.modulesGovernor = court.getModulesGovernor()
+  config.save()
+}
+
+export function handleFundsGovernorChanged(event: FundsGovernorChanged): void {
+  let config = loadOrCreateConfig(event.address, event)
+  config.fundsGovernor = event.params.currentGovernor
+  config.save()
+}
+
+export function handleConfigGovernorChanged(event: ConfigGovernorChanged): void {
+  let config = loadOrCreateConfig(event.address, event)
+  config.configGovernor = event.params.currentGovernor
+  config.save()
+}
+
+export function handleModulesGovernorChanged(event: ModulesGovernorChanged): void {
+  let config = loadOrCreateConfig(event.address, event)
+  config.modulesGovernor = event.params.currentGovernor
+  config.save()
+}
+
+export function handleModuleSet(event: ModuleSet): void {
+  let module = new CourtModule(event.params.id.toHex())
+  module.court = event.address.toHex()
+  module.address = event.params.addr
+  module.save()
+}
+
+function loadOrCreateConfig(courtAddress: Address, event: EthereumEvent): CourtConfig | null {
+  let id = courtAddress.toHex()
+  let config = CourtConfig.load(id)
+  let court = AragonCourt.bind(event.address)
+
+  if (config === null) {
+    config = new CourtConfig(id)
+    config.currentTerm = BigInt.fromI32(0)
+    config.termDuration = court.getTermDuration()
+  }
 
   let result = court.getConfig(config.currentTerm as BigInt)
   config.feeToken = result.value0
@@ -30,33 +70,5 @@ export function handleHeartbeat(event: Heartbeat): void {
   config.appealConfirmCollateralFactor = result.value5[1]
   config.minActiveBalance = result.value6
 
-  config.fundsGovernor = court.getFundsGovernor()
-  config.configGovernor = court.getConfigGovernor()
-  config.modulesGovernor = court.getModulesGovernor()
-  config.save()
-}
-
-export function handleFundsGovernorChanged(event: FundsGovernorChanged): void {
-  let config = new CourtConfig(event.address.toHex())
-  config.fundsGovernor = event.params.currentGovernor
-  config.save()
-}
-
-export function handleConfigGovernorChanged(event: ConfigGovernorChanged): void {
-  let config = new CourtConfig(event.address.toHex())
-  config.configGovernor = event.params.currentGovernor
-  config.save()
-}
-
-export function handleModulesGovernorChanged(event: ModulesGovernorChanged): void {
-  let config = new CourtConfig(event.address.toHex())
-  config.modulesGovernor = event.params.currentGovernor
-  config.save()
-}
-
-export function handleModuleSet(event: ModuleSet): void {
-  let module = new CourtModule(event.params.id.toHex())
-  module.court = event.address.toHex()
-  module.address = event.params.addr
-  module.save()
+  return config
 }

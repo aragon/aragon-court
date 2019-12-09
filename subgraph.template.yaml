@@ -6,9 +6,9 @@ schema:
 dataSources:
   - kind: ethereum/contract
     name: AragonCourt
-    network: mainnet
+    network: {{network}}
     source:
-      address: '0x21a59654176f2689d12E828B77a783072CD26680'
+      address: '{{court}}'
       abi: AragonCourt
     mapping:
       kind: ethereum/events
@@ -34,9 +34,9 @@ dataSources:
       file: ./src/AragonCourt.ts
   - kind: ethereum/contract
     name: DisputeManager
-    network: mainnet
+    network: {{network}}
     source:
-      address: '0xD86C8F0327494034F60e25074420BcCF560D5610'
+      address: '{{disputes}}'
       abi: DisputeManager
     mapping:
       kind: ethereum/events
@@ -79,9 +79,9 @@ dataSources:
       file: ./src/DisputeManager.ts
   - kind: ethereum/contract
     name: JurorsRegistry
-    network: mainnet
+    network: {{network}}
     source:
-      address: '0x4bf749ec68270027C5910220CEAB30Cc284c7BA2'
+      address: '{{registry}}'
       abi: JurorsRegistry
     mapping:
       kind: ethereum/events
@@ -120,9 +120,9 @@ dataSources:
       file: ./src/JurorsRegistry.ts
   - kind: ethereum/contract
     name: Voting
-    network: mainnet
+    network: {{network}}
     source:
-      address: '0xaD888d0Ade988EbEe74B8D4F39BF29a8d0fe8A8D'
+      address: '{{voting}}'
       abi: Voting
     mapping:
       kind: ethereum/events
@@ -143,9 +143,9 @@ dataSources:
       file: ./src/Voting.ts
   - kind: ethereum/contract
     name: Treasury
-    network: mainnet
+    network: {{network}}
     source:
-      address: '0x7C728214be9A0049e6a86f2137ec61030D0AA964'
+      address: '{{treasury}}'
       abi: Treasury
     mapping:
       kind: ethereum/events
@@ -164,9 +164,9 @@ dataSources:
       file: ./src/Treasury.ts
   - kind: ethereum/contract
     name: Subscriptions
-    network: mainnet
+    network: {{network}}
     source:
-      address: '0x5017A545b09ab9a30499DE7F431DF0855bCb7275'
+      address: '{{subscriptions}}'
       abi: Subscriptions
     mapping:
       kind: ethereum/events
@@ -183,9 +183,9 @@ dataSources:
       file: ./src/Treasury.ts
   - kind: ethereum/contract
     name: ANJ
-    network: mainnet
+    network: {{network}}
     source:
-      address: '0x5f8e26fAcC23FA4cbd87b8d9Dbbd33D5047abDE1'
+      address: '{{anj}}'
       abi: ANJ
     mapping:
       kind: ethereum/events

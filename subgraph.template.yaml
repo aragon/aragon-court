@@ -207,3 +207,22 @@ dataSources:
         - event: Transfer(indexed address,indexed address,uint256)
           handler: handleTransfer
       file: ./src/ANJ.ts
+templates:
+  - kind: ethereum/contract
+    name: Arbitrable
+    network: {{network}}
+    source:
+      abi: Arbitrable
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.3
+      language: wasm/assemblyscript
+      entities:
+        - Arbitrable
+      abis:
+        - name: Arbitrable
+          file: ./node_modules/@aragon/court/abi/IArbitrable.json
+      eventHandlers:
+        - event: EvidenceSubmitted(indexed uint256,indexed address,bytes,bool)
+          handler: handleEvidenceSubmitted
+      file: ./src/Arbitrable.ts

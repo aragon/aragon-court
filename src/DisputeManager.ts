@@ -1,4 +1,4 @@
-import { Arbitrable as ArbitrableContract } from '../types/DisputeManager/Arbitrable'
+import { Arbitrable as ArbitrableTemplate } from '../types/templates'
 import { crypto, Bytes, BigInt, Address, ByteArray, EthereumEvent } from '@graphprotocol/graph-ts'
 import { AdjudicationRound, Arbitrable, Dispute, Appeal, JurorDraft, Juror } from '../types/schema'
 import {
@@ -30,8 +30,7 @@ export function handleNewDispute(event: NewDispute): void {
 
   updateRound(event.params.disputeId, dispute.lastRoundId, event)
 
-  // TODO: fetch evidence from Arbitrable's emitted event
-  let arbitrableContract = ArbitrableContract.bind(event.params.subject)
+  ArbitrableTemplate.create(event.params.subject)
   let arbitrable = new Arbitrable(event.params.subject.toHex())
   arbitrable.evidence = new Array<Bytes>()
   arbitrable.save()

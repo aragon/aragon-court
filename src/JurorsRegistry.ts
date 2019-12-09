@@ -38,7 +38,7 @@ export function handleTotalActiveBalanceLimitChanged(event: TotalActiveBalanceLi
   anj.save()
 
   let controllerAddress = registry.getController()
-  let config = new CourtConfig(controllerAddress.toHex())
+  let config = CourtConfig.load(controllerAddress.toHex())
   config.anjToken = anjAddress.toHex()
   config.save()
 }

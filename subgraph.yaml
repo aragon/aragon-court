@@ -1,0 +1,209 @@
+specVersion: 0.0.2
+description: Aragon Court subgraph
+repository: https://github.com/aragon/court-subgraph/
+schema:
+  file: ./schema.graphql
+dataSources:
+  - kind: ethereum/contract
+    name: AragonCourt
+    network: mainnet
+    source:
+      address: '0xfE82e8f24A51E670133f4268cDfc164c49FC3b37'
+      abi: AragonCourt
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.3
+      language: wasm/assemblyscript
+      entities:
+        - CourtConfig
+        - CourtModule
+      abis:
+        - name: AragonCourt
+          file: ./node_modules/@aragon/court/abi/AragonCourt.json
+        - name: ERC20
+          file: ./node_modules/@aragon/minime/abi/MiniMeToken.json
+      eventHandlers:
+        - event: Heartbeat(uint64,uint64)
+          handler: handleHeartbeat
+        - event: FundsGovernorChanged(address,address)
+          handler: handleFundsGovernorChanged
+        - event: ConfigGovernorChanged(address,address)
+          handler: handleConfigGovernorChanged
+        - event: ModulesGovernorChanged(address,address)
+          handler: handleModulesGovernorChanged
+        - event: ModuleSet(bytes32,address)
+          handler: handleModuleSet
+      file: ./src/AragonCourt.ts
+  - kind: ethereum/contract
+    name: DisputeManager
+    network: mainnet
+    source:
+      address: '0xb4fFe5983B0B748124577Af4d16953bd096b6897'
+      abi: DisputeManager
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.3
+      language: wasm/assemblyscript
+      entities:
+        - Arbitrable
+        - Dispute
+        - AdjudicationRound
+        - Juror
+        - JurorDraft
+        - ANJMovement
+        - Appeal
+      abis:
+        - name: Arbitrable
+          file: ./node_modules/@aragon/court/abi/IArbitrable.json
+        - name: Controller
+          file: ./node_modules/@aragon/court/abi/Controller.json
+        - name: DisputeManager
+          file: ./node_modules/@aragon/court/abi/DisputeManager.json
+      eventHandlers:
+        - event: NewDispute(indexed uint256,indexed address,indexed uint64,uint64,bytes)
+          handler: handleNewDispute
+        - event: JurorDrafted(indexed uint256,indexed uint256,indexed address)
+          handler: handleJurorDrafted
+        - event: DisputeStateChanged(indexed uint256,indexed uint8)
+          handler: handleDisputeStateChanged
+        - event: RulingAppealed(indexed uint256,indexed uint256,uint8)
+          handler: handleRulingAppealed
+        - event: RulingAppealConfirmed(indexed uint256,indexed uint256,indexed uint64,uint256)
+          handler: handleRulingAppealConfirmed
+        - event: PenaltiesSettled(indexed uint256,indexed uint256,uint256)
+          handler: handlePenaltiesSettled
+        - event: RewardSettled(indexed uint256,indexed uint256,address)
+          handler: handleRewardSettled
+        - event: AppealDepositSettled(indexed uint256,indexed uint256)
+          handler: handleAppealDepositSettled
+        - event: RulingComputed(indexed uint256,indexed uint8)
+          handler: handleRulingComputed
+      file: ./src/DisputeManager.ts
+  - kind: ethereum/contract
+    name: JurorsRegistry
+    network: mainnet
+    source:
+      address: '0xFF5181e2210AB92a5c9db93729Bc47332555B9E9'
+      abi: JurorsRegistry
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.3
+      language: wasm/assemblyscript
+      entities:
+        - Juror
+        - JurorDraft
+        - ANJMovement
+      abis:
+        - name: Controller
+          file: ./node_modules/@aragon/court/abi/Controller.json
+        - name: JurorsRegistry
+          file: ./node_modules/@aragon/court/abi/JurorsRegistry.json
+        - name: ERC20
+          file: ./node_modules/@aragon/minime/abi/MiniMeToken.json
+      eventHandlers:
+        - event: Staked(indexed address,uint256,uint256,bytes)
+          handler: handleStaked
+        - event: Unstaked(indexed address,uint256,uint256,bytes)
+          handler: handleUnstaked
+        - event: JurorActivated(indexed address,uint64,uint256)
+          handler: handleJurorActivated
+        - event: JurorBalanceLocked(indexed address,uint256)
+          handler: handleJurorBalanceLocked
+        - event: JurorBalanceUnlocked(indexed address,uint256)
+          handler: handleJurorBalanceUnlocked
+        - event: JurorDeactivationRequested(indexed address,uint64,uint256)
+          handler: handleJurorDeactivationRequested
+        - event: JurorDeactivationUpdated(indexed address,uint64,uint256,uint64)
+          handler: handleJurorDeactivationUpdated
+        - event: JurorDeactivationProcessed(indexed address,uint64,uint256,uint64)
+          handler: handleJurorDeactivationProcessed
+        - event: JurorRewarded(indexed address,uint256)
+          handler: handleJurorRewarded
+        - event: JurorSlashed(indexed address,uint256,uint64)
+          handler: handleJurorSlashed
+        - event: TotalActiveBalanceLimitChanged(uint256,uint256)
+          handler: handleTotalActiveBalanceLimitChanged
+      file: ./src/JurorsRegistry.ts
+  - kind: ethereum/contract
+    name: Voting
+    network: mainnet
+    source:
+      address: '0x6f84742680311CEF5ba42bc10A71a4708b4561d1'
+      abi: Voting
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.3
+      language: wasm/assemblyscript
+      entities:
+        - JurorDraft
+      abis:
+        - name: Voting
+          file: ./node_modules/@aragon/court/abi/CRVoting.json
+      eventHandlers:
+        - event: VoteCommitted(indexed uint256,indexed address,bytes32)
+          handler: handleVoteCommitted
+        - event: VoteLeaked(indexed uint256,indexed address,uint8,address)
+          handler: handleVoteLeaked
+        - event: VoteRevealed(indexed uint256,indexed address,uint8)
+          handler: handleVoteRevealed
+      file: ./src/Voting.ts
+  - kind: ethereum/contract
+    name: Treasury
+    network: mainnet
+    source:
+      address: '0xC5aFE31AE505594B190AC71EA689B58139d1C354'
+      abi: Treasury
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.3
+      language: wasm/assemblyscript
+      entities:
+        - FeeMovement
+      abis:
+        - name: Treasury
+          file: ./node_modules/@aragon/court/abi/CourtTreasury.json
+      eventHandlers:
+        - event: Assign(indexed address,indexed address,indexed address,uint256)
+          handler: handleAssign
+        - event: Withdraw(indexed address,indexed address,indexed address,uint256)
+          handler: handleWithdraw
+      file: ./src/Treasury.ts
+  - kind: ethereum/contract
+    name: Subscriptions
+    network: mainnet
+    source:
+      address: '0x42D4BA5e542d9FeD87EA657f0295F1968A61c00A'
+      abi: Subscriptions
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.3
+      language: wasm/assemblyscript
+      entities:
+        - FeeMovement
+      abis:
+        - name: Subscriptions
+          file: ./node_modules/@aragon/court/abi/CourtSubscriptions.json
+      eventHandlers:
+        - event: FeesClaimed(indexed address,indexed uint256,uint256)
+          handler: handleSubscriptionPaid
+      file: ./src/Treasury.ts
+  - kind: ethereum/contract
+    name: ANJ
+    network: mainnet
+    source:
+      address: '0x254dffcd3277C0b1660F6d42EFbB754edaBAbC2B'
+      abi: ANJ
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.3
+      language: wasm/assemblyscript
+      entities:
+        - ANJBalance
+        - ANJTransfer
+      abis:
+        - name: ANJ
+          file: ./node_modules/@aragon/minime/abi/MiniMeToken.json
+      eventHandlers:
+        - event: Transfer(indexed address,indexed address,uint256)
+          handler: handleTransfer
+      file: ./src/ANJ.ts

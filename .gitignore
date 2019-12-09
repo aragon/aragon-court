@@ -7,3 +7,4 @@ package-lock.json
 # Production
 build
 types
+subgraph.yaml

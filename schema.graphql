@@ -1,29 +1,37 @@
 type CourtConfig @entity {
   id: ID!
-  currentTerm: BigInt
-  termDuration: BigInt
-  feeToken: Bytes
-  jurorFee: BigInt
-  draftFee: BigInt
-  settleFee: BigInt
-  evidenceTerms: BigInt
-  commitTerms: BigInt
-  revealTerms: BigInt
-  appealTerms: BigInt
-  appealConfirmationTerms: BigInt
-  penaltyPct: Int
-  finalRoundReduction: Int
-  firstRoundJurorsNumber: BigInt
-  appealStepFactor: BigInt
-  maxRegularAppealRounds: BigInt
-  finalRoundLockTerms: BigInt
-  appealCollateralFactor: BigInt
-  appealConfirmCollateralFactor: BigInt
-  minActiveBalance: BigInt
+  currentTerm: BigInt!
+  termDuration: BigInt!
+  feeToken: ERC20!
+  anjToken: ERC20
+  jurorFee: BigInt!
+  draftFee: BigInt!
+  settleFee: BigInt!
+  evidenceTerms: BigInt!
+  commitTerms: BigInt!
+  revealTerms: BigInt!
+  appealTerms: BigInt!
+  appealConfirmationTerms: BigInt!
+  penaltyPct: Int!
+  finalRoundReduction: Int!
+  firstRoundJurorsNumber: BigInt!
+  appealStepFactor: BigInt!
+  maxRegularAppealRounds: BigInt!
+  finalRoundLockTerms: BigInt!
+  appealCollateralFactor: BigInt!
+  appealConfirmCollateralFactor: BigInt!
+  minActiveBalance: BigInt!
   fundsGovernor: Bytes
   configGovernor: Bytes
   modulesGovernor: Bytes
   modules: [CourtModule!] @derivedFrom(field: "court")
+}
+
+type ERC20 @entity {
+  id: ID!
+  name: String!
+  symbol: String!
+  decimals: Int!
 }
 
 type CourtModule @entity {

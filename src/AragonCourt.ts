@@ -1,5 +1,6 @@
 import { AragonCourt } from '../types/AragonCourt/AragonCourt'
-import { CourtModule, CourtConfig } from '../types/schema'
+import { ERC20 as ERC20Contract } from '../types/AragonCourt/ERC20'
+import { ERC20, CourtModule, CourtConfig } from '../types/schema'
 import { BigInt, Address, EthereumEvent } from '@graphprotocol/graph-ts'
 import { Heartbeat, ModuleSet, FundsGovernorChanged, ConfigGovernorChanged, ModulesGovernorChanged } from '../types/AragonCourt/AragonCourt'
 
@@ -51,7 +52,16 @@ function loadOrCreateConfig(courtAddress: Address, event: EthereumEvent): CourtC
   }
 
   let result = court.getConfig(config.currentTerm as BigInt)
-  config.feeToken = result.value0
+
+  let feeTokenAddress = result.value0
+  let feeTokenContract = ERC20Contract.bind(feeTokenAddress)
+  let feeToken = new ERC20(feeTokenAddress.toHex())
+  feeToken.name = feeTokenContract.name()
+  feeToken.symbol = feeTokenContract.symbol()
+  feeToken.decimals = feeTokenContract.decimals()
+  feeToken.save()
+
+  config.feeToken = feeTokenAddress.toHex()
   config.jurorFee = result.value1[0]
   config.draftFee = result.value1[1]
   config.settleFee = result.value1[2]

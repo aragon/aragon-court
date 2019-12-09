@@ -20,6 +20,8 @@ dataSources:
       abis:
         - name: AragonCourt
           file: ./node_modules/@aragon/court/abi/AragonCourt.json
+        - name: ERC20
+          file: ./node_modules/@aragon/minime/abi/MiniMeToken.json
       eventHandlers:
         - event: Heartbeat(uint64,uint64)
           handler: handleHeartbeat
@@ -96,6 +98,8 @@ dataSources:
           file: ./node_modules/@aragon/court/abi/Controller.json
         - name: JurorsRegistry
           file: ./node_modules/@aragon/court/abi/JurorsRegistry.json
+        - name: ERC20
+          file: ./node_modules/@aragon/minime/abi/MiniMeToken.json
       eventHandlers:
         - event: Staked(indexed address,uint256,uint256,bytes)
           handler: handleStaked
@@ -117,6 +121,8 @@ dataSources:
           handler: handleJurorRewarded
         - event: JurorSlashed(indexed address,uint256,uint64)
           handler: handleJurorSlashed
+        - event: TotalActiveBalanceLimitChanged(uint256,uint256)
+          handler: handleTotalActiveBalanceLimitChanged
       file: ./src/JurorsRegistry.ts
   - kind: ethereum/contract
     name: Voting

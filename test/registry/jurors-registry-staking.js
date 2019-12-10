@@ -247,7 +247,7 @@ contract('JurorsRegistry', ([_, juror, anotherJuror]) => {
           const receipt = await registry.stake(amount, data, { from })
 
           assertAmountOfEvents(receipt, REGISTRY_EVENTS.JUROR_ACTIVATED)
-          assertEvent(receipt, REGISTRY_EVENTS.JUROR_ACTIVATED, { juror, fromTermId: termId.add(bn(1)), amount })
+          assertEvent(receipt, REGISTRY_EVENTS.JUROR_ACTIVATED, { juror, fromTermId: termId.add(bn(1)), amount, sender: from })
         })
       }
 
@@ -561,15 +561,15 @@ contract('JurorsRegistry', ([_, juror, anotherJuror]) => {
 
         it('updates the total staked for the recipient', async () => {
           const previousSenderTotalStake = await registry.totalStakedFor(from)
-          const previousRecipientTotalStake = await registry.totalStakedFor(juror)
+          const previousRecipientTotalStake = await registry.totalStakedFor(recipient)
 
           await registry.stakeFor(recipient, amount, data, { from })
 
-          const currentRecipientTotalStake = await registry.totalStakedFor(juror)
+          const currentRecipientTotalStake = await registry.totalStakedFor(recipient)
           assertBn(previousRecipientTotalStake.add(amount), currentRecipientTotalStake, 'recipient total stake amounts do not match')
 
           if (recipient !== from) {
-            const currentSenderTotalStake = await registry.totalStakedFor(juror)
+            const currentSenderTotalStake = await registry.totalStakedFor(from)
             assertBn(previousSenderTotalStake, currentSenderTotalStake, 'sender total stake amounts do not match')
           }
         })
@@ -603,7 +603,7 @@ contract('JurorsRegistry', ([_, juror, anotherJuror]) => {
         })
 
         it('emits a stake event', async () => {
-          const previousTotalStake = await registry.totalStakedFor(juror)
+          const previousTotalStake = await registry.totalStakedFor(recipient)
 
           const receipt = await registry.stakeFor(recipient, amount, data, { from })
 
@@ -617,7 +617,7 @@ contract('JurorsRegistry', ([_, juror, anotherJuror]) => {
           const receipt = await registry.stakeFor(recipient, amount, data, { from })
 
           assertAmountOfEvents(receipt, REGISTRY_EVENTS.JUROR_ACTIVATED)
-          assertEvent(receipt, REGISTRY_EVENTS.JUROR_ACTIVATED, { juror: recipient, fromTermId: termId.add(bn(1)), amount })
+          assertEvent(receipt, REGISTRY_EVENTS.JUROR_ACTIVATED, { juror: recipient, fromTermId: termId.add(bn(1)), amount, sender: from })
         })
       }
 
@@ -681,13 +681,13 @@ contract('JurorsRegistry', ([_, juror, anotherJuror]) => {
         context('when the recipient and the sender are not the same', async () => {
           const recipient = anotherJuror
 
-          itHandlesStakesWithoutActivationProperlyForDifferentAmounts(recipient, data)
+          itHandlesStakesWithActivationProperlyForDifferentAmounts(recipient, data)
         })
 
         context('when the recipient is the zero address', async () => {
           const recipient = ZERO_ADDRESS
 
-          itHandlesStakesWithoutActivationProperlyForDifferentAmounts(recipient, data)
+          itHandlesStakesWithActivationProperlyForDifferentAmounts(recipient, data)
         })
       }
 
@@ -915,7 +915,7 @@ contract('JurorsRegistry', ([_, juror, anotherJuror]) => {
             const logs = decodeEventsOfType(receipt, JurorsRegistry.abi, REGISTRY_EVENTS.JUROR_ACTIVATED)
 
             assertAmountOfEvents({ logs }, REGISTRY_EVENTS.JUROR_ACTIVATED)
-            assertEvent({ logs }, REGISTRY_EVENTS.JUROR_ACTIVATED, { juror, fromTermId: termId.add(bn(1)), amount })
+            assertEvent({ logs }, REGISTRY_EVENTS.JUROR_ACTIVATED, { juror, fromTermId: termId.add(bn(1)), amount, sender: from })
           })
         }
 

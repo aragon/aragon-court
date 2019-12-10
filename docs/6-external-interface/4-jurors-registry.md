@@ -29,6 +29,7 @@ The following events are emitted by the `JurorsRegistry`:
     - **Juror:** Address of the juror activated
     - **Amount:** Amount of juror tokens activated
     - **From term ID:** Identification number of the term in which the juror tokens will be activated
+    - **Sender:** Address of the account requesting the activation
     
 #### 6.4.1.4. Juror deactivation requested
 

@@ -106,7 +106,7 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
     // Tree to store jurors active balance by term for the drafting process
     HexSumTree.Tree internal tree;
 
-    event JurorActivated(address indexed juror, uint64 fromTermId, uint256 amount);
+    event JurorActivated(address indexed juror, uint64 fromTermId, uint256 amount, address sender);
     event JurorDeactivationRequested(address indexed juror, uint64 availableTermId, uint256 amount);
     event JurorDeactivationProcessed(address indexed juror, uint64 availableTermId, uint256 amount, uint64 processedTermId);
     event JurorDeactivationUpdated(address indexed juror, uint64 availableTermId, uint256 amount, uint64 updateTermId);
@@ -149,7 +149,7 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
         require(amountToActivate > 0, ERROR_INVALID_ZERO_AMOUNT);
         require(amountToActivate <= availableBalance, ERROR_INVALID_ACTIVATION_AMOUNT);
 
-        _activateTokens(msg.sender, amountToActivate);
+        _activateTokens(msg.sender, amountToActivate, msg.sender);
     }
 
     /**
@@ -554,8 +554,9 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
     *      This function assumes that the given term is the current term and has already been ensured.
     * @param _juror Address of the juror to activate tokens
     * @param _amount Amount of juror tokens to be activated
+    * @param _sender Address of the account requesting the activation
     */
-    function _activateTokens(address _juror, uint256 _amount) internal {
+    function _activateTokens(address _juror, uint256 _amount, address _sender) internal {
         uint64 termId = _ensureCurrentTerm();
 
         // Try to clean a previous deactivation request if any
@@ -579,7 +580,7 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
         }
 
         _updateAvailableBalanceOf(_juror, _amount, false);
-        emit JurorActivated(_juror, nextTermId, _amount);
+        emit JurorActivated(_juror, nextTermId, _amount, _sender);
     }
 
     /**
@@ -660,10 +661,10 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
         require(_amount > 0, ERROR_INVALID_ZERO_AMOUNT);
         _updateAvailableBalanceOf(_juror, _amount, true);
 
-        // Activate tokens if it was requested and the address depositing tokens is the juror. Note that there's
-        // no need to check the activation amount since we have just added it to the available balance of the juror.
-        if (_from == _juror && _data.toBytes4() == JurorsRegistry(this).activate.selector) {
-            _activateTokens(_juror, _amount);
+        // Activate tokens if it was requested by the sender. Note that there's no need to check
+        // the activation amount since we have just added it to the available balance of the juror.
+        if (_data.toBytes4() == JurorsRegistry(this).activate.selector) {
+            _activateTokens(_juror, _amount, _from);
         }
 
         emit Staked(_juror, _amount, _totalStakedFor(_juror), _data);

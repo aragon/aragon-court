@@ -141,7 +141,7 @@ contract('JurorsRegistry', ([_, juror, someone]) => {
       })
 
       context('when the given amount is greater than zero', () => {
-        const itEmitsAJurorRewardedEvent = (assignmentCall, recipient, amount) => {
+        const itEmitsAJurorTokensAssignedEvent = (assignmentCall, recipient, amount) => {
           it('emits a juror rewarded event', async () => {
             const receipt = await assignmentCall()
             const logs = decodeEventsOfType(receipt, JurorsRegistry.abi, REGISTRY_EVENTS.JUROR_TOKENS_ASSIGNED)
@@ -155,7 +155,7 @@ contract('JurorsRegistry', ([_, juror, someone]) => {
           const amount = bigExp(100, 18)
 
           itHandlesTokenAssignmentsProperly(() => disputeManager.assignTokens(juror, amount), juror, amount)
-          itEmitsAJurorRewardedEvent(() => disputeManager.assignTokens(juror, amount), juror, amount)
+          itEmitsAJurorTokensAssignedEvent(() => disputeManager.assignTokens(juror, amount), juror, amount)
         })
 
         context('when the juror already had some balance', () => {
@@ -169,7 +169,7 @@ contract('JurorsRegistry', ([_, juror, someone]) => {
             const amount = bigExp(100, 18)
 
             itHandlesTokenAssignmentsProperly(() => disputeManager.assignTokens(juror, amount), juror, amount)
-            itEmitsAJurorRewardedEvent(() => disputeManager.assignTokens(juror, amount), juror, amount)
+            itEmitsAJurorTokensAssignedEvent(() => disputeManager.assignTokens(juror, amount), juror, amount)
           })
 
           context('when the given amount does overflow', () => {
@@ -201,7 +201,7 @@ contract('JurorsRegistry', ([_, juror, someone]) => {
       })
 
       context('when the given amount is greater than zero', () => {
-        const itEmitsABurnedTokenEvent = (assignmentCall, amount) => {
+        const itEmitsAJurorTokensBurnedEvent = (assignmentCall, amount) => {
           it('emits a burned tokens event', async () => {
             const receipt = await assignmentCall()
             const logs = decodeEventsOfType(receipt, JurorsRegistry.abi, REGISTRY_EVENTS.JUROR_TOKENS_BURNED)
@@ -215,7 +215,7 @@ contract('JurorsRegistry', ([_, juror, someone]) => {
           const amount = bigExp(100, 18)
 
           itHandlesTokenAssignmentsProperly(() => disputeManager.burnTokens(amount), BURN_ADDRESS, amount)
-          itEmitsABurnedTokenEvent(() => disputeManager.burnTokens(amount), amount)
+          itEmitsAJurorTokensBurnedEvent(() => disputeManager.burnTokens(amount), amount)
         })
 
         context('when the burn address already had some balance', () => {
@@ -227,7 +227,7 @@ contract('JurorsRegistry', ([_, juror, someone]) => {
             const amount = bigExp(100, 18)
 
             itHandlesTokenAssignmentsProperly(() => disputeManager.burnTokens(amount), BURN_ADDRESS, amount)
-            itEmitsABurnedTokenEvent(() => disputeManager.burnTokens(amount), amount)
+            itEmitsAJurorTokensBurnedEvent(() => disputeManager.burnTokens(amount), amount)
           })
 
           context('when the given amount does overflow', () => {

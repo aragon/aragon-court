@@ -70,16 +70,30 @@ The following events are emitted by the `JurorsRegistry`:
     - **Juror:** Address of the juror whose active balance was unlocked
     - **Amount:** Amount of active locked that was unlocked to the juror
 
-#### 6.4.1.9. Juror rewarded
+#### 6.4.1.9. Juror slashed
 
-- **Name:** `JurorRewarded`
+- **Name:** `JurorSlashed`
+- **Args:**
+    - **Juror:** Address of the juror whose active tokens were slashed
+    - **Amount:** Amount of juror tokens slashed from the juror active tokens
+    - **Effective term ID:** Identification number of the term when the juror active balance will be updated
+
+#### 6.4.1.10. Juror tokens assigned
+
+- **Name:** `JurorTokensAssigned`
 - **Args:**
     - **Juror:** Address of the juror receiving tokens
     - **Amount:** Amount of juror tokens assigned to the staked balance of the juror
 
-#### 6.4.1.10. Juror slashed
+#### 6.4.1.11. Juror tokens burned
 
-- **Name:** `JurorSlashed`
+- **Name:** `JurorTokensBurned`
+- **Args:**
+    - **Amount:** Amount of juror tokens burned to the zero address
+
+#### 6.4.1.12. Juror tokens collected
+
+- **Name:** `JurorTokensCollected`
 - **Args:**
     - **Juror:** Address of the juror whose active tokens were collected
     - **Amount:** Amount of juror tokens collected from the juror active tokens

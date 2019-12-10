@@ -297,14 +297,14 @@ contract('JurorsRegistry', ([_, juror, secondJuror, thirdJuror, anyone]) => {
         })
 
         if (amount.eq(bn(0))) {
-          it('does not emit a juror slashed event', async () => {
+          it('does not emit a juror tokens collected event', async () => {
             const receipt = await disputeManager.collect(juror, amount)
             const logs = decodeEventsOfType(receipt, JurorsRegistry.abi, REGISTRY_EVENTS.JUROR_TOKENS_COLLECTED)
 
             assertAmountOfEvents({ logs }, REGISTRY_EVENTS.JUROR_TOKENS_COLLECTED, 0)
           })
         } else {
-          it('emits a juror slashed event', async () => {
+          it('emits a juror tokens collected event', async () => {
             const termId = await controller.getLastEnsuredTermId()
 
             const receipt = await disputeManager.collect(juror, amount)

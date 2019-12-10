@@ -63,7 +63,7 @@ In particular, the first version of the Court protocol uses a commit-reveal mech
     - **Voter:** Address of the voter revealing a vote for
     - **Outcome:** Outcome leaked for the voter
     - **Salt:** Salt to decrypt and validate the committed vote of the voter
-- **Authentication:** Open. Implicitly, only jurors that have committed a vote during the commit phase of the adjudication round can call this function
+- **Authentication:** Open
 - **Pre-flight checks:**
     - Ensure the voter commitment can be decrypted with the provided outcome and salt values
     - Ensure the resultant outcome is valid

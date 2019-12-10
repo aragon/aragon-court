@@ -10,7 +10,7 @@ const { assertEvent, assertAmountOfEvents } = require('../helpers/asserts/assert
 const CRVoting = artifacts.require('CRVoting')
 const Court = artifacts.require('DisputeManagerMockForVoting')
 
-contract('CRVoting reveal', ([_, voter]) => {
+contract('CRVoting reveal', ([_, voter, someone]) => {
   let controller, voting, disputeManager
 
   const POSSIBLE_OUTCOMES = 2
@@ -35,7 +35,7 @@ contract('CRVoting reveal', ([_, voter]) => {
 
       context('when the given voter has not voted before', () => {
         it('reverts', async () => {
-          await assertRevert(voting.reveal(voteId, OUTCOMES.LOW, SALT, { from: voter }), VOTING_ERRORS.INVALID_COMMITMENT_SALT)
+          await assertRevert(voting.reveal(voteId, voter, OUTCOMES.LOW, SALT), VOTING_ERRORS.INVALID_COMMITMENT_SALT)
         })
       })
 
@@ -62,40 +62,54 @@ contract('CRVoting reveal', ([_, voter]) => {
                 context('when the given salt matches the one used', () => {
                   const salt = SALT
 
-                  it('reveals the given vote', async () => {
-                    await voting.reveal(voteId, outcome, salt, { from: voter })
+                  const itHandlesRevealsCorrectly = from => {
+                    it('reveals the given vote', async () => {
+                      await voting.reveal(voteId, voter, outcome, salt, { from })
 
-                    const voterOutcome = await voting.getVoterOutcome(voteId, voter)
-                    assertBn(voterOutcome, outcome, 'voter outcome does not match')
+                      const voterOutcome = await voting.getVoterOutcome(voteId, voter)
+                      assertBn(voterOutcome, outcome, 'voter outcome does not match')
+                    })
+
+                    it('emits an event', async () => {
+                      const receipt = await voting.reveal(voteId, voter, outcome, salt, { from })
+
+                      assertAmountOfEvents(receipt, VOTING_EVENTS.VOTE_REVEALED)
+                      assertEvent(receipt, VOTING_EVENTS.VOTE_REVEALED, { voteId, voter, outcome, revealer: from })
+                    })
+
+                    it('updates the outcomes tally', async () => {
+                      const previousTally = await voting.getOutcomeTally(voteId, outcome)
+
+                      await voting.reveal(voteId, voter, outcome, salt, { from })
+
+                      const currentTally = await voting.getOutcomeTally(voteId, outcome)
+                      assertBn(previousTally.add(bn(weight)), currentTally, 'tallies do not match')
+                    })
+
+                    it('computes the new winning outcome', async () => {
+                      await voting.reveal(voteId, voter, outcome, salt, { from })
+
+                      assertBn((await voting.getWinningOutcome(voteId)), outcome, 'winning outcomes does not match')
+                    })
+
+                    it('considers the voter as a winner', async () => {
+                      await voting.reveal(voteId, voter, outcome, salt, { from })
+
+                      const winningOutcome = await voting.getWinningOutcome(voteId)
+                      assert.isTrue(await voting.hasVotedInFavorOf(voteId, winningOutcome, voter), 'voter should be a winner')
+                    })
+                  }
+
+                  context('when voter is revealing their own vote', () => {
+                    const from = voter
+
+                    itHandlesRevealsCorrectly(from)
                   })
 
-                  it('emits an event', async () => {
-                    const receipt = await voting.reveal(voteId, outcome, salt, { from: voter })
+                  context('when another one is revealing the vote', () => {
+                    const from = someone
 
-                    assertAmountOfEvents(receipt, VOTING_EVENTS.VOTE_REVEALED)
-                    assertEvent(receipt, VOTING_EVENTS.VOTE_REVEALED, { voteId, voter, outcome })
-                  })
-
-                  it('updates the outcomes tally', async () => {
-                    const previousTally = await voting.getOutcomeTally(voteId, outcome)
-
-                    await voting.reveal(voteId, outcome, salt, { from: voter })
-
-                    const currentTally = await voting.getOutcomeTally(voteId, outcome)
-                    assertBn(previousTally.add(bn(weight)), currentTally, 'tallies do not match')
-                  })
-
-                  it('computes the new winning outcome', async () => {
-                    await voting.reveal(voteId, outcome, salt, { from: voter })
-
-                    assertBn((await voting.getWinningOutcome(voteId)), outcome, 'winning outcomes does not match')
-                  })
-
-                  it('considers the voter as a winner', async () => {
-                    await voting.reveal(voteId, outcome, salt, { from: voter })
-
-                    const winningOutcome = await voting.getWinningOutcome(voteId)
-                    assert.isTrue(await voting.hasVotedInFavorOf(voteId, winningOutcome, voter), 'voter should be a winner')
+                    itHandlesRevealsCorrectly(from)
                   })
                 })
 
@@ -103,7 +117,7 @@ contract('CRVoting reveal', ([_, voter]) => {
                   const salt = '0x'
 
                   it('reverts', async () => {
-                    await assertRevert(voting.reveal(voteId, outcome, salt, { from: voter }), VOTING_ERRORS.INVALID_COMMITMENT_SALT)
+                    await assertRevert(voting.reveal(voteId, voter, outcome, salt), VOTING_ERRORS.INVALID_COMMITMENT_SALT)
                   })
                 })
               })
@@ -115,7 +129,7 @@ contract('CRVoting reveal', ([_, voter]) => {
                   const salt = SALT
 
                   it('reverts', async () => {
-                    await assertRevert(voting.reveal(voteId, outcome, salt, { from: voter }), VOTING_ERRORS.INVALID_COMMITMENT_SALT)
+                    await assertRevert(voting.reveal(voteId, voter, outcome, salt), VOTING_ERRORS.INVALID_COMMITMENT_SALT)
                   })
                 })
 
@@ -123,7 +137,7 @@ contract('CRVoting reveal', ([_, voter]) => {
                   const salt = '0x'
 
                   it('reverts', async () => {
-                    await assertRevert(voting.reveal(voteId, outcome, salt, { from: voter }), VOTING_ERRORS.INVALID_COMMITMENT_SALT)
+                    await assertRevert(voting.reveal(voteId, voter, outcome, salt), VOTING_ERRORS.INVALID_COMMITMENT_SALT)
                   })
                 })
               })
@@ -136,7 +150,7 @@ contract('CRVoting reveal', ([_, voter]) => {
             })
 
             it('reverts', async () => {
-              await assertRevert(voting.reveal(voteId, committedOutcome, SALT, { from: voter }), VOTING_ERRORS.OWNER_MOCK_REVEAL_CHECK_REVERTED)
+              await assertRevert(voting.reveal(voteId, voter, committedOutcome, SALT), VOTING_ERRORS.OWNER_MOCK_REVEAL_CHECK_REVERTED)
             })
           })
         }
@@ -150,7 +164,7 @@ contract('CRVoting reveal', ([_, voter]) => {
           })
 
           it('reverts', async () => {
-            await assertRevert(voting.reveal(voteId, committedOutcome, SALT, { from: voter }), VOTING_ERRORS.INVALID_OUTCOME)
+            await assertRevert(voting.reveal(voteId, voter, committedOutcome, SALT), VOTING_ERRORS.INVALID_OUTCOME)
           })
         }
 
@@ -178,7 +192,7 @@ contract('CRVoting reveal', ([_, voter]) => {
 
     context('when the given vote ID is not valid', () => {
       it('reverts', async () => {
-        await assertRevert(voting.reveal(0, 0, '0x', { from: voter }), VOTING_ERRORS.VOTE_DOES_NOT_EXIST)
+        await assertRevert(voting.reveal(0, voter, 0, '0x'), VOTING_ERRORS.VOTE_DOES_NOT_EXIST)
       })
     })
   })

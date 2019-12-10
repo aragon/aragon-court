@@ -288,7 +288,7 @@ module.exports = (web3, artifacts) => {
         // if no outcome was set for the given outcome, pick one based on its index
         if (!outcome) outcome = outcomeFor(i)
         if (outcome !== OUTCOMES.LEAKED) {
-          await this.voting.reveal(voteId, outcome, SALT, { from: address })
+          await this.voting.reveal(voteId, address, outcome, SALT, { from: address })
         }
       }
 

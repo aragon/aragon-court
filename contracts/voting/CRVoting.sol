@@ -47,7 +47,7 @@ contract CRVoting is Controlled, ICRVoting {
 
     event VotingCreated(uint256 indexed voteId, uint8 possibleOutcomes);
     event VoteCommitted(uint256 indexed voteId, address indexed voter, bytes32 commitment);
-    event VoteRevealed(uint256 indexed voteId, address indexed voter, uint8 outcome);
+    event VoteRevealed(uint256 indexed voteId, address indexed voter, uint8 outcome, address revealer);
     event VoteLeaked(uint256 indexed voteId, address indexed voter, uint8 outcome, address leaker);
 
     /**
@@ -120,20 +120,21 @@ contract CRVoting is Controlled, ICRVoting {
     /**
     * @notice Reveal `_outcome` vote of `_voter` for vote #`_voteId`
     * @param _voteId ID of the vote instance to reveal a vote of
+    * @param _voter Address of the voter to reveal a vote for
     * @param _outcome Outcome revealed by the voter
     * @param _salt Salt to decrypt and validate the committed vote of the voter
     */
-    function reveal(uint256 _voteId, uint8 _outcome, bytes32 _salt) external voteExists(_voteId) {
+    function reveal(uint256 _voteId, address _voter, uint8 _outcome, bytes32 _salt) external voteExists(_voteId) {
         Vote storage vote = voteRecords[_voteId];
-        CastVote storage castVote = vote.votes[msg.sender];
+        CastVote storage castVote = vote.votes[_voter];
         _checkValidSalt(castVote, _outcome, _salt);
         require(_isValidOutcome(vote, _outcome), ERROR_INVALID_OUTCOME);
 
-        uint256 weight = _ensureVoterCanReveal(_voteId, msg.sender);
+        uint256 weight = _ensureVoterCanReveal(_voteId, _voter);
 
         castVote.outcome = _outcome;
         _updateTally(vote, _outcome, weight);
-        emit VoteRevealed(_voteId, msg.sender, _outcome);
+        emit VoteRevealed(_voteId, _voter, _outcome, msg.sender);
     }
 
     /**

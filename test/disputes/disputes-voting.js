@@ -65,7 +65,7 @@ contract('DisputeManager', ([_, drafter, juror100, juror500, juror1000, juror150
             ? (revealed ? VOTING_ERRORS.VOTE_ALREADY_REVEALED : DISPUTE_MANAGER_ERRORS.INVALID_ADJUDICATION_STATE)
             : VOTING_ERRORS.INVALID_COMMITMENT_SALT
 
-          await assertRevert(voting.reveal(voteId, outcome, SALT, { from: address }), expectedErrorMessage)
+          await assertRevert(voting.reveal(voteId, address, outcome, SALT), expectedErrorMessage)
         }
       })
     }
@@ -130,7 +130,7 @@ contract('DisputeManager', ([_, drafter, juror100, juror500, juror1000, juror150
 
               for (const { address, weight, outcome } of voters) {
                 expectedTally[outcome] += weight.toNumber()
-                receipts.push(await voting.reveal(voteId, outcome, SALT, { from: address }))
+                receipts.push(await voting.reveal(voteId, address, outcome, SALT))
               }
             })
 
@@ -157,7 +157,7 @@ contract('DisputeManager', ([_, drafter, juror100, juror500, juror1000, juror150
           context('when the sender did not vote', () => {
             it('reverts', async () => {
               for (const { address } of nonVoters) {
-                await assertRevert(voting.reveal(voteId, OUTCOMES.LOW, SALT, { from: address }), VOTING_ERRORS.INVALID_COMMITMENT_SALT)
+                await assertRevert(voting.reveal(voteId, address, OUTCOMES.LOW, SALT), VOTING_ERRORS.INVALID_COMMITMENT_SALT)
               }
             })
           })
@@ -315,7 +315,7 @@ contract('DisputeManager', ([_, drafter, juror100, juror500, juror1000, juror150
             for (const { address, outcome } of voters) {
               const { weight } = await courtHelper.getRoundJuror(disputeId, roundId, address)
               expectedTally[outcome] += weight.toNumber()
-              receipts.push(await voting.reveal(voteId, outcome, SALT, { from: address }))
+              receipts.push(await voting.reveal(voteId, address, outcome, SALT))
             }
           })
 
@@ -342,7 +342,7 @@ contract('DisputeManager', ([_, drafter, juror100, juror500, juror1000, juror150
         context('when the sender did not vote', () => {
           it('reverts', async () => {
             for (const { address } of nonVoters) {
-              await assertRevert(voting.reveal(voteId, OUTCOMES.LOW, SALT, { from: address }), VOTING_ERRORS.INVALID_COMMITMENT_SALT)
+              await assertRevert(voting.reveal(voteId, address, OUTCOMES.LOW, SALT), VOTING_ERRORS.INVALID_COMMITMENT_SALT)
             }
           })
         })

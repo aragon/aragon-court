@@ -26,6 +26,7 @@ The following events are emitted by the `Voting`:
     - **Vote ID:** Identification number of the vote instance where a vote has been revealed
     - **Voter:** Address of the voter whose vote has been revealed
     - **Outcome:** Outcome of the vote that has been revealed
+    - **Revealer:** Address of the account that has revealed the vote
 
 #### 6.5.1.4. Vote leaked
 

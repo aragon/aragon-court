@@ -163,11 +163,11 @@ contract('JurorsRegistry', ([_, juror500, juror1000, juror1500, juror2000, juror
           assert.deepEqual(addresses, expectedAddresses, 'jurors address do not match')
         })
 
-        it('does not emit JurorDrafted events', async () => {
+        it('does not emit a juror balance locked event', async () => {
           const { receipt } = await draft({ batchRequestedJurors, roundRequestedJurors })
-          const logs = decodeEventsOfType(receipt, JurorsRegistry.abi, REGISTRY_EVENTS.JUROR_DRAFTED)
+          const logs = decodeEventsOfType(receipt, JurorsRegistry.abi, REGISTRY_EVENTS.JUROR_BALANCE_LOCKED)
 
-          assertAmountOfEvents({ logs }, REGISTRY_EVENTS.JUROR_DRAFTED, 0)
+          assertAmountOfEvents({ logs }, REGISTRY_EVENTS.JUROR_BALANCE_LOCKED, 0)
         })
       }
 
@@ -194,7 +194,7 @@ contract('JurorsRegistry', ([_, juror500, juror1000, juror1500, juror2000, juror
           assert.deepEqual(addresses.slice(0, length), expectedJurors, 'juror addresses do not match')
         })
 
-        it('emits JurorDrafted events', async () => {
+        it('emits a juror balance locked event', async () => {
           const { receipt, length, expectedJurors } = await draft({
             termRandomness,
             disputeId,
@@ -203,11 +203,11 @@ contract('JurorsRegistry', ([_, juror500, juror1000, juror1500, juror2000, juror
             roundRequestedJurors
           })
 
-          const logs = decodeEventsOfType(receipt, JurorsRegistry.abi, REGISTRY_EVENTS.JUROR_DRAFTED)
-          assertAmountOfEvents({ logs }, REGISTRY_EVENTS.JUROR_DRAFTED, length)
+          const logs = decodeEventsOfType(receipt, JurorsRegistry.abi, REGISTRY_EVENTS.JUROR_BALANCE_LOCKED)
+          assertAmountOfEvents({ logs }, REGISTRY_EVENTS.JUROR_BALANCE_LOCKED, length)
 
           for (let i = 0; i < length; i++) {
-            assertEvent({ logs }, REGISTRY_EVENTS.JUROR_DRAFTED, { disputeId, juror: expectedJurors[i] }, i)
+            assertEvent({ logs }, REGISTRY_EVENTS.JUROR_BALANCE_LOCKED, { juror: expectedJurors[i], amount: DRAFT_LOCKED_AMOUNT }, i)
           }
         })
 

@@ -6,11 +6,11 @@ const { toChecksumAddress } = require('web3-utils')
 const { decodeEventsOfType } = require('../helpers/lib/decodeEvent')
 const { getEventAt, getEvents } = require('@aragon/test-helpers/events')
 const { assertAmountOfEvents, assertEvent } = require('../helpers/asserts/assertEvent')
+const { DISPUTE_MANAGER_EVENTS, CLOCK_EVENTS } = require('../helpers/utils/events')
 const { buildHelper, DEFAULTS, DISPUTE_STATES, ROUND_STATES } = require('../helpers/wrappers/court')(web3, artifacts)
-const { DISPUTE_MANAGER_EVENTS, CLOCK_EVENTS, REGISTRY_EVENTS } = require('../helpers/utils/events')
 const { CLOCK_ERRORS, DISPUTE_MANAGER_ERRORS, CONTROLLED_ERRORS } = require('../helpers/utils/errors')
 
-const JurorsRegistry = artifacts.require('JurorsRegistry')
+const DisputeManager = artifacts.require('DisputeManager')
 
 contract('DisputeManager', ([_, drafter, juror500, juror1000, juror1500, juror2000, configGovernor, someone]) => {
   let courtHelper, court, disputeManager
@@ -45,13 +45,13 @@ contract('DisputeManager', ([_, drafter, juror500, juror1000, juror1500, juror20
         it('selects random jurors for the last round of the dispute', async () => {
           const receipt = await disputeManager.draft(disputeId, { from: drafter })
 
-          const logs = decodeEventsOfType(receipt, JurorsRegistry.abi, REGISTRY_EVENTS.JUROR_DRAFTED)
-          assertAmountOfEvents({ logs }, REGISTRY_EVENTS.JUROR_DRAFTED, expectedDraftedJurors)
+          const logs = decodeEventsOfType(receipt, DisputeManager.abi, DISPUTE_MANAGER_EVENTS.JUROR_DRAFTED)
+          assertAmountOfEvents({ logs }, DISPUTE_MANAGER_EVENTS.JUROR_DRAFTED, expectedDraftedJurors)
 
           const jurorsAddresses = jurors.map(j => j.address)
           for (let i = 0; i < expectedDraftedJurors; i++) {
-            const { disputeId: eventDisputeId, juror } = getEventAt({ logs }, REGISTRY_EVENTS.JUROR_DRAFTED, i).args
-            assertBn(eventDisputeId, disputeId, 'dispute id does not match')
+            assertEvent({ logs }, DISPUTE_MANAGER_EVENTS.JUROR_DRAFTED, { disputeId, roundId })
+            const { juror } = getEventAt({ logs }, DISPUTE_MANAGER_EVENTS.JUROR_DRAFTED, i).args
             assert.isTrue(jurorsAddresses.includes(toChecksumAddress(juror)), 'drafted juror is not included in the list')
           }
         })
@@ -111,8 +111,8 @@ contract('DisputeManager', ([_, drafter, juror500, juror1000, juror1500, juror20
         it('sets the correct state for each juror', async () => {
           const receipt = await disputeManager.draft(disputeId, { from: drafter })
 
-          const logs = decodeEventsOfType(receipt, JurorsRegistry.abi, REGISTRY_EVENTS.JUROR_DRAFTED)
-          const events = getEvents({ logs }, REGISTRY_EVENTS.JUROR_DRAFTED)
+          const logs = decodeEventsOfType(receipt, DisputeManager.abi, DISPUTE_MANAGER_EVENTS.JUROR_DRAFTED)
+          const events = getEvents({ logs }, DISPUTE_MANAGER_EVENTS.JUROR_DRAFTED)
 
           for (let i = 0; i < jurors.length; i++) {
             const jurorAddress = jurors[i].address
@@ -155,11 +155,11 @@ contract('DisputeManager', ([_, drafter, juror500, juror1000, juror1500, juror20
             const pendingJurorsToBeDrafted = jurorsToBeDrafted - selectedJurors
             const expectedDraftedJurors = pendingJurorsToBeDrafted < jurorsPerBatch ? pendingJurorsToBeDrafted : jurorsPerBatch
 
-            const logs = decodeEventsOfType(receipt, JurorsRegistry.abi, REGISTRY_EVENTS.JUROR_DRAFTED)
-            assertAmountOfEvents({ logs }, REGISTRY_EVENTS.JUROR_DRAFTED, expectedDraftedJurors)
+            const logs = decodeEventsOfType(receipt, DisputeManager.abi, DISPUTE_MANAGER_EVENTS.JUROR_DRAFTED)
+            assertAmountOfEvents({ logs }, DISPUTE_MANAGER_EVENTS.JUROR_DRAFTED, expectedDraftedJurors)
 
             for (let i = 0; i < expectedDraftedJurors; i++) {
-              const { disputeId: eventDisputeId, juror } = getEventAt({ logs }, REGISTRY_EVENTS.JUROR_DRAFTED, i).args
+              const { disputeId: eventDisputeId, juror } = getEventAt({ logs }, DISPUTE_MANAGER_EVENTS.JUROR_DRAFTED, i).args
               assertBn(eventDisputeId, disputeId, 'dispute id does not match')
               assert.isTrue(jurorsAddresses.includes(toChecksumAddress(juror)), 'drafted juror is not included in the list')
             }
@@ -214,8 +214,8 @@ contract('DisputeManager', ([_, drafter, juror500, juror1000, juror1500, juror20
           for (let batch = 0; batch < batches; batch++) {
             const receipt = await disputeManager.draft(disputeId, { from: drafter })
 
-            const logs = decodeEventsOfType(receipt, JurorsRegistry.abi, REGISTRY_EVENTS.JUROR_DRAFTED)
-            const events = getEvents({ logs }, REGISTRY_EVENTS.JUROR_DRAFTED)
+            const logs = decodeEventsOfType(receipt, DisputeManager.abi, DISPUTE_MANAGER_EVENTS.JUROR_DRAFTED)
+            const events = getEvents({ logs }, DISPUTE_MANAGER_EVENTS.JUROR_DRAFTED)
 
             for (let i = 0; i < jurors.length; i++) {
               const jurorAddress = jurors[i].address

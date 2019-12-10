@@ -5,6 +5,7 @@ const ARBITRABLE_EVENTS = {
 const DISPUTE_MANAGER_EVENTS = {
   DISPUTE_STATE_CHANGED: 'DisputeStateChanged',
   NEW_DISPUTE: 'NewDispute',
+  JUROR_DRAFTED: 'JurorDrafted',
   EVIDENCE_PERIOD_CLOSED: 'EvidencePeriodClosed',
   RULING_APPEALED: 'RulingAppealed',
   RULING_APPEAL_CONFIRMED: 'RulingAppealConfirmed',
@@ -27,12 +28,15 @@ const REGISTRY_EVENTS = {
   UNSTAKED: 'Unstaked',
   SLASHED: 'Slashed',
   COLLECTED: 'Collected',
-  JUROR_DRAFTED: 'JurorDrafted',
   JUROR_ACTIVATED: 'JurorActivated',
   JUROR_DEACTIVATION_REQUESTED: 'JurorDeactivationRequested',
   JUROR_DEACTIVATION_PROCESSED: 'JurorDeactivationProcessed',
   JUROR_DEACTIVATION_UPDATED: 'JurorDeactivationUpdated',
-  JUROR_AVAILABLE_BALANCE_CHANGED: 'JurorAvailableBalanceChanged',
+  JUROR_BALANCE_LOCKED: 'JurorBalanceLocked',
+  JUROR_BALANCE_UNLOCKED: 'JurorBalanceUnlocked',
+  JUROR_SLASHED: 'JurorSlashed',
+  JUROR_TOKENS_BURNED: 'JurorTokensBurned',
+  JUROR_TOKENS_ASSIGNED: 'JurorTokensAssigned',
   JUROR_TOKENS_COLLECTED: 'JurorTokensCollected',
   TOTAL_ACTIVE_BALANCE_LIMIT_CHANGED: 'TotalActiveBalanceLimitChanged'
 }

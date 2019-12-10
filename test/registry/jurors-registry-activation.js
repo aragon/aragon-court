@@ -65,7 +65,7 @@ contract('JurorsRegistry', ([_, juror]) => {
         await ANJ.approveAndCall(registry.address, maxPossibleBalance, '0x', { from })
       })
 
-      const itHandlesActivationProperlyFor = (requestedAmount, expectedAmount = requestedAmount, deactivationAmount = bn(0)) => {
+      const itHandlesActivationProperlyFor = (requestedAmount, deactivationAmount = bn(0)) => {
         it('adds the requested amount to the active balance of the juror and removes it from the available balance', async () => {
           const { active: previousActiveBalance, available: previousAvailableBalance, locked: previousLockedBalance, pendingDeactivation: previousDeactivationBalance } = await registry.balanceOf(juror)
 
@@ -139,25 +139,7 @@ contract('JurorsRegistry', ([_, juror]) => {
           assertEvent(receipt, REGISTRY_EVENTS.JUROR_ACTIVATED, { juror, fromTermId: termId.add(bn(1)), amount: activationAmount })
         })
 
-        if (deactivationAmount.eq(bn(0))) {
-          it('emits one available balance changed events', async () => {
-            const receipt = await registry.activate(requestedAmount, { from })
-
-            assertAmountOfEvents(receipt, REGISTRY_EVENTS.JUROR_AVAILABLE_BALANCE_CHANGED)
-            assertEvent(receipt, REGISTRY_EVENTS.JUROR_AVAILABLE_BALANCE_CHANGED, { juror, amount: expectedAmount, positive: false })
-          })
-        } else {
-          it('emits two available balance changed events', async () => {
-            const { available: previousAvailableBalance } = await registry.balanceOf(juror)
-
-            const receipt = await registry.activate(requestedAmount, { from })
-
-            const activationAmount = requestedAmount.eq(bn(0)) ? previousAvailableBalance : requestedAmount
-            assertAmountOfEvents(receipt, REGISTRY_EVENTS.JUROR_AVAILABLE_BALANCE_CHANGED, 2)
-            assertEvent(receipt, REGISTRY_EVENTS.JUROR_AVAILABLE_BALANCE_CHANGED, { juror, amount: deactivationAmount, positive: true }, 0)
-            assertEvent(receipt, REGISTRY_EVENTS.JUROR_AVAILABLE_BALANCE_CHANGED, { juror, amount: activationAmount, positive: false }, 1)
-          })
-
+        if (deactivationAmount.gt(bn(0))) {
           it('emits a deactivation processed event', async () => {
             const termId = await controller.getCurrentTermId()
             const { availableTermId } = await registry.getDeactivationRequest(from)
@@ -184,7 +166,7 @@ contract('JurorsRegistry', ([_, juror]) => {
           const amount = bn(0)
 
           itCreatesAnIdForTheJuror(amount)
-          itHandlesActivationProperlyFor(amount, maxPossibleBalance)
+          itHandlesActivationProperlyFor(amount)
         })
 
         context('when the given amount is lower than the minimum active value', () => {
@@ -225,14 +207,13 @@ contract('JurorsRegistry', ([_, juror]) => {
         context('when the juror does not have a deactivation request', () => {
           context('when the given amount is zero', () => {
             const amount = bn(0)
-            const expectedAmount = maxPossibleBalance.sub(activeBalance)
 
             context('when the juror was not slashed and reaches the minimum active amount of tokens', () => {
               beforeEach('increase term', async () => {
                 await controller.mockIncreaseTerm()
               })
 
-              itHandlesActivationProperlyFor(amount, expectedAmount)
+              itHandlesActivationProperlyFor(amount)
             })
 
             context('when the juror was slashed and reaches the minimum active amount of tokens', () => {
@@ -241,7 +222,7 @@ contract('JurorsRegistry', ([_, juror]) => {
                 await controller.mockIncreaseTerm()
               })
 
-              itHandlesActivationProperlyFor(amount, expectedAmount)
+              itHandlesActivationProperlyFor(amount)
             })
 
             context('when the juror was slashed and does not reach the minimum active amount of tokens', () => {
@@ -301,7 +282,7 @@ contract('JurorsRegistry', ([_, juror]) => {
             context('when the given amount is zero', () => {
               const amount = bn(0)
 
-              itHandlesActivationProperlyFor(amount, currentAvailableBalance)
+              itHandlesActivationProperlyFor(amount)
             })
 
             context('when the given amount is greater than the available balance', () => {
@@ -337,7 +318,7 @@ contract('JurorsRegistry', ([_, juror]) => {
             context('when the given amount is zero', () => {
               const amount = bn(0)
 
-              itHandlesActivationProperlyFor(amount, currentAvailableBalance, deactivationAmount)
+              itHandlesActivationProperlyFor(amount, deactivationAmount)
             })
 
             context('when the given amount is greater than the available balance', () => {
@@ -359,7 +340,7 @@ contract('JurorsRegistry', ([_, juror]) => {
             context('when the future active amount will be greater than the minimum active value', () => {
               const amount = MIN_ACTIVE_AMOUNT
 
-              itHandlesActivationProperlyFor(amount, amount, deactivationAmount)
+              itHandlesActivationProperlyFor(amount, deactivationAmount)
             })
           })
 
@@ -374,7 +355,7 @@ contract('JurorsRegistry', ([_, juror]) => {
             context('when the given amount is zero', () => {
               const amount = bn(0)
 
-              itHandlesActivationProperlyFor(amount, currentAvailableBalance, deactivationAmount)
+              itHandlesActivationProperlyFor(amount, deactivationAmount)
             })
 
             context('when the given amount is greater than the available balance', () => {
@@ -396,7 +377,7 @@ contract('JurorsRegistry', ([_, juror]) => {
             context('when the future active amount will be greater than the minimum active value', () => {
               const amount = MIN_ACTIVE_AMOUNT
 
-              itHandlesActivationProperlyFor(amount, amount, deactivationAmount)
+              itHandlesActivationProperlyFor(amount, deactivationAmount)
             })
           })
         })
@@ -549,14 +530,7 @@ contract('JurorsRegistry', ([_, juror]) => {
             assertBn(currentDeactivationBalance, 0, 'deactivation balances do not match')
           })
 
-          if (!previousDeactivationAmount.eq(bn(0))) {
-            it('emits an available balance changed event', async () => {
-              const receipt = await registry.deactivate(requestedAmount, { from })
-
-              assertAmountOfEvents(receipt, REGISTRY_EVENTS.JUROR_AVAILABLE_BALANCE_CHANGED)
-              assertEvent(receipt, REGISTRY_EVENTS.JUROR_AVAILABLE_BALANCE_CHANGED, { juror, amount: previousDeactivationAmount, positive: true })
-            })
-
+          if (previousDeactivationAmount.gt(bn(0))) {
             it('emits a deactivation processed event', async () => {
               const termId = await controller.getCurrentTermId()
               const { availableTermId } = await registry.getDeactivationRequest(from)

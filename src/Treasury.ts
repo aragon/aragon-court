@@ -1,6 +1,6 @@
 import { FeeMovement } from '../types/schema'
-import { FeesClaimed } from '../types/Subscriptions/Subscriptions'
-import { Assign, Withdraw } from '../types/Treasury/Treasury'
+import { FeesClaimed } from '../types/templates/Subscriptions/Subscriptions'
+import { Assign, Withdraw } from '../types/templates/Treasury/Treasury'
 import { Address, EthereumEvent } from '@graphprotocol/graph-ts'
 
 let ASSIGN = 'Assign'

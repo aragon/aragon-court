@@ -46,15 +46,8 @@ To deploy a local instance run the following commands on a separate terminal:
 ```
 
 ##### 5. Deploy Aragon Court subgraph
-You can use the provided deployment script to create a manifest file with the deployed addresses and deploy it as follows:
+You can use the provided deployment script to create a manifest file with the providing the court deployed address as follows:
 
 ```bash
-  ./scripts/deploy NETWORK=rpc \
-    COURT==<COURT_ADDRESS> \
-    DISPUTES==<DISPUTES_ADDRESS> \
-    REGISTRY=<REGISTRY_ADDRESS> \
-    VOTING=<VOTING_ADDRESS> \
-    TREASURY=<TREASURY_ADDRESS> \
-    SUBSCRIPTIONS=<SUBSCRIPTIONS_ADDRESS> \
-    ANJ=<ANJ_ADDRESS>
+  ./scripts/deploy NETWORK=rpc COURT==<COURT_ADDRESS>
 ``` 

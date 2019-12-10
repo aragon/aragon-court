@@ -1,7 +1,5 @@
-import { Controller } from '../types/JurorsRegistry/Controller'
-import { ERC20 as ERC20Contract } from '../types/JurorsRegistry/ERC20'
+import { Juror, ANJMovement } from '../types/schema'
 import { EthereumEvent, Address, BigInt } from '@graphprotocol/graph-ts'
-import { ERC20, Juror, ANJMovement, CourtConfig } from '../types/schema'
 import {
   Staked,
   Unstaked,
@@ -15,7 +13,7 @@ import {
   JurorSlashed,
   JurorsRegistry,
   TotalActiveBalanceLimitChanged
-} from '../types/JurorsRegistry/JurorsRegistry'
+} from '../types/templates/JurorsRegistry/JurorsRegistry'
 
 let STAKE = 'Stake'
 let UNSTAKE = 'Unstake'
@@ -25,23 +23,6 @@ let LOCK = 'Lock'
 let UNLOCK = 'Unlock'
 let REWARD = 'Reward'
 let SLASH = 'Slash'
-
-export function handleTotalActiveBalanceLimitChanged(event: TotalActiveBalanceLimitChanged): void {
-  let registry = JurorsRegistry.bind(event.address)
-  let anjAddress = registry.token()
-  let anjContract = ERC20Contract.bind(anjAddress)
-
-  let anj = new ERC20(anjAddress.toHex())
-  anj.name = anjContract.name()
-  anj.symbol = anjContract.symbol()
-  anj.decimals = anjContract.decimals()
-  anj.save()
-
-  let controllerAddress = registry.getController()
-  let config = CourtConfig.load(controllerAddress.toHex())
-  config.anjToken = anjAddress.toHex()
-  config.save()
-}
 
 export function handleStaked(event: Staked): void {
   updateJuror(event.params.user, event)

@@ -1,5 +1,5 @@
 import { Address, BigInt } from '@graphprotocol/graph-ts'
-import { Transfer as TransferEvent } from '../types/ANJ/ANJ'
+import { Transfer as TransferEvent } from '../types/templates/ANJ/ANJ'
 import { ANJBalance as Balance, ANJTransfer as Transfer } from '../types/schema'
 
 export function handleTransfer(event: TransferEvent): void {

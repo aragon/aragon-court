@@ -36,8 +36,17 @@ type ERC20 @entity {
 
 type CourtModule @entity {
   id: ID!
+  type: CourtModuleType!
   address: Bytes!
   court: CourtConfig!
+}
+
+enum CourtModuleType {
+  DisputeManager
+  JurorsRegistry
+  Voting
+  Treasury
+  Subscriptions
 }
 
 type Dispute @entity {

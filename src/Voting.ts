@@ -1,6 +1,6 @@
 import { JurorDraft } from '../types/schema'
 import { buildDraftId } from './DisputeManager'
-import { VoteCommitted, VoteLeaked, VoteRevealed } from '../types/Voting/Voting'
+import { VoteCommitted, VoteLeaked, VoteRevealed } from '../types/templates/Voting/Voting'
 
 export function handleVoteCommitted(event: VoteCommitted): void {
   let roundId = event.params.voteId

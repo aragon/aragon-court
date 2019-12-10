@@ -12,13 +12,13 @@ fi
 # Validate network
 networks=(rpc ropsten rinkeby mainnet)
 if [[ -z $NETWORK || ! " ${networks[@]} " =~ " ${NETWORK} " ]]; then
-  echo 'Please make sure the network provided is one of rpc, ropsten, rinkeby or mainnet'
+  echo 'Please make sure the network provided is either rpc, ropsten, rinkeby or mainnet.'
   exit 1
 fi
 
 # Validate contract addresses
-if [[ -z $COURT || -z $DISPUTES || -z $REGISTRY || -z $VOTING || -z $TREASURY || -z $SUBSCRIPTIONS || -z $ANJ ]]; then
-  echo 'One or more contract addresses are missing. Please make sure you provide COURT, DISPUTES, REGISTRY, VOTING, TREASURY, SUBSCRIPTIONS, and ANJ addresses.'
+if [[ -z $COURT ]]; then
+  echo 'Please make sure a Court address is provided'
   exit 1
 fi
 
@@ -33,12 +33,6 @@ fi
 cp subgraph.template.yaml subgraph.yaml
 sed -i -e "s/{{network}}/${ENV}/g" subgraph.yaml
 sed -i -e "s/{{court}}/${COURT}/g" subgraph.yaml
-sed -i -e "s/{{disputes}}/${DISPUTES}/g" subgraph.yaml
-sed -i -e "s/{{registry}}/${REGISTRY}/g" subgraph.yaml
-sed -i -e "s/{{voting}}/${VOTING}/g" subgraph.yaml
-sed -i -e "s/{{treasury}}/${TREASURY}/g" subgraph.yaml
-sed -i -e "s/{{subscriptions}}/${SUBSCRIPTIONS}/g" subgraph.yaml
-sed -i -e "s/{{anj}}/${ANJ}/g" subgraph.yaml
 rm subgraph.yaml-e
 
 # Run codegen

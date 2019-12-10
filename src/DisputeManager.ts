@@ -1,6 +1,6 @@
 import { Arbitrable as ArbitrableTemplate } from '../types/templates'
 import { crypto, Bytes, BigInt, Address, ByteArray, EthereumEvent } from '@graphprotocol/graph-ts'
-import { AdjudicationRound, Arbitrable, Dispute, Appeal, JurorDraft, Juror } from '../types/schema'
+import { AdjudicationRound, Arbitrable, Dispute, Appeal, JurorDraft } from '../types/schema'
 import {
   DisputeManager,
   NewDispute,
@@ -12,7 +12,7 @@ import {
   RulingAppealed,
   RulingAppealConfirmed,
   RulingComputed
-} from '../types/DisputeManager/DisputeManager'
+} from '../types/templates/DisputeManager/DisputeManager'
 
 export function handleNewDispute(event: NewDispute): void {
   let manager = DisputeManager.bind(event.address)

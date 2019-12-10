@@ -17,9 +17,12 @@ dataSources:
       entities:
         - CourtConfig
         - CourtModule
+        - ERC20
       abis:
         - name: AragonCourt
           file: ./node_modules/@aragon/court/abi/AragonCourt.json
+        - name: JurorsRegistry
+          file: ./node_modules/@aragon/court/abi/JurorsRegistry.json
         - name: ERC20
           file: ./node_modules/@aragon/minime/abi/MiniMeToken.json
       eventHandlers:
@@ -34,11 +37,11 @@ dataSources:
         - event: ModuleSet(bytes32,address)
           handler: handleModuleSet
       file: ./src/AragonCourt.ts
+templates:
   - kind: ethereum/contract
     name: DisputeManager
     network: {{network}}
     source:
-      address: '{{disputes}}'
       abi: DisputeManager
     mapping:
       kind: ethereum/events
@@ -83,7 +86,6 @@ dataSources:
     name: JurorsRegistry
     network: {{network}}
     source:
-      address: '{{registry}}'
       abi: JurorsRegistry
     mapping:
       kind: ethereum/events
@@ -98,8 +100,6 @@ dataSources:
           file: ./node_modules/@aragon/court/abi/Controller.json
         - name: JurorsRegistry
           file: ./node_modules/@aragon/court/abi/JurorsRegistry.json
-        - name: ERC20
-          file: ./node_modules/@aragon/minime/abi/MiniMeToken.json
       eventHandlers:
         - event: Staked(indexed address,uint256,uint256,bytes)
           handler: handleStaked
@@ -121,14 +121,11 @@ dataSources:
           handler: handleJurorRewarded
         - event: JurorSlashed(indexed address,uint256,uint64)
           handler: handleJurorSlashed
-        - event: TotalActiveBalanceLimitChanged(uint256,uint256)
-          handler: handleTotalActiveBalanceLimitChanged
       file: ./src/JurorsRegistry.ts
   - kind: ethereum/contract
     name: Voting
     network: {{network}}
     source:
-      address: '{{voting}}'
       abi: Voting
     mapping:
       kind: ethereum/events
@@ -151,7 +148,6 @@ dataSources:
     name: Treasury
     network: {{network}}
     source:
-      address: '{{treasury}}'
       abi: Treasury
     mapping:
       kind: ethereum/events
@@ -172,7 +168,6 @@ dataSources:
     name: Subscriptions
     network: {{network}}
     source:
-      address: '{{subscriptions}}'
       abi: Subscriptions
     mapping:
       kind: ethereum/events
@@ -191,7 +186,6 @@ dataSources:
     name: ANJ
     network: {{network}}
     source:
-      address: '{{anj}}'
       abi: ANJ
     mapping:
       kind: ethereum/events
@@ -207,7 +201,6 @@ dataSources:
         - event: Transfer(indexed address,indexed address,uint256)
           handler: handleTransfer
       file: ./src/ANJ.ts
-templates:
   - kind: ethereum/contract
     name: Arbitrable
     network: {{network}}

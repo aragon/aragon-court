@@ -299,19 +299,19 @@ contract('JurorsRegistry', ([_, juror, secondJuror, thirdJuror, anyone]) => {
         if (amount.eq(bn(0))) {
           it('does not emit a juror slashed event', async () => {
             const receipt = await disputeManager.collect(juror, amount)
-            const logs = decodeEventsOfType(receipt, JurorsRegistry.abi, REGISTRY_EVENTS.JUROR_SLASHED)
+            const logs = decodeEventsOfType(receipt, JurorsRegistry.abi, REGISTRY_EVENTS.JUROR_TOKENS_COLLECTED)
 
-            assertAmountOfEvents({ logs }, REGISTRY_EVENTS.JUROR_SLASHED, 0)
+            assertAmountOfEvents({ logs }, REGISTRY_EVENTS.JUROR_TOKENS_COLLECTED, 0)
           })
         } else {
           it('emits a juror slashed event', async () => {
             const termId = await controller.getLastEnsuredTermId()
 
             const receipt = await disputeManager.collect(juror, amount)
-            const logs = decodeEventsOfType(receipt, JurorsRegistry.abi, REGISTRY_EVENTS.JUROR_SLASHED)
+            const logs = decodeEventsOfType(receipt, JurorsRegistry.abi, REGISTRY_EVENTS.JUROR_TOKENS_COLLECTED)
 
-            assertAmountOfEvents({ logs }, REGISTRY_EVENTS.JUROR_SLASHED)
-            assertEvent({ logs }, REGISTRY_EVENTS.JUROR_SLASHED, { juror, amount, effectiveTermId: termId.add(bn(1)) })
+            assertAmountOfEvents({ logs }, REGISTRY_EVENTS.JUROR_TOKENS_COLLECTED)
+            assertEvent({ logs }, REGISTRY_EVENTS.JUROR_TOKENS_COLLECTED, { juror, amount, effectiveTermId: termId.add(bn(1)) })
           })
         }
 

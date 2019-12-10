@@ -112,9 +112,10 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
     event JurorDeactivationUpdated(address indexed juror, uint64 availableTermId, uint256 amount, uint64 updateTermId);
     event JurorBalanceLocked(address indexed juror, uint256 amount);
     event JurorBalanceUnlocked(address indexed juror, uint256 amount);
-    event JurorRewarded(address indexed juror, uint256 amount);
     event JurorSlashed(address indexed juror, uint256 amount, uint64 effectiveTermId);
-    event BurnedTokens(uint256 amount);
+    event JurorTokensAssigned(address indexed juror, uint256 amount);
+    event JurorTokensBurned(uint256 amount);
+    event JurorTokensCollected(address indexed juror, uint256 amount, uint64 effectiveTermId);
     event TotalActiveBalanceLimitChanged(uint256 previousTotalActiveBalanceLimit, uint256 currentTotalActiveBalanceLimit);
 
     /**
@@ -228,7 +229,7 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
     function assignTokens(address _juror, uint256 _amount) external onlyDisputeManager {
         if (_amount > 0) {
             _updateAvailableBalanceOf(_juror, _amount, true);
-            emit JurorRewarded(_juror, _amount);
+            emit JurorTokensAssigned(_juror, _amount);
         }
     }
 
@@ -239,7 +240,7 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
     function burnTokens(uint256 _amount) external onlyDisputeManager {
         if (_amount > 0) {
             _updateAvailableBalanceOf(BURN_ACCOUNT, _amount, true);
-            emit BurnedTokens(_amount);
+            emit JurorTokensBurned(_amount);
         }
     }
 
@@ -385,7 +386,7 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
             tree.update(juror.id, nextTermId, _amount, false);
         }
 
-        emit JurorSlashed(_juror, _amount, nextTermId);
+        emit JurorTokensCollected(_juror, _amount, nextTermId);
         return true;
     }
 

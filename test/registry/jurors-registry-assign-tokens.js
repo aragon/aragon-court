@@ -75,9 +75,9 @@ contract('JurorsRegistry', ([_, juror, someone]) => {
 
     it('does not emit a juror rewarded event', async () => {
       const receipt = await assignmentCall()
-      const logs = decodeEventsOfType(receipt, JurorsRegistry.abi, REGISTRY_EVENTS.JUROR_REWARDED)
+      const logs = decodeEventsOfType(receipt, JurorsRegistry.abi, REGISTRY_EVENTS.JUROR_TOKENS_ASSIGNED)
 
-      assertAmountOfEvents({ logs }, REGISTRY_EVENTS.JUROR_REWARDED, 0)
+      assertAmountOfEvents({ logs }, REGISTRY_EVENTS.JUROR_TOKENS_ASSIGNED, 0)
     })
   }
 
@@ -144,10 +144,10 @@ contract('JurorsRegistry', ([_, juror, someone]) => {
         const itEmitsAJurorRewardedEvent = (assignmentCall, recipient, amount) => {
           it('emits a juror rewarded event', async () => {
             const receipt = await assignmentCall()
-            const logs = decodeEventsOfType(receipt, JurorsRegistry.abi, REGISTRY_EVENTS.JUROR_REWARDED)
+            const logs = decodeEventsOfType(receipt, JurorsRegistry.abi, REGISTRY_EVENTS.JUROR_TOKENS_ASSIGNED)
 
-            assertAmountOfEvents({ logs }, REGISTRY_EVENTS.JUROR_REWARDED)
-            assertEvent({ logs }, REGISTRY_EVENTS.JUROR_REWARDED, { juror: recipient, amount })
+            assertAmountOfEvents({ logs }, REGISTRY_EVENTS.JUROR_TOKENS_ASSIGNED)
+            assertEvent({ logs }, REGISTRY_EVENTS.JUROR_TOKENS_ASSIGNED, { juror: recipient, amount })
           })
         }
 
@@ -204,10 +204,10 @@ contract('JurorsRegistry', ([_, juror, someone]) => {
         const itEmitsABurnedTokenEvent = (assignmentCall, amount) => {
           it('emits a burned tokens event', async () => {
             const receipt = await assignmentCall()
-            const logs = decodeEventsOfType(receipt, JurorsRegistry.abi, REGISTRY_EVENTS.BURNED_TOKENS)
+            const logs = decodeEventsOfType(receipt, JurorsRegistry.abi, REGISTRY_EVENTS.JUROR_TOKENS_BURNED)
 
-            assertAmountOfEvents({ logs }, REGISTRY_EVENTS.BURNED_TOKENS)
-            assertEvent({ logs }, REGISTRY_EVENTS.BURNED_TOKENS, { amount })
+            assertAmountOfEvents({ logs }, REGISTRY_EVENTS.JUROR_TOKENS_BURNED)
+            assertEvent({ logs }, REGISTRY_EVENTS.JUROR_TOKENS_BURNED, { amount })
           })
         }
 

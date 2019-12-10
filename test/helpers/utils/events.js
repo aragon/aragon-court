@@ -34,9 +34,10 @@ const REGISTRY_EVENTS = {
   JUROR_DEACTIVATION_UPDATED: 'JurorDeactivationUpdated',
   JUROR_BALANCE_LOCKED: 'JurorBalanceLocked',
   JUROR_BALANCE_UNLOCKED: 'JurorBalanceUnlocked',
-  JUROR_REWARDED: 'JurorRewarded',
   JUROR_SLASHED: 'JurorSlashed',
-  BURNED_TOKENS: 'BurnedTokens',
+  JUROR_TOKENS_BURNED: 'JurorTokensBurned',
+  JUROR_TOKENS_ASSIGNED: 'JurorTokensAssigned',
+  JUROR_TOKENS_COLLECTED: 'JurorTokensCollected',
   TOTAL_ACTIVE_BALANCE_LIMIT_CHANGED: 'TotalActiveBalanceLimitChanged'
 }
 

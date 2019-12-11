@@ -9,10 +9,10 @@ import {
   JurorDeactivationUpdated,
   JurorBalanceLocked,
   JurorBalanceUnlocked,
-  JurorRewarded,
+  JurorTokensAssigned,
+  JurorTokensCollected,
   JurorSlashed,
-  JurorsRegistry,
-  TotalActiveBalanceLimitChanged
+  JurorsRegistry
 } from '../types/templates/JurorsRegistry/JurorsRegistry'
 
 let STAKE = 'Stake'
@@ -63,9 +63,14 @@ export function handleJurorBalanceUnlocked(event: JurorBalanceUnlocked): void {
   createANJMovementForEvent(event.params.juror, UNLOCK, event.params.amount, event.block.timestamp, event)
 }
 
-export function handleJurorRewarded(event: JurorRewarded): void {
+export function handleJurorTokensAssigned(event: JurorTokensAssigned): void {
   updateJuror(event.params.juror, event)
   createANJMovementForEvent(event.params.juror, REWARD, event.params.amount, event.block.timestamp, event)
+}
+
+export function handleJurorTokensCollected(event: JurorTokensCollected): void {
+  updateJuror(event.params.juror, event)
+  createANJMovementForTerm(event.params.juror, SLASH, event.params.amount, event.block.timestamp, event.params.effectiveTermId)
 }
 
 export function handleJurorSlashed(event: JurorSlashed): void {

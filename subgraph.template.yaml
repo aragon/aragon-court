@@ -105,7 +105,7 @@ templates:
           handler: handleStaked
         - event: Unstaked(indexed address,uint256,uint256,bytes)
           handler: handleUnstaked
-        - event: JurorActivated(indexed address,uint64,uint256)
+        - event: JurorActivated(indexed address,uint64,uint256,address)
           handler: handleJurorActivated
         - event: JurorBalanceLocked(indexed address,uint256)
           handler: handleJurorBalanceLocked
@@ -117,8 +117,10 @@ templates:
           handler: handleJurorDeactivationUpdated
         - event: JurorDeactivationProcessed(indexed address,uint64,uint256,uint64)
           handler: handleJurorDeactivationProcessed
-        - event: JurorRewarded(indexed address,uint256)
-          handler: handleJurorRewarded
+        - event: JurorTokensAssigned(indexed address,uint256)
+          handler: handleJurorTokensAssigned
+        - event: JurorTokensCollected(indexed address,uint256,uint64)
+          handler: handleJurorTokensCollected
         - event: JurorSlashed(indexed address,uint256,uint64)
           handler: handleJurorSlashed
       file: ./src/JurorsRegistry.ts
@@ -141,7 +143,7 @@ templates:
           handler: handleVoteCommitted
         - event: VoteLeaked(indexed uint256,indexed address,uint8,address)
           handler: handleVoteLeaked
-        - event: VoteRevealed(indexed uint256,indexed address,uint8)
+        - event: VoteRevealed(indexed uint256,indexed address,uint8,address)
           handler: handleVoteRevealed
       file: ./src/Voting.ts
   - kind: ethereum/contract

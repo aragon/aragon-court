@@ -7,13 +7,12 @@
     "create:rpc": "graph create aragon/court-subgraph --node http://127.0.0.1:8020",
     "create:remote": "graph create aragon/court-subgraph --node https://api.thegraph.com/deploy/",
     "deploy:rpc": "graph deploy aragon/court-subgraph --ipfs http://localhost:5001 --node http://127.0.0.1:8020",
-    "deploy:remote": "graph deploy aragon/court-subgraph --ipfs https://api.thegraph.com/ipfs/ --node https://api.thegraph.com/deploy/",
-    "postinstall": "cd node_modules/@aragon/court && npm i && cp ../../../court-truffle-config truffle-config.js && npm run prepublishOnly"
+    "deploy:remote": "graph deploy aragon/court-subgraph --ipfs https://api.thegraph.com/ipfs/ --node https://api.thegraph.com/deploy/"
   },
   "devDependencies": {},
   "dependencies": {
-    "@aragon/court": "aragon/aragon-court#improve_emitted_events",
-    "@aragon/minime": "^1.0.0",
+    "@aragon/court": "1.1.0-rc.1",
+    "@aragon/minime": "1.0.0",
     "@graphprotocol/graph-cli": "^0.16.0",
     "@graphprotocol/graph-ts": "^0.16.0"
   }

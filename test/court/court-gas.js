@@ -134,7 +134,7 @@ contract('AragonCourt', ([_, sender, drafter, appealMaker, appealTaker, juror500
           assertBn(neededTransitions, 0, 'needed transitions does not match')
         })
 
-        itCostsAtMost('reveal', 105e3, () => voting.reveal(voteId, outcome, SALT, { from: draftedJurors[0].address }))
+        itCostsAtMost('reveal', 107e3, () => voting.reveal(voteId, draftedJurors[0].address, outcome, SALT))
       })
 
       context('when the current term is outdated by one term', () => {
@@ -144,7 +144,7 @@ contract('AragonCourt', ([_, sender, drafter, appealMaker, appealTaker, juror500
           assertBn(neededTransitions, 1, 'needed transitions does not match')
         })
 
-        itCostsAtMost('reveal', 156e3, () => voting.reveal(voteId, outcome, SALT, { from: draftedJurors[0].address }))
+        itCostsAtMost('reveal', 158e3, () => voting.reveal(voteId, draftedJurors[0].address, outcome, SALT))
       })
     })
 

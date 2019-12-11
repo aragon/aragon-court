@@ -136,7 +136,7 @@ contract('JurorsRegistry', ([_, juror]) => {
 
           const activationAmount = requestedAmount.eq(bn(0)) ? previousAvailableBalance : requestedAmount
           assertAmountOfEvents(receipt, REGISTRY_EVENTS.JUROR_ACTIVATED)
-          assertEvent(receipt, REGISTRY_EVENTS.JUROR_ACTIVATED, { juror, fromTermId: termId.add(bn(1)), amount: activationAmount })
+          assertEvent(receipt, REGISTRY_EVENTS.JUROR_ACTIVATED, { juror, fromTermId: termId.add(bn(1)), amount: activationAmount, sender: from })
         })
 
         if (deactivationAmount.gt(bn(0))) {

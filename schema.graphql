@@ -71,7 +71,15 @@ enum DisputeState {
 type Arbitrable @entity {
   id: ID!
   disputes: [Dispute!] @derivedFrom(field: "subject")
-  evidence: [Bytes!]
+  evidence: [Evidence!] @derivedFrom(field: "arbitrable")
+}
+
+type Evidence @entity {
+  id: ID!
+  arbitrable: Arbitrable!
+  data: Bytes!
+  submitter: Bytes!
+  createdAt: BigInt!
 }
 
 type AdjudicationRound @entity {

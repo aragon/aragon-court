@@ -32,7 +32,6 @@ export function handleNewDispute(event: NewDispute): void {
 
   ArbitrableTemplate.create(event.params.subject)
   let arbitrable = new Arbitrable(event.params.subject.toHex())
-  arbitrable.evidence = new Array<Bytes>()
   arbitrable.save()
 }
 

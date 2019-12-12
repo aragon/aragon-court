@@ -4,10 +4,8 @@
   "scripts": {
     "build": "graph build",
     "codegen": "rm -rf types && graph codegen -o ./types",
-    "create:rpc": "graph create aragon/court-subgraph --node http://127.0.0.1:8020",
-    "create:remote": "graph create aragon/court-subgraph --node https://api.thegraph.com/deploy/",
-    "deploy:rpc": "graph deploy aragon/court-subgraph --ipfs http://localhost:5001 --node http://127.0.0.1:8020",
-    "deploy:remote": "graph deploy aragon/court-subgraph --ipfs https://api.thegraph.com/ipfs/ --node https://api.thegraph.com/deploy/"
+    "create:rpc": "graph create aragon/aragon-court-rpc --node http://127.0.0.1:8020",
+    "deploy:rpc": "graph deploy aragon/aragon-court-rpc --ipfs http://localhost:5001 --node http://127.0.0.1:8020"
   },
   "devDependencies": {},
   "dependencies": {

@@ -7,9 +7,9 @@
 ### Remotes
 
 1. [Mainnet](https://thegraph.com/explorer/subgraph/aragon/aragon-court)
-2. [Staging](https://thegraph.com/explorer/subgraph/aragon/aragon-court-staging)
-3. [Rinkeby](https://thegraph.com/explorer/subgraph/aragon/aragon-court-rinkeby)
-4. [Ropsten](https://thegraph.com/explorer/subgraph/aragon/aragon-court-ropsten)
+2. [Rinkeby](https://thegraph.com/explorer/subgraph/aragon/aragon-court-rinkeby)
+3. [Ropsten](https://thegraph.com/explorer/subgraph/aragon/aragon-court-ropsten)
+4. [Staging](https://thegraph.com/explorer/subgraph/aragon/aragon-court-staging)
 
 ### Local
 

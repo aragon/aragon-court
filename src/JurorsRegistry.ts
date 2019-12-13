@@ -1,3 +1,4 @@
+import { buildId } from '../helpers/id'
 import { Juror, ANJMovement } from '../types/schema'
 import { EthereumEvent, Address, BigInt } from '@graphprotocol/graph-ts'
 import {
@@ -26,27 +27,27 @@ let SLASH = 'Slash'
 
 export function handleStaked(event: Staked): void {
   updateJuror(event.params.user, event)
-  createANJMovementForEvent(event.params.user, STAKE, event.params.amount, event.block.timestamp, event)
+  createANJMovementForEvent(event.params.user, STAKE, event.params.amount, event)
 }
 
 export function handleUnstaked(event: Unstaked): void {
   updateJuror(event.params.user, event)
-  createANJMovementForEvent(event.params.user, UNSTAKE, event.params.amount, event.block.timestamp, event)
+  createANJMovementForEvent(event.params.user, UNSTAKE, event.params.amount, event)
 }
 
 export function handleJurorActivated(event: JurorActivated): void {
   updateJuror(event.params.juror, event)
-  createANJMovementForTerm(event.params.juror, ACTIVATION, event.params.amount, event.block.timestamp, event.params.fromTermId)
+  createANJMovementForTerm(event.params.juror, ACTIVATION, event.params.amount, event.params.fromTermId, event)
 }
 
 export function handleJurorDeactivationRequested(event: JurorDeactivationRequested): void {
   updateJuror(event.params.juror, event)
-  createANJMovementForTerm(event.params.juror, DEACTIVATION, event.params.amount, event.block.timestamp, event.params.availableTermId)
+  createANJMovementForTerm(event.params.juror, DEACTIVATION, event.params.amount, event.params.availableTermId, event)
 }
 
 export function handleJurorDeactivationUpdated(event: JurorDeactivationUpdated): void {
   updateJuror(event.params.juror, event)
-  createANJMovementForTerm(event.params.juror, DEACTIVATION, event.params.amount, event.block.timestamp, event.params.availableTermId)
+  createANJMovementForTerm(event.params.juror, DEACTIVATION, event.params.amount, event.params.availableTermId, event)
 }
 
 export function handleJurorDeactivationProcessed(event: JurorDeactivationProcessed): void {
@@ -55,27 +56,27 @@ export function handleJurorDeactivationProcessed(event: JurorDeactivationProcess
 
 export function handleJurorBalanceLocked(event: JurorBalanceLocked): void {
   updateJuror(event.params.juror, event)
-  createANJMovementForEvent(event.params.juror, LOCK, event.params.amount, event.block.timestamp, event)
+  createANJMovementForEvent(event.params.juror, LOCK, event.params.amount, event)
 }
 
 export function handleJurorBalanceUnlocked(event: JurorBalanceUnlocked): void {
   updateJuror(event.params.juror, event)
-  createANJMovementForEvent(event.params.juror, UNLOCK, event.params.amount, event.block.timestamp, event)
+  createANJMovementForEvent(event.params.juror, UNLOCK, event.params.amount, event)
 }
 
 export function handleJurorTokensAssigned(event: JurorTokensAssigned): void {
   updateJuror(event.params.juror, event)
-  createANJMovementForEvent(event.params.juror, REWARD, event.params.amount, event.block.timestamp, event)
+  createANJMovementForEvent(event.params.juror, REWARD, event.params.amount, event)
 }
 
 export function handleJurorTokensCollected(event: JurorTokensCollected): void {
   updateJuror(event.params.juror, event)
-  createANJMovementForTerm(event.params.juror, SLASH, event.params.amount, event.block.timestamp, event.params.effectiveTermId)
+  createANJMovementForTerm(event.params.juror, SLASH, event.params.amount, event.params.effectiveTermId, event)
 }
 
 export function handleJurorSlashed(event: JurorSlashed): void {
   updateJuror(event.params.juror, event)
-  createANJMovementForTerm(event.params.juror, SLASH, event.params.amount, event.block.timestamp, event.params.effectiveTermId)
+  createANJMovementForTerm(event.params.juror, SLASH, event.params.amount, event.params.effectiveTermId, event)
 }
 
 function loadOrCreateJuror(jurorAddress: Address, event: EthereumEvent): Juror | null {
@@ -102,15 +103,14 @@ function updateJuror(jurorAddress: Address, event: EthereumEvent): void {
   juror.save()
 }
 
-function createANJMovementForEvent(juror: Address, type: string, amount: BigInt, createdAt: BigInt, event: EthereumEvent): void {
-  let eventId = event.transaction.hash.toHex() + event.logIndex.toString()
-  let id = buildANJMovementId(juror, type, eventId)
-  createANJMovement(id, juror, type, amount, createdAt)
+function createANJMovementForEvent(juror: Address, type: string, amount: BigInt, event: EthereumEvent): void {
+  let id = buildId(event)
+  createANJMovement(id, juror, type, amount, event.block.timestamp)
 }
 
-function createANJMovementForTerm(juror: Address, type: string, amount: BigInt, createdAt: BigInt, termId: BigInt): void {
-  let id = buildANJMovementId(juror, type, termId.toString())
-  createANJMovement(id, juror, type, amount, createdAt, termId)
+function createANJMovementForTerm(juror: Address, type: string, amount: BigInt, termId: BigInt, event: EthereumEvent): void {
+  let id = buildId(event)
+  createANJMovement(id, juror, type, amount, event.block.timestamp, termId)
 }
 
 function createANJMovement(id: string, juror: Address, type: string, amount: BigInt, createdAt: BigInt, termId: BigInt | null = null): void {
@@ -121,8 +121,4 @@ function createANJMovement(id: string, juror: Address, type: string, amount: Big
   movement.effectiveTermId = termId
   movement.createdAt = createdAt
   movement.save()
-}
-
-function buildANJMovementId(juror: Address, type: string, id: string): string {
-  return juror.toHex() + '-' + type + '-' + id
 }

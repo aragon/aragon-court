@@ -9,7 +9,7 @@
   },
   "devDependencies": {},
   "dependencies": {
-    "@aragon/court": "1.1.0-rc.1",
+    "@aragon/court": "1.1.0",
     "@aragon/minime": "1.0.0",
     "@graphprotocol/graph-cli": "^0.16.0",
     "@graphprotocol/graph-ts": "^0.16.0"

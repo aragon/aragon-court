@@ -4,6 +4,7 @@ import { AdjudicationRound, Arbitrable, Dispute, Appeal, JurorDraft } from '../t
 import {
   DisputeManager,
   NewDispute,
+  EvidencePeriodClosed,
   JurorDrafted,
   DisputeStateChanged,
   PenaltiesSettled,
@@ -21,7 +22,7 @@ export function handleNewDispute(event: NewDispute): void {
   dispute.subject = event.params.subject.toHex()
   dispute.metadata = event.params.metadata.toString()
   dispute.possibleRulings = disputeResult.value1
-  dispute.state = castDisputeState(disputeResult.value2)
+  dispute.state = 'Evidence'
   dispute.finalRuling = disputeResult.value3
   dispute.lastRoundId = disputeResult.value4
   dispute.createTermId = disputeResult.value5
@@ -33,6 +34,14 @@ export function handleNewDispute(event: NewDispute): void {
   ArbitrableTemplate.create(event.params.subject)
   let arbitrable = new Arbitrable(event.params.subject.toHex())
   arbitrable.save()
+}
+
+export function handleEvidencePeriodClosed(event: EvidencePeriodClosed): void {
+  let dispute = Dispute.load(event.params.disputeId.toString())
+  dispute.state = 'Drafting'
+  dispute.save()
+
+  updateRound(event.params.disputeId, dispute.lastRoundId, event)
 }
 
 export function handleJurorDrafted(event: JurorDrafted): void {
@@ -173,7 +182,7 @@ function buildAppealId(disputeId: BigInt, roundId: BigInt): BigInt {
 
 function castDisputeState(state: i32): string {
   switch (state) {
-    case 0: return 'PreDraft'
+    case 0: return 'Drafting'
     case 1: return 'Adjudicating'
     case 2: return 'Ruled'
     default: return 'Unknown'

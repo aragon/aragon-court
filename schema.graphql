@@ -73,7 +73,8 @@ type Dispute @entity {
 }
 
 enum DisputeState {
-  PreDraft
+  Evidence
+  Drafting
   Adjudicating
   Ruled
 }

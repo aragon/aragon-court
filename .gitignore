@@ -8,3 +8,4 @@ package-lock.json
 build
 types
 subgraph.yaml
+subgraph.rpc.yaml

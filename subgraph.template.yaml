@@ -65,6 +65,8 @@ templates:
       eventHandlers:
         - event: NewDispute(indexed uint256,indexed address,indexed uint64,uint64,bytes)
           handler: handleNewDispute
+        - event: EvidencePeriodClosed(indexed uint256,indexed uint64)
+          handler: handleEvidencePeriodClosed
         - event: JurorDrafted(indexed uint256,indexed uint256,indexed address)
           handler: handleJurorDrafted
         - event: DisputeStateChanged(indexed uint256,indexed uint8)

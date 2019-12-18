@@ -8,7 +8,7 @@ dataSources:
     name: AragonCourt
     network: rinkeby
     source:
-      address: '0x2359f64E83f193862F7A74767F18967B66F0a1f4'
+      address: '0xD0DcFC6B5b36f7E77f3Daa2D9031B241651A6916'
       abi: AragonCourt
     mapping:
       kind: ethereum/events

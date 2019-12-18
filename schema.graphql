@@ -25,6 +25,16 @@ type CourtConfig @entity {
   configGovernor: Bytes
   modulesGovernor: Bytes
   modules: [CourtModule!] @derivedFrom(field: "court")
+  terms: [CourtTerm!] @derivedFrom(field: "court")
+}
+
+type CourtTerm @entity {
+  id: ID!
+  startTime: BigInt!
+  randomnessBN: BigInt!
+  randomness: Bytes
+  court: CourtConfig!
+  createdAt: BigInt!
 }
 
 type ERC20 @entity {

@@ -1,7 +1,7 @@
 import { AragonCourt } from '../types/AragonCourt/AragonCourt'
 import { ERC20 as ERC20Contract } from '../types/AragonCourt/ERC20'
 import { BigInt, Address, EthereumEvent } from '@graphprotocol/graph-ts'
-import { ERC20, CourtModule, CourtConfig } from '../types/schema'
+import { ERC20, CourtModule, CourtConfig, CourtTerm } from '../types/schema'
 import { JurorsRegistry as JurorsRegistryContract } from '../types/templates/JurorsRegistry/JurorsRegistry'
 import { ANJ, DisputeManager, JurorsRegistry, Treasury, Voting, Subscriptions } from '../types/templates'
 import { Heartbeat, ModuleSet, FundsGovernorChanged, ConfigGovernorChanged, ModulesGovernorChanged } from '../types/AragonCourt/AragonCourt'
@@ -27,6 +27,22 @@ export function handleHeartbeat(event: Heartbeat): void {
   config.configGovernor = court.getConfigGovernor()
   config.modulesGovernor = court.getModulesGovernor()
   config.save()
+
+  let previousTerm = loadOrCreateTerm(event.params.previousTermId, event)
+  let previousTermResult = court.getTerm(event.params.previousTermId)
+  previousTerm.court = event.address.toHex()
+  previousTerm.startTime = previousTermResult.value0
+  previousTerm.randomnessBN = previousTermResult.value1
+  previousTerm.randomness = previousTermResult.value2
+  previousTerm.save()
+
+  let currentTerm = loadOrCreateTerm(event.params.currentTermId, event)
+  let currentTermResult = court.getTerm(event.params.currentTermId)
+  currentTerm.court = event.address.toHex()
+  currentTerm.startTime = currentTermResult.value0
+  currentTerm.randomnessBN = currentTermResult.value1
+  currentTerm.randomness = currentTermResult.value2
+  currentTerm.save()
 }
 
 export function handleFundsGovernorChanged(event: FundsGovernorChanged): void {
@@ -136,4 +152,15 @@ function loadOrCreateConfig(courtAddress: Address, event: EthereumEvent): CourtC
   config.minActiveBalance = result.value6
 
   return config
+}
+
+function loadOrCreateTerm(id: BigInt, event: EthereumEvent): CourtTerm | null {
+  let term = CourtTerm.load(id.toString())
+
+  if (term === null) {
+    term = new CourtTerm(id.toString())
+    term.createdAt = event.block.timestamp
+  }
+
+  return term
 }

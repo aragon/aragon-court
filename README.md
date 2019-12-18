@@ -59,4 +59,7 @@ You can use the provided deployment script to create a manifest file with the pr
 
 ```bash
   ./scripts/deploy NETWORK=rpc COURT==<COURT_ADDRESS>
-``` 
+```
+
+If you have already deployed it once, there is no need to input the COURT address variable again. 
+However, note that if you are working with a local chain, this won't recover previous deployed instances unless the process was never stopped.

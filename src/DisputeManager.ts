@@ -27,7 +27,7 @@ export function handleNewDispute(event: NewDispute): void {
   dispute.lastRoundId = disputeResult.value4
   dispute.createTermId = disputeResult.value5
   dispute.createdAt = event.block.timestamp
-  dispute.txHash = event.transaction.hash.toString()
+  dispute.txHash = event.transaction.hash.toHex()
   dispute.save()
 
   updateRound(event.params.disputeId, dispute.lastRoundId, event)

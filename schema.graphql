@@ -69,6 +69,7 @@ type Dispute @entity {
   state: DisputeState!
   metadata: String!
   rounds: [AdjudicationRound!] @derivedFrom(field: "dispute")
+  txHash: String!
   createdAt: BigInt!
 }
 

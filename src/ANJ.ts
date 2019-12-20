@@ -8,6 +8,7 @@ export function handleTransfer(event: TransferEvent): void {
   transfer.from = event.params._from
   transfer.to = event.params._to
   transfer.amount = event.params._amount
+  transfer.createdAt = event.block.timestamp
   transfer.save()
 
   let sender = loadOrCreateBalance(event.params._from)

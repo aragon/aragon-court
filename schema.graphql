@@ -188,6 +188,7 @@ type ANJTransfer @entity {
   from: Bytes!
   to: Bytes!
   amount: BigInt!
+  createdAt: BigInt!
 }
 
 type FeeMovement @entity {

@@ -4,6 +4,10 @@
   <a href="https://travis-ci.com/aragon/aragon-court/"/>
 </img>
 
+#### 👩‍⚖️ [Become an Aragon Court juror](https://anj.aragon.org)
+
+Aragon Court is now live on Ethereum mainnet. You can become a juror by staking 10,000 ANJ.
+
 #### 📓 [Read the full documentation](/docs)
 
 Aragon Court is a dispute resolution protocol that runs on Ethereum. It's one of the core components of the [Aragon Network](https://aragon.org/network/).

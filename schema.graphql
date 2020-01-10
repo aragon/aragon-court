@@ -69,6 +69,7 @@ type Dispute @entity {
   state: DisputeState!
   metadata: String!
   rounds: [AdjudicationRound!] @derivedFrom(field: "dispute")
+  jurors: [JurorDispute!] @derivedFrom(field: "dispute")
   txHash: String!
   createdAt: BigInt!
 }
@@ -139,9 +140,16 @@ type Juror @entity {
   availableBalance: BigInt!
   deactivationBalance: BigInt!
   withdrawalsLockTermId: BigInt!
+  disputes: [JurorDispute!] @derivedFrom(field: "juror")
   drafts: [JurorDraft!] @derivedFrom(field: "juror")
   movements: [ANJMovement!] @derivedFrom(field: "juror")
   createdAt: BigInt!
+}
+
+type JurorDispute @entity {
+  id: ID!
+  dispute: Dispute!
+  juror: Juror!
 }
 
 type JurorDraft @entity {

@@ -1,6 +1,6 @@
 import { Arbitrable as ArbitrableTemplate } from '../types/templates'
 import { crypto, Bytes, BigInt, Address, ByteArray, EthereumEvent } from '@graphprotocol/graph-ts'
-import { AdjudicationRound, Arbitrable, Dispute, Appeal, JurorDraft } from '../types/schema'
+import { AdjudicationRound, Arbitrable, Dispute, Appeal, JurorDispute, JurorDraft } from '../types/schema'
 import {
   DisputeManager,
   NewDispute,
@@ -58,6 +58,8 @@ export function handleJurorDrafted(event: JurorDrafted): void {
   draft.rewarded = response.value1
   draft.createdAt = event.block.timestamp
   draft.save()
+
+  createJurorDispute(event.params.disputeId, event.params.juror)
 
   updateRound(event.params.disputeId, event.params.roundId, event)
 }
@@ -142,6 +144,20 @@ function loadOrCreateRound(disputeId: BigInt, roundNumber: BigInt, event: Ethere
   return round
 }
 
+function createJurorDispute(disputeId: BigInt, juror: Address): JurorDispute | null {
+  let id = buildJurorDisputeId(disputeId, juror).toString()
+  let jurorDispute = JurorDispute.load(id)
+
+  if (jurorDispute === null) {
+    jurorDispute = new JurorDispute(id)
+    jurorDispute.dispute = disputeId.toString()
+    jurorDispute.juror = juror.toHexString()
+    jurorDispute.save()
+  }
+
+  return jurorDispute
+}
+
 function updateAppeal(disputeId: BigInt, roundNumber: BigInt, event: EthereumEvent): void {
   let appeal = loadOrCreateAppeal(disputeId, roundNumber, event)
   let manager = DisputeManager.bind(event.address)
@@ -174,6 +190,11 @@ export function buildRoundId(disputeId: BigInt, roundNumber: BigInt): BigInt {
 export function buildDraftId(roundId: BigInt, juror: Address): string {
   // @ts-ignore BigInt is actually a BytesArray under the hood
   return crypto.keccak256(concat(roundId as Bytes, juror)).toHex()
+}
+
+export function buildJurorDisputeId(disputeId: BigInt, juror: Address): string {
+  // @ts-ignore BigInt is actually a BytesArray under the hood
+  return crypto.keccak256(concat(disputeId as Bytes, juror)).toHex()
 }
 
 function buildAppealId(disputeId: BigInt, roundId: BigInt): BigInt {

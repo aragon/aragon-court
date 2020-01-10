@@ -52,6 +52,7 @@ templates:
         - Dispute
         - AdjudicationRound
         - Juror
+        - JurorDispute
         - JurorDraft
         - ANJMovement
         - Appeal

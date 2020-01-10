@@ -41,7 +41,6 @@ else
   cp subgraph.template.yaml subgraph.yaml
   sed -i -e "s/{{network}}/${ENV}/g" subgraph.yaml
   sed -i -e "s/{{court}}/${COURT}/g" subgraph.yaml
-  rm subgraph.yaml-e
 fi
 
 # Run codegen

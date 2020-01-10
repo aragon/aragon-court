@@ -25,23 +25,20 @@ else
   ENV=${NETWORK}
 fi
 
+if [[ -z $COURT ]]; then
+    source $(dirname "$0")/../court_addresses.sh
+fi
 # Validate court address
 if [[ -z $COURT ]]; then
-  if [[ -f subgraph.${NETWORK}.yaml ]]; then
-    # Copy network subgraph manifest
-    echo "Redeploying subgraph using subgraph.${NETWORK}.yml manifest"
-    mv subgraph.${NETWORK}.yaml subgraph.yaml
-  else
-    echo 'Please make sure a Court address is provided'
-    exit 1
-  fi
-else
-  # Build subgraph manifest for requested variables
-  echo "Deploying new subgraph for court address ${COURT} to network ${NETWORK}"
-  cp subgraph.template.yaml subgraph.yaml
-  sed -i -e "s/{{network}}/${ENV}/g" subgraph.yaml
-  sed -i -e "s/{{court}}/${COURT}/g" subgraph.yaml
+  echo 'Please make sure a Court address is provided'
+  exit 1
 fi
+
+# Build subgraph manifest for requested variables
+echo "Deploying new subgraph for court address ${COURT} to network ${NETWORK}"
+cp subgraph.template.yaml subgraph.yaml
+sed -i -e "s/{{network}}/${ENV}/g" subgraph.yaml
+sed -i -e "s/{{court}}/${COURT}/g" subgraph.yaml
 
 # Run codegen
 npm run codegen
@@ -71,6 +68,3 @@ fi
 
 # Deploy subgraph
 graph deploy aragon/aragon-court${SUBGRAPH_EXT} --ipfs ${IPFS_NODE} --node ${GRAPH_NODE}
-
-# Save manifest for custom network
-mv subgraph.yaml subgraph.${NETWORK}.yaml

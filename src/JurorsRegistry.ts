@@ -88,6 +88,12 @@ function loadOrCreateJuror(jurorAddress: Address, event: EthereumEvent): Juror |
     juror.createdAt = event.block.timestamp
   }
 
+  // Get the tree id
+  let registry = JurorsRegistry.bind(event.address)
+  // Note that id here is the address, while in JurorRegistry contract means the id in the tree
+  let response = registry.getJurorId(jurorAddress)
+  juror.treeId = response
+
   return juror
 }
 

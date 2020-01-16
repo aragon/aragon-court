@@ -135,6 +135,7 @@ type Appeal @entity {
 
 type Juror @entity {
   id: ID!
+  treeId: BigInt!
   activeBalance: BigInt!
   lockedBalance: BigInt!
   availableBalance: BigInt!

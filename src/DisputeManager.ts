@@ -129,6 +129,7 @@ function updateRound(disputeId: BigInt, roundNumber: BigInt, event: EthereumEven
   round.collectedTokens = result.value6
   round.coherentJurors = result.value7
   round.state = castAdjudicationState(result.value8)
+  round.stateInt = result.value8
   round.save()
 }
 

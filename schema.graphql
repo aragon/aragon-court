@@ -111,6 +111,7 @@ type AdjudicationRound @entity {
   coherentJurors: BigInt!
   collectedTokens: BigInt!
   appeal: Appeal @derivedFrom(field: "round")
+  vote: Vote
   createdAt: BigInt!
 }
 
@@ -213,4 +214,18 @@ enum FeeMovementType {
   Assign
   Withdraw
   Subscriptions
+}
+
+type Vote @entity {
+  id: ID!
+  winningOutcome: OutcomeType!
+  createdAt: BigInt!
+}
+
+enum OutcomeType {
+  Missing
+  Leaked
+  Refused
+  Against
+  InFavor
 }

@@ -139,6 +139,7 @@ function loadOrCreateRound(disputeId: BigInt, roundNumber: BigInt, event: Ethere
 
   if (round === null) {
     round = new AdjudicationRound(id)
+    round.vote = id
     round.createdAt = event.block.timestamp
   }
 

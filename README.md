@@ -38,8 +38,11 @@ In another terminal, clone the graph node and start it:
   git clone https://github.com/graphprotocol/graph-node/
   cd graph-node/docker
   rm -rf data
+  ./setup.sh
   docker-compose up
 ```
+
+(See [this issue](https://github.com/graphprotocol/graph-node/issues/1132) about the `setup.sh` script)
 
 > If docker prompts you with the error `The reorg threshold 50 is larger than the size of the chain 7, you probably want to set the ETHEREUM_REORG_THRESHOLD environment variable to 0`,
   simply add a new env variable in `docker-compose.yml` named `ETHEREUM_REORG_THRESHOLD` assigning it to 0 and start it again.
@@ -63,3 +66,9 @@ You can use the provided deployment script to create a manifest file, providing 
 
 If you have already deployed it once, there is no need to input the COURT address variable again.
 However, note that if you are working with a local chain, this won't recover previous deployed instances unless the process was never stopped.
+
+##### 6. Query Aragon Court subgraph
+
+Open up the following URL to be able to query your graph using the provided GraphiQL console:
+
+http://127.0.0.1:8000/subgraphs/name/aragon/aragon-court-rpc/graphql

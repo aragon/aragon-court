@@ -129,8 +129,10 @@ type Appeal @entity {
   round: AdjudicationRound!
   maker: Bytes!
   appealedRuling: BigInt!
+  appealDeposit: BigInt!
   taker: Bytes!
   opposedRuling: BigInt!
+  confirmAppealDeposit: BigInt!
   settled: Boolean!
   createdAt: BigInt!
 }

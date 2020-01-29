@@ -85,7 +85,8 @@ export function handleRulingAppealConfirmed(event: RulingAppealConfirmed): void 
   dispute.lastRoundId = disputeResult.value4
   dispute.save()
 
-  updateAppeal(event.params.disputeId, event.params.roundId, event)
+  // RulingAppealConfirmed returns next roundId so in order to update the appeal we need the previous round
+  updateAppeal(event.params.disputeId, event.params.roundId.minus(BigInt.fromI32(1)), event)
   updateRound(event.params.disputeId, dispute.lastRoundId, event)
 }
 
@@ -166,12 +167,16 @@ function updateAppeal(disputeId: BigInt, roundNumber: BigInt, event: EthereumEve
   let appeal = loadOrCreateAppeal(disputeId, roundNumber, event)
   let manager = DisputeManager.bind(event.address)
   let result = manager.getAppeal(disputeId, roundNumber)
+  let nextRound = manager.getNextRoundDetails(disputeId, roundNumber)
+
   appeal.round = buildRoundId(disputeId, roundNumber).toString()
   appeal.maker = result.value0
   appeal.appealedRuling = result.value1
   appeal.taker = result.value2
   appeal.opposedRuling = result.value3
   appeal.settled = false
+  appeal.appealDeposit = nextRound.value6
+  appeal.confirmAppealDeposit = nextRound.value7
   appeal.save()
 }
 

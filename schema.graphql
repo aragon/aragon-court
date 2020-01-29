@@ -62,6 +62,7 @@ enum CourtModuleType {
 type Dispute @entity {
   id: ID!
   subject: Arbitrable!
+  evidences: [Evidence!] @derivedFrom(field: "dispute")
   createTermId: BigInt!
   possibleRulings: Int!
   finalRuling: Int!
@@ -84,12 +85,12 @@ enum DisputeState {
 type Arbitrable @entity {
   id: ID!
   disputes: [Dispute!] @derivedFrom(field: "subject")
-  evidence: [Evidence!] @derivedFrom(field: "arbitrable")
 }
 
 type Evidence @entity {
   id: ID!
   arbitrable: Arbitrable!
+  dispute: Dispute!
   data: Bytes!
   submitter: Bytes!
   createdAt: BigInt!

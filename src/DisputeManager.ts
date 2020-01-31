@@ -23,6 +23,7 @@ export function handleNewDispute(event: NewDispute): void {
   dispute.metadata = event.params.metadata.toString()
   dispute.possibleRulings = disputeResult.value1
   dispute.state = 'Evidence'
+  dispute.settledPenalties = false
   dispute.finalRuling = disputeResult.value3
   dispute.lastRoundId = disputeResult.value4
   dispute.createTermId = disputeResult.value5
@@ -92,6 +93,12 @@ export function handleRulingAppealConfirmed(event: RulingAppealConfirmed): void 
 
 export function handlePenaltiesSettled(event: PenaltiesSettled): void {
   updateRound(event.params.disputeId, event.params.roundId, event)
+  // update dispute settledPenalties if needed
+  let dispute = Dispute.load(event.params.disputeId.toString())
+  if (dispute.lastRoundId == event.params.roundId) {
+    dispute.settledPenalties = true
+    dispute.save()
+  }
 }
 
 export function handleRewardSettled(event: RewardSettled): void {

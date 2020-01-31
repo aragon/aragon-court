@@ -68,6 +68,7 @@ type Dispute @entity {
   finalRuling: Int!
   lastRoundId: BigInt!
   state: DisputeState!
+  settledPenalties: Boolean!
   metadata: String!
   rounds: [AdjudicationRound!] @derivedFrom(field: "dispute")
   jurors: [JurorDispute!] @derivedFrom(field: "dispute")

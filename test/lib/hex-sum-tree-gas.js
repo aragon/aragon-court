@@ -24,7 +24,7 @@ contract('HexSumTree', () => {
     })
   }
 
-  describe('gas costs', () => {
+  describe('gas costs [ @skip-on-coverage ]', () => {
     describe('insert', () => {
       context('non increasing height', () => {
         context('small tree', () => {

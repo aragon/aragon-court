@@ -4,9 +4,15 @@ const skipFiles = [
   'standards'
 ]
 
+const providerOptions = {
+  "total_accounts": 200
+}
+
 module.exports = {
-    norpc: true,
-    compileCommand: '../node_modules/.bin/truffle compile',
-    testCommand: 'node --max-old-space-size=4096 ../node_modules/.bin/truffle test --network coverage',
-    skipFiles,
+  skipFiles,
+  providerOptions,
+  mocha: {
+    grep: "@skip-on-coverage", // Find everything with this tag
+    invert: true               // Run the grep's inverse set.
+  }
 }

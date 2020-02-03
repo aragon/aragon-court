@@ -26,7 +26,7 @@ contract('AragonCourt', ([_, sender, drafter, appealMaker, appealTaker, juror500
     await courtHelper.activate(jurors)
   })
 
-  describe('gas costs', () => {
+  describe('gas costs [ @skip-on-coverage ]', () => {
     const itCostsAtMost = (method, expectedCost, call) => {
       it(`should cost up to ${expectedCost.toLocaleString()} gas`, async () => {
         const { receipt: { gasUsed } } = await call()

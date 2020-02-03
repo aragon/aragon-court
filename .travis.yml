@@ -43,3 +43,9 @@ jobs:
     - stage: tests
       script: npm test test/treasury/court-treasury.js
       name: "Treasury"
+    - stage: tests
+      script npm run coverage
+      name: "Coverage"
+after_success:
+  - cat coverage/lcov.info | ./node_modules/.bin/coveralls
+

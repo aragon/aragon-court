@@ -93,12 +93,21 @@ export function handleRulingAppealConfirmed(event: RulingAppealConfirmed): void 
 
 export function handlePenaltiesSettled(event: PenaltiesSettled): void {
   updateRound(event.params.disputeId, event.params.roundId, event)
-  // update dispute settledPenalties if needed
+  
   let dispute = Dispute.load(event.params.disputeId.toString())
+    
+  // In cases where the penalties are settled before the ruling is executed  
+  if (dispute.finalRuling === 0) {
+    let manager = DisputeManager.bind(event.address)
+    let disputeResult = manager.getDispute(event.params.disputeId)
+    dispute.finalRuling = disputeResult.value3
+  }
+
+  // update dispute settledPenalties if needed
   if (dispute.lastRoundId == event.params.roundId) {
     dispute.settledPenalties = true
-    dispute.save()
   }
+  dispute.save()
 }
 
 export function handleRewardSettled(event: RewardSettled): void {

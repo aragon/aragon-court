@@ -9,6 +9,7 @@ export function handleVoteCommitted(event: VoteCommitted): void {
   let draftId = buildDraftId(roundId, event.params.voter)
   let draft = JurorDraft.load(draftId)
   draft.commitment = event.params.commitment
+  draft.commitmentDate = event.block.timestamp
   draft.save()
 
   updateVote(event.params.voteId, event)
@@ -30,6 +31,7 @@ export function handleVoteRevealed(event: VoteRevealed): void {
   let draftId = buildDraftId(roundId, event.params.voter)
   let draft = JurorDraft.load(draftId)
   draft.outcome = event.params.outcome
+  draft.revealDate = event.block.timestamp
   draft.save()
 
   updateVote(event.params.voteId, event)

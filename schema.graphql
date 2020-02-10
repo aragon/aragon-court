@@ -167,6 +167,8 @@ type JurorDraft @entity {
   locked: BigInt!
   rewarded: Boolean!
   commitment: Bytes
+  commitmentDate: BigInt
+  revealDate: BigInt
   outcome: Int
   leaker: Bytes
   createdAt: BigInt!

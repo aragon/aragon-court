@@ -39,7 +39,7 @@
     "eslint-plugin-standard": "^4.0.0",
     "eslint-plugin-unused-imports": "^0.1.0",
     "eth-gas-reporter": "^0.2.9",
-    "ganache-cli": "^6.4.5",
+    "ganache-cli": "^6.9.0",
     "pre-push": "^0.1.1",
     "solidity-coverage": "0.5.8",
     "solium": "^1.2.3",

@@ -2,8 +2,6 @@ pragma solidity ^0.5.8;
 
 import "../lib/os/Uint256Helpers.sol";
 
-import "./clock/CourtClock.sol";
-import "./config/CourtConfig.sol";
 import "./controller/Controller.sol";
 import "../arbitration/IArbitrator.sol";
 import "../arbitration/IArbitrable.sol";

@@ -237,6 +237,51 @@ contract('JurorsRegistry', ([_, juror500, juror1000, juror1500, juror2000, juror
             assertBn(actualLockedBalance, expectedLockedBalance, `locked balance for juror #${juror.address} does not match`)
           }
         })
+
+        const checkSettle = async (unlock) => {
+          const previousTotalBalances = {}
+          for (let i = 0; i < jurors.length; i++) {
+            const address = jurors[i].address
+            const balances = await registry.balanceOf(address)
+            previousTotalBalances[address] = balances.available.add(balances.active).add(balances.locked).add(balances.pendingDeactivation)
+          }
+
+          const { expectedJurors } = await draft({
+            termRandomness,
+            disputeId,
+            selectedJurors: previousSelectedJurors,
+            batchRequestedJurors,
+            roundRequestedJurors
+          })
+          const countedJurors = countEqualJurors(expectedJurors)
+
+          // settle
+          await controller.mockIncreaseTerm()
+          const firstSelectedJuror = countedJurors[0]
+          const settledJurors = [firstSelectedJuror.address]
+          const rewardedJurors = [unlock]
+          const lockedAmount = bn(firstSelectedJuror.count).mul(DRAFT_LOCKED_AMOUNT)
+          const lockedAmounts = [lockedAmount]
+          await disputeManager.slashOrUnlock(settledJurors, lockedAmounts, rewardedJurors)
+          await controller.mockIncreaseTerm()
+
+          const balances = await registry.balanceOf(firstSelectedJuror.address)
+          const currentTotalBalance = balances.available.add(balances.active).add(balances.locked).add(balances.pendingDeactivation)
+          let expectedTotalBalance = previousTotalBalances[firstSelectedJuror.address]
+          if (!unlock) {
+            expectedTotalBalance = expectedTotalBalance.sub(lockedAmount)
+          }
+
+          assertBn(currentTotalBalance, expectedTotalBalance, `locked balance for juror #${firstSelectedJuror.address} does not match`)
+        }
+
+        it('unlocks properly after settling', async () => {
+          await checkSettle(true)
+        })
+
+        it('slashes properly after settling', async () => {
+          await checkSettle(false)
+        })
       }
 
       context('when there are no activated jurors', () => {

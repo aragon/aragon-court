@@ -144,12 +144,7 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
     * @param _amount Amount of juror tokens to be activated for the next term
     */
     function activate(uint256 _amount) external {
-        uint256 availableBalance = jurorsByAddress[msg.sender].availableBalance;
-        uint256 amountToActivate = _amount == 0 ? availableBalance : _amount;
-        require(amountToActivate > 0, ERROR_INVALID_ZERO_AMOUNT);
-        require(amountToActivate <= availableBalance, ERROR_INVALID_ACTIVATION_AMOUNT);
-
-        _activateTokens(msg.sender, amountToActivate, msg.sender);
+        _activateTokens(msg.sender, _amount, msg.sender);
     }
 
     /**
@@ -381,10 +376,8 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
             // No need for SafeMath: amounts were already checked above
             uint256 amountToReduce = _amount - unlockedActiveBalance;
             _reduceDeactivationRequest(_juror, amountToReduce, _termId);
-            tree.set(juror.id, nextTermId, 0);
-        } else {
-            tree.update(juror.id, nextTermId, _amount, false);
         }
+        tree.update(juror.id, nextTermId, _amount, false);
 
         emit JurorTokensCollected(_juror, _amount, nextTermId);
         return true;
@@ -560,10 +553,15 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
         uint64 termId = _ensureCurrentTerm();
 
         // Try to clean a previous deactivation request if any
-        _processDeactivationRequest(msg.sender, termId);
+        _processDeactivationRequest(_juror, termId);
+
+        uint256 availableBalance = jurorsByAddress[_juror].availableBalance;
+        uint256 amountToActivate = _amount == 0 ? availableBalance : _amount;
+        require(amountToActivate > 0, ERROR_INVALID_ZERO_AMOUNT);
+        require(amountToActivate <= availableBalance, ERROR_INVALID_ACTIVATION_AMOUNT);
 
         uint64 nextTermId = termId + 1;
-        _checkTotalActiveBalance(nextTermId, _amount);
+        _checkTotalActiveBalance(nextTermId, amountToActivate);
         Juror storage juror = jurorsByAddress[_juror];
         uint256 minActiveBalance = _getMinActiveBalance(nextTermId);
 
@@ -571,16 +569,16 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
             // Even though we are adding amounts, let's check the new active balance is greater than or equal to the
             // minimum active amount. Note that the juror might have been slashed.
             uint256 activeBalance = tree.getItem(juror.id);
-            require(activeBalance.add(_amount) >= minActiveBalance, ERROR_ACTIVE_BALANCE_BELOW_MIN);
-            tree.update(juror.id, nextTermId, _amount, true);
+            require(activeBalance.add(amountToActivate) >= minActiveBalance, ERROR_ACTIVE_BALANCE_BELOW_MIN);
+            tree.update(juror.id, nextTermId, amountToActivate, true);
         } else {
-            require(_amount >= minActiveBalance, ERROR_ACTIVE_BALANCE_BELOW_MIN);
-            juror.id = tree.insert(nextTermId, _amount);
+            require(amountToActivate >= minActiveBalance, ERROR_ACTIVE_BALANCE_BELOW_MIN);
+            juror.id = tree.insert(nextTermId, amountToActivate);
             jurorsAddressById[juror.id] = _juror;
         }
 
-        _updateAvailableBalanceOf(_juror, _amount, false);
-        emit JurorActivated(_juror, nextTermId, _amount, _sender);
+        _updateAvailableBalanceOf(_juror, amountToActivate, false);
+        emit JurorActivated(_juror, nextTermId, amountToActivate, _sender);
     }
 
     /**
@@ -647,6 +645,10 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
         // No need for SafeMath: we already checked values above
         uint256 newRequestAmount = currentRequestAmount - _amount;
         request.amount = newRequestAmount;
+
+        // Move amount back to the tree
+        tree.update(juror.id, _termId + 1, _amount, true);
+
         emit JurorDeactivationUpdated(_juror, request.availableTermId, newRequestAmount, _termId);
     }
 

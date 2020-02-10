@@ -283,6 +283,19 @@ contract('JurorsRegistry', ([_, juror, secondJuror, thirdJuror, anyone]) => {
           assertBn(previousJurorStake.sub(amount), currentJurorStake, 'juror stake amounts do not match')
         })
 
+        const addBalances  = (balances) => balances.available.add(balances.active).add(balances.locked).add(balances.pendingDeactivation)
+
+        it('keeps total balances consistent', async () => {
+          const previousBalances = await registry.balanceOf(juror)
+          const previousTotalBalance = addBalances(previousBalances)
+
+          await disputeManager.collect(juror, amount)
+
+          const currentBalances = await registry.balanceOf(juror)
+          const currentTotalBalance = addBalances(currentBalances)
+          assertBn(previousTotalBalance, currentTotalBalance.add(amount), 'total balances do not match')
+        })
+
         it('does not affect the token balances', async () => {
           const previousJurorBalance = await ANJ.balanceOf(juror)
           const previousRegistryBalance = await ANJ.balanceOf(registry.address)

@@ -126,6 +126,20 @@ enum AdjudicationState {
   Ended
 }
 
+type Vote @entity {
+  id: ID!
+  winningOutcome: OutcomeType!
+  createdAt: BigInt!
+}
+
+enum OutcomeType {
+  Missing
+  Leaked
+  Refused
+  Against
+  InFavor
+}
+
 type Appeal @entity {
   id: ID!
   round: AdjudicationRound!
@@ -220,18 +234,4 @@ enum FeeMovementType {
   Assign
   Withdraw
   Subscriptions
-}
-
-type Vote @entity {
-  id: ID!
-  winningOutcome: OutcomeType!
-  createdAt: BigInt!
-}
-
-enum OutcomeType {
-  Missing
-  Leaked
-  Refused
-  Against
-  InFavor
 }

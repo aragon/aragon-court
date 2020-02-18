@@ -204,7 +204,7 @@ export function createJurorDraft(disputeManagerAddress: Address, disputeId: BigI
   let disputeRoundId = buildRoundId(disputeId, roundId)
   let draftId = buildDraftId(disputeRoundId, jurorAddress)
   let draft = new JurorDraft(draftId)
-  draft.round = roundId.toString()
+  draft.round = disputeRoundId.toString()
   draft.juror = jurorAddress.toHex()
   draft.locked = BigInt.fromI32(0) // will be updated in JurorLockedBalance event handler
   draft.weight = response.value0

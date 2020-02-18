@@ -47,17 +47,7 @@ export function handleEvidencePeriodClosed(event: EvidencePeriodClosed): void {
 }
 
 export function handleJurorDrafted(event: JurorDrafted): void {
-  let manager = DisputeManager.bind(event.address)
-  let response = manager.getJuror(event.params.disputeId, event.params.roundId, event.params.juror)
-  let roundId = buildRoundId(event.params.disputeId, event.params.roundId)
-  let draftId = buildDraftId(roundId, event.params.juror)
-  let draft = new JurorDraft(draftId)
-  draft.round = roundId.toString()
-  draft.juror = event.params.juror.toHex()
-  draft.locked = BigInt.fromI32(0) // will be updated in JurorLockedBalance event handler
-  draft.weight = response.value0
-  draft.rewarded = response.value1
-  draft.createdAt = event.block.timestamp
+  let draft = createJurorDraft(event.address, event.params.disputeId, event.params.roundId, event.params.juror, event.block.timestamp)
   draft.save()
 
   createJurorDispute(event.params.disputeId, event.params.juror)
@@ -208,8 +198,32 @@ function loadOrCreateAppeal(disputeId: BigInt, roundNumber: BigInt, event: Ether
   return appeal
 }
 
+export function createJurorDraft(disputeManagerAddress: Address, disputeId: BigInt, roundId: BigInt, jurorAddress: Address, timestamp: BigInt): JurorDraft {
+  let manager = DisputeManager.bind(disputeManagerAddress)
+  let response = manager.getJuror(disputeId, roundId, jurorAddress)
+  let disputeRoundId = buildRoundId(disputeId, roundId)
+  let draftId = buildDraftId(disputeRoundId, jurorAddress)
+  let draft = new JurorDraft(draftId)
+  draft.round = roundId.toString()
+  draft.juror = jurorAddress.toHex()
+  draft.locked = BigInt.fromI32(0) // will be updated in JurorLockedBalance event handler
+  draft.weight = response.value0
+  draft.rewarded = response.value1
+  draft.createdAt = timestamp
+
+  return draft
+}
+
 export function buildRoundId(disputeId: BigInt, roundNumber: BigInt): BigInt {
   return BigInt.fromI32(2).pow(128).times(disputeId).plus(roundNumber)
+}
+
+export function decodeDisputeRoundId(disputeRoundId: BigInt): BigInt[] {
+  let UINT128 = BigInt.fromI32(2).pow(128)
+  let disputeId = disputeRoundId.div(UINT128)
+  let roundId = disputeRoundId.mod(UINT128)
+
+  return [disputeId, roundId]
 }
 
 export function buildDraftId(roundId: BigInt, juror: Address): string {

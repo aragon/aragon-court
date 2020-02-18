@@ -138,9 +138,14 @@ templates:
       language: wasm/assemblyscript
       entities:
         - JurorDraft
+        - Vote
       abis:
         - name: Voting
           file: ./node_modules/@aragon/court/abi/CRVoting.json
+        - name: DisputeManager
+          file: ./node_modules/@aragon/court/abi/DisputeManager.json
+        - name: Controller
+          file: ./node_modules/@aragon/court/abi/Controller.json
       eventHandlers:
         - event: VoteCommitted(indexed uint256,indexed address,bytes32)
           handler: handleVoteCommitted

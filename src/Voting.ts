@@ -1,13 +1,14 @@
 import { JurorDraft, Vote } from '../types/schema'
-import { buildDraftId } from './DisputeManager'
+import { buildDraftId, decodeDisputeRoundId, createJurorDraft } from './DisputeManager'
 import { VoteCommitted, VoteLeaked, VoteRevealed } from '../types/templates/Voting/Voting'
-import { BigInt, EthereumEvent } from '@graphprotocol/graph-ts'
+import { Address, BigInt, EthereumEvent } from '@graphprotocol/graph-ts'
 import { Voting } from '../types/templates/Voting/Voting'
+import { Controller } from '../types/templates/JurorsRegistry/Controller'
 
 export function handleVoteCommitted(event: VoteCommitted): void {
-  let roundId = event.params.voteId
-  let draftId = buildDraftId(roundId, event.params.voter)
-  let draft = JurorDraft.load(draftId)
+  let disputeRoundId = event.params.voteId
+  let draftId = buildDraftId(disputeRoundId, event.params.voter)
+  let draft = loadOrCreateJurorDraft(draftId, disputeRoundId, event.params.voter, event)
   draft.commitment = event.params.commitment
   draft.commitmentDate = event.block.timestamp
   draft.save()
@@ -54,6 +55,21 @@ function loadOrCreateVote(voteId: BigInt, event: EthereumEvent): Vote | null {
   }
 
   return vote
+}
+
+function loadOrCreateJurorDraft(draftId: string, disputeRoundId: BigInt, jurorAddress: Address, event: EthereumEvent): JurorDraft | null {
+  let draft = JurorDraft.load(draftId)
+
+  if (draft === null) {
+    let voting = Voting.bind(event.address)
+    let controllerAddress = voting.getController()
+    let controller = Controller.bind(controllerAddress)
+    let disputeManagerAddress = controller.getDisputeManager()
+    let disputeRoundIdArray = decodeDisputeRoundId(disputeRoundId)
+    draft = createJurorDraft(disputeManagerAddress, disputeRoundIdArray[0], disputeRoundIdArray[1], jurorAddress, event.block.timestamp)
+  }
+
+  return draft
 }
 
 function castOutcome(outcome: i32): string {

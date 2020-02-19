@@ -150,6 +150,7 @@ type Appeal @entity {
   opposedRuling: BigInt!
   confirmAppealDeposit: BigInt!
   settled: Boolean!
+  confirmedAt: BigInt
   createdAt: BigInt!
 }
 

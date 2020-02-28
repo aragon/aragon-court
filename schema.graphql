@@ -166,6 +166,7 @@ type Juror @entity {
   drafts: [JurorDraft!] @derivedFrom(field: "juror")
   treasuryTokens: [JurorTreasuryTokenBalance!] @derivedFrom(field: "juror")
   movements: [ANJMovement!] @derivedFrom(field: "juror")
+  feeMovements: [FeeMovement!] @derivedFrom(field: "juror")
   createdAt: BigInt!
 }
 

@@ -90,8 +90,15 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
     // List of periods indexed by ID
     mapping (uint256 => Period) internal periods;
 
-    event FeesPaid(address indexed subscriber, uint256 periods, uint256 newLastPeriodId, uint256 collectedFees, uint256 governorFee);
-    event FeesDonated(address indexed payer, uint256 amount);
+    event FeesPaid(
+        address indexed subscriber,
+        uint256 indexed periodId,
+        uint256 periods,
+        uint256 newLastPeriodId,
+        uint256 collectedFees,
+        uint256 governorFee
+    );
+    event FeesDonated(address indexed payer, uint256 indexed periodId, uint256 amount);
     event FeesClaimed(address indexed juror, uint256 indexed periodId, uint256 jurorShare);
     event GovernorFeesTransferred(uint256 amount);
     event FeeTokenChanged(address previousFeeToken, address currentFeeToken);
@@ -182,7 +189,7 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
         period.collectedFees = period.collectedFees.add(_amount);
 
         // Deposit fee tokens from sender to this contract
-        emit FeesDonated(msg.sender, _amount);
+        emit FeesDonated(msg.sender, currentPeriodId, _amount);
         require(feeToken.safeTransferFrom(msg.sender, address(this), _amount), ERROR_TOKEN_TRANSFER_FAILED);
     }
 
@@ -473,7 +480,7 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
         _subscriber.lastPaymentPeriodId = uint64(newLastPeriodId);
 
         // Deposit fee tokens from sender to this contract
-        emit FeesPaid(_to, _periods, newLastPeriodId, collectedFees, governorFee);
+        emit FeesPaid(_to, currentPeriodId, _periods, newLastPeriodId, collectedFees, governorFee);
         require(feeToken.safeTransferFrom(_from, address(this), amountToPay), ERROR_TOKEN_TRANSFER_FAILED);
     }
 

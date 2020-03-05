@@ -140,7 +140,7 @@ contract DisputeManager is ControlledRecoverable, ICRVotingOwner, IDisputeManage
     event RulingAppealConfirmed(uint256 indexed disputeId, uint256 indexed roundId, uint64 indexed draftTermId, uint256 jurorsNumber);
     event RulingComputed(uint256 indexed disputeId, uint8 indexed ruling);
     event PenaltiesSettled(uint256 indexed disputeId, uint256 indexed roundId, uint256 collectedTokens);
-    event RewardSettled(uint256 indexed disputeId, uint256 indexed roundId, address juror);
+    event RewardSettled(uint256 indexed disputeId, uint256 indexed roundId, address juror, uint256 collectedTokens, uint256 jurorFees);
     event AppealDepositSettled(uint256 indexed disputeId, uint256 indexed roundId);
     event MaxJurorsPerDraftBatchChanged(uint64 previousMaxJurorsPerDraftBatch, uint64 currentMaxJurorsPerDraftBatch);
 
@@ -440,13 +440,15 @@ contract DisputeManager is ControlledRecoverable, ICRVotingOwner, IDisputeManage
 
         // Distribute the collected tokens of the jurors that were slashed weighted by the winning jurors. Note that we are penalizing jurors
         // that refused intentionally their vote for the final round.
+        uint256 collectedTokensReward = uint256(jurorState.weight).mul(collectedTokens) / coherentJurors;
         if (collectedTokens > 0) {
-            jurorsRegistry.assignTokens(_juror, uint256(jurorState.weight).mul(collectedTokens) / coherentJurors);
+            jurorsRegistry.assignTokens(_juror, collectedTokensReward);
         }
 
         // Reward the winning juror with fees
         Config memory config = _getDisputeConfig(dispute);
-        _treasury().assign(config.fees.token, _juror, round.jurorFees.mul(jurorState.weight) / coherentJurors);
+        uint256 jurorFeesReward = round.jurorFees.mul(jurorState.weight) / coherentJurors;
+        _treasury().assign(config.fees.token, _juror, jurorFeesReward);
 
         // Set the lock for final round
         if (!_isRegularRound(_roundId, config)) {
@@ -457,7 +459,7 @@ contract DisputeManager is ControlledRecoverable, ICRVotingOwner, IDisputeManage
             jurorsRegistry.lockWithdrawals(_juror, finalRoundLockTermId);
         }
 
-        emit RewardSettled(_disputeId, _roundId, _juror);
+        emit RewardSettled(_disputeId, _roundId, _juror, collectedTokensReward, jurorFeesReward);
     }
 
     /**

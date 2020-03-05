@@ -44,27 +44,8 @@ contract('DisputeManager', ([_, juror500, juror1000, juror1500]) => {
           })
         }
 
-        context('when the current term is the dispute creation term', async () => {
-          beforeEach('assert creation term', async () => {
-            const currentTermId = await court.getCurrentTermId()
-            const { createTermId } = await courtHelper.getDispute(disputeId)
-            assertBn(currentTermId, createTermId, 'current term does not match')
-          })
-
-          it('reverts', async () => {
-            await assertRevert(arbitrable.submitEvidence(disputeId, '0x', true), DISPUTE_MANAGER_ERRORS.CANNOT_CLOSE_EVIDENCE_PERIOD)
-          })
-        })
-
-        context('when the current term is after the dispute creation but within the evidence period', async () => {
+        const itClosesEvidencePeriod = () => {
           let receipt, currentTermId
-
-          beforeEach('advance a few periods', async () => {
-            await courtHelper.passTerms(DEFAULTS.evidenceTerms.div(bn(2)))
-            const currentTermId = await court.getCurrentTermId()
-            const { draftTerm } = await courtHelper.getRound(disputeId, 0)
-            assert.isBelow(currentTermId.toNumber(), draftTerm.toNumber(), 'current term does not match')
-          })
 
           beforeEach('close evidence period', async () => {
             currentTermId = await court.getCurrentTermId()
@@ -73,7 +54,7 @@ contract('DisputeManager', ([_, juror500, juror1000, juror1500]) => {
 
           it('closes the evidence period updating the draft term ID', async () => {
             const { draftTerm } = await courtHelper.getRound(disputeId, 0)
-            assertBn(draftTerm, currentTermId, 'round draft term does not match')
+            assertBn(draftTerm, currentTermId.add(bn(1)), 'round draft term does not match')
 
             const logs = decodeEventsOfType(receipt, DisputeManager.abi, DISPUTE_MANAGER_EVENTS.EVIDENCE_PERIOD_CLOSED)
             assertAmountOfEvents({ logs }, DISPUTE_MANAGER_EVENTS.EVIDENCE_PERIOD_CLOSED)
@@ -85,10 +66,33 @@ contract('DisputeManager', ([_, juror500, juror1000, juror1500]) => {
           })
 
           itCanBeDrafted()
+        }
+
+        context('when the current term is the dispute creation term', async () => {
+          beforeEach('assert creation term', async () => {
+            const currentTermId = await court.getCurrentTermId()
+            const { createTermId } = await courtHelper.getDispute(disputeId)
+            assertBn(currentTermId, createTermId, 'current term does not match')
+          })
+
+          itClosesEvidencePeriod()
+        })
+
+        context('when the current term is after the dispute creation but within the evidence period', async () => {
+          beforeEach('advance a few terms', async () => {
+            await courtHelper.passTerms(DEFAULTS.evidenceTerms.div(bn(2)))
+            const currentTermId = await court.getCurrentTermId()
+            const { createTermId } = await courtHelper.getDispute(disputeId)
+            const { draftTerm } = await courtHelper.getRound(disputeId, 0)
+            assert.isBelow(createTermId.toNumber(), currentTermId.toNumber(), 'current term does not match')
+            assert.isBelow(currentTermId.toNumber(), draftTerm.toNumber(), 'current term does not match')
+          })
+
+          itClosesEvidencePeriod()
         })
 
         context('when the current term is at the end of the evidence period', async () => {
-          beforeEach('advance a few periods', async () => {
+          beforeEach('advance a few terms', async () => {
             await courtHelper.passTerms(DEFAULTS.evidenceTerms)
             const currentTermId = await court.getCurrentTermId()
             const { draftTerm } = await courtHelper.getRound(disputeId, 0)
@@ -103,7 +107,7 @@ contract('DisputeManager', ([_, juror500, juror1000, juror1500]) => {
         })
 
         context('when the current term is after the evidence period', async () => {
-          beforeEach('advance a few periods', async () => {
+          beforeEach('advance a few terms', async () => {
             await courtHelper.passTerms(DEFAULTS.evidenceTerms.add(bn(1)))
             const currentTermId = await court.getCurrentTermId()
             const { draftTerm } = await courtHelper.getRound(disputeId, 0)

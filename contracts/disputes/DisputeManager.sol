@@ -226,11 +226,11 @@ contract DisputeManager is ControlledRecoverable, ICRVotingOwner, IDisputeManage
 
         // Check current term is within the evidence submission period
         uint64 termId = _ensureCurrentTerm();
-        require(dispute.createTermId < termId, ERROR_CANNOT_CLOSE_EVIDENCE_PERIOD);
-        require(termId < round.draftTermId, ERROR_EVIDENCE_PERIOD_IS_CLOSED);
+        uint64 newDraftTermId = termId.add(1);
+        require(newDraftTermId < round.draftTermId, ERROR_EVIDENCE_PERIOD_IS_CLOSED);
 
         // Update the draft term of the first round to the next term
-        round.draftTermId = termId;
+        round.draftTermId = newDraftTermId;
         emit EvidencePeriodClosed(_disputeId, termId);
     }
 

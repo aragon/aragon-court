@@ -432,31 +432,34 @@ contract DisputeManager is ControlledRecoverable, ICRVotingOwner, IDisputeManage
         uint256 voteId = _getVoteId(_disputeId, _roundId);
         require(voting.hasVotedInFavorOf(voteId, dispute.finalRuling, _juror), ERROR_WONT_REWARD_INCOHERENT_JUROR);
 
-        // Note that the number of coherent jurors has to be greater than zero since we already ensured the juror has voted in favor of the
-        // final ruling, therefore there will be at least one coherent juror and divisions below are safe.
-        uint256 coherentJurors = round.coherentJurors;
         uint256 collectedTokens = round.collectedTokens;
         IJurorsRegistry jurorsRegistry = _jurorsRegistry();
 
         // Distribute the collected tokens of the jurors that were slashed weighted by the winning jurors. Note that we are penalizing jurors
         // that refused intentionally their vote for the final round.
-        uint256 collectedTokensReward = uint256(jurorState.weight).mul(collectedTokens) / coherentJurors;
+        uint256 collectedTokensReward;
         if (collectedTokens > 0) {
+            // Note that the number of coherent jurors has to be greater than zero since we already ensured the juror has voted in favor of the
+            // final ruling, therefore there will be at least one coherent juror and divisions below are safe.
+            collectedTokensReward = _getRoundWeightedAmount(round, jurorState, collectedTokens);
             jurorsRegistry.assignTokens(_juror, collectedTokensReward);
         }
 
         // Reward the winning juror with fees
         Config memory config = _getDisputeConfig(dispute);
-        uint256 jurorFeesReward = round.jurorFees.mul(jurorState.weight) / coherentJurors;
+        // Note that the number of coherent jurors has to be greater than zero since we already ensured the juror has voted in favor of the
+        // final ruling, therefore there will be at least one coherent juror and divisions below are safe.
+        uint256 jurorFeesReward = _getRoundWeightedAmount(round, jurorState, round.jurorFees);
         _treasury().assign(config.fees.token, _juror, jurorFeesReward);
 
         // Set the lock for final round
         if (!_isRegularRound(_roundId, config)) {
             // Round end term ID (as it's final there's no draft delay nor appeal) plus the lock period
             DisputesConfig memory disputesConfig = config.disputes;
-            uint64 finalRoundLockTermId = round.draftTermId +
-                disputesConfig.commitTerms + disputesConfig.revealTerms + disputesConfig.finalRoundLockTerms;
-            jurorsRegistry.lockWithdrawals(_juror, finalRoundLockTermId);
+            jurorsRegistry.lockWithdrawals(
+                _juror,
+                round.draftTermId + disputesConfig.commitTerms + disputesConfig.revealTerms + disputesConfig.finalRoundLockTerms
+            );
         }
 
         emit RewardSettled(_disputeId, _roundId, _juror, collectedTokensReward, jurorFeesReward);
@@ -1224,6 +1227,24 @@ contract DisputeManager is ControlledRecoverable, ICRVotingOwner, IDisputeManage
         // Otherwise, return the times the active balance of the juror fits in the min active balance, multiplying
         // it by a round factor to ensure a better precision rounding.
         return (FINAL_ROUND_WEIGHT_PRECISION.mul(_activeBalance) / _minActiveBalance).toUint64();
+    }
+
+    /**
+    * @dev Assumes round.coherentJurors is greater than zero
+    * @param _round Round which the weighted amount is computed for
+    * @param _jurorState Juror with state which the weighted amount is computed for
+    * @param _amount Amount to be weighted
+    * @return Weighted amount for a juror in a round in relation to total amount of coherent jurors
+    */
+    function _getRoundWeightedAmount(
+        AdjudicationRound storage _round,
+        JurorState storage _jurorState,
+        uint256 _amount
+    )
+        internal
+        returns (uint256)
+    {
+        return _amount.mul(_jurorState.weight) / _round.coherentJurors;
     }
 
     /**

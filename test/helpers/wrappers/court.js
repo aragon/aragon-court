@@ -34,6 +34,7 @@ const MODULE_IDS = {
 const DEFAULTS = {
   termDuration:                       bn(ONE_DAY),     //  terms lasts one day
   firstTermStartTime:                 bn(NEXT_WEEK),   //  first term starts one week after mocked timestamp
+  skippedDisputes:                    bn(0),           //  number of disputes to be skipped
   maxJurorsPerDraftBatch:             bn(10),          //  max number of jurors drafted per batch
   evidenceTerms:                      bn(4),           //  evidence period lasts 4 terms maximum
   commitTerms:                        bn(2),           //  vote commits last 2 terms
@@ -388,7 +389,7 @@ module.exports = (web3, artifacts) => {
         this.minActiveBalance
       )
 
-      if (!this.disputeManager) this.disputeManager = await this.artifacts.require('DisputeManager').new(this.court.address, this.maxJurorsPerDraftBatch)
+      if (!this.disputeManager) this.disputeManager = await this.artifacts.require('DisputeManager').new(this.court.address, this.maxJurorsPerDraftBatch, this.skippedDisputes)
       if (!this.voting) this.voting = await this.artifacts.require('CRVoting').new(this.court.address)
       if (!this.treasury) this.treasury = await this.artifacts.require('CourtTreasury').new(this.court.address)
 

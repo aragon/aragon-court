@@ -30,7 +30,6 @@ contract DisputeManager is ControlledRecoverable, ICRVotingOwner, IDisputeManage
 
     // Disputes-related error messages
     string private constant ERROR_SENDER_NOT_DISPUTE_SUBJECT = "DM_SENDER_NOT_DISPUTE_SUBJECT";
-    string private constant ERROR_CANNOT_CLOSE_EVIDENCE_PERIOD = "DM_CANNOT_CLOSE_EVIDENCE_PERIOD";
     string private constant ERROR_EVIDENCE_PERIOD_IS_CLOSED = "DM_EVIDENCE_PERIOD_IS_CLOSED";
     string private constant ERROR_TERM_OUTDATED = "DM_TERM_OUTDATED";
     string private constant ERROR_DISPUTE_DOES_NOT_EXIST = "DM_DISPUTE_DOES_NOT_EXIST";
@@ -176,10 +175,12 @@ contract DisputeManager is ControlledRecoverable, ICRVotingOwner, IDisputeManage
     * @dev Constructor function
     * @param _controller Address of the controller
     * @param _maxJurorsPerDraftBatch Max number of jurors to be drafted per batch
+    * @param _skippedDisputes Number of disputes to be skipped
     */
-    constructor(Controller _controller, uint64 _maxJurorsPerDraftBatch) ControlledRecoverable(_controller) public {
+    constructor(Controller _controller, uint64 _maxJurorsPerDraftBatch, uint256 _skippedDisputes) ControlledRecoverable(_controller) public {
         // No need to explicitly call `Controlled` constructor since `ControlledRecoverable` is already doing it
         _setMaxJurorsPerDraftBatch(_maxJurorsPerDraftBatch);
+        _skipDisputes(_skippedDisputes);
     }
 
     /**
@@ -1386,5 +1387,14 @@ contract DisputeManager is ControlledRecoverable, ICRVotingOwner, IDisputeManage
             _courtTreasury.assign(_feeToken, triggeringAppeal.maker, refundFees);
             _courtTreasury.assign(_feeToken, triggeringAppeal.taker, refundFees);
         }
+    }
+
+    /**
+    * @dev Private function only used in the constructor to skip a given number of disputes
+    * @param _skippedDisputes Number of disputes to be skipped
+    */
+    function _skipDisputes(uint256 _skippedDisputes) private {
+        assert(disputes.length == 0);
+        disputes.length = _skippedDisputes;
     }
 }

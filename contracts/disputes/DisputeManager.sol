@@ -140,7 +140,7 @@ contract DisputeManager is ControlledRecoverable, ICRVotingOwner, IDisputeManage
     event RulingAppealConfirmed(uint256 indexed disputeId, uint256 indexed roundId, uint64 indexed draftTermId, uint256 jurorsNumber);
     event RulingComputed(uint256 indexed disputeId, uint8 indexed ruling);
     event PenaltiesSettled(uint256 indexed disputeId, uint256 indexed roundId, uint256 collectedTokens);
-    event RewardSettled(uint256 indexed disputeId, uint256 indexed roundId, address juror, uint256 collectedTokens, uint256 jurorFees);
+    event RewardSettled(uint256 indexed disputeId, uint256 indexed roundId, address juror, uint256 tokens, uint256 fees);
     event AppealDepositSettled(uint256 indexed disputeId, uint256 indexed roundId);
     event MaxJurorsPerDraftBatchChanged(uint64 previousMaxJurorsPerDraftBatch, uint64 currentMaxJurorsPerDraftBatch);
 
@@ -437,20 +437,20 @@ contract DisputeManager is ControlledRecoverable, ICRVotingOwner, IDisputeManage
 
         // Distribute the collected tokens of the jurors that were slashed weighted by the winning jurors. Note that we are penalizing jurors
         // that refused intentionally their vote for the final round.
-        uint256 collectedTokensReward;
+        uint256 rewardTokens;
         if (collectedTokens > 0) {
             // Note that the number of coherent jurors has to be greater than zero since we already ensured the juror has voted in favor of the
             // final ruling, therefore there will be at least one coherent juror and divisions below are safe.
-            collectedTokensReward = _getRoundWeightedAmount(round, jurorState, collectedTokens);
-            jurorsRegistry.assignTokens(_juror, collectedTokensReward);
+            rewardTokens = _getRoundWeightedAmount(round, jurorState, collectedTokens);
+            jurorsRegistry.assignTokens(_juror, rewardTokens);
         }
 
         // Reward the winning juror with fees
         Config memory config = _getDisputeConfig(dispute);
         // Note that the number of coherent jurors has to be greater than zero since we already ensured the juror has voted in favor of the
         // final ruling, therefore there will be at least one coherent juror and divisions below are safe.
-        uint256 jurorFeesReward = _getRoundWeightedAmount(round, jurorState, round.jurorFees);
-        _treasury().assign(config.fees.token, _juror, jurorFeesReward);
+        uint256 rewardFees = _getRoundWeightedAmount(round, jurorState, round.jurorFees);
+        _treasury().assign(config.fees.token, _juror, rewardFees);
 
         // Set the lock for final round
         if (!_isRegularRound(_roundId, config)) {
@@ -462,7 +462,7 @@ contract DisputeManager is ControlledRecoverable, ICRVotingOwner, IDisputeManage
             );
         }
 
-        emit RewardSettled(_disputeId, _roundId, _juror, collectedTokensReward, jurorFeesReward);
+        emit RewardSettled(_disputeId, _roundId, _juror, rewardTokens, rewardFees);
     }
 
     /**
@@ -1151,6 +1151,25 @@ contract DisputeManager is ControlledRecoverable, ICRVotingOwner, IDisputeManage
     }
 
     /**
+    * @dev Assumes round.coherentJurors is greater than zero
+    * @param _round Round which the weighted amount is computed for
+    * @param _jurorState Juror with state which the weighted amount is computed for
+    * @param _amount Amount to be weighted
+    * @return Weighted amount for a juror in a round in relation to total amount of coherent jurors
+    */
+    function _getRoundWeightedAmount(
+        AdjudicationRound storage _round,
+        JurorState storage _jurorState,
+        uint256 _amount
+    )
+        internal
+        view
+        returns (uint256)
+    {
+        return _amount.mul(_jurorState.weight) / _round.coherentJurors;
+    }
+
+    /**
     * @dev Internal function to get the identification number of the vote of a certain dispute round
     * @param _disputeId Identification number of the dispute querying the vote ID of
     * @param _roundId Identification number of the dispute round querying the vote ID of
@@ -1227,24 +1246,6 @@ contract DisputeManager is ControlledRecoverable, ICRVotingOwner, IDisputeManage
         // Otherwise, return the times the active balance of the juror fits in the min active balance, multiplying
         // it by a round factor to ensure a better precision rounding.
         return (FINAL_ROUND_WEIGHT_PRECISION.mul(_activeBalance) / _minActiveBalance).toUint64();
-    }
-
-    /**
-    * @dev Assumes round.coherentJurors is greater than zero
-    * @param _round Round which the weighted amount is computed for
-    * @param _jurorState Juror with state which the weighted amount is computed for
-    * @param _amount Amount to be weighted
-    * @return Weighted amount for a juror in a round in relation to total amount of coherent jurors
-    */
-    function _getRoundWeightedAmount(
-        AdjudicationRound storage _round,
-        JurorState storage _jurorState,
-        uint256 _amount
-    )
-        internal
-        returns (uint256)
-    {
-        return _amount.mul(_jurorState.weight) / _round.coherentJurors;
     }
 
     /**

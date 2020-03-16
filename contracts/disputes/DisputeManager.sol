@@ -1151,6 +1151,16 @@ contract DisputeManager is ControlledRecoverable, ICRVotingOwner, IDisputeManage
     }
 
     /**
+    * @dev Internal function to get the identification number of the vote of a certain dispute round
+    * @param _disputeId Identification number of the dispute querying the vote ID of
+    * @param _roundId Identification number of the dispute round querying the vote ID of
+    * @return Identification number of the vote of the requested dispute round
+    */
+    function _getVoteId(uint256 _disputeId, uint256 _roundId) internal pure returns (uint256) {
+        return (_disputeId << 128) + _roundId;
+    }
+
+    /**
     * @dev Assumes round.coherentJurors is greater than zero
     * @param _round Round which the weighted amount is computed for
     * @param _jurorState Juror with state which the weighted amount is computed for
@@ -1167,16 +1177,6 @@ contract DisputeManager is ControlledRecoverable, ICRVotingOwner, IDisputeManage
         returns (uint256)
     {
         return _amount.mul(_jurorState.weight) / _round.coherentJurors;
-    }
-
-    /**
-    * @dev Internal function to get the identification number of the vote of a certain dispute round
-    * @param _disputeId Identification number of the dispute querying the vote ID of
-    * @param _roundId Identification number of the dispute round querying the vote ID of
-    * @return Identification number of the vote of the requested dispute round
-    */
-    function _getVoteId(uint256 _disputeId, uint256 _roundId) internal pure returns (uint256) {
-        return (_disputeId << 128) + _roundId;
     }
 
     /**

@@ -4,6 +4,10 @@
 
 ![subgraph model](./model.png)
 
+### Schema
+
+![subgraph schema](./schema.png)
+
 ### Remotes
 
 1. [Mainnet](https://thegraph.com/explorer/subgraph/aragon/aragon-court)

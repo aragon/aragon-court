@@ -5,9 +5,12 @@
     "build": "graph build",
     "codegen": "rm -rf types && graph codegen -o ./types",
     "create:rpc": "graph create aragon/aragon-court-rpc --node http://127.0.0.1:8020",
-    "deploy:rpc": "graph deploy aragon/aragon-court-rpc --ipfs http://localhost:5001 --node http://127.0.0.1:8020"
+    "deploy:rpc": "graph deploy aragon/aragon-court-rpc --ipfs http://localhost:5001 --node http://127.0.0.1:8020",
+    "generate-model": "graphqlviz schema.graphql | dot -Tpng -o schema.png"
   },
-  "devDependencies": {},
+  "devDependencies": {
+    "graphqlviz": "^3.1.0"
+  },
   "dependencies": {
     "@aragon/court": "1.1.0",
     "@aragon/minime": "1.0.0",

@@ -4,8 +4,7 @@
   "scripts": {
     "build": "graph build",
     "codegen": "rm -rf types && graph codegen -o ./types",
-    "create:rpc": "graph create aragon/aragon-court-rpc --node http://127.0.0.1:8020",
-    "deploy:rpc": "graph deploy aragon/aragon-court-rpc --ipfs http://localhost:5001 --node http://127.0.0.1:8020",
+    "deploy:rpc": "NETWORK=rpc ./scripts/deploy.sh",
     "generate-model": "graphqlviz schema.graphql | dot -Tpng -o schema.png"
   },
   "devDependencies": {

@@ -8,7 +8,8 @@ schema {
   query: Query
 }
 
-type Query {
+type Query @entity {
+  id: ID!
   courtConfig: CourtConfig
   dispute: Dispute
 }

@@ -35,4 +35,4 @@ Even though Aragon Court could theoretically resolve any type of binary dispute,
 
 ## Help shape Aragon Court
 - Discuss in [Aragon Forum](https://forum.aragon.org/tags/dispute-resolution)
-- Join the [#research channel](https://aragon.chat/channel/research) in [Aragon Chat](https://aragon.chat)
+- Join the [Aragon Court channel](https://discordapp.com/channels/672466989217873929/674689908824342531) on Discord.

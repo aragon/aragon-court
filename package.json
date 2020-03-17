@@ -5,7 +5,7 @@
     "build": "graph build",
     "codegen": "rm -rf types && graph codegen -o ./types",
     "deploy:rpc": "NETWORK=rpc ./scripts/deploy.sh",
-    "generate-model": "graphqlviz schema.graphql | dot -Tpng -o schema.png"
+    "draw-schema": "./scripts/draw-schema.sh"
   },
   "devDependencies": {
     "graphqlviz": "^3.1.0"

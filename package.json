@@ -4,8 +4,13 @@
   "scripts": {
     "build": "graph build",
     "codegen": "rm -rf types && graph codegen -o ./types",
+    "draw-schema": "./scripts/draw-schema.sh",
     "deploy:rpc": "NETWORK=rpc ./scripts/deploy.sh",
-    "draw-schema": "./scripts/draw-schema.sh"
+    "deploy:mainnet": "NETWORK=mainnet ./scripts/deploy.sh",
+    "deploy:ropsten": "NETWORK=ropsten ./scripts/deploy.sh",
+    "deploy:rinkeby": "NETWORK=rinkeby ./scripts/deploy.sh",
+    "deploy:staging": "NETWORK=staging ./scripts/deploy.sh",
+    "deploy:usability": "NETWORK=usability ./scripts/deploy.sh"
   },
   "devDependencies": {
     "graphqlviz": "^3.1.0"

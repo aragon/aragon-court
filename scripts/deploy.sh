@@ -5,8 +5,8 @@ set -o errexit
 
 # Ensure subgraph was not created
 if [ -f subgraph.yaml ]; then
-  echo 'Found previous subgraph manifest. Please remove it or back it up and re-run the deployment script again.'
-  exit 1
+  echo 'Found previous subgraph manifest. Removing to deployment new subgraph.'
+  rm subgraph.yaml
 fi
 
 # Validate network

@@ -43,7 +43,6 @@ In another terminal, clone the graph node and start it:
   git clone https://github.com/graphprotocol/graph-node/
   cd graph-node/docker
   rm -rf data
-  ./setup.sh
   docker-compose up
 ```
 

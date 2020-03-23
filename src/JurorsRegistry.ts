@@ -1,5 +1,5 @@
 import { buildId } from '../helpers/id'
-import { Juror, ANJMovement } from '../types/schema'
+import { Juror, ANJMovement, JurorsRegistryModule } from '../types/schema'
 import { EthereumEvent, Address, BigInt } from '@graphprotocol/graph-ts'
 import {
   Staked,
@@ -28,16 +28,28 @@ let SLASH = 'Slash'
 export function handleStaked(event: Staked): void {
   updateJuror(event.params.user, event)
   createANJMovementForEvent(event.params.user, STAKE, event.params.amount, event)
+
+  let jurorsRegistry = JurorsRegistryModule.load(event.address.toHex())
+  jurorsRegistry.totalStaked = jurorsRegistry.totalStaked.plus(event.params.amount)
+  jurorsRegistry.save()
 }
 
 export function handleUnstaked(event: Unstaked): void {
   updateJuror(event.params.user, event)
   createANJMovementForEvent(event.params.user, UNSTAKE, event.params.amount, event)
+
+  let jurorsRegistry = JurorsRegistryModule.load(event.address.toHex())
+  jurorsRegistry.totalStaked = jurorsRegistry.totalStaked.minus(event.params.amount)
+  jurorsRegistry.save()
 }
 
 export function handleJurorActivated(event: JurorActivated): void {
   updateJuror(event.params.juror, event)
   createANJMovementForTerm(event.params.juror, ACTIVATION, event.params.amount, event.params.fromTermId, event)
+
+  let jurorsRegistry = JurorsRegistryModule.load(event.address.toHex())
+  jurorsRegistry.totalActive = jurorsRegistry.totalActive.plus(event.params.amount)
+  jurorsRegistry.save()
 }
 
 export function handleJurorDeactivationRequested(event: JurorDeactivationRequested): void {
@@ -52,6 +64,10 @@ export function handleJurorDeactivationUpdated(event: JurorDeactivationUpdated):
 
 export function handleJurorDeactivationProcessed(event: JurorDeactivationProcessed): void {
   updateJuror(event.params.juror, event)
+
+  let jurorsRegistry = JurorsRegistryModule.load(event.address.toHex())
+  jurorsRegistry.totalActive = jurorsRegistry.totalActive.minus(event.params.amount)
+  jurorsRegistry.save()
 }
 
 export function handleJurorBalanceLocked(event: JurorBalanceLocked): void {

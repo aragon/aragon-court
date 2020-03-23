@@ -107,6 +107,7 @@ templates:
         - JurorDispute
         - ANJMovement
         - FeeMovement
+        - JurorsRegistryModule
       abis:
         - name: Controller
           file: ./node_modules/@aragon/court/abi/Controller.json
@@ -207,6 +208,8 @@ templates:
           handler: handleJurorFeesClaimed
         - event: FeesPaid(indexed address,uint256,uint256,uint256,uint256)
           handler: handleFeesPaid
+        - event: FeesDonated(indexed address,uint256)
+          handler: handleFeesDonated
         - event: FeeTokenChanged(address,address)
           handler: handleFeeTokenChanged
         - event: FeeAmountChanged(uint256,uint256)

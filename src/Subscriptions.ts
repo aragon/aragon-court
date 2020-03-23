@@ -5,6 +5,7 @@ import {
   Subscriptions,
   FeesPaid,
   FeesClaimed,
+  FeesDonated,
   FeeAmountChanged,
   FeeTokenChanged,
   GovernorSharePctChanged,
@@ -29,6 +30,12 @@ export function handleJurorFeesClaimed(event: FeesClaimed): void {
 }
 
 export function handleFeesPaid(event: FeesPaid): void {
+  let subscriptionsModule = SubscriptionModule.load(event.address.toHex())
+  subscriptionsModule.totalPaid = subscriptionsModule.totalPaid.plus(event.params.collectedFees)
+  subscriptionsModule.totalCollected = subscriptionsModule.totalCollected.plus(event.params.collectedFees)
+  subscriptionsModule.totalGovernorShares = subscriptionsModule.totalGovernorShares.plus(event.params.governorFee)
+  subscriptionsModule.save()
+
   let subscriptions = Subscriptions.bind(event.address)
   let subscriberData = subscriptions.getSubscriber(event.params.subscriber)
 
@@ -39,7 +46,16 @@ export function handleFeesPaid(event: FeesPaid): void {
   subscriber.lastPaymentPeriodId = event.params.newLastPeriodId
   subscriber.save()
 
-  updateCurrentSubscriptionPeriod(event.address)
+  updateCurrentSubscriptionPeriod(event.address, event.block.timestamp)
+}
+
+export function handleFeesDonated(event: FeesDonated): void {
+  let subscriptions = SubscriptionModule.load(event.address.toHex())
+  subscriptions.totalDonated = subscriptions.totalDonated.plus(event.params.amount)
+  subscriptions.totalCollected = subscriptions.totalCollected.plus(event.params.amount)
+  subscriptions.save()
+
+  updateCurrentSubscriptionPeriod(event.address, event.block.timestamp)
 }
 
 export function handleFeeTokenChanged(event: FeeTokenChanged): void {
@@ -78,7 +94,7 @@ export function handleResumePenaltiesChanged(event: ResumePenaltiesChanged): voi
   subscriptions.save()
 }
 
-export function updateCurrentSubscriptionPeriod(module: Address): void {
+export function updateCurrentSubscriptionPeriod(module: Address, timestamp: BigInt): void {
   let subscriptions = Subscriptions.bind(module)
   let periodId = subscriptions.getCurrentPeriodId()
 
@@ -86,7 +102,7 @@ export function updateCurrentSubscriptionPeriod(module: Address): void {
   subscriptionsModule.currentPeriod = periodId
   subscriptionsModule.save()
 
-  let period = loadOrCreateSubscriptionPeriod(periodId)
+  let period = loadOrCreateSubscriptionPeriod(periodId, timestamp)
   period.instance = module.toHex()
   period.feeToken = subscriptions.currentFeeToken()
   period.feeAmount = subscriptions.currentFeeAmount()
@@ -98,18 +114,19 @@ function updateSubscriptionPeriodCheckpoint(event: FeesClaimed): void {
   let subscriptions = Subscriptions.bind(event.address)
   let periodData = subscriptions.getPeriodBalanceDetails(event.params.periodId)
 
-  let period = loadOrCreateSubscriptionPeriod(event.params.periodId)
+  let period = loadOrCreateSubscriptionPeriod(event.params.periodId, event.block.timestamp)
   period.balanceCheckpoint = periodData.value0
   period.totalActiveBalance = periodData.value1
   period.save()
 }
 
-function loadOrCreateSubscriptionPeriod(periodId: BigInt): SubscriptionPeriod | null {
+function loadOrCreateSubscriptionPeriod(periodId: BigInt, timestamp: BigInt): SubscriptionPeriod | null {
   let id = periodId.toString()
   let period = SubscriptionPeriod.load(id)
 
   if (period === null) {
     period = new SubscriptionPeriod(id)
+    period.createdAt = timestamp
     period.balanceCheckpoint = BigInt.fromI32(0)
     period.totalActiveBalance = BigInt.fromI32(0)
   }

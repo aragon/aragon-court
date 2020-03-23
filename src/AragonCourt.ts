@@ -1,8 +1,10 @@
 import { AragonCourt } from '../types/AragonCourt/AragonCourt'
 import { ERC20 as ERC20Contract } from '../types/AragonCourt/ERC20'
 import { BigInt, Address, EthereumEvent } from '@graphprotocol/graph-ts'
-import { ERC20, CourtModule, CourtConfig, CourtTerm } from '../types/schema'
+import { updateCurrentSubscriptionPeriod } from './Subscriptions'
+import { Subscriptions as SubscriptionsContract } from '../types/templates/Subscriptions/Subscriptions'
 import { JurorsRegistry as JurorsRegistryContract } from '../types/templates/JurorsRegistry/JurorsRegistry'
+import { ERC20, CourtModule, CourtConfig, CourtTerm, SubscriptionModule } from '../types/schema'
 import { ANJ, DisputeManager, JurorsRegistry, Treasury, Voting, Subscriptions } from '../types/templates'
 import { Heartbeat, ModuleSet, FundsGovernorChanged, ConfigGovernorChanged, ModulesGovernorChanged } from '../types/AragonCourt/AragonCourt'
 
@@ -43,6 +45,9 @@ export function handleHeartbeat(event: Heartbeat): void {
   currentTerm.randomnessBN = currentTermResult.value1
   currentTerm.randomness = currentTermResult.value2
   currentTerm.save()
+
+  let subscriptions = court.getSubscriptions()
+  updateCurrentSubscriptionPeriod(subscriptions)
 }
 
 export function handleFundsGovernorChanged(event: FundsGovernorChanged): void {
@@ -103,6 +108,19 @@ export function handleModuleSet(event: ModuleSet): void {
   else if (id == SUBSCRIPTIONS_ID) {
     Subscriptions.create(event.params.addr)
     module.type = SUBSCRIPTIONS_TYPE
+
+    let subscriptionModule = new SubscriptionModule(event.params.addr.toHex())
+    let subscriptions = SubscriptionsContract.bind(event.params.addr)
+    subscriptionModule.court = event.address.toHex()
+    subscriptionModule.currentPeriod = BigInt.fromI32(0)
+    subscriptionModule.governorSharePct = BigInt.fromI32(subscriptions.governorSharePct())
+    subscriptionModule.latePaymentPenaltyPct = BigInt.fromI32(subscriptions.latePaymentPenaltyPct())
+    subscriptionModule.feeAmount = subscriptions.currentFeeAmount()
+    subscriptionModule.feeToken = subscriptions.currentFeeToken()
+    subscriptionModule.periodDuration = subscriptions.periodDuration()
+    subscriptionModule.prePaymentPeriods = subscriptions.prePaymentPeriods()
+    subscriptionModule.resumePrePaidPeriods = subscriptions.resumePrePaidPeriods()
+    subscriptionModule.save()
   }
   else {
     module.type = 'Unknown'

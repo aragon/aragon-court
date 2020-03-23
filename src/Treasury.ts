@@ -1,12 +1,10 @@
 import { concat } from '../helpers/bytes'
 import { buildId } from '../helpers/id'
 import { FeeMovement, TreasuryBalance } from '../types/schema'
-import { FeesClaimed, Subscriptions } from '../types/templates/Subscriptions/Subscriptions'
 import { Assign, Withdraw, Treasury } from '../types/templates/Treasury/Treasury'
 import { crypto, BigInt, Address, EthereumEvent } from '@graphprotocol/graph-ts'
 
 let WITHDRAW = 'Withdraw'
-let SUBSCRIPTIONS = 'Subscriptions'
 
 export function handleAssign(event: Assign): void {
   updateTreasuryBalance(event.params.to, event.params.token, event)
@@ -15,10 +13,6 @@ export function handleAssign(event: Assign): void {
 export function handleWithdraw(event: Withdraw): void {
   createFeeMovement(WITHDRAW, event.params.from, event.params.amount, event)
   updateTreasuryBalance(event.params.to, event.params.token, event)
-}
-
-export function handleSubscriptionPaid(event: FeesClaimed): void {
-  createFeeMovement(SUBSCRIPTIONS, event.params.juror, event.params.jurorShare, event)
 }
 
 export function createFeeMovement(type: string, owner: Address, amount: BigInt, event: EthereumEvent, id: string | null = null): void {

@@ -18,11 +18,17 @@ dataSources:
         - CourtConfig
         - CourtModule
         - ERC20
+        - SubscriptionModule
+        - SubscriptionPeriod
+        - Subscriber
+        - JurorSubscriptionFee
       abis:
         - name: AragonCourt
           file: ./node_modules/@aragon/court/abi/AragonCourt.json
         - name: JurorsRegistry
           file: ./node_modules/@aragon/court/abi/JurorsRegistry.json
+        - name: Subscriptions
+          file: ./node_modules/@aragon/court/abi/CourtSubscriptions.json
         - name: ERC20
           file: ./node_modules/@aragon/minime/abi/MiniMeToken.json
       eventHandlers:
@@ -55,6 +61,7 @@ templates:
         - JurorDispute
         - JurorDraft
         - ANJMovement
+        - FeeMovement
         - Appeal
       abis:
         - name: Arbitrable
@@ -97,7 +104,9 @@ templates:
       entities:
         - Juror
         - JurorDraft
+        - JurorDispute
         - ANJMovement
+        - FeeMovement
       abis:
         - name: Controller
           file: ./node_modules/@aragon/court/abi/Controller.json
@@ -165,6 +174,7 @@ templates:
       language: wasm/assemblyscript
       entities:
         - FeeMovement
+        - TreasuryBalance
       abis:
         - name: Treasury
           file: ./node_modules/@aragon/court/abi/CourtTreasury.json
@@ -185,13 +195,31 @@ templates:
       language: wasm/assemblyscript
       entities:
         - FeeMovement
+        - SubscriptionModule
+        - SubscriptionPeriod
+        - Subscriber
+        - JurorSubscriptionFee
       abis:
         - name: Subscriptions
           file: ./node_modules/@aragon/court/abi/CourtSubscriptions.json
       eventHandlers:
         - event: FeesClaimed(indexed address,indexed uint256,uint256)
-          handler: handleSubscriptionPaid
-      file: ./src/Treasury.ts
+          handler: handleJurorFeesClaimed
+        - event: FeesPaid(indexed address,uint256,uint256,uint256,uint256)
+          handler: handleFeesPaid
+        - event: FeeTokenChanged(address,address)
+          handler: handleFeeTokenChanged
+        - event: FeeAmountChanged(uint256,uint256)
+          handler: handleFeeAmountChanged
+        - event: PrePaymentPeriodsChanged(uint256,uint256)
+          handler: handlePrePaymentPeriodsChanged
+        - event: GovernorSharePctChanged(uint16,uint16)
+          handler: handleGovernorSharePctChanged
+        - event: LatePaymentPenaltyPctChanged(uint16,uint16)
+          handler: handleLatePaymentPenaltyPctChanged
+        - event: ResumePenaltiesChanged(uint256,uint256)
+          handler: handleResumePenaltiesChanged
+      file: ./src/Subscriptions.ts
   - kind: ethereum/contract
     name: ANJ
     network: {{network}}

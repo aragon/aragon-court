@@ -78,7 +78,7 @@ templates:
           handler: handleRulingAppealConfirmed
         - event: PenaltiesSettled(indexed uint256,indexed uint256,uint256)
           handler: handlePenaltiesSettled
-        - event: RewardSettled(indexed uint256,indexed uint256,address)
+        - event: RewardSettled(indexed uint256,indexed uint256,address,uint256,uint256)
           handler: handleRewardSettled
         - event: AppealDepositSettled(indexed uint256,indexed uint256)
           handler: handleAppealDepositSettled

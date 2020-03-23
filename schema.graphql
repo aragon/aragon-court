@@ -164,16 +164,16 @@ type Juror @entity {
   withdrawalsLockTermId: BigInt!
   disputes: [JurorDispute!] @derivedFrom(field: "juror")
   drafts: [JurorDraft!] @derivedFrom(field: "juror")
-  treasuryTokens: [JurorTreasuryTokenBalance!] @derivedFrom(field: "juror")
-  movements: [ANJMovement!] @derivedFrom(field: "juror")
-  feeMovements: [FeeMovement!] @derivedFrom(field: "juror")
+  anjMovements: [ANJMovement!] @derivedFrom(field: "juror")
+  feeMovements: [FeeMovement!] @derivedFrom(field: "owner")
+  treasuryBalances: [TreasuryBalance!] @derivedFrom(field: "owner")
   createdAt: BigInt!
 }
 
 type JurorDispute @entity {
   id: ID!
-  dispute: Dispute!
   juror: Juror!
+  dispute: Dispute!
 }
 
 type JurorDraft @entity {
@@ -227,21 +227,22 @@ type ANJTransfer @entity {
 
 type FeeMovement @entity {
   id: ID!
-  juror: Juror!
+  owner: Juror! # TODO: this should work for type Address
   type: FeeMovementType!
   amount: BigInt!
   createdAt: BigInt!
 }
 
 enum FeeMovementType {
-  Assign
-  Withdraw
+  Juror
+  Appeal
   Subscriptions
+  Withdraw
 }
 
-type JurorTreasuryTokenBalance @entity {
+type TreasuryBalance @entity {
   id: ID!
+  owner: Juror! # TODO: this should work for type Address
   token: ERC20!
-  juror: Juror!
-  balance: BigInt!
+  amount: BigInt!
 }

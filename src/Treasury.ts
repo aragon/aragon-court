@@ -1,77 +1,56 @@
+import { concat } from '../helpers/bytes'
 import { buildId } from '../helpers/id'
-import { FeeMovement, JurorTreasuryTokenBalance } from '../types/schema'
+import { FeeMovement, TreasuryBalance } from '../types/schema'
 import { FeesClaimed, Subscriptions } from '../types/templates/Subscriptions/Subscriptions'
 import { Assign, Withdraw, Treasury } from '../types/templates/Treasury/Treasury'
-import { crypto, Address, ByteArray, EthereumEvent } from '@graphprotocol/graph-ts'
+import { crypto, BigInt, Address, EthereumEvent } from '@graphprotocol/graph-ts'
 
-let ASSIGN = 'Assign'
 let WITHDRAW = 'Withdraw'
 let SUBSCRIPTIONS = 'Subscriptions'
 
 export function handleAssign(event: Assign): void {
-  let id = buildId(event)
-  let movement = new FeeMovement(id)
-  movement.type = ASSIGN
-  movement.juror = event.params.to.toHex()
-  movement.amount = event.params.amount
-  movement.createdAt = event.block.timestamp
-  movement.save()
-  updateJurorToken(event.params.token, event.params.to, event)
+  updateTreasuryBalance(event.params.to, event.params.token, event)
 }
 
 export function handleWithdraw(event: Withdraw): void {
-  let id = buildId(event)
-  let movement = new FeeMovement(id)
-  movement.type = WITHDRAW
-  movement.juror = event.params.to.toHex()
-  movement.amount = event.params.amount
-  movement.createdAt = event.block.timestamp
-  movement.save()
-  updateJurorToken(event.params.token, event.params.to, event)
+  createFeeMovement(WITHDRAW, event.params.from, event.params.amount, event)
+  updateTreasuryBalance(event.params.to, event.params.token, event)
 }
 
 export function handleSubscriptionPaid(event: FeesClaimed): void {
-  let id = buildId(event)
-  let movement = new FeeMovement(id)
-  movement.type = SUBSCRIPTIONS
-  movement.juror = event.params.juror.toHex()
-  movement.amount = event.params.jurorShare
+  createFeeMovement(SUBSCRIPTIONS, event.params.juror, event.params.jurorShare, event)
+}
+
+export function createFeeMovement(type: string, owner: Address, amount: BigInt, event: EthereumEvent, id: string | null = null): void {
+  let feeId = id === null ? buildId(event) : id
+  let movement = new FeeMovement(feeId)
+  movement.type = type
+  movement.owner = owner.toHex()
+  movement.amount = amount
   movement.createdAt = event.block.timestamp
   movement.save()
 }
 
-function updateJurorToken(token: Address, juror: Address, event: EthereumEvent): void {
-  let jurorToken = loadOrCreateJurorToken(token, juror)
+function updateTreasuryBalance(owner: Address, token: Address, event: EthereumEvent): void {
+  let treasuryBalance = loadOrCreateTreasuryBalance(owner, token)
   let treasury = Treasury.bind(event.address)
-  let balance = treasury.balanceOf(token, juror)
-  jurorToken.balance = balance
-  jurorToken.save()
+  treasuryBalance.amount = treasury.balanceOf(token, owner)
+  treasuryBalance.save()
 }
 
-function loadOrCreateJurorToken(token: Address, juror: Address): JurorTreasuryTokenBalance | null {
-  let id = buildJurorTokenId(token, juror)
-  let jurorToken = JurorTreasuryTokenBalance.load(id)
+function loadOrCreateTreasuryBalance(owner: Address, token: Address): TreasuryBalance | null {
+  let id = buildTreasuryBalanceId(token, owner)
+  let treasuryBalance = TreasuryBalance.load(id)
 
-  if (jurorToken === null) {
-    jurorToken = new JurorTreasuryTokenBalance(id)
-    jurorToken.token = token.toHex()
-    jurorToken.juror = juror.toHex()
+  if (treasuryBalance === null) {
+    treasuryBalance = new TreasuryBalance(id)
+    treasuryBalance.token = token.toHex()
+    treasuryBalance.owner = owner.toHex()
   }
 
-  return jurorToken
+  return treasuryBalance
 }
 
-function buildJurorTokenId(token: Address, juror: Address): string {
-  return crypto.keccak256(concat(token, juror)).toHex()
-}
-
-function concat(a: ByteArray, b: ByteArray): ByteArray {
-  let out = new Uint8Array(a.length + b.length)
-  for (let i = 0; i < a.length; i++) {
-    out[i] = a[i]
-  }
-  for (let j = 0; j < b.length; j++) {
-    out[a.length + j] = b[j]
-  }
-  return out as ByteArray
+function buildTreasuryBalanceId(owner: Address, token: Address): string {
+  return crypto.keccak256(concat(owner, token)).toHex()
 }

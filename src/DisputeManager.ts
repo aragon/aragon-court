@@ -1,5 +1,8 @@
+import { concat } from '../helpers/bytes'
+import { buildId } from '../helpers/id'
+import { createFeeMovement } from './Treasury'
 import { Arbitrable as ArbitrableTemplate } from '../types/templates'
-import { crypto, Bytes, BigInt, Address, ByteArray, EthereumEvent } from '@graphprotocol/graph-ts'
+import { crypto, Bytes, BigInt, Address, EthereumEvent } from '@graphprotocol/graph-ts'
 import { AdjudicationRound, Arbitrable, Dispute, Appeal, JurorDispute, JurorDraft } from '../types/schema'
 import {
   DisputeManager,
@@ -14,6 +17,9 @@ import {
   RulingAppealConfirmed,
   RulingComputed
 } from '../types/templates/DisputeManager/DisputeManager'
+
+const JUROR_FEES = 'Juror'
+const APPEAL_FEES = 'Appeal'
 
 export function handleNewDispute(event: NewDispute): void {
   let manager = DisputeManager.bind(event.address)
@@ -83,10 +89,10 @@ export function handleRulingAppealConfirmed(event: RulingAppealConfirmed): void 
 
 export function handlePenaltiesSettled(event: PenaltiesSettled): void {
   updateRound(event.params.disputeId, event.params.roundId, event)
-  
+
   let dispute = Dispute.load(event.params.disputeId.toString())
-    
-  // In cases where the penalties are settled before the ruling is executed  
+
+  // In cases where the penalties are settled before the ruling is executed
   if (dispute.finalRuling === 0) {
     let manager = DisputeManager.bind(event.address)
     let disputeResult = manager.getDispute(event.params.disputeId)
@@ -97,6 +103,9 @@ export function handlePenaltiesSettled(event: PenaltiesSettled): void {
   if (dispute.lastRoundId == event.params.roundId) {
     dispute.settledPenalties = true
   }
+
+  // create movements for appeal fees if there were no coherent jurors
+  createAppealFeesForJurorFees(event, dispute as Dispute)
   dispute.save()
 }
 
@@ -107,6 +116,8 @@ export function handleRewardSettled(event: RewardSettled): void {
   let draft = JurorDraft.load(buildDraftId(roundId, event.params.juror))
   draft.rewarded = true
   draft.save()
+
+  createFeeMovement(JUROR_FEES, event.params.juror, event.params.fees, event)
 }
 
 export function handleAppealDepositSettled(event: AppealDepositSettled): void {
@@ -114,6 +125,8 @@ export function handleAppealDepositSettled(event: AppealDepositSettled): void {
   let appeal = Appeal.load(appealId.toString())
   appeal.settled = true
   appeal.save()
+
+  createAppealFeesForDeposits(event.params.disputeId, event.params.roundId, appeal as Appeal, event)
 }
 
 export function handleRulingComputed(event: RulingComputed): void {
@@ -186,7 +199,50 @@ function updateAppeal(disputeId: BigInt, roundNumber: BigInt, event: EthereumEve
   if (appeal.opposedRuling.gt(BigInt.fromI32(0))) {
     appeal.confirmedAt = event.block.timestamp
   }
+
   appeal.save()
+}
+
+function createAppealFeesForDeposits(disputeId: BigInt, roundNumber: BigInt, appeal: Appeal, event: EthereumEvent): void {
+  let manager = DisputeManager.bind(event.address)
+  let nextRound = manager.getNextRoundDetails(disputeId, roundNumber)
+  let totalFees = nextRound.value4
+
+  let maker = Address.fromString(appeal.maker.toHex())
+  let taker = Address.fromString(appeal.taker.toHex())
+  let totalDeposit = appeal.appealDeposit.plus(appeal.confirmAppealDeposit)
+
+  let dispute = Dispute.load(disputeId.toString())
+  let finalRuling = BigInt.fromI32(dispute.finalRuling)
+
+  if (appeal.appealedRuling.equals(finalRuling)) {
+    createFeeMovement(APPEAL_FEES, maker, totalDeposit.minus(totalFees), event)
+  } else if (appeal.opposedRuling.equals(finalRuling)) {
+    createFeeMovement(APPEAL_FEES, taker, totalDeposit.minus(totalFees), event)
+  } else {
+    let feesRefund = totalFees.div(BigInt.fromI32(2))
+    let id = buildId(event)
+    createFeeMovement(APPEAL_FEES, maker, appeal.appealDeposit.minus(feesRefund), event, id.concat('-maker'))
+    createFeeMovement(APPEAL_FEES, taker, appeal.confirmAppealDeposit.minus(feesRefund), event, id.concat('-taker'))
+  }
+}
+
+function createAppealFeesForJurorFees(event: PenaltiesSettled, dispute: Dispute): void {
+  let roundId = buildRoundId(event.params.disputeId, event.params.roundId).toString()
+  let round = AdjudicationRound.load(roundId)
+  if (round.coherentJurors.isZero()) {
+    if (event.params.roundId.isZero()) {
+      createFeeMovement(APPEAL_FEES, Address.fromString(dispute.subject), round.jurorFees, event)
+    } else {
+      let previousRoundId = event.params.roundId.minus(BigInt.fromI32(1))
+      let appealId = buildAppealId(event.params.disputeId, previousRoundId).toString()
+      let appeal = Appeal.load(appealId)
+      let refundFees = round.jurorFees.div(BigInt.fromI32(2))
+      let id = buildId(event)
+      createFeeMovement(APPEAL_FEES, Address.fromString(appeal.maker.toHex()), refundFees, event, id.concat('-maker'))
+      createFeeMovement(APPEAL_FEES, Address.fromString(appeal.taker.toHex()), refundFees, event, id.concat('-taker'))
+    }
+  }
 }
 
 function loadOrCreateAppeal(disputeId: BigInt, roundNumber: BigInt, event: EthereumEvent): Appeal | null {
@@ -263,15 +319,4 @@ function castAdjudicationState(state: i32): string {
     case 5: return 'Ended'
     default: return 'Unknown'
   }
-}
-
-function concat(a: ByteArray, b: ByteArray): ByteArray {
-  let out = new Uint8Array(a.length + b.length)
-  for (let i = 0; i < a.length; i++) {
-    out[i] = a[i]
-  }
-  for (let j = 0; j < b.length; j++) {
-    out[a.length + j] = b[j]
-  }
-  return out as ByteArray
 }

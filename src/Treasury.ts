@@ -33,7 +33,7 @@ function updateTreasuryBalance(owner: Address, token: Address, event: EthereumEv
 }
 
 function loadOrCreateTreasuryBalance(owner: Address, token: Address): TreasuryBalance | null {
-  let id = buildTreasuryBalanceId(token, owner)
+  let id = buildTreasuryBalanceId(owner, token)
   let treasuryBalance = TreasuryBalance.load(id)
 
   if (treasuryBalance === null) {

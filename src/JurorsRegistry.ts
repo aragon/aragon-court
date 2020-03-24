@@ -28,28 +28,19 @@ let SLASH = 'Slash'
 export function handleStaked(event: Staked): void {
   updateJuror(event.params.user, event)
   createANJMovementForEvent(event.params.user, STAKE, event.params.amount, event)
-
-  let jurorsRegistry = JurorsRegistryModule.load(event.address.toHex())
-  jurorsRegistry.totalStaked = jurorsRegistry.totalStaked.plus(event.params.amount)
-  jurorsRegistry.save()
+  increaseTotalStaked(event.address, event.params.amount)
 }
 
 export function handleUnstaked(event: Unstaked): void {
   updateJuror(event.params.user, event)
   createANJMovementForEvent(event.params.user, UNSTAKE, event.params.amount, event)
-
-  let jurorsRegistry = JurorsRegistryModule.load(event.address.toHex())
-  jurorsRegistry.totalStaked = jurorsRegistry.totalStaked.minus(event.params.amount)
-  jurorsRegistry.save()
+  decreaseTotalStaked(event.address, event.params.amount)
 }
 
 export function handleJurorActivated(event: JurorActivated): void {
   updateJuror(event.params.juror, event)
   createANJMovementForTerm(event.params.juror, ACTIVATION, event.params.amount, event.params.fromTermId, event)
-
-  let jurorsRegistry = JurorsRegistryModule.load(event.address.toHex())
-  jurorsRegistry.totalActive = jurorsRegistry.totalActive.plus(event.params.amount)
-  jurorsRegistry.save()
+  increaseTotalActive(event.address, event.params.amount)
 }
 
 export function handleJurorDeactivationRequested(event: JurorDeactivationRequested): void {
@@ -64,10 +55,7 @@ export function handleJurorDeactivationUpdated(event: JurorDeactivationUpdated):
 
 export function handleJurorDeactivationProcessed(event: JurorDeactivationProcessed): void {
   updateJuror(event.params.juror, event)
-
-  let jurorsRegistry = JurorsRegistryModule.load(event.address.toHex())
-  jurorsRegistry.totalActive = jurorsRegistry.totalActive.minus(event.params.amount)
-  jurorsRegistry.save()
+  decreaseTotalActive(event.address, event.params.amount)
 }
 
 export function handleJurorBalanceLocked(event: JurorBalanceLocked): void {
@@ -83,16 +71,19 @@ export function handleJurorBalanceUnlocked(event: JurorBalanceUnlocked): void {
 export function handleJurorTokensAssigned(event: JurorTokensAssigned): void {
   updateJuror(event.params.juror, event)
   createANJMovementForEvent(event.params.juror, REWARD, event.params.amount, event)
+  increaseTotalStaked(event.address, event.params.amount)
 }
 
 export function handleJurorTokensCollected(event: JurorTokensCollected): void {
   updateJuror(event.params.juror, event)
   createANJMovementForTerm(event.params.juror, SLASH, event.params.amount, event.params.effectiveTermId, event)
+  decreaseTotalActive(event.address, event.params.amount)
 }
 
 export function handleJurorSlashed(event: JurorSlashed): void {
   updateJuror(event.params.juror, event)
   createANJMovementForTerm(event.params.juror, SLASH, event.params.amount, event.params.effectiveTermId, event)
+  decreaseTotalActive(event.address, event.params.amount)
 }
 
 function loadOrCreateJuror(jurorAddress: Address, event: EthereumEvent): Juror | null {
@@ -102,13 +93,10 @@ function loadOrCreateJuror(jurorAddress: Address, event: EthereumEvent): Juror |
   if (juror === null) {
     juror = new Juror(id)
     juror.createdAt = event.block.timestamp
-  }
 
-  // Get the tree id
-  let registry = JurorsRegistry.bind(event.address)
-  // Note that id here is the address, while in JurorRegistry contract means the id in the tree
-  let response = registry.getJurorId(jurorAddress)
-  juror.treeId = response
+    let registry = JurorsRegistry.bind(event.address)
+    juror.treeId = registry.getJurorId(jurorAddress)
+  }
 
   return juror
 }
@@ -143,4 +131,28 @@ function createANJMovement(id: string, juror: Address, type: string, amount: Big
   movement.effectiveTermId = termId
   movement.createdAt = createdAt
   movement.save()
+}
+
+function increaseTotalStaked(registryAddress: Address, amount: BigInt): void {
+  let jurorsRegistry = JurorsRegistryModule.load(registryAddress.toHex())
+  jurorsRegistry.totalActive = jurorsRegistry.totalStaked.plus(amount)
+  jurorsRegistry.save()
+}
+
+function decreaseTotalStaked(registryAddress: Address, amount: BigInt): void {
+  let jurorsRegistry = JurorsRegistryModule.load(registryAddress.toHex())
+  jurorsRegistry.totalActive = jurorsRegistry.totalStaked.minus(amount)
+  jurorsRegistry.save()
+}
+
+function increaseTotalActive(registryAddress: Address, amount: BigInt): void {
+  let jurorsRegistry = JurorsRegistryModule.load(registryAddress.toHex())
+  jurorsRegistry.totalActive = jurorsRegistry.totalActive.plus(amount)
+  jurorsRegistry.save()
+}
+
+function decreaseTotalActive(registryAddress: Address, amount: BigInt): void {
+  let jurorsRegistry = JurorsRegistryModule.load(registryAddress.toHex())
+  jurorsRegistry.totalActive = jurorsRegistry.totalActive.minus(amount)
+  jurorsRegistry.save()
 }

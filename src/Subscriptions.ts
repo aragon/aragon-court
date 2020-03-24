@@ -19,8 +19,6 @@ let SUBSCRIPTIONS = 'Subscriptions'
 export function handleJurorFeesClaimed(event: FeesClaimed): void {
   createFeeMovement(SUBSCRIPTIONS, event.params.juror, event.params.jurorShare, event)
 
-  updateSubscriptionPeriodCheckpoint(event)
-
   let feeId = buildJurorSubscriptionFeeId(event.params.juror, event.params.periodId)
   let fee = new JurorSubscriptionFee(feeId)
   fee.juror = event.params.juror.toHex()
@@ -110,16 +108,6 @@ export function updateCurrentSubscriptionPeriod(module: Address, timestamp: BigI
   period.save()
 }
 
-function updateSubscriptionPeriodCheckpoint(event: FeesClaimed): void {
-  let subscriptions = Subscriptions.bind(event.address)
-  let periodData = subscriptions.getPeriodBalanceDetails(event.params.periodId)
-
-  let period = loadOrCreateSubscriptionPeriod(event.params.periodId, event.block.timestamp)
-  period.balanceCheckpoint = periodData.value0
-  period.totalActiveBalance = periodData.value1
-  period.save()
-}
-
 function loadOrCreateSubscriptionPeriod(periodId: BigInt, timestamp: BigInt): SubscriptionPeriod | null {
   let id = periodId.toString()
   let period = SubscriptionPeriod.load(id)
@@ -127,8 +115,6 @@ function loadOrCreateSubscriptionPeriod(periodId: BigInt, timestamp: BigInt): Su
   if (period === null) {
     period = new SubscriptionPeriod(id)
     period.createdAt = timestamp
-    period.balanceCheckpoint = BigInt.fromI32(0)
-    period.totalActiveBalance = BigInt.fromI32(0)
   }
 
   return period

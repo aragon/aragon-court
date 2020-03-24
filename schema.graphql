@@ -280,8 +280,6 @@ type SubscriptionPeriod @entity {
   id: ID!
   feeToken: Bytes!
   feeAmount: BigInt!
-  balanceCheckpoint: BigInt!
-  totalActiveBalance: BigInt!
   collectedFees: BigInt!
   instance: SubscriptionModule!
   jurorClaims: [JurorSubscriptionFee!] @derivedFrom(field: "period")

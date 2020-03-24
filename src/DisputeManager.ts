@@ -105,7 +105,7 @@ export function handlePenaltiesSettled(event: PenaltiesSettled): void {
   }
 
   // create movements for appeal fees if there were no coherent jurors
-  createAppealFeesForJurorFees(event, dispute as Dispute)
+  createAppealFeesForJurorFees(event, event.params.disputeId)
   dispute.save()
 }
 
@@ -126,7 +126,7 @@ export function handleAppealDepositSettled(event: AppealDepositSettled): void {
   appeal.settled = true
   appeal.save()
 
-  createAppealFeesForDeposits(event.params.disputeId, event.params.roundId, appeal as Appeal, event)
+  createAppealFeesForDeposits(event.params.disputeId, event.params.roundId, appealId, event)
 }
 
 export function handleRulingComputed(event: RulingComputed): void {
@@ -203,7 +203,8 @@ function updateAppeal(disputeId: BigInt, roundNumber: BigInt, event: EthereumEve
   appeal.save()
 }
 
-function createAppealFeesForDeposits(disputeId: BigInt, roundNumber: BigInt, appeal: Appeal, event: EthereumEvent): void {
+function createAppealFeesForDeposits(disputeId: BigInt, roundNumber: BigInt, appealId: BigInt, event: EthereumEvent): void {
+  let appeal = Appeal.load(appealId.toString())
   let manager = DisputeManager.bind(event.address)
   let nextRound = manager.getNextRoundDetails(disputeId, roundNumber)
   let totalFees = nextRound.value4
@@ -215,9 +216,9 @@ function createAppealFeesForDeposits(disputeId: BigInt, roundNumber: BigInt, app
   let dispute = Dispute.load(disputeId.toString())
   let finalRuling = BigInt.fromI32(dispute.finalRuling)
 
-  if (appeal.appealedRuling.equals(finalRuling)) {
+  if (appeal.appealedRuling == finalRuling) {
     createFeeMovement(APPEAL_FEES, maker, totalDeposit.minus(totalFees), event)
-  } else if (appeal.opposedRuling.equals(finalRuling)) {
+  } else if (appeal.opposedRuling == finalRuling) {
     createFeeMovement(APPEAL_FEES, taker, totalDeposit.minus(totalFees), event)
   } else {
     let feesRefund = totalFees.div(BigInt.fromI32(2))
@@ -227,7 +228,8 @@ function createAppealFeesForDeposits(disputeId: BigInt, roundNumber: BigInt, app
   }
 }
 
-function createAppealFeesForJurorFees(event: PenaltiesSettled, dispute: Dispute): void {
+function createAppealFeesForJurorFees(event: PenaltiesSettled, disputeId: BigInt): void {
+  let dispute = Dispute.load(disputeId.toString())
   let roundId = buildRoundId(event.params.disputeId, event.params.roundId).toString()
   let round = AdjudicationRound.load(roundId)
   if (round.coherentJurors.isZero()) {

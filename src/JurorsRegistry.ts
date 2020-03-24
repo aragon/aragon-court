@@ -135,13 +135,13 @@ function createANJMovement(id: string, juror: Address, type: string, amount: Big
 
 function increaseTotalStaked(registryAddress: Address, amount: BigInt): void {
   let jurorsRegistry = JurorsRegistryModule.load(registryAddress.toHex())
-  jurorsRegistry.totalActive = jurorsRegistry.totalStaked.plus(amount)
+  jurorsRegistry.totalStaked = jurorsRegistry.totalStaked.plus(amount)
   jurorsRegistry.save()
 }
 
 function decreaseTotalStaked(registryAddress: Address, amount: BigInt): void {
   let jurorsRegistry = JurorsRegistryModule.load(registryAddress.toHex())
-  jurorsRegistry.totalActive = jurorsRegistry.totalStaked.minus(amount)
+  jurorsRegistry.totalStaked = jurorsRegistry.totalStaked.minus(amount)
   jurorsRegistry.save()
 }
 

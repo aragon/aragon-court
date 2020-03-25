@@ -2,7 +2,7 @@ import { concat } from '../helpers/bytes'
 import { buildId } from '../helpers/id'
 import { FeeMovement, TreasuryBalance } from '../types/schema'
 import { Assign, Withdraw, Treasury } from '../types/templates/Treasury/Treasury'
-import { crypto, BigInt, Address, EthereumEvent } from '@graphprotocol/graph-ts'
+import { crypto, BigInt, Bytes, Address, EthereumEvent } from '@graphprotocol/graph-ts'
 
 let WITHDRAW = 'Withdraw'
 
@@ -19,7 +19,7 @@ export function createFeeMovement(type: string, owner: Address, amount: BigInt, 
   let feeId = id === null ? buildId(event) : id
   let movement = new FeeMovement(feeId)
   movement.type = type
-  movement.owner = owner.toHex()
+  movement.owner = owner
   movement.amount = amount
   movement.createdAt = event.block.timestamp
   movement.save()
@@ -39,7 +39,7 @@ function loadOrCreateTreasuryBalance(owner: Address, token: Address): TreasuryBa
   if (treasuryBalance === null) {
     treasuryBalance = new TreasuryBalance(id)
     treasuryBalance.token = token.toHex()
-    treasuryBalance.owner = owner.toHex()
+    treasuryBalance.owner = owner
   }
 
   return treasuryBalance

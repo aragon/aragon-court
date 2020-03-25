@@ -167,8 +167,6 @@ type Juror @entity {
   disputes: [JurorDispute!] @derivedFrom(field: "juror")
   drafts: [JurorDraft!] @derivedFrom(field: "juror")
   anjMovements: [ANJMovement!] @derivedFrom(field: "juror")
-  feeMovements: [FeeMovement!] @derivedFrom(field: "owner")
-  treasuryBalances: [TreasuryBalance!] @derivedFrom(field: "owner")
   claimedSubscriptionFees: [JurorSubscriptionFee!] @derivedFrom(field: "juror")
   createdAt: BigInt!
 }
@@ -230,7 +228,7 @@ type ANJTransfer @entity {
 
 type FeeMovement @entity {
   id: ID!
-  owner: Juror! # TODO: this should work for type Bytes
+  owner: Bytes!
   type: FeeMovementType!
   amount: BigInt!
   createdAt: BigInt!
@@ -245,7 +243,7 @@ enum FeeMovementType {
 
 type TreasuryBalance @entity {
   id: ID!
-  owner: Juror! # TODO: this should work for type Bytes
+  owner: Bytes!
   token: ERC20!
   amount: BigInt!
 }

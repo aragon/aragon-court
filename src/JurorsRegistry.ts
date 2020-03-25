@@ -93,10 +93,11 @@ function loadOrCreateJuror(jurorAddress: Address, event: EthereumEvent): Juror |
   if (juror === null) {
     juror = new Juror(id)
     juror.createdAt = event.block.timestamp
-
-    let registry = JurorsRegistry.bind(event.address)
-    juror.treeId = registry.getJurorId(jurorAddress)
   }
+
+  // The juror may have appeared in the system but may not have activated tokens yet, meaning he doesn't have a tree ID yet
+  let registry = JurorsRegistry.bind(event.address)
+  juror.treeId = registry.getJurorId(jurorAddress)
 
   return juror
 }

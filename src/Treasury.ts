@@ -2,7 +2,7 @@ import { concat } from '../helpers/bytes'
 import { buildId } from '../helpers/id'
 import { FeeMovement, TreasuryBalance } from '../types/schema'
 import { Assign, Withdraw, Treasury } from '../types/templates/Treasury/Treasury'
-import { crypto, BigInt, Bytes, Address, EthereumEvent } from '@graphprotocol/graph-ts'
+import { crypto, BigInt, Address, EthereumEvent } from '@graphprotocol/graph-ts'
 
 let WITHDRAW = 'Withdraw'
 
@@ -12,7 +12,7 @@ export function handleAssign(event: Assign): void {
 
 export function handleWithdraw(event: Withdraw): void {
   createFeeMovement(WITHDRAW, event.params.from, event.params.amount, event)
-  updateTreasuryBalance(event.params.to, event.params.token, event)
+  updateTreasuryBalance(event.params.from, event.params.token, event)
 }
 
 export function createFeeMovement(type: string, owner: Address, amount: BigInt, event: EthereumEvent, id: string | null = null): void {

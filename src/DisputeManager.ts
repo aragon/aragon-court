@@ -234,7 +234,7 @@ function createAppealFeesForJurorFees(event: PenaltiesSettled, disputeId: BigInt
   let round = AdjudicationRound.load(roundId)
   if (round.coherentJurors.isZero()) {
     if (event.params.roundId.isZero()) {
-      createFeeMovement(APPEAL_FEES, Address.fromString(dispute.subject), round.jurorFees, event)
+      createFeeMovement(JUROR_FEES, Address.fromString(dispute.subject), round.jurorFees, event)
     } else {
       let previousRoundId = event.params.roundId.minus(BigInt.fromI32(1))
       let appealId = buildAppealId(event.params.disputeId, previousRoundId).toString()

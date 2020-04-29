@@ -15,3 +15,4 @@ The core of the document is organized around the external entry points to the sy
 5. [Data structures](./5-data-structures)
 6. [External interface](./6-external-interface)
 7. [Additional documentation](./7-additional-documentation)
+8. [Testing guide](./8-testing-guide)

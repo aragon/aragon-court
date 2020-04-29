@@ -4,16 +4,24 @@
   <a href="https://travis-ci.com/aragon/aragon-court/"/>
 </img>
 
-#### 👩‍⚖️ [Become an Aragon Court juror](https://anj.aragon.org)
+## Project
 
+#### 👩‍️ [Become an Aragon Court juror](https://anj.aragon.org)
 Aragon Court is now live on Ethereum mainnet. You can become a juror by staking 10,000 ANJ.
 
-#### 📓 [Read the full documentation](/docs)
+#### ⚖ [Check out the Aragon Court Dashboard](https://court.aragon.org)
+The Aragon Court Dashboard is the central app where all dispute-related tools are available for jurors.
 
+#### 📚 [Read the User Guide](https://help.aragon.org/category/47-aragoncourt) 
+Read the user guide if you have any doubts about the protocol or the Aragon Court related tools
+
+## Protocol
+
+#### 📓 [Read the full documentation](/docs)
 Aragon Court is a dispute resolution protocol that runs on Ethereum. It's one of the core components of the [Aragon Network](https://aragon.org/network/).
 
 #### 🚧 Project stage: v1 implementation
-After a long research and development phase, Aragon Court's v1 implementation has been [released](https://www.npmjs.com/package/@aragon/court).
+After a long research and development phase, Aragon Court's v1 implementation has been [released](https://www.npmjs.com/package/@aragon/court) and [deployed](https://etherscan.io/address/0xee4650cBe7a2B23701D416f58b41D8B76b617797#code).
 
 #### ✅ Security review status: audited
 Aragon Court v1 has already been audited by an independent security professional. You can read the audit report [here](https://github.com/gakonst/publications/blob/master/aragon_court_audit.pdf). 
@@ -32,6 +40,16 @@ Aragon Court attempts to find what the subjective truth is with a [Schelling gam
 A design goal of the mechanism is to require very few jurors to adjudicate a dispute and produce a ruling. A small number of jurors is adjudicated by default to a dispute, and their ruling can be appealed in multiple rounds of appeals.
 
 Even though Aragon Court could theoretically resolve any type of binary dispute, in its first deployments it will be used to arbitrate **Proposal Agreements.** These agreements require entities creating a proposal in an organization to agree to its specific rules around proposal creation, putting some collateral at stake that could be lost if the Court finds the proposal invalid.
+
+## Deployed instances
+
+#### Mainnet
+
+The mainnet instance of Aragon Court is deployed at [`0xee4650cBe7a2B23701D416f58b41D8B76b617797`](https://etherscan.io/address/0xee4650cBe7a2B23701D416f58b41D8B76b617797#code)
+
+#### Testing
+
+There are a few testing instances deployed of Aragon Court, please refer to the [testing guide](/docs/8-testing-guide) to have a better understanding about how to use these.
 
 ## Help shape Aragon Court
 - Discuss in [Aragon Forum](https://forum.aragon.org/tags/dispute-resolution)

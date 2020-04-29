@@ -7,10 +7,7 @@
   "files": [
     "/abi",
     "/build",
-    "/contracts",
-    "/docs",
-    "/scripts",
-    "/test"
+    "/contracts"
   ],
   "scripts": {
     "compile": "truffle compile",

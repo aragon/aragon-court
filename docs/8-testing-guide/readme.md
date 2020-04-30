@@ -170,6 +170,7 @@ Where:
 This command will output the ID of the dispute you've just created.
 
 A few things to bear in mind is that, even though the `[METADATA]` and `[EVIDENCE_N]` arguments could be any arbitrary information, in order to use the Court Dashboard to rule disputes, these should follow a specific structure.
+Please check out the [Court Dashboard instructions](https://github.com/aragon/court-dashboard/blob/development/docs/metadata.md) about how these objects should be formatted.
 
 ### 8.5.1. Metadata
 
@@ -177,22 +178,22 @@ The Court Dashboard expects the metadata to be built as a specific JSON formatte
 ```json
 { 
     "description": "Your dispute description",  
-    "metadata": "[IPFS_HASH]/metadata.json" 
+    "metadata": "[CID]/metadata.json" 
 }
 ```
 
-Where `[IPFS_HASH]` is the hash of a directory holding a `metadata.json` file with the rest of the metadata.
+Where `[CID]` is the hash of a directory holding a `metadata.json` file with the rest of the metadata.
 You can checkout the [`metadata.json`](https://ipfs.io/ipfs/QmYt33BkuHMLe4dSTfLan7QXxQVTGRyhVLt5sujrZkhd1w/metadata.json) file used for the [dispute #1](https://court-usability.aragon.org/disputes/1) of Aragon Court as an example.
 
 ### 8.5.2. Evidence
 
 For the Court Dashboard, the evidence is simpler than the metadata, it only needs to be a human-readable content uploaded to IPFS.
-Then it should be submitted as `ipfs:[HASH]`. For example, [`ipfs:QmYGNe8jhTEwdDfixtDnPpzjQpXhX2nMj3xMK3swy69naP`](https://ipfs.io/ipfs/QmYGNe8jhTEwdDfixtDnPpzjQpXhX2nMj3xMK3swy69naP) is the evidence submitted for the [dispute #1](https://court-usability.aragon.org/disputes/1) of Aragon Court.
+Then it should be submitted as `ipfs:[CID]`. For example, [`ipfs:QmYGNe8jhTEwdDfixtDnPpzjQpXhX2nMj3xMK3swy69naP`](https://ipfs.io/ipfs/QmYGNe8jhTEwdDfixtDnPpzjQpXhX2nMj3xMK3swy69naP) is the evidence submitted for the [dispute #1](https://court-usability.aragon.org/disputes/1) of Aragon Court.
 
 ## 8.6. Ruling a dispute
 
-In case you created the dispute in way that is compatible with the Court Dashboard as explained in sections 8.5.1 and 8.5.2, you can use any of the Court Dashboard instances linked in section 8.1 to rule your disputes.
-Otherwise, you still can use the Court Dashboard for it but you probably won't be able to read your metadata or evidence properly.
+You can use any of the Court Dashboard instances linked in section 8.1 to interact with your created disputes (note that in some environments, it may be difficult to ensure that your account is drafted—and therefore can be difficult to come to a ruling you want—due to the randomness nature of the court). 
+If you did not format or ensure your dispute metadata was available as explained in sections 8.5.1 and 8.5.2, the dispute will most likely not display the intended information to jurors.
 
 Alternatively, you can use the rest of the CLI tool [commands](https://github.com/aragonone/court-backend/tree/master/packages/cli/#commands) to begin ruling your dispute:
 - [`draft`](https://github.com/aragonone/court-backend/blob/master/packages/cli/src/commands/draft.js): Draft dispute and close evidence submission period if necessary

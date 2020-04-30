@@ -10,10 +10,10 @@
 Aragon Court is now live on Ethereum mainnet. You can become a juror by staking 10,000 ANJ.
 
 #### ⚖ [Check out the Aragon Court Dashboard](https://court.aragon.org)
-The Aragon Court Dashboard is the central app where all dispute-related tools are available for jurors.
+The Aragon Court Dashboard is the central app where all dispute-related information is available for jurors.
 
 #### 📚 [Read the User Guide](https://help.aragon.org/category/47-aragoncourt) 
-Read the user guide if you have any doubts about the protocol or the Aragon Court related tools
+Read the user guide if you have any doubts about the Aragon Court protocol, Court Dashboard, or related tools.
 
 ## Protocol
 
@@ -49,7 +49,7 @@ The mainnet instance of Aragon Court is deployed at [`0xee4650cBe7a2B23701D416f5
 
 #### Testing
 
-There are a few testing instances deployed of Aragon Court, please refer to the [testing guide](/docs/8-testing-guide) to have a better understanding about how to use these.
+There are a few testing instances deployed of Aragon Court, please refer to the [testing guide](/docs/8-testing-guide) to have a better understanding on using these.
 
 ## Help shape Aragon Court
 - Discuss in [Aragon Forum](https://forum.aragon.org/tags/dispute-resolution)

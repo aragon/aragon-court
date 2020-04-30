@@ -5,13 +5,12 @@ This guide aims to cover all the things you should know in order to try Aragon C
 ## 8.1. Testing instances
 
 There are a few testing instances already deployed for Aragon Court. 
-All these are mimicking the instance living on mainnet with the exception of some dispute periods durations to provide a better testing experience.
-Additionally, all these instances are using their own deployed version of the following ERC20 tokens:
+All of these are mimicking the mainnet instance with some exceptions of term durations to provide a better testing experience.
+Additionally, all the instances are using their own deployed version of the following ERC20 tokens:
 - ANJ, the native token of Aragon Court. You will need some fake ANJ to stake as a juror to be selected to resolve disputes.  
 - DAI, used for the Aragon Court fees. You will need some fake DAI to pay jurors and pay the Court subscription fees.
 
-Of course, there is an ERC20 faucet deployed for all these instances that you can use to claim some fake ANJ or DAI to start testing.
-Please keep reading to understand better how to use the faucet along with the Aragon Court testing instance. 
+Of course, there is an ERC20 faucet deployed for all these instances that you can use to claim some fake ANJ or DAI to start testing. More information is outlined below on using these faucets.
 
 ### 8.1.1. Usability
 
@@ -63,17 +62,17 @@ Once you have done that, you can deploy a local instance by running the followin
 npm run deploy:court:rpc
 ```
 
-This command will output the addresses of all the deployed modules of Aragon Court including the main entry point.
-Additionally, it should deploy a fake version of the ANJ and DAI tokens to be used for testing purposes as explained above.
+This command will output the addresses of all the deployed modules of Aragon Court including the main entry point (the `AragonCourt` contract).
+Additionally, it should deploy a fake version of the ANJ and DAI tokens usable for testing purposes as explained above.
 
 ## 8.2. Claiming fake tokens from the ERC20 faucets
 
 You can claim ANJ or DAI fake tokens from the ERC20 faucets.
 You can do this directly through Etherscan, simply click in any of the faucet links shared above in section 8.1.
-Once in there, you just need to enable your Web3 account and call the `withdraw` function providing the desired token address and amount:
+Once there, you just need to enable your Web3 account and call the `withdraw()` function providing the desired token address and amount:
 ![faucet](./faucet.png)
 
-Bear in mind there is a quota set for these faucets, all of them will allow you to withdraw up to 10,000 fake-DAI or 10,000 fake-ANJ every 7 days.
+Bear in mind there is a quota set for these faucets; they will only allow you to withdraw up to 10,000 fake-DAI or 10,000 fake-ANJ every 7 days.
 
 ## 8.3. Installing the Aragon Court dev CLI tool
 
@@ -89,7 +88,7 @@ cd packages/cli
 ```
 
 This CLI tool is built on top of Truffle using a custom [config file](https://www.npmjs.com/package/@aragon/truffle-config-v5) provided by Aragon.
-Please check it out to make sure how to set up your private keys for testing.
+Please review that package's documentation to understand how to set up your private keys for testing.
 
 Let's continue with with the Aragon Court testing guide and see how we can use the CLI tool.
 
@@ -104,12 +103,12 @@ node ./bin/index.js activate --jurors [JUROR] --amount [AMOUNT] --from [FROM] --
 ```
 
 Where:
-- `[JUROR]` is the address of the jurors you will activate the tokens for
-- `[AMOUNT]` is the amount of fake ANJ tokens you will activate for the target juror
-- `[FROM]` is the address paying for the fake ANJ tokens, this must be the address you used to claim the tokens from the faucet
-- `[NETWORK]` is the name of the Aragon Court instance you are willing to use: `usability`, `rinkeby`, or `ropsten` 
+- `[JUROR]`: address of the juror you will activate the tokens for
+- `[AMOUNT]`: amount of fake ANJ tokens you will activate for the specified juror
+- `[FROM]`: address paying for the fake ANJ tokens; this must be the address you used to claim the tokens from the faucet
+- `[NETWORK]`: name of the Aragon Court instance you are willing to use: `usability`, `rinkeby`, or `ropsten` 
 
-In case the sender address is the jurors, you can simplify this a bit as follows:
+In case the sender address is the juror to be activated, you can simplify to the following:
 ```bash
 node ./bin/index.js activate -a [AMOUNT] -n [NETWORK]
 ```
@@ -120,7 +119,7 @@ You can check your current stake as a juror in the dashboards linked above in se
 
 ## 8.5. Creating a dispute
 
-As you may know, based on how Aragon Court works, disputes must be created from a particular type of smart contracts that support being ruled by the court itself.
+As you may know, disputes can only be submitted to Aragon Court through smart contracts that implement a specific interface to support being ruled by the court itself.
 This is specified by the [`IArbitrable`](../../contracts/arbitration/IArbitrable.sol) interface.
 
 Thus, the first thing we should do is to deploy an Arbitrable contract. You can do this from the CLI running the following command:
@@ -131,7 +130,7 @@ node ./bin/index.js arbitrable -n [NETWORK]
 
 This command will output the address of your new Arbitrable contract.
 
-The next we should do is to subscribe your Arbitrable instance to Aragon Court paying the subscription fees.
+The next step is to subscribe your Arbitrable instance to Aragon Court by paying the subscription fees.
 For the testing instances, each subscription period costs 7,500 fake-DAI, so make sure you claim some fake DAI from the ERC20 faucet as described in section 8.2.
 
 Once you have done that you can subscribe your Arbitrable instance running the following command:
@@ -142,7 +141,7 @@ node ./bin/index.js subscribe -a [ARBITRABLE] -n [NETWORK]
 
 Where `[ARBITRABLE]` is the address of your Arbitrable instance.
 
-Now, we are almost ready to create a dispute, but first we will need to have some fake DAI in the Arbitrable instance to pay for the dispute fees. 
+Now, we are almost ready to create a dispute. The last step is to send some fake DAI to the Arbitrable instance so that it can pay for the court's dispute fees.
 These are different from the subscription fees. The dispute fees are to pay the jurors for each dispute to be resolved.
 For the testing instances, each dispute costs 30.87 fake-DAI.
 Thus, you will need to make a transfer from your account to your Arbitrable instance.
@@ -161,12 +160,12 @@ node ./bin/index.js dispute \
 ```
 
 Where: 
-- `[ARBITRABLE]` is the address of your Arbitrable instance
-- `[METADATA]` is the metadata to be linked for your dispute (continue reading to have a better understanding of how to build a proper dispute metadata)
-- `[EVIDENCE_N]` are IPFS links in the form of `ipfs:[HASH]` to human-redeable evidence (continue reading to find some examples about evidences) 
-- `[SUBMITTER_N]` are the addresses submitting each evidence piece of information, this list should match the evidence list length 
-- The `-c` flag is optional to declare that the evidence submission period is close. Otherwise you will need to close it manually afterwards. 
-- `[NETWORK]` is the name of the Aragon Court instance you are willing to use: `usability`, `rinkeby`, or `ropsten` 
+- `[ARBITRABLE]`: address of your Arbitrable instance
+- `[METADATA]`: metadata to be linked for your dispute (continue reading to have a better understanding of how to build a proper dispute metadata)
+- `[EVIDENCE_N]`: links in the form of `ipfs:[CID]` to human-readable evidence hosted on IPFS (continue reading for example evidence links) 
+- `[SUBMITTER_N]`: addresses submitting each piece of evidence; this list should match the evidence list length 
+- `-c` flag: optional to declare that the evidence submission period should be immediately closed. Otherwise you will need to manually close it afterwards. 
+- `[NETWORK]`: name of the Aragon Court instance you are willing to use: `usability`, `rinkeby`, or `ropsten`
 
 This command will output the ID of the dispute you've just created.
 
@@ -195,7 +194,7 @@ Then it should be submitted as `ipfs:[HASH]`. For example, [`ipfs:QmYGNe8jhTEwdD
 In case you created the dispute in way that is compatible with the Court Dashboard as explained in sections 8.5.1 and 8.5.2, you can use any of the Court Dashboard instances linked in section 8.1 to rule your disputes.
 Otherwise, you still can use the Court Dashboard for it but you probably won't be able to read your metadata or evidence properly.
 
-Alternatively, you can use the rest of the CLI tool [commands](https://github.com/aragonone/court-backend/tree/master/packages/cli/#commands) to start ruling your dispute:
+Alternatively, you can use the rest of the CLI tool [commands](https://github.com/aragonone/court-backend/tree/master/packages/cli/#commands) to begin ruling your dispute:
 - [`draft`](https://github.com/aragonone/court-backend/blob/master/packages/cli/src/commands/draft.js): Draft dispute and close evidence submission period if necessary
 - [`commit`](https://github.com/aragonone/court-backend/blob/master/packages/cli/src/commands/commit.js): Commit vote for a dispute round
 - [`reveal`](https://github.com/aragonone/court-backend/blob/master/packages/cli/src/commands/reveal.js): Reveal committed vote

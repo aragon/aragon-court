@@ -56,9 +56,6 @@ const DEFAULTS = {
   finalRoundWeightPrecision:          bn(1000),        //  use to improve division rounding for final round maths
   subscriptionPeriodDuration:         bn(10),          //  each subscription period lasts 10 terms
   subscriptionFeeAmount:              bigExp(100, 18), //  100 fee tokens per subscription period
-  subscriptionPrePaymentPeriods:      bn(15),          //  15 subscription pre payment period
-  subscriptionResumePrePaidPeriods:   bn(10),          //  10 pre-paid periods when resuming activity
-  subscriptionLatePaymentPenaltyPct:  bn(0),           //  none subscription late payment penalties
   subscriptionGovernorSharePct:       bn(0)            //  none subscription governor shares
 }
 
@@ -205,9 +202,8 @@ module.exports = (web3, artifacts) => {
     }
 
     async dispute({ arbitrable = undefined, possibleRulings = bn(2), metadata = '0x', closeEvidence = true } = {}) {
-      // create an arbitrable if no one was given, and mock subscriptions
+      // create an arbitrable if no one was given
       if (!arbitrable) arbitrable = await this.artifacts.require('ArbitrableMock').new(this.court.address)
-      await this.subscriptions.mockUpToDate(true)
 
       // mint fee tokens for the arbitrable instance
       const { disputeFees } = await this.getDisputeFees()
@@ -407,9 +403,6 @@ module.exports = (web3, artifacts) => {
           this.subscriptionPeriodDuration,
           this.feeToken.address,
           this.subscriptionFeeAmount,
-          this.subscriptionPrePaymentPeriods,
-          this.subscriptionResumePrePaidPeriods,
-          this.subscriptionLatePaymentPenaltyPct,
           this.subscriptionGovernorSharePct
         )
       }

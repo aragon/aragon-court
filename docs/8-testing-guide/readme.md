@@ -90,7 +90,7 @@ cd packages/cli
 This CLI tool is built on top of Truffle using a custom [config file](https://www.npmjs.com/package/@aragon/truffle-config-v5) provided by Aragon.
 Please review that package's documentation to understand how to set up your private keys for testing.
 
-Let's continue with with the Aragon Court testing guide and see how we can use the CLI tool.
+Let's continue with the Aragon Court testing guide and see how we can use the CLI tool.
 
 ## 8.4. Becoming a juror
 

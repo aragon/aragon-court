@@ -192,8 +192,8 @@ Then it should be submitted as `ipfs:[CID]`. For example, [`ipfs:QmYGNe8jhTEwdDf
 
 ## 8.6. Ruling a dispute
 
-You can use any of the Court Dashboard instances linked in section 8.1 to interact with your created disputes (note that in some environments, it may be difficult to ensure that your account is drafted—and therefore can be difficult to come to a ruling you want—due to the randomness nature of the court). 
-If you did not format or ensure your dispute metadata was available as explained in sections 8.5.1 and 8.5.2, the dispute will most likely not display the intended information to jurors.
+You can use any of the Court Dashboard instances linked in section 8.1 to interact with your created disputes (note that in some environments, it may be difficult to ensure that your account is drafted due to the randomness nature of the court—and therefore can be difficult to come to a ruling you want). 
+If your dispute's metadata was not correctly formatted or made available as explained in sections 8.5.1 and 8.5.2, the dispute will most likely not display the intended information to jurors.
 
 Alternatively, you can use the rest of the CLI tool [commands](https://github.com/aragonone/court-backend/tree/master/packages/cli/#commands) to begin ruling your dispute:
 - [`draft`](https://github.com/aragonone/court-backend/blob/master/packages/cli/src/commands/draft.js): Draft dispute and close evidence submission period if necessary

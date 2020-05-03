@@ -119,7 +119,7 @@ contract('CourtSubscriptions', ([_, governor, someone, something, subscriber]) =
               await feeToken.approve(subscriptions.address, paidAmount, { from: subscriber })
 
               for (let i = 0; i < paidSubscriptions.toNumber(); i++) {
-                await subscriptions.payFees(subscriber, { from: subscriber })
+                await subscriptions.payFees(subscriber, '0x', { from: subscriber })
               }
             })
 
@@ -195,7 +195,7 @@ contract('CourtSubscriptions', ([_, governor, someone, something, subscriber]) =
               await feeToken.approve(subscriptions.address, paidAmount, { from: subscriber })
 
               for (let i = 0; i < paidSubscriptions.toNumber(); i++) {
-                await subscriptions.payFees(subscriber, { from: subscriber })
+                await subscriptions.payFees(subscriber, '0x', { from: subscriber })
               }
             })
 

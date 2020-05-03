@@ -202,8 +202,9 @@ module.exports = (web3, artifacts) => {
     }
 
     async dispute({ arbitrable = undefined, possibleRulings = bn(2), metadata = '0x', closeEvidence = true } = {}) {
-      // create an arbitrable if no one was given
+      // create an arbitrable if no one was given, and mock subscriptions
       if (!arbitrable) arbitrable = await this.artifacts.require('ArbitrableMock').new(this.court.address)
+      await this.subscriptions.mockUpToDate(true)
 
       // mint fee tokens for the arbitrable instance
       const { disputeFees } = await this.getDisputeFees()

@@ -110,7 +110,7 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
         require(_amount > 0, ERROR_DONATION_AMOUNT_ZERO);
 
         // Ensure fee token data for the current period
-        (Period storage period, ERC20 feeToken,) = _ensureCurrentPeriodFees();
+        (uint256 currentPeriodId, Period storage period, ERC20 feeToken,) = _ensureCurrentPeriodFees();
 
         // Update collected fees for the jurors
         period.collectedFees = period.collectedFees.add(_amount);
@@ -293,7 +293,7 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
     */
     function _payFees(address _from, address _to, bytes memory _reference) internal {
         // Ensure fee token data for the current period
-        (Period storage period, ERC20 feeToken, uint256 feeAmount) = _ensureCurrentPeriodFees();
+        (uint256 currentPeriodId, Period storage period, ERC20 feeToken, uint256 feeAmount) = _ensureCurrentPeriodFees();
 
         // Compute the portion of the total amount to pay that will be allocated to the governor
         uint256 governorFee = feeAmount.pct(governorSharePct);
@@ -319,7 +319,7 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
     function _transfer(address payable _to, ERC20 _token, uint256 _amount) internal {
         if (_amount > 0) {
             _token == ERC20(0)
-                ? require(_to.send(_amount), ERROR_TOKEN_TRANSFER_FAILED)
+                ? require(_to.send(_amount), ERROR_TOKEN_TRANSFER_FAILED) // solium-disable-line security/no-send
                 : require(_token.safeTransfer(_to, _amount), ERROR_TOKEN_TRANSFER_FAILED);
         }
     }
@@ -338,12 +338,13 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
 
     /**
     * @dev Internal function to make sure the fee token address and amount are set for the current period
+    * @return periodId Identification number of the current period
     * @return period Current period instance
     * @return feeToken ERC20 token to be used for the subscription fees during the given period
     * @return feeAmount Amount of fees to be paid during the given period
     */
-    function _ensureCurrentPeriodFees() internal returns (Period storage period, ERC20 feeToken, uint256 feeAmount) {
-        period = _getCurrentPeriod();
+    function _ensureCurrentPeriodFees() internal returns (uint256 periodId, Period storage period, ERC20 feeToken, uint256 feeAmount) {
+        (periodId, period) = _getCurrentPeriod();
         (feeToken, feeAmount) = _ensurePeriodFees(period);
     }
 
@@ -442,11 +443,12 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
 
     /**
     * @dev Internal function to get the current period
-    * @return Current period instance
+    * @return periodId Identification number of the current period
+    * @return period Current period instance
     */
-    function _getCurrentPeriod() internal view returns (Period storage) {
-        uint256 currentPeriodId = _getCurrentPeriodId();
-        return periods[currentPeriodId];
+    function _getCurrentPeriod() internal view returns (uint256 periodId, Period storage period) {
+        periodId = _getCurrentPeriodId();
+        period = periods[periodId];
     }
 
     /**

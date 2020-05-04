@@ -52,11 +52,16 @@ To deploy a local instance of Aragon Court you will need to clone the deployment
 ```bash
 git clone https://github.com/aragon/aragon-network-deploy/
 cd aragon-network-deploy
-npm i
-npm run deploy:court:rpc 
+npm i 
 ```
 
-Once you have done that, you can deploy a local instance by running the following command:
+Once you have done that, make sure you have a local Ganache running:
+
+```bash
+npx ganache-cli -i 15 --port 8545 --deterministic
+```
+
+Then, open a separate terminal in the same directory of the scripts repo and deploy a local instance by running the following command:
 
 ```bash
 npm run deploy:court:rpc

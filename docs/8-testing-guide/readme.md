@@ -58,7 +58,7 @@ npm i
 Once you have done that, make sure you have a local Ganache running:
 
 ```bash
-npx ganache-cli -i 15 --port 8545 --deterministic
+npx ganache-cli -i 15 --port 8545 --gasLimit 8000000 --deterministic
 ```
 
 Then, open a separate terminal in the same directory of the scripts repo and deploy a local instance by running the following command:
@@ -77,6 +77,7 @@ You can do this directly through Etherscan, simply click in any of the faucet li
 Once there, you just need to enable your Web3 account and call the `withdraw()` function providing the desired token address and amount:
 ![faucet](./faucet.png)
 
+When claiming tokens remember to add the 18 zeroes for the decimals, for example 10 DAI should be requested as `10000000000000000000`. 
 Bear in mind there is a quota set for these faucets; they will only allow you to withdraw up to 10,000 fake-DAI or 10,000 fake-ANJ every 7 days.
 
 ## 8.3. Installing the Aragon Court dev CLI tool
@@ -87,6 +88,7 @@ To continue with the testing guide you will need to use it. First, make sure you
 ```
 git clone https://github.com/aragonone/court-backend/
 cd court-backend
+git checkout master
 npm i
 npx lerna bootstrap
 cd packages/cli
@@ -100,25 +102,22 @@ Let's continue with the Aragon Court testing guide and see how we can use the CL
 ## 8.4. Becoming a juror
 
 To become a juror you simply need to activate some ANJ tokens into Aragon Court.
-First make sure to have claimed some fake ANJ tokens from the faucet corresponding to the Aragon Court instance you're willing to try. 
-Then, you can activate tokens into Aragon Court using the `activate` command of the CLI tool as follows:
+First make sure to have claimed some fake ANJ tokens from the faucet corresponding to the Aragon Court instance you're willing to try.
+For now, the testing instances require a minimum of 10,000 ANJ so make sure to have at least that amount. 
+Then, you can activate tokens into Aragon Court using the `stake` and `activate` commands of the CLI tool as follows:
 
 ```bash
-node ./bin/index.js activate --jurors [JUROR] --amount [AMOUNT] --from [FROM] --network [NETWORK] 
+node ./bin/index.js stake --juror [JUROR] --amount [AMOUNT] --from [FROM] --network [NETWORK] --verbose
+node ./bin/index.js activate --juror [JUROR] --amount [AMOUNT] --from [FROM] --network [NETWORK] --verbose
 ```
 
 Where:
 - `[JUROR]`: address of the juror you will activate the tokens for
-- `[AMOUNT]`: amount of fake ANJ tokens you will activate for the specified juror
+- `[AMOUNT]`: amount of fake ANJ tokens you will activate for the specified juror (it doesn't require adding the decimals, so to activate 10,000 ANJ simply enter `10000`)
 - `[FROM]`: address paying for the fake ANJ tokens; this must be the address you used to claim the tokens from the faucet
 - `[NETWORK]`: name of the Aragon Court instance you are willing to use: `usability`, `rinkeby`, or `ropsten` 
 
-In case the sender address is the juror to be activated, you can simplify to the following:
-```bash
-node ./bin/index.js activate -a [AMOUNT] -n [NETWORK]
-```
-
-Note that you can also use the flag `--verbose` to have more details about the transactions being sent to the network.
+Note that you can also avoid the flag `--verbose` if you want to avoid having too much details about the transactions being sent to the network.
 
 You can check your current stake as a juror in the dashboards linked above in section 8.1.
 
@@ -130,7 +129,7 @@ This is specified by the [`IArbitrable`](../../contracts/arbitration/IArbitrable
 Thus, the first thing we should do is to deploy an Arbitrable contract. You can do this from the CLI running the following command:
 
 ```bash
-node ./bin/index.js arbitrable -n [NETWORK]
+node ./bin/index.js arbitrable -n [NETWORK] --verbose
 ```
 
 This command will output the address of your new Arbitrable contract.
@@ -141,14 +140,14 @@ For the testing instances, each subscription period costs 7,500 fake-DAI, so mak
 Once you have done that you can subscribe your Arbitrable instance running the following command:
 
 ```bash
-node ./bin/index.js subscribe -a [ARBITRABLE] -n [NETWORK]
+node ./bin/index.js subscribe -a [ARBITRABLE] -n [NETWORK] --verbose
 ``` 
 
 Where `[ARBITRABLE]` is the address of your Arbitrable instance.
 
 Now, we are almost ready to create a dispute. The last step is to send some fake DAI to the Arbitrable instance so that it can pay for the court's dispute fees.
 These are different from the subscription fees. The dispute fees are to pay the jurors for each dispute to be resolved.
-For the testing instances, each dispute costs 30.87 fake-DAI.
+For the testing instances, each dispute costs 30.87 fake-DAI (`30870000000000000000` with 18 decimals).
 Thus, you will need to make a transfer from your account to your Arbitrable instance.
 To do that you can use the Etherscan interface for the DAI instance linked in section 8.1.
 
@@ -162,6 +161,7 @@ node ./bin/index.js dispute \
   -s [SUBMITTER_1] [SUBMITTER_1] ... [SUBMITTER_N] \
   -c \
   -n [NETWORK] \
+  --verbose
 ```
 
 Where: 
@@ -194,6 +194,19 @@ You can checkout the [`metadata.json`](https://ipfs.io/ipfs/QmYt33BkuHMLe4dSTfLa
 
 For the Court Dashboard, the evidence is simpler than the metadata, it only needs to be a human-readable content uploaded to IPFS.
 Then it should be submitted as `ipfs:[CID]`. For example, [`ipfs:QmYGNe8jhTEwdDfixtDnPpzjQpXhX2nMj3xMK3swy69naP`](https://ipfs.io/ipfs/QmYGNe8jhTEwdDfixtDnPpzjQpXhX2nMj3xMK3swy69naP) is the evidence submitted for the [dispute #1](https://court-usability.aragon.org/disputes/1) of Aragon Court.
+
+For example, the following command was executed to create [this dispute](https://court-usability.aragon.org/disputes/4):
+
+```bash
+node ./bin/index.js dispute \
+    -a 0xA4dFfD405d66Ad678670D97a4F53299036f2992c \
+    -m '{ "description": "Aragon Court testing dispute", "metadata": "Qma1TAp92XgJFbQvn1p9TMSJ785FQGTHk2eqUPVV3WfAhw/metadata.json" }' \
+    -e "ipfs:QmRcPBq2hbmsQHKVG1nubfr7eyGyF8cFG7J8i7AW9CoX1g" "ipfs:QmUE2iyEL1Dn8MVseH43esqmoevb8Xs93K5LboSEuxWzMR" \
+    -s "0x7Cb79FbFF2B26261ab92394713d3d801b4bCFAd2" "0x7AA9a36a3081EEA5791f5b3052D065b50c0bdEc0" \
+    -c \
+    -n usability \
+    --verbose
+```
 
 ## 8.6. Ruling a dispute
 

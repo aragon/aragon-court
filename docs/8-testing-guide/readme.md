@@ -129,8 +129,12 @@ This is specified by the [`IArbitrable`](../../contracts/arbitration/IArbitrable
 Thus, the first thing we should do is to deploy an Arbitrable contract. You can do this from the CLI running the following command:
 
 ```bash
-node ./bin/index.js arbitrable -n [NETWORK] --verbose
+node ./bin/index.js arbitrable -f [FROM] -n [NETWORK] --verbose
 ```
+
+Where:
+- `[FROM]`: address deploying the Arbitrable contract; this address will be the one available to create disputes with it
+- `[NETWORK]`: name of the Aragon Court instance you are using: `usability`, `rinkeby`, or `ropsten` 
 
 This command will output the address of your new Arbitrable contract.
 
@@ -140,10 +144,13 @@ For the testing instances, each subscription period costs 7,500 fake-DAI, so mak
 Once you have done that you can subscribe your Arbitrable instance running the following command:
 
 ```bash
-node ./bin/index.js subscribe -a [ARBITRABLE] -n [NETWORK] --verbose
+node ./bin/index.js subscribe -a [ARBITRABLE] -f [FROM] -n [NETWORK] --verbose
 ``` 
 
-Where `[ARBITRABLE]` is the address of your Arbitrable instance.
+Where:
+- `[ARBITRABLE]`: address of the Arbitrable instance you deployed in the previous step
+- `[FROM]`: address paying for the fake DAI tokens; this must be the address you used to claim the tokens from the faucet
+- `[NETWORK]`: name of the Aragon Court instance you are using: `usability`, `rinkeby`, or `ropsten` 
 
 Now, we are almost ready to create a dispute. The last step is to send some fake DAI to the Arbitrable instance so that it can pay for the court's dispute fees.
 These are different from the subscription fees. The dispute fees are to pay the jurors for each dispute to be resolved.
@@ -160,6 +167,7 @@ node ./bin/index.js dispute \
   -e [EVIDENCE_1] [EVIDENCE_2] ... [EVIDENCE_N] \
   -s [SUBMITTER_1] [SUBMITTER_1] ... [SUBMITTER_N] \
   -c \
+  -f [FROM] \
   -n [NETWORK] \
   --verbose
 ```
@@ -170,7 +178,8 @@ Where:
 - `[EVIDENCE_N]`: links in the form of `ipfs:[CID]` to human-readable evidence hosted on IPFS (continue reading for example evidence links) 
 - `[SUBMITTER_N]`: addresses submitting each piece of evidence; this list should match the evidence list length 
 - `-c` flag: optional to declare that the evidence submission period should be immediately closed. Otherwise you will need to manually close it afterwards. 
-- `[NETWORK]`: name of the Aragon Court instance you are willing to use: `usability`, `rinkeby`, or `ropsten`
+- `[FROM]`: address owning the Arbitrable instance being called; this address must be the one you used to delay the Arbitrable instance before
+- `[NETWORK]`: name of the Aragon Court instance you are using: `usability`, `rinkeby`, or `ropsten`
 
 This command will output the ID of the dispute you've just created.
 

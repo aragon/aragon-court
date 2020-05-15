@@ -14,9 +14,13 @@ Of course, there is an ERC20 faucet deployed for all these instances that you ca
 
 ### 8.1.1. Usability
 
+This is probably the most useful testing instance you would like to try. 
+Fees are low and court terms last a few minutes to make sure you can interact with it a bit faster.
+
 - Network: Rinkeby
 - Court term: 30 minutes
-- Subscription period: 1440 court terms
+- Subscription fee: 10 fake DAI
+- Subscription period: 1440 court terms (1 month)
 - Dashboard: https://court-usability.aragon.org/
 - Address: [`0x44f788370206696b20b94bc77c4f73ca264aa05e`](http://rinkeby.etherscan.io/address/0x44f788370206696b20b94bc77c4f73ca264aa05e)
 - Fake ANJ: [`0xe9efff723800bb86f31db9a369e47c2bf336008e`](http://rinkeby.etherscan.io/address/0xe9efff723800bb86f31db9a369e47c2bf336008e)
@@ -25,9 +29,12 @@ Of course, there is an ERC20 faucet deployed for all these instances that you ca
 
 ### 8.1.2. Rinkeby
 
+This testing instance mirrors the instance deployed to Mainnet, same terms duration and fee amounts
+
 - Network: Rinkeby
-- Court term: 8 hours (same as mainnet)
-- Subscription period: 720 court terms
+- Court term: 8 hours
+- Subscription fee: 7500 fake DAI
+- Subscription period: 90 court terms (1 month)
 - Dashboard: https://court-rinkeby.aragon.org/
 - Address: [`0xb5ffbe75fa785725eea5f931b64fc04e516c9c5d`](http://rinkeby.etherscan.io/address/0xb5ffbe75fa785725eea5f931b64fc04e516c9c5d)
 - Fake ANJ: [`0x975ef6b5fde81c24c4ec605091f2e945872b6036`](http://rinkeby.etherscan.io/address/0x975ef6b5fde81c24c4ec605091f2e945872b6036)
@@ -36,9 +43,12 @@ Of course, there is an ERC20 faucet deployed for all these instances that you ca
 
 ### 8.1.3. Ropsten
 
+This testing instance basically mimics the Mainnet instance with lower subscription fees but same terms duration
+
 - Network: Ropsten
-- Court term: 8 hours (same as mainnet)
-- Subscription period: 720 court terms
+- Court term: 8 hours
+- Subscription fee: 10 fake DAI
+- Subscription period: 90 court terms (1 month)
 - Dashboard: https://court-ropsten.aragon.org/
 - Address: [`0x3b26bc496aebaed5b3e0e81cde6b582cde71396e`](http://ropsten.etherscan.io/address/0x3b26bc496aebaed5b3e0e81cde6b582cde71396e)
 - Fake ANJ: [`0xc863e1ccc047beff17022f4229dbe6321a6bce65`](http://ropsten.etherscan.io/address/0xc863e1ccc047beff17022f4229dbe6321a6bce65)
@@ -75,7 +85,7 @@ Additionally, it should deploy a fake version of the ANJ and DAI tokens usable f
 You can claim ANJ or DAI fake tokens from the ERC20 faucets.
 You can do this directly through Etherscan, simply click in any of the faucet links shared above in section 8.1.
 Once there, you just need to enable your Web3 account and call the `withdraw()` function providing the desired token address and amount:
-![faucet](./faucet.png)
+![faucet](./images/faucet.png)
 
 When claiming tokens remember to add the 18 zeroes for the decimals, for example 10 DAI should be requested as `10000000000000000000`. 
 Bear in mind there is a quota set for these faucets; they will only allow you to withdraw up to 10,000 fake-DAI or 10,000 fake-ANJ every 7 days.
@@ -139,7 +149,8 @@ Where:
 This command will output the address of your new Arbitrable contract.
 
 The next step is to subscribe your Arbitrable instance to Aragon Court by paying the subscription fees.
-For the testing instances, each subscription period costs 7,500 fake-DAI, so make sure you claim some fake DAI from the ERC20 faucet as described in section 8.2.
+Each testing instance has different subscription fees, so make sure you claim enough fake DAI from the ERC20 faucet based on the fees described in section 8.2. 
+We recommend using the `usability` testing instance to have a more fluid experience, its subscription fees are 10 fake-DAI.
 
 Once you have done that you can subscribe your Arbitrable instance running the following command:
 
@@ -156,7 +167,7 @@ Now, we are almost ready to create a dispute. The last step is to send some fake
 These are different from the subscription fees. The dispute fees are to pay the jurors for each dispute to be resolved.
 For the testing instances, each dispute costs 30.87 fake-DAI (`30870000000000000000` with 18 decimals).
 Thus, you will need to make a transfer from your account to your Arbitrable instance.
-To do that you can use the Etherscan interface for the DAI instance linked in section 8.1.
+To do that you can use the Etherscan interface for the fake DAI instance linked in section 8.1.
 
 Finally, we are ready to create your dispute running the following command:
 
@@ -175,46 +186,51 @@ node ./bin/index.js dispute \
 Where: 
 - `[ARBITRABLE]`: address of your Arbitrable instance
 - `[METADATA]`: metadata to be linked for your dispute (continue reading to have a better understanding of how to build a proper dispute metadata)
-- `[EVIDENCE_N]`: links in the form of `ipfs:[CID]` to human-readable evidence hosted on IPFS (continue reading for example evidence links) 
+- `[EVIDENCE_N]`: reference to a human-readable evidence (continue reading to have a better understanding of how to provide a proper evidence reference) 
 - `[SUBMITTER_N]`: addresses submitting each piece of evidence; this list should match the evidence list length 
-- `-c` flag: optional to declare that the evidence submission period should be immediately closed. Otherwise you will need to manually close it afterwards. 
+- `-c` flag: optional to declare that the evidence submission period should be immediately closed. Otherwise, you will need to manually close it afterwards. 
 - `[FROM]`: address owning the Arbitrable instance being called; this address must be the one you used to delay the Arbitrable instance before
 - `[NETWORK]`: name of the Aragon Court instance you are using: `usability`, `rinkeby`, or `ropsten`
 
 This command will output the ID of the dispute you've just created.
 
 A few things to bear in mind is that, even though the `[METADATA]` and `[EVIDENCE_N]` arguments could be any arbitrary information, in order to use the Court Dashboard to rule disputes, these should follow a specific structure.
-Please check out the [Court Dashboard instructions](https://github.com/aragon/court-dashboard/blob/development/docs/metadata.md) about how these objects should be formatted.
+Currently, the Court Dashboard supports reading these pieces of information from files hosted in IPFS. Thus, it expects the following formats:
+- `[METADATA]`: `'{ "metadata": "[METADATA_CID]/metadata.json" }'`
+- `[EVIDENCE_N]`: `ipfs:[EVIDENCE_N_CID]`
 
-### 8.5.1. Metadata
+Where `METADATA_CID` is the `CID` of a dir hosted in IPFS including a file `metadata.json`, and `[EVIDENCE_N_CID]` is the `CID` of a markdown file for the evidence #N hosted in IPFS. 
+Additionally, the `metadata.json` file must have the following structure:
 
-The Court Dashboard expects the metadata to be built as a specific JSON formatted data:
 ```json
 { 
-    "description": "Your dispute description",  
-    "metadata": "[CID]/metadata.json" 
+    "description": "[Your dispute description]",
+    "agreementTitle": "[A title for your agreement file]",
+    "agreementText": "[Path to the agreement file in the dir uploaded to IPFS]",
+    "plaintiff": "[Ethereum address representing the plaintiff]",
+    "defendant": "[Ethereum address representing the defendant]"
 }
 ```
 
-Where `[CID]` is the hash of a directory holding a `metadata.json` file with the rest of the metadata.
-You can checkout the [`metadata.json`](https://ipfs.io/ipfs/QmYt33BkuHMLe4dSTfLan7QXxQVTGRyhVLt5sujrZkhd1w/metadata.json) file used for the [dispute #1](https://court-usability.aragon.org/disputes/1) of Aragon Court as an example.
+Even though `agreementTitle`, `agreementText`, `plaintiff` and `defendant` are optional values, you will have a much better experience if you provide those.
 
-### 8.5.2. Evidence
+Additionally, it is recommended to upload all these pieces of information together to IPFS. For example, you can take a look at [these files](./sample-dispute) we used to create this [sample dispute](https://court-usability.aragon.org/disputes/6). 
+To upload those files we simply ran the following command while having the IPFS daemon running in background:
 
-For the Court Dashboard, the evidence is simpler than the metadata, it only needs to be a human-readable content uploaded to IPFS.
-Then it should be submitted as `ipfs:[CID]`. For example, [`ipfs:QmYGNe8jhTEwdDfixtDnPpzjQpXhX2nMj3xMK3swy69naP`](https://ipfs.io/ipfs/QmYGNe8jhTEwdDfixtDnPpzjQpXhX2nMj3xMK3swy69naP) is the evidence submitted for the [dispute #1](https://court-usability.aragon.org/disputes/1) of Aragon Court.
+![ipfs](./images/ipfs-output.png)
 
-For example, the following command was executed to create [this dispute](https://court-usability.aragon.org/disputes/4):
+As you can see, the `[METADATA_CID]` is the output marked in red, while the `[EVIDENCE_N_CID]`s are the ones in green.
+Finally, following this example, this was the command we ran to create the dispute:
 
 ```bash
 node ./bin/index.js dispute \
-    -a 0xA4dFfD405d66Ad678670D97a4F53299036f2992c \
-    -m '{ "description": "Aragon Court testing dispute", "metadata": "Qma1TAp92XgJFbQvn1p9TMSJ785FQGTHk2eqUPVV3WfAhw/metadata.json" }' \
-    -e "ipfs:QmRcPBq2hbmsQHKVG1nubfr7eyGyF8cFG7J8i7AW9CoX1g" "ipfs:QmUE2iyEL1Dn8MVseH43esqmoevb8Xs93K5LboSEuxWzMR" \
-    -s "0x7Cb79FbFF2B26261ab92394713d3d801b4bCFAd2" "0x7AA9a36a3081EEA5791f5b3052D065b50c0bdEc0" \
-    -c \
-    -n usability \
-    --verbose
+   -a 0x4BaBdb3aA57B351e57A9cb0e71B1c15Ec2e5479D \
+   -m '{ "metadata": "QmbN3uaqRMWypUGKUbjuhL8wCgFXGgfktQgoKhTp6zUm6o/metadata.json" }' \
+   -e ipfs:QmQn1eK9jbKQtwHoUwgXw3QP7dZe6rSDmyPut9PLXeHjhR ipfs:QmWRBN26uoL7MdZJWhSuBaKgCVvStBQMvFwSxtseTDY32S \
+   -s 0x59d0b5475AcF30F24EcA10cb66BB5Ed75d3d9016 0x61F73dFc8561C322171c774E5BE0D9Ae21b2da42 \
+   -c \
+   -n usability \
+   --verbose
 ```
 
 ## 8.6. Ruling a dispute

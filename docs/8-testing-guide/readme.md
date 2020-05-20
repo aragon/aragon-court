@@ -189,7 +189,7 @@ Where:
 - `[EVIDENCE_N]`: reference to a human-readable evidence (continue reading to have a better understanding of how to provide a proper evidence reference) 
 - `[SUBMITTER_N]`: addresses submitting each piece of evidence; this list should match the evidence list length 
 - `-c` flag: optional to declare that the evidence submission period should be immediately closed. Otherwise, you will need to manually close it afterwards. 
-- `[FROM]`: address owning the Arbitrable instance being called; this address must be the one you used to delay the Arbitrable instance before
+- `[FROM]`: address owning the Arbitrable instance being called; this address must be the one you used to deploy the Arbitrable instance before
 - `[NETWORK]`: name of the Aragon Court instance you are using: `usability`, `rinkeby`, or `ropsten`
 
 This command will output the ID of the dispute you've just created.

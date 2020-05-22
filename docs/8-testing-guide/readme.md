@@ -223,14 +223,7 @@ As you can see, the `[METADATA_CID]` is the output marked in red, while the `[EV
 Finally, following this example, this was the command we ran to create the dispute:
 
 ```bash
-node ./bin/index.js dispute \
-   -a 0x4BaBdb3aA57B351e57A9cb0e71B1c15Ec2e5479D \
-   -m '{ "metadata": "QmbN3uaqRMWypUGKUbjuhL8wCgFXGgfktQgoKhTp6zUm6o/metadata.json" }' \
-   -e ipfs:QmQn1eK9jbKQtwHoUwgXw3QP7dZe6rSDmyPut9PLXeHjhR ipfs:QmWRBN26uoL7MdZJWhSuBaKgCVvStBQMvFwSxtseTDY32S \
-   -s 0x59d0b5475AcF30F24EcA10cb66BB5Ed75d3d9016 0x61F73dFc8561C322171c774E5BE0D9Ae21b2da42 \
-   -c \
-   -n usability \
-   --verbose
+node ./bin/index.js dispute -a 0x4BaBdb3aA57B351e57A9cb0e71B1c15Ec2e5479D -m '{ "metadata": "QmbN3uaqRMWypUGKUbjuhL8wCgFXGgfktQgoKhTp6zUm6o/metadata.json" }' -e ipfs:QmQn1eK9jbKQtwHoUwgXw3QP7dZe6rSDmyPut9PLXeHjhR ipfs:QmWRBN26uoL7MdZJWhSuBaKgCVvStBQMvFwSxtseTDY32S -s 0x59d0b5475AcF30F24EcA10cb66BB5Ed75d3d9016 0x61F73dFc8561C322171c774E5BE0D9Ae21b2da42 -c -n usability --verbose
 ```
 
 ## 8.6. Ruling a dispute

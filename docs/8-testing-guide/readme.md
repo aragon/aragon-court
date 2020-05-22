@@ -57,6 +57,8 @@ This testing instance basically mimics the Mainnet instance with lower subscript
 
 ### 8.1.4. Local
 
+> Unless you are familiar with using a local Aragon development environment, we recommend skipping ahead to Section 8.2 and using one of the other available testing instances (Usability/ Rinkeby/ Ropsten).
+
 To deploy a local instance of Aragon Court you will need to clone the deployment scripts first:
  
 ```bash

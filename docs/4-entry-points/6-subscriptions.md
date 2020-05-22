@@ -1,6 +1,6 @@
-## 4.6. Subscriptions
+# 4.6. Subscriptions
 
-The `Subscriptions` module is in charge of handling the subscription fees paid by the users to use the Court. 
+The `Subscriptions` module is in charge of handling the subscription fees paid by the users to use the Court.
 This module is where fees are paid, stored, and redistributed to the corresponding parties: jurors and the governor.
 
 ### 4.6.1. Constructor
@@ -29,7 +29,7 @@ This module is where fees are paid, stored, and redistributed to the correspondi
     - Save the controller address
     - Save the period duration
     - Save the subscriptions fee token amount
-    - Save the subscriptions fee token address 
+    - Save the subscriptions fee token address
     - Save the number of pre-payment periods
     - Save the late payments penalty permyriad
     - Save the governor share permyriad
@@ -44,7 +44,7 @@ This module is where fees are paid, stored, and redistributed to the correspondi
 - **Authentication:** Open. Implicitly, only accounts that have open an ERC20 allowance with an amount equivalent to the fees corresponding to requested number of periods can call this function
 - **Pre-flight checks:**
     - Ensure that the number of periods is greater than zero
-    - Ensure that the number of paying periods does not exceed the pre-payments limit 
+    - Ensure that the number of paying periods does not exceed the pre-payments limit
 - **State transitions:**
     - Create or update the subscriber's state depending on whether the subscriber has already paid a subscription before or not
     - Update the total amount of collected fees during the current period
@@ -59,7 +59,7 @@ This module is where fees are paid, stored, and redistributed to the correspondi
 - **Pre-flight checks:**
     - Ensure that the sender was already subscribed
 - **State transitions:**
-    - Update the subscriber's state marking it as paused 
+    - Update the subscriber's state marking it as paused
 
 ### 4.6.4. Resume
 
@@ -68,10 +68,10 @@ This module is where fees are paid, stored, and redistributed to the correspondi
 - **Authentication:** Open. Implicitly, only accounts that have paused their subscriptions can call this function
 - **Pre-flight checks:**
     - Ensure that the sender was already subscribed
-    - Ensure that the subscriber was paused 
+    - Ensure that the subscriber was paused
     - Ensure that the number of paying periods covers the resume pre-paid periods and the previous delayed ones
 - **State transitions:**
-    - Update the subscriber's state  
+    - Update the subscriber's state
     - Update the total amount of collected fees during the current period
     - Update the total amount of collected governor shares
     - Pull the corresponding amount of fee tokens for the owed number of periods from the sender to be deposited in the `Subscriptions` module, revert if the ERC20-transfer wasn't successful

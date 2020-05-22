@@ -8,29 +8,29 @@ The following events are emitted by the `Controller`:
 
 - **Name:** `NewConfig`
 - **Args:**
-    - **From term ID:** Identification number of the Court term when the config change will happen 
-    - **Court config ID:** Identification number of the Court config to be changed 
+    - **From term ID:** Identification number of the Court term when the config change will happen
+    - **Court config ID:** Identification number of the Court config to be changed
 
 #### 6.2.1.2. Start time delayed
 
 - **Name:** `StartTimeDelayed`
 - **Args:**
-    - **Previous first term start time:** Previous timestamp in seconds when the Court will start 
-    - **Current first-term start time:** New timestamp in seconds when the Court will start 
+    - **Previous first term start time:** Previous timestamp in seconds when the Court will start
+    - **Current first-term start time:** New timestamp in seconds when the Court will start
 
 #### 6.2.1.3. Heartbeat
 
 - **Name:** `Heartbeat`
 - **Args:**
-    - **Previous term ID:** Identification number of the Court term before the transition 
-    - **Current term ID:** Identification number of the Court term after the transition 
+    - **Previous term ID:** Identification number of the Court term before the transition
+    - **Current term ID:** Identification number of the Court term after the transition
 
 #### 6.2.1.4. Automatic withdrawals changed
 
 - **Name:** `AutomaticWithdrawalsAllowedChanged`
 - **Args:**
-    - **Holder:** Address of the token holder whose automatic withdrawals config was changed 
-    - **Allowed:** Whether automatic withdrawals are allowed or not for the given holder  
+    - **Holder:** Address of the token holder whose automatic withdrawals config was changed
+    - **Allowed:** Whether automatic withdrawals are allowed or not for the given holder
 
 #### 6.2.1.5. Module set
 
@@ -67,7 +67,7 @@ The following functions are state getters provided by the `Controller`:
 #### 6.2.2.3. Config
 
 - **Inputs:**
-    - **Term ID:** Identification number of the term querying the Court config of 
+    - **Term ID:** Identification number of the term querying the Court config of
 - **Pre-flight checks:** None
 - **Outputs:**
     - **Fee token:** Address of the token used to pay for fees
@@ -113,61 +113,61 @@ The following functions are state getters provided by the `Controller`:
 
 #### 6.2.2.6. Config change term ID
 
-- **Inputs:** None 
+- **Inputs:** None
 - **Pre-flight checks:** None
 - **Outputs:**
     - **Config change term ID:** Term identification number of the next scheduled config change
 
 #### 6.2.2.7. Term duration
 
-- **Inputs:** None 
+- **Inputs:** None
 - **Pre-flight checks:** None
 - **Outputs:**
     - **Term duration:** Duration in seconds of the Court term
 
 #### 6.2.2.8. Last ensured term ID
 
-- **Inputs:** None 
+- **Inputs:** None
 - **Pre-flight checks:** None
 - **Outputs:**
     - **Last ensured term ID:** Identification number of the last ensured term
 
 #### 6.2.2.9. Current term ID
 
-- **Inputs:** None 
+- **Inputs:** None
 - **Pre-flight checks:** None
 - **Outputs:**
     - **Current term ID:** Identification number of the current term
 
 #### 6.2.2.10. Needed transitions
 
-- **Inputs:** None 
-- **Pre-flight checks:** None  
+- **Inputs:** None
+- **Pre-flight checks:** None
 - **Outputs:**
     - **Needed transitions:** Number of terms the Court should transition to be up-to-date
-    
+
 #### 6.2.2.11. Term
 
-- **Inputs:** 
+- **Inputs:**
     - **Term ID:** Identification number of the term being queried
-- **Pre-flight checks:** None  
+- **Pre-flight checks:** None
 - **Outputs:**
     - **Start time:** Term start time
     - **Randomness BN:** Block number used for randomness in the requested term
     - **Randomness:** Randomness computed for the requested term
-    
+
 #### 6.2.2.12. Term randomness
 
-- **Inputs:** 
+- **Inputs:**
     - **Term ID:** Identification number of the term being queried
 - **Pre-flight checks:**
-    - Ensure the term was already transitioned  
+    - Ensure the term was already transitioned
 - **Outputs:**
     - **Term randomness:** Randomness of the requested term
 
 #### 6.2.2.13. Are withdrawals allowed for
 
-- **Inputs:** 
+- **Inputs:**
     - **Address:** Address of the token holder querying if withdrawals are allowed for
 - **Pre-flight checks:** None
 - **Outputs:**
@@ -175,64 +175,64 @@ The following functions are state getters provided by the `Controller`:
 
 #### 6.2.2.14. Funds governor
 
-- **Inputs:** None 
+- **Inputs:** None
 - **Pre-flight checks:** None
 - **Outputs:**
     - **Funds governor:** Address of the funds governor
 
 #### 6.2.2.15. Config governor
 
-- **Inputs:** None 
+- **Inputs:** None
 - **Pre-flight checks:** None
 - **Outputs:**
     - **Config governor:** Address of the config governor
 
 #### 6.2.2.16. Modules governor
 
-- **Inputs:** None 
+- **Inputs:** None
 - **Pre-flight checks:** None
 - **Outputs:**
     - **Modules governor:** Address of the modules governor
 
 #### 6.2.2.17. Module
 
-- **Inputs:** None 
-- **Pre-flight checks:** 
+- **Inputs:** None
+- **Pre-flight checks:**
     - **Module ID:** ID of the module being queried
 - **Outputs:**
     - **Module address:** Address of the module queried
 
 #### 6.2.2.18. Dispute Manager
 
-- **Inputs:** None 
+- **Inputs:** None
 - **Pre-flight checks:** None
 - **Outputs:**
     - **Court address:** Address of the `DisputeManager` module set
 
 #### 6.2.2.19. Jurors registry
 
-- **Inputs:** None 
+- **Inputs:** None
 - **Pre-flight checks:** None
 - **Outputs:**
     - **Jurors registry address:** Address of the `JurorsRegistry` module set
 
 #### 6.2.2.20. Voting
 
-- **Inputs:** None 
+- **Inputs:** None
 - **Pre-flight checks:** None
 - **Outputs:**
     - **Voting address:** Address of the `Voting` module set
 
 #### 6.2.2.21. Subscriptions
 
-- **Inputs:** None 
+- **Inputs:** None
 - **Pre-flight checks:** None
 - **Outputs:**
     - **Subscriptions address:** Address of the `Subscriptions` module set
 
 #### 6.2.2.22. Treasury
 
-- **Inputs:** None 
+- **Inputs:** None
 - **Pre-flight checks:** None
 - **Outputs:**
     - **Treasury address:** Address of the `Treasury` module set

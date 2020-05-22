@@ -1,8 +1,8 @@
 ## 4.7. Treasury
 
-The `Treasury` module is in charge of handling the token assets related to the disputes process. 
-The ANJ of the jurors and the subscription fees of the users are the only assets excluded from the `Treasury`. 
-Except from those, the rest of the fees, deposits, and collaterals required to back the different adjudication rounds of a dispute, are stored in the `Treasury`.  
+The `Treasury` module is in charge of handling the token assets related to the disputes process.
+The ANJ of the jurors and the subscription fees of the users are the only assets excluded from the `Treasury`.
+Except from those, the rest of the fees, deposits, and collaterals required to back the different adjudication rounds of a dispute, are stored in the `Treasury`.
 
 ### 4.7.1. Constructor
 

@@ -11,15 +11,15 @@ The following events are emitted by the `DisputeManager`:
     - **Dispute ID:** Identification number of the dispute that has been created
     - **Subject:** Address of the `Arbitrable` subject associated to the dispute
     - **Draft term ID:** Identification number of the term when the dispute will be able to be drafted
-    - **Jurors number:** First round jurors number 
-    - **Metadata:** Optional metadata that can be used to provide additional information on the created dispute 
+    - **Jurors number:** First round jurors number
+    - **Metadata:** Optional metadata that can be used to provide additional information on the created dispute
 
 #### 6.3.1.2. Evidence period closed
 
 - **Name:** `EvidencePeriodClosed`
 - **Args:**
-    - **Dispute ID:** Identification number of the dispute that has changed 
-    - **Term ID:** Term ID in which the dispute evidence period has been closed 
+    - **Dispute ID:** Identification number of the dispute that has changed
+    - **Term ID:** Term ID in which the dispute evidence period has been closed
 
 #### 6.3.1.3. Juror drafted
 
@@ -33,26 +33,26 @@ The following events are emitted by the `DisputeManager`:
 
 - **Name:** `DisputeStateChanged`
 - **Args:**
-    - **Dispute ID:** Identification number of the dispute that has changed 
-    - **State:** New dispute state: pre-draft, adjudicating, or ruled 
+    - **Dispute ID:** Identification number of the dispute that has changed
+    - **State:** New dispute state: pre-draft, adjudicating, or ruled
 
 #### 6.3.1.5. Ruling appealed
 
 - **Name:** `RulingAppealed`
 - **Args:**
     - **Dispute ID:** Identification number of the dispute appealed
-    - **Round ID:** Identification number of the adjudication round appealed 
-    - **Ruling:** Ruling appealed in favor of 
+    - **Round ID:** Identification number of the adjudication round appealed
+    - **Ruling:** Ruling appealed in favor of
 
 #### 6.3.1.6. Ruling appeal confirmed
 
 - **Name:** `RulingAppealConfirmed`
 - **Args:**
-    - **Dispute ID:** Identification number of the dispute whose last round's appeal was confirmed 
-    - **Round ID:** Identification number of the adjudication round whose appeal was confirmed 
+    - **Dispute ID:** Identification number of the dispute whose last round's appeal was confirmed
+    - **Round ID:** Identification number of the adjudication round whose appeal was confirmed
     - **Draft term ID:** Identification number of the term when the next round will be able to be drafted
     - **Jurors number:** Next round jurors number
-    
+
 #### 6.3.1.7. Ruling computed
 
 - **Name:** `RulingComputed`
@@ -65,7 +65,7 @@ The following events are emitted by the `DisputeManager`:
 - **Name:** `PenaltiesSettled`
 - **Args:**
     - **Dispute ID:** Identification number of the dispute settled
-    - **Round ID:** Identification number of the adjudication round settled 
+    - **Round ID:** Identification number of the adjudication round settled
     - **Collected tokens:** Total amount of juror tokens that were collected from slashed jurors for the requested round
 
 #### 6.3.1.9. Reward settled
@@ -73,7 +73,7 @@ The following events are emitted by the `DisputeManager`:
 - **Name:** `RewardSettled`
 - **Args:**
     - **Dispute ID:** Identification number of the dispute settled
-    - **Round ID:** Identification number of the adjudication round settled 
+    - **Round ID:** Identification number of the adjudication round settled
     - **Juror:** Address of the juror rewarded
 
 #### 6.3.1.10. Appeal deposit settled
@@ -81,14 +81,14 @@ The following events are emitted by the `DisputeManager`:
 - **Name:** `AppealDepositSettled`
 - **Args:**
     - **Dispute ID:** Identification number of the dispute whose round's appeal was settled
-    - **Round ID:** Identification number of the adjudication round whose appeal was settled 
+    - **Round ID:** Identification number of the adjudication round whose appeal was settled
 
 #### 6.3.1.11. Max jurors per draft batch changed
 
 - **Name:** `MaxJurorsPerDraftBatchChanged`
 - **Args:**
     - **Previous max jurors per draft batch:** Previous max number of jurors to be drafted per batch
-    - **Current max jurors per draft batch:** New max number of jurors to be drafted per batch  
+    - **Current max jurors per draft batch:** New max number of jurors to be drafted per batch
 
 ### 6.3.2. Getters
 
@@ -104,9 +104,9 @@ The following functions are state getters provided by the `DisputeManager`:
 
 #### 6.3.2.2. Dispute
 
-- **Inputs:** 
+- **Inputs:**
     - **Dispute ID:** Identification number of the dispute being queried
-- **Pre-flight checks:** 
+- **Pre-flight checks:**
     - Ensure a dispute object with that ID exists
 - **Outputs:**
     - **Subject:** Arbitrable subject being disputed
@@ -117,10 +117,10 @@ The following functions are state getters provided by the `DisputeManager`:
 
 #### 6.3.2.3. Round
 
-- **Inputs:** 
+- **Inputs:**
     - **Dispute ID:** Identification number of the dispute being queried
-    - **Round ID:** Identification number of the adjudication round being queried 
-- **Pre-flight checks:** 
+    - **Round ID:** Identification number of the adjudication round being queried
+- **Pre-flight checks:**
     - Ensure a dispute object with that ID exists
     - Ensure an adjudication round object with that ID exists for the given dispute
 - **Outputs:**
@@ -135,10 +135,10 @@ The following functions are state getters provided by the `DisputeManager`:
 
 #### 6.3.2.4. Appeal
 
-- **Inputs:** 
+- **Inputs:**
     - **Dispute ID:** Identification number of the dispute being queried
-    - **Round ID:** Identification number of the adjudication round being queried 
-- **Pre-flight checks:** 
+    - **Round ID:** Identification number of the adjudication round being queried
+- **Pre-flight checks:**
     - Ensure a dispute object with that ID exists
     - Ensure an adjudication round object with that ID exists for the given dispute
 - **Outputs:**
@@ -149,10 +149,10 @@ The following functions are state getters provided by the `DisputeManager`:
 
 #### 6.3.2.5. Next round details
 
-- **Inputs:** 
+- **Inputs:**
     - **Dispute ID:** Identification number of the dispute being queried
-    - **Round ID:** Identification number of the adjudication round being queried 
-- **Pre-flight checks:** 
+    - **Round ID:** Identification number of the adjudication round being queried
+- **Pre-flight checks:**
     - Ensure a dispute object with that ID exists
     - Ensure an adjudication round object with that ID exists for the given dispute
 - **Outputs:**
@@ -167,11 +167,11 @@ The following functions are state getters provided by the `DisputeManager`:
 
 #### 6.3.2.6. Juror
 
-- **Inputs:** 
+- **Inputs:**
     - **Dispute ID:** Identification number of the dispute being queried
     - **Round ID:** Identification number of the adjudication round being queried
     - **Juror:** Address of the juror being queried
-- **Pre-flight checks:** 
+- **Pre-flight checks:**
     - Ensure a dispute object with that ID exists
     - Ensure an adjudication round object with that ID exists for the given dispute
 - **Outputs:**

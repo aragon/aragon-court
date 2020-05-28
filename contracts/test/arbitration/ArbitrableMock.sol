@@ -14,6 +14,11 @@ contract ArbitrableMock is IArbitrable {
         arbitrator = _arbitrator;
     }
 
+    function interfaceId() external pure returns (bytes4) {
+        IArbitrable iArbitrable;
+        return iArbitrable.submitEvidence.selector ^ iArbitrable.rule.selector;
+    }
+
     function createDispute(uint8 _possibleRulings, bytes calldata _metadata) external {
         (address recipient, ERC20 feeToken, uint256 disputeFees) = arbitrator.getDisputeFees();
         feeToken.approve(recipient, disputeFees);

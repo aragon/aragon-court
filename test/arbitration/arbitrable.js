@@ -12,6 +12,7 @@ contract('Arbitrable', ([_, court]) => {
   })
 
   it('supports IArbitrable', async () => {
+    assert.equal(await arbitrable.interfaceId(), '0x88f3ee69', 'IArbitrable interface ID does not match')
     assert.isTrue(await arbitrable.supportsInterface('0x88f3ee69'), 'does not support IArbitrable')
   })
 

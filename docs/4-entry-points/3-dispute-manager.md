@@ -1,6 +1,6 @@
 ## 4.3. Dispute Manager
 
-The `DisputeManager` module is in charge of handling all the disputes-related behavior. This is where disputes are created and appealed. 
+The `DisputeManager` module is in charge of handling all the disputes-related behavior. This is where disputes are created and appealed.
 It is also in charge of computing the final ruling for each dispute, and to settle the rewards and penalties of all the parties involved in the dispute.
 
 ### 4.3.1. Constructor
@@ -15,7 +15,7 @@ It is also in charge of computing the final ruling for each dispute, and to sett
     - Ensure that the max number of jurors to be drafted per batch is greater than zero
 - **State transitions:**
     - Save the controller address
-    - Save the max number of jurors to be drafted per batch 
+    - Save the max number of jurors to be drafted per batch
 
 ### 4.3.2. Create dispute
 
@@ -190,7 +190,7 @@ It is also in charge of computing the final ruling for each dispute, and to sett
     - Ensure that the adjudication round's appeal has not been settled yet
 - **State transitions:**
     - Mark the adjudication round's appeal as settled
-    - Deposit the corresponding portions of the appeal deposits into the `Treasury` module to each party 
+    - Deposit the corresponding portions of the appeal deposits into the `Treasury` module to each party
 
 ### 4.3.11. Ensure can commit
 
@@ -204,14 +204,14 @@ It is also in charge of computing the final ruling for each dispute, and to sett
     - Ensure votes can still be committed for the adjudication round
 - **State transitions:**
     - Update current Court term if needed
-    
-    
+
+
 ### 4.3.12. Ensure voter can commit
 
 - **Actor:** Any entity incentivized to check if it is possible to commit votes for a certain dispute adjudication round
 - **Inputs:**
     - **Vote ID:** Vote identification number
-- **Authentication:** Only `Voting` module 
+- **Authentication:** Only `Voting` module
 - **Pre-flight checks:**
     - Ensure that the Court term is up-to-date. Otherwise, perform a heartbeat before continuing the execution.
     - Ensure a dispute and adjudication round exists with that vote ID

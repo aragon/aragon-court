@@ -1,6 +1,6 @@
 ## 4.4. Jurors Registry
 
-The `JurorsRegistry` module is in charge of handling the jurors activity and mainly the different states of their staked balances. 
+The `JurorsRegistry` module is in charge of handling the jurors activity and mainly the different states of their staked balances.
 This module is in the one handling all the staking/unstaking logic for the jurors, all the ANJ staked into the Court is held by the registry.
 
 ### 4.4.1. Constructor
@@ -76,11 +76,11 @@ This module is in the one handling all the staking/unstaking logic for the juror
     - **Data:** Optional data that can be used to request the activation of the transferred tokens
 - **Authentication:** Open. Implicitly, only accounts that have open an ERC20 allowance with the requested amount of tokens to stake can call this function
 - **Pre-flight checks:**
-    - Ensure that the given amount is greater than zero 
+    - Ensure that the given amount is greater than zero
 - **State transitions:**
     - Update the available balance of the juror
     - Activate the staked amount if requested. This includes processing pending deactivation requests.
-    - Pull the corresponding amount of juror tokens from the sender to the `JurorsRegistry` module, revert if the ERC20-transfer wasn't successful 
+    - Pull the corresponding amount of juror tokens from the sender to the `JurorsRegistry` module, revert if the ERC20-transfer wasn't successful
 
 ### 4.4.6. Unstake
 
@@ -144,7 +144,7 @@ This module is in the one handling all the staking/unstaking logic for the juror
 - **Inputs:**
     - **Amount:** Amount of tokens to be burned
 - **Authentication:** Only `DisputeManager` module
-- **Pre-flight checks:** None 
+- **Pre-flight checks:** None
 - **State transitions:**
     - Increase the burn address's available balance
 
@@ -183,7 +183,7 @@ This module is in the one handling all the staking/unstaking logic for the juror
     - Ensure that each juror has enough locked balance to be unlocked
 - **State transitions:**
     - Decrease the unlocked balance of each juror based on their corresponding given amounts
-    - In case of a juror being slashed, decrease their active balance for the next term 
+    - In case of a juror being slashed, decrease their active balance for the next term
 
 ### 4.4.13. Collect tokens
 

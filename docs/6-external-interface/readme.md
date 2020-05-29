@@ -1,6 +1,6 @@
 # 6. External interface
 
-The following sections aim to describe the different external access points provided by each of the modules to complement the entry points described in [section 4](../4-entry-points).
+The following sections aim to complement [section 4](../4-entry-points)'s description of each module's external entry points with their view-only access points and emitted events.
 
 ## Table of Contents
 

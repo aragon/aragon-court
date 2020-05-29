@@ -29,7 +29,7 @@ The fees config object includes the following fields:
 - **Settle fee:** Amount of tokens paid per round to cover the costs of slashing jurors
 
 ### 5.2.4. Disputes config
-    
+
 The disputes config object includes the following fields:
 
 - **Evidence terms:** Max submitting evidence period duration in Court terms
@@ -44,11 +44,11 @@ The disputes config object includes the following fields:
 - **Max regular appeal rounds:** Before the final appeal
 - **Appeal collateral factor:** Permyriad multiple of dispute fees (jurors, draft, and settlements) required to appeal a preliminary ruling (1/10,000)
 - **Appeal confirmation collateral factor:** Permyriad multiple of dispute fees (jurors, draft, and settlements) required to confirm appeal (1/10,000)
-    
+
 ### 5.2.5. Term
-    
+
 The term object includes the following fields:
-  
+
 - **Start time:** Timestamp when the term started
 - **Randomness block number:** Block number for entropy
 - **Randomness:** Entropy from randomness block number's hash

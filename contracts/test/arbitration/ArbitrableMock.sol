@@ -14,6 +14,11 @@ contract ArbitrableMock is IArbitrable {
         arbitrator = _arbitrator;
     }
 
+    function interfaceId() external pure returns (bytes4) {
+        IArbitrable iArbitrable;
+        return iArbitrable.submitEvidence.selector ^ iArbitrable.rule.selector;
+    }
+
     function createDispute(uint8 _possibleRulings, bytes calldata _metadata) external {
         (address recipient, ERC20 feeToken, uint256 disputeFees) = arbitrator.getDisputeFees();
         feeToken.approve(recipient, disputeFees);
@@ -21,7 +26,7 @@ contract ArbitrableMock is IArbitrable {
     }
 
     function submitEvidence(uint256 _disputeId, bytes calldata _evidence, bool _finished) external {
-        emit EvidenceSubmitted(_disputeId, msg.sender, _evidence, _finished);
+        emit EvidenceSubmitted(arbitrator, _disputeId, msg.sender, _evidence, _finished);
         if (_finished) arbitrator.closeEvidencePeriod(_disputeId);
     }
 

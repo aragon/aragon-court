@@ -10,6 +10,7 @@ dataSources:
     source:
       address: '{{court}}'
       abi: AragonCourt
+      startBlock: {{startBlock}}
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.3

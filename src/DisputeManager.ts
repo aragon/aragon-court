@@ -133,6 +133,7 @@ export function handleRulingComputed(event: RulingComputed): void {
   let dispute = Dispute.load(event.params.disputeId.toString())
   dispute.state = 'Ruled'
   dispute.finalRuling = event.params.ruling
+  dispute.ruledAt = event.block.timestamp
   dispute.save()
 }
 

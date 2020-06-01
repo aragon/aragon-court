@@ -76,6 +76,7 @@ type Dispute @entity {
   jurors: [JurorDispute!] @derivedFrom(field: "dispute")
   txHash: String!
   createdAt: BigInt!
+  ruledAt: BigInt
 }
 
 enum DisputeState {

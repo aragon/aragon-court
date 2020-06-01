@@ -150,7 +150,8 @@ function loadOrCreateConfig(courtAddress: Address, event: EthereumEvent): CourtC
     config.termDuration = court.getTermDuration()
   }
 
-  let result = court.getConfig(config.currentTerm as BigInt)
+  let currentTermId = court.getCurrentTermId()
+  let result = court.getConfig(currentTermId)
 
   let feeTokenAddress = result.value0
   let feeTokenContract = ERC20Contract.bind(feeTokenAddress)

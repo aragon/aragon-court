@@ -33,13 +33,13 @@ This testing instance mirrors the instance deployed to Mainnet, same terms durat
 
 - Network: Rinkeby
 - Court term: 8 hours
-- Subscription fee: 7500 fake DAI
+- Subscription fee: 10 fake DAI
 - Subscription period: 90 court terms (1 month)
 - Dashboard: https://court-rinkeby.aragon.org/
-- Address: [`0xb5ffbe75fa785725eea5f931b64fc04e516c9c5d`](http://rinkeby.etherscan.io/address/0xb5ffbe75fa785725eea5f931b64fc04e516c9c5d)
-- Fake ANJ: [`0x975ef6b5fde81c24c4ec605091f2e945872b6036`](http://rinkeby.etherscan.io/address/0x975ef6b5fde81c24c4ec605091f2e945872b6036)
+- Address: [`0xe9180dBE762Fe39520fC9883f7f7EFeBA6506534`](http://rinkeby.etherscan.io/address/0xe9180dBE762Fe39520fC9883f7f7EFeBA6506534)
+- Fake ANJ: [`0x1FAB7d0D028ded72195322998003F6e82cF4cFdB`](http://rinkeby.etherscan.io/address/0x1FAB7d0D028ded72195322998003F6e82cF4cFdB)
 - Fake DAI: [`0xe9a083d88eed757b1d633321ce0519f432c6284d`](http://rinkeby.etherscan.io/address/0xe9a083d88eed757b1d633321ce0519f432c6284d)
-- ERC20 faucet: [`0x3b86Fd8C30445Ddcbed79CE7eB052fe935D34Fd2`](http://rinkeby.etherscan.io/address/0x3b86Fd8C30445Ddcbed79CE7eB052fe935D34Fd2)
+- ERC20 faucet: [`0x5561f73c3BBe8202F4D7E51aD2A1F22f1E056eFE`](http://rinkeby.etherscan.io/address/0x5561f73c3BBe8202F4D7E51aD2A1F22f1E056eFE)
 
 ### 8.1.3. Ropsten
 

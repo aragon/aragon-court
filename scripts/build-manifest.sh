@@ -7,7 +7,7 @@ set -o errexit
 court_ropsten=0x3b26bc496aebaed5b3E0E81cDE6B582CDe71396e
 court_staging=0x52180af656a1923024d1accf1d827ab85ce48878
 court_usability=0x44f788370206696b20b94bc77c4f73ca264aa05e
-court_rinkeby=0xB5fFBe75FA785725eeA5f931b64FC04E516C9C5D
+court_rinkeby=0xe9180dBE762Fe39520fC9883f7f7EFeBA6506534
 court_mainnet=0xee4650cBe7a2B23701D416f58b41D8B76b617797
 
 # Known block numbers

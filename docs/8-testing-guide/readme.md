@@ -12,20 +12,20 @@ Additionally, all the instances are using their own deployed version of the foll
 
 Of course, there is an ERC20 faucet deployed for all these instances that you can use to claim some fake ANJ or DAI to start testing. More information is outlined below on using these faucets.
 
-### 8.1.1. Usability
+### 8.1.1. Staging
 
 This is probably the most useful testing instance you would like to try. 
 Fees are low and court terms last a few minutes to make sure you can interact with it a bit faster.
 
 - Network: Rinkeby
-- Court term: 30 minutes
+- Court term: 10 minutes
 - Subscription fee: 10 fake DAI
-- Subscription period: 1440 court terms (1 month)
-- Dashboard: https://court-usability.aragon.org/
-- Address: [`0x44f788370206696b20b94bc77c4f73ca264aa05e`](http://rinkeby.etherscan.io/address/0x44f788370206696b20b94bc77c4f73ca264aa05e)
-- Fake ANJ: [`0xe9efff723800bb86f31db9a369e47c2bf336008e`](http://rinkeby.etherscan.io/address/0xe9efff723800bb86f31db9a369e47c2bf336008e)
-- Fake DAI: [`0x55ab9b236cdc9e2cecbd41ada45d8261f8a6049b`](http://rinkeby.etherscan.io/address/0x55ab9b236cdc9e2cecbd41ada45d8261f8a6049b)
-- ERC20 faucet: [`0x109dB6047d83f4dd5a8d9da3b9e9228728E3710a`](http://rinkeby.etherscan.io/address/0x109dB6047d83f4dd5a8d9da3b9e9228728E3710a)
+- Subscription period: 3 court terms (30 minutes)
+- Dashboard: https://court-staging.aragon.org/
+- Address: [`0x52180af656a1923024d1accf1d827ab85ce48878`](http://rinkeby.etherscan.io/address/0x52180af656a1923024d1accf1d827ab85ce48878)
+- Fake ANJ: [`0x5bc9be34f98eb072696d63b5be5d4d2f2c03d0ad`](http://rinkeby.etherscan.io/address/0x5bc9be34f98eb072696d63b5be5d4d2f2c03d0ad)
+- Fake DAI: [`0x3af6b2f907f0c55f279e0ed65751984e6cdc4a42`](http://rinkeby.etherscan.io/address/0x3af6b2f907f0c55f279e0ed65751984e6cdc4a42)
+- ERC20 faucet: [`0x5561f73c3BBe8202F4D7E51aD2A1F22f1E056eFE`](http://rinkeby.etherscan.io/address/0x5561f73c3BBe8202F4D7E51aD2A1F22f1E056eFE)
 
 ### 8.1.2. Rinkeby
 
@@ -57,7 +57,7 @@ This testing instance basically mimics the Mainnet instance with lower subscript
 
 ### 8.1.4. Local
 
-> Unless you are familiar with using a local Aragon development environment, we recommend skipping ahead to Section 8.2 and using one of the other available testing instances (Usability/ Rinkeby/ Ropsten).
+> Unless you are familiar with using a local Aragon development environment, we recommend skipping ahead to Section 8.2 and using one of the other available testing instances (Staging/ Rinkeby/ Ropsten).
 
 To deploy a local instance of Aragon Court you will need to clone the deployment scripts first:
  
@@ -127,7 +127,7 @@ Where:
 - `[JUROR]`: address of the juror you will activate the tokens for
 - `[AMOUNT]`: amount of fake ANJ tokens you will activate for the specified juror (it doesn't require adding the decimals, so to activate 10,000 ANJ simply enter `10000`)
 - `[FROM]`: address paying for the fake ANJ tokens; this must be the address you used to claim the tokens from the faucet
-- `[NETWORK]`: name of the Aragon Court instance you are willing to use: `usability`, `rinkeby`, or `ropsten` 
+- `[NETWORK]`: name of the Aragon Court instance you are willing to use: `staging`, `rinkeby`, or `ropsten` 
 
 Note that you can also avoid the flag `--verbose` if you want to avoid having too much details about the transactions being sent to the network.
 
@@ -146,13 +146,13 @@ node ./bin/index.js arbitrable -f [FROM] -n [NETWORK] --verbose
 
 Where:
 - `[FROM]`: address deploying the Arbitrable contract; this address will be the one available to create disputes with it
-- `[NETWORK]`: name of the Aragon Court instance you are using: `usability`, `rinkeby`, or `ropsten` 
+- `[NETWORK]`: name of the Aragon Court instance you are using: `staging`, `rinkeby`, or `ropsten` 
 
 This command will output the address of your new Arbitrable contract.
 
 The next step is to subscribe your Arbitrable instance to Aragon Court by paying the subscription fees.
 Each testing instance has different subscription fees, so make sure you claim enough fake DAI from the ERC20 faucet based on the fees described in section 8.2. 
-We recommend using the `usability` testing instance to have a more fluid experience, its subscription fees are 10 fake-DAI.
+We recommend using the `staging` testing instance to have a more fluid experience, its subscription fees are 10 fake-DAI.
 
 Once you have done that you can subscribe your Arbitrable instance running the following command:
 
@@ -163,7 +163,7 @@ node ./bin/index.js subscribe -a [ARBITRABLE] -f [FROM] -n [NETWORK] --verbose
 Where:
 - `[ARBITRABLE]`: address of the Arbitrable instance you deployed in the previous step
 - `[FROM]`: address paying for the fake DAI tokens; this must be the address you used to claim the tokens from the faucet
-- `[NETWORK]`: name of the Aragon Court instance you are using: `usability`, `rinkeby`, or `ropsten` 
+- `[NETWORK]`: name of the Aragon Court instance you are using: `staging`, `rinkeby`, or `ropsten` 
 
 Now, we are almost ready to create a dispute. The last step is to send some fake DAI to the Arbitrable instance so that it can pay for the court's dispute fees.
 These are different from the subscription fees. The dispute fees are to pay the jurors for each dispute to be resolved.
@@ -192,13 +192,13 @@ Where:
 - `[SUBMITTER_N]`: addresses submitting each piece of evidence; this list should match the evidence list length 
 - `-c` flag: optional to declare that the evidence submission period should be immediately closed. Otherwise, you will need to manually close it afterwards. 
 - `[FROM]`: address owning the Arbitrable instance being called; this address must be the one you used to deploy the Arbitrable instance before
-- `[NETWORK]`: name of the Aragon Court instance you are using: `usability`, `rinkeby`, or `ropsten`
+- `[NETWORK]`: name of the Aragon Court instance you are using: `staging`, `rinkeby`, or `ropsten`
 
 This command will output the ID of the dispute you've just created.
 
 A few things to bear in mind is that, even though the `[METADATA]` and `[EVIDENCE_N]` arguments could be any arbitrary information, in order to use the Court Dashboard to rule disputes, these should follow a specific structure.
 Currently, the Court Dashboard supports reading these pieces of information from files hosted in IPFS. Thus, it expects the following formats:
-- `[METADATA]`: `'{ "metadata": "[METADATA_CID]/metadata.json" }'`
+- `[METADATA]`: `'{ "metadata": "[METADATA_CID]/metadata.json", "description": "Some dispute description" }'`
 - `[EVIDENCE_N]`: `ipfs:[EVIDENCE_N_CID]`
 
 Where `METADATA_CID` is the `CID` of a dir hosted in IPFS including a file `metadata.json`, and `[EVIDENCE_N_CID]` is the `CID` of a markdown file for the evidence #N hosted in IPFS. 
@@ -216,7 +216,7 @@ Additionally, the `metadata.json` file must have the following structure:
 
 Even though `agreementTitle`, `agreementText`, `plaintiff` and `defendant` are optional values, you will have a much better experience if you provide those.
 
-Additionally, it is recommended to upload all these pieces of information together to IPFS. For example, you can take a look at [these files](./sample-dispute) we used to create this [sample dispute](https://court-usability.aragon.org/disputes/6). 
+Additionally, it is recommended to upload all these pieces of information together to IPFS. For example, you can take a look at [these files](./sample-dispute) we used to create this [sample dispute](https://court-staging.aragon.org/disputes/15). 
 To upload those files we simply ran the following command while having the IPFS daemon running in background:
 
 ![ipfs](./images/ipfs-output.png)
@@ -225,7 +225,7 @@ As you can see, the `[METADATA_CID]` is the output marked in red, while the `[EV
 Finally, following this example, this was the command we ran to create the dispute:
 
 ```bash
-node ./bin/index.js dispute -a 0x4BaBdb3aA57B351e57A9cb0e71B1c15Ec2e5479D -m '{ "metadata": "QmbN3uaqRMWypUGKUbjuhL8wCgFXGgfktQgoKhTp6zUm6o/metadata.json" }' -e ipfs:QmQn1eK9jbKQtwHoUwgXw3QP7dZe6rSDmyPut9PLXeHjhR ipfs:QmWRBN26uoL7MdZJWhSuBaKgCVvStBQMvFwSxtseTDY32S -s 0x59d0b5475AcF30F24EcA10cb66BB5Ed75d3d9016 0x61F73dFc8561C322171c774E5BE0D9Ae21b2da42 -c -n usability --verbose
+node ./bin/index.js dispute -a 0xe573D236d40F331d24420075Fb2EdE84B9968E3c -m '{ "metadata": "QmbN3uaqRMWypUGKUbjuhL8wCgFXGgfktQgoKhTp6zUm6o/metadata.json", "description": "Sample testing dispute" }' -e ipfs:QmQn1eK9jbKQtwHoUwgXw3QP7dZe6rSDmyPut9PLXeHjhR ipfs:QmWRBN26uoL7MdZJWhSuBaKgCVvStBQMvFwSxtseTDY32S -s 0x59d0b5475AcF30F24EcA10cb66BB5Ed75d3d9016 0x61F73dFc8561C322171c774E5BE0D9Ae21b2da42 -c -n staging --verbose
 ```
 
 ## 8.6. Ruling a dispute

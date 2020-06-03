@@ -6,28 +6,26 @@ set -o errexit
 # Court known addresses
 court_ropsten=0x3b26bc496aebaed5b3E0E81cDE6B582CDe71396e
 court_staging=0x52180af656a1923024d1accf1d827ab85ce48878
-court_usability=0x44f788370206696b20b94bc77c4f73ca264aa05e
 court_rinkeby=0xe9180dBE762Fe39520fC9883f7f7EFeBA6506534
 court_mainnet=0xee4650cBe7a2B23701D416f58b41D8B76b617797
 
 # Known block numbers
 start_block_ropsten=6819000
 start_block_staging=6199000
-start_block_usability=5969000
 start_block_rinkeby=5624000
 start_block_mainnet=9017000
 
 # Validate network
-networks=(rpc ropsten usability staging rinkeby mainnet)
+networks=(rpc ropsten staging rinkeby mainnet)
 if [[ -z $NETWORK || ! " ${networks[@]} " =~ " ${NETWORK} " ]]; then
-  echo 'Please make sure the network provided is either rpc, ropsten, staging, usability, rinkeby, or mainnet.'
+  echo 'Please make sure the network provided is either rpc, ropsten, staging, rinkeby, or mainnet.'
   exit 1
 fi
 
 # Use mainnet network in case of local deployment
 if [[ "$NETWORK" = "rpc" ]]; then
   ENV='mainnet'
-elif [[ "$NETWORK" = "staging" || "$NETWORK" = "usability" ]]; then
+elif [[ "$NETWORK" = "staging" ]]; then
   ENV='rinkeby'
 else
   ENV=${NETWORK}

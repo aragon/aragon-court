@@ -14,7 +14,6 @@
 2. [Rinkeby](https://thegraph.com/explorer/subgraph/aragon/aragon-court-rinkeby)
 3. [Ropsten](https://thegraph.com/explorer/subgraph/aragon/aragon-court-ropsten)
 4. [Staging](https://thegraph.com/explorer/subgraph/aragon/aragon-court-staging)
-5. [Usability](https://thegraph.com/explorer/subgraph/aragon/aragon-court-usability)
 
 ### Local
 

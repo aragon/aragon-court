@@ -107,6 +107,7 @@ type AdjudicationRound @entity {
   state: AdjudicationState!
   stateInt: Int!
   draftTermId: BigInt!
+  draftedTermId: BigInt
   jurorsNumber: BigInt!
   settledPenalties: Boolean!
   jurorFees: BigInt!

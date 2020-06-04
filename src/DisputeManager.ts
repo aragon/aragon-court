@@ -67,6 +67,11 @@ export function handleDisputeStateChanged(event: DisputeStateChanged): void {
   dispute.save()
 
   updateRound(event.params.disputeId, dispute.lastRoundId, event)
+
+  if (event.params.state === 1) { // Adjudicating
+    let round = loadOrCreateRound(event.params.disputeId, dispute.lastRoundId, event)
+    round.draftedTermId = round.draftTermId.plus(round.delayedTerms);
+  }
 }
 
 export function handleRulingAppealed(event: RulingAppealed): void {

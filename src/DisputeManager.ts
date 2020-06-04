@@ -115,6 +115,7 @@ export function handleRewardSettled(event: RewardSettled): void {
   let roundId = buildRoundId(event.params.disputeId, event.params.roundId)
   let draft = JurorDraft.load(buildDraftId(roundId, event.params.juror))
   draft.rewarded = true
+  draft.rewardedAt = event.block.timestamp
   draft.save()
 
   createFeeMovement(JUROR_FEES, event.params.juror, event.params.fees, event)

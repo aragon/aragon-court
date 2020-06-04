@@ -71,6 +71,7 @@ export function handleDisputeStateChanged(event: DisputeStateChanged): void {
   if (event.params.state === 1) { // Adjudicating
     let round = loadOrCreateRound(event.params.disputeId, dispute.lastRoundId, event)
     round.draftedTermId = round.draftTermId.plus(round.delayedTerms);
+    round.save();
   }
 }
 

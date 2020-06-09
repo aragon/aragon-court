@@ -131,6 +131,7 @@ export function handleAppealDepositSettled(event: AppealDepositSettled): void {
   let appealId = buildAppealId(event.params.disputeId, event.params.roundId)
   let appeal = Appeal.load(appealId.toString())
   appeal.settled = true
+  appeal.settledAt = event.block.timestamp
   appeal.save()
 
   createAppealFeesForDeposits(event.params.disputeId, event.params.roundId, appealId, event)

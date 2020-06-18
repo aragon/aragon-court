@@ -257,6 +257,7 @@ type JurorsRegistryModule @entity {
   court: CourtConfig!
   totalStaked: BigInt!
   totalActive: BigInt!
+  totalDeactivation: BigInt!
 }
 
 type SubscriptionModule @entity {

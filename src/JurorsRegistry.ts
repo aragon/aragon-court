@@ -46,16 +46,28 @@ export function handleJurorActivated(event: JurorActivated): void {
 export function handleJurorDeactivationRequested(event: JurorDeactivationRequested): void {
   updateJuror(event.params.juror, event)
   createANJMovementForTerm(event.params.juror, DEACTIVATION, event.params.amount, event.params.availableTermId, event)
+  increaseTotalDeactivation(event.address, event.params.amount)
 }
 
 export function handleJurorDeactivationUpdated(event: JurorDeactivationUpdated): void {
+  let juror = loadOrCreateJuror(event.params.juror, event)
+  let previousDeactivationAmount = juror.deactivationBalance
+
   updateJuror(event.params.juror, event)
   createANJMovementForTerm(event.params.juror, DEACTIVATION, event.params.amount, event.params.availableTermId, event)
+
+  let currentDeactivationAmount = event.params.amount
+  if (currentDeactivationAmount.gt(previousDeactivationAmount)) {
+    increaseTotalDeactivation(event.address, currentDeactivationAmount.minus(previousDeactivationAmount))
+  } else {
+    decreaseTotalDeactivation(event.address, previousDeactivationAmount.minus(currentDeactivationAmount))
+  }
 }
 
 export function handleJurorDeactivationProcessed(event: JurorDeactivationProcessed): void {
   updateJuror(event.params.juror, event)
   decreaseTotalActive(event.address, event.params.amount)
+  decreaseTotalDeactivation(event.address, event.params.amount)
 }
 
 export function handleJurorBalanceLocked(event: JurorBalanceLocked): void {
@@ -155,5 +167,17 @@ function increaseTotalActive(registryAddress: Address, amount: BigInt): void {
 function decreaseTotalActive(registryAddress: Address, amount: BigInt): void {
   let jurorsRegistry = JurorsRegistryModule.load(registryAddress.toHex())
   jurorsRegistry.totalActive = jurorsRegistry.totalActive.minus(amount)
+  jurorsRegistry.save()
+}
+
+function increaseTotalDeactivation(registryAddress: Address, amount: BigInt): void {
+  let jurorsRegistry = JurorsRegistryModule.load(registryAddress.toHex())
+  jurorsRegistry.totalDeactivation = jurorsRegistry.totalDeactivation.plus(amount)
+  jurorsRegistry.save()
+}
+
+function decreaseTotalDeactivation(registryAddress: Address, amount: BigInt): void {
+  let jurorsRegistry = JurorsRegistryModule.load(registryAddress.toHex())
+  jurorsRegistry.totalDeactivation = jurorsRegistry.totalDeactivation.minus(amount)
   jurorsRegistry.save()
 }

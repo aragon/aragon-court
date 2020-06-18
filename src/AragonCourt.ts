@@ -97,6 +97,7 @@ export function handleModuleSet(event: ModuleSet): void {
     registryModule.court = event.address.toHex()
     registryModule.totalStaked = BigInt.fromI32(0)
     registryModule.totalActive = BigInt.fromI32(0)
+    registryModule.totalDeactivation = BigInt.fromI32(0)
     registryModule.save()
   }
   else if (id == DISPUTE_MANAGER_ID) {

@@ -56,6 +56,7 @@ contract('Subscriptions Fees Oracle', ([_, governor, subscriber, fakeToken]) => 
           const fee = await subscriptionsOracle.getFee(appId)
           assert.equal(fee.token, token, 'token doesn’t match')
           assertBn(fee.amount, amount, 'amount doesn’t match')
+          assert.equal(fee.beneficiary, await controller.getSubscriptions(), 'beneficiary doesn’t match')
         })
 
         it('fails to set fee if not governor', async () => {

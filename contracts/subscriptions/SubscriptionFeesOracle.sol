@@ -36,13 +36,13 @@ contract SubscriptionFeesOracle is Controlled, ISubscriptionFeesOracle, EtherTok
         appFee.amount = _amount;
     }
 
-    function getFee(bytes32 _appId) external view returns (ERC20 token, uint256 amount) {
+    function getFee(bytes32 _appId) external view returns (ERC20 token, uint256 amount, address beneficiary) {
         require(_appId != bytes32(0), ERROR_APP_ID_ZERO);
         // TODO: should we check this?
         require(_getCurrentTermId() > 0, ERROR_COURT_HAS_NOT_STARTED);
 
         AppFee storage appFee = appFees[_appId];
 
-        return (appFee.token, appFee.amount);
+        return (appFee.token, appFee.amount, address(_subscriptions()));
     }
 }

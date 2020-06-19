@@ -1,87 +1,178 @@
 const { assertRevert } = require('../helpers/asserts/assertThrow')
 const { buildHelper } = require('../helpers/wrappers/court')(web3, artifacts)
 const { assertBn } = require('../helpers/asserts/assertBn')
-const { bn, bigExp } = require('../helpers/lib/numbers')
-const { SUBSCRIPTIONS_ORACLE_ERRORS, CONTROLLED_ERRORS } = require('../helpers/utils/errors')
-const { ONE_DAY } = require('../helpers/lib/time')
+const { bigExp } = require('../helpers/lib/numbers')
+const { TRANSACTIONS_FEES_ORACLE_ERRORS, CONTROLLED_ERRORS } = require('../helpers/utils/errors')
 
-const SubscriptionFeesOracle = artifacts.require('SubscriptionFeesOracleMock')
+const TransactionFeesOracle = artifacts.require('TransactionFeesOracleMock')
 const ERC20 = artifacts.require('ERC20Mock')
 
 const VOTING_APP_ID = '0x9fa3927f639745e587912d4b0fea7ef9013bf93fb907d29faeab57417ba6e1d4'
+const TOKEN_MANAGER_APP_ID = '0x6b20a3010614eeebf2138ccec99f028a61c811b3b1a3343b6ff635985c75c91f'
 
-contract('Subscriptions Fees Oracle', ([_, governor, subscriber, fakeToken]) => {
+contract('Transaction Fees Oracle', ([_, governor, subscriber, fakeToken]) => {
   let controller, subscriptionsOracle, feeToken, ETH
-  const TERM_DURATION = bn(ONE_DAY)
 
   beforeEach('create base contracts and subscriptions module', async () => {
     controller = await buildHelper().deploy({ configGovernor: governor })
     feeToken = await ERC20.new('Subscriptions Fee Token', 'SFT', 18)
 
-    subscriptionsOracle = await SubscriptionFeesOracle.new(controller.address)
+    subscriptionsOracle = await TransactionFeesOracle.new(controller.address)
     ETH = await subscriptionsOracle.getEthTokenConstant()
   })
 
   describe('set and get fees', () => {
-    context('when the court has already started', () => {
-      beforeEach('move terms to reach period #0', async () => {
-        await controller.mockSetTerm(TERM_DURATION)
+    const appIds = [VOTING_APP_ID, TOKEN_MANAGER_APP_ID]
+    const amounts = [bigExp(15, 18), bigExp(16, 18)]
+
+    const getFees = async (appIds, tokens, amounts) => {
+      const beneficiary = await controller.getSubscriptions()
+      for (let i = 0; i < appIds.length; i++) {
+        const fee = await subscriptionsOracle.getFee(appIds[i])
+        assert.equal(fee.token, tokens[i], 'token doesn’t match')
+        assertBn(fee.amount, amounts[i], 'amount doesn’t match')
+        assert.equal(fee.beneficiary, beneficiary, 'beneficiary doesn’t match')
+      }
+    }
+
+    const setAndGetFees = (isEth) => {
+      let token
+
+      beforeEach('set token', async () => {
+        token = isEth ? ETH : feeToken.address
       })
 
-      context('when the app id is zero', () => {
-        it('fails setting fee', async () => {
-          await assertRevert(subscriptionsOracle.setFee('0x', feeToken.address, 1, { from: governor }), SUBSCRIPTIONS_ORACLE_ERRORS.ERROR_APP_ID_ZERO)
-        })
-
-        it('fails getting fee', async () => {
-          await assertRevert(subscriptionsOracle.getFee('0x', { from: subscriber }), SUBSCRIPTIONS_ORACLE_ERRORS.ERROR_APP_ID_ZERO)
-        })
+      it('fails to set fee if not governor', async () => {
+        await assertRevert(subscriptionsOracle.setFee(VOTING_APP_ID, token, 1, { from: subscriber }), CONTROLLED_ERRORS.SENDER_NOT_CONFIG_GOVERNOR)
       })
 
-      const setAndGetFee = async (isEth) => {
-        let token
+      it('fails to set multiple fees if not governor', async () => {
+        await assertRevert(subscriptionsOracle.setFees([VOTING_APP_ID, TOKEN_MANAGER_APP_ID], [token, token], [1, 1], { from: subscriber }), CONTROLLED_ERRORS.SENDER_NOT_CONFIG_GOVERNOR)
+      })
 
-        beforeEach('set token', async () => {
-          token = isEth ? ETH : feeToken.address
+      it('fails to set multiple fees if tokens length doesn’t match', async () => {
+        await assertRevert(subscriptionsOracle.setFees(appIds, [token], amounts, { from: governor }), TRANSACTIONS_FEES_ORACLE_ERRORS.ERROR_WRONG_TOKENS_LENGTH)
+      })
+
+      it('fails to set multiple fees if amounts length doesn’t match', async () => {
+        await assertRevert(subscriptionsOracle.setFees(appIds, [token, token], [1], { from: governor }), TRANSACTIONS_FEES_ORACLE_ERRORS.ERROR_WRONG_AMOUNTS_LENGTH)
+      })
+
+      it('sets and gets fee', async () => {
+        const appId = VOTING_APP_ID
+        const amount = bigExp(15, 18)
+
+        // set fee
+        await subscriptionsOracle.setFee(appId, token, amount, { from: governor })
+
+        // get fee
+        const fee = await subscriptionsOracle.getFee(appId)
+        assert.equal(fee.token, token, 'token doesn’t match')
+        assertBn(fee.amount, amount, 'amount doesn’t match')
+        assert.equal(fee.beneficiary, await controller.getSubscriptions(), 'beneficiary doesn’t match')
+      })
+
+      it('sets and gets multiple fee', async () => {
+        // set fee
+        await subscriptionsOracle.setFees(appIds, [token, token], amounts, { from: governor })
+
+        // get fees
+        await getFees(appIds, [token, token], amounts)
+      })
+    }
+
+    context('when the app hasn’t been set', () => {
+      const processAppFees = (isEth) => {
+        it('fails to get fee', async () => {
+          await assertRevert(subscriptionsOracle.getFee(VOTING_APP_ID), TRANSACTIONS_FEES_ORACLE_ERRORS.ERROR_APP_NOT_SET)
         })
 
-        it('sets and gets fee', async () => {
-          const appId = VOTING_APP_ID
-          const amount = bigExp(15, 18)
-
-          // set fee
-          await subscriptionsOracle.setFee(appId, token, amount, { from: governor })
-
-          // get fee
-          const fee = await subscriptionsOracle.getFee(appId)
-          assert.equal(fee.token, token, 'token doesn’t match')
-          assertBn(fee.amount, amount, 'amount doesn’t match')
-          assert.equal(fee.beneficiary, await controller.getSubscriptions(), 'beneficiary doesn’t match')
+        it('fails to unset fee', async () => {
+          await assertRevert(subscriptionsOracle.unsetFee(VOTING_APP_ID, { from: governor }), TRANSACTIONS_FEES_ORACLE_ERRORS.ERROR_APP_NOT_SET)
         })
 
-        it('fails to set fee if not governor', async () => {
-          await assertRevert(subscriptionsOracle.setFee(VOTING_APP_ID, token, 1), CONTROLLED_ERRORS.SENDER_NOT_CONFIG_GOVERNOR)
+        it('fails to unset multiple fees', async () => {
+          await assertRevert(subscriptionsOracle.unsetFees([VOTING_APP_ID, TOKEN_MANAGER_APP_ID], { from: governor }), TRANSACTIONS_FEES_ORACLE_ERRORS.ERROR_APP_NOT_SET)
         })
+
+        setAndGetFees(isEth)
       }
 
-      context('when the app id is not zero', () => {
-        context('when the token is ETH', () => {
-          setAndGetFee(true)
+      context('when the token is ETH', () => {
+        processAppFees(true)
+      })
+
+      context('when the token is not ETH', () => {
+        it('fails to set fee if token is not contract', async () => {
+          await assertRevert(subscriptionsOracle.setFee(VOTING_APP_ID, fakeToken, 1, { from: governor }), TRANSACTIONS_FEES_ORACLE_ERRORS.ERROR_WRONG_TOKEN)
         })
 
-        context('when the token is not ETH', () => {
-          it('fails if token is not contract', async () => {
-            await assertRevert(subscriptionsOracle.setFee(VOTING_APP_ID, fakeToken, 1, { from: governor }), SUBSCRIPTIONS_ORACLE_ERRORS.ERROR_WRONG_TOKEN)
-          })
-
-          setAndGetFee(false)
+        it('fails to set multiple fees if token is not contract', async () => {
+          await assertRevert(subscriptionsOracle.setFees([VOTING_APP_ID, TOKEN_MANAGER_APP_ID], [fakeToken, feeToken.address], [1, 1], { from: governor }), TRANSACTIONS_FEES_ORACLE_ERRORS.ERROR_WRONG_TOKEN)
+          await assertRevert(subscriptionsOracle.setFees([VOTING_APP_ID, TOKEN_MANAGER_APP_ID], [feeToken.address, fakeToken], [1, 1], { from: governor }), TRANSACTIONS_FEES_ORACLE_ERRORS.ERROR_WRONG_TOKEN)
         })
+
+        processAppFees(false)
       })
     })
 
-    context('when the court hasn’t started yet', () => {
-      it('fails getting fee', async () => {
-        await assertRevert(subscriptionsOracle.getFee(VOTING_APP_ID, { from: subscriber }), SUBSCRIPTIONS_ORACLE_ERRORS.ERROR_COURT_HAS_NOT_STARTED)
+    context('when the app has been set', () => {
+      const processAppFees = async (isEth) => {
+        let token
+
+        beforeEach('set token and app fee', async () => {
+          token = isEth ? ETH : feeToken.address
+          await subscriptionsOracle.setFees(appIds, [token, token], amounts, { from: governor })
+        })
+
+        it('gets fee', async () => {
+          await getFees(appIds, [token, token], amounts)
+        })
+
+        it('fails to unset fee if not governor', async () => {
+          await assertRevert(subscriptionsOracle.unsetFee(VOTING_APP_ID, { from: subscriber }), CONTROLLED_ERRORS.SENDER_NOT_CONFIG_GOVERNOR)
+        })
+
+        it('fails to unset multiple fees if not governor', async () => {
+          await assertRevert(subscriptionsOracle.unsetFees([VOTING_APP_ID, TOKEN_MANAGER_APP_ID], { from: subscriber }), CONTROLLED_ERRORS.SENDER_NOT_CONFIG_GOVERNOR)
+        })
+
+        it('unsets the fee', async () => {
+          // unset fee
+          await subscriptionsOracle.unsetFee(appIds[0], { from: governor })
+
+          // try to get fee
+          await assertRevert(subscriptionsOracle.getFee(appIds[0]), TRANSACTIONS_FEES_ORACLE_ERRORS.ERROR_APP_NOT_SET)
+        })
+
+        it('unsets multiple fees', async () => {
+          // unset fee
+          await subscriptionsOracle.unsetFees(appIds, { from: governor })
+
+          // try to get fee
+          await Promise.all(appIds.map(async (appId) => {
+            await assertRevert(subscriptionsOracle.getFee(appId), TRANSACTIONS_FEES_ORACLE_ERRORS.ERROR_APP_NOT_SET)
+          }))
+        })
+
+        setAndGetFees(token)
+      }
+
+      context('when the token is ETH', () => {
+        processAppFees(true)
+      })
+
+      context('when the token is not ETH', () => {
+        it('fails if token is not contract', async () => {
+          await assertRevert(subscriptionsOracle.setFee(VOTING_APP_ID, fakeToken, 1, { from: governor }), TRANSACTIONS_FEES_ORACLE_ERRORS.ERROR_WRONG_TOKEN)
+        })
+
+        it('fails to set multiple fees if token is not contract', async () => {
+          await assertRevert(subscriptionsOracle.setFees([VOTING_APP_ID, TOKEN_MANAGER_APP_ID], [fakeToken, feeToken.address], [1, 1], { from: governor }), TRANSACTIONS_FEES_ORACLE_ERRORS.ERROR_WRONG_TOKEN)
+          await assertRevert(subscriptionsOracle.setFees([VOTING_APP_ID, TOKEN_MANAGER_APP_ID], [feeToken.address, fakeToken], [1, 1], { from: governor }), TRANSACTIONS_FEES_ORACLE_ERRORS.ERROR_WRONG_TOKEN)
+        })
+
+        processAppFees(false)
       })
     })
   })

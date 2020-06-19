@@ -1,10 +1,10 @@
 pragma solidity ^0.5.8;
 
-import "../../subscriptions/SubscriptionFeesOracle.sol";
+import "../../subscriptions/TransactionFeesOracle.sol";
 
 
-contract SubscriptionFeesOracleMock is SubscriptionFeesOracle {
-    constructor(Controller _controller) SubscriptionFeesOracle(_controller) public {
+contract TransactionFeesOracleMock is TransactionFeesOracle {
+    constructor(Controller _controller) TransactionFeesOracle(_controller) public {
         // solium-disable-previous-line no-empty-blocks
     }
 

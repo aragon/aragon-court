@@ -22,8 +22,8 @@ contract TransactionFeesOracle is Controlled, ITransactionFeesOracle, EtherToken
 
     mapping (bytes32 => AppFee) internal appFees;
 
-    event AppFeeSet(bytes32 indexed _appId, ERC20 _token, uint256 _amount);
-    event AppFeeUnset(bytes32 indexed _appId);
+    event AppFeeSet(bytes32 indexed appId, ERC20 token, uint256 amount);
+    event AppFeeUnset(bytes32 indexed appId);
 
     /**
     * @dev Initialize court subscription fees oracle
@@ -34,7 +34,7 @@ contract TransactionFeesOracle is Controlled, ITransactionFeesOracle, EtherToken
     }
 
     /**
-    * @notice Set fees for app with id `_appId` to `_amount` of `_token` tokens
+    * @notice Set fees for app with id `_appId` to @tokenAmount(`_token`, `_amount`)
     * @param _appId Id of the app
     * @param _token Token for the fee
     * @param _amount Amount of fee tokens

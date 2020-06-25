@@ -9,7 +9,7 @@ import "../disputes/IDisputeManager.sol";
 import "../subscriptions/ISubscriptions.sol";
 
 
-contract AragonCourt is Controller, IArbitrator {
+contract AragonCourt is IArbitrator, Controller {
     using Uint256Helpers for uint256;
 
     string private constant ERROR_SUBSCRIPTION_NOT_PAID = "AC_SUBSCRIPTION_NOT_PAID";

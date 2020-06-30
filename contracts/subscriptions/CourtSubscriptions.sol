@@ -1,6 +1,7 @@
 pragma solidity ^0.5.8;
 
 import "../lib/os/ERC20.sol";
+import "../lib/os/EtherTokenConstant.sol";
 import "../lib/os/SafeMath.sol";
 import "../lib/os/SafeMath64.sol";
 import "../lib/os/SafeERC20.sol";
@@ -13,15 +14,15 @@ import "../court/controller/Controller.sol";
 import "../court/controller/ControlledRecoverable.sol";
 
 
-contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscriptions {
+contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscriptions, EtherTokenConstant {
     using SafeERC20 for ERC20;
     using SafeMath for uint256;
     using SafeMath64 for uint64;
     using PctHelpers for uint256;
 
-    ERC20 private constant ETH_TOKEN = ERC20(0);
-
     string private constant ERROR_GOVERNOR_SHARE_FEES_ZERO = "CS_GOVERNOR_SHARE_FEES_ZERO";
+    string private constant ERROR_ETH_DEPOSIT_FAILED = "CS_ETH_DEPOSIT_FAILED";
+    string private constant ERROR_ETH_TRANSFER_FAILED = "CS_ETH_TRANSFER_FAILED";
     string private constant ERROR_TOKEN_DEPOSIT_FAILED = "CS_TOKEN_DEPOSIT_FAILED";
     string private constant ERROR_TOKEN_TRANSFER_FAILED = "CS_TOKEN_TRANSFER_FAILED";
     string private constant ERROR_PERIOD_DURATION_ZERO = "CS_PERIOD_DURATION_ZERO";
@@ -137,9 +138,8 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
 
         // Update juror state and transfer share fees
         period.claimedFees[msg.sender] = true;
-        address payable juror = address(uint160(msg.sender));
         (ERC20 feeToken,) = _ensurePeriodFees(period);
-        _transfer(juror, feeToken, jurorShare);
+        _transfer(msg.sender, feeToken, jurorShare);
         emit FeesClaimed(msg.sender, _periodId, feeToken, jurorShare);
     }
 
@@ -309,18 +309,27 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
     }
 
     function _deposit(address _from, ERC20 _token, uint256 _amount) internal {
-        if (_amount > 0) {
-            _token == ERC20(0)
-                ? require(msg.value == _amount, ERROR_TOKEN_DEPOSIT_FAILED)
-                : require(_token.safeTransferFrom(_from, address(this), _amount), ERROR_TOKEN_DEPOSIT_FAILED);
+        if (_amount == 0) {
+            return;
+        }
+
+        if (address(_token) == ETH) {
+            require(msg.value == _amount, ERROR_ETH_DEPOSIT_FAILED);
+        } else {
+            require(_token.safeTransferFrom(_from, address(this), _amount), ERROR_TOKEN_DEPOSIT_FAILED);
         }
     }
 
     function _transfer(address payable _to, ERC20 _token, uint256 _amount) internal {
-        if (_amount > 0) {
-            _token == ERC20(0)
-                ? require(_to.send(_amount), ERROR_TOKEN_TRANSFER_FAILED) // solium-disable-line security/no-send
-                : require(_token.safeTransfer(_to, _amount), ERROR_TOKEN_TRANSFER_FAILED);
+        if (_amount == 0) {
+            return;
+        }
+
+        if (address(_token) == ETH) {
+            (bool success, ) = _to.call.value(_amount)(""); // solium-disable-line security/no-call-value
+            require(success, ERROR_ETH_TRANSFER_FAILED);
+        } else {
+            require(_token.safeTransfer(_to, _amount), ERROR_TOKEN_TRANSFER_FAILED);
         }
     }
 
@@ -406,9 +415,10 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
     * @param _feeToken New ERC20 token to be used for the subscription fees
     */
     function _setFeeToken(ERC20 _feeToken) internal {
-        require(_feeToken == ETH_TOKEN || isContract(address(_feeToken)), ERROR_FEE_TOKEN_NOT_CONTRACT);
+        require(address(_feeToken) == ETH || isContract(address(_feeToken)), ERROR_FEE_TOKEN_NOT_CONTRACT);
 
         if (accumulatedGovernorFees > 0) {
+            // There’s no re-entrancy issue here: governor should be trusted
             _transferFeesToGovernor();
         }
         emit FeeTokenChanged(currentFeeToken, _feeToken);

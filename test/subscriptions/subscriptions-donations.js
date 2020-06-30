@@ -78,7 +78,7 @@ contract('CourtSubscriptions', ([_, payer]) => {
 
           context('when the sender does not have enough balance', () => {
             it('reverts', async () => {
-              await assertRevert(subscriptions.donate(1), SUBSCRIPTIONS_ERRORS.TOKEN_DEPOSIT_FAILED)
+              await assertRevert(subscriptions.donate(1), SUBSCRIPTIONS_ERRORS.ETH_DEPOSIT_FAILED)
             })
           })
         })

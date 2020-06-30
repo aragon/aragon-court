@@ -107,7 +107,7 @@ contract('CourtSubscriptions', ([_, governor, payer, subscriber, anotherSubscrib
           const value = FEE_AMOUNT.sub(bn(1))
 
           it('reverts', async () => {
-            await assertRevert(subscriptions.payFees(subscriber, reference, { value }), SUBSCRIPTIONS_ERRORS.TOKEN_DEPOSIT_FAILED)
+            await assertRevert(subscriptions.payFees(subscriber, reference, { value }), SUBSCRIPTIONS_ERRORS.ETH_DEPOSIT_FAILED)
           })
         })
       })

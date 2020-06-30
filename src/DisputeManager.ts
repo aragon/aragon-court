@@ -1,6 +1,7 @@
 import { concat } from '../helpers/bytes'
 import { buildId } from '../helpers/id'
 import { createFeeMovement } from './Treasury'
+import { tryDecodingAgreementMetadata } from '../helpers/disputable'
 import { Arbitrable as ArbitrableTemplate } from '../types/templates'
 import { crypto, Bytes, BigInt, Address, EthereumEvent } from '@graphprotocol/graph-ts'
 import { AdjudicationRound, Arbitrable, Dispute, Appeal, JurorDispute, JurorDraft } from '../types/schema'
@@ -26,7 +27,7 @@ export function handleNewDispute(event: NewDispute): void {
   let dispute = new Dispute(event.params.disputeId.toString())
   let disputeResult = manager.getDispute(event.params.disputeId)
   dispute.subject = event.params.subject.toHex()
-  dispute.metadata = event.params.metadata.toString()
+  dispute.metadata = event.params.metadata
   dispute.possibleRulings = disputeResult.value1
   dispute.state = 'Evidence'
   dispute.settledPenalties = false
@@ -38,6 +39,7 @@ export function handleNewDispute(event: NewDispute): void {
   dispute.save()
 
   updateRound(event.params.disputeId, dispute.lastRoundId, event)
+  tryDecodingAgreementMetadata(dispute)
 
   ArbitrableTemplate.create(event.params.subject)
   let arbitrable = new Arbitrable(event.params.subject.toHex())

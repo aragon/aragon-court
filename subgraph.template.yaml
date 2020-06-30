@@ -67,6 +67,8 @@ templates:
       abis:
         - name: Arbitrable
           file: ./node_modules/@aragon/court/abi/IArbitrable.json
+        - name: Agreement
+          file: ./abi/IAgreement.json
         - name: Controller
           file: ./node_modules/@aragon/court/abi/Controller.json
         - name: DisputeManager

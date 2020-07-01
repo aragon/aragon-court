@@ -74,8 +74,8 @@ contract AragonAppFeesCashier is Controlled, IAragonAppFeesCashier, EtherTokenCo
     }
 
     // TODO: To be integrated with CourtSubscriptions with the new trusted model
-    function payAppFees(bytes32 _appId, uint256 _actionId) external {
-        emit AppFeePaid(msg.sender, _appId, _actionId);
+    function payAppFees(bytes32 _appId, bytes calldata _data) external {
+        emit AppFeePaid(msg.sender, _appId, _data);
     }
 
     /**

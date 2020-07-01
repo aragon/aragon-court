@@ -26,12 +26,10 @@ contract('Transaction Fees Oracle', ([_, governor, subscriber, fakeToken]) => {
     const amounts = [bigExp(15, 18), bigExp(16, 18)]
 
     const getTransactionFees = async (appIds, tokens, amounts) => {
-      const beneficiary = await controller.getSubscriptions()
       for (let i = 0; i < appIds.length; i++) {
         const fee = await subscriptionsOracle.getTransactionFee(appIds[i])
         assert.equal(fee.token, tokens[i], 'token doesn’t match')
         assertBn(fee.amount, amounts[i], 'amount doesn’t match')
-        assert.equal(fee.beneficiary, beneficiary, 'beneficiary doesn’t match')
       }
     }
 
@@ -69,7 +67,6 @@ contract('Transaction Fees Oracle', ([_, governor, subscriber, fakeToken]) => {
         const fee = await subscriptionsOracle.getTransactionFee(appId)
         assert.equal(fee.token, token, 'token doesn’t match')
         assertBn(fee.amount, amount, 'amount doesn’t match')
-        assert.equal(fee.beneficiary, await controller.getSubscriptions(), 'beneficiary doesn’t match')
       })
 
       it('sets and gets multiple fee', async () => {

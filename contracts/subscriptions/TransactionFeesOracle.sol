@@ -83,14 +83,13 @@ contract TransactionFeesOracle is Controlled, ITransactionFeesOracle, EtherToken
     * @param _appId Id of the app
     * @return Token for the fees
     * @return Amount of fee tokens
-    * @return Beneficiary to send the fees to
     */
-    function getTransactionFee(bytes32 _appId) external view returns (ERC20 token, uint256 amount, address beneficiary) {
+    function getTransactionFee(bytes32 _appId) external view returns (ERC20 token, uint256 amount) {
         AppFee storage appFee = appFees[_appId];
 
         require(appFee.set, ERROR_APP_ID_NOT_SET);
 
-        return (appFee.token, appFee.amount, address(_subscriptions()));
+        return (appFee.token, appFee.amount);
     }
 
     function _setTransactionFee(bytes32 _appId, ERC20 _token, uint256 _amount) internal {

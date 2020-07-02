@@ -23,7 +23,7 @@ contract AragonAppFeesCashier is Controlled, IAragonAppFeesCashier, EtherTokenCo
     mapping (bytes32 => AppFee) internal appFees;
 
     /**
-    * @dev Initialize court subscription fees oracle
+    * @dev Initialize Aragon app fees cashier
     * @param _controller Address of the controller
     */
     constructor(Controller _controller) Controlled(_controller) public {

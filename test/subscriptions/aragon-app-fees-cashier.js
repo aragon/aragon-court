@@ -10,7 +10,7 @@ const ERC20 = artifacts.require('ERC20Mock')
 const VOTING_APP_ID = '0x9fa3927f639745e587912d4b0fea7ef9013bf93fb907d29faeab57417ba6e1d4'
 const TOKEN_MANAGER_APP_ID = '0x6b20a3010614eeebf2138ccec99f028a61c811b3b1a3343b6ff635985c75c91f'
 
-contract('Transaction Fees Oracle', ([_, governor, subscriber, fakeToken]) => {
+contract('Aragon App Fees Cashier', ([_, governor, subscriber, fakeToken]) => {
   let controller, aragonAppFeesCashier, feeToken, ETH
 
   beforeEach('create base contracts and subscriptions module', async () => {

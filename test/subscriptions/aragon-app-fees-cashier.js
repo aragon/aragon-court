@@ -2,7 +2,7 @@ const { assertRevert } = require('../helpers/asserts/assertThrow')
 const { buildHelper } = require('../helpers/wrappers/court')(web3, artifacts)
 const { assertBn } = require('../helpers/asserts/assertBn')
 const { bigExp } = require('../helpers/lib/numbers')
-const { TRANSACTIONS_FEES_ORACLE_ERRORS, CONTROLLED_ERRORS } = require('../helpers/utils/errors')
+const { ARAGON_APP_FEES_CASHIER_ERRORS, CONTROLLED_ERRORS } = require('../helpers/utils/errors')
 
 const AragonAppFeesCashier = artifacts.require('AragonAppFeesCashierMock')
 const ERC20 = artifacts.require('ERC20Mock')
@@ -49,11 +49,11 @@ contract('Aragon App Fees Cashier', ([_, governor, subscriber, fakeToken]) => {
       })
 
       it('fails to set multiple fees if tokens length doesn’t match', async () => {
-        await assertRevert(aragonAppFeesCashier.setAppFees(appIds, [token], amounts, { from: governor }), TRANSACTIONS_FEES_ORACLE_ERRORS.ERROR_WRONG_TOKENS_LENGTH)
+        await assertRevert(aragonAppFeesCashier.setAppFees(appIds, [token], amounts, { from: governor }), ARAGON_APP_FEES_CASHIER_ERRORS.ERROR_WRONG_TOKENS_LENGTH)
       })
 
       it('fails to set multiple fees if amounts length doesn’t match', async () => {
-        await assertRevert(aragonAppFeesCashier.setAppFees(appIds, [token, token], [1], { from: governor }), TRANSACTIONS_FEES_ORACLE_ERRORS.ERROR_WRONG_AMOUNTS_LENGTH)
+        await assertRevert(aragonAppFeesCashier.setAppFees(appIds, [token, token], [1], { from: governor }), ARAGON_APP_FEES_CASHIER_ERRORS.ERROR_WRONG_AMOUNTS_LENGTH)
       })
 
       it('sets and gets fee', async () => {
@@ -81,15 +81,15 @@ contract('Aragon App Fees Cashier', ([_, governor, subscriber, fakeToken]) => {
     context('when the app hasn’t been set', () => {
       const processAppFees = (isEth) => {
         it('fails to get fee', async () => {
-          await assertRevert(aragonAppFeesCashier.getAppFee(VOTING_APP_ID), TRANSACTIONS_FEES_ORACLE_ERRORS.ERROR_APP_NOT_SET)
+          await assertRevert(aragonAppFeesCashier.getAppFee(VOTING_APP_ID), ARAGON_APP_FEES_CASHIER_ERRORS.ERROR_APP_NOT_SET)
         })
 
         it('fails to unset fee', async () => {
-          await assertRevert(aragonAppFeesCashier.unsetAppFee(VOTING_APP_ID, { from: governor }), TRANSACTIONS_FEES_ORACLE_ERRORS.ERROR_APP_NOT_SET)
+          await assertRevert(aragonAppFeesCashier.unsetAppFee(VOTING_APP_ID, { from: governor }), ARAGON_APP_FEES_CASHIER_ERRORS.ERROR_APP_NOT_SET)
         })
 
         it('fails to unset multiple fees', async () => {
-          await assertRevert(aragonAppFeesCashier.unsetAppFees([VOTING_APP_ID, TOKEN_MANAGER_APP_ID], { from: governor }), TRANSACTIONS_FEES_ORACLE_ERRORS.ERROR_APP_NOT_SET)
+          await assertRevert(aragonAppFeesCashier.unsetAppFees([VOTING_APP_ID, TOKEN_MANAGER_APP_ID], { from: governor }), ARAGON_APP_FEES_CASHIER_ERRORS.ERROR_APP_NOT_SET)
         })
 
         setAndGetAppFees(isEth)
@@ -101,12 +101,12 @@ contract('Aragon App Fees Cashier', ([_, governor, subscriber, fakeToken]) => {
 
       context('when the token is not ETH', () => {
         it('fails to set fee if token is not contract', async () => {
-          await assertRevert(aragonAppFeesCashier.setAppFee(VOTING_APP_ID, fakeToken, 1, { from: governor }), TRANSACTIONS_FEES_ORACLE_ERRORS.ERROR_WRONG_TOKEN)
+          await assertRevert(aragonAppFeesCashier.setAppFee(VOTING_APP_ID, fakeToken, 1, { from: governor }), ARAGON_APP_FEES_CASHIER_ERRORS.ERROR_WRONG_TOKEN)
         })
 
         it('fails to set multiple fees if token is not contract', async () => {
-          await assertRevert(aragonAppFeesCashier.setAppFees([VOTING_APP_ID, TOKEN_MANAGER_APP_ID], [fakeToken, feeToken.address], [1, 1], { from: governor }), TRANSACTIONS_FEES_ORACLE_ERRORS.ERROR_WRONG_TOKEN)
-          await assertRevert(aragonAppFeesCashier.setAppFees([VOTING_APP_ID, TOKEN_MANAGER_APP_ID], [feeToken.address, fakeToken], [1, 1], { from: governor }), TRANSACTIONS_FEES_ORACLE_ERRORS.ERROR_WRONG_TOKEN)
+          await assertRevert(aragonAppFeesCashier.setAppFees([VOTING_APP_ID, TOKEN_MANAGER_APP_ID], [fakeToken, feeToken.address], [1, 1], { from: governor }), ARAGON_APP_FEES_CASHIER_ERRORS.ERROR_WRONG_TOKEN)
+          await assertRevert(aragonAppFeesCashier.setAppFees([VOTING_APP_ID, TOKEN_MANAGER_APP_ID], [feeToken.address, fakeToken], [1, 1], { from: governor }), ARAGON_APP_FEES_CASHIER_ERRORS.ERROR_WRONG_TOKEN)
         })
 
         processAppFees(false)
@@ -139,7 +139,7 @@ contract('Aragon App Fees Cashier', ([_, governor, subscriber, fakeToken]) => {
           await aragonAppFeesCashier.unsetAppFee(appIds[0], { from: governor })
 
           // try to get fee
-          await assertRevert(aragonAppFeesCashier.getAppFee(appIds[0]), TRANSACTIONS_FEES_ORACLE_ERRORS.ERROR_APP_NOT_SET)
+          await assertRevert(aragonAppFeesCashier.getAppFee(appIds[0]), ARAGON_APP_FEES_CASHIER_ERRORS.ERROR_APP_NOT_SET)
         })
 
         it('unsets multiple fees', async () => {
@@ -148,7 +148,7 @@ contract('Aragon App Fees Cashier', ([_, governor, subscriber, fakeToken]) => {
 
           // try to get fee
           await Promise.all(appIds.map(async (appId) => {
-            await assertRevert(aragonAppFeesCashier.getAppFee(appId), TRANSACTIONS_FEES_ORACLE_ERRORS.ERROR_APP_NOT_SET)
+            await assertRevert(aragonAppFeesCashier.getAppFee(appId), ARAGON_APP_FEES_CASHIER_ERRORS.ERROR_APP_NOT_SET)
           }))
         })
 
@@ -161,12 +161,12 @@ contract('Aragon App Fees Cashier', ([_, governor, subscriber, fakeToken]) => {
 
       context('when the token is not ETH', () => {
         it('fails if token is not contract', async () => {
-          await assertRevert(aragonAppFeesCashier.setAppFee(VOTING_APP_ID, fakeToken, 1, { from: governor }), TRANSACTIONS_FEES_ORACLE_ERRORS.ERROR_WRONG_TOKEN)
+          await assertRevert(aragonAppFeesCashier.setAppFee(VOTING_APP_ID, fakeToken, 1, { from: governor }), ARAGON_APP_FEES_CASHIER_ERRORS.ERROR_WRONG_TOKEN)
         })
 
         it('fails to set multiple fees if token is not contract', async () => {
-          await assertRevert(aragonAppFeesCashier.setAppFees([VOTING_APP_ID, TOKEN_MANAGER_APP_ID], [fakeToken, feeToken.address], [1, 1], { from: governor }), TRANSACTIONS_FEES_ORACLE_ERRORS.ERROR_WRONG_TOKEN)
-          await assertRevert(aragonAppFeesCashier.setAppFees([VOTING_APP_ID, TOKEN_MANAGER_APP_ID], [feeToken.address, fakeToken], [1, 1], { from: governor }), TRANSACTIONS_FEES_ORACLE_ERRORS.ERROR_WRONG_TOKEN)
+          await assertRevert(aragonAppFeesCashier.setAppFees([VOTING_APP_ID, TOKEN_MANAGER_APP_ID], [fakeToken, feeToken.address], [1, 1], { from: governor }), ARAGON_APP_FEES_CASHIER_ERRORS.ERROR_WRONG_TOKEN)
+          await assertRevert(aragonAppFeesCashier.setAppFees([VOTING_APP_ID, TOKEN_MANAGER_APP_ID], [feeToken.address, fakeToken], [1, 1], { from: governor }), ARAGON_APP_FEES_CASHIER_ERRORS.ERROR_WRONG_TOKEN)
         })
 
         processAppFees(false)

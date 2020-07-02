@@ -8,11 +8,11 @@ import "./IAragonAppFeesCashier.sol";
 
 
 contract AragonAppFeesCashier is Controlled, IAragonAppFeesCashier, EtherTokenConstant {
-    string private constant ERROR_APP_ID_NOT_SET = "SFO_APP_NOT_SET";
-    string private constant ERROR_WRONG_TOKEN = "SFO_WRONG_TOKEN";
-    string private constant ERROR_COURT_HAS_NOT_STARTED = "SFO_COURT_HAS_NOT_STARTED";
-    string private constant ERROR_WRONG_TOKENS_LENGTH = "SFO_WRONG_TOKENS_LENGTH";
-    string private constant ERROR_WRONG_AMOUNTS_LENGTH = "SFO_WRONG_AMOUNTS_LENGTH";
+    string private constant ERROR_APP_ID_NOT_SET = "AAFC_APP_NOT_SET";
+    string private constant ERROR_WRONG_TOKEN = "AAFC_WRONG_TOKEN";
+    string private constant ERROR_COURT_HAS_NOT_STARTED = "AAFC_COURT_HAS_NOT_STARTED";
+    string private constant ERROR_WRONG_TOKENS_LENGTH = "AAFC_WRONG_TOKENS_LENGTH";
+    string private constant ERROR_WRONG_AMOUNTS_LENGTH = "AAFC_WRONG_AMOUNTS_LENGTH";
 
     struct AppFee {
         bool set;

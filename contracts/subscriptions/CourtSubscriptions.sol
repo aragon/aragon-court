@@ -54,7 +54,6 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
 
     struct AppFee {
         bool set;
-        ERC20 token;
         uint256 amount;
     }
 
@@ -79,7 +78,7 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
     // List of fees per appId
     mapping (bytes32 => AppFee) internal appFees;
 
-    event FeesPaid(address indexed subscriber, uint256 indexed periodId, ERC20 feeToken, uint256 feeAmount, bytes ref);
+    event FeesPaid(address indexed subscriber, uint256 indexed periodId, ERC20 feeToken, uint256 feeAmount, bytes data);
     event FeesDonated(address indexed payer, uint256 indexed periodId, ERC20 feeToken, uint256 feeAmount);
     event FeesClaimed(address indexed juror, uint256 indexed periodId, ERC20 feeToken, uint256 jurorShare);
     event GovernorFeesTransferred(ERC20 indexed feeToken, uint256 amount);
@@ -111,15 +110,15 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
     /**
     * @notice Pay fees on behalf of `_to`
     * @param _to Subscriber whose subscription is being paid
-    * @param _reference Payment reference only for logging purposes
+    * @param _data Payment reference only for logging purposes
     */
-    function payFees(address _to, bytes calldata _reference) external payable {
+    function payFees(address _to, bytes calldata _data) external payable {
         // Ensure fee token data for the current period
         (uint256 currentPeriodId, Period storage period, ERC20 feeToken, uint256 feeAmount) = _ensureCurrentPeriodFees();
 
         _payFees(period, msg.sender, feeToken, feeAmount);
 
-        emit FeesPaid(_to, currentPeriodId, feeToken, feeAmount, _reference);
+        emit FeesPaid(_to, currentPeriodId, feeToken, feeAmount, _data);
     }
 
     /**
@@ -223,27 +222,34 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
     // IAragonAppFeesCashier interface
 
     /**
-    * @notice Set fees for app with id `_appId` to @tokenAmount(`_token`, `_amount`)
+    * @notice Set fees for app with id `_appId` to `_amount`
     * @param _appId Id of the app
-    * @param _token Token for the fee
+    * @param _token Token for the fee, must be the same as the current period one
     * @param _amount Amount of fee tokens
     */
     function setAppFee(bytes32 _appId, ERC20 _token, uint256 _amount) external onlyConfigGovernor {
-        _setAppFee(_appId, _token, _amount);
+        // Ensure fee token data for the current period
+        (,, ERC20 feeToken,) = _ensureCurrentPeriodFees();
+        require(_token == feeToken, ERROR_WRONG_TOKEN);
+
+        _setAppFee(_appId, feeToken, _amount);
     }
 
     /**
     * @notice Set fees for apps with ids `_appIds`
     * @param _appIds Id of the apps
-    * @param _tokens Token for the fees for each app
+    * @param _tokens Token for the fees for each app (must be an empty array, as we are using the global token)
     * @param _amounts Amount of fee tokens for each app
     */
     function setAppFees(bytes32[] calldata _appIds, ERC20[] calldata _tokens, uint256[] calldata _amounts) external onlyConfigGovernor {
-        require(_appIds.length == _tokens.length, ERROR_WRONG_TOKENS_LENGTH);
+        require(_tokens.length == 0, ERROR_WRONG_TOKENS_LENGTH);
         require(_appIds.length == _amounts.length, ERROR_WRONG_AMOUNTS_LENGTH);
 
+        // Ensure fee token data for the current period
+        (,, ERC20 feeToken,) = _ensureCurrentPeriodFees();
+
         for (uint256 i = 0; i < _appIds.length; i++) {
-            _setAppFee(_appIds[i], _tokens[i], _amounts[i]);
+            _setAppFee(_appIds[i], feeToken, _amounts[i]);
         }
     }
 
@@ -272,13 +278,15 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
     * @param _data Extra data for context of the payment
     */
     function payAppFees(bytes32 _appId, bytes calldata _data) external payable {
-        (ERC20 feeToken, uint256 feeAmount) = _getAppFee(_appId);
+        uint256 feeAmount = _getAppFee(_appId);
 
         if (feeAmount == 0) {
             return;
         }
 
-        (, Period storage period) = _getCurrentPeriod();
+        // Ensure fee token data for the current period
+        (,Period storage period, ERC20 feeToken,) = _ensureCurrentPeriodFees();
+
         _payFees(period, msg.sender, feeToken, feeAmount);
 
         emit AppFeePaid(msg.sender, _appId, _data);
@@ -286,7 +294,7 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
 
     /**
     * @dev Tell whether a certain subscriber has paid all the fees up to current period or not
-    * @return Always true
+    * @return Always true. Previously we were using monthly subscriptions but the trusted model removes the concept of a monthly fee.
     */
     function isUpToDate(address /*_subscriber*/) external view returns (bool) {
         return true;
@@ -375,7 +383,11 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
     * @return Amount of fee tokens
     */
     function getAppFee(bytes32 _appId) external view returns (ERC20 token, uint256 amount) {
-        return _getAppFee(_appId);
+        uint256 currentPeriodId = _getCurrentPeriodId();
+        Period storage period = periods[currentPeriodId];
+        (token,) = _getPeriodFeeTokenAndAmount(period);
+
+        amount = _getAppFee(_appId);
     }
 
     /**
@@ -540,18 +552,15 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
     }
 
     /**
-    * @notice Set fees for app with id `_appId` to @tokenAmount(`_token`, `_amount`)
+    * @notice Set fees for app with id `_appId` to `_amount`
     * @param _appId Id of the app
-    * @param _token Token for the fee
+    * @param _token Token for the fee, must be the same as the current period one
     * @param _amount Amount of fee tokens
     */
     function _setAppFee(bytes32 _appId, ERC20 _token, uint256 _amount) internal {
-        require(address(_token) == ETH || isContract(address(_token)), ERROR_WRONG_TOKEN);
-
         AppFee storage appFee = appFees[_appId];
 
         appFee.set = true;
-        appFee.token = _token;
         appFee.amount = _amount;
 
         emit AppFeeSet(_appId, _token, _amount);
@@ -675,14 +684,13 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
     /**
     * @notice Get fees for app with id `_appId`
     * @param _appId Id of the app
-    * @return Token for the fees
     * @return Amount of fee tokens
     */
-    function _getAppFee(bytes32 _appId) internal view returns (ERC20 token, uint256 amount) {
+    function _getAppFee(bytes32 _appId) internal view returns (uint256 amount) {
         AppFee storage appFee = appFees[_appId];
 
         require(appFee.set, ERROR_APP_FEE_NOT_SET);
 
-        return (appFee.token, appFee.amount);
+        return appFee.amount;
     }
 }

@@ -20,7 +20,7 @@ contract('CourtSubscriptions', ([_, governor, payer, subscriber, anotherSubscrib
   const ETH_TOKEN = '0x0000000000000000000000000000000000000000'
 
   describe('payFees', () => {
-    const reference = '0x12345678abcdef'
+    const data = '0x12345678abcdef'
 
     context('when the fee token is ETH', () => {
       const feeToken = ETH_TOKEN
@@ -36,7 +36,7 @@ contract('CourtSubscriptions', ([_, governor, payer, subscriber, anotherSubscrib
 
       context('when the court has not started yet', () => {
         it('reverts', async () => {
-          await assertRevert(subscriptions.payFees(subscriber, reference), SUBSCRIPTIONS_ERRORS.COURT_HAS_NOT_STARTED)
+          await assertRevert(subscriptions.payFees(subscriber, data), SUBSCRIPTIONS_ERRORS.COURT_HAS_NOT_STARTED)
         })
       })
 
@@ -62,7 +62,7 @@ contract('CourtSubscriptions', ([_, governor, payer, subscriber, anotherSubscrib
               const previousPayerBalance = await getWeiBalance(from)
               const previousSubscriptionsBalance = await getWeiBalance(subscriptions.address)
 
-              const receipt = await subscriptions.payFees(subscriber, reference, { from, value })
+              const receipt = await subscriptions.payFees(subscriber, data, { from, value })
 
               const currentSubscriptionsBalance = await getWeiBalance(subscriptions.address)
               assertBn(currentSubscriptionsBalance, previousSubscriptionsBalance.add(FEE_AMOUNT), 'subscriptions balances do not match')
@@ -76,17 +76,17 @@ contract('CourtSubscriptions', ([_, governor, payer, subscriber, anotherSubscrib
               const previousGovernorFees = await subscriptions.accumulatedGovernorFees()
               const expectedGovernorFees = GOVERNOR_SHARE_PCT.mul(FEE_AMOUNT).div(PCT_BASE)
 
-              await subscriptions.payFees(subscriber, reference, { from, value })
+              await subscriptions.payFees(subscriber, data, { from, value })
 
               const currentGovernorFees = await subscriptions.accumulatedGovernorFees()
               assertBn(currentGovernorFees, previousGovernorFees.add(expectedGovernorFees), 'governor fees do not match')
             })
 
             it('emits an event', async () => {
-              const receipt = await subscriptions.payFees(subscriber, reference, { from, value })
+              const receipt = await subscriptions.payFees(subscriber, data, { from, value })
 
               assertAmountOfEvents(receipt, SUBSCRIPTIONS_EVENTS.FEES_PAID)
-              assertEvent(receipt, SUBSCRIPTIONS_EVENTS.FEES_PAID, { subscriber, feeToken: feeToken, feeAmount: FEE_AMOUNT, ref: reference })
+              assertEvent(receipt, SUBSCRIPTIONS_EVENTS.FEES_PAID, { subscriber, feeToken: feeToken, feeAmount: FEE_AMOUNT, data })
             })
           }
 
@@ -96,7 +96,7 @@ contract('CourtSubscriptions', ([_, governor, payer, subscriber, anotherSubscrib
 
           context('when the subscriber was already subscribed', () => {
             beforeEach('subscribe', async () => {
-              await subscriptions.payFees(subscriber, reference, { from, value: FEE_AMOUNT })
+              await subscriptions.payFees(subscriber, data, { from, value: FEE_AMOUNT })
             })
 
             itHandleSubscriptionsSuccessfully()
@@ -107,7 +107,7 @@ contract('CourtSubscriptions', ([_, governor, payer, subscriber, anotherSubscrib
           const value = FEE_AMOUNT.sub(bn(1))
 
           it('reverts', async () => {
-            await assertRevert(subscriptions.payFees(subscriber, reference, { value }), SUBSCRIPTIONS_ERRORS.ETH_DEPOSIT_FAILED)
+            await assertRevert(subscriptions.payFees(subscriber, data, { value }), SUBSCRIPTIONS_ERRORS.ETH_DEPOSIT_FAILED)
           })
         })
       })
@@ -131,7 +131,7 @@ contract('CourtSubscriptions', ([_, governor, payer, subscriber, anotherSubscrib
 
       context('when the court has not started yet', () => {
         it('reverts', async () => {
-          await assertRevert(subscriptions.payFees(subscriber, reference), SUBSCRIPTIONS_ERRORS.COURT_HAS_NOT_STARTED)
+          await assertRevert(subscriptions.payFees(subscriber, data), SUBSCRIPTIONS_ERRORS.COURT_HAS_NOT_STARTED)
         })
       })
 
@@ -161,7 +161,7 @@ contract('CourtSubscriptions', ([_, governor, payer, subscriber, anotherSubscrib
               const previousPayerBalance = await feeToken.balanceOf(from)
               const previousSubscriptionsBalance = await feeToken.balanceOf(subscriptions.address)
 
-              await subscriptions.payFees(subscriber, reference, { from })
+              await subscriptions.payFees(subscriber, data, { from })
 
               const currentSubscriptionsBalance = await feeToken.balanceOf(subscriptions.address)
               assertBn(currentSubscriptionsBalance, previousSubscriptionsBalance.add(FEE_AMOUNT), 'subscriptions balances do not match')
@@ -174,17 +174,17 @@ contract('CourtSubscriptions', ([_, governor, payer, subscriber, anotherSubscrib
               const previousGovernorFees = await subscriptions.accumulatedGovernorFees()
               const expectedGovernorFees = GOVERNOR_SHARE_PCT.mul(FEE_AMOUNT).div(PCT_BASE)
 
-              await subscriptions.payFees(subscriber, reference, { from })
+              await subscriptions.payFees(subscriber, data, { from })
 
               const currentGovernorFees = await subscriptions.accumulatedGovernorFees()
               assertBn(currentGovernorFees, previousGovernorFees.add(expectedGovernorFees), 'governor fees do not match')
             })
 
             it('emits an event', async () => {
-              const receipt = await subscriptions.payFees(subscriber, reference, { from })
+              const receipt = await subscriptions.payFees(subscriber, data, { from })
 
               assertAmountOfEvents(receipt, SUBSCRIPTIONS_EVENTS.FEES_PAID)
-              assertEvent(receipt, SUBSCRIPTIONS_EVENTS.FEES_PAID, { subscriber, feeToken: feeToken.address, feeAmount: FEE_AMOUNT, ref: reference })
+              assertEvent(receipt, SUBSCRIPTIONS_EVENTS.FEES_PAID, { subscriber, feeToken: feeToken.address, feeAmount: FEE_AMOUNT, data })
             })
           }
 
@@ -194,7 +194,7 @@ contract('CourtSubscriptions', ([_, governor, payer, subscriber, anotherSubscrib
 
           context('when the subscriber was already subscribed', () => {
             beforeEach('subscribe', async () => {
-              await subscriptions.payFees(subscriber, reference, { from })
+              await subscriptions.payFees(subscriber, data, { from })
               await feeToken.generateTokens(from, FEE_AMOUNT)
               await feeToken.approve(subscriptions.address, FEE_AMOUNT, { from })
             })
@@ -205,7 +205,7 @@ contract('CourtSubscriptions', ([_, governor, payer, subscriber, anotherSubscrib
 
         context('when the sender does not have enough balance', () => {
           it('reverts', async () => {
-            await assertRevert(subscriptions.payFees(subscriber, reference), SUBSCRIPTIONS_ERRORS.TOKEN_DEPOSIT_FAILED)
+            await assertRevert(subscriptions.payFees(subscriber, data), SUBSCRIPTIONS_ERRORS.TOKEN_DEPOSIT_FAILED)
           })
         })
       })

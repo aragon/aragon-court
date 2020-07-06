@@ -49,6 +49,7 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
         uint256 feeAmount;                      // Amount of fees paid for a certain subscription period
         uint256 totalActiveBalance;             // Total amount of juror tokens active in the Court at the corresponding period checkpoint
         uint256 collectedFees;                  // Total amount of subscription fees collected during a period
+        uint256 accumulatedGovernorFees;        // Total amount of fees accumulated for the governor of the Court during a period
         mapping (address => bool) claimedFees;  // List of jurors that have claimed fees during a period, indexed by juror address
     }
 
@@ -68,9 +69,6 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
 
     // Amount of fees to be paid for each subscription period
     uint256 public currentFeeAmount;
-
-    // Total amount of fees accumulated for the governor of the Court
-    uint256 public accumulatedGovernorFees;
 
     // List of periods indexed by ID
     mapping (uint256 => Period) internal periods;
@@ -162,11 +160,21 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
     }
 
     /**
-    * @notice Transfer owed fees to the governor
+    * @notice Transfer owed fees to the governor for the current period
     */
-    function transferFeesToGovernor() external {
-        require(accumulatedGovernorFees > 0, ERROR_GOVERNOR_SHARE_FEES_ZERO);
-        _transferFeesToGovernor();
+    function transferLastPeriodFeesToGovernor() external {
+        uint256 currentPeriodId = _getCurrentPeriodId();
+        Period storage period = periods[currentPeriodId];
+        _transferFeesToGovernor(period);
+    }
+
+    /**
+    * @notice Transfer owed fees to the governor
+    * @param _periodId Identification number of the period for accumulated fees
+    */
+    function transferFeesToGovernor(uint256 _periodId) external {
+        Period storage period = periods[_periodId];
+        _transferFeesToGovernor(period);
     }
 
     /**
@@ -315,9 +323,19 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
     * @return balanceCheckpoint Court term ID of a period used to fetch the total active balance of the jurors registry
     * @return totalActiveBalance Total amount of juror tokens active in the Court at the corresponding period checkpoint
     * @return collectedFees Total amount of subscription fees collected during a period
+    * @return accumulatedGovernorFees Total amount of fees accumulated for the governor of the Court during a period
     */
-    function getPeriod(uint256 _periodId) external view
-        returns (ERC20 feeToken, uint256 feeAmount, uint64 balanceCheckpoint, uint256 totalActiveBalance, uint256 collectedFees)
+    function getPeriod(uint256 _periodId)
+        external
+        view
+        returns (
+            ERC20 feeToken,
+            uint256 feeAmount,
+            uint64 balanceCheckpoint,
+            uint256 totalActiveBalance,
+            uint256 collectedFees,
+            uint256 accumulatedGovernorFees
+        )
     {
         Period storage period = periods[_periodId];
 
@@ -326,6 +344,7 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
         balanceCheckpoint = period.balanceCheckpoint;
         totalActiveBalance = period.totalActiveBalance;
         collectedFees = period.collectedFees;
+        accumulatedGovernorFees = period.accumulatedGovernorFees;
     }
 
     /**
@@ -400,7 +419,7 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
     function _payFees(Period storage _period, address _from, ERC20 _feeToken, uint256 _feeAmount) internal {
         // Compute the portion of the total amount to pay that will be allocated to the governor
         uint256 governorFee = _feeAmount.pct(governorSharePct);
-        accumulatedGovernorFees = accumulatedGovernorFees.add(governorFee);
+        _period.accumulatedGovernorFees = _period.accumulatedGovernorFees.add(governorFee);
 
         // Update collected fees for the jurors
         uint256 collectedFees = _feeAmount.sub(governorFee);
@@ -448,11 +467,13 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
     }
 
     /**
-    * @dev Internal function to transfer owed fees to the governor. This function assumes there are some accumulated fees to be transferred.
+    * @dev Internal function to transfer owed fees to the governor
+    * @param _period Period instance for the accumulated fees
     */
-    function _transferFeesToGovernor() internal {
-        uint256 amount = accumulatedGovernorFees;
-        accumulatedGovernorFees = 0;
+    function _transferFeesToGovernor(Period storage _period) internal {
+        uint256 amount = _period.accumulatedGovernorFees;
+        require(amount > 0, ERROR_GOVERNOR_SHARE_FEES_ZERO);
+        _period.accumulatedGovernorFees = 0;
         address payable governor = address(uint160(_configGovernor()));
         ERC20 feeToken = currentFeeToken;
         _transfer(governor, feeToken, amount);
@@ -531,10 +552,6 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
     function _setFeeToken(ERC20 _feeToken) internal {
         require(address(_feeToken) == ETH || isContract(address(_feeToken)), ERROR_FEE_TOKEN_NOT_CONTRACT);
 
-        if (accumulatedGovernorFees > 0) {
-            // There’s no re-entrancy issue here: governor should be trusted
-            _transferFeesToGovernor();
-        }
         emit FeeTokenChanged(currentFeeToken, _feeToken);
         currentFeeToken = _feeToken;
     }

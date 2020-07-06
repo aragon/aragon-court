@@ -227,6 +227,7 @@ contract('Aragon App Fees Cashier', ([_, governor, subscriber, fakeToken]) => {
 
     context('when the court hasn’t started', () => {
       it('reverts', async () => {
+        await aragonAppFeesCashier.setAppFee(appId, ETH, amount, { from: governor })
         await assertRevert(aragonAppFeesCashier.payAppFees(appId, EMPTY_DATA, { from: subscriber }), SUBSCRIPTIONS_ERRORS.COURT_HAS_NOT_STARTED)
       })
     })

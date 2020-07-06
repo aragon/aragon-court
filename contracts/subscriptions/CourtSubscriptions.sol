@@ -272,13 +272,13 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
     * @param _data Extra data for context of the payment
     */
     function payAppFees(bytes32 _appId, bytes calldata _data) external payable {
-        (, Period storage period) = _getCurrentPeriod();
         (ERC20 feeToken, uint256 feeAmount) = _getAppFee(_appId);
 
         if (feeAmount == 0) {
             return;
         }
 
+        (, Period storage period) = _getCurrentPeriod();
         _payFees(period, msg.sender, feeToken, feeAmount);
 
         emit AppFeePaid(msg.sender, _appId, _data);
@@ -398,6 +398,12 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
         _deposit(_from, _feeToken, _feeAmount);
     }
 
+    /**
+    * @dev Internal function to pull tokens or ETH into this contract
+    * @param _from Owner of the deposited funds
+    * @param _token Token to deposit (zero for ETH)
+    * @param _amount Amount to be deposited
+    */
     function _deposit(address _from, ERC20 _token, uint256 _amount) internal {
         if (_amount == 0) {
             return;
@@ -410,6 +416,12 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
         }
     }
 
+    /**
+    * @dev Internal function to transfer tokens or ETH
+    * @param _to Recipient of the transfer
+    * @param _token Token to transfer (zero for ETH)
+    * @param _amount Amount to be transferred
+    */
     function _transfer(address payable _to, ERC20 _token, uint256 _amount) internal {
         if (_amount == 0) {
             return;

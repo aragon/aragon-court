@@ -218,7 +218,24 @@ contract('CourtSubscriptions', ([_, governor, payer, subscriber, anotherSubscrib
     })
   })
 
-  describe('transferLastPeriodFeesToGovernor', () => {
+  const transferFeesToGovernor = async (transferFunction, isLast = true) => {
+    const transferFeesToGovernorCall = async () => {
+      if (transferFunction === 'transferFeesToGovernor') {
+        const currentPeriodId = await subscriptions.getCurrentPeriodId()
+        if (!isLast) {
+          await controller.mockIncreaseTime(PERIOD_DURATION)
+        }
+        return subscriptions[transferFunction](currentPeriodId)
+      } else {
+        return subscriptions[transferFunction]()
+      }
+    }
+
+    before('create controller and move terms to reach period #0', async () => {
+      controller = await buildHelper().deploy({ configGovernor: governor })
+      await controller.mockSetTerm(PERIOD_DURATION)
+    })
+
     context('when the fee token is an ERC20', () => {
       let feeToken
 
@@ -233,7 +250,7 @@ contract('CourtSubscriptions', ([_, governor, payer, subscriber, anotherSubscrib
 
       context('when there are no accumulated fees', () => {
         it('reverts', async () => {
-          await assertRevert(subscriptions.transferLastPeriodFeesToGovernor(), SUBSCRIPTIONS_ERRORS.GOVERNOR_SHARE_FEES_ZERO)
+          await assertRevert(transferFeesToGovernorCall(), SUBSCRIPTIONS_ERRORS.GOVERNOR_SHARE_FEES_ZERO)
         })
       })
 
@@ -256,7 +273,7 @@ contract('CourtSubscriptions', ([_, governor, payer, subscriber, anotherSubscrib
           const previousAccumulatedFees = await getAccumulatedGovernorFees()
           const previousGovernorBalance = await feeToken.balanceOf(governor)
 
-          await subscriptions.transferLastPeriodFeesToGovernor()
+          await transferFeesToGovernorCall()
 
           const currentGovernorBalance = await feeToken.balanceOf(governor)
           assertBn(previousGovernorBalance.add(previousAccumulatedFees), currentGovernorBalance, 'governor shares do not match')
@@ -267,7 +284,7 @@ contract('CourtSubscriptions', ([_, governor, payer, subscriber, anotherSubscrib
 
         it('emits an event', async () => {
           const previousAccumulatedFees = await getAccumulatedGovernorFees()
-          const receipt = await subscriptions.transferLastPeriodFeesToGovernor()
+          const receipt = await transferFeesToGovernorCall()
 
           assertAmountOfEvents(receipt, SUBSCRIPTIONS_EVENTS.GOVERNOR_FEES_TRANSFERRED)
           assertEvent(receipt, SUBSCRIPTIONS_EVENTS.GOVERNOR_FEES_TRANSFERRED, { feeToken: feeToken.address, amount: previousAccumulatedFees })
@@ -285,7 +302,7 @@ contract('CourtSubscriptions', ([_, governor, payer, subscriber, anotherSubscrib
 
       context('when there are no accumulated fees', () => {
         it('reverts', async () => {
-          await assertRevert(subscriptions.transferLastPeriodFeesToGovernor(), SUBSCRIPTIONS_ERRORS.GOVERNOR_SHARE_FEES_ZERO)
+          await assertRevert(transferFeesToGovernorCall(), SUBSCRIPTIONS_ERRORS.GOVERNOR_SHARE_FEES_ZERO)
         })
       })
 
@@ -304,7 +321,7 @@ contract('CourtSubscriptions', ([_, governor, payer, subscriber, anotherSubscrib
           const previousAccumulatedFees = await getAccumulatedGovernorFees()
           const previousGovernorBalance = await getWeiBalance(governor)
 
-          await subscriptions.transferLastPeriodFeesToGovernor()
+          await transferFeesToGovernorCall()
 
           const currentGovernorBalance = await getWeiBalance(governor)
           assertBn(previousGovernorBalance.add(previousAccumulatedFees), currentGovernorBalance, 'governor shares do not match')
@@ -315,13 +332,25 @@ contract('CourtSubscriptions', ([_, governor, payer, subscriber, anotherSubscrib
 
         it('emits an event', async () => {
           const previousAccumulatedFees = await getAccumulatedGovernorFees()
-          const receipt = await subscriptions.transferLastPeriodFeesToGovernor()
+          const receipt = await transferFeesToGovernorCall()
 
           assertAmountOfEvents(receipt, SUBSCRIPTIONS_EVENTS.GOVERNOR_FEES_TRANSFERRED)
           assertEvent(receipt, SUBSCRIPTIONS_EVENTS.GOVERNOR_FEES_TRANSFERRED, { feeToken: feeToken, amount: previousAccumulatedFees })
         })
       })
     })
+  }
+
+  describe('transferLastPeriodFeesToGovernor', () => {
+    transferFeesToGovernor('transferLastPeriodFeesToGovernor')
+  })
+
+  describe('transferFeesToGovernor for last period', () => {
+    transferFeesToGovernor('transferFeesToGovernor', true)
+  })
+
+  describe('transferFeesToGovernor for previous period', () => {
+    transferFeesToGovernor('transferFeesToGovernor', false)
   })
 
   describe('isUpToDate', () => {

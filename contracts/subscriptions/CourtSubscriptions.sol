@@ -163,8 +163,7 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
     * @notice Transfer owed fees to the governor for the current period
     */
     function transferLastPeriodFeesToGovernor() external {
-        uint256 currentPeriodId = _getCurrentPeriodId();
-        Period storage period = periods[currentPeriodId];
+        (, Period storage period) = _getCurrentPeriod();
         _transferFeesToGovernor(period);
     }
 
@@ -475,7 +474,7 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
         require(amount > 0, ERROR_GOVERNOR_SHARE_FEES_ZERO);
         _period.accumulatedGovernorFees = 0;
         address payable governor = address(uint160(_configGovernor()));
-        ERC20 feeToken = currentFeeToken;
+        (ERC20 feeToken,) = _ensurePeriodFees(_period);
         _transfer(governor, feeToken, amount);
         emit GovernorFeesTransferred(feeToken, amount);
     }

@@ -17,25 +17,30 @@ export function tryDecodingAgreementMetadata(dispute: Dispute): void {
   let rawChallengeId = metadata.subarray(AGREEMENT_DISPUTE_HEADER.length / 2, metadata.length) as Bytes
   let challengeId = BigInt.fromSignedBytes(rawChallengeId.reverse() as Bytes)
   let agreement = Agreement.bind(Address.fromString(dispute.subject))
-  let challengeData = agreement.getChallenge(challengeId)
+  let challengeData = agreement.try_getChallenge(challengeId)
+  if (challengeData.reverted || challengeData.value.value1.toHexString() == '0x0000000000000000000000000000000000000000') return
 
-  if (challengeData.value1.toHexString() != '0x0000000000000000000000000000000000000000') {
-    let actionId = challengeData.value0
-    let actionData = agreement.getAction(actionId)
-    let settingData = agreement.getSetting(actionData.value3)
+  let actionId = challengeData.value.value0
+  let actionData = agreement.try_getAction(actionId)
+  if (actionData.reverted) return
 
-    let disputable = new Disputable(buildAgreementActionId(agreement._address, challengeId))
-    disputable.dispute = dispute.id
-    disputable.title = settingData.value1
-    disputable.agreement = settingData.value2.toString()
-    disputable.actionId = challengeId
-    disputable.address = actionData.value0
-    disputable.disputableActionId = actionData.value1
-    disputable.defendant = actionData.value4
-    disputable.plaintiff = challengeData.value1
-    disputable.organization = agreement.try_kernel().reverted ? null : agreement.try_kernel().value
-    disputable.save()
-  }
+  let settingData = agreement.try_getSetting(actionData.value.value3)
+  if (settingData.reverted) return
+
+  let organization = agreement.try_kernel()
+  if (organization.reverted) return
+
+  let disputable = new Disputable(buildAgreementActionId(agreement._address, challengeId))
+  disputable.dispute = dispute.id
+  disputable.title = settingData.value.value2
+  disputable.agreement = settingData.value.value3.toString()
+  disputable.actionId = challengeId
+  disputable.address = actionData.value.value0
+  disputable.disputableActionId = actionData.value.value1
+  disputable.defendant = actionData.value.value4
+  disputable.plaintiff = challengeData.value.value1
+  disputable.organization = organization.value
+  disputable.save()
 }
 
 function buildAgreementActionId(agreement: Address, actionId: BigInt): string {

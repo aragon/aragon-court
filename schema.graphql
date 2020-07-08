@@ -90,7 +90,7 @@ type Disputable @entity {
   disputableActionId: BigInt!
   defendant: Bytes!
   plaintiff: Bytes!
-  organization: Bytes
+  organization: Bytes!
 }
 
 enum DisputeState {

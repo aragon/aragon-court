@@ -34,8 +34,30 @@
       "type": "function"
     },
     {
+      "constant": false,
+      "inputs": [
+        {
+          "name": "_disputeId",
+          "type": "uint256"
+        },
+        {
+          "name": "_ruling",
+          "type": "uint256"
+        }
+      ],
+      "name": "rule",
+      "outputs": [],
+      "payable": false,
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
       "constant": true,
       "inputs": [
+        {
+          "name": "user",
+          "type": "address"
+        },
         {
           "name": "who",
           "type": "address"
@@ -62,24 +84,6 @@
       ],
       "payable": false,
       "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "constant": false,
-      "inputs": [
-        {
-          "name": "_disputeId",
-          "type": "uint256"
-        },
-        {
-          "name": "_ruling",
-          "type": "uint256"
-        }
-      ],
-      "name": "rule",
-      "outputs": [],
-      "payable": false,
-      "stateMutability": "nonpayable",
       "type": "function"
     },
     {
@@ -560,6 +564,10 @@
       "outputs": [
         {
           "name": "arbitrator",
+          "type": "address"
+        },
+        {
+          "name": "aragonAppFeesCashier",
           "type": "address"
         },
         {

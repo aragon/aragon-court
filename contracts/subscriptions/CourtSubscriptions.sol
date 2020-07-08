@@ -222,10 +222,10 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
     // IAragonAppFeesCashier interface
 
     /**
-    * @notice Set fees for app with id `_appId` to `_amount`
+    * @notice Set fees for app with id `_appId` to @tokenAmount(`_token`, `_amount`)
     * @param _appId Id of the app
     * @param _token Token for the fee, must be the same as the current period one
-    * @param _amount Amount of fee tokens
+    * @param _amount Amount of fee tokens. The change applies immediately.
     */
     function setAppFee(bytes32 _appId, ERC20 _token, uint256 _amount) external onlyConfigGovernor {
         // Ensure fee token data for the current period
@@ -239,7 +239,7 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
     * @notice Set fees for apps with ids `_appIds`
     * @param _appIds Id of the apps
     * @param _tokens Token for the fees for each app (must be an empty array, as we are using the global token)
-    * @param _amounts Amount of fee tokens for each app
+    * @param _amounts Amount of fee tokens for each app. The change applies immediately.
     */
     function setAppFees(bytes32[] calldata _appIds, ERC20[] calldata _tokens, uint256[] calldata _amounts) external onlyConfigGovernor {
         require(_tokens.length == 0, ERROR_WRONG_TOKENS_LENGTH);
@@ -383,8 +383,7 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
     * @return Amount of fee tokens
     */
     function getAppFee(bytes32 _appId) external view returns (ERC20 token, uint256 amount) {
-        uint256 currentPeriodId = _getCurrentPeriodId();
-        Period storage period = periods[currentPeriodId];
+        (, Period storage period) = _getCurrentPeriod();
         (token,) = _getPeriodFeeTokenAndAmount(period);
 
         amount = _getAppFee(_appId);

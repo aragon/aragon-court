@@ -111,7 +111,6 @@ contract('CourtSubscriptions', ([_, governor, someone, something, subscriber]) =
           context('when there were some governor fees accumulated', async () => {
             const paidSubscriptions = bn(2)
             const paidAmount = FEE_AMOUNT.mul(paidSubscriptions)
-            const governorFees = GOVERNOR_SHARE_PCT.mul(paidAmount).div(bn(10000))
 
             beforeEach('pay some subscriptions', async () => {
               await controller.mockSetTerm(PERIOD_DURATION)
@@ -124,22 +123,6 @@ contract('CourtSubscriptions', ([_, governor, someone, something, subscriber]) =
             })
 
             itUpdatesFeeTokenAndAmount()
-
-            it('transfers the accumulated fees to the governor', async () => {
-              const previousGovernorBalance = await feeToken.balanceOf(governor)
-
-              await subscriptions.setFeeToken(newFeeToken.address, newFeeAmount, { from })
-
-              const currentGovernorBalance = await feeToken.balanceOf(governor)
-              assertBn(previousGovernorBalance.add(governorFees), currentGovernorBalance, 'governor shares do not match')
-            })
-
-            it('emits a governor share fees transferred event', async () => {
-              const receipt = await subscriptions.setFeeToken(newFeeToken.address, newFeeAmount, { from })
-
-              assertAmountOfEvents(receipt, SUBSCRIPTIONS_EVENTS.GOVERNOR_FEES_TRANSFERRED)
-              assertEvent(receipt, SUBSCRIPTIONS_EVENTS.GOVERNOR_FEES_TRANSFERRED, { amount: governorFees })
-            })
           })
         })
 
@@ -187,7 +170,6 @@ contract('CourtSubscriptions', ([_, governor, someone, something, subscriber]) =
           context('when there were some governor fees accumulated', async () => {
             const paidSubscriptions = bn(2)
             const paidAmount = FEE_AMOUNT.mul(paidSubscriptions)
-            const governorFees = GOVERNOR_SHARE_PCT.mul(paidAmount).div(bn(10000))
 
             beforeEach('pay some subscriptions', async () => {
               await controller.mockSetTerm(PERIOD_DURATION)
@@ -200,22 +182,6 @@ contract('CourtSubscriptions', ([_, governor, someone, something, subscriber]) =
             })
 
             itUpdatesFeeTokenAndAmount()
-
-            it('transfers the accumulated fees to the governor', async () => {
-              const previousGovernorBalance = await feeToken.balanceOf(governor)
-
-              await subscriptions.setFeeToken(newFeeToken, newFeeAmount, { from })
-
-              const currentGovernorBalance = await feeToken.balanceOf(governor)
-              assertBn(previousGovernorBalance.add(governorFees), currentGovernorBalance, 'governor shares do not match')
-            })
-
-            it('emits a governor share fees transferred event', async () => {
-              const receipt = await subscriptions.setFeeToken(newFeeToken, newFeeAmount, { from })
-
-              assertAmountOfEvents(receipt, SUBSCRIPTIONS_EVENTS.GOVERNOR_FEES_TRANSFERRED)
-              assertEvent(receipt, SUBSCRIPTIONS_EVENTS.GOVERNOR_FEES_TRANSFERRED, { amount: governorFees })
-            })
           })
         })
 

@@ -19,6 +19,12 @@ contract('CourtSubscriptions', ([_, governor, payer, subscriber, anotherSubscrib
   const GOVERNOR_SHARE_PCT = bn(100)        // 100‱ = 1%
   const ETH_TOKEN = '0x0000000000000000000000000000000000000000'
 
+  const getAccumulatedGovernorFees = async () => {
+    const currentPeriodId = await subscriptions.getCurrentPeriodId()
+    const period = await subscriptions.getPeriod(currentPeriodId)
+    return period['accumulatedGovernorFees']
+  }
+
   describe('payFees', () => {
     const data = '0x12345678abcdef'
 
@@ -73,12 +79,12 @@ contract('CourtSubscriptions', ([_, governor, payer, subscriber, anotherSubscrib
             })
 
             it('pays the governor fees', async () => {
-              const previousGovernorFees = await subscriptions.accumulatedGovernorFees()
+              const previousGovernorFees = await getAccumulatedGovernorFees()
               const expectedGovernorFees = GOVERNOR_SHARE_PCT.mul(FEE_AMOUNT).div(PCT_BASE)
 
               await subscriptions.payFees(subscriber, data, { from, value })
 
-              const currentGovernorFees = await subscriptions.accumulatedGovernorFees()
+              const currentGovernorFees = await getAccumulatedGovernorFees()
               assertBn(currentGovernorFees, previousGovernorFees.add(expectedGovernorFees), 'governor fees do not match')
             })
 
@@ -171,12 +177,12 @@ contract('CourtSubscriptions', ([_, governor, payer, subscriber, anotherSubscrib
             })
 
             it('pays the governor fees', async () => {
-              const previousGovernorFees = await subscriptions.accumulatedGovernorFees()
+              const previousGovernorFees = await getAccumulatedGovernorFees()
               const expectedGovernorFees = GOVERNOR_SHARE_PCT.mul(FEE_AMOUNT).div(PCT_BASE)
 
               await subscriptions.payFees(subscriber, data, { from })
 
-              const currentGovernorFees = await subscriptions.accumulatedGovernorFees()
+              const currentGovernorFees = await getAccumulatedGovernorFees()
               assertBn(currentGovernorFees, previousGovernorFees.add(expectedGovernorFees), 'governor fees do not match')
             })
 
@@ -212,7 +218,35 @@ contract('CourtSubscriptions', ([_, governor, payer, subscriber, anotherSubscrib
     })
   })
 
-  describe('transferFeesToGovernor', () => {
+  const transferFeesToGovernor = async (transferFunction, isLast = true, sameCurrentToken = true) => {
+    const transferFeesToGovernorCall = async () => {
+      let gweiUsedByGovernor = bn(0)
+
+      if (transferFunction === 'transferFeesToGovernor') {
+        const currentPeriodId = await subscriptions.getCurrentPeriodId()
+        if (!isLast) {
+          if (!sameCurrentToken) {
+            const newFeeToken = await ERC20.new('New Subscriptions Fee Token', 'NSFT', 18)
+            const governorBalanceBefore = await getWeiBalance(governor)
+            await subscriptions.setFeeToken(newFeeToken.address, bn(1), { from: governor })
+            const governorBalanceAfter = await getWeiBalance(governor)
+            gweiUsedByGovernor = governorBalanceBefore.sub(governorBalanceAfter)
+          }
+          await controller.mockIncreaseTime(PERIOD_DURATION)
+        }
+        return { promise: subscriptions[transferFunction](currentPeriodId), gweiUsedByGovernor }
+      } else {
+        return { promise: subscriptions[transferFunction](), gweiUsedByGovernor }
+      }
+    }
+
+    const transferFeesToGovernorOnlyCall = async () => (await transferFeesToGovernorCall()).promise
+
+    before('create controller and move terms to reach period #0', async () => {
+      controller = await buildHelper().deploy({ configGovernor: governor })
+      await controller.mockSetTerm(PERIOD_DURATION)
+    })
+
     context('when the fee token is an ERC20', () => {
       let feeToken
 
@@ -227,7 +261,7 @@ contract('CourtSubscriptions', ([_, governor, payer, subscriber, anotherSubscrib
 
       context('when there are no accumulated fees', () => {
         it('reverts', async () => {
-          await assertRevert(subscriptions.transferFeesToGovernor(), SUBSCRIPTIONS_ERRORS.GOVERNOR_SHARE_FEES_ZERO)
+          await assertRevert(transferFeesToGovernorOnlyCall(), SUBSCRIPTIONS_ERRORS.GOVERNOR_SHARE_FEES_ZERO)
         })
       })
 
@@ -247,21 +281,21 @@ contract('CourtSubscriptions', ([_, governor, payer, subscriber, anotherSubscrib
         })
 
         it('transfers the fees to the governor', async () => {
-          const previousAccumulatedFees = await subscriptions.accumulatedGovernorFees()
+          const previousAccumulatedFees = await getAccumulatedGovernorFees()
           const previousGovernorBalance = await feeToken.balanceOf(governor)
 
-          await subscriptions.transferFeesToGovernor()
+          await transferFeesToGovernorOnlyCall()
 
           const currentGovernorBalance = await feeToken.balanceOf(governor)
           assertBn(previousGovernorBalance.add(previousAccumulatedFees), currentGovernorBalance, 'governor shares do not match')
 
-          const currentAccumulatedFees = await subscriptions.accumulatedGovernorFees()
+          const currentAccumulatedFees = await getAccumulatedGovernorFees()
           assertBn(currentAccumulatedFees, 0, 'governor shares do not match')
         })
 
         it('emits an event', async () => {
-          const previousAccumulatedFees = await subscriptions.accumulatedGovernorFees()
-          const receipt = await subscriptions.transferFeesToGovernor()
+          const previousAccumulatedFees = await getAccumulatedGovernorFees()
+          const receipt = await transferFeesToGovernorOnlyCall()
 
           assertAmountOfEvents(receipt, SUBSCRIPTIONS_EVENTS.GOVERNOR_FEES_TRANSFERRED)
           assertEvent(receipt, SUBSCRIPTIONS_EVENTS.GOVERNOR_FEES_TRANSFERRED, { feeToken: feeToken.address, amount: previousAccumulatedFees })
@@ -279,7 +313,7 @@ contract('CourtSubscriptions', ([_, governor, payer, subscriber, anotherSubscrib
 
       context('when there are no accumulated fees', () => {
         it('reverts', async () => {
-          await assertRevert(subscriptions.transferFeesToGovernor(), SUBSCRIPTIONS_ERRORS.GOVERNOR_SHARE_FEES_ZERO)
+          await assertRevert(transferFeesToGovernorOnlyCall(), SUBSCRIPTIONS_ERRORS.GOVERNOR_SHARE_FEES_ZERO)
         })
       })
 
@@ -295,26 +329,45 @@ contract('CourtSubscriptions', ([_, governor, payer, subscriber, anotherSubscrib
         })
 
         it('transfers the fees to the governor', async () => {
-          const previousAccumulatedFees = await subscriptions.accumulatedGovernorFees()
+          const previousAccumulatedFees = await getAccumulatedGovernorFees()
           const previousGovernorBalance = await getWeiBalance(governor)
 
-          await subscriptions.transferFeesToGovernor()
+          const transferFeesToGovernorCallResult = await transferFeesToGovernorCall()
+          await transferFeesToGovernorCallResult.promise
 
           const currentGovernorBalance = await getWeiBalance(governor)
-          assertBn(previousGovernorBalance.add(previousAccumulatedFees), currentGovernorBalance, 'governor shares do not match')
+          assertBn(previousGovernorBalance.add(previousAccumulatedFees).sub(transferFeesToGovernorCallResult.gweiUsedByGovernor), currentGovernorBalance, 'governor shares do not match')
 
-          const currentAccumulatedFees = await subscriptions.accumulatedGovernorFees()
+          const currentAccumulatedFees = await getAccumulatedGovernorFees()
           assertBn(currentAccumulatedFees, 0, 'governor shares do not match')
         })
 
         it('emits an event', async () => {
-          const previousAccumulatedFees = await subscriptions.accumulatedGovernorFees()
-          const receipt = await subscriptions.transferFeesToGovernor()
+          const previousAccumulatedFees = await getAccumulatedGovernorFees()
+          const receipt = await transferFeesToGovernorOnlyCall()
 
           assertAmountOfEvents(receipt, SUBSCRIPTIONS_EVENTS.GOVERNOR_FEES_TRANSFERRED)
           assertEvent(receipt, SUBSCRIPTIONS_EVENTS.GOVERNOR_FEES_TRANSFERRED, { feeToken: feeToken, amount: previousAccumulatedFees })
         })
       })
+    })
+  }
+
+  describe('transferLastPeriodFeesToGovernor', () => {
+    transferFeesToGovernor('transferLastPeriodFeesToGovernor')
+  })
+
+  describe('transferFeesToGovernor for last period', () => {
+    transferFeesToGovernor('transferFeesToGovernor', true)
+  })
+
+  describe('transferFeesToGovernor for previous period', () => {
+    context('when the current token has changed', () => {
+      transferFeesToGovernor('transferFeesToGovernor', false, false)
+    })
+
+    context('when the current token hasn’t changed', () => {
+      transferFeesToGovernor('transferFeesToGovernor', false, true)
     })
   })
 

@@ -115,7 +115,6 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
         (uint256 currentPeriodId, Period storage period, ERC20 feeToken, uint256 feeAmount) = _ensureCurrentPeriodFees();
 
         _payFees(period, msg.sender, feeToken, feeAmount);
-
         emit FeesPaid(_to, currentPeriodId, feeToken, feeAmount, _data);
     }
 
@@ -183,17 +182,6 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
     * @return totalActiveBalance Total amount of juror tokens active in the Court at the corresponding used checkpoint
     */
     function ensurePeriodBalanceDetails(uint256 _periodId) external returns (uint64 periodBalanceCheckpoint, uint256 totalActiveBalance) {
-        Period storage period = periods[_periodId];
-        return _ensurePeriodBalanceDetails(_periodId, period);
-    }
-
-    /**
-    * @notice Make sure that the balance details of a certain period have been computed
-    * @param _periodId Identification number of the period being ensured
-    * @return periodBalanceCheckpoint Court term ID used to fetch the total active balance of the jurors registry
-    * @return totalActiveBalance Total amount of juror tokens active in the Court at the corresponding used checkpoint
-    */
-    function ensureCurrentPeriod(uint256 _periodId) external returns (uint64 periodBalanceCheckpoint, uint256 totalActiveBalance) {
         Period storage period = periods[_periodId];
         return _ensurePeriodBalanceDetails(_periodId, period);
     }
@@ -293,9 +281,7 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
 
         // Ensure fee token data for the current period
         (,Period storage period, ERC20 feeToken,) = _ensureCurrentPeriodFees();
-
         _payFees(period, msg.sender, feeToken, feeAmount);
-
         emit AppFeePaid(msg.sender, _appId, _data);
     }
 
@@ -353,11 +339,9 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
     * @return newLastPeriodId Identification number of the resulting last paid period
     */
     function getOwedFeesDetails(address /*_subscriber*/) external view returns (ERC20 feeToken, uint256 amountToPay, uint256 newLastPeriodId) {
-        uint256 currentPeriodId = _getCurrentPeriodId();
-        Period storage period = periods[currentPeriodId];
-
+        (uint256 periodId, Period storage period) = _getCurrentPeriod();
         (feeToken, amountToPay) = _getPeriodFeeTokenAndAmount(period);
-        newLastPeriodId = currentPeriodId;
+        newLastPeriodId = periodId;
     }
 
     /**
@@ -428,6 +412,20 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
     }
 
     /**
+    * @dev Internal function to transfer owed fees to the governor
+    * @param _period Period instance for the accumulated fees
+    */
+    function _transferFeesToGovernor(Period storage _period) internal {
+        uint256 amount = _period.accumulatedGovernorFees;
+        require(amount > 0, ERROR_GOVERNOR_SHARE_FEES_ZERO);
+        _period.accumulatedGovernorFees = 0;
+        address payable governor = address(uint160(_configGovernor()));
+        (ERC20 feeToken,) = _ensurePeriodFees(_period);
+        _transfer(governor, feeToken, amount);
+        emit GovernorFeesTransferred(feeToken, amount);
+    }
+
+    /**
     * @dev Internal function to pull tokens or ETH into this contract
     * @param _from Owner of the deposited funds
     * @param _token Token to deposit (zero for ETH)
@@ -462,20 +460,6 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
         } else {
             require(_token.safeTransfer(_to, _amount), ERROR_TOKEN_TRANSFER_FAILED);
         }
-    }
-
-    /**
-    * @dev Internal function to transfer owed fees to the governor
-    * @param _period Period instance for the accumulated fees
-    */
-    function _transferFeesToGovernor(Period storage _period) internal {
-        uint256 amount = _period.accumulatedGovernorFees;
-        require(amount > 0, ERROR_GOVERNOR_SHARE_FEES_ZERO);
-        _period.accumulatedGovernorFees = 0;
-        address payable governor = address(uint160(_configGovernor()));
-        (ERC20 feeToken,) = _ensurePeriodFees(_period);
-        _transfer(governor, feeToken, amount);
-        emit GovernorFeesTransferred(feeToken, amount);
     }
 
     /**
@@ -577,7 +561,6 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
 
         appFee.set = true;
         appFee.amount = _amount;
-
         emit AppFeeSet(_appId, _token, _amount);
     }
 
@@ -589,7 +572,6 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
         require(appFees[_appId].set, ERROR_APP_FEE_NOT_SET);
 
         delete appFees[_appId];
-
         emit AppFeeUnset(_appId);
     }
 
@@ -697,15 +679,13 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
     }
 
     /**
-    * @notice Get fees for app with id `_appId`
+    * @dev Get fees for app with the given id
     * @param _appId Id of the app
     * @return Amount of fee tokens
     */
-    function _getAppFee(bytes32 _appId) internal view returns (uint256 amount) {
+    function _getAppFee(bytes32 _appId) internal view returns (uint256) {
         AppFee storage appFee = appFees[_appId];
-
         require(appFee.set, ERROR_APP_FEE_NOT_SET);
-
         return appFee.amount;
     }
 }

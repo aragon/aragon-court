@@ -7,26 +7,8 @@ import "../../subscriptions/CourtSubscriptions.sol";
 contract SubscriptionsMock is CourtSubscriptions {
     bool internal upToDate;
 
-    constructor(
-        Controller _controller,
-        uint64 _periodDuration,
-        ERC20 _feeToken,
-        uint256 _feeAmount,
-        uint256 _prePaymentPeriods,
-        uint256 _resumePrePaidPeriods,
-        uint16 _latePaymentPenaltyPct,
-        uint16 _governorSharePct
-    )
-        CourtSubscriptions(
-            _controller,
-            _periodDuration,
-            _feeToken,
-            _feeAmount,
-            _prePaymentPeriods,
-            _resumePrePaidPeriods,
-            _latePaymentPenaltyPct,
-            _governorSharePct
-        )
+    constructor(Controller _controller, uint64 _periodDuration, ERC20 _feeToken, uint256 _feeAmount, uint16 _governorSharePct)
+        CourtSubscriptions(_controller, _periodDuration, _feeToken, _feeAmount, _governorSharePct)
         public
     {}
 
@@ -36,5 +18,9 @@ contract SubscriptionsMock is CourtSubscriptions {
 
     function isUpToDate(address) external view returns (bool) {
         return upToDate;
+    }
+
+    function getEthTokenConstant() external pure returns (address) {
+        return ETH;
     }
 }

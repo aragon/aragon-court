@@ -56,7 +56,8 @@ const SUBSCRIPTIONS_EVENTS = {
   PRE_PAYMENT_PERIODS_CHANGED: 'PrePaymentPeriodsChanged',
   GOVERNOR_SHARE_PCT_CHANGED: 'GovernorSharePctChanged',
   LATE_PAYMENT_PENALTY_CHANGED: 'LatePaymentPenaltyPctChanged',
-  RESUME_PENALTIES_CHANGED: 'ResumePenaltiesChanged'
+  RESUME_PENALTIES_CHANGED: 'ResumePenaltiesChanged',
+  APP_FEE_PAID: 'AppFeePaid'
 }
 
 const CONTROLLER_EVENTS = {

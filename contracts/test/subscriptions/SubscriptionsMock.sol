@@ -19,8 +19,4 @@ contract SubscriptionsMock is CourtSubscriptions {
     function isUpToDate(address) external view returns (bool) {
         return upToDate;
     }
-
-    function getEthTokenConstant() external pure returns (address) {
-        return ETH;
-    }
 }

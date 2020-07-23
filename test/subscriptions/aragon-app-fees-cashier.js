@@ -3,7 +3,6 @@ const { assertAmountOfEvents, assertEvent } = require('../helpers/asserts/assert
 const { buildHelper } = require('../helpers/wrappers/court')(web3, artifacts)
 const { assertBn } = require('../helpers/asserts/assertBn')
 const { bn, bigExp } = require('../helpers/lib/numbers')
-const { getWeiBalance } = require('../helpers/lib/web3-utils')(web3)
 const { SUBSCRIPTIONS_ERRORS, CONTROLLED_ERRORS } = require('../helpers/utils/errors')
 const { SUBSCRIPTIONS_EVENTS } = require('../helpers/utils/events')
 

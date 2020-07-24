@@ -6,7 +6,6 @@ const { ACTIVATE_DATA } = require('../helpers/utils/jurors')
 const { padLeft, toHex } = require('web3-utils')
 const { SUBSCRIPTIONS_ERRORS } = require('../helpers/utils/errors')
 const { SUBSCRIPTIONS_EVENTS } = require('../helpers/utils/events')
-const { getWeiBalance, getGasConsumed } = require('../helpers/lib/web3-utils')(web3)
 const { assertAmountOfEvents, assertEvent } = require('../helpers/asserts/assertEvent')
 
 const CourtSubscriptions = artifacts.require('CourtSubscriptions')
@@ -21,7 +20,6 @@ contract('CourtSubscriptions', ([_, payer, subscriberPeriod0, subscriberPeriod1,
   const FEE_AMOUNT = bigExp(10, 18)
   const PERIOD_DURATION = 24 * 30           // 30 days, assuming terms are 1h
   const GOVERNOR_SHARE_PCT = bn(100)        // 100‱ = 1%
-  const ETH_TOKEN = '0x0000000000000000000000000000000000000000'
 
   const MIN_JURORS_ACTIVE_TOKENS = bigExp(100, 18)
   const TOTAL_ACTIVE_BALANCE_LIMIT = bigExp(100e6, 18)
@@ -71,22 +69,14 @@ contract('CourtSubscriptions', ([_, payer, subscriberPeriod0, subscriberPeriod1,
           const collectedFeesPeriod0 = totalCollectedFees.div(bn(2))
 
           beforeEach('subscribe', async () => {
-            if (feeToken.address === ETH_TOKEN) {
-              await controller.mockSetTerm(PERIOD_DURATION)
-              await subscriptions.payFees(subscriberPeriod0, '0x00', { from: payer, value: FEE_AMOUNT })
+            await feeToken.generateTokens(payer, totalFees)
+            await feeToken.approve(subscriptions.address, totalFees, { from: payer })
 
-              await controller.mockIncreaseTerms(PERIOD_DURATION)
-              await subscriptions.payFees(subscriberPeriod1, '0x01', { from: payer, value: FEE_AMOUNT })
-            } else {
-              await feeToken.generateTokens(payer, totalFees)
-              await feeToken.approve(subscriptions.address, totalFees, { from: payer })
+            await controller.mockSetTerm(PERIOD_DURATION)
+            await subscriptions.payFees(subscriberPeriod0, '0x00', { from: payer })
 
-              await controller.mockSetTerm(PERIOD_DURATION)
-              await subscriptions.payFees(subscriberPeriod0, '0x00', { from: payer })
-
-              await controller.mockIncreaseTerms(PERIOD_DURATION)
-              await subscriptions.payFees(subscriberPeriod1, '0x01', { from: payer })
-            }
+            await controller.mockIncreaseTerms(PERIOD_DURATION)
+            await subscriptions.payFees(subscriberPeriod1, '0x01', { from: payer })
           })
 
           context('when requesting a past period', () => {
@@ -122,11 +112,10 @@ contract('CourtSubscriptions', ([_, payer, subscriberPeriod0, subscriberPeriod1,
                 it('transfers share fees to the juror', async () => {
                   const previousBalance = await feeToken.balanceOf(juror)
 
-                  const receipt = await subscriptions.claimFees(periodId, { from: juror })
-                  const claimingCost = feeToken.address === ETH_TOKEN ? (await getGasConsumed(receipt)) : bn(0)
+                  await subscriptions.claimFees(periodId, { from: juror })
 
                   const currentBalance = await feeToken.balanceOf(juror)
-                  assertBn(currentBalance, previousBalance.add(expectedShareFees).sub(claimingCost), 'juror balance does not match')
+                  assertBn(currentBalance, previousBalance.add(expectedShareFees), 'juror balance does not match')
                   assert.isTrue(await subscriptions.hasJurorClaimed(juror, periodId))
                 })
 
@@ -184,11 +173,10 @@ contract('CourtSubscriptions', ([_, payer, subscriberPeriod0, subscriberPeriod1,
                 it('transfers share fees to the juror', async () => {
                   const previousBalance = await feeToken.balanceOf(juror)
 
-                  const receipt = await subscriptions.claimFees(periodId, { from: juror })
-                  const claimingCost = feeToken.address === ETH_TOKEN ? (await getGasConsumed(receipt)) : bn(0)
+                  await subscriptions.claimFees(periodId, { from: juror })
 
                   const currentBalance = await feeToken.balanceOf(juror)
-                  assertBn(currentBalance, previousBalance.add(expectedShareFees).sub(claimingCost), 'juror balance does not match')
+                  assertBn(currentBalance, previousBalance.add(expectedShareFees), 'juror balance does not match')
                   assert.isTrue(await subscriptions.hasJurorClaimed(juror, periodId))
                 })
 
@@ -214,11 +202,10 @@ contract('CourtSubscriptions', ([_, payer, subscriberPeriod0, subscriberPeriod1,
                 it('transfers share fees to the juror', async () => {
                   const previousBalance = await feeToken.balanceOf(juror)
 
-                  const receipt = await subscriptions.claimFees(periodId, { from: juror })
-                  const claimingCost = feeToken.address === ETH_TOKEN ? (await getGasConsumed(receipt)) : bn(0)
+                  await subscriptions.claimFees(periodId, { from: juror })
 
                   const currentBalance = await feeToken.balanceOf(juror)
-                  assertBn(currentBalance, previousBalance.add(expectedShareFees).sub(claimingCost), 'juror balance does not match')
+                  assertBn(currentBalance, previousBalance.add(expectedShareFees), 'juror balance does not match')
                   assert.isTrue(await subscriptions.hasJurorClaimed(juror, periodId))
                 })
 
@@ -279,14 +266,6 @@ contract('CourtSubscriptions', ([_, payer, subscriberPeriod0, subscriberPeriod1,
           })
         })
       }
-
-      context('when the given token address is ETH', async () => {
-        beforeEach('setup fee token', async () => {
-          feeToken = { address: ETH_TOKEN, balanceOf: getWeiBalance }
-        })
-
-        itHandlesClaimingFeesProperly()
-      })
 
       context('when the given token address is an ERC20', async () => {
         beforeEach('deploy fee token', async () => {

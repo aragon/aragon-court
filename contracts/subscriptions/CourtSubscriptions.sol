@@ -1,7 +1,6 @@
 pragma solidity ^0.5.8;
 
 import "../lib/os/ERC20.sol";
-import "../lib/os/EtherTokenConstant.sol";
 import "../lib/os/SafeMath.sol";
 import "../lib/os/SafeMath64.sol";
 import "../lib/os/SafeERC20.sol";
@@ -15,15 +14,13 @@ import "../court/controller/Controller.sol";
 import "../court/controller/ControlledRecoverable.sol";
 
 
-contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscriptions, IAragonAppFeesCashier, EtherTokenConstant {
+contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscriptions, IAragonAppFeesCashier {
     using SafeERC20 for ERC20;
     using SafeMath for uint256;
     using SafeMath64 for uint64;
     using PctHelpers for uint256;
 
     string private constant ERROR_GOVERNOR_SHARE_FEES_ZERO = "CS_GOVERNOR_SHARE_FEES_ZERO";
-    string private constant ERROR_ETH_DEPOSIT_FAILED = "CS_ETH_DEPOSIT_FAILED";
-    string private constant ERROR_ETH_TRANSFER_FAILED = "CS_ETH_TRANSFER_FAILED";
     string private constant ERROR_TOKEN_DEPOSIT_FAILED = "CS_TOKEN_DEPOSIT_FAILED";
     string private constant ERROR_TOKEN_TRANSFER_FAILED = "CS_TOKEN_TRANSFER_FAILED";
     string private constant ERROR_PERIOD_DURATION_ZERO = "CS_PERIOD_DURATION_ZERO";
@@ -426,9 +423,9 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
     }
 
     /**
-    * @dev Internal function to pull tokens or ETH into this contract
+    * @dev Internal function to pull tokens into this contract
     * @param _from Owner of the deposited funds
-    * @param _token Token to deposit (zero for ETH)
+    * @param _token Token to deposit
     * @param _amount Amount to be deposited
     */
     function _deposit(address _from, ERC20 _token, uint256 _amount) internal {
@@ -436,17 +433,13 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
             return;
         }
 
-        if (address(_token) == ETH) {
-            require(msg.value == _amount, ERROR_ETH_DEPOSIT_FAILED);
-        } else {
-            require(_token.safeTransferFrom(_from, address(this), _amount), ERROR_TOKEN_DEPOSIT_FAILED);
-        }
+        require(_token.safeTransferFrom(_from, address(this), _amount), ERROR_TOKEN_DEPOSIT_FAILED);
     }
 
     /**
-    * @dev Internal function to transfer tokens or ETH
+    * @dev Internal function to transfer tokens
     * @param _to Recipient of the transfer
-    * @param _token Token to transfer (zero for ETH)
+    * @param _token Token to transfer
     * @param _amount Amount to be transferred
     */
     function _transfer(address payable _to, ERC20 _token, uint256 _amount) internal {
@@ -454,12 +447,7 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
             return;
         }
 
-        if (address(_token) == ETH) {
-            (bool success, ) = _to.call.value(_amount)(""); // solium-disable-line security/no-call-value
-            require(success, ERROR_ETH_TRANSFER_FAILED);
-        } else {
-            require(_token.safeTransfer(_to, _amount), ERROR_TOKEN_TRANSFER_FAILED);
-        }
+        require(_token.safeTransfer(_to, _amount), ERROR_TOKEN_TRANSFER_FAILED);
     }
 
     /**
@@ -532,7 +520,7 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
     * @param _feeToken New ERC20 token to be used for the subscription fees
     */
     function _setFeeToken(ERC20 _feeToken) internal {
-        require(address(_feeToken) == ETH || isContract(address(_feeToken)), ERROR_FEE_TOKEN_NOT_CONTRACT);
+        require(isContract(address(_feeToken)), ERROR_FEE_TOKEN_NOT_CONTRACT);
 
         emit FeeTokenChanged(currentFeeToken, _feeToken);
         currentFeeToken = _feeToken;

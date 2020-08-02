@@ -86,6 +86,7 @@ type Disputable @entity {
   title: String!
   agreement: String!
   actionId: BigInt!
+  challengeId: BigInt!
   address: Bytes!
   disputableActionId: BigInt!
   defendant: Bytes!

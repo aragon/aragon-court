@@ -55,11 +55,11 @@
       "constant": true,
       "inputs": [
         {
-          "name": "user",
+          "name": "who",
           "type": "address"
         },
         {
-          "name": "who",
+          "name": "grantee",
           "type": "address"
         },
         {
@@ -594,7 +594,7 @@
       "name": "getDisputableInfo",
       "outputs": [
         {
-          "name": "registered",
+          "name": "activated",
           "type": "bool"
         },
         {
@@ -719,14 +719,6 @@
           "type": "uint256"
         },
         {
-          "name": "arbitratorFeeAmount",
-          "type": "uint256"
-        },
-        {
-          "name": "arbitratorFeeToken",
-          "type": "address"
-        },
-        {
           "name": "state",
           "type": "uint8"
         },
@@ -745,6 +737,37 @@
         {
           "name": "ruling",
           "type": "uint256"
+        }
+      ],
+      "payable": false,
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "constant": true,
+      "inputs": [
+        {
+          "name": "_challengeId",
+          "type": "uint256"
+        }
+      ],
+      "name": "getChallengeArbitratorFees",
+      "outputs": [
+        {
+          "name": "challengerArbitratorFeesAmount",
+          "type": "uint256"
+        },
+        {
+          "name": "challengerArbitratorFeesToken",
+          "type": "address"
+        },
+        {
+          "name": "submitterArbitratorFeesAmount",
+          "type": "uint256"
+        },
+        {
+          "name": "submitterArbitratorFeesToken",
+          "type": "address"
         }
       ],
       "payable": false,

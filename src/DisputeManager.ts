@@ -2,7 +2,7 @@ import { concat } from '../helpers/bytes'
 import { buildId } from '../helpers/id'
 import { createFeeMovement } from './Treasury'
 import { tryDecodingAgreementMetadata } from '../helpers/disputable'
-import { Arbitrable as ArbitrableTemplate } from '../types/templates'
+import { Arbitrable_v1_1_2 as ArbitrableTemplate_v1_1_2, Arbitrable_v1_1_3 as ArbitrableTemplate_v1_1_3 } from '../types/templates'
 import { crypto, Bytes, BigInt, Address, EthereumEvent } from '@graphprotocol/graph-ts'
 import { AdjudicationRound, Arbitrable, Dispute, Appeal, JurorDispute, JurorDraft } from '../types/schema'
 import {
@@ -41,7 +41,8 @@ export function handleNewDispute(event: NewDispute): void {
   updateRound(event.params.disputeId, dispute.lastRoundId, event)
   tryDecodingAgreementMetadata(dispute)
 
-  ArbitrableTemplate.create(event.params.subject)
+  ArbitrableTemplate_v1_1_2.create(event.params.subject)
+  ArbitrableTemplate_v1_1_3.create(event.params.subject)
   let arbitrable = new Arbitrable(event.params.subject.toHex())
   arbitrable.save()
 }

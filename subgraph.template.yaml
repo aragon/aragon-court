@@ -246,20 +246,38 @@ templates:
           handler: handleTransfer
       file: ./src/ANJ.ts
   - kind: ethereum/contract
-    name: Arbitrable
+    name: Arbitrable_v1_1_2
     network: {{network}}
     source:
-      abi: Arbitrable
+      abi: Arbitrable_v1_1_2
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.3
       language: wasm/assemblyscript
       entities:
-        - Arbitrable
+        - Arbitrable_v1_1_2
       abis:
-        - name: Arbitrable
-          file: ./node_modules/@aragon/court/abi/IArbitrable.json
+        - name: Arbitrable_v1_1_2
+          file: ./abi/IArbitrable_v1_1_2.json
       eventHandlers:
         - event: EvidenceSubmitted(indexed uint256,indexed address,bytes,bool)
           handler: handleEvidenceSubmitted
-      file: ./src/Arbitrable.ts
+      file: ./src/Arbitrable_v1_1_2.ts
+  - kind: ethereum/contract
+    name: Arbitrable_v1_1_3
+    network: {{network}}
+    source:
+      abi: Arbitrable_v1_1_3
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.3
+      language: wasm/assemblyscript
+      entities:
+        - Arbitrable_v1_1_3
+      abis:
+        - name: Arbitrable_v1_1_3
+          file: ./node_modules/@aragon/court/abi/IArbitrable.json
+      eventHandlers:
+        - event: EvidenceSubmitted(indexed address,indexed uint256,indexed address,bytes,bool)
+          handler: handleEvidenceSubmitted
+      file: ./src/Arbitrable_v1_1_3.ts

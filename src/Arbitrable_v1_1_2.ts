@@ -1,5 +1,5 @@
 import { Evidence } from '../types/schema'
-import { EvidenceSubmitted } from '../types/templates/Arbitrable/Arbitrable'
+import { EvidenceSubmitted } from '../types/templates/Arbitrable_v1_1_2/Arbitrable_v1_1_2'
 
 export function handleEvidenceSubmitted(event: EvidenceSubmitted): void {
   let id = event.transaction.hash.toHex() + event.logIndex.toHex()

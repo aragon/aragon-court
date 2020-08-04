@@ -37,6 +37,8 @@ export function tryDecodingAgreementMetadata(dispute: Dispute): void {
   disputable.actionId = actionId
   disputable.challengeId = challengeId
   disputable.address = actionData.value.value0
+  disputable.actionContext = actionData.value.value6
+  disputable.challengeContext = challengeData.value.value3
   disputable.disputableActionId = actionData.value.value1
   disputable.defendant = actionData.value.value4
   disputable.plaintiff = challengeData.value.value1

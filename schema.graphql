@@ -92,6 +92,8 @@ type Disputable @entity {
   defendant: Bytes!
   plaintiff: Bytes!
   organization: Bytes!
+  actionContext: Bytes!
+  challengeContext: Bytes!
 }
 
 enum DisputeState {

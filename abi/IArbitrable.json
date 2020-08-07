@@ -50,6 +50,38 @@
       "type": "event"
     },
     {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "name": "arbitrator",
+          "type": "address"
+        },
+        {
+          "indexed": true,
+          "name": "disputeId",
+          "type": "uint256"
+        },
+        {
+          "indexed": true,
+          "name": "submitter",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "name": "evidence",
+          "type": "bytes"
+        },
+        {
+          "indexed": false,
+          "name": "finished",
+          "type": "bool"
+        }
+      ],
+      "name": "EvidenceSubmitted",
+      "type": "event"
+    },
+    {
       "constant": false,
       "inputs": [
         {

@@ -1,5 +1,5 @@
-import { EthereumEvent } from '@graphprotocol/graph-ts'
+import { ethereum } from '@graphprotocol/graph-ts'
 
-export function buildId(event: EthereumEvent): string {
+export function buildId(event: ethereum.Event): string {
   return event.transaction.hash.toHex() + event.logIndex.toString()
 }

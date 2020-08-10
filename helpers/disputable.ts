@@ -8,13 +8,13 @@ const AGREEMENT_DISPUTE_HEADER = '34c62f3aec3073826f39c2c35e9a1297d9dbf3cc774722
 const AGREEMENT_DISPUTE_METADATA_LENGTH = 64 // "[APP_ID][CHALLENGE_ID]" = 32 + 32
 
 export function tryDecodingAgreementMetadata(dispute: Dispute): void {
-  let metadata = dispute.metadata
-  if (metadata.length != AGREEMENT_DISPUTE_METADATA_LENGTH) return
+  let rawMetadata = dispute.rawMetadata
+  if (rawMetadata.length != AGREEMENT_DISPUTE_METADATA_LENGTH) return
 
-  let header = metadata.subarray(0, AGREEMENT_DISPUTE_HEADER.length / 2) as Bytes
+  let header = rawMetadata.subarray(0, AGREEMENT_DISPUTE_HEADER.length / 2) as Bytes
   if (header.toHexString().slice(2) != AGREEMENT_DISPUTE_HEADER) return
 
-  let rawChallengeId = metadata.subarray(AGREEMENT_DISPUTE_HEADER.length / 2, metadata.length) as Bytes
+  let rawChallengeId = rawMetadata.subarray(AGREEMENT_DISPUTE_HEADER.length / 2, rawMetadata.length) as Bytes
   let challengeId = BigInt.fromSignedBytes(rawChallengeId.reverse() as Bytes)
   let agreement = Agreement.bind(Address.fromString(dispute.subject))
   let challengeData = agreement.try_getChallenge(challengeId)
@@ -37,8 +37,10 @@ export function tryDecodingAgreementMetadata(dispute: Dispute): void {
   disputable.actionId = actionId
   disputable.challengeId = challengeId
   disputable.address = actionData.value.value0
-  disputable.actionContext = actionData.value.value6
-  disputable.challengeContext = challengeData.value.value3
+  disputable.actionContext = actionData.value.value6.toString()
+  disputable.rawActionContext = actionData.value.value6
+  disputable.challengeContext = challengeData.value.value3.toString()
+  disputable.rawChallengeContext = challengeData.value.value3
   disputable.disputableActionId = actionData.value.value1
   disputable.defendant = actionData.value.value4
   disputable.plaintiff = challengeData.value.value1

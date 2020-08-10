@@ -1,7 +1,7 @@
 import { JurorDraft, Vote } from '../types/schema'
 import { buildDraftId, decodeDisputeRoundId, createJurorDraft } from './DisputeManager'
 import { VoteCommitted, VoteLeaked, VoteRevealed } from '../types/templates/Voting/Voting'
-import { Address, BigInt, EthereumEvent } from '@graphprotocol/graph-ts'
+import { Address, BigInt, ethereum } from '@graphprotocol/graph-ts'
 import { Voting } from '../types/templates/Voting/Voting'
 import { Controller } from '../types/templates/JurorsRegistry/Controller'
 
@@ -38,7 +38,7 @@ export function handleVoteRevealed(event: VoteRevealed): void {
   updateVote(event.params.voteId, event)
 }
 
-function updateVote(voteId: BigInt, event: EthereumEvent): void {
+function updateVote(voteId: BigInt, event: ethereum.Event): void {
   let vote = loadOrCreateVote(voteId, event)
   let voting = Voting.bind(event.address)
   let winningOutcome = voting.getWinningOutcome(voteId)
@@ -46,7 +46,7 @@ function updateVote(voteId: BigInt, event: EthereumEvent): void {
   vote.save()
 }
 
-function loadOrCreateVote(voteId: BigInt, event: EthereumEvent): Vote | null {
+function loadOrCreateVote(voteId: BigInt, event: ethereum.Event): Vote | null {
   let vote = Vote.load(voteId.toString())
 
   if (vote === null) {
@@ -57,7 +57,7 @@ function loadOrCreateVote(voteId: BigInt, event: EthereumEvent): Vote | null {
   return vote
 }
 
-function loadOrCreateJurorDraft(draftId: string, disputeRoundId: BigInt, jurorAddress: Address, event: EthereumEvent): JurorDraft | null {
+function loadOrCreateJurorDraft(draftId: string, disputeRoundId: BigInt, jurorAddress: Address, event: ethereum.Event): JurorDraft | null {
   let draft = JurorDraft.load(draftId)
 
   if (draft === null) {

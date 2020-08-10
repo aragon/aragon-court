@@ -1,6 +1,6 @@
 import { buildId } from '../helpers/id'
 import { Juror, ANJMovement, JurorsRegistryModule } from '../types/schema'
-import { EthereumEvent, Address, BigInt } from '@graphprotocol/graph-ts'
+import { ethereum, Address, BigInt } from '@graphprotocol/graph-ts'
 import {
   Staked,
   Unstaked,
@@ -98,7 +98,7 @@ export function handleJurorSlashed(event: JurorSlashed): void {
   decreaseTotalActive(event.address, event.params.amount)
 }
 
-function loadOrCreateJuror(jurorAddress: Address, event: EthereumEvent): Juror | null {
+function loadOrCreateJuror(jurorAddress: Address, event: ethereum.Event): Juror | null {
   let id = jurorAddress.toHex()
   let juror = Juror.load(id)
 
@@ -114,7 +114,7 @@ function loadOrCreateJuror(jurorAddress: Address, event: EthereumEvent): Juror |
   return juror
 }
 
-function updateJuror(jurorAddress: Address, event: EthereumEvent): void {
+function updateJuror(jurorAddress: Address, event: ethereum.Event): void {
   let juror = loadOrCreateJuror(jurorAddress, event)
   let registry = JurorsRegistry.bind(event.address)
   let balances = registry.balanceOf(jurorAddress)
@@ -126,12 +126,12 @@ function updateJuror(jurorAddress: Address, event: EthereumEvent): void {
   juror.save()
 }
 
-function createANJMovementForEvent(juror: Address, type: string, amount: BigInt, event: EthereumEvent): void {
+function createANJMovementForEvent(juror: Address, type: string, amount: BigInt, event: ethereum.Event): void {
   let id = buildId(event)
   createANJMovement(id, juror, type, amount, event.block.timestamp)
 }
 
-function createANJMovementForTerm(juror: Address, type: string, amount: BigInt, termId: BigInt, event: EthereumEvent): void {
+function createANJMovementForTerm(juror: Address, type: string, amount: BigInt, termId: BigInt, event: ethereum.Event): void {
   let id = buildId(event)
   createANJMovement(id, juror, type, amount, event.block.timestamp, termId)
 }

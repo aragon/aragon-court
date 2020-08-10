@@ -2,7 +2,7 @@ import { concat } from '../helpers/bytes'
 import { buildId } from '../helpers/id'
 import { FeeMovement, TreasuryBalance } from '../types/schema'
 import { Assign, Withdraw, Treasury } from '../types/templates/Treasury/Treasury'
-import { crypto, BigInt, Address, EthereumEvent } from '@graphprotocol/graph-ts'
+import { crypto, BigInt, Address, ethereum } from '@graphprotocol/graph-ts'
 
 let WITHDRAW = 'Withdraw'
 
@@ -15,7 +15,7 @@ export function handleWithdraw(event: Withdraw): void {
   updateTreasuryBalance(event.params.from, event.params.token, event)
 }
 
-export function createFeeMovement(type: string, owner: Address, amount: BigInt, event: EthereumEvent, id: string | null = null): void {
+export function createFeeMovement(type: string, owner: Address, amount: BigInt, event: ethereum.Event, id: string | null = null): void {
   let feeId = id === null ? buildId(event) : id
   let movement = new FeeMovement(feeId)
   movement.type = type
@@ -25,7 +25,7 @@ export function createFeeMovement(type: string, owner: Address, amount: BigInt, 
   movement.save()
 }
 
-function updateTreasuryBalance(owner: Address, token: Address, event: EthereumEvent): void {
+function updateTreasuryBalance(owner: Address, token: Address, event: ethereum.Event): void {
   let treasuryBalance = loadOrCreateTreasuryBalance(owner, token)
   let treasury = Treasury.bind(event.address)
   treasuryBalance.amount = treasury.balanceOf(token, owner)

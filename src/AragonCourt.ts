@@ -1,6 +1,6 @@
 import { AragonCourt } from '../types/AragonCourt/AragonCourt'
 import { ERC20 as ERC20Contract } from '../types/AragonCourt/ERC20'
-import { BigInt, Address, EthereumEvent } from '@graphprotocol/graph-ts'
+import { BigInt, Address, ethereum } from '@graphprotocol/graph-ts'
 import { updateCurrentSubscriptionPeriod } from './Subscriptions'
 import { Subscriptions as SubscriptionsContract } from '../types/templates/Subscriptions/Subscriptions'
 import { JurorsRegistry as JurorsRegistryContract } from '../types/templates/JurorsRegistry/JurorsRegistry'
@@ -140,7 +140,7 @@ export function handleModuleSet(event: ModuleSet): void {
   module.save()
 }
 
-function loadOrCreateConfig(courtAddress: Address, event: EthereumEvent): CourtConfig | null {
+function loadOrCreateConfig(courtAddress: Address, event: ethereum.Event): CourtConfig | null {
   let id = courtAddress.toHex()
   let config = CourtConfig.load(id)
   let court = AragonCourt.bind(event.address)
@@ -184,7 +184,7 @@ function loadOrCreateConfig(courtAddress: Address, event: EthereumEvent): CourtC
   return config
 }
 
-function loadOrCreateTerm(id: BigInt, event: EthereumEvent): CourtTerm | null {
+function loadOrCreateTerm(id: BigInt, event: ethereum.Event): CourtTerm | null {
   let term = CourtTerm.load(id.toString())
 
   if (term === null) {

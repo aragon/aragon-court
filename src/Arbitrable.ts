@@ -1,5 +1,5 @@
 import { Evidence } from '../types/schema'
-import { EthereumEvent, Bytes, BigInt, Address } from '@graphprotocol/graph-ts'
+import { ethereum, Bytes, BigInt, Address } from '@graphprotocol/graph-ts'
 import { EvidenceSubmitted as EvidenceSubmittedWithoutArbitrator, EvidenceSubmitted1 as EvidenceSubmittedWithArbitrator } from '../types/templates/Arbitrable/Arbitrable'
 
 export function handleEvidenceSubmittedWithoutArbitrator(event: EvidenceSubmittedWithoutArbitrator): void {
@@ -15,7 +15,7 @@ export function handleEvidenceSubmittedWithArbitrator(event: EvidenceSubmittedWi
   handleEvidenceSubmitted(event, event.params.disputeId, event.params.evidence, event.params.submitter)
 }
 
-function handleEvidenceSubmitted(event: EthereumEvent, disputeId: BigInt, data: Bytes, submitter: Address): void {
+function handleEvidenceSubmitted(event: ethereum.Event, disputeId: BigInt, data: Bytes, submitter: Address): void {
   let id = event.transaction.hash.toHex() + event.logIndex.toHex()
   let evidence = new Evidence(id)
   evidence.arbitrable = event.address.toHex()

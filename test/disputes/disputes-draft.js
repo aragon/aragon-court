@@ -43,7 +43,7 @@ contract('DisputeManager', ([_, drafter, juror500, juror1000, juror1500, juror20
           const receipt = await disputeManager.draft(disputeId, { from: drafter })
 
           const logs = decodeEvents(receipt, DisputeManager.abi, DISPUTE_MANAGER_EVENTS.JUROR_DRAFTED)
-          assertAmountOfEvents({ logs }, DISPUTE_MANAGER_EVENTS.JUROR_DRAFTED, expectedDraftedJurors)
+          assertAmountOfEvents({ logs }, DISPUTE_MANAGER_EVENTS.JUROR_DRAFTED, { expectedAmount: expectedDraftedJurors })
 
           const jurorsAddresses = jurors.map(j => j.address)
           for (let i = 0; i < expectedDraftedJurors; i++) {
@@ -153,7 +153,7 @@ contract('DisputeManager', ([_, drafter, juror500, juror1000, juror1500, juror20
             const expectedDraftedJurors = pendingJurorsToBeDrafted < jurorsPerBatch ? pendingJurorsToBeDrafted : jurorsPerBatch
 
             const logs = decodeEvents(receipt, DisputeManager.abi, DISPUTE_MANAGER_EVENTS.JUROR_DRAFTED)
-            assertAmountOfEvents({ logs }, DISPUTE_MANAGER_EVENTS.JUROR_DRAFTED, expectedDraftedJurors)
+            assertAmountOfEvents({ logs }, DISPUTE_MANAGER_EVENTS.JUROR_DRAFTED, { expectedAmount: expectedDraftedJurors })
 
             for (let i = 0; i < expectedDraftedJurors; i++) {
               const { disputeId: eventDisputeId, juror } = getEventAt({ logs }, DISPUTE_MANAGER_EVENTS.JUROR_DRAFTED, i).args

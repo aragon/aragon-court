@@ -199,7 +199,7 @@ contract('JurorsRegistry', ([_, juror500, juror1000, juror1500, juror2000, juror
           })
 
           const logs = decodeEvents(receipt, JurorsRegistry.abi, REGISTRY_EVENTS.JUROR_BALANCE_LOCKED)
-          assertAmountOfEvents({ logs }, REGISTRY_EVENTS.JUROR_BALANCE_LOCKED, length)
+          assertAmountOfEvents({ logs }, REGISTRY_EVENTS.JUROR_BALANCE_LOCKED, { expectedAmount: length })
 
           for (let i = 0; i < length; i++) {
             assertEvent({ logs }, REGISTRY_EVENTS.JUROR_BALANCE_LOCKED, { juror: expectedJurors[i], amount: DRAFT_LOCKED_AMOUNT }, i)

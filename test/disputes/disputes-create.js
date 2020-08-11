@@ -109,7 +109,7 @@ contract('DisputeManager', () => {
                 const receipt = await arbitrable.createDispute(possibleRulings, metadata)
 
                 const logs = decodeEvents(receipt, CourtClock.abi, CLOCK_EVENTS.HEARTBEAT)
-                assertAmountOfEvents({ logs }, CLOCK_EVENTS.HEARTBEAT, expectedTermTransitions)
+                assertAmountOfEvents({ logs }, CLOCK_EVENTS.HEARTBEAT, { expectedAmount: expectedTermTransitions })
 
                 const currentTermId = await court.getLastEnsuredTermId()
                 assertBn(previousTermId.add(bn(expectedTermTransitions)), currentTermId, 'term id does not match')

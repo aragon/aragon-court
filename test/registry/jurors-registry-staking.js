@@ -1,18 +1,14 @@
-const { assertBn } = require('../helpers/asserts/assertBn')
-const { bn, bigExp } = require('../helpers/lib/numbers')
-const { buildHelper } = require('../helpers/wrappers/court')(web3, artifacts)
-const { assertRevert } = require('../helpers/asserts/assertThrow')
+const { ZERO_ADDRESS, bn, bigExp, decodeEvents } = require('@aragon/contract-helpers-test')
+const { assertRevert, assertBn, assertAmountOfEvents, assertEvent } = require('@aragon/contract-helpers-test/src/asserts')
+
+const { buildHelper } = require('../helpers/wrappers/court')
 const { ACTIVATE_DATA } = require('../helpers/utils/jurors')
 const { REGISTRY_EVENTS } = require('../helpers/utils/events')
 const { REGISTRY_ERRORS } = require('../helpers/utils/errors')
-const { decodeEventsOfType } = require('../helpers/lib/decodeEvent')
-const { assertEvent, assertAmountOfEvents } = require('../helpers/asserts/assertEvent')
 
 const JurorsRegistry = artifacts.require('JurorsRegistry')
 const DisputeManager = artifacts.require('DisputeManagerMockForRegistry')
 const ERC20 = artifacts.require('ERC20Mock')
-
-const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
 
 contract('JurorsRegistry', ([_, juror, anotherJuror]) => {
   let controller, registry, disputeManager, ANJ
@@ -115,7 +111,7 @@ contract('JurorsRegistry', ([_, juror, anotherJuror]) => {
             const receipt = await registry.stake(amount, data, { from })
 
             assertAmountOfEvents(receipt, REGISTRY_EVENTS.STAKED)
-            assertEvent(receipt, REGISTRY_EVENTS.STAKED, { user: juror, amount, total: previousTotalStake.add(amount), data })
+            assertEvent(receipt, REGISTRY_EVENTS.STAKED, { expectedArgs: { user: juror, amount, total: previousTotalStake.add(amount), data } })
           })
         })
 
@@ -238,7 +234,7 @@ contract('JurorsRegistry', ([_, juror, anotherJuror]) => {
           const receipt = await registry.stake(amount, data, { from })
 
           assertAmountOfEvents(receipt, REGISTRY_EVENTS.STAKED)
-          assertEvent(receipt, REGISTRY_EVENTS.STAKED, { user: juror, amount, total: previousTotalStake.add(amount), data })
+          assertEvent(receipt, REGISTRY_EVENTS.STAKED, { expectedArgs: { user: juror, amount, total: previousTotalStake.add(amount), data } })
         })
 
         it('emits an activation event', async () => {
@@ -247,7 +243,7 @@ contract('JurorsRegistry', ([_, juror, anotherJuror]) => {
           const receipt = await registry.stake(amount, data, { from })
 
           assertAmountOfEvents(receipt, REGISTRY_EVENTS.JUROR_ACTIVATED)
-          assertEvent(receipt, REGISTRY_EVENTS.JUROR_ACTIVATED, { juror, fromTermId: termId.add(bn(1)), amount, sender: from })
+          assertEvent(receipt, REGISTRY_EVENTS.JUROR_ACTIVATED, { expectedArgs: { juror, fromTermId: termId.add(bn(1)), amount, sender: from } })
         })
       }
 
@@ -430,7 +426,7 @@ contract('JurorsRegistry', ([_, juror, anotherJuror]) => {
           const receipt = await registry.stakeFor(recipient, amount, data, { from })
 
           assertAmountOfEvents(receipt, REGISTRY_EVENTS.STAKED)
-          assertEvent(receipt, REGISTRY_EVENTS.STAKED, { user: recipient, amount, total: previousTotalStake.add(amount), data })
+          assertEvent(receipt, REGISTRY_EVENTS.STAKED, { expectedArgs: { user: recipient, amount, total: previousTotalStake.add(amount), data } })
         })
       })
 
@@ -608,7 +604,7 @@ contract('JurorsRegistry', ([_, juror, anotherJuror]) => {
           const receipt = await registry.stakeFor(recipient, amount, data, { from })
 
           assertAmountOfEvents(receipt, REGISTRY_EVENTS.STAKED)
-          assertEvent(receipt, REGISTRY_EVENTS.STAKED, { user: recipient, amount, total: previousTotalStake.add(amount), data })
+          assertEvent(receipt, REGISTRY_EVENTS.STAKED, { expectedArgs: { user: recipient, amount, total: previousTotalStake.add(amount), data } })
         })
 
         it('emits an activation event', async () => {
@@ -617,7 +613,7 @@ contract('JurorsRegistry', ([_, juror, anotherJuror]) => {
           const receipt = await registry.stakeFor(recipient, amount, data, { from })
 
           assertAmountOfEvents(receipt, REGISTRY_EVENTS.JUROR_ACTIVATED)
-          assertEvent(receipt, REGISTRY_EVENTS.JUROR_ACTIVATED, { juror: recipient, fromTermId: termId.add(bn(1)), amount, sender: from })
+          assertEvent(receipt, REGISTRY_EVENTS.JUROR_ACTIVATED, { expectedArgs: { juror: recipient, fromTermId: termId.add(bn(1)), amount, sender: from } })
         })
       }
 
@@ -779,10 +775,10 @@ contract('JurorsRegistry', ([_, juror, anotherJuror]) => {
               const previousTotalStake = await registry.totalStakedFor(juror)
 
               const receipt = await ANJ.approveAndCall(registry.address, amount, data, { from })
-              const logs = decodeEventsOfType(receipt, JurorsRegistry.abi, REGISTRY_EVENTS.STAKED)
+              const logs = decodeEvents(receipt, JurorsRegistry.abi, REGISTRY_EVENTS.STAKED)
 
               assertAmountOfEvents({ logs }, REGISTRY_EVENTS.STAKED)
-              assertEvent({ logs }, REGISTRY_EVENTS.STAKED, { user: juror, amount, total: previousTotalStake.add(amount), data })
+              assertEvent({ logs }, REGISTRY_EVENTS.STAKED, { expectedArgs: { user: juror, amount, total: previousTotalStake.add(amount), data } })
             })
           })
 
@@ -902,20 +898,20 @@ contract('JurorsRegistry', ([_, juror, anotherJuror]) => {
             const previousTotalStake = await registry.totalStakedFor(juror)
 
             const receipt = await ANJ.approveAndCall(registry.address, amount, data, { from })
-            const logs = decodeEventsOfType(receipt, JurorsRegistry.abi, REGISTRY_EVENTS.STAKED)
+            const logs = decodeEvents(receipt, JurorsRegistry.abi, REGISTRY_EVENTS.STAKED)
 
             assertAmountOfEvents({ logs }, REGISTRY_EVENTS.STAKED)
-            assertEvent({ logs }, REGISTRY_EVENTS.STAKED, { user: juror, amount, total: previousTotalStake.add(amount), data })
+            assertEvent({ logs }, REGISTRY_EVENTS.STAKED, { expectedArgs: { user: juror, amount, total: previousTotalStake.add(amount), data } })
           })
 
           it('emits an activation event', async () => {
             const termId = await controller.getCurrentTermId()
 
             const receipt = await ANJ.approveAndCall(registry.address, amount, data, { from })
-            const logs = decodeEventsOfType(receipt, JurorsRegistry.abi, REGISTRY_EVENTS.JUROR_ACTIVATED)
+            const logs = decodeEvents(receipt, JurorsRegistry.abi, REGISTRY_EVENTS.JUROR_ACTIVATED)
 
             assertAmountOfEvents({ logs }, REGISTRY_EVENTS.JUROR_ACTIVATED)
-            assertEvent({ logs }, REGISTRY_EVENTS.JUROR_ACTIVATED, { juror, fromTermId: termId.add(bn(1)), amount, sender: from })
+            assertEvent({ logs }, REGISTRY_EVENTS.JUROR_ACTIVATED, { expectedArgs: { juror, fromTermId: termId.add(bn(1)), amount, sender: from } })
           })
         }
 
@@ -1097,7 +1093,7 @@ contract('JurorsRegistry', ([_, juror, anotherJuror]) => {
           const receipt = await registry.unstake(amount, data, { from })
 
           assertAmountOfEvents(receipt, REGISTRY_EVENTS.UNSTAKED)
-          assertEvent(receipt, REGISTRY_EVENTS.UNSTAKED, { user: juror, amount, total: previousTotalStake.sub(amount), data })
+          assertEvent(receipt, REGISTRY_EVENTS.UNSTAKED, { expectedArgs: { user: juror, amount, total: previousTotalStake.sub(amount), data } })
         })
 
         if (deactivationAmount.gt(bn(0))) {
@@ -1108,7 +1104,7 @@ contract('JurorsRegistry', ([_, juror, anotherJuror]) => {
             const receipt = await registry.unstake(amount, data, { from })
 
             assertAmountOfEvents(receipt, REGISTRY_EVENTS.JUROR_DEACTIVATION_PROCESSED)
-            assertEvent(receipt, REGISTRY_EVENTS.JUROR_DEACTIVATION_PROCESSED, { juror, amount: deactivationAmount, availableTermId, processedTermId: termId })
+            assertEvent(receipt, REGISTRY_EVENTS.JUROR_DEACTIVATION_PROCESSED, { expectedArgs: { juror, amount: deactivationAmount, availableTermId, processedTermId: termId } })
           })
         }
       }

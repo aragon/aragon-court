@@ -1,16 +1,12 @@
-const { bn } = require('../../helpers/lib/numbers')
-const { assertBn } = require('../../helpers/asserts/assertBn')
-const { buildHelper } = require('../../helpers/wrappers/court')(web3, artifacts)
-const { assertRevert } = require('../../helpers/asserts/assertThrow')
+const { ZERO_BYTES32, NOW, ONE_DAY, NEXT_WEEK, bn } = require('@aragon/contract-helpers-test')
+const { assertRevert, assertBn, assertAmountOfEvents, assertEvent } = require('@aragon/contract-helpers-test/src/asserts')
+
+const { buildHelper } = require('../../helpers/wrappers/court')
 const { CLOCK_EVENTS } = require('../../helpers/utils/events')
-const { NEXT_WEEK, NOW, ONE_DAY } = require('../../helpers/lib/time')
 const { CLOCK_ERRORS, CONTROLLER_ERRORS } = require('../../helpers/utils/errors')
-const { assertAmountOfEvents, assertEvent } = require('../../helpers/asserts/assertEvent')
 
 contract('Controller', ([_, someone, configGovernor]) => {
   let courtHelper, controller
-
-  const EMPTY_RANDOMNESS = '0x0000000000000000000000000000000000000000000000000000000000000000'
 
   beforeEach('build helper', () => {
     courtHelper = buildHelper()
@@ -47,7 +43,7 @@ contract('Controller', ([_, someone, configGovernor]) => {
 
         assertBn(startTime, firstTermStartTime.sub(termDuration), 'term zero start time does not match')
         assertBn(randomnessBN, 0, 'zero term randomness block number should not be computed')
-        assert.equal(randomness, EMPTY_RANDOMNESS, 'zero term randomness should not be computed')
+        assert.equal(randomness, ZERO_BYTES32, 'zero term randomness should not be computed')
       })
 
       it('does not require a term transition', async () => {
@@ -97,8 +93,8 @@ contract('Controller', ([_, someone, configGovernor]) => {
 
         const receipt = await controller.heartbeat(maxTransitionTerms)
 
-        assertAmountOfEvents(receipt, CLOCK_EVENTS.HEARTBEAT, 1)
-        assertEvent(receipt, CLOCK_EVENTS.HEARTBEAT, { previousTermId, currentTermId: previousTermId.add(bn(expectedTransitions)) })
+        assertAmountOfEvents(receipt, CLOCK_EVENTS.HEARTBEAT, { expectedAmount: 1 })
+        assertEvent(receipt, CLOCK_EVENTS.HEARTBEAT, { expectedArgs: { previousTermId, currentTermId: previousTermId.add(bn(expectedTransitions)) } })
       })
 
       it(`initializes ${expectedTransitions} new terms`, async () => {
@@ -113,7 +109,7 @@ contract('Controller', ([_, someone, configGovernor]) => {
 
           assertBn(startTime, firstTermStartTime.add(termDuration.mul(bn(transition - 1))), `start time for term ${termId} does not match`)
           assertBn(randomnessBN, currentBlockNumber.add(bn(1)), `randomness block number for term ${termId} should be the next block number`)
-          assert.equal(randomness, EMPTY_RANDOMNESS, `randomness for term ${termId} should not be computed`)
+          assert.equal(randomness, ZERO_BYTES32, `randomness for term ${termId} should not be computed`)
         }
       })
 
@@ -282,7 +278,7 @@ contract('Controller', ([_, someone, configGovernor]) => {
             const receipt = await controller.delayStartTime(newStartTime, { from })
 
             assertAmountOfEvents(receipt, CLOCK_EVENTS.START_TIME_DELAYED)
-            assertEvent(receipt, CLOCK_EVENTS.START_TIME_DELAYED, { previousStartTime: firstTermStartTime, currentStartTime: newStartTime })
+            assertEvent(receipt, CLOCK_EVENTS.START_TIME_DELAYED, { expectedArgs: { previousStartTime: firstTermStartTime, currentStartTime: newStartTime } })
           })
         })
 

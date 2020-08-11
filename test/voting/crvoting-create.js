@@ -1,11 +1,10 @@
-const { assertBn } = require('../helpers/asserts/assertBn')
+const { decodeEvents } = require('@aragon/contract-helpers-test')
+const { assertRevert, assertBn, assertAmountOfEvents, assertEvent } = require('@aragon/contract-helpers-test/src/asserts')
+
 const { OUTCOMES } = require('../helpers/utils/crvoting')
-const { buildHelper } = require('../helpers/wrappers/court')(web3, artifacts)
-const { assertRevert } = require('../helpers/asserts/assertThrow')
+const { buildHelper } = require('../helpers/wrappers/court')
 const { VOTING_EVENTS } = require('../helpers/utils/events')
-const { decodeEventsOfType } = require('../helpers/lib/decodeEvent')
 const { CONTROLLED_ERRORS, VOTING_ERRORS } = require('../helpers/utils/errors')
-const { assertEvent, assertAmountOfEvents } = require('../helpers/asserts/assertEvent')
 
 const CRVoting = artifacts.require('CRVoting')
 const DisputeManager = artifacts.require('DisputeManagerMockForVoting')
@@ -41,10 +40,10 @@ contract('CRVoting', ([_, someone]) => {
 
           it('emits an event', async () => {
             const receipt = await disputeManager.create(voteId, possibleOutcomes)
-            const logs = decodeEventsOfType(receipt, CRVoting.abi, VOTING_EVENTS.VOTING_CREATED)
+            const logs = decodeEvents(receipt, CRVoting.abi, VOTING_EVENTS.VOTING_CREATED)
 
             assertAmountOfEvents({ logs }, VOTING_EVENTS.VOTING_CREATED)
-            assertEvent({ logs }, VOTING_EVENTS.VOTING_CREATED, { voteId, possibleOutcomes })
+            assertEvent({ logs }, VOTING_EVENTS.VOTING_CREATED, { expectedArgs: { voteId, possibleOutcomes } })
           })
 
           it('considers as valid outcomes any of the possible ones', async () => {

@@ -1,21 +1,16 @@
 const { sha3 } = require('web3-utils')
-const { assertBn } = require('../helpers/asserts/assertBn')
-const { bn, bigExp } = require('../helpers/lib/numbers')
-const { getEventAt } = require('@aragon/test-helpers/events')
-const { buildHelper } = require('../helpers/wrappers/court')(web3, artifacts)
-const { assertRevert } = require('../helpers/asserts/assertThrow')
+const { ZERO_ADDRESS, bn, bigExp, getEventAt, decodeEvents } = require('@aragon/contract-helpers-test')
+const { assertRevert, assertBn, assertAmountOfEvents, assertEvent } = require('@aragon/contract-helpers-test/src/asserts')
+
+const { buildHelper } = require('../helpers/wrappers/court')
 const { simulateDraft } = require('../helpers/utils/registry')
 const { REGISTRY_EVENTS } = require('../helpers/utils/events')
-const { decodeEventsOfType } = require('../helpers/lib/decodeEvent')
 const { CONTROLLED_ERRORS, TREE_ERRORS } = require('../helpers/utils/errors')
 const { ACTIVATE_DATA, countEqualJurors } = require('../helpers/utils/jurors')
-const { assertAmountOfEvents, assertEvent } = require('../helpers/asserts/assertEvent')
 
 const JurorsRegistry = artifacts.require('JurorsRegistryMock')
 const DisputeManager = artifacts.require('DisputeManagerMockForRegistry')
 const ERC20 = artifacts.require('ERC20Mock')
-
-const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
 
 contract('JurorsRegistry', ([_, juror500, juror1000, juror1500, juror2000, juror2500, juror3000, juror3500, juror4000]) => {
   let controller, registry, disputeManager, ANJ
@@ -165,9 +160,9 @@ contract('JurorsRegistry', ([_, juror500, juror1000, juror1500, juror2000, juror
 
         it('does not emit a juror balance locked event', async () => {
           const { receipt } = await draft({ batchRequestedJurors, roundRequestedJurors })
-          const logs = decodeEventsOfType(receipt, JurorsRegistry.abi, REGISTRY_EVENTS.JUROR_BALANCE_LOCKED)
+          const logs = decodeEvents(receipt, JurorsRegistry.abi, REGISTRY_EVENTS.JUROR_BALANCE_LOCKED)
 
-          assertAmountOfEvents({ logs }, REGISTRY_EVENTS.JUROR_BALANCE_LOCKED, 0)
+          assertAmountOfEvents({ logs }, REGISTRY_EVENTS.JUROR_BALANCE_LOCKED, { expectedAmount: 0 })
         })
       }
 
@@ -203,7 +198,7 @@ contract('JurorsRegistry', ([_, juror500, juror1000, juror1500, juror2000, juror
             roundRequestedJurors
           })
 
-          const logs = decodeEventsOfType(receipt, JurorsRegistry.abi, REGISTRY_EVENTS.JUROR_BALANCE_LOCKED)
+          const logs = decodeEvents(receipt, JurorsRegistry.abi, REGISTRY_EVENTS.JUROR_BALANCE_LOCKED)
           assertAmountOfEvents({ logs }, REGISTRY_EVENTS.JUROR_BALANCE_LOCKED, length)
 
           for (let i = 0; i < length; i++) {

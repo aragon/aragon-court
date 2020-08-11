@@ -1,15 +1,12 @@
-const { bigExp } = require('../../helpers/lib/numbers')
-const { assertBn } = require('../../helpers/asserts/assertBn')
-const { buildHelper } = require('../../helpers/wrappers/court')(web3, artifacts)
-const { assertRevert } = require('../../helpers/asserts/assertThrow')
+const { ZERO_ADDRESS, bigExp } = require('@aragon/contract-helpers-test')
+const { assertRevert, assertBn, assertAmountOfEvents, assertEvent } = require('@aragon/contract-helpers-test/src/asserts')
+
+const { buildHelper } = require('../../helpers/wrappers/court')
 const { CONTROLLED_EVENTS } = require('../../helpers/utils/events')
 const { CONTROLLED_ERRORS } = require('../../helpers/utils/errors')
-const { assertAmountOfEvents, assertEvent } = require('../../helpers/asserts/assertEvent')
 
 const ERC20 = artifacts.require('ERC20Mock')
 const ControlledRecoverable = artifacts.require('ControlledRecoverable')
-
-const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
 
 contract('ControlledRecoverable', ([_, fundsGovernor, configGovernor, modulesGovernor, someone, recipient]) => {
   let recoverable, controller
@@ -53,7 +50,7 @@ contract('ControlledRecoverable', ([_, fundsGovernor, configGovernor, modulesGov
           const receipt = await recoverable.recoverFunds(token.address, recipient, { from })
 
           assertAmountOfEvents(receipt, CONTROLLED_EVENTS.RECOVER_FUNDS)
-          assertEvent(receipt, CONTROLLED_EVENTS.RECOVER_FUNDS, { token: token.address, recipient, balance: amount })
+          assertEvent(receipt, CONTROLLED_EVENTS.RECOVER_FUNDS, { expectedArgs: { token: token.address, recipient, balance: amount } })
         })
       })
 

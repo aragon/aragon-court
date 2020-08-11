@@ -1,11 +1,9 @@
-const { assertBn } = require('../helpers/asserts/assertBn')
-const { buildHelper } = require('../helpers/wrappers/court')(web3, artifacts)
-const { assertRevert } = require('../helpers/asserts/assertThrow')
+const { MAX_UINT256, bn, bigExp, decodeEvents } = require('@aragon/contract-helpers-test')
+const { assertRevert, assertBn, assertAmountOfEvents, assertEvent } = require('@aragon/contract-helpers-test/src/asserts')
+
+const { buildHelper } = require('../helpers/wrappers/court')
 const { REGISTRY_EVENTS } = require('../helpers/utils/events')
-const { decodeEventsOfType } = require('../helpers/lib/decodeEvent')
-const { bigExp, bn, MAX_UINT256 } = require('../helpers/lib/numbers')
 const { MATH_ERRORS, CONTROLLED_ERRORS } = require('../helpers/utils/errors')
-const { assertEvent, assertAmountOfEvents } = require('../helpers/asserts/assertEvent')
 
 const JurorsRegistry = artifacts.require('JurorsRegistry')
 const DisputeManager = artifacts.require('DisputeManagerMockForRegistry')
@@ -75,9 +73,9 @@ contract('JurorsRegistry', ([_, juror, someone]) => {
 
     it('does not emit a juror rewarded event', async () => {
       const receipt = await assignmentCall()
-      const logs = decodeEventsOfType(receipt, JurorsRegistry.abi, REGISTRY_EVENTS.JUROR_TOKENS_ASSIGNED)
+      const logs = decodeEvents(receipt, JurorsRegistry.abi, REGISTRY_EVENTS.JUROR_TOKENS_ASSIGNED)
 
-      assertAmountOfEvents({ logs }, REGISTRY_EVENTS.JUROR_TOKENS_ASSIGNED, 0)
+      assertAmountOfEvents({ logs }, REGISTRY_EVENTS.JUROR_TOKENS_ASSIGNED, { expectedAmount: 0 })
     })
   }
 
@@ -144,10 +142,10 @@ contract('JurorsRegistry', ([_, juror, someone]) => {
         const itEmitsAJurorTokensAssignedEvent = (assignmentCall, recipient, amount) => {
           it('emits a juror rewarded event', async () => {
             const receipt = await assignmentCall()
-            const logs = decodeEventsOfType(receipt, JurorsRegistry.abi, REGISTRY_EVENTS.JUROR_TOKENS_ASSIGNED)
+            const logs = decodeEvents(receipt, JurorsRegistry.abi, REGISTRY_EVENTS.JUROR_TOKENS_ASSIGNED)
 
             assertAmountOfEvents({ logs }, REGISTRY_EVENTS.JUROR_TOKENS_ASSIGNED)
-            assertEvent({ logs }, REGISTRY_EVENTS.JUROR_TOKENS_ASSIGNED, { juror: recipient, amount })
+            assertEvent({ logs }, REGISTRY_EVENTS.JUROR_TOKENS_ASSIGNED, { expectedArgs: { juror: recipient, amount } })
           })
         }
 
@@ -204,10 +202,10 @@ contract('JurorsRegistry', ([_, juror, someone]) => {
         const itEmitsAJurorTokensBurnedEvent = (assignmentCall, amount) => {
           it('emits a burned tokens event', async () => {
             const receipt = await assignmentCall()
-            const logs = decodeEventsOfType(receipt, JurorsRegistry.abi, REGISTRY_EVENTS.JUROR_TOKENS_BURNED)
+            const logs = decodeEvents(receipt, JurorsRegistry.abi, REGISTRY_EVENTS.JUROR_TOKENS_BURNED)
 
             assertAmountOfEvents({ logs }, REGISTRY_EVENTS.JUROR_TOKENS_BURNED)
-            assertEvent({ logs }, REGISTRY_EVENTS.JUROR_TOKENS_BURNED, { amount })
+            assertEvent({ logs }, REGISTRY_EVENTS.JUROR_TOKENS_BURNED, { expectedArgs: { amount } })
           })
         }
 

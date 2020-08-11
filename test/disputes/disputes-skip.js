@@ -1,12 +1,11 @@
-const { assertBn } = require('../helpers/asserts/assertBn')
-const { assertRevert } = require('../helpers/asserts/assertThrow')
+const { ZERO_ADDRESS } = require('@aragon/contract-helpers-test')
+const { assertRevert, assertBn } = require('@aragon/contract-helpers-test/src/asserts')
+
 const { DISPUTE_MANAGER_ERRORS } = require('../helpers/utils/errors')
-const { buildHelper, DISPUTE_STATES } = require('../helpers/wrappers/court')(web3, artifacts)
+const { buildHelper, DISPUTE_STATES } = require('../helpers/wrappers/court')
 
 contract('DisputeManager', () => {
   let courtHelper, disputeManager
-
-  const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
 
   const setup = skippedDisputes => {
     beforeEach('setup court', async () => {

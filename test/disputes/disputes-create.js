@@ -1,11 +1,8 @@
-const { assertBn } = require('../helpers/asserts/assertBn')
-const { bn, bigExp } = require('../helpers/lib/numbers')
-const { assertRevert } = require('../helpers/asserts/assertThrow')
-const { NEXT_WEEK, ONE_DAY } = require('../helpers/lib/time')
-const { decodeEventsOfType } = require('../helpers/lib/decodeEvent')
-const { assertAmountOfEvents, assertEvent } = require('../helpers/asserts/assertEvent')
+const { ONE_DAY, NEXT_WEEK, bn, bigExp, decodeEvents } = require('@aragon/contract-helpers-test')
+const { assertRevert, assertBn, assertAmountOfEvents, assertEvent } = require('@aragon/contract-helpers-test/src/asserts')
+
 const { DISPUTE_MANAGER_EVENTS, CLOCK_EVENTS } = require('../helpers/utils/events')
-const { buildHelper, DEFAULTS, DISPUTE_STATES } = require('../helpers/wrappers/court')(web3, artifacts)
+const { buildHelper, DEFAULTS, DISPUTE_STATES } = require('../helpers/wrappers/court')
 const { ARAGON_COURT_ERRORS, CONTROLLED_ERRORS, DISPUTE_MANAGER_ERRORS, CLOCK_ERRORS } = require('../helpers/utils/errors')
 
 const ERC20 = artifacts.require('ERC20Mock')
@@ -61,9 +58,9 @@ contract('DisputeManager', () => {
               it('creates a new dispute', async () => {
                 const receipt = await arbitrable.createDispute(possibleRulings, metadata)
 
-                const logs = decodeEventsOfType(receipt, DisputeManager.abi, DISPUTE_MANAGER_EVENTS.NEW_DISPUTE)
+                const logs = decodeEvents(receipt, DisputeManager.abi, DISPUTE_MANAGER_EVENTS.NEW_DISPUTE)
                 assertAmountOfEvents({ logs }, DISPUTE_MANAGER_EVENTS.NEW_DISPUTE)
-                assertEvent({ logs }, DISPUTE_MANAGER_EVENTS.NEW_DISPUTE, { disputeId: 0, subject: arbitrable.address, draftTermId, jurorsNumber: firstRoundJurorsNumber, metadata })
+                assertEvent({ logs }, DISPUTE_MANAGER_EVENTS.NEW_DISPUTE, { expectedArgs: { disputeId: 0, subject: arbitrable.address, draftTermId, jurorsNumber: firstRoundJurorsNumber, metadata } })
 
                 const { subject, possibleRulings: rulings, state, finalRuling, createTermId } = await courtHelper.getDispute(0)
                 assert.equal(subject, arbitrable.address, 'dispute subject does not match')
@@ -111,7 +108,7 @@ contract('DisputeManager', () => {
 
                 const receipt = await arbitrable.createDispute(possibleRulings, metadata)
 
-                const logs = decodeEventsOfType(receipt, CourtClock.abi, CLOCK_EVENTS.HEARTBEAT)
+                const logs = decodeEvents(receipt, CourtClock.abi, CLOCK_EVENTS.HEARTBEAT)
                 assertAmountOfEvents({ logs }, CLOCK_EVENTS.HEARTBEAT, expectedTermTransitions)
 
                 const currentTermId = await court.getLastEnsuredTermId()

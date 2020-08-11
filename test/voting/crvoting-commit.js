@@ -1,11 +1,10 @@
-const { bn } = require('../helpers/lib/numbers')
-const { assertBn } = require('../helpers/asserts/assertBn')
-const { buildHelper } = require('../helpers/wrappers/court')(web3, artifacts)
-const { assertRevert } = require('../helpers/asserts/assertThrow')
+const { bn } = require('@aragon/contract-helpers-test')
+const { assertRevert, assertBn, assertAmountOfEvents, assertEvent } = require('@aragon/contract-helpers-test/src/asserts')
+
+const { buildHelper } = require('../helpers/wrappers/court')
 const { VOTING_EVENTS } = require('../helpers/utils/events')
 const { OUTCOMES, hashVote } = require('../helpers/utils/crvoting')
 const { DISPUTE_MANAGER_ERRORS, VOTING_ERRORS } = require('../helpers/utils/errors')
-const { assertEvent, assertAmountOfEvents } = require('../helpers/asserts/assertEvent')
 
 const CRVoting = artifacts.require('CRVoting')
 const DisputeManager = artifacts.require('DisputeManagerMockForVoting')
@@ -57,7 +56,7 @@ contract('CRVoting', ([_, voter]) => {
                 const receipt = await voting.commit(voteId, commitment, { from: voter })
 
                 assertAmountOfEvents(receipt, VOTING_EVENTS.VOTE_COMMITTED)
-                assertEvent(receipt, VOTING_EVENTS.VOTE_COMMITTED, { voteId, voter, commitment })
+                assertEvent(receipt, VOTING_EVENTS.VOTE_COMMITTED, { expectedArgs: { voteId, voter, commitment } })
               })
 
               it('does not affect the outcomes tally', async () => {

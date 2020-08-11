@@ -1,10 +1,8 @@
-const { assertBn } = require('../helpers/asserts/assertBn')
-const { bn, bigExp } = require('../helpers/lib/numbers')
-const { assertRevert } = require('../helpers/asserts/assertThrow')
-const { decodeEventsOfType } = require('../helpers/lib/decodeEvent')
-const { buildHelper, DEFAULTS } = require('../helpers/wrappers/court')(web3, artifacts)
+const { bn, bigExp, decodeEvents } = require('@aragon/contract-helpers-test')
+const { assertRevert, assertBn, assertAmountOfEvents, assertEvent } = require('@aragon/contract-helpers-test/src/asserts')
+
+const { buildHelper, DEFAULTS } = require('../helpers/wrappers/court')
 const { DISPUTE_MANAGER_EVENTS } = require('../helpers/utils/events')
-const { assertEvent, assertAmountOfEvents } = require('../helpers/asserts/assertEvent')
 const { DISPUTE_MANAGER_ERRORS, CONTROLLED_ERRORS } = require('../helpers/utils/errors')
 
 const Arbitrable = artifacts.require('ArbitrableMock')
@@ -56,9 +54,9 @@ contract('DisputeManager', ([_, juror500, juror1000, juror1500]) => {
             const { draftTerm } = await courtHelper.getRound(disputeId, 0)
             assertBn(draftTerm, currentTermId.add(bn(1)), 'round draft term does not match')
 
-            const logs = decodeEventsOfType(receipt, DisputeManager.abi, DISPUTE_MANAGER_EVENTS.EVIDENCE_PERIOD_CLOSED)
+            const logs = decodeEvents(receipt, DisputeManager.abi, DISPUTE_MANAGER_EVENTS.EVIDENCE_PERIOD_CLOSED)
             assertAmountOfEvents({ logs }, DISPUTE_MANAGER_EVENTS.EVIDENCE_PERIOD_CLOSED)
-            assertEvent({ logs }, DISPUTE_MANAGER_EVENTS.EVIDENCE_PERIOD_CLOSED, { disputeId, termId: currentTermId })
+            assertEvent({ logs }, DISPUTE_MANAGER_EVENTS.EVIDENCE_PERIOD_CLOSED, { expectedArgs: { disputeId, termId: currentTermId } })
           })
 
           it('cannot be called twice', async () => {

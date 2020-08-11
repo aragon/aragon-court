@@ -11,15 +11,15 @@
   ],
   "scripts": {
     "compile": "truffle compile",
-    "lint": "npm run lint:solidity && npm run lint:js",
+    "lint": "yarn lint:solidity && yarn lint:js",
     "lint:js": "eslint ./test ./scripts ./migrations",
     "lint:solidity": "solium --dir ./contracts",
-    "test": "npm run ganache-cli:test",
-    "test:gas": "GAS_REPORTER=true npm test",
-    "coverage": "SOLIDITY_COVERAGE=true npm run ganache-cli:test",
-    "ganache-cli:test": "./node_modules/@aragon/test-helpers/ganache-cli.sh",
+    "test": "yarn test:ganache-cli",
+    "test:gas": "GAS_REPORTER=true yarn test",
+    "test:ganache-cli": "./node_modules/@aragon/test-helpers/ganache-cli.sh",
+    "coverage": "SOLIDITY_COVERAGE=true yarn test:ganache-cli",
     "abi:extract": "truffle-extract --output abi/ --keys abi",
-    "prepublishOnly": "truffle compile --all && npm run abi:extract -- --no-compile"
+    "prepublishOnly": "truffle compile --all && yarn abi:extract -- --no-compile"
   },
   "pre-push": [
     "lint"

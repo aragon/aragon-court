@@ -1,13 +1,13 @@
+const { bigExp } = require('../helpers/lib/numbers')
 const { assertBn } = require('../helpers/asserts/assertBn')
-const { bn, bigExp } = require('../helpers/lib/numbers')
 const { printTable } = require('../helpers/lib/logging')
 const { buildHelper } = require('../helpers/wrappers/court')(web3, artifacts)
-const { getVoteId, encryptVote, oppositeOutcome, SALT, OUTCOMES } = require('../helpers/utils/crvoting')
+const { getVoteId, hashVote, oppositeOutcome, SALT, OUTCOMES } = require('../helpers/utils/crvoting')
 
 const Arbitrable = artifacts.require('ArbitrableMock')
 
-contract('Court', ([_, sender, drafter, appealMaker, appealTaker, juror500, juror1000, juror1500, juror2000, juror2500, juror3000]) => {
-  let courtHelper, court, voting, controller, costs = {}
+contract('AragonCourt', ([_, sender, drafter, appealMaker, appealTaker, juror500, juror1000, juror1500, juror2000, juror2500, juror3000]) => {
+  let courtHelper, disputeManager, voting, court, costs = {}
 
   const jurors = [
     { address: juror500,  initialActiveBalance: bigExp(500,  18) },
@@ -18,12 +18,11 @@ contract('Court', ([_, sender, drafter, appealMaker, appealTaker, juror500, juro
     { address: juror3000, initialActiveBalance: bigExp(3000, 18) }
   ]
 
-  beforeEach('create court and activate jurors', async () => {
+  before('create court and activate jurors', async () => {
     courtHelper = buildHelper()
     court = await courtHelper.deploy()
-
     voting = courtHelper.voting
-    controller = courtHelper.controller
+    disputeManager = courtHelper.disputeManager
     await courtHelper.activate(jurors)
   })
 
@@ -42,7 +41,7 @@ contract('Court', ([_, sender, drafter, appealMaker, appealTaker, juror500, juro
 
       beforeEach('create arbitrable and approve fee amount', async () => {
         await courtHelper.setTerm(1)
-        arbitrable = await Arbitrable.new(controller.address)
+        arbitrable = await Arbitrable.new(court.address)
         await courtHelper.subscriptions.mockUpToDate(true)
         const { disputeFees } = await courtHelper.getDisputeFees()
         await courtHelper.mintFeeTokens(arbitrable.address, disputeFees)
@@ -50,21 +49,21 @@ contract('Court', ([_, sender, drafter, appealMaker, appealTaker, juror500, juro
 
       context('when the current term is up-to-date', () => {
         beforeEach('assert needed transitions', async () => {
-          const neededTransitions = await controller.getNeededTermTransitions()
+          const neededTransitions = await court.getNeededTermTransitions()
           assertBn(neededTransitions, 0, 'needed transitions does not match')
         })
 
-        itCostsAtMost('createDispute', 239e3, () => arbitrable.createDispute(2, '0x', { from: sender }))
+        itCostsAtMost('createDispute', 297e3, () => arbitrable.createDispute(2, '0x', { from: sender }))
       })
 
       context('when the current term is outdated by one term', () => {
         beforeEach('assert needed transitions', async () => {
           await courtHelper.increaseTimeInTerms(1)
-          const neededTransitions = await controller.getNeededTermTransitions()
+          const neededTransitions = await court.getNeededTermTransitions()
           assertBn(neededTransitions, 1, 'needed transitions does not match')
         })
 
-        itCostsAtMost('createDispute', 295e3, () => arbitrable.createDispute(2, '0x', { from: sender }))
+        itCostsAtMost('createDispute', 329e3, () => arbitrable.createDispute(2, '0x', { from: sender }))
       })
     })
 
@@ -72,51 +71,45 @@ contract('Court', ([_, sender, drafter, appealMaker, appealTaker, juror500, juro
       let disputeId
 
       beforeEach('create dispute and advance to the draft term', async () => {
-        const draftTermId = 2
-        disputeId = await courtHelper.dispute({ draftTermId })
-
-        const lastEnsuredTermId = await controller.getLastEnsuredTermId()
-        await courtHelper.passRealTerms(draftTermId - lastEnsuredTermId)
+        disputeId = await courtHelper.dispute()
 
         // Mock term randomness to make sure we always have the same output for the draft, otherwise this test won't be deterministic
-        await controller.mockSetTermRandomness('0x0000000000000000000000000000000000000000000000000000000000000001')
+        await courtHelper.passRealTerms(1)
+        await court.mockSetTermRandomness('0x0000000000000000000000000000000000000000000000000000000000000001')
       })
 
-      itCostsAtMost('draft', 325e3, () => court.draft(disputeId))
+      itCostsAtMost('draft', 391e3, () => disputeManager.draft(disputeId))
     })
 
     describe('commit', () => {
       let voteId, draftedJurors
 
-      const vote = encryptVote(OUTCOMES.LOW)
+      const vote = hashVote(OUTCOMES.LOW)
 
       beforeEach('create dispute and draft', async () => {
-        const draftTermId = 2, roundId = 0
-        const disputeId = await courtHelper.dispute({ draftTermId })
+        const roundId = 0
+        const disputeId = await courtHelper.dispute()
         voteId = getVoteId(disputeId, roundId)
-
-        // draft, court is already at term previous to dispute start
-        await courtHelper.passTerms(bn(1))
         draftedJurors = await courtHelper.draft({ disputeId, drafter })
       })
 
       context('when the current term is up-to-date', () => {
         beforeEach('assert needed transitions', async () => {
-          const neededTransitions = await controller.getNeededTermTransitions()
+          const neededTransitions = await court.getNeededTermTransitions()
           assertBn(neededTransitions, 0, 'needed transitions does not match')
         })
 
-        itCostsAtMost('commit', 78e3, () => voting.commit(voteId, vote, { from: draftedJurors[0].address }))
+        itCostsAtMost('commit', 108e3, () => voting.commit(voteId, vote, { from: draftedJurors[0].address }))
       })
 
       context('when the current term is outdated by one term', () => {
         beforeEach('assert needed transitions', async () => {
           await courtHelper.increaseTimeInTerms(1)
-          const neededTransitions = await controller.getNeededTermTransitions()
+          const neededTransitions = await court.getNeededTermTransitions()
           assertBn(neededTransitions, 1, 'needed transitions does not match')
         })
 
-        itCostsAtMost('commit', 135e3, () => voting.commit(voteId, vote, { from: draftedJurors[0].address }))
+        itCostsAtMost('commit', 169e3, () => voting.commit(voteId, vote, { from: draftedJurors[0].address }))
       })
     })
 
@@ -126,34 +119,32 @@ contract('Court', ([_, sender, drafter, appealMaker, appealTaker, juror500, juro
       const outcome = OUTCOMES.LOW
 
       beforeEach('create dispute, draft and vote', async () => {
-        const draftTermId = 2, roundId = 0
-        const disputeId = await courtHelper.dispute({ draftTermId })
+        const roundId = 0
+        const disputeId = await courtHelper.dispute()
         voteId = getVoteId(disputeId, roundId)
 
-        // draft, court is already at term previous to dispute start
-        await courtHelper.passTerms(bn(1))
+        // draft and commit
         draftedJurors = await courtHelper.draft({ disputeId, drafter })
-
         await courtHelper.commit({ disputeId, roundId, voters: draftedJurors })
       })
 
       context('when the current term is up-to-date', () => {
         beforeEach('assert needed transitions', async () => {
-          const neededTransitions = await controller.getNeededTermTransitions()
+          const neededTransitions = await court.getNeededTermTransitions()
           assertBn(neededTransitions, 0, 'needed transitions does not match')
         })
 
-        itCostsAtMost('reveal', 104e3, () => voting.reveal(voteId, outcome, SALT, { from: draftedJurors[0].address }))
+        itCostsAtMost('reveal', 138e3, () => voting.reveal(voteId, draftedJurors[0].address, outcome, SALT))
       })
 
       context('when the current term is outdated by one term', () => {
         beforeEach('assert needed transitions', async () => {
           await courtHelper.increaseTimeInTerms(1)
-          const neededTransitions = await controller.getNeededTermTransitions()
+          const neededTransitions = await court.getNeededTermTransitions()
           assertBn(neededTransitions, 1, 'needed transitions does not match')
         })
 
-        itCostsAtMost('reveal', 160e3, () => voting.reveal(voteId, outcome, SALT, { from: draftedJurors[0].address }))
+        itCostsAtMost('reveal', 198e3, () => voting.reveal(voteId, draftedJurors[0].address, outcome, SALT))
       })
     })
 
@@ -161,15 +152,11 @@ contract('Court', ([_, sender, drafter, appealMaker, appealTaker, juror500, juro
       let disputeId, roundId = 0, appealMakerRuling
 
       beforeEach('create dispute, draft and vote', async () => {
-        const draftTermId = 2
-        disputeId = await courtHelper.dispute({ draftTermId })
+        disputeId = await courtHelper.dispute()
         const voteId = getVoteId(disputeId, roundId)
 
-        // draft, court is already at term previous to dispute start
-        await courtHelper.passTerms(bn(1))
+        // draft, commit, and reveal votes
         const draftedJurors = await courtHelper.draft({ disputeId, drafter })
-
-        // commit and reveal votes
         await courtHelper.commit({ disputeId, roundId, voters: draftedJurors })
         await courtHelper.reveal({ disputeId, roundId, voters: draftedJurors })
 
@@ -179,26 +166,26 @@ contract('Court', ([_, sender, drafter, appealMaker, appealTaker, juror500, juro
 
         // mint appeal fees
         const { appealDeposit } = await courtHelper.getAppealFees(disputeId, roundId)
-        await courtHelper.mintAndApproveFeeTokens(appealMaker, court.address, appealDeposit)
+        await courtHelper.mintAndApproveFeeTokens(appealMaker, disputeManager.address, appealDeposit)
       })
 
       context('when the current term is up-to-date', () => {
         beforeEach('assert needed transitions', async () => {
-          const neededTransitions = await controller.getNeededTermTransitions()
+          const neededTransitions = await court.getNeededTermTransitions()
           assertBn(neededTransitions, 0, 'needed transitions does not match')
         })
 
-        itCostsAtMost('createAppeal', 74e3, () => court.createAppeal(disputeId, roundId, appealMakerRuling, { from: appealMaker }))
+        itCostsAtMost('createAppeal', 114e3, () => disputeManager.createAppeal(disputeId, roundId, appealMakerRuling, { from: appealMaker }))
       })
 
       context('when the current term is outdated by one term', () => {
         beforeEach('assert needed transitions', async () => {
           await courtHelper.increaseTimeInTerms(1)
-          const neededTransitions = await controller.getNeededTermTransitions()
+          const neededTransitions = await court.getNeededTermTransitions()
           assertBn(neededTransitions, 1, 'needed transitions does not match')
         })
 
-        itCostsAtMost('createAppeal', 130e3, () => court.createAppeal(disputeId, roundId, appealMakerRuling, { from: appealMaker }))
+        itCostsAtMost('createAppeal', 174e3, () => disputeManager.createAppeal(disputeId, roundId, appealMakerRuling, { from: appealMaker }))
       })
     })
 
@@ -206,14 +193,10 @@ contract('Court', ([_, sender, drafter, appealMaker, appealTaker, juror500, juro
       let disputeId, roundId = 0, appealTakerRuling
 
       beforeEach('create dispute, draft, vote and appeal', async () => {
-        const draftTermId = 2
-        disputeId = await courtHelper.dispute({ draftTermId })
+        disputeId = await courtHelper.dispute()
 
-        // draft, court is already at term previous to dispute start
-        await courtHelper.passTerms(bn(1))
+        // draft, vote and appeal
         const draftedJurors = await courtHelper.draft({ disputeId, drafter })
-
-        // vote and appeal
         await courtHelper.commit({ disputeId, roundId, voters: draftedJurors })
         await courtHelper.reveal({ disputeId, roundId, voters: draftedJurors })
         await courtHelper.appeal({ disputeId, roundId, appealMaker })
@@ -224,26 +207,26 @@ contract('Court', ([_, sender, drafter, appealMaker, appealTaker, juror500, juro
 
         // mint appeal confirmation fees
         const { confirmAppealDeposit } = await courtHelper.getAppealFees(disputeId, roundId)
-        await courtHelper.mintAndApproveFeeTokens(appealTaker, court.address, confirmAppealDeposit)
+        await courtHelper.mintAndApproveFeeTokens(appealTaker, disputeManager.address, confirmAppealDeposit)
       })
 
       context('when the current term is up-to-date', () => {
         beforeEach('assert needed transitions', async () => {
-          const neededTransitions = await controller.getNeededTermTransitions()
+          const neededTransitions = await court.getNeededTermTransitions()
           assertBn(neededTransitions, 0, 'needed transitions does not match')
         })
 
-        itCostsAtMost('confirmAppeal', 159e3, () => court.confirmAppeal(disputeId, roundId, appealTakerRuling, { from: appealTaker }))
+        itCostsAtMost('confirmAppeal', 202e3, () => disputeManager.confirmAppeal(disputeId, roundId, appealTakerRuling, { from: appealTaker }))
       })
 
       context('when the current term is outdated by one term', () => {
         beforeEach('assert needed transitions', async () => {
           await courtHelper.increaseTimeInTerms(1)
-          const neededTransitions = await controller.getNeededTermTransitions()
+          const neededTransitions = await court.getNeededTermTransitions()
           assertBn(neededTransitions, 1, 'needed transitions does not match')
         })
 
-        itCostsAtMost('confirmAppeal', 215e3, () => court.confirmAppeal(disputeId, roundId, appealTakerRuling, { from: appealTaker }))
+        itCostsAtMost('confirmAppeal', 263e3, () => disputeManager.confirmAppeal(disputeId, roundId, appealTakerRuling, { from: appealTaker }))
       })
     })
 
@@ -251,14 +234,11 @@ contract('Court', ([_, sender, drafter, appealMaker, appealTaker, juror500, juro
       let disputeId
 
       beforeEach('create dispute, draft and vote', async () => {
-        const draftTermId = 2, roundId = 0
-        disputeId = await courtHelper.dispute({ draftTermId })
+        const roundId = 0
+        disputeId = await courtHelper.dispute()
 
-        // draft, court is already at term previous to dispute start
-        await courtHelper.passTerms(bn(1))
+        // draft, commit, and reveal votes
         const draftedJurors = await courtHelper.draft({ disputeId, drafter })
-
-        // commit and reveal votes
         await courtHelper.commit({ disputeId, roundId, voters: draftedJurors })
         await courtHelper.reveal({ disputeId, roundId, voters: draftedJurors })
         await courtHelper.passTerms(courtHelper.appealTerms)
@@ -266,21 +246,21 @@ contract('Court', ([_, sender, drafter, appealMaker, appealTaker, juror500, juro
 
       context('when the current term is up-to-date', () => {
         beforeEach('assert needed transitions', async () => {
-          const neededTransitions = await controller.getNeededTermTransitions()
+          const neededTransitions = await court.getNeededTermTransitions()
           assertBn(neededTransitions, 0, 'needed transitions does not match')
         })
 
-        itCostsAtMost('executeRuling', 70e3, () => controller.executeRuling(disputeId))
+        itCostsAtMost('executeRuling', 100e3, () => court.executeRuling(disputeId))
       })
 
       context('when the current term is outdated by one term', () => {
         beforeEach('assert needed transitions', async () => {
           await courtHelper.increaseTimeInTerms(1)
-          const neededTransitions = await controller.getNeededTermTransitions()
+          const neededTransitions = await court.getNeededTermTransitions()
           assertBn(neededTransitions, 1, 'needed transitions does not match')
         })
 
-        itCostsAtMost('executeRuling', 127e3, () => controller.executeRuling(disputeId))
+        itCostsAtMost('executeRuling', 160e3, () => court.executeRuling(disputeId))
       })
     })
 
@@ -288,17 +268,13 @@ contract('Court', ([_, sender, drafter, appealMaker, appealTaker, juror500, juro
       let disputeId, roundId = 0
 
       beforeEach('create dispute, draft and vote', async () => {
-        const draftTermId = 2
-        disputeId = await courtHelper.dispute({ draftTermId })
+        disputeId = await courtHelper.dispute()
 
         // Mock term randomness to make sure we always have the same output for the draft, otherwise this test won't be deterministic
-        await controller.mockSetTermRandomness('0x0000000000000000000000000000000000000000000000000000000000000001')
+        await court.mockSetTermRandomness('0x0000000000000000000000000000000000000000000000000000000000000001')
 
-        // draft, court is already at term previous to dispute start
-        await courtHelper.passTerms(bn(1))
+        // draft, commit and reveal votes
         const draftedJurors = await courtHelper.draft({ disputeId, drafter })
-
-        // commit and reveal votes
         await courtHelper.commit({ disputeId, roundId, voters: draftedJurors })
         await courtHelper.reveal({ disputeId, roundId, voters: draftedJurors })
         await courtHelper.passTerms(courtHelper.appealTerms)
@@ -306,21 +282,21 @@ contract('Court', ([_, sender, drafter, appealMaker, appealTaker, juror500, juro
 
       context('when the current term is up-to-date', () => {
         beforeEach('assert needed transitions', async () => {
-          const neededTransitions = await controller.getNeededTermTransitions()
+          const neededTransitions = await court.getNeededTermTransitions()
           assertBn(neededTransitions, 0, 'needed transitions does not match')
         })
 
-        itCostsAtMost('settlePenalties', 197e3, () => court.settlePenalties(disputeId, roundId, 0))
+        itCostsAtMost('settlePenalties', 299e3, () => disputeManager.settlePenalties(disputeId, roundId, 0))
       })
 
       context('when the current term is outdated by one term', () => {
         beforeEach('assert needed transitions', async () => {
           await courtHelper.increaseTimeInTerms(1)
-          const neededTransitions = await controller.getNeededTermTransitions()
+          const neededTransitions = await court.getNeededTermTransitions()
           assertBn(neededTransitions, 1, 'needed transitions does not match')
         })
 
-        itCostsAtMost('settlePenalties', 254e3, () => court.settlePenalties(disputeId, roundId, 0))
+        itCostsAtMost('settlePenalties', 346e3, () => disputeManager.settlePenalties(disputeId, roundId, 0))
       })
     })
 
@@ -328,38 +304,34 @@ contract('Court', ([_, sender, drafter, appealMaker, appealTaker, juror500, juro
       let disputeId, roundId = 0, draftedJurors
 
       beforeEach('create dispute, draft and vote', async () => {
-        const draftTermId = 2
-        disputeId = await courtHelper.dispute({ draftTermId })
+        disputeId = await courtHelper.dispute()
 
-        // draft, court is already at term previous to dispute start
-        await courtHelper.passTerms(bn(1))
+        // draft, vote and settle penalties
         draftedJurors = await courtHelper.draft({ disputeId, drafter })
-
-        // vote and settle penalties
         draftedJurors = draftedJurors.map(juror => ({ ...juror, outcome: OUTCOMES.LOW }))
         await courtHelper.commit({ disputeId, roundId, voters: draftedJurors })
         await courtHelper.reveal({ disputeId, roundId, voters: draftedJurors })
         await courtHelper.passTerms(courtHelper.appealTerms)
-        await court.settlePenalties(disputeId, roundId, 0)
+        await disputeManager.settlePenalties(disputeId, roundId, 0)
       })
 
       context('when the current term is up-to-date', () => {
         beforeEach('assert needed transitions', async () => {
-          const neededTransitions = await controller.getNeededTermTransitions()
+          const neededTransitions = await court.getNeededTermTransitions()
           assertBn(neededTransitions, 0, 'needed transitions does not match')
         })
 
-        itCostsAtMost('settleReward', 88e3, () => court.settleReward(disputeId, roundId, draftedJurors[0].address))
+        itCostsAtMost('settleReward', 117e3, () => disputeManager.settleReward(disputeId, roundId, draftedJurors[0].address))
       })
 
       context('when the current term is outdated by one term', () => {
         beforeEach('assert needed transitions', async () => {
           await courtHelper.increaseTimeInTerms(1)
-          const neededTransitions = await controller.getNeededTermTransitions()
+          const neededTransitions = await court.getNeededTermTransitions()
           assertBn(neededTransitions, 1, 'needed transitions does not match')
         })
 
-        itCostsAtMost('settleReward', 88e3, () => court.settleReward(disputeId, roundId, draftedJurors[0].address))
+        itCostsAtMost('settleReward', 117e3, () => disputeManager.settleReward(disputeId, roundId, draftedJurors[0].address))
       })
     })
 
@@ -367,14 +339,10 @@ contract('Court', ([_, sender, drafter, appealMaker, appealTaker, juror500, juro
       let disputeId, roundId = 0
 
       beforeEach('create dispute, draft and vote', async () => {
-        const draftTermId = 2
-        disputeId = await courtHelper.dispute({ draftTermId })
+        disputeId = await courtHelper.dispute()
 
-        // draft, court is already at term previous to dispute start
-        await courtHelper.passTerms(bn(1))
+        // draft, vote and appeal first round
         const draftedJurors = await courtHelper.draft({ disputeId, drafter })
-
-        // vote and appeal first round
         await courtHelper.commit({ disputeId, roundId, voters: draftedJurors })
         await courtHelper.reveal({ disputeId, roundId, voters: draftedJurors })
         await courtHelper.appeal({ disputeId, roundId, appealMaker })
@@ -388,26 +356,26 @@ contract('Court', ([_, sender, drafter, appealMaker, appealTaker, juror500, juro
         await courtHelper.passTerms(courtHelper.appealTerms.add(courtHelper.appealConfirmTerms))
 
         // settle first round penalties
-        await court.settlePenalties(disputeId, roundId, 0)
+        await disputeManager.settlePenalties(disputeId, roundId, 0)
       })
 
       context('when the current term is up-to-date', () => {
         beforeEach('assert needed transitions', async () => {
-          const neededTransitions = await controller.getNeededTermTransitions()
+          const neededTransitions = await court.getNeededTermTransitions()
           assertBn(neededTransitions, 0, 'needed transitions does not match')
         })
 
-        itCostsAtMost('settleAppealDeposit', 82e3, () => court.settleAppealDeposit(disputeId, roundId))
+        itCostsAtMost('settleAppealDeposit', 109e3, () => disputeManager.settleAppealDeposit(disputeId, roundId))
       })
 
       context('when the current term is outdated by one term', () => {
         beforeEach('assert needed transitions', async () => {
           await courtHelper.increaseTimeInTerms(1)
-          const neededTransitions = await controller.getNeededTermTransitions()
+          const neededTransitions = await court.getNeededTermTransitions()
           assertBn(neededTransitions, 1, 'needed transitions does not match')
         })
 
-        itCostsAtMost('settleAppealDeposit', 82e3, () => court.settleAppealDeposit(disputeId, roundId))
+        itCostsAtMost('settleAppealDeposit', 109e3, () => disputeManager.settleAppealDeposit(disputeId, roundId))
       })
     })
   })

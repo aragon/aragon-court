@@ -1,9 +1,14 @@
 {
   "name": "@aragon/court",
-  "version": "1.0.0",
+  "version": "1.1.3",
   "description": "Aragon Court",
   "author": "Aragon Association",
   "license": "GPL-3.0",
+  "files": [
+    "/abi",
+    "/build",
+    "/contracts"
+  ],
   "scripts": {
     "compile": "truffle compile",
     "lint": "npm run lint:solidity && npm run lint:js",
@@ -12,7 +17,9 @@
     "test": "npm run ganache-cli:test",
     "test:gas": "GAS_REPORTER=true npm test",
     "coverage": "SOLIDITY_COVERAGE=true npm run ganache-cli:test",
-    "ganache-cli:test": "./ganache-cli.sh"
+    "ganache-cli:test": "./ganache-cli.sh",
+    "abi:extract": "truffle-extract --output abi/ --keys abi",
+    "prepublishOnly": "truffle compile --all && npm run abi:extract -- --no-compile"
   },
   "pre-push": [
     "lint"
@@ -29,12 +36,13 @@
     "eslint-plugin-standard": "^4.0.0",
     "eslint-plugin-unused-imports": "^0.1.0",
     "eth-gas-reporter": "^0.2.9",
-    "ganache-cli": "^6.4.5",
+    "ganache-cli": "^6.9.0",
     "memdown": "^5.1.0",
     "pre-push": "^0.1.1",
     "solidity-coverage": "0.5.8",
     "solium": "^1.2.3",
     "truffle": "^5.0.34",
+    "truffle-extract": "^1.2.1",
     "web3": "^1.2.1",
     "web3-eth-abi": "1.0.0-beta.33"
   }

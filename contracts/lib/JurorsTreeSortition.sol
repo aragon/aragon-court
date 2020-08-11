@@ -78,15 +78,10 @@ library JurorsTreeSortition {
         returns (uint256 low, uint256 high)
     {
         uint256 totalActiveBalance = tree.getRecentTotalAt(_termId);
-        // No need for SafeMath: the number of round requested jurors is always ensured to be greater than zero in the Court config
-        low = _selectedJurors.mul(totalActiveBalance) / _roundRequestedJurors;
+        low = _selectedJurors.mul(totalActiveBalance).div(_roundRequestedJurors);
 
-        // No need for SafeMath: these are originally uint64
-        uint256 newSelectedJurors = _selectedJurors + _batchRequestedJurors;
-
-        // This function assumes that `_roundRequestedJurors` is greater than or equal to `newSelectedJurors`
-        // Besides, _roundRequestedJurors can't be zero because firstRoundJurorsNumber and appealStepFactor are checked in Court config
-        high = newSelectedJurors.mul(totalActiveBalance) / _roundRequestedJurors;
+        uint256 newSelectedJurors = _selectedJurors.add(_batchRequestedJurors);
+        high = newSelectedJurors.mul(totalActiveBalance).div(_roundRequestedJurors);
     }
 
     /**
@@ -128,9 +123,7 @@ library JurorsTreeSortition {
 
             // Compute a random active balance to be searched in the jurors tree using the generated seed within the
             // boundaries computed for the current batch.
-            // No need for SafeMath: note that the computed balance will be always lower than or equal to the high batch bound given
-            // since low + seed % (high - low) <= low + (high - low) <= high.
-            balances[batchJurorNumber] = _lowBatchBound + uint256(seed) % interval;
+            balances[batchJurorNumber] = _lowBatchBound.add(uint256(seed) % interval);
 
             // Make sure it's ordered, flip values if necessary
             for (uint256 i = batchJurorNumber; i > 0 && balances[i] < balances[i - 1]; i--) {

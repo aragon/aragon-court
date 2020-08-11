@@ -1,4 +1,4 @@
-const { bigExp } = require('../test/helpers/lib/numbers')
+const { bn, bigExp } = require('../test/helpers/lib/numbers')
 const { printTable } = require('../test/helpers/lib/logging')
 const { getEventArgument } = require('@aragon/test-helpers/events')
 
@@ -47,7 +47,6 @@ async function insert(tree, values) {
 async function search(tree, jurorsNumber, batches) {
   const searchGasCosts = []
   const values = await computeSearchValues(tree, jurorsNumber, batches)
-
   for (let batch = 0; batch < batches; batch++) {
     const batchSearchValues = values[batch]
     const receipt = await tree.search(batchSearchValues, 0)
@@ -60,9 +59,9 @@ async function search(tree, jurorsNumber, batches) {
 async function computeSearchValues(tree, jurorsNumber, batches) {
   const searchValues = []
   const total = (await tree.total()).div(bigExp(1, 18))
-  const step = total.divToInt(jurorsNumber)
+  const step = total.div(bn(jurorsNumber)).sub(bn(1))
   for (let i = 1; i <= jurorsNumber; i++) {
-    const value = step.mul(i)
+    const value = step.mul(bn(i))
     searchValues.push(bigExp(value, 18))
   }
 

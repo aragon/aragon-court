@@ -1,33 +1,41 @@
 pragma solidity ^0.5.8;
 
-import "../../court/Court.sol";
-import "../../standards/ERC165.sol";
 import "../../arbitration/IArbitrable.sol";
-import "../../controller/oracle/IDisputeResolutionOracle.sol";
+import "../../arbitration/IArbitrator.sol";
 
 
-contract ArbitrableMock is IArbitrable, ERC165 {
-    bytes4 private constant ARBITRABLE_INTERFACE_ID = bytes4(0x311a6c56);
+contract ArbitrableMock is IArbitrable {
+    bytes4 public constant ERC165_INTERFACE = ERC165_INTERFACE_ID;
+    bytes4 public constant ARBITRABLE_INTERFACE = ARBITRABLE_INTERFACE_ID;
 
-    event Ruled(address indexed oracle, uint256 indexed disputeId, uint256 ruling);
+    IArbitrator internal arbitrator;
 
-    IDisputeResolutionOracle internal oracle;
+    constructor (IArbitrator _arbitrator) public {
+        arbitrator = _arbitrator;
+    }
 
-    constructor (IDisputeResolutionOracle _oracle) public {
-        oracle = _oracle;
+    function interfaceId() external pure returns (bytes4) {
+        IArbitrable iArbitrable;
+        return iArbitrable.submitEvidence.selector ^ iArbitrable.rule.selector;
     }
 
     function createDispute(uint8 _possibleRulings, bytes calldata _metadata) external {
-        (address recipient, ERC20 feeToken, uint256 disputeFees) = oracle.getDisputeFees();
+        (address recipient, ERC20 feeToken, uint256 disputeFees) = arbitrator.getDisputeFees();
         feeToken.approve(recipient, disputeFees);
-        oracle.createDispute(_possibleRulings, _metadata);
+        arbitrator.createDispute(_possibleRulings, _metadata);
+    }
+
+    function submitEvidence(uint256 _disputeId, bytes calldata _evidence, bool _finished) external {
+        emit EvidenceSubmitted(arbitrator, _disputeId, msg.sender, _evidence, _finished);
+        if (_finished) arbitrator.closeEvidencePeriod(_disputeId);
     }
 
     function rule(uint256 _disputeId, uint256 _ruling) external {
-        emit Ruled(msg.sender, _disputeId, _ruling);
+        emit Ruled(IArbitrator(msg.sender), _disputeId, _ruling);
     }
 
-    function supportsInterface(bytes4 _interfaceId) external pure returns (bool) {
-        return _interfaceId == ARBITRABLE_INTERFACE_ID;
+    function interfaceID() external pure returns (bytes4) {
+        IArbitrable arbitrable;
+        return arbitrable.submitEvidence.selector ^ arbitrable.rule.selector;
     }
 }

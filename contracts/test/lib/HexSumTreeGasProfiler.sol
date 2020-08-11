@@ -7,9 +7,6 @@ contract HexSumTreeGasProfiler {
     using HexSumTree for HexSumTree.Tree;
     using Checkpointing for Checkpointing.History;
 
-    uint256 private constant BASE_KEY = 0;
-    uint256 private constant CHILDREN = 16;
-    uint256 private constant ITEMS_LEVEL = 0;
     uint256 private constant BITS_IN_NIBBLE = 4;
 
     HexSumTree.Tree internal tree;

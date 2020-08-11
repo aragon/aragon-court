@@ -403,7 +403,7 @@ contract('HexSumTree', () => {
 
           it('reverts', async () => {
             await assertRevert(tree.update(key, time + 1, 2, true), CHECKPOINT_ERRORS.VALUE_TOO_BIG)
-            await assertRevert(tree.update(key, time + 1, MAX_UINT256, true), TREE_ERRORS.UPDATE_OVERFLOW)
+            await assertRevert(tree.update(key, time + 1, MAX_UINT256, true), MATH_ERRORS.ADD_OVERFLOW)
             await assertRevert(tree.update(key, time + 1, MAX_UINT256, false), MATH_ERRORS.SUB_UNDERFLOW)
             await assertRevert(tree.update(key, time + 1, MAX_UINT256.sub(bn(1)), false), MATH_ERRORS.SUB_UNDERFLOW)
           })

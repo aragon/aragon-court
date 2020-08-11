@@ -10,6 +10,7 @@ module.exports = artifacts => {
       jurorFee: config.jurorFee.add(bigExp(iteration * 10, 18)),
       draftFee: config.draftFee.add(bigExp(iteration * 10, 18)),
       settleFee: config.settleFee.add(bigExp(iteration * 10, 18)),
+      evidenceTerms: config.evidenceTerms.add(bn(iteration)),
       commitTerms: config.commitTerms.add(bn(iteration)),
       revealTerms: config.revealTerms.add(bn(iteration)),
       appealTerms: config.appealTerms.add(bn(iteration)),

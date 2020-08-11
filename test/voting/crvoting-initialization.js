@@ -1,4 +1,4 @@
-const { buildHelper } = require('../helpers/wrappers/controller')(web3, artifacts)
+const { buildHelper } = require('../helpers/wrappers/court')(web3, artifacts)
 const { assertRevert } = require('../helpers/asserts/assertThrow')
 const { CONTROLLED_ERRORS } = require('../helpers/utils/errors')
 
@@ -6,7 +6,7 @@ const CRVoting = artifacts.require('CRVoting')
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
 
-contract('CRVoting initialization', ([_, someone]) => {
+contract('CRVoting', ([_, someone]) => {
   let controller
 
   beforeEach('create base contracts', async () => {

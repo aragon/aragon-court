@@ -2,9 +2,11 @@ const ARBITRABLE_EVENTS = {
   RULED: 'Ruled'
 }
 
-const COURT_EVENTS = {
+const DISPUTE_MANAGER_EVENTS = {
   DISPUTE_STATE_CHANGED: 'DisputeStateChanged',
   NEW_DISPUTE: 'NewDispute',
+  JUROR_DRAFTED: 'JurorDrafted',
+  EVIDENCE_PERIOD_CLOSED: 'EvidencePeriodClosed',
   RULING_APPEALED: 'RulingAppealed',
   RULING_APPEAL_CONFIRMED: 'RulingAppealConfirmed',
   RULING_COMPUTED: 'RulingComputed',
@@ -26,12 +28,15 @@ const REGISTRY_EVENTS = {
   UNSTAKED: 'Unstaked',
   SLASHED: 'Slashed',
   COLLECTED: 'Collected',
-  JUROR_DRAFTED: 'JurorDrafted',
   JUROR_ACTIVATED: 'JurorActivated',
   JUROR_DEACTIVATION_REQUESTED: 'JurorDeactivationRequested',
   JUROR_DEACTIVATION_PROCESSED: 'JurorDeactivationProcessed',
   JUROR_DEACTIVATION_UPDATED: 'JurorDeactivationUpdated',
-  JUROR_AVAILABLE_BALANCE_CHANGED: 'JurorAvailableBalanceChanged',
+  JUROR_BALANCE_LOCKED: 'JurorBalanceLocked',
+  JUROR_BALANCE_UNLOCKED: 'JurorBalanceUnlocked',
+  JUROR_SLASHED: 'JurorSlashed',
+  JUROR_TOKENS_BURNED: 'JurorTokensBurned',
+  JUROR_TOKENS_ASSIGNED: 'JurorTokensAssigned',
   JUROR_TOKENS_COLLECTED: 'JurorTokensCollected',
   TOTAL_ACTIVE_BALANCE_LIMIT_CHANGED: 'TotalActiveBalanceLimitChanged'
 }
@@ -51,7 +56,8 @@ const SUBSCRIPTIONS_EVENTS = {
   PRE_PAYMENT_PERIODS_CHANGED: 'PrePaymentPeriodsChanged',
   GOVERNOR_SHARE_PCT_CHANGED: 'GovernorSharePctChanged',
   LATE_PAYMENT_PENALTY_CHANGED: 'LatePaymentPenaltyPctChanged',
-  RESUME_PENALTIES_CHANGED: 'ResumePenaltiesChanged'
+  RESUME_PENALTIES_CHANGED: 'ResumePenaltiesChanged',
+  APP_FEE_PAID: 'AppFeePaid'
 }
 
 const CONTROLLER_EVENTS = {
@@ -76,7 +82,7 @@ const CLOCK_EVENTS = {
 }
 
 module.exports = {
-  COURT_EVENTS,
+  DISPUTE_MANAGER_EVENTS,
   VOTING_EVENTS,
   REGISTRY_EVENTS,
   TREASURY_EVENTS,

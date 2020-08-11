@@ -1,32 +1,36 @@
 const { assertBn } = require('../helpers/asserts/assertBn')
-const { buildHelper } = require('../helpers/wrappers/controller')(web3, artifacts)
-const { SALT, OUTCOMES, encryptVote } = require('../helpers/utils/crvoting')
+const { buildHelper } = require('../helpers/wrappers/court')(web3, artifacts)
+const { SALT, OUTCOMES, hashVote } = require('../helpers/utils/crvoting')
 
 const CRVoting = artifacts.require('CRVoting')
-const Court = artifacts.require('CourtMockForVoting')
+const Court = artifacts.require('DisputeManagerMockForVoting')
 
 const POSSIBLE_OUTCOMES = 2
 
 contract('CRVoting', ([_, voterWeighted1, voterWeighted2, voterWeighted3, voterWeighted10, voterWeighted12, voterWeighted13, someone]) => {
-  let controller, voting, court, voteId = 0
+  let controller, voting, disputeManager, voteId = 0
+
+  before('create base contracts', async () => {
+    controller = await buildHelper().deploy()
+    disputeManager = await Court.new(controller.address)
+    await controller.setDisputeManager(disputeManager.address)
+  })
 
   beforeEach('create voting', async () => {
-    controller = await buildHelper().deploy()
-
     voting = await CRVoting.new(controller.address)
     await controller.setVoting(voting.address)
+  })
 
-    court = await Court.new(controller.address)
-    await controller.setCourt(court.address)
-    await court.create(voteId, POSSIBLE_OUTCOMES)
+  beforeEach('create vote', async () => {
+    await disputeManager.create(voteId, POSSIBLE_OUTCOMES)
   })
 
   const submitVotes = async votes => {
     for (const voter in votes) {
       const { weight, outcome, reveal, leak } = votes[voter]
-      await court.mockVoterWeight(voter, weight)
-      if (outcome) await voting.commit(voteId, encryptVote(outcome), { from: voter })
-      if (reveal) await voting.reveal(voteId, outcome, SALT, { from: voter })
+      await disputeManager.mockVoterWeight(voter, weight)
+      if (outcome) await voting.commit(voteId, hashVote(outcome), { from: voter })
+      if (reveal) await voting.reveal(voteId, voter, outcome, SALT, { from: someone })
       if (leak) await voting.leak(voteId, voter, outcome, SALT, { from: someone })
     }
   }

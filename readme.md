@@ -1,14 +1,30 @@
-# Aragon Court <img align="right" src="https://raw.githubusercontent.com/aragon/design/master/readme-logo.png" height="80px" /> [![Travis branch](https://img.shields.io/travis/aragon/aragon-court/development.svg?style=for-the-badge)](https://travis-ci.com/aragon/aragon-court/)
+![Aragon Court](./docs/aragon-court.png)
+
+<img align="right" src="https://img.shields.io/travis/aragon/aragon-court/master.svg?style=for-the-badge">
+  <a href="https://travis-ci.com/aragon/aragon-court/"/>
+</img>
+
+## Project
+
+#### 👩‍️ [Become an Aragon Court juror](https://anj.aragon.org)
+Aragon Court is now live on Ethereum mainnet. You can become a juror by staking 10,000 ANJ.
+
+#### ⚖ [Check out the Aragon Court Dashboard](https://court.aragon.org)
+The Aragon Court Dashboard is the central app where all dispute-related information is available for jurors.
+
+#### 📚 [Read the User Guide](https://help.aragon.org/category/47-aragoncourt) 
+Read the user guide if you have any doubts about the Aragon Court protocol, Court Dashboard, or related tools.
+
+## Protocol
 
 #### 📓 [Read the full documentation](/docs)
-
 Aragon Court is a dispute resolution protocol that runs on Ethereum. It's one of the core components of the [Aragon Network](https://aragon.org/network/).
 
 #### 🚧 Project stage: v1 implementation
-After a long research and development phase, Aragon Court's v1 implementation has been frozen. We don't foresee major changes to the mechanism except for security reasons.
+After a long research and development phase, Aragon Court's v1 implementation has been [released](https://www.npmjs.com/package/@aragon/court) and [deployed](https://etherscan.io/address/0xee4650cBe7a2B23701D416f58b41D8B76b617797#code).
 
-#### ⚠️ Security review status: auditing
-The current implementation has been sent out for auditing to an independent security professional. We expect the first audit report to arrive mid-November 2019.
+#### ✅ Security review status: audited
+Aragon Court v1 has already been audited by an independent security professional. You can read the audit report [here](https://github.com/gakonst/publications/blob/master/aragon_court_audit.pdf). 
 
 #### 👋 Get started contributing with a [good first issue](https://github.com/aragon/aragon-court/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22)
 Don't be shy to contribute even the smallest tweak. Everyone will be especially nice and helpful to beginners to help you get started!
@@ -25,9 +41,16 @@ A design goal of the mechanism is to require very few jurors to adjudicate a dis
 
 Even though Aragon Court could theoretically resolve any type of binary dispute, in its first deployments it will be used to arbitrate **Proposal Agreements.** These agreements require entities creating a proposal in an organization to agree to its specific rules around proposal creation, putting some collateral at stake that could be lost if the Court finds the proposal invalid.
 
-This first version of Aragon Court was inspired by [Kleros protocol](https://github.com/kleros/kleros), although major changes to the mechanism were made to increase some important security aspects.
+## Deployed instances
 
+#### Mainnet
+
+The mainnet instance of Aragon Court is deployed at [`0xee4650cBe7a2B23701D416f58b41D8B76b617797`](https://etherscan.io/address/0xee4650cBe7a2B23701D416f58b41D8B76b617797#code)
+
+#### Testing
+
+There are a few testing instances deployed of Aragon Court, please refer to the [testing guide](/docs/8-testing-guide) to have a better understanding on using these.
 
 ## Help shape Aragon Court
 - Discuss in [Aragon Forum](https://forum.aragon.org/tags/dispute-resolution)
-- Join the [#research channel](https://aragon.chat/channel/research) in [Aragon Chat](https://aragon.chat)
+- Join the [Aragon Court channel](https://discord.gg/nxMejdG) on Discord.

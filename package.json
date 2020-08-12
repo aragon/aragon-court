@@ -26,7 +26,7 @@
   ],
   "dependencies": {},
   "devDependencies": {
-    "@aragon/contract-helpers-test": "0.1.0-rc.2",
+    "@aragon/contract-helpers-test": "0.1.0-rc.3",
     "@aragon/truffle-config-v5": "^1.0.0",
     "chai": "^4.2.0",
     "eslint": "^5.6.0",

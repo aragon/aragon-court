@@ -13,6 +13,7 @@ const ERC20 = artifacts.require('ERC20Mock')
 contract('JurorsRegistry', ([_, juror, secondJuror, thirdJuror, anyone]) => {
   let controller, registry, disputeManager, ANJ
 
+  const EMPTY_RANDOMNESS = ZERO_BYTES32
   const MIN_ACTIVE_AMOUNT = bigExp(100, 18)
   const TOTAL_ACTIVE_BALANCE_LIMIT = bigExp(100e6, 18)
   const DRAFT_LOCK_PCT = bn(2000) // 20%
@@ -111,7 +112,7 @@ contract('JurorsRegistry', ([_, juror, secondJuror, thirdJuror, anyone]) => {
             await registry.mockNextDraft(draftedJurors, draftedWeights)
 
             // Draft and make sure mock worked as expected
-            const receipt = await disputeManager.draft(ZERO_BYTES32, 1, 0, 10, 10, DRAFT_LOCK_PCT)
+            const receipt = await disputeManager.draft(EMPTY_RANDOMNESS, 1, 0, 10, 10, DRAFT_LOCK_PCT)
             const { addresses } = getEventAt(receipt, 'Drafted').args
 
             assert.equal(countJuror(addresses, juror), 3, 'first drafted juror weight does not match')

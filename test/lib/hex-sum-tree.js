@@ -1,6 +1,6 @@
-const { assertBn } = require('../helpers/asserts/assertBn')
-const { assertRevert } = require('../helpers/asserts/assertThrow')
-const { bn, MAX_UINT256, MAX_UINT192 } = require('../helpers/lib/numbers')
+const { bn, MAX_UINT256, MAX_UINT192 } = require('@aragon/contract-helpers-test')
+const { assertRevert, assertBn } = require('@aragon/contract-helpers-test/src/asserts')
+
 const { TREE_ERRORS, CHECKPOINT_ERRORS, MATH_ERRORS } = require('../helpers/utils/errors')
 
 const HexSumTree = artifacts.require('HexSumTreeMock')

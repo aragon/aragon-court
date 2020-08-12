@@ -1,8 +1,7 @@
-const { assertBn } = require('../helpers/asserts/assertBn')
-const { bn, bigExp } = require('../helpers/lib/numbers')
-const { buildHelper } = require('../helpers/wrappers/court')(web3, artifacts)
-const { assertRevert } = require('../helpers/asserts/assertThrow')
-const { assertAmountOfEvents } = require('../helpers/asserts/assertEvent')
+const { bn, bigExp } = require('@aragon/contract-helpers-test')
+const { assertRevert, assertBn, assertAmountOfEvents } = require('@aragon/contract-helpers-test/src/asserts')
+
+const { buildHelper } = require('../helpers/wrappers/court')
 const { SUBSCRIPTIONS_ERRORS } = require('../helpers/utils/errors')
 const { SUBSCRIPTIONS_EVENTS } = require('../helpers/utils/events')
 

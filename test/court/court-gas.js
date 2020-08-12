@@ -1,7 +1,8 @@
-const { bigExp } = require('../helpers/lib/numbers')
-const { assertBn } = require('../helpers/asserts/assertBn')
-const { printTable } = require('../helpers/lib/logging')
-const { buildHelper } = require('../helpers/wrappers/court')(web3, artifacts)
+const { bigExp } = require('@aragon/contract-helpers-test')
+const { assertBn } = require('@aragon/contract-helpers-test/src/asserts')
+
+const { printTable } = require('../helpers/utils/logging')
+const { buildHelper } = require('../helpers/wrappers/court')
 const { getVoteId, hashVote, oppositeOutcome, SALT, OUTCOMES } = require('../helpers/utils/crvoting')
 
 const Arbitrable = artifacts.require('ArbitrableMock')

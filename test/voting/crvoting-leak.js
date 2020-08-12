@@ -1,11 +1,10 @@
-const { bn } = require('../helpers/lib/numbers')
-const { assertBn } = require('../helpers/asserts/assertBn')
-const { buildHelper } = require('../helpers/wrappers/court')(web3, artifacts)
-const { assertRevert } = require('../helpers/asserts/assertThrow')
+const { bn } = require('@aragon/contract-helpers-test')
+const { assertRevert, assertBn, assertAmountOfEvents, assertEvent } = require('@aragon/contract-helpers-test/src/asserts')
+
+const { buildHelper } = require('../helpers/wrappers/court')
 const { VOTING_ERRORS } = require('../helpers/utils/errors')
 const { VOTING_EVENTS } = require('../helpers/utils/events')
 const { SALT, OUTCOMES, hashVote } = require('../helpers/utils/crvoting')
-const { assertEvent, assertAmountOfEvents } = require('../helpers/asserts/assertEvent')
 
 const CRVoting = artifacts.require('CRVoting')
 const Court = artifacts.require('DisputeManagerMockForVoting')
@@ -73,7 +72,7 @@ contract('CRVoting leak', ([_, voter, someone]) => {
                     const receipt = await voting.leak(voteId, voter, outcome, salt, { from: someone })
 
                     assertAmountOfEvents(receipt, VOTING_EVENTS.VOTE_LEAKED)
-                    assertEvent(receipt, VOTING_EVENTS.VOTE_LEAKED, { voteId, voter, outcome, leaker: someone })
+                    assertEvent(receipt, VOTING_EVENTS.VOTE_LEAKED, { expectedArgs: { voteId, voter, outcome, leaker: someone } })
                   })
 
                   it('does not affect the outcomes tally', async () => {

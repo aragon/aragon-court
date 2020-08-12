@@ -1,5 +1,5 @@
 const { assertBn } = require('../helpers/asserts/assertBn')
-const { bn, bigExp } = require('../helpers/lib/numbers')
+const { bn } = require('../helpers/lib/numbers')
 const { buildHelper } = require('../helpers/wrappers/court')(web3, artifacts)
 const { assertRevert } = require('../helpers/asserts/assertThrow')
 const { CONTROLLED_ERRORS, SUBSCRIPTIONS_ERRORS } = require('../helpers/utils/errors')
@@ -12,7 +12,6 @@ const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
 contract('CourtSubscriptions', ([_, someone]) => {
   let controller
 
-  const FEE_AMOUNT = bigExp(10, 18)
   const PERIOD_DURATION = 24 * 30           // 30 days, assuming terms are 1h
   const GOVERNOR_SHARE_PCT = bn(100)        // 100‱ = 1%
 
@@ -30,12 +29,11 @@ contract('CourtSubscriptions', ([_, someone]) => {
         })
 
         it('initializes subscriptions correctly', async () => {
-          const subscriptions = await CourtSubscriptions.new(controller.address, PERIOD_DURATION, feeToken.address, FEE_AMOUNT, GOVERNOR_SHARE_PCT)
+          const subscriptions = await CourtSubscriptions.new(controller.address, PERIOD_DURATION, feeToken.address, GOVERNOR_SHARE_PCT)
 
           assert.equal(await subscriptions.getController(), controller.address, 'subscriptions controller does not match')
           assert.equal(await subscriptions.periodDuration(), PERIOD_DURATION, 'subscriptions duration does not match')
           assert.equal(await subscriptions.currentFeeToken(), feeToken.address, 'fee token does not match')
-          assertBn((await subscriptions.currentFeeAmount()), FEE_AMOUNT, 'fee amount does not match')
           assertBn((await subscriptions.governorSharePct()), GOVERNOR_SHARE_PCT, 'governor share pct does not match')
         })
       })
@@ -46,7 +44,7 @@ contract('CourtSubscriptions', ([_, someone]) => {
         const feeToken = ZERO_ADDRESS
 
         it('reverts', async () => {
-          await assertRevert(CourtSubscriptions.new(controller.address, PERIOD_DURATION, feeToken, FEE_AMOUNT, GOVERNOR_SHARE_PCT))
+          await assertRevert(CourtSubscriptions.new(controller.address, PERIOD_DURATION, feeToken, GOVERNOR_SHARE_PCT), SUBSCRIPTIONS_ERRORS.FEE_TOKEN_NOT_CONTRACT)
         })
       })
 
@@ -56,11 +54,12 @@ contract('CourtSubscriptions', ([_, someone]) => {
         before('create fee token', async () => {
           feeToken = await ERC20.new('Subscriptions Fee Token', 'SFT', 18)
         })
+
         context('when the given controller is the zero address', () => {
           const controllerAddress = ZERO_ADDRESS
 
           it('reverts', async () => {
-            await assertRevert(CourtSubscriptions.new(controllerAddress, PERIOD_DURATION, feeToken.address, FEE_AMOUNT, GOVERNOR_SHARE_PCT), CONTROLLED_ERRORS.CONTROLLER_NOT_CONTRACT)
+            await assertRevert(CourtSubscriptions.new(controllerAddress, PERIOD_DURATION, feeToken.address, GOVERNOR_SHARE_PCT), CONTROLLED_ERRORS.CONTROLLER_NOT_CONTRACT)
           })
         })
 
@@ -68,7 +67,7 @@ contract('CourtSubscriptions', ([_, someone]) => {
           const controllerAddress = someone
 
           it('reverts', async () => {
-            await assertRevert(CourtSubscriptions.new(controllerAddress, PERIOD_DURATION, feeToken.address, FEE_AMOUNT, GOVERNOR_SHARE_PCT), CONTROLLED_ERRORS.CONTROLLER_NOT_CONTRACT)
+            await assertRevert(CourtSubscriptions.new(controllerAddress, PERIOD_DURATION, feeToken.address, GOVERNOR_SHARE_PCT), CONTROLLED_ERRORS.CONTROLLER_NOT_CONTRACT)
           })
         })
 
@@ -76,7 +75,7 @@ contract('CourtSubscriptions', ([_, someone]) => {
           const periodDuration = 0
 
           it('reverts', async () => {
-            await assertRevert(CourtSubscriptions.new(controller.address, periodDuration, feeToken.address, FEE_AMOUNT, GOVERNOR_SHARE_PCT), SUBSCRIPTIONS_ERRORS.PERIOD_DURATION_ZERO)
+            await assertRevert(CourtSubscriptions.new(controller.address, periodDuration, feeToken.address, GOVERNOR_SHARE_PCT), SUBSCRIPTIONS_ERRORS.PERIOD_DURATION_ZERO)
           })
         })
 
@@ -84,15 +83,7 @@ contract('CourtSubscriptions', ([_, someone]) => {
           const feeTokenAddress = someone
 
           it('reverts', async () => {
-            await assertRevert(CourtSubscriptions.new(controller.address, PERIOD_DURATION, feeTokenAddress, FEE_AMOUNT, GOVERNOR_SHARE_PCT), SUBSCRIPTIONS_ERRORS.FEE_TOKEN_NOT_CONTRACT)
-          })
-        })
-
-        context('when the given fee amount is zero', () => {
-          const feeAmount = 0
-
-          it('reverts', async () => {
-            await assertRevert(CourtSubscriptions.new(controller.address, PERIOD_DURATION, feeToken.address, feeAmount, GOVERNOR_SHARE_PCT), SUBSCRIPTIONS_ERRORS.FEE_AMOUNT_ZERO)
+            await assertRevert(CourtSubscriptions.new(controller.address, PERIOD_DURATION, feeTokenAddress, GOVERNOR_SHARE_PCT), SUBSCRIPTIONS_ERRORS.FEE_TOKEN_NOT_CONTRACT)
           })
         })
 
@@ -100,7 +91,7 @@ contract('CourtSubscriptions', ([_, someone]) => {
           const governorSharePct = bn(10001)
 
           it('reverts', async () => {
-            await assertRevert(CourtSubscriptions.new(controller.address, PERIOD_DURATION, feeToken.address, FEE_AMOUNT, governorSharePct), SUBSCRIPTIONS_ERRORS.OVERRATED_GOVERNOR_SHARE_PCT)
+            await assertRevert(CourtSubscriptions.new(controller.address, PERIOD_DURATION, feeToken.address, governorSharePct), SUBSCRIPTIONS_ERRORS.OVERRATED_GOVERNOR_SHARE_PCT)
           })
         })
       })

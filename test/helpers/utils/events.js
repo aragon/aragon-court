@@ -47,17 +47,12 @@ const TREASURY_EVENTS = {
 }
 
 const SUBSCRIPTIONS_EVENTS = {
-  FEES_PAID: 'FeesPaid',
+  APP_FEE_PAID: 'AppFeePaid',
   FEES_DONATED: 'FeesDonated',
   FEES_CLAIMED: 'FeesClaimed',
-  GOVERNOR_FEES_TRANSFERRED: 'GovernorFeesTransferred',
   FEE_TOKEN_CHANGED: 'FeeTokenChanged',
-  FEE_AMOUNT_CHANGED: 'FeeAmountChanged',
-  PRE_PAYMENT_PERIODS_CHANGED: 'PrePaymentPeriodsChanged',
-  GOVERNOR_SHARE_PCT_CHANGED: 'GovernorSharePctChanged',
-  LATE_PAYMENT_PENALTY_CHANGED: 'LatePaymentPenaltyPctChanged',
-  RESUME_PENALTIES_CHANGED: 'ResumePenaltiesChanged',
-  APP_FEE_PAID: 'AppFeePaid'
+  GOVERNOR_FEES_TRANSFERRED: 'GovernorFeesTransferred',
+  GOVERNOR_SHARE_PCT_CHANGED: 'GovernorSharePctChanged'
 }
 
 const CONTROLLER_EVENTS = {

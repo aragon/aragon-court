@@ -13,7 +13,7 @@ const JurorsRegistry = artifacts.require('JurorsRegistry')
 const DisputeManager = artifacts.require('DisputeManagerMockForRegistry')
 const ERC20 = artifacts.require('ERC20Mock')
 
-contract('CourtSubscriptions', ([_, payer, subscriberPeriod0, subscriberPeriod1, jurorPeriod0Term1, jurorPeriod0Term3, jurorMidPeriod1]) => {
+contract('CourtSubscriptions', ([_, payer, jurorPeriod0Term1, jurorPeriod0Term3, jurorMidPeriod1, governor]) => {
   let controller, subscriptions, jurorsRegistry, feeToken, jurorToken
 
   const PCT_BASE = bn(10000)
@@ -25,7 +25,7 @@ contract('CourtSubscriptions', ([_, payer, subscriberPeriod0, subscriberPeriod1,
   const TOTAL_ACTIVE_BALANCE_LIMIT = bigExp(100e6, 18)
 
   beforeEach('create base contracts', async () => {
-    controller = await buildHelper().deploy({ minActiveBalance: MIN_JURORS_ACTIVE_TOKENS })
+    controller = await buildHelper().deploy({ configGovernor: governor, minActiveBalance: MIN_JURORS_ACTIVE_TOKENS })
     jurorToken = await ERC20.new('AN Jurors Token', 'ANJ', 18)
 
     jurorsRegistry = await JurorsRegistry.new(controller.address, jurorToken.address, TOTAL_ACTIVE_BALANCE_LIMIT)
@@ -57,7 +57,7 @@ contract('CourtSubscriptions', ([_, payer, subscriberPeriod0, subscriberPeriod1,
 
       const itHandlesClaimingFeesProperly = () => {
         beforeEach('create subscriptions module', async () => {
-          subscriptions = await CourtSubscriptions.new(controller.address, PERIOD_DURATION, feeToken.address, FEE_AMOUNT, GOVERNOR_SHARE_PCT)
+          subscriptions = await CourtSubscriptions.new(controller.address, PERIOD_DURATION, feeToken.address, GOVERNOR_SHARE_PCT)
           await controller.setSubscriptions(subscriptions.address)
         })
 
@@ -68,15 +68,16 @@ contract('CourtSubscriptions', ([_, payer, subscriberPeriod0, subscriberPeriod1,
           const totalCollectedFees = totalFees.sub(governorFees)
           const collectedFeesPeriod0 = totalCollectedFees.div(bn(2))
 
-          beforeEach('subscribe', async () => {
+          beforeEach('pay app fees', async () => {
             await feeToken.generateTokens(payer, totalFees)
             await feeToken.approve(subscriptions.address, totalFees, { from: payer })
+            await subscriptions.setAppFee('0x1234', feeToken.address, FEE_AMOUNT, { from: governor })
 
             await controller.mockSetTerm(PERIOD_DURATION)
-            await subscriptions.payFees(subscriberPeriod0, '0x00', { from: payer })
+            await subscriptions.payAppFees('0x1234', '0x00', { from: payer })
 
             await controller.mockIncreaseTerms(PERIOD_DURATION)
-            await subscriptions.payFees(subscriberPeriod1, '0x01', { from: payer })
+            await subscriptions.payAppFees('0x1234', '0x00', { from: payer })
           })
 
           context('when requesting a past period', () => {

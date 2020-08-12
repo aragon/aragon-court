@@ -16,15 +16,13 @@ const EMPTY_DATA = '0x00'
 contract('Aragon App Fees Cashier', ([_, governor, subscriber]) => {
   let controller, aragonAppFeesCashier, feeToken
 
-  const FEE_AMOUNT = bigExp(10, 18)
   const PERIOD_DURATION = 24 * 30           // 30 days, assuming terms are 1h
   const GOVERNOR_SHARE_PCT = bn(100)        // 100‱ = 1%
 
   beforeEach('create base contracts and subscriptions module', async () => {
     controller = await buildHelper().deploy({ configGovernor: governor })
     feeToken = await ERC20.new('Subscriptions Fee Token', 'SFT', 18)
-
-    aragonAppFeesCashier = await AragonAppFeesCashier.new(controller.address, PERIOD_DURATION, feeToken.address, FEE_AMOUNT, GOVERNOR_SHARE_PCT)
+    aragonAppFeesCashier = await AragonAppFeesCashier.new(controller.address, PERIOD_DURATION, feeToken.address, GOVERNOR_SHARE_PCT)
   })
 
   describe('set and get fees', () => {
@@ -33,9 +31,9 @@ contract('Aragon App Fees Cashier', ([_, governor, subscriber]) => {
 
     const getAppFees = async (appIds, token, amounts) => {
       for (let i = 0; i < appIds.length; i++) {
-        const fee = await aragonAppFeesCashier.getAppFee(appIds[i])
-        assert.equal(fee.token, token, 'token doesn’t match')
-        assertBn(fee.amount, amounts[i], 'amount doesn’t match')
+        const { feeAmount, feeToken } = await aragonAppFeesCashier.getAppFee(appIds[i])
+        assert.equal(feeToken, token, 'token does not match')
+        assertBn(feeAmount, amounts[i], 'amount does not match')
       }
     }
 
@@ -45,14 +43,15 @@ contract('Aragon App Fees Cashier', ([_, governor, subscriber]) => {
       })
 
       it('fails to set fee if token is wrong (but the same as currentFeeToke)', async () => {
-        const newFeeToken = await ERC20.new('Another Fee Token', 'AFT', 18)
         // make sure period token gets fixed
         const amount = bn(1)
         await feeToken.generateTokens(subscriber, amount)
         await feeToken.approve(aragonAppFeesCashier.address, amount, { from: subscriber })
         await aragonAppFeesCashier.donate(amount, { from: subscriber })
-        // set currentFeeToken
-        await aragonAppFeesCashier.setFeeToken(newFeeToken.address, 1, { from: governor })
+
+        // set current fee token
+        const newFeeToken = await ERC20.new('Another Fee Token', 'AFT', 18)
+        await aragonAppFeesCashier.setFeeToken(newFeeToken.address, { from: governor })
 
         await assertRevert(aragonAppFeesCashier.setAppFee(VOTING_APP_ID, newFeeToken.address, 1, { from: governor }), SUBSCRIPTIONS_ERRORS.WRONG_TOKEN)
       })
@@ -70,7 +69,7 @@ contract('Aragon App Fees Cashier', ([_, governor, subscriber]) => {
         await assertRevert(aragonAppFeesCashier.setAppFees(appIds, [feeToken.address], amounts, { from: governor }), SUBSCRIPTIONS_ERRORS.WRONG_TOKENS_LENGTH)
       })
 
-      it('fails to set multiple fees if amounts length doesn’t match', async () => {
+      it('fails to set multiple fees if amounts length does not match', async () => {
         await assertRevert(aragonAppFeesCashier.setAppFees(appIds, [], [1], { from: governor }), SUBSCRIPTIONS_ERRORS.WRONG_AMOUNTS_LENGTH)
       })
 
@@ -78,13 +77,11 @@ contract('Aragon App Fees Cashier', ([_, governor, subscriber]) => {
         const appId = VOTING_APP_ID
         const amount = bigExp(15, 18)
 
-        // set fee
         await aragonAppFeesCashier.setAppFee(appId, feeToken.address, amount, { from: governor })
-
-        // get fee
         const fee = await aragonAppFeesCashier.getAppFee(appId)
-        assert.equal(fee.token, feeToken.address, 'token doesn’t match')
-        assertBn(fee.amount, amount, 'amount doesn’t match')
+
+        assert.equal(fee.feeToken, feeToken.address, 'token does not match')
+        assertBn(fee.feeAmount, amount, 'amount does not match')
       })
 
       it('sets and gets multiple fee', async () => {
@@ -199,7 +196,7 @@ contract('Aragon App Fees Cashier', ([_, governor, subscriber]) => {
 
           const finalBalance = await feeToken.balanceOf(aragonAppFeesCashier.address)
 
-          assertBn(finalBalance, initialBalance.add(amount), 'amount doesn’t match')
+          assertBn(finalBalance, initialBalance.add(amount), 'amount does not match')
 
           assertAmountOfEvents(receipt, SUBSCRIPTIONS_EVENTS.APP_FEE_PAID)
           assertEvent(receipt, SUBSCRIPTIONS_EVENTS.APP_FEE_PAID, { by: subscriber, appId, data: EMPTY_DATA })

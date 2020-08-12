@@ -1,16 +1,14 @@
-const { bn } = require('../../helpers/lib/numbers')
-const { assertBn } = require('../../helpers/asserts/assertBn')
-const { buildHelper } = require('../../helpers/wrappers/court')(web3, artifacts)
-const { assertRevert } = require('../../helpers/asserts/assertThrow')
+const { ZERO_BYTES32, NOW, ONE_DAY, NEXT_WEEK, bn } = require('@aragon/contract-helpers-test')
+const { assertRevert, assertBn, assertAmountOfEvents, assertEvent } = require('@aragon/contract-helpers-test/src/asserts')
+
+const { buildHelper } = require('../../helpers/wrappers/court')
 const { CLOCK_EVENTS } = require('../../helpers/utils/events')
-const { NEXT_WEEK, NOW, ONE_DAY } = require('../../helpers/lib/time')
 const { CLOCK_ERRORS, CONTROLLER_ERRORS } = require('../../helpers/utils/errors')
-const { assertAmountOfEvents, assertEvent } = require('../../helpers/asserts/assertEvent')
 
 contract('Controller', ([_, someone, configGovernor]) => {
   let courtHelper, controller
 
-  const EMPTY_RANDOMNESS = '0x0000000000000000000000000000000000000000000000000000000000000000'
+  const EMPTY_RANDOMNESS = ZERO_BYTES32
 
   beforeEach('build helper', () => {
     courtHelper = buildHelper()
@@ -97,8 +95,8 @@ contract('Controller', ([_, someone, configGovernor]) => {
 
         const receipt = await controller.heartbeat(maxTransitionTerms)
 
-        assertAmountOfEvents(receipt, CLOCK_EVENTS.HEARTBEAT, 1)
-        assertEvent(receipt, CLOCK_EVENTS.HEARTBEAT, { previousTermId, currentTermId: previousTermId.add(bn(expectedTransitions)) })
+        assertAmountOfEvents(receipt, CLOCK_EVENTS.HEARTBEAT, { expectedAmount: 1 })
+        assertEvent(receipt, CLOCK_EVENTS.HEARTBEAT, { expectedArgs: { previousTermId, currentTermId: previousTermId.add(bn(expectedTransitions)) } })
       })
 
       it(`initializes ${expectedTransitions} new terms`, async () => {
@@ -282,7 +280,7 @@ contract('Controller', ([_, someone, configGovernor]) => {
             const receipt = await controller.delayStartTime(newStartTime, { from })
 
             assertAmountOfEvents(receipt, CLOCK_EVENTS.START_TIME_DELAYED)
-            assertEvent(receipt, CLOCK_EVENTS.START_TIME_DELAYED, { previousStartTime: firstTermStartTime, currentStartTime: newStartTime })
+            assertEvent(receipt, CLOCK_EVENTS.START_TIME_DELAYED, { expectedArgs: { previousStartTime: firstTermStartTime, currentStartTime: newStartTime } })
           })
         })
 

@@ -1,11 +1,9 @@
-const { assertBn } = require('../../helpers/asserts/assertBn')
-const { bn, bigExp } = require('../../helpers/lib/numbers')
-const { buildHelper } = require('../../helpers/wrappers/court')(web3, artifacts)
-const { assertRevert } = require('../../helpers/asserts/assertThrow')
-const { NOW, ONE_DAY } = require('../../helpers/lib/time')
+const { NOW, ONE_DAY, bn, bigExp } = require('@aragon/contract-helpers-test')
+const { assertRevert, assertBn, assertAmountOfEvents, assertEvent } = require('@aragon/contract-helpers-test/src/asserts')
+
+const { buildHelper } = require('../../helpers/wrappers/court')
 const { CONFIG_EVENTS } = require('../../helpers/utils/events')
-const { assertConfig, buildNewConfig } = require('../../helpers/utils/config')(artifacts)
-const { assertEvent, assertAmountOfEvents } = require('../../helpers/asserts/assertEvent')
+const { assertConfig, buildNewConfig } = require('../../helpers/utils/config')
 const { CLOCK_ERRORS, CONFIG_ERRORS, CONTROLLER_ERRORS } = require('../../helpers/utils/errors')
 
 contract('Controller', ([_, configGovernor, someone, drafter, appealMaker, appealTaker, juror500, juror1000, juror3000]) => {
@@ -85,7 +83,7 @@ contract('Controller', ([_, configGovernor, someone, drafter, appealMaker, appea
       })
 
       it('cannot use a final round reduction above 100%', async () => {
-        await assertRevert(courtHelper.deploy({ finalRoundReduction: bn(10001) }), CONFIG_ERRORS.INVALID_FINAL_ROUND_RED_PCT)
+        await assertRevert(courtHelper.deploy({ finalRoundReduction: bn(10001) }), CONFIG_ERRORS.INVALID_FINAL_ROUND_REDUCTION_PCT)
       })
 
       it('cannot use an appeal collateral factor zero', async () => {
@@ -160,7 +158,7 @@ contract('Controller', ([_, configGovernor, someone, drafter, appealMaker, appea
 
             it('emits an event', async () => {
               assertAmountOfEvents(receipt, CONFIG_EVENTS.CONFIG_CHANGED)
-              assertEvent(receipt, CONFIG_EVENTS.CONFIG_CHANGED, { fromTermId: configChangeTermId, courtConfigId: 2 })
+              assertEvent(receipt, CONFIG_EVENTS.CONFIG_CHANGED, { expectedArgs: { fromTermId: configChangeTermId, courtConfigId: 2 } })
             })
 
             it('schedules the new config properly', async () => {
@@ -219,7 +217,7 @@ contract('Controller', ([_, configGovernor, someone, drafter, appealMaker, appea
 
             it('cannot use a final round reduction above 100%', async () => {
               newConfig.finalRoundReduction = bn(10001)
-              await assertRevert(courtHelper.setConfig(configChangeTermId, newConfig, { from }), CONFIG_ERRORS.INVALID_FINAL_ROUND_RED_PCT)
+              await assertRevert(courtHelper.setConfig(configChangeTermId, newConfig, { from }), CONFIG_ERRORS.INVALID_FINAL_ROUND_REDUCTION_PCT)
             })
 
             it('cannot use an appeal collateral factor zero', async () => {
@@ -443,7 +441,7 @@ contract('Controller', ([_, configGovernor, someone, drafter, appealMaker, appea
         const receipt = await controller.setAutomaticWithdrawals(true, { from: someone })
 
         assertAmountOfEvents(receipt, CONFIG_EVENTS.AUTOMATIC_WITHDRAWALS_ALLOWED_CHANGED)
-        assertEvent(receipt, CONFIG_EVENTS.AUTOMATIC_WITHDRAWALS_ALLOWED_CHANGED, { holder: someone, allowed: true })
+        assertEvent(receipt, CONFIG_EVENTS.AUTOMATIC_WITHDRAWALS_ALLOWED_CHANGED, { expectedArgs: { holder: someone, allowed: true } })
       })
     })
 
@@ -462,7 +460,7 @@ contract('Controller', ([_, configGovernor, someone, drafter, appealMaker, appea
         const receipt = await controller.setAutomaticWithdrawals(false, { from: someone })
 
         assertAmountOfEvents(receipt, CONFIG_EVENTS.AUTOMATIC_WITHDRAWALS_ALLOWED_CHANGED)
-        assertEvent(receipt, CONFIG_EVENTS.AUTOMATIC_WITHDRAWALS_ALLOWED_CHANGED, { holder: someone, allowed: false })
+        assertEvent(receipt, CONFIG_EVENTS.AUTOMATIC_WITHDRAWALS_ALLOWED_CHANGED, { expectedArgs: { holder: someone, allowed: false } })
       })
     })
   })

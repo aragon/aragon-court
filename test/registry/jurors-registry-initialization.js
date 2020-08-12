@@ -1,13 +1,11 @@
-const { bigExp } = require('../helpers/lib/numbers')
-const { assertBn } = require('../helpers/asserts/assertBn')
-const { buildHelper } = require('../helpers/wrappers/court')(web3, artifacts)
-const { assertRevert } = require('../helpers/asserts/assertThrow')
+const { ZERO_ADDRESS, bigExp } = require('@aragon/contract-helpers-test')
+const { assertRevert, assertBn } = require('@aragon/contract-helpers-test/src/asserts')
+
+const { buildHelper } = require('../helpers/wrappers/court')
 const { CONTROLLED_ERRORS, REGISTRY_ERRORS } = require('../helpers/utils/errors')
 
 const JurorsRegistry = artifacts.require('JurorsRegistry')
 const ERC20 = artifacts.require('ERC20Mock')
-
-const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
 
 contract('JurorsRegistry', ([_, something]) => {
   let controller, ANJ

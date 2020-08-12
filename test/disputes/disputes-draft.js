@@ -1,13 +1,10 @@
-const { assertBn } = require('../helpers/asserts/assertBn')
-const { bn, bigExp } = require('../helpers/lib/numbers')
-const { assertRevert } = require('../helpers/asserts/assertThrow')
-const { advanceBlocks } = require('../helpers/lib/blocks')(web3)
 const { toChecksumAddress } = require('web3-utils')
-const { decodeEventsOfType } = require('../helpers/lib/decodeEvent')
-const { getEventAt, getEvents } = require('@aragon/test-helpers/events')
-const { assertAmountOfEvents, assertEvent } = require('../helpers/asserts/assertEvent')
+const { bn, bigExp, getEventAt, getEvents, decodeEvents } = require('@aragon/contract-helpers-test')
+const { assertRevert, assertBn, assertAmountOfEvents, assertEvent } = require('@aragon/contract-helpers-test/src/asserts')
+
+const { advanceBlocks } = require('../helpers/utils/blocks')
 const { DISPUTE_MANAGER_EVENTS, CLOCK_EVENTS } = require('../helpers/utils/events')
-const { buildHelper, DEFAULTS, DISPUTE_STATES, ROUND_STATES } = require('../helpers/wrappers/court')(web3, artifacts)
+const { buildHelper, DEFAULTS, DISPUTE_STATES, ROUND_STATES } = require('../helpers/wrappers/court')
 const { CLOCK_ERRORS, DISPUTE_MANAGER_ERRORS, CONTROLLED_ERRORS } = require('../helpers/utils/errors')
 
 const DisputeManager = artifacts.require('DisputeManager')
@@ -45,12 +42,12 @@ contract('DisputeManager', ([_, drafter, juror500, juror1000, juror1500, juror20
         it('selects random jurors for the last round of the dispute', async () => {
           const receipt = await disputeManager.draft(disputeId, { from: drafter })
 
-          const logs = decodeEventsOfType(receipt, DisputeManager.abi, DISPUTE_MANAGER_EVENTS.JUROR_DRAFTED)
-          assertAmountOfEvents({ logs }, DISPUTE_MANAGER_EVENTS.JUROR_DRAFTED, expectedDraftedJurors)
+          const logs = decodeEvents(receipt, DisputeManager.abi, DISPUTE_MANAGER_EVENTS.JUROR_DRAFTED)
+          assertAmountOfEvents({ logs }, DISPUTE_MANAGER_EVENTS.JUROR_DRAFTED, { expectedAmount: expectedDraftedJurors })
 
           const jurorsAddresses = jurors.map(j => j.address)
           for (let i = 0; i < expectedDraftedJurors; i++) {
-            assertEvent({ logs }, DISPUTE_MANAGER_EVENTS.JUROR_DRAFTED, { disputeId, roundId })
+            assertEvent({ logs }, DISPUTE_MANAGER_EVENTS.JUROR_DRAFTED, { expectedArgs: { disputeId, roundId } })
             const { juror } = getEventAt({ logs }, DISPUTE_MANAGER_EVENTS.JUROR_DRAFTED, i).args
             assert.isTrue(jurorsAddresses.includes(toChecksumAddress(juror)), 'drafted juror is not included in the list')
           }
@@ -61,7 +58,7 @@ contract('DisputeManager', ([_, drafter, juror500, juror1000, juror1500, juror20
             const receipt = await disputeManager.draft(disputeId, { from: drafter })
 
             assertAmountOfEvents(receipt, DISPUTE_MANAGER_EVENTS.DISPUTE_STATE_CHANGED)
-            assertEvent(receipt, DISPUTE_MANAGER_EVENTS.DISPUTE_STATE_CHANGED, { disputeId, state: DISPUTE_STATES.ADJUDICATING })
+            assertEvent(receipt, DISPUTE_MANAGER_EVENTS.DISPUTE_STATE_CHANGED, { expectedArgs: { disputeId, state: DISPUTE_STATES.ADJUDICATING } })
 
             const { state, finalRuling } = await courtHelper.getDispute(disputeId)
             assertBn(state, DISPUTE_STATES.ADJUDICATING, 'dispute state does not match')
@@ -86,7 +83,7 @@ contract('DisputeManager', ([_, drafter, juror500, juror1000, juror1500, juror20
           it('does not end the dispute draft', async () => {
             const receipt = await disputeManager.draft(disputeId, { from: drafter })
 
-            assertAmountOfEvents(receipt, DISPUTE_MANAGER_EVENTS.DISPUTE_STATE_CHANGED, 0)
+            assertAmountOfEvents(receipt, DISPUTE_MANAGER_EVENTS.DISPUTE_STATE_CHANGED, { expectedAmount: 0 })
 
             const { state, finalRuling } = await courtHelper.getDispute(disputeId)
             assertBn(state, DISPUTE_STATES.PRE_DRAFT, 'dispute state does not match')
@@ -111,7 +108,7 @@ contract('DisputeManager', ([_, drafter, juror500, juror1000, juror1500, juror20
         it('sets the correct state for each juror', async () => {
           const receipt = await disputeManager.draft(disputeId, { from: drafter })
 
-          const logs = decodeEventsOfType(receipt, DisputeManager.abi, DISPUTE_MANAGER_EVENTS.JUROR_DRAFTED)
+          const logs = decodeEvents(receipt, DisputeManager.abi, DISPUTE_MANAGER_EVENTS.JUROR_DRAFTED)
           const events = getEvents({ logs }, DISPUTE_MANAGER_EVENTS.JUROR_DRAFTED)
 
           for (let i = 0; i < jurors.length; i++) {
@@ -155,8 +152,8 @@ contract('DisputeManager', ([_, drafter, juror500, juror1000, juror1500, juror20
             const pendingJurorsToBeDrafted = jurorsToBeDrafted - selectedJurors
             const expectedDraftedJurors = pendingJurorsToBeDrafted < jurorsPerBatch ? pendingJurorsToBeDrafted : jurorsPerBatch
 
-            const logs = decodeEventsOfType(receipt, DisputeManager.abi, DISPUTE_MANAGER_EVENTS.JUROR_DRAFTED)
-            assertAmountOfEvents({ logs }, DISPUTE_MANAGER_EVENTS.JUROR_DRAFTED, expectedDraftedJurors)
+            const logs = decodeEvents(receipt, DisputeManager.abi, DISPUTE_MANAGER_EVENTS.JUROR_DRAFTED)
+            assertAmountOfEvents({ logs }, DISPUTE_MANAGER_EVENTS.JUROR_DRAFTED, { expectedAmount: expectedDraftedJurors })
 
             for (let i = 0; i < expectedDraftedJurors; i++) {
               const { disputeId: eventDisputeId, juror } = getEventAt({ logs }, DISPUTE_MANAGER_EVENTS.JUROR_DRAFTED, i).args
@@ -179,7 +176,7 @@ contract('DisputeManager', ([_, drafter, juror500, juror1000, juror1500, juror20
           }
 
           assertAmountOfEvents(lastReceipt, DISPUTE_MANAGER_EVENTS.DISPUTE_STATE_CHANGED)
-          assertEvent(lastReceipt, DISPUTE_MANAGER_EVENTS.DISPUTE_STATE_CHANGED, { disputeId, state: DISPUTE_STATES.ADJUDICATING })
+          assertEvent(lastReceipt, DISPUTE_MANAGER_EVENTS.DISPUTE_STATE_CHANGED, { expectedArgs: { disputeId, state: DISPUTE_STATES.ADJUDICATING } })
 
           const { state, finalRuling } = await courtHelper.getDispute(disputeId)
           assertBn(state, DISPUTE_STATES.ADJUDICATING, 'dispute state does not match')
@@ -214,7 +211,7 @@ contract('DisputeManager', ([_, drafter, juror500, juror1000, juror1500, juror20
           for (let batch = 0; batch < batches; batch++) {
             const receipt = await disputeManager.draft(disputeId, { from: drafter })
 
-            const logs = decodeEventsOfType(receipt, DisputeManager.abi, DISPUTE_MANAGER_EVENTS.JUROR_DRAFTED)
+            const logs = decodeEvents(receipt, DisputeManager.abi, DISPUTE_MANAGER_EVENTS.JUROR_DRAFTED)
             const events = getEvents({ logs }, DISPUTE_MANAGER_EVENTS.JUROR_DRAFTED)
 
             for (let i = 0; i < jurors.length; i++) {
@@ -403,8 +400,8 @@ contract('DisputeManager', ([_, drafter, juror500, juror1000, juror1500, juror20
               })
 
               it('transitions 1 term', async () => {
-                assertAmountOfEvents(receipt, CLOCK_EVENTS.HEARTBEAT, 1)
-                assertEvent(receipt, CLOCK_EVENTS.HEARTBEAT, { previousTermId: lastEnsuredTermId, currentTermId: lastEnsuredTermId.add(bn(1)) })
+                assertAmountOfEvents(receipt, CLOCK_EVENTS.HEARTBEAT, { expectedAmount: 1 })
+                assertEvent(receipt, CLOCK_EVENTS.HEARTBEAT, { expectedArgs: { previousTermId: lastEnsuredTermId, currentTermId: lastEnsuredTermId.add(bn(1)) } })
               })
 
               itHandlesDraftsProperlyForDifferentBlockNumbers()
@@ -489,7 +486,7 @@ contract('DisputeManager', ([_, drafter, juror500, juror1000, juror1500, juror20
           const receipt = await disputeManager.setMaxJurorsPerDraftBatch(newJurorsPerDraftBatch, { from })
 
           assertAmountOfEvents(receipt, DISPUTE_MANAGER_EVENTS.MAX_JURORS_PER_DRAFT_BATCH_CHANGED)
-          assertEvent(receipt, DISPUTE_MANAGER_EVENTS.MAX_JURORS_PER_DRAFT_BATCH_CHANGED, { previousMaxJurorsPerDraftBatch, currentMaxJurorsPerDraftBatch: newJurorsPerDraftBatch })
+          assertEvent(receipt, DISPUTE_MANAGER_EVENTS.MAX_JURORS_PER_DRAFT_BATCH_CHANGED, { expectedArgs: { previousMaxJurorsPerDraftBatch, currentMaxJurorsPerDraftBatch: newJurorsPerDraftBatch } })
         })
       })
 

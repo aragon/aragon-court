@@ -1,7 +1,7 @@
-const { bn } = require('../helpers/lib/numbers')
-const { assertBn } = require('../helpers/asserts/assertBn')
+const { bn } = require('@aragon/contract-helpers-test')
+const { assertRevert, assertBn } = require('@aragon/contract-helpers-test/src/asserts')
+
 const { TREE_ERRORS } = require('../helpers/utils/errors')
-const { assertRevert } = require('../helpers/asserts/assertThrow')
 const { expectedBounds, simulateComputeSearchRandomBalances, simulateBatchedRandomSearch } = require('../helpers/utils/registry')
 
 const JurorsTreeSortition = artifacts.require('JurorsTreeSortitionMock')

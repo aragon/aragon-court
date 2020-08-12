@@ -1,11 +1,10 @@
-const { assertBn } = require('../helpers/asserts/assertBn')
-const { bn, bigExp } = require('../helpers/lib/numbers')
+const { bn, bigExp } = require('@aragon/contract-helpers-test')
+const { assertRevert, assertBn, assertAmountOfEvents, assertEvent } = require('@aragon/contract-helpers-test/src/asserts')
+
 const { filterJurors } = require('../helpers/utils/jurors')
-const { assertRevert } = require('../helpers/asserts/assertThrow')
 const { VOTING_EVENTS } = require('../helpers/utils/events')
 const { VOTING_ERRORS, DISPUTE_MANAGER_ERRORS } = require('../helpers/utils/errors')
-const { assertAmountOfEvents, assertEvent } = require('../helpers/asserts/assertEvent')
-const { buildHelper, ROUND_STATES, DEFAULTS } = require('../helpers/wrappers/court')(web3, artifacts)
+const { buildHelper, ROUND_STATES, DEFAULTS } = require('../helpers/wrappers/court')
 const { getVoteId, hashVote, outcomeFor, SALT, OUTCOMES } = require('../helpers/utils/crvoting')
 
 contract('DisputeManager', ([_, drafter, juror100, juror500, juror1000, juror1500, juror2000, juror2500, juror3000, juror3500, juror4000]) => {
@@ -137,7 +136,7 @@ contract('DisputeManager', ([_, drafter, juror100, juror500, juror1000, juror150
             it('allows voters to reveal their vote', async () => {
               for (let i = 0; i < voters.length; i++) {
                 const { address, outcome } = voters[i]
-                assertEvent(receipts[i], VOTING_EVENTS.VOTE_REVEALED, { voteId, voter: address, outcome })
+                assertEvent(receipts[i], VOTING_EVENTS.VOTE_REVEALED, { expectedArgs: { voteId, voter: address, outcome } })
               }
             })
 
@@ -322,7 +321,7 @@ contract('DisputeManager', ([_, drafter, juror100, juror500, juror1000, juror150
           it('allows voters to reveal their vote', async () => {
             for (let i = 0; i < voters.length; i++) {
               const { address, outcome } = voters[i]
-              assertEvent(receipts[i], VOTING_EVENTS.VOTE_REVEALED, { voteId, voter: address, outcome })
+              assertEvent(receipts[i], VOTING_EVENTS.VOTE_REVEALED, { expectedArgs: { voteId, voter: address, outcome } })
             }
           })
 

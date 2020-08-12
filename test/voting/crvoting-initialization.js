@@ -1,10 +1,10 @@
-const { buildHelper } = require('../helpers/wrappers/court')(web3, artifacts)
-const { assertRevert } = require('../helpers/asserts/assertThrow')
+const { ZERO_ADDRESS } = require('@aragon/contract-helpers-test')
+const { assertRevert } = require('@aragon/contract-helpers-test/src/asserts')
+
+const { buildHelper } = require('../helpers/wrappers/court')
 const { CONTROLLED_ERRORS } = require('../helpers/utils/errors')
 
 const CRVoting = artifacts.require('CRVoting')
-
-const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
 
 contract('CRVoting', ([_, someone]) => {
   let controller

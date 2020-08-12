@@ -1,6 +1,6 @@
-const { assertBn } = require('../helpers/asserts/assertBn')
-const { MAX_UINT256 } = require('../helpers/lib/numbers')
-const { assertRevert } = require('../helpers/asserts/assertThrow')
+const { MAX_UINT256 } = require('@aragon/contract-helpers-test')
+const { assertRevert, assertBn } = require('@aragon/contract-helpers-test/src/asserts')
+
 const { CHECKPOINT_ERRORS } = require('../helpers/utils/errors')
 
 const Checkpointing = artifacts.require('CheckpointingMock')

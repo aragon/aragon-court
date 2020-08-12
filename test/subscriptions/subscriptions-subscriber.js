@@ -1,5 +1,5 @@
-const { bn } = require('../helpers/lib/numbers')
-const { buildHelper } = require('../helpers/wrappers/court')(web3, artifacts)
+const { bn } = require('@aragon/contract-helpers-test')
+const { buildHelper } = require('../helpers/wrappers/court')
 
 const CourtSubscriptions = artifacts.require('CourtSubscriptions')
 const ERC20 = artifacts.require('ERC20Mock')

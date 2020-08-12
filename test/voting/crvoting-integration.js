@@ -1,14 +1,15 @@
-const { assertBn } = require('../helpers/asserts/assertBn')
-const { buildHelper } = require('../helpers/wrappers/court')(web3, artifacts)
+const { assertBn } = require('@aragon/contract-helpers-test/src/asserts')
+
+const { buildHelper } = require('../helpers/wrappers/court')
 const { SALT, OUTCOMES, hashVote } = require('../helpers/utils/crvoting')
 
 const CRVoting = artifacts.require('CRVoting')
 const Court = artifacts.require('DisputeManagerMockForVoting')
 
-const POSSIBLE_OUTCOMES = 2
-
 contract('CRVoting', ([_, voterWeighted1, voterWeighted2, voterWeighted3, voterWeighted10, voterWeighted12, voterWeighted13, someone]) => {
   let controller, voting, disputeManager, voteId = 0
+
+  const POSSIBLE_OUTCOMES = 2
 
   before('create base contracts', async () => {
     controller = await buildHelper().deploy()

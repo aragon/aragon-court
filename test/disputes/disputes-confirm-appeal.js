@@ -1,11 +1,10 @@
-const { assertBn } = require('../helpers/asserts/assertBn')
-const { bn, bigExp } = require('../helpers/lib/numbers')
-const { assertRevert } = require('../helpers/asserts/assertThrow')
+const { bn, bigExp } = require('@aragon/contract-helpers-test')
+const { assertRevert, assertBn, assertAmountOfEvents, assertEvent } = require('@aragon/contract-helpers-test/src/asserts')
+
 const { DISPUTE_MANAGER_ERRORS } = require('../helpers/utils/errors')
 const { DISPUTE_MANAGER_EVENTS } = require('../helpers/utils/events')
-const { assertAmountOfEvents, assertEvent } = require('../helpers/asserts/assertEvent')
 const { oppositeOutcome, outcomeFor, OUTCOMES } = require('../helpers/utils/crvoting')
-const { buildHelper, DEFAULTS, ROUND_STATES, DISPUTE_STATES } = require('../helpers/wrappers/court')(web3, artifacts)
+const { buildHelper, DEFAULTS, ROUND_STATES, DISPUTE_STATES } = require('../helpers/wrappers/court')
 
 contract('DisputeManager', ([_, drafter, appealMaker, appealTaker, juror500, juror1000, juror1500, juror2000, juror2500, juror3000, juror3500, juror4000]) => {
   let courtHelper, court, disputeManager

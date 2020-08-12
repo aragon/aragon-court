@@ -1,15 +1,12 @@
-const { assertBn } = require('../helpers/asserts/assertBn')
-const { buildHelper } = require('../helpers/wrappers/court')(web3, artifacts)
-const { assertRevert } = require('../helpers/asserts/assertThrow')
+const { ZERO_ADDRESS, MAX_UINT256, bn, bigExp } = require('@aragon/contract-helpers-test')
+const { assertRevert, assertBn, assertAmountOfEvents, assertEvent } = require('@aragon/contract-helpers-test/src/asserts')
+
+const { buildHelper } = require('../helpers/wrappers/court')
 const { TREASURY_EVENTS } = require('../helpers/utils/events')
-const { bn, bigExp, MAX_UINT256 } = require('../helpers/lib/numbers')
-const { assertEvent, assertAmountOfEvents } = require('../helpers/asserts/assertEvent')
 const { TREASURY_ERRORS, CONTROLLED_ERRORS, MATH_ERRORS } = require('../helpers/utils/errors')
 
 const CourtTreasury = artifacts.require('CourtTreasury')
 const ERC20 = artifacts.require('ERC20Mock')
-
-const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
 
 contract('CourtTreasury', ([_, disputeManager, holder, someone]) => {
   let controller, treasury, DAI, ANT
@@ -81,7 +78,7 @@ contract('CourtTreasury', ([_, disputeManager, holder, someone]) => {
               const receipt = await treasury.assign(DAI.address, account, amount, { from })
 
               assertAmountOfEvents(receipt, TREASURY_EVENTS.ASSIGN)
-              assertEvent(receipt, TREASURY_EVENTS.ASSIGN, { from: disputeManager, to: account, token: DAI.address, amount })
+              assertEvent(receipt, TREASURY_EVENTS.ASSIGN, { expectedArgs: { from: disputeManager, to: account, token: DAI.address, amount } })
             })
           })
         })
@@ -117,7 +114,7 @@ contract('CourtTreasury', ([_, disputeManager, holder, someone]) => {
                 const receipt = await treasury.assign(DAI.address, account, amount, { from })
 
                 assertAmountOfEvents(receipt, TREASURY_EVENTS.ASSIGN)
-                assertEvent(receipt, TREASURY_EVENTS.ASSIGN, { from: disputeManager, to: account, token: DAI.address, amount })
+                assertEvent(receipt, TREASURY_EVENTS.ASSIGN, { expectedArgs: { from: disputeManager, to: account, token: DAI.address, amount } })
               })
 
               it('does not affect other token balances', async () => {
@@ -212,7 +209,7 @@ contract('CourtTreasury', ([_, disputeManager, holder, someone]) => {
               const receipt = await treasury.withdraw(DAI.address, recipient, amount, { from })
 
               assertAmountOfEvents(receipt, TREASURY_EVENTS.WITHDRAW)
-              assertEvent(receipt, TREASURY_EVENTS.WITHDRAW, { from, to: recipient, token: DAI.address, amount })
+              assertEvent(receipt, TREASURY_EVENTS.WITHDRAW, { expectedArgs: { from, to: recipient, token: DAI.address, amount } })
             })
 
             it('does not affect other token balances', async () => {
@@ -258,7 +255,7 @@ contract('CourtTreasury', ([_, disputeManager, holder, someone]) => {
               const receipt = await treasury.withdraw(DAI.address, recipient, amount, { from })
 
               assertAmountOfEvents(receipt, TREASURY_EVENTS.WITHDRAW)
-              assertEvent(receipt, TREASURY_EVENTS.WITHDRAW, { from, to: recipient, token: DAI.address, amount })
+              assertEvent(receipt, TREASURY_EVENTS.WITHDRAW, { expectedArgs: { from, to: recipient, token: DAI.address, amount } })
             })
 
             it('does not affect other token balances', async () => {
@@ -378,7 +375,7 @@ contract('CourtTreasury', ([_, disputeManager, holder, someone]) => {
             const receipt = await treasury.withdrawAll(DAI.address, recipient, { from })
 
             assertAmountOfEvents(receipt, TREASURY_EVENTS.WITHDRAW)
-            assertEvent(receipt, TREASURY_EVENTS.WITHDRAW, { from: recipient, to: recipient, token: DAI.address, amount: balance })
+            assertEvent(receipt, TREASURY_EVENTS.WITHDRAW, { expectedArgs: { from: recipient, to: recipient, token: DAI.address, amount: balance } })
           })
 
           it('does not affect other token balances', async () => {

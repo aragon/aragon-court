@@ -1,6 +1,5 @@
-const { bn, bigExp } = require('../test/helpers/lib/numbers')
-const { printTable } = require('../test/helpers/lib/logging')
-const { getEventArgument } = require('@aragon/test-helpers/events')
+const { printTable } = require('../test/helpers/utils/logging')
+const { bn, bigExp, getEventArgument } = require('@aragon/contract-helpers-test')
 
 const MAX_APPEAL_ROUNDS = 4
 const APPEAL_STEP_FACTOR = 3

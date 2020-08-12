@@ -1,9 +1,8 @@
-const { assertBn } = require('../helpers/asserts/assertBn')
-const { bn } = require('../helpers/lib/numbers')
-const { buildHelper } = require('../helpers/wrappers/court')(web3, artifacts)
-const { assertRevert } = require('../helpers/asserts/assertThrow')
+const { bn } = require('@aragon/contract-helpers-test')
+const { assertRevert, assertBn, assertAmountOfEvents, assertEvent } = require('@aragon/contract-helpers-test/src/asserts')
+
+const { buildHelper } = require('../helpers/wrappers/court')
 const { SUBSCRIPTIONS_EVENTS } = require('../helpers/utils/events')
-const { assertEvent, assertAmountOfEvents } = require('../helpers/asserts/assertEvent')
 const { CONTROLLED_ERRORS, SUBSCRIPTIONS_ERRORS } = require('../helpers/utils/errors')
 
 const CourtSubscriptions = artifacts.require('CourtSubscriptions')
@@ -48,7 +47,7 @@ contract('CourtSubscriptions', ([_, governor, someone, something]) => {
           const receipt = await subscriptions.setFeeToken(newFeeToken.address, { from })
 
           assertAmountOfEvents(receipt, SUBSCRIPTIONS_EVENTS.FEE_TOKEN_CHANGED)
-          assertEvent(receipt, SUBSCRIPTIONS_EVENTS.FEE_TOKEN_CHANGED, { previousFeeToken, currentFeeToken: newFeeToken.address })
+          assertEvent(receipt, SUBSCRIPTIONS_EVENTS.FEE_TOKEN_CHANGED, { expectedArgs: { previousFeeToken, currentFeeToken: newFeeToken.address } })
         })
       })
 
@@ -87,7 +86,7 @@ contract('CourtSubscriptions', ([_, governor, someone, something]) => {
           const receipt = await subscriptions.setGovernorSharePct(newGovernorSharePct, { from })
 
           assertAmountOfEvents(receipt, SUBSCRIPTIONS_EVENTS.GOVERNOR_SHARE_PCT_CHANGED)
-          assertEvent(receipt, SUBSCRIPTIONS_EVENTS.GOVERNOR_SHARE_PCT_CHANGED, { previousGovernorSharePct, currentGovernorSharePct: newGovernorSharePct })
+          assertEvent(receipt, SUBSCRIPTIONS_EVENTS.GOVERNOR_SHARE_PCT_CHANGED, { expectedArgs: { previousGovernorSharePct, currentGovernorSharePct: newGovernorSharePct } })
         })
       }
 

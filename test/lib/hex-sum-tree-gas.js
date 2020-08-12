@@ -1,6 +1,5 @@
-const { assertBn } = require('../helpers/asserts/assertBn')
-const { bn, bigExp } = require('../helpers/lib/numbers')
-const { getEventArgument } = require('@aragon/test-helpers/events')
+const { assertBn } = require('@aragon/contract-helpers-test/src/asserts')
+const { bn, bigExp, getEventArgument } = require('@aragon/contract-helpers-test')
 
 const HexSumTree = artifacts.require('HexSumTreeGasProfiler')
 

@@ -1,10 +1,9 @@
-const { assertBn } = require('../helpers/asserts/assertBn')
-const { bn, bigExp } = require('../helpers/lib/numbers')
-const { buildHelper } = require('../helpers/wrappers/court')(web3, artifacts)
-const { assertRevert } = require('../helpers/asserts/assertThrow')
+const { bn, bigExp } = require('@aragon/contract-helpers-test')
+const { assertRevert, assertBn, assertAmountOfEvents, assertEvent } = require('@aragon/contract-helpers-test/src/asserts')
+
+const { buildHelper } = require('../helpers/wrappers/court')
 const { REGISTRY_EVENTS } = require('../helpers/utils/events')
 const { REGISTRY_ERRORS } = require('../helpers/utils/errors')
-const { assertEvent, assertAmountOfEvents } = require('../helpers/asserts/assertEvent')
 
 const JurorsRegistry = artifacts.require('JurorsRegistry')
 const DisputeManager = artifacts.require('DisputeManagerMockForRegistry')
@@ -143,7 +142,7 @@ contract('JurorsRegistry', ([_, juror]) => {
             ? (deactivationDue ? previousAvailableBalance.add(previousDeactivationBalance) : previousAvailableBalance)
             : requestedAmount
           assertAmountOfEvents(receipt, REGISTRY_EVENTS.JUROR_ACTIVATED)
-          assertEvent(receipt, REGISTRY_EVENTS.JUROR_ACTIVATED, { juror, fromTermId: termId.add(bn(1)), amount: activationAmount, sender: from })
+          assertEvent(receipt, REGISTRY_EVENTS.JUROR_ACTIVATED, { expectedArgs: { juror, fromTermId: termId.add(bn(1)), amount: activationAmount, sender: from } })
         })
 
         if (deactivationAmount.gt(bn(0))) {
@@ -154,7 +153,7 @@ contract('JurorsRegistry', ([_, juror]) => {
             const receipt = await registry.activate(requestedAmount, { from })
 
             assertAmountOfEvents(receipt, REGISTRY_EVENTS.JUROR_DEACTIVATION_PROCESSED)
-            assertEvent(receipt, REGISTRY_EVENTS.JUROR_DEACTIVATION_PROCESSED, { juror, amount: deactivationAmount, availableTermId, processedTermId: termId })
+            assertEvent(receipt, REGISTRY_EVENTS.JUROR_DEACTIVATION_PROCESSED, { expectedArgs: { juror, amount: deactivationAmount, availableTermId, processedTermId: termId } })
           })
         }
       }
@@ -539,7 +538,7 @@ contract('JurorsRegistry', ([_, juror]) => {
             const receipt = await registry.deactivate(requestedAmount, { from })
 
             assertAmountOfEvents(receipt, REGISTRY_EVENTS.JUROR_DEACTIVATION_REQUESTED)
-            assertEvent(receipt, REGISTRY_EVENTS.JUROR_DEACTIVATION_REQUESTED, { juror: from, availableTermId: termId.add(bn(1)), amount: expectedAmount })
+            assertEvent(receipt, REGISTRY_EVENTS.JUROR_DEACTIVATION_REQUESTED, { expectedArgs: { juror: from, availableTermId: termId.add(bn(1)), amount: expectedAmount } })
           })
 
           it('can be requested at the next term', async () => {
@@ -568,7 +567,7 @@ contract('JurorsRegistry', ([_, juror]) => {
               const receipt = await registry.deactivate(requestedAmount, { from })
 
               assertAmountOfEvents(receipt, REGISTRY_EVENTS.JUROR_DEACTIVATION_PROCESSED)
-              assertEvent(receipt, REGISTRY_EVENTS.JUROR_DEACTIVATION_PROCESSED, { juror, amount: previousDeactivationAmount, availableTermId, processedTermId: termId })
+              assertEvent(receipt, REGISTRY_EVENTS.JUROR_DEACTIVATION_PROCESSED, { expectedArgs: { juror, amount: previousDeactivationAmount, availableTermId, processedTermId: termId } })
             })
           }
         }

@@ -1,12 +1,11 @@
-const { assertBn } = require('../helpers/asserts/assertBn')
-const { bn, bigExp } = require('../helpers/lib/numbers')
-const { buildHelper } = require('../helpers/wrappers/court')(web3, artifacts)
-const { assertRevert } = require('../helpers/asserts/assertThrow')
-const { ACTIVATE_DATA } = require('../helpers/utils/jurors')
 const { padLeft, toHex } = require('web3-utils')
+const { bn, bigExp } = require('@aragon/contract-helpers-test')
+const { assertRevert, assertBn, assertAmountOfEvents, assertEvent } = require('@aragon/contract-helpers-test/src/asserts')
+
+const { buildHelper } = require('../helpers/wrappers/court')
+const { ACTIVATE_DATA } = require('../helpers/utils/jurors')
 const { SUBSCRIPTIONS_ERRORS } = require('../helpers/utils/errors')
 const { SUBSCRIPTIONS_EVENTS } = require('../helpers/utils/events')
-const { assertAmountOfEvents, assertEvent } = require('../helpers/asserts/assertEvent')
 
 const CourtSubscriptions = artifacts.require('CourtSubscriptions')
 const JurorsRegistry = artifacts.require('JurorsRegistry')
@@ -124,7 +123,7 @@ contract('CourtSubscriptions', ([_, payer, jurorPeriod0Term1, jurorPeriod0Term3,
                   const receipt = await subscriptions.claimFees(periodId, { from: juror })
 
                   assertAmountOfEvents(receipt, SUBSCRIPTIONS_EVENTS.FEES_CLAIMED)
-                  assertEvent(receipt, SUBSCRIPTIONS_EVENTS.FEES_CLAIMED, { juror, periodId, jurorShare: expectedShareFees })
+                  assertEvent(receipt, SUBSCRIPTIONS_EVENTS.FEES_CLAIMED, { expectedArgs: { juror, periodId, jurorShare: expectedShareFees } })
                 })
               })
 
@@ -185,7 +184,7 @@ contract('CourtSubscriptions', ([_, payer, jurorPeriod0Term1, jurorPeriod0Term3,
                   const receipt = await subscriptions.claimFees(periodId, { from: juror })
 
                   assertAmountOfEvents(receipt, SUBSCRIPTIONS_EVENTS.FEES_CLAIMED)
-                  assertEvent(receipt, SUBSCRIPTIONS_EVENTS.FEES_CLAIMED, { juror, periodId, jurorShare: expectedShareFees })
+                  assertEvent(receipt, SUBSCRIPTIONS_EVENTS.FEES_CLAIMED, { expectedArgs: { juror, periodId, jurorShare: expectedShareFees } })
                 })
               })
 
@@ -214,7 +213,7 @@ contract('CourtSubscriptions', ([_, payer, jurorPeriod0Term1, jurorPeriod0Term3,
                   const receipt = await subscriptions.claimFees(periodId, { from: juror })
 
                   assertAmountOfEvents(receipt, SUBSCRIPTIONS_EVENTS.FEES_CLAIMED)
-                  assertEvent(receipt, SUBSCRIPTIONS_EVENTS.FEES_CLAIMED, { juror, periodId, jurorShare: expectedShareFees })
+                  assertEvent(receipt, SUBSCRIPTIONS_EVENTS.FEES_CLAIMED, { expectedArgs: { juror, periodId, jurorShare: expectedShareFees } })
                 })
               })
             })

@@ -1,10 +1,9 @@
-const { assertBn } = require('../helpers/asserts/assertBn')
-const { bn, bigExp } = require('../helpers/lib/numbers')
-const { buildHelper } = require('../helpers/wrappers/court')(web3, artifacts)
-const { assertRevert } = require('../helpers/asserts/assertThrow')
+const { bn, bigExp } = require('@aragon/contract-helpers-test')
+const { assertBn, assertRevert, assertAmountOfEvents, assertEvent } = require('@aragon/contract-helpers-test/src/asserts')
+
+const { buildHelper } = require('../helpers/wrappers/court')
 const { SUBSCRIPTIONS_ERRORS } = require('../helpers/utils/errors')
 const { SUBSCRIPTIONS_EVENTS } = require('../helpers/utils/events')
-const { assertAmountOfEvents, assertEvent } = require('../helpers/asserts/assertEvent')
 
 const CourtSubscriptions = artifacts.require('CourtSubscriptions')
 const ERC20 = artifacts.require('ERC20Mock')

@@ -1,13 +1,10 @@
-const { assertBn } = require('../helpers/asserts/assertBn')
-const { bn, bigExp } = require('../helpers/lib/numbers')
-const { assertRevert } = require('../helpers/asserts/assertThrow')
+const { ZERO_ADDRESS, bn, bigExp } = require('@aragon/contract-helpers-test')
+const { assertRevert, assertBn, assertAmountOfEvents, assertEvent } = require('@aragon/contract-helpers-test/src/asserts')
+
 const { DISPUTE_MANAGER_ERRORS } = require('../helpers/utils/errors')
 const { DISPUTE_MANAGER_EVENTS } = require('../helpers/utils/events')
-const { assertAmountOfEvents, assertEvent } = require('../helpers/asserts/assertEvent')
 const { getVoteId, oppositeOutcome, outcomeFor, OUTCOMES } = require('../helpers/utils/crvoting')
-const { buildHelper, ROUND_STATES, DISPUTE_STATES, DEFAULTS } = require('../helpers/wrappers/court')(web3, artifacts)
-
-const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
+const { buildHelper, ROUND_STATES, DISPUTE_STATES, DEFAULTS } = require('../helpers/wrappers/court')
 
 contract('DisputeManager', ([_, drafter, appealMaker, appealTaker, juror500, juror1000, juror1500, juror2000, juror2500, juror3000, juror3500, juror4000]) => {
   let courtHelper, disputeManager, voting
@@ -114,7 +111,7 @@ contract('DisputeManager', ([_, drafter, appealMaker, appealTaker, juror500, jur
                     const receipt = await disputeManager.createAppeal(disputeId, roundId, appealMakerRuling, { from: appealMaker })
 
                     assertAmountOfEvents(receipt, DISPUTE_MANAGER_EVENTS.RULING_APPEALED)
-                    assertEvent(receipt, DISPUTE_MANAGER_EVENTS.RULING_APPEALED, { disputeId, roundId, ruling: appealMakerRuling })
+                    assertEvent(receipt, DISPUTE_MANAGER_EVENTS.RULING_APPEALED, { expectedArgs: { disputeId, roundId, ruling: appealMakerRuling } })
                   })
 
                   it('appeals the given round', async () => {

@@ -1,0 +1,143 @@
+name: CI
+
+on:
+  push:
+    branches: master
+  pull_request:
+    branches: '*'
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Install node
+      uses: actions/setup-node@v1
+      with:
+        node-version: 10
+    - name: Install
+      run: yarn --frozen-lockfile
+    - name: Lint
+      run: yarn lint
+  court_controller:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Install node
+      uses: actions/setup-node@v1
+      with:
+        node-version: 10
+    - name: Install
+      run: yarn --frozen-lockfile
+    - name: Court Controller
+      run: yarn test test/court/**/*.js test/court/*.js test/arbitration/*.js
+  court_disputes:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Install node
+      uses: actions/setup-node@v1
+      with:
+        node-version: 10
+    - name: Install
+      run: yarn --frozen-lockfile
+    - name: Court Disputes
+      run: yarn test test/disputes/disputes-{create,evidence,draft}.js
+  court_appeals:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Install node
+      uses: actions/setup-node@v1
+      with:
+        node-version: 10
+    - name: Install
+      run: yarn --frozen-lockfile
+    - name: Court Appeals
+      run: yarn test test/disputes/disputes-{voting,appeal,confirm-appeal}.js
+  court_settle_rounds:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Install node
+      uses: actions/setup-node@v1
+      with:
+        node-version: 10
+    - name: Install
+      run: yarn --frozen-lockfile
+    - name: Court Settle Rounds
+      run: yarn test test/disputes/disputes-settle-round.js
+  court_settle_appeals:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Install node
+      uses: actions/setup-node@v1
+      with:
+        node-version: 10
+    - name: Install
+      run: yarn --frozen-lockfile
+    - name: Court Settle Appeals
+      run: yarn test test/disputes/disputes-settle-appeal.js
+  registry:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Install node
+      uses: actions/setup-node@v1
+      with:
+        node-version: 10
+    - name: Install
+      run: yarn --frozen-lockfile
+    - name: Registry
+      run: yarn test test/registry/*.js
+  lib:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Install node
+      uses: actions/setup-node@v1
+      with:
+        node-version: 10
+    - name: Install
+      run: yarn --frozen-lockfile
+    - name: Lib
+      run: yarn test test/lib/*.js
+  voting:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Install node
+      uses: actions/setup-node@v1
+      with:
+        node-version: 10
+    - name: Install
+      run: yarn --frozen-lockfile
+    - name: Voting
+      run : yarn test test/voting/*.js
+  subscriptions:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Install node
+      uses: actions/setup-node@v1
+      with:
+        node-version: 10
+    - name: Install
+      run: yarn --frozen-lockfile
+    - name: Subscriptions
+      run: yarn test test/subscriptions/*.js
+  controller:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Install node
+      uses: actions/setup-node@v1
+      with:
+        node-version: 10
+    - name: Install
+      run: yarn --frozen-lockfile
+    - name: Treasury
+      run: yarn test test/treasury/court-treasury.js
+env:
+  CI: true

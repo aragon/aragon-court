@@ -1,12 +1,31 @@
 # 4.6. Subscriptions
 
-The `Subscriptions` module is in charge of handling the app fees paid by the users to use the Court.
-This module is where fees are paid, stored, and redistributed to the corresponding parties: jurors and the governor.
+The `Subscriptions` module is in charge of handling the subscription fees paid by the users to use Aragon Court.
+This module is where the subscription fees are paid, stored, and redistributed to the corresponding parties: jurors and the governor.
 
-Previously this module was supporting fee payments based on time periods, initially per months. After a few back and forth, this module 
-was changed in favor of a new trusted model that basically removes the concept of a monthly fees. This new subscription module introduces 
-the concept of app fees. These are different fee amounts the governor is allowed to configure for different app identifiers.
-To read more about why app fees were brought into play please read our initial proposal explained in [this forum post](https://forum.aragon.org/t/request-for-comment-proposal-to-adjust-the-court-subscription-fee-mechanism/2163).
+In the beginning, when v1.0 of Aragon Court was deployed, the subscription fees were simply flat recurring fees per organization.
+The intention of this subscription fee model was to address the issue that the value provided by Aragon Court is realized for organizations 
+on an ongoing basis, but the need to actually escalate disputes to Aragon Court should be relatively rare. Similar to insurance, paying for 
+coverage on an ongoing basis helps to create more stable costs for users, and more predictable revenue for service providers. 
+However, the flat subscription model doesn’t scale based on usage, risk, or value provided. The result is that it is difficult to appropriately 
+price a flat subscription fee, as it may be almost negligible for a large organization like the Aragon Network, but if it is set higher than 
+it will price out a much longer tail of organizations.
+
+That said, a new mechanism based on transaction fees was [proposed](https://forum.aragon.org/t/request-for-comment-proposal-to-adjust-the-court-subscription-fee-mechanism/2163) instead.
+The idea is for organizations to pay fees in advance based on their on-going actions in case these could be disputed, similar to an insurance 
+mechanism. For example, a Voting app can be integrated with Aragon Court using transaction fees so its votes can be challenged in court. Thus, 
+the idea is to allow Aragon Court to define transaction fees for each different Aragon app to make sure that:
+- The more an organization’s members use this integration, the more they pay to Aragon Court
+- It abstracts the need to worry about fees from the organization perspective, users will pay for the fees as they interact with the organization
+- It enables the organization to fund itself based on people interacting with it
+
+Additionally, the new transaction fees mechanism carries the concept of a trusted model. Users of Aragon Court won't be enforced on-chain to pay 
+this type of fee, but it is guaranteed that relevant information is exposed to jurors so these can decide how to organize themselves when 
+the corresponding transaction fees are paid. 
+
+Apart from the subscription fees described above, a donations model is also supported in this module. It allows users to donate funds to the 
+jurors of Aragon Court. This was mostly used during the [precedence campaign](https://aragon.org/blog/precedence-campaign-primer), but it is 
+still available for future potential usages.
 
 
 ### 4.6.1. Constructor

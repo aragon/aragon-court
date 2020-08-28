@@ -6,13 +6,11 @@ import "./controller/Controller.sol";
 import "../arbitration/IArbitrator.sol";
 import "../arbitration/IArbitrable.sol";
 import "../disputes/IDisputeManager.sol";
-import "../subscriptions/ISubscriptions.sol";
 
 
 contract AragonCourt is Controller, IArbitrator {
     using Uint256Helpers for uint256;
 
-    string private constant ERROR_SUBSCRIPTION_NOT_PAID = "AC_SUBSCRIPTION_NOT_PAID";
     string private constant ERROR_SENDER_NOT_ARBITRABLE = "AC_SENDER_NOT_ARBITRABLE";
 
     // Arbitrable interface ID based on ERC-165
@@ -88,9 +86,6 @@ contract AragonCourt is Controller, IArbitrator {
         IArbitrable subject = IArbitrable(msg.sender);
         require(subject.supportsInterface(ARBITRABLE_INTERFACE_ID), ERROR_SENDER_NOT_ARBITRABLE);
 
-        ISubscriptions subscriptions = ISubscriptions(_getSubscriptions());
-        require(subscriptions.isUpToDate(address(subject)), ERROR_SUBSCRIPTION_NOT_PAID);
-
         IDisputeManager disputeManager = IDisputeManager(_getDisputeManager());
         return disputeManager.createDispute(subject, _possibleRulings.toUint8(), _metadata);
     }
@@ -127,16 +122,4 @@ contract AragonCourt is Controller, IArbitrator {
         (feeToken, feeAmount) = disputeManager.getDisputeFees();
     }
 
-    /**
-    * @dev Tell the subscription fees information for a subscriber to be up-to-date
-    * @param _subscriber Address of the account paying the subscription fees for
-    * @return recipient Address where the corresponding subscriptions fees must be transferred to
-    * @return feeToken ERC20 token used for the subscription fees
-    * @return feeAmount Total amount of fees that must be allowed to the recipient
-    */
-    function getSubscriptionFees(address _subscriber) external view returns (address recipient, ERC20 feeToken, uint256 feeAmount) {
-        recipient = _getSubscriptions();
-        ISubscriptions subscriptions = ISubscriptions(recipient);
-        (feeToken, feeAmount,) = subscriptions.getOwedFeesDetails(_subscriber);
-    }
 }

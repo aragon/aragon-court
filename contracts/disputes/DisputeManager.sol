@@ -13,7 +13,6 @@ import "../voting/ICRVotingOwner.sol";
 import "../treasury/ITreasury.sol";
 import "../arbitration/IArbitrable.sol";
 import "../registry/IJurorsRegistry.sol";
-import "../subscriptions/ISubscriptions.sol";
 import "../court/controller/ControlledRecoverable.sol";
 
 

@@ -9,8 +9,6 @@ import "../../voting/ICRVoting.sol";
 import "../../treasury/ITreasury.sol";
 import "../../registry/IJurorsRegistry.sol";
 import "../../disputes/IDisputeManager.sol";
-import "../../subscriptions/ISubscriptions.sol";
-
 
 contract Controlled is IsContract, ConfigConsumer {
     string private constant ERROR_CONTROLLER_NOT_CONTRACT = "CTD_CONTROLLER_NOT_CONTRACT";
@@ -132,14 +130,6 @@ contract Controlled is IsContract, ConfigConsumer {
     */
     function _jurorsRegistry() internal view returns (IJurorsRegistry) {
         return IJurorsRegistry(controller.getJurorsRegistry());
-    }
-
-    /**
-    * @dev Internal function to fetch the address of the Subscriptions module implementation from the controller
-    * @return Address of the Subscriptions module implementation
-    */
-    function _subscriptions() internal view returns (ISubscriptions) {
-        return ISubscriptions(controller.getSubscriptions());
     }
 
     /**

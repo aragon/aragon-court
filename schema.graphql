@@ -28,7 +28,6 @@ type CourtConfig @entity {
   subscriptions: SubscriptionModule @derivedFrom(field: "court")
   modules: [CourtModule!] @derivedFrom(field: "court")
   terms: [CourtTerm!] @derivedFrom(field: "court")
-  moduleAddresses: [String!]!
 }
 
 type CourtTerm @entity {
@@ -285,24 +284,38 @@ type SubscriptionModule @entity {
   id: ID!
   court: CourtConfig!
   currentPeriod: BigInt!
+  feeAmount: BigInt!
   feeToken: Bytes!
   periodDuration: BigInt!
+  prePaymentPeriods: BigInt!
+  resumePrePaidPeriods: BigInt!
+  latePaymentPenaltyPct: BigInt!
   governorSharePct: BigInt!
+  totalDonated: BigInt!
+  totalPaid: BigInt!
+  totalCollected: BigInt!
+  totalGovernorShares: BigInt!
   periods: [SubscriptionPeriod!] @derivedFrom(field: "instance")
-  tokens: [SubscriptionTokenBalance!] @derivedFrom(field: "instance")
-  appFees: [AppFee!] @derivedFrom(field: "instance")
+  subscribers: [Subscriber!] @derivedFrom(field: "instance")
 }
 
 type SubscriptionPeriod @entity {
   id: ID!
   feeToken: Bytes!
+  feeAmount: BigInt!
   collectedFees: BigInt!
-  balanceCheckpoint: BigInt!
-  totalActiveBalance: BigInt!
-  accumulatedGovernorFees: BigInt!
   instance: SubscriptionModule!
   jurorClaims: [JurorSubscriptionFee!] @derivedFrom(field: "period")
   createdAt: BigInt!
+}
+
+type Subscriber @entity {
+  id: ID!
+  subscribed: Boolean!
+  paused: Boolean!
+  lastPaymentPeriodId: BigInt!
+  previousDelayedPeriods: BigInt!
+  instance: SubscriptionModule!
 }
 
 type JurorSubscriptionFee @entity {
@@ -310,22 +323,4 @@ type JurorSubscriptionFee @entity {
   juror: Juror!
   period: SubscriptionPeriod!
   amount: BigInt!
-}
-
-type SubscriptionTokenBalance @entity {
-  id: ID!
-  token: ERC20!
-  totalDonated: BigInt!
-  totalAppFees: BigInt!
-  totalSubscriptionFees: BigInt!
-  totalCollected: BigInt!
-  totalGovernorShares: BigInt!
-  instance: SubscriptionModule!
-}
-
-type AppFee @entity {
-  id: ID!
-  isSet: Boolean!
-  amount: BigInt!
-  instance: SubscriptionModule!
 }

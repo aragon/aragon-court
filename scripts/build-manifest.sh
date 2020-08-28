@@ -65,7 +65,3 @@ sed -i -e "s/{{network}}/${ENV}/g" subgraph.yaml
 sed -i -e "s/{{court}}/${COURT}/g" subgraph.yaml
 sed -i -e "s/{{startBlock}}/${START_BLOCK}/g" subgraph.yaml
 rm -f subgraph.yaml-e
-
-# Parse blacklisted modules
-echo "Setting blacklisted modules"
-node ./scripts/parse-blacklisted-modules.js "$NETWORK"

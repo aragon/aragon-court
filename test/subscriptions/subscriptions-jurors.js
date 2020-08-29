@@ -18,11 +18,8 @@ contract('CourtSubscriptions', ([_, payer, subscriberPeriod0, subscriberPeriod1,
 
   const PCT_BASE = bn(10000)
   const FEE_AMOUNT = bigExp(10, 18)
-  const PREPAYMENT_PERIODS = 12
-  const RESUME_PRE_PAID_PERIODS = 10
   const PERIOD_DURATION = 24 * 30           // 30 days, assuming terms are 1h
   const GOVERNOR_SHARE_PCT = bn(100)        // 100‱ = 1%
-  const LATE_PAYMENT_PENALTY_PCT = bn(1000) // 1000‱ = 10%
 
   const MIN_JURORS_ACTIVE_TOKENS = bigExp(100, 18)
   const TOTAL_ACTIVE_BALANCE_LIMIT = bigExp(100e6, 18)
@@ -32,7 +29,7 @@ contract('CourtSubscriptions', ([_, payer, subscriberPeriod0, subscriberPeriod1,
     feeToken = await ERC20.new('Subscriptions Fee Token', 'SFT', 18)
     jurorToken = await ERC20.new('AN Jurors Token', 'ANJ', 18)
 
-    subscriptions = await CourtSubscriptions.new(controller.address, PERIOD_DURATION, feeToken.address, FEE_AMOUNT, PREPAYMENT_PERIODS, RESUME_PRE_PAID_PERIODS, LATE_PAYMENT_PENALTY_PCT, GOVERNOR_SHARE_PCT)
+    subscriptions = await CourtSubscriptions.new(controller.address, PERIOD_DURATION, feeToken.address)
     await controller.setSubscriptions(subscriptions.address)
 
     jurorsRegistry = await JurorsRegistry.new(controller.address, jurorToken.address, TOTAL_ACTIVE_BALANCE_LIMIT)

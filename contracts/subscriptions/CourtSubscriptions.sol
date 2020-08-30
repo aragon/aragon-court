@@ -40,7 +40,6 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers {
     struct Period {
         uint64 balanceCheckpoint;               // Court term ID of a period used to fetch the total active balance of the jurors registry
         ERC20 feeToken;                         // Fee token corresponding to a certain subscription period
-        uint256 feeAmount;                      // Amount of fees paid for a certain subscription period
         uint256 totalActiveBalance;             // Total amount of juror tokens active in the Court at the corresponding period checkpoint
         uint256 donatedFees;                    // The fee token balance of Subscriptions at the end of the period, for distribution to subscribers
         mapping (address => bool) claimedFees;  // List of jurors that have claimed fees during a period, indexed by juror address
@@ -51,9 +50,6 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers {
 
     // ERC20 token used for the subscription fees
     ERC20 public currentFeeToken;
-
-    // Amount of fees to be paid for each subscription period
-    uint256 public currentFeeAmount;
 
     // List of subscribers indexed by address
     mapping (address => Subscriber) internal subscribers;
@@ -203,6 +199,7 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers {
 
         // Set balance details for the given period if these haven't been set yet
         if (totalActiveBalance == 0) {
+            _period.feeToken = _getPeriodFeeToken(_period); // We must do this before _getPeriodBalanceDetails to ensure we use the current token.
             (periodBalanceCheckpoint, totalActiveBalance, donatedFees) = _getPeriodBalanceDetails(_periodId);
             _period.balanceCheckpoint = periodBalanceCheckpoint;
             _period.totalActiveBalance = totalActiveBalance;
@@ -292,7 +289,7 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers {
         IJurorsRegistry jurorsRegistry = _jurorsRegistry();
         periodBalanceCheckpoint = periodStartTermId.add(uint64(uint256(randomness) % periodDuration));
         totalActiveBalance = jurorsRegistry.totalActiveBalanceAt(periodBalanceCheckpoint);
-        donatedFees = periods[_periodId].feeToken.balanceOf(address(this));
+        donatedFees = _getPeriodFeeToken(periods[_periodId]).balanceOf(address(this));
     }
 
     /**

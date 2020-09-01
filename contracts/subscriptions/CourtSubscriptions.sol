@@ -22,10 +22,11 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers {
     string private constant ERROR_TOKEN_TRANSFER_FAILED = "CS_TOKEN_TRANSFER_FAILED";
     string private constant ERROR_PERIOD_DURATION_ZERO = "CS_PERIOD_DURATION_ZERO";
     string private constant ERROR_FEE_TOKEN_NOT_CONTRACT = "CS_FEE_TOKEN_NOT_CONTRACT";
-    string private constant ERROR_NON_PAST_PERIOD = "CS_NON_PAST_PERIOD";
+    string private constant ERROR_STILL_PERIOD_ZERO = "CS_STILL_PERIOD_ZERO";
     string private constant ERROR_JUROR_FEES_ALREADY_CLAIMED = "CS_JUROR_FEES_ALREADY_CLAIMED";
     string private constant ERROR_JUROR_NOTHING_TO_CLAIM = "CS_JUROR_NOTHING_TO_CLAIM";
     string private constant ERROR_COURT_HAS_NOT_STARTED = "CS_COURT_HAS_NOT_STARTED";
+    string private constant ERROR_FUTURE_PERIOD = "CS_FUTURE_PERIOD";
 
     // Term 0 is for jurors on-boarding
     uint64 internal constant START_TERM_ID = 1;
@@ -76,12 +77,21 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers {
     }
 
     /**
+    * @notice Set new subscriptions fee to `@tokenAmount(_feeToken, _feeAmount)`
+    * @dev Accumulated fees owed to governor (if any) will be transferred
+    * @param _feeToken New ERC20 token to be used for the subscription fees
+    */
+    function setFeeToken(ERC20 _feeToken) external onlyConfigGovernor {
+        _setFeeToken(_feeToken);
+    }
+
+    /**
     * @notice Claim proportional share of fees for the previous period
     */
     function claimFees() external {
         // Juror share fees can only be claimed for past periods
         uint256 currentPeriod = _getCurrentPeriodId();
-        require(currentPeriod > 0, ERROR_NON_PAST_PERIOD);
+        require(currentPeriod > 0, ERROR_STILL_PERIOD_ZERO);
         Period storage period = periods[currentPeriod - 1];
         require(!period.claimedFees[msg.sender], ERROR_JUROR_FEES_ALREADY_CLAIMED);
 
@@ -98,12 +108,31 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers {
     }
 
     /**
-    * @notice Set new subscriptions fee to `@tokenAmount(_feeToken, _feeAmount)`
-    * @dev Accumulated fees owed to governor (if any) will be transferred
-    * @param _feeToken New ERC20 token to be used for the subscription fees
+    * @dev Tell the share fees corresponding to a juror
+    * @param _juror Address of the juror querying the owed shared fees of
+    * @return feeToken Address of the token used for the subscription fees
+    * @return jurorShare Amount of share fees owed to the given juror for the requested period
     */
-    function setFeeToken(ERC20 _feeToken) external onlyConfigGovernor {
-        _setFeeToken(_feeToken);
+    function getJurorShare(address _juror) external view returns (ERC20 feeToken, uint256 jurorShare) {
+        uint256 currentPeriod = _getCurrentPeriodId();
+        require(currentPeriod > 0, ERROR_STILL_PERIOD_ZERO);
+
+        Period storage period = periods[currentPeriod - 1];
+        uint64 periodBalanceCheckpoint;
+        uint256 totalActiveBalance = period.totalActiveBalance;
+        uint256 donatedFees;
+
+        // Compute period balance details if they were not ensured yet
+        if (totalActiveBalance == 0) {
+            (periodBalanceCheckpoint, feeToken, totalActiveBalance, donatedFees) = _getPeriodBalanceDetails(currentPeriod - 1);
+        } else {
+            periodBalanceCheckpoint = period.balanceCheckpoint;
+            feeToken = period.feeToken;
+            donatedFees = period.donatedFees;
+        }
+
+        // Compute juror share fees using the period balance details
+        jurorShare = _getJurorShare(_juror, periodBalanceCheckpoint, totalActiveBalance, donatedFees);
     }
 
     /**
@@ -116,60 +145,38 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers {
 
     /**
     * @dev Get details of the current period
-    * @return feeToken Fee token corresponding to a certain subscription period
-    * @return balanceCheckpoint Court term ID of a period used to fetch the total active balance of the jurors registry
-    * @return totalActiveBalance Total amount of juror tokens active in the Court at the corresponding period checkpoint
-    */
-    function getCurrentPeriod() external view
-        returns (ERC20 feeToken, uint64 balanceCheckpoint, uint256 totalActiveBalance)
-    {
-        uint256 currentPeriodId = _getCurrentPeriodId();
-        Period storage period = periods[currentPeriodId];
-
-        feeToken = period.feeToken;
-        balanceCheckpoint = period.balanceCheckpoint;
-        totalActiveBalance = period.totalActiveBalance;
-    }
-
-    /**
-    * @dev Tell total active balance of the jurors registry at a random term during a certain period
-    * @param _periodId Identification number of the period being queried
     * @return periodBalanceCheckpoint Court term ID used to fetch the total active balance of the jurors registry
+    * @return feeToken Fee token for this period
     * @return totalActiveBalance Total amount of juror tokens active in the Court at the corresponding used checkpoint
     * @return donatedFees The fee token balance of Subscriptions at the end of the period, to be distributed to subscribers
     */
-    function getPeriodBalanceDetails(uint256 _periodId) external view
-        returns (uint64 periodBalanceCheckpoint, uint256 totalActiveBalance, uint256 donatedFees)
+    function getCurrentPeriod() external view
+        returns (uint64 balanceCheckpoint, ERC20 feeToken, uint256 totalActiveBalance, uint256 donatedFees)
     {
-        return _getPeriodBalanceDetails(_periodId);
+        uint256 currentPeriodId = _getCurrentPeriodId();
+        return this.getPeriod(currentPeriodId); //TODO: Fix this.
     }
 
     /**
-    * @dev Tell the share fees corresponding to a juror
-    * @param _juror Address of the juror querying the owed shared fees of
-    * @return feeToken Address of the token used for the subscription fees
-    * @return jurorShare Amount of share fees owed to the given juror for the requested period
+    * @dev Get details of a specific period
+    * @param _periodId Identification number of the period being queried
+    * @return periodBalanceCheckpoint Court term ID used to fetch the total active balance of the jurors registry
+    * @return feeToken Fee token for this period
+    * @return totalActiveBalance Total amount of juror tokens active in the Court at the corresponding used checkpoint
+    * @return donatedFees The fee token balance of Subscriptions at the end of the period, to be distributed to subscribers
     */
-    function getJurorShare(address _juror) external view returns (ERC20 feeToken, uint256 jurorShare) {
-        uint256 currentPeriod = _getCurrentPeriodId();
-        require(currentPeriod > 0, ERROR_NON_PAST_PERIOD);
+    function getPeriod(uint256 _periodId) external view
+        returns (uint64 periodBalanceCheckpoint, ERC20 feeToken, uint256 totalActiveBalance, uint256 donatedFees)
+    {
+        require(_periodId <= _getCurrentPeriodId(), ERROR_FUTURE_PERIOD);
 
-        Period storage period = periods[currentPeriod - 1];
-        uint64 periodBalanceCheckpoint;
-        uint256 totalActiveBalance = period.totalActiveBalance;
-        uint256 donatedFees;
+        Period storage period = periods[_periodId];
 
-        // Compute period balance details if they were not ensured yet
-        if (totalActiveBalance == 0) {
-            (periodBalanceCheckpoint, totalActiveBalance, donatedFees) = _getPeriodBalanceDetails(currentPeriod - 1);
+        if (period.totalActiveBalance == 0) {
+            return _getPeriodBalanceDetails(_periodId);
         } else {
-            periodBalanceCheckpoint = period.balanceCheckpoint;
-            donatedFees = period.donatedFees;
+            return (period.balanceCheckpoint, period.feeToken, period.totalActiveBalance, period.donatedFees);
         }
-
-        // Compute juror share fees using the period balance details
-        jurorShare = _getJurorShare(_juror, periodBalanceCheckpoint, totalActiveBalance, donatedFees);
-        feeToken = _getPeriodFeeToken(period);
     }
 
     /**
@@ -179,7 +186,7 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers {
     */
     function hasJurorClaimed(address _juror) external view returns (bool) {
         uint256 currentPeriod = _getCurrentPeriodId();
-        require(currentPeriod > 0, ERROR_NON_PAST_PERIOD);
+        require(currentPeriod > 0, ERROR_STILL_PERIOD_ZERO);
         return periods[currentPeriod - 1].claimedFees[_juror];
     }
 
@@ -199,9 +206,10 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers {
 
         // Set balance details for the given period if these haven't been set yet
         if (totalActiveBalance == 0) {
-            _period.feeToken = _getPeriodFeeToken(_period); // We must do this before _getPeriodBalanceDetails to ensure we use the current token.
-            (periodBalanceCheckpoint, totalActiveBalance, donatedFees) = _getPeriodBalanceDetails(_periodId);
+            ERC20 feeToken;
+            (periodBalanceCheckpoint, feeToken, totalActiveBalance, donatedFees) = _getPeriodBalanceDetails(_periodId);
             _period.balanceCheckpoint = periodBalanceCheckpoint;
+            _period.feeToken = feeToken;
             _period.totalActiveBalance = totalActiveBalance;
             _period.donatedFees = donatedFees;
         } else {
@@ -264,12 +272,14 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers {
     * @dev Internal function to get the total active balance of the jurors registry at a random term during a period
     * @param _periodId Identification number of the period being queried
     * @return periodBalanceCheckpoint Court term ID used to fetch the total active balance of the jurors registry
+    * @return feeToken Fee token for this period
     * @return totalActiveBalance Total amount of juror tokens active in the Court at the corresponding used checkpoint
     * @return donatedFees The fee token balance of Subscriptions at the end of the period, to be distributed to subscribers
     */
     function _getPeriodBalanceDetails(uint256 _periodId) internal view
-        returns (uint64 periodBalanceCheckpoint, uint256 totalActiveBalance, uint256 donatedFees)
+        returns (uint64 periodBalanceCheckpoint, ERC20 feeToken, uint256 totalActiveBalance, uint256 donatedFees)
     {
+        feeToken = _getPeriodFeeToken(periods[_periodId]);
         uint64 periodStartTermId = _getPeriodStartTermId(_periodId);
         uint64 nextPeriodStartTermId = _getPeriodStartTermId(_periodId.add(1));
 
@@ -289,7 +299,7 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers {
         IJurorsRegistry jurorsRegistry = _jurorsRegistry();
         periodBalanceCheckpoint = periodStartTermId.add(uint64(uint256(randomness) % periodDuration));
         totalActiveBalance = jurorsRegistry.totalActiveBalanceAt(periodBalanceCheckpoint);
-        donatedFees = _getPeriodFeeToken(periods[_periodId]).balanceOf(address(this));
+        donatedFees = feeToken.balanceOf(address(this));
     }
 
     /**

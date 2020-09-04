@@ -151,10 +151,10 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers {
     * @return donatedFees The fee token balance of Subscriptions at the end of the period, to be distributed to subscribers
     */
     function getCurrentPeriod() external view
-        returns (uint64 balanceCheckpoint, ERC20 feeToken, uint256 totalActiveBalance, uint256 donatedFees)
+        returns (uint64 periodBalanceCheckpoint, ERC20 feeToken, uint256 totalActiveBalance, uint256 donatedFees)
     {
         uint256 currentPeriodId = _getCurrentPeriodId();
-        return this.getPeriod(currentPeriodId); //TODO: Fix this.
+        return _getPeriod(currentPeriodId);
     }
 
     /**
@@ -168,15 +168,7 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers {
     function getPeriod(uint256 _periodId) external view
         returns (uint64 periodBalanceCheckpoint, ERC20 feeToken, uint256 totalActiveBalance, uint256 donatedFees)
     {
-        require(_periodId <= _getCurrentPeriodId(), ERROR_FUTURE_PERIOD);
-
-        Period storage period = periods[_periodId];
-
-        if (period.totalActiveBalance == 0) {
-            return _getPeriodBalanceDetails(_periodId);
-        } else {
-            return (period.balanceCheckpoint, period.feeToken, period.totalActiveBalance, period.donatedFees);
-        }
+        return _getPeriod(_periodId);
     }
 
     /**
@@ -188,6 +180,28 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers {
         uint256 currentPeriod = _getCurrentPeriodId();
         require(currentPeriod > 0, ERROR_STILL_PERIOD_ZERO);
         return periods[currentPeriod - 1].claimedFees[_juror];
+    }
+
+    /**
+    * @dev Internal function to get the current period
+    * @param _periodId Identification number of the period being queried
+    * @return periodBalanceCheckpoint Court term ID used to fetch the total active balance of the jurors registry
+    * @return feeToken Fee token for this period
+    * @return totalActiveBalance Total amount of juror tokens active in the Court at the corresponding used checkpoint
+    * @return donatedFees The fee token balance of Subscriptions at the end of the period, to be distributed to subscribers
+    */
+    function _getPeriod(uint256 _periodId) internal view
+        returns (uint64 periodBalanceCheckpoint, ERC20 feeToken, uint256 totalActiveBalance, uint256 donatedFees)
+    {
+        require(_periodId <= _getCurrentPeriodId(), ERROR_FUTURE_PERIOD);
+
+        Period storage period = periods[_periodId];
+
+        if (period.totalActiveBalance == 0) {
+            return _getPeriodBalanceDetails(_periodId);
+        } else {
+            return (period.balanceCheckpoint, period.feeToken, period.totalActiveBalance, period.donatedFees);
+        }
     }
 
     /**
@@ -236,7 +250,7 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers {
     function _getCurrentPeriodId() internal view returns (uint256) {
         // Since the Court starts at term #1, and the first subscription period is #0, then subtract one unit to the current term of the Court
         uint64 termId = _getCurrentTermId();
-        require(termId > 0, ERROR_COURT_HAS_NOT_STARTED);
+        require(termId >= START_TERM_ID, ERROR_COURT_HAS_NOT_STARTED);
 
         // No need for SafeMath: we already checked that the term ID is at least 1
         uint64 periodId = (termId - START_TERM_ID) / periodDuration;

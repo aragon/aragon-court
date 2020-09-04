@@ -33,7 +33,6 @@ contract('DisputeManager', () => {
 
   beforeEach('mock arbitrable instance', async () => {
     arbitrable = await Arbitrable.new(court.address)
-    await courtHelper.subscriptions.mockUpToDate(true)
     const { disputeFees } = await courtHelper.getDisputeFees()
     await courtHelper.mintFeeTokens(arbitrable.address, disputeFees)
   })
@@ -163,16 +162,6 @@ contract('DisputeManager', () => {
             await assertRevert(arbitrable.createDispute(1, '0x'), DISPUTE_MANAGER_ERRORS.INVALID_RULING_OPTIONS)
             await assertRevert(arbitrable.createDispute(3, '0x'), DISPUTE_MANAGER_ERRORS.INVALID_RULING_OPTIONS)
           })
-        })
-      })
-
-      context('when the sender is outdated with the subscriptions', () => {
-        beforeEach('expire subscriptions', async () => {
-          await courtHelper.subscriptions.mockUpToDate(false)
-        })
-
-        it('reverts', async () => {
-          await assertRevert(arbitrable.createDispute(2, '0x'), ARAGON_COURT_ERRORS.SUBSCRIPTION_NOT_PAID)
         })
       })
     })

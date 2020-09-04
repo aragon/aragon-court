@@ -19,6 +19,7 @@
     "coverage": "SOLIDITY_COVERAGE=true npm run ganache-cli:test",
     "ganache-cli:test": "./node_modules/@aragon/test-helpers/ganache-cli.sh",
     "test:subscriptions": "./node_modules/@aragon/test-helpers/ganache-cli.sh test/subscriptions/*",
+    "test:disputes": "./node_modules/@aragon/test-helpers/ganache-cli.sh test/disputes/*",
     "abi:extract": "truffle-extract --output abi/ --keys abi",
     "prepublishOnly": "truffle compile --all && npm run abi:extract -- --no-compile"
   },

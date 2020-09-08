@@ -14,6 +14,7 @@ import "../court/controller/Controller.sol";
 import "../court/controller/ControlledRecoverable.sol";
 
 
+// AUDIT: in terms of this contract, should it be "recoverable"? Since it holds tokens.
 contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscriptions, IAragonAppFeesCashier {
     using SafeERC20 for ERC20;
     using SafeMath for uint256;
@@ -49,6 +50,7 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
     }
 
     struct AppFee {
+        // AUDIT: how useful is this variable? Could we check amount == 0?
         bool set;
         uint256 amount;
     }
@@ -68,6 +70,7 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
     // List of fees per appId
     mapping (bytes32 => AppFee) internal appFees;
 
+    // AUDIT: I'm guessing we shouldn't change it anymore, but should we index the feeTokens?
     event FeesDonated(address indexed payer, uint256 indexed periodId, ERC20 feeToken, uint256 feeAmount);
     event FeesClaimed(address indexed juror, uint256 indexed periodId, ERC20 feeToken, uint256 jurorShare);
     event GovernorFeesTransferred(ERC20 indexed feeToken, uint256 amount);
@@ -158,6 +161,7 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
     * @return totalActiveBalance Total amount of juror tokens active in the Court at the corresponding used checkpoint
     */
     function ensurePeriodBalanceDetails(uint256 _periodId) external returns (uint64 periodBalanceCheckpoint, uint256 totalActiveBalance) {
+        // AUDIT: should we also have a check that the period is in the past?
         Period storage period = periods[_periodId];
         return _ensurePeriodBalanceDetails(_periodId, period);
     }
@@ -183,6 +187,7 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
     /**
     * @notice Set fees for app with id `_appId` to @tokenAmount(`_token`, `_amount`)
     * @param _appId Id of the app
+    // AUDIT: I found this kind of weird, since we're the only one using this interface... is this a "just in case" parameter for the future?
     * @param _token Token for the fee, must be the same as the current period one
     * @param _amount Amount of fee tokens. The change applies immediately.
     */
@@ -197,6 +202,7 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
     /**
     * @notice Set fees for apps with ids `_appIds`
     * @param _appIds Id of the apps
+    // AUDIT: I found this kind of weird, since we're the only one using this interface... is this a "just in case" parameter for the future?
     * @param _tokens Token for the fees for each app (must be an empty array, as we are using the global token)
     * @param _amounts Amount of fee tokens for each app. The change applies immediately.
     */
@@ -232,10 +238,11 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
 
     /**
     * @notice Pay fees corresponding to a new action in app with id `appId`
-    * @dev To be called by Agreements. It needs a pre-approval of tokens
+    * @dev To be called by Agreements. If a fee is defined, it requires the sender to have pre-approved tokens.
     * @param _appId Id of the app paying fees for
     * @param _data Extra data for context of the payment
     */
+   // AUDIT: should we revert on receiving ETH?
     function payAppFees(bytes32 _appId, bytes calldata _data) external payable {
         uint256 feeAmount = _getAppFee(_appId);
         if (feeAmount == 0) {
@@ -260,7 +267,7 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
 
     /**
     * @dev Tell whether a certain subscriber has paid all the fees up to current period or not
-    * @return Always true. Previously we were using monthly subscriptions but the trusted model removes the concept of a monthly fee.
+    * @return Always true. Previously we were using monthly subscriptions but this "off-chain verified" fee model removes the concept of a monthly fee.
     */
     function isUpToDate(address /*_subscriber*/) external view returns (bool) {
         return true;
@@ -311,13 +318,13 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
     function getOwedFeesDetails(address /*_subscriber*/) external view returns (ERC20 feeToken, uint256 amountToPay, uint256 newLastPeriodId) {
         (uint256 periodId, Period storage period) = _getCurrentPeriod();
 
-        // Subscription fees were deprecated, this module now only works with app fees.
-        // We still need to support this view function to be compliant with the AragonCourt's IArbitrator implementation
-        // Therefor, all subscribers simply do not owe subscription payments
+        // Subscription fees were deprecated, this module now only implements app action fees.
+        // However, we still need to support this view function to be compliant with the AragonCourt's IArbitrator implementation.
+        // Therefore, we simply say that all subscribers do not owe subscription payments.
 
+        feeToken = _getEnsuredPeriodFeeToken(period);
         amountToPay = 0;
         newLastPeriodId = periodId;
-        feeToken = _getEnsuredPeriodFeeToken(period);
     }
 
     /**
@@ -469,6 +476,9 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
         require(isContract(address(_feeToken)), ERROR_FEE_TOKEN_NOT_CONTRACT);
 
         emit FeeTokenChanged(currentFeeToken, _feeToken);
+        // AUDIT: If I understand this correctly, we are allowing the fee tokens to change in the
+        // current period, until a fee or donation is made (and then any changes to the fee token
+        // would only be applied at the next period)?
         currentFeeToken = _feeToken;
     }
 
@@ -592,7 +602,9 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
     * @param _totalActiveBalance Total amount of juror tokens active in the Court at the corresponding used checkpoint
     * @return Amount of share fees owed to the given juror for the requested period
     */
-    function _getJurorShare(address _juror, Period storage _period, uint64 _periodBalanceCheckpoint, uint256 _totalActiveBalance) internal view
+    function _getJurorShare(address _juror, Period storage _period, uint64 _periodBalanceCheckpoint, uint256 _totalActiveBalance)
+        internal
+        view
         returns (uint256)
     {
         // Fetch juror active balance at the checkpoint used for the requested period

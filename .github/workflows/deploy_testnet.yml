@@ -1,0 +1,25 @@
+name: Deploy Testnets
+
+on:
+  push:
+    branches:
+    - 'master'
+
+env:
+  GRAPHKEY: ${{secrets.GRAPHKEY}}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Install
+      run: npm install
+    - name: Authenticate
+      run: .github/scripts/kubectl-config.sh ${{secrets.KUBE_CA}} ${{secrets.KUBE_SERVER}} ${{secrets.KUBE_TOKEN}}
+    - name: Staging
+      run: npm run deploy:staging
+    - name: Rinkeby
+      run: npm run deploy:rinkeby
+    - name: Ropsten
+      run: npm run deploy:ropsten

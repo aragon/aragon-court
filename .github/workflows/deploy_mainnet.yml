@@ -1,0 +1,21 @@
+name: Deploy Mainnet
+
+on:
+  push:
+    tags:
+    - v*
+
+env:
+  GRAPHKEY: ${{secrets.GRAPHKEY}}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Install
+      run: npm install
+    - name: Authenticate
+      run: .github/scripts/kubectl-config.sh ${{secrets.KUBE_CA}} ${{secrets.KUBE_SERVER}} ${{secrets.KUBE_TOKEN}}
+    - name: Deploy
+      run: npm run deploy:mainnet

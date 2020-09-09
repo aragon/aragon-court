@@ -177,10 +177,13 @@ contract('Aragon App Fees Cashier', ([_, governor, subscriber]) => {
         it('ignores the payment', async () => {
           const initialBalance = await feeToken.balanceOf(aragonAppFeesCashier.address)
 
-          await aragonAppFeesCashier.payAppFees(appId, EMPTY_BYTES, { from: subscriber })
+          const receipt = await aragonAppFeesCashier.payAppFees(appId, EMPTY_BYTES, { from: subscriber })
 
           const finalBalance = await feeToken.balanceOf(aragonAppFeesCashier.address)
           assertBn(finalBalance, initialBalance, 'subscription balance does not match')
+
+          assertAmountOfEvents(receipt, SUBSCRIPTIONS_EVENTS.APP_FEE_PAID)
+          assertEvent(receipt, SUBSCRIPTIONS_EVENTS.APP_FEE_PAID, { expectedArgs: { by: subscriber, appId, data: EMPTY_BYTES } })
         })
       })
 

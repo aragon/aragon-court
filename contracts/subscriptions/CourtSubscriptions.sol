@@ -246,20 +246,19 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
 
         // Fetch current fee amount for the given app ID
         uint256 feeAmount = appFees[_appId];
-        if (feeAmount == 0) {
-            return;
+        if (feeAmount > 0) {
+            // Compute the portion of the total amount to pay that will be allocated to the governor
+            uint256 governorFee = feeAmount.pct(governorSharePct);
+            period.accumulatedGovernorFees = period.accumulatedGovernorFees.add(governorFee);
+
+            // Update collected fees for the jurors
+            uint256 collectedFees = feeAmount.sub(governorFee);
+            period.collectedFees = period.collectedFees.add(collectedFees);
+
+            // Deposit fee tokens from sender to this contract
+            _deposit(msg.sender, feeToken, feeAmount);
         }
 
-        // Compute the portion of the total amount to pay that will be allocated to the governor
-        uint256 governorFee = feeAmount.pct(governorSharePct);
-        period.accumulatedGovernorFees = period.accumulatedGovernorFees.add(governorFee);
-
-        // Update collected fees for the jurors
-        uint256 collectedFees = feeAmount.sub(governorFee);
-        period.collectedFees = period.collectedFees.add(collectedFees);
-
-        // Deposit fee tokens from sender to this contract
-        _deposit(msg.sender, feeToken, feeAmount);
         emit AppFeePaid(msg.sender, _appId, _data);
     }
 

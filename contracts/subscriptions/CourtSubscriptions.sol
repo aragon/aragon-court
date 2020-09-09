@@ -64,8 +64,8 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
     // List of app fees indexed by app ID
     mapping (bytes32 => uint256) internal appFees;
 
-    event FeesDonated(address indexed payer, uint256 indexed periodId, ERC20 indexed feeToken, uint256 feeAmount);
-    event FeesClaimed(address indexed juror, uint256 indexed periodId, ERC20 indexed feeToken, uint256 jurorShare);
+    event FeesDonated(address indexed payer, uint256 indexed periodId, ERC20 feeToken, uint256 feeAmount);
+    event FeesClaimed(address indexed juror, uint256 indexed periodId, ERC20 feeToken, uint256 jurorShare);
     event GovernorFeesTransferred(ERC20 indexed feeToken, uint256 amount);
     event FeeTokenChanged(ERC20 previousFeeToken, ERC20 currentFeeToken);
     event GovernorSharePctChanged(uint16 previousGovernorSharePct, uint16 currentGovernorSharePct);

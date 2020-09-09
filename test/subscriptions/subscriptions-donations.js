@@ -25,7 +25,7 @@ contract('CourtSubscriptions', ([_, payer]) => {
       })
 
       beforeEach('create subscriptions module', async () => {
-        subscriptions = await CourtSubscriptions.new(controller.address, PERIOD_DURATION, feeToken.address, FEE_AMOUNT, GOVERNOR_SHARE_PCT)
+        subscriptions = await CourtSubscriptions.new(controller.address, PERIOD_DURATION, feeToken.address, GOVERNOR_SHARE_PCT)
         await controller.setSubscriptions(subscriptions.address)
       })
 

@@ -55,7 +55,6 @@ const DEFAULTS = {
   minActiveBalance:                   bigExp(100, 18), //  100 ANJ is the minimum balance jurors must activate to participate in the Court
   finalRoundWeightPrecision:          bn(1000),        //  use to improve division rounding for final round maths
   subscriptionPeriodDuration:         bn(10),          //  each subscription period lasts 10 terms
-  subscriptionFeeAmount:              bigExp(100, 18), //  100 fee tokens per subscription period
   subscriptionGovernorSharePct:       bn(0)            //  none subscription governor shares
 }
 
@@ -400,7 +399,6 @@ class CourtHelper {
         this.court.address,
         this.subscriptionPeriodDuration,
         this.feeToken.address,
-        this.subscriptionFeeAmount,
         this.subscriptionGovernorSharePct
       )
     }

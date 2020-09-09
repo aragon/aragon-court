@@ -24,7 +24,6 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
     string private constant ERROR_TOKEN_DEPOSIT_FAILED = "CS_TOKEN_DEPOSIT_FAILED";
     string private constant ERROR_TOKEN_TRANSFER_FAILED = "CS_TOKEN_TRANSFER_FAILED";
     string private constant ERROR_PERIOD_DURATION_ZERO = "CS_PERIOD_DURATION_ZERO";
-    string private constant ERROR_FEE_AMOUNT_ZERO = "CS_FEE_AMOUNT_ZERO";
     string private constant ERROR_FEE_TOKEN_NOT_CONTRACT = "CS_FEE_TOKEN_NOT_CONTRACT";
     string private constant ERROR_OVERRATED_GOVERNOR_SHARE_PCT = "CS_OVERRATED_GOVERNOR_SHARE_PCT";
     string private constant ERROR_NON_PAST_PERIOD = "CS_NON_PAST_PERIOD";
@@ -33,6 +32,7 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
     string private constant ERROR_DONATION_AMOUNT_ZERO = "CS_DONATION_AMOUNT_ZERO";
     string private constant ERROR_COURT_HAS_NOT_STARTED = "CS_COURT_HAS_NOT_STARTED";
     string private constant ERROR_APP_FEE_NOT_SET = "CS_APP_FEE_NOT_SET";
+    string private constant ERROR_ETH_APP_FEES_NOT_SUPPORTED = "CS_ETH_APP_FEES_NOT_SUPPORTED";
     string private constant ERROR_WRONG_TOKEN = "CS_WRONG_TOKEN";
     string private constant ERROR_WRONG_TOKENS_LENGTH = "CS_WRONG_TOKENS_LENGTH";
     string private constant ERROR_WRONG_AMOUNTS_LENGTH = "CS_WRONG_AMOUNTS_LENGTH";
@@ -42,17 +42,11 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
 
     struct Period {
         uint64 balanceCheckpoint;               // Court term ID of a period used to fetch the total active balance of the jurors registry
-        ERC20 feeToken;                         // Fee token corresponding to a certain subscription period
-        uint256 feeAmount;                      // Amount of fees paid for a certain subscription period
+        ERC20 feeToken;                         // Fee token used for the subscription fees corresponding to a certain period
         uint256 totalActiveBalance;             // Total amount of juror tokens active in the Court at the corresponding period checkpoint
         uint256 collectedFees;                  // Total amount of subscription fees collected during a period
         uint256 accumulatedGovernorFees;        // Total amount of fees accumulated for the governor of the Court during a period
         mapping (address => bool) claimedFees;  // List of jurors that have claimed fees during a period, indexed by juror address
-    }
-
-    struct AppFee {
-        bool set;
-        uint256 amount;
     }
 
     // Duration of a subscription period in Court terms
@@ -64,21 +58,16 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
     // ERC20 token used for the subscription fees
     ERC20 public currentFeeToken;
 
-    // Amount of fees to be paid for each subscription period
-    uint256 public currentFeeAmount;
-
     // List of periods indexed by ID
     mapping (uint256 => Period) internal periods;
 
-    // List of fees per appId
-    mapping (bytes32 => AppFee) internal appFees;
+    // List of app fees indexed by app ID
+    mapping (bytes32 => uint256) internal appFees;
 
-    event FeesPaid(address indexed subscriber, uint256 indexed periodId, ERC20 feeToken, uint256 feeAmount, bytes data);
     event FeesDonated(address indexed payer, uint256 indexed periodId, ERC20 feeToken, uint256 feeAmount);
     event FeesClaimed(address indexed juror, uint256 indexed periodId, ERC20 feeToken, uint256 jurorShare);
     event GovernorFeesTransferred(ERC20 indexed feeToken, uint256 amount);
     event FeeTokenChanged(ERC20 previousFeeToken, ERC20 currentFeeToken);
-    event FeeAmountChanged(uint256 previousFeeAmount, uint256 currentFeeAmount);
     event GovernorSharePctChanged(uint16 previousGovernorSharePct, uint16 currentGovernorSharePct);
 
     /**
@@ -86,10 +75,9 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
     * @param _controller Address of the controller
     * @param _periodDuration Duration of a subscription period in Court terms
     * @param _feeToken Initial ERC20 token used for the subscription fees
-    * @param _feeAmount Initial amount of fees to be paid for each subscription period
     * @param _governorSharePct Initial permyriad of subscription fees that will be allocated to the governor of the Court (‱ - 1/10,000)
     */
-    constructor(Controller _controller, uint64 _periodDuration, ERC20 _feeToken, uint256 _feeAmount, uint16 _governorSharePct)
+    constructor(Controller _controller, uint64 _periodDuration, ERC20 _feeToken, uint16 _governorSharePct)
         ControlledRecoverable(_controller)
         public
     {
@@ -98,21 +86,7 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
 
         periodDuration = _periodDuration;
         _setFeeToken(_feeToken);
-        _setFeeAmount(_feeAmount);
         _setGovernorSharePct(_governorSharePct);
-    }
-
-    /**
-    * @notice Pay fees on behalf of `_to`
-    * @param _to Subscriber whose subscription is being paid
-    * @param _data Payment reference only for logging purposes
-    */
-    function payFees(address _to, bytes calldata _data) external payable {
-        // Ensure fee token data for the current period
-        (uint256 currentPeriodId, Period storage period, ERC20 feeToken, uint256 feeAmount) = _ensureCurrentPeriodFees();
-
-        _payFees(period, msg.sender, feeToken, feeAmount);
-        emit FeesPaid(_to, currentPeriodId, feeToken, feeAmount, _data);
     }
 
     /**
@@ -123,7 +97,7 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
         require(_amount > 0, ERROR_DONATION_AMOUNT_ZERO);
 
         // Ensure fee token data for the current period
-        (uint256 currentPeriodId, Period storage period, ERC20 feeToken,) = _ensureCurrentPeriodFees();
+        (uint256 currentPeriodId, Period storage period, ERC20 feeToken) = _ensureCurrentPeriodFeeToken();
 
         // Update collected fees for the jurors
         period.collectedFees = period.collectedFees.add(_amount);
@@ -138,9 +112,9 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
     * @param _periodId Identification number of the period which fees are claimed for
     */
     function claimFees(uint256 _periodId) external {
-        // Juror share fees can only be claimed for past periods
         require(_periodId < _getCurrentPeriodId(), ERROR_NON_PAST_PERIOD);
         Period storage period = periods[_periodId];
+
         require(!period.claimedFees[msg.sender], ERROR_JUROR_FEES_ALREADY_CLAIMED);
 
         // Check claiming juror has share fees to be transferred
@@ -150,7 +124,7 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
 
         // Update juror state and transfer share fees
         period.claimedFees[msg.sender] = true;
-        (ERC20 feeToken,) = _ensurePeriodFees(period);
+        ERC20 feeToken = _ensurePeriodFeeToken(period);
         _transfer(msg.sender, feeToken, jurorShare);
         emit FeesClaimed(msg.sender, _periodId, feeToken, jurorShare);
     }
@@ -158,7 +132,7 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
     /**
     * @notice Transfer owed fees to the governor for the current period
     */
-    function transferLastPeriodFeesToGovernor() external {
+    function transferCurrentPeriodFeesToGovernor() external {
         (, Period storage period) = _getCurrentPeriod();
         _transferFeesToGovernor(period);
     }
@@ -168,6 +142,7 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
     * @param _periodId Identification number of the period for accumulated fees
     */
     function transferFeesToGovernor(uint256 _periodId) external {
+        require(_periodId <= _getCurrentPeriodId(), ERROR_NON_PAST_PERIOD);
         Period storage period = periods[_periodId];
         _transferFeesToGovernor(period);
     }
@@ -179,28 +154,23 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
     * @return totalActiveBalance Total amount of juror tokens active in the Court at the corresponding used checkpoint
     */
     function ensurePeriodBalanceDetails(uint256 _periodId) external returns (uint64 periodBalanceCheckpoint, uint256 totalActiveBalance) {
+        require(_periodId < _getCurrentPeriodId(), ERROR_NON_PAST_PERIOD);
         Period storage period = periods[_periodId];
         return _ensurePeriodBalanceDetails(_periodId, period);
     }
 
     /**
-    * @notice Set new subscriptions fee amount to `_feeAmount`
-    * @param _feeAmount New amount of fees to be paid for each subscription period
-    */
-    function setFeeAmount(uint256 _feeAmount) external onlyConfigGovernor {
-        _setFeeAmount(_feeAmount);
-    }
-
-    /**
-    * @notice Set new subscriptions fee to `@tokenAmount(_feeToken, _feeAmount)`
-    * @dev Accumulated fees owed to governor (if any) will be transferred
+    * @notice Set subscriptions fee token to `_feeToken`
     * @param _feeToken New ERC20 token to be used for the subscription fees
-    * @param _feeAmount New amount of fees to be paid for each subscription period
     */
-    function setFeeToken(ERC20 _feeToken, uint256 _feeAmount) external onlyConfigGovernor {
-        // The `setFeeToken` function transfers governor's accumulated fees, so must be executed first.
+    function setFeeToken(ERC20 _feeToken) external onlyConfigGovernor {
+        // If the court has started, ensure the fee token is set for the current period before changing it
+        if (_getCurrentTermId() > 0) {
+            (, Period storage period) = _getCurrentPeriod();
+            _ensurePeriodFeeToken(period);
+        }
+
         _setFeeToken(_feeToken);
-        _setFeeAmount(_feeAmount);
     }
 
     /**
@@ -221,7 +191,7 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
     */
     function setAppFee(bytes32 _appId, ERC20 _token, uint256 _amount) external onlyConfigGovernor {
         // Ensure fee token data for the current period
-        (,, ERC20 feeToken,) = _ensureCurrentPeriodFees();
+        (,, ERC20 feeToken) = _ensureCurrentPeriodFeeToken();
         require(_token == feeToken, ERROR_WRONG_TOKEN);
 
         _setAppFee(_appId, feeToken, _amount);
@@ -238,7 +208,7 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
         require(_appIds.length == _amounts.length, ERROR_WRONG_AMOUNTS_LENGTH);
 
         // Ensure fee token data for the current period
-        (,, ERC20 feeToken,) = _ensureCurrentPeriodFees();
+        (,, ERC20 feeToken) = _ensureCurrentPeriodFeeToken();
 
         for (uint256 i = 0; i < _appIds.length; i++) {
             _setAppFee(_appIds[i], feeToken, _amounts[i]);
@@ -265,26 +235,37 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
 
     /**
     * @notice Pay fees corresponding to a new action in app with id `appId`
-    * @dev To be called by Agreements. It needs a pre-approval of tokens
+    * @dev To be called by the eventual dispute creator (usually an IArbitrable). If a fee is defined, it requires the sender to have pre-approved tokens.
+           We expect the caller to submit the correct appId here, and leave it to jurors to verify that the correct fees were paid ahead of disputes.
     * @param _appId Id of the app paying fees for
     * @param _data Extra data for context of the payment
     */
     function payAppFees(bytes32 _appId, bytes calldata _data) external payable {
-        uint256 feeAmount = _getAppFee(_appId);
+        // Ensure fee token data for the current period
+        (,Period storage period, ERC20 feeToken) = _ensureCurrentPeriodFeeToken();
+        require(msg.value == 0, ERROR_ETH_APP_FEES_NOT_SUPPORTED);
 
-        if (feeAmount == 0) {
-            return;
+        // Fetch current fee amount for the given app ID
+        uint256 feeAmount = appFees[_appId];
+        if (feeAmount > 0) {
+            // Compute the portion of the total amount to pay that will be allocated to the governor
+            uint256 governorFee = feeAmount.pct(governorSharePct);
+            period.accumulatedGovernorFees = period.accumulatedGovernorFees.add(governorFee);
+
+            // Update collected fees for the jurors
+            uint256 collectedFees = feeAmount.sub(governorFee);
+            period.collectedFees = period.collectedFees.add(collectedFees);
+
+            // Deposit fee tokens from sender to this contract
+            _deposit(msg.sender, feeToken, feeAmount);
         }
 
-        // Ensure fee token data for the current period
-        (,Period storage period, ERC20 feeToken,) = _ensureCurrentPeriodFees();
-        _payFees(period, msg.sender, feeToken, feeAmount);
         emit AppFeePaid(msg.sender, _appId, _data);
     }
 
     /**
     * @dev Tell whether a certain subscriber has paid all the fees up to current period or not
-    * @return Always true. Previously we were using monthly subscriptions but the trusted model removes the concept of a monthly fee.
+    * @return Always true. Previously we were using monthly subscriptions but this "off-chain verified" fee model removes the concept of a monthly fee.
     */
     function isUpToDate(address /*_subscriber*/) external view returns (bool) {
         return true;
@@ -300,8 +281,7 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
 
     /**
     * @dev Get details of the current period
-    * @return feeToken Fee token corresponding to a certain subscription period
-    * @return feeAmount Amount of fees paid for a certain subscription period
+    * @return feeToken Fee token corresponding to a certain period
     * @return balanceCheckpoint Court term ID of a period used to fetch the total active balance of the jurors registry
     * @return totalActiveBalance Total amount of juror tokens active in the Court at the corresponding period checkpoint
     * @return collectedFees Total amount of subscription fees collected during a period
@@ -312,7 +292,6 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
         view
         returns (
             ERC20 feeToken,
-            uint256 feeAmount,
             uint64 balanceCheckpoint,
             uint256 totalActiveBalance,
             uint256 collectedFees,
@@ -322,7 +301,6 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
         Period storage period = periods[_periodId];
 
         feeToken = period.feeToken;
-        feeAmount = period.feeAmount;
         balanceCheckpoint = period.balanceCheckpoint;
         totalActiveBalance = period.totalActiveBalance;
         collectedFees = period.collectedFees;
@@ -337,7 +315,13 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
     */
     function getOwedFeesDetails(address /*_subscriber*/) external view returns (ERC20 feeToken, uint256 amountToPay, uint256 newLastPeriodId) {
         (uint256 periodId, Period storage period) = _getCurrentPeriod();
-        (feeToken, amountToPay) = _getPeriodFeeTokenAndAmount(period);
+
+        // Subscription fees were deprecated, this module now only implements app action fees.
+        // However, we still need to support this view function to be compliant with the AragonCourt's IArbitrator implementation.
+        // Therefore, we simply say that all subscribers do not owe subscription payments.
+
+        feeToken = _getEnsuredPeriodFeeToken(period);
+        amountToPay = 0;
         newLastPeriodId = periodId;
     }
 
@@ -349,7 +333,9 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
     * @return jurorShare Amount of share fees owed to the given juror for the requested period
     */
     function getJurorShare(address _juror, uint256 _periodId) external view returns (ERC20 feeToken, uint256 jurorShare) {
+        require(_periodId < _getCurrentPeriodId(), ERROR_NON_PAST_PERIOD);
         Period storage period = periods[_periodId];
+
         uint64 periodBalanceCheckpoint;
         uint256 totalActiveBalance = period.totalActiveBalance;
 
@@ -362,7 +348,7 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
 
         // Compute juror share fees using the period balance details
         jurorShare = _getJurorShare(_juror, period, periodBalanceCheckpoint, totalActiveBalance);
-        (feeToken,) = _getPeriodFeeTokenAndAmount(period);
+        feeToken = _getEnsuredPeriodFeeToken(period);
     }
 
     /**
@@ -378,34 +364,13 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
     /**
     * @notice Get fees for app with id `_appId`
     * @param _appId Id of the app
-    * @return Token for the fees
+    * @return ERC20 token for the fees
     * @return Amount of fee tokens
     */
-    function getAppFee(bytes32 _appId) external view returns (ERC20 token, uint256 amount) {
+    function getAppFee(bytes32 _appId) external view returns (ERC20 feeToken, uint256 feeAmount) {
         (, Period storage period) = _getCurrentPeriod();
-        (token,) = _getPeriodFeeTokenAndAmount(period);
-
-        amount = _getAppFee(_appId);
-    }
-
-    /**
-    * @dev Internal function to pay fees for a subscription
-    * @param _period Period during which the fees are paid
-    * @param _from Address paying for the fee amount
-    * @param _feeToken ERC20 token to be used for the fees
-    * @param _feeAmount Amount of fees to be paid
-    */
-    function _payFees(Period storage _period, address _from, ERC20 _feeToken, uint256 _feeAmount) internal {
-        // Compute the portion of the total amount to pay that will be allocated to the governor
-        uint256 governorFee = _feeAmount.pct(governorSharePct);
-        _period.accumulatedGovernorFees = _period.accumulatedGovernorFees.add(governorFee);
-
-        // Update collected fees for the jurors
-        uint256 collectedFees = _feeAmount.sub(governorFee);
-        _period.collectedFees = _period.collectedFees.add(collectedFees);
-
-        // Deposit fee tokens from sender to this contract
-        _deposit(_from, _feeToken, _feeAmount);
+        feeToken = _getEnsuredPeriodFeeToken(period);
+        feeAmount = appFees[_appId];
     }
 
     /**
@@ -415,9 +380,10 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
     function _transferFeesToGovernor(Period storage _period) internal {
         uint256 amount = _period.accumulatedGovernorFees;
         require(amount > 0, ERROR_GOVERNOR_SHARE_FEES_ZERO);
+
         _period.accumulatedGovernorFees = 0;
         address payable governor = address(uint160(_configGovernor()));
-        (ERC20 feeToken,) = _ensurePeriodFees(_period);
+        ERC20 feeToken = _ensurePeriodFeeToken(_period);
         _transfer(governor, feeToken, amount);
         emit GovernorFeesTransferred(feeToken, amount);
     }
@@ -455,30 +421,26 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
     * @return periodId Identification number of the current period
     * @return period Current period instance
     * @return feeToken ERC20 token to be used for the subscription fees during the given period
-    * @return feeAmount Amount of fees to be paid during the given period
     */
-    function _ensureCurrentPeriodFees() internal returns (uint256 periodId, Period storage period, ERC20 feeToken, uint256 feeAmount) {
+    function _ensureCurrentPeriodFeeToken() internal returns (uint256 periodId, Period storage period, ERC20 feeToken) {
         (periodId, period) = _getCurrentPeriod();
-        (feeToken, feeAmount) = _ensurePeriodFees(period);
+        feeToken = _ensurePeriodFeeToken(period);
     }
 
     /**
     * @dev Internal function to make sure the fee token address and amount are set for a certain period
     * @param _period Period instance to ensure
-    * @return feeToken ERC20 token to be used for the subscription fees during the given period
-    * @return feeAmount Amount of fees to be paid during the given period
+    * @return ERC20 token to be used for the subscription fees during the given period
     */
-    function _ensurePeriodFees(Period storage _period) internal returns (ERC20 feeToken, uint256 feeAmount) {
-        // Use current fee token address and amount for the given period if these haven't been set yet
-        feeAmount = _period.feeAmount;
-        if (feeAmount == 0) {
+    function _ensurePeriodFeeToken(Period storage _period) internal returns (ERC20) {
+        // Use current fee token address for the given period if these haven't been set yet
+        ERC20 feeToken = _period.feeToken;
+        if (feeToken == ERC20(0)) {
             feeToken = currentFeeToken;
-            feeAmount = currentFeeAmount;
             _period.feeToken = feeToken;
-            _period.feeAmount = feeAmount;
-        } else {
-            feeToken = _period.feeToken;
         }
+
+        return feeToken;
     }
 
     /**
@@ -502,17 +464,6 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
         } else {
             periodBalanceCheckpoint = _period.balanceCheckpoint;
         }
-    }
-
-    /**
-    * @dev Internal function to set a new amount for the subscription fees
-    * @param _feeAmount New amount of fees to be paid for each subscription period
-    */
-    function _setFeeAmount(uint256 _feeAmount) internal {
-        require(_feeAmount > 0, ERROR_FEE_AMOUNT_ZERO);
-
-        emit FeeAmountChanged(currentFeeAmount, _feeAmount);
-        currentFeeAmount = _feeAmount;
     }
 
     /**
@@ -545,10 +496,7 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
     * @param _amount Amount of fee tokens
     */
     function _setAppFee(bytes32 _appId, ERC20 _token, uint256 _amount) internal {
-        AppFee storage appFee = appFees[_appId];
-
-        appFee.set = true;
-        appFee.amount = _amount;
+        appFees[_appId] = _amount;
         emit AppFeeSet(_appId, _token, _amount);
     }
 
@@ -557,9 +505,9 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
     * @param _appId Id of the app
     */
     function _unsetAppFee(bytes32 _appId) internal {
-        require(appFees[_appId].set, ERROR_APP_FEE_NOT_SET);
+        require(appFees[_appId] != 0, ERROR_APP_FEE_NOT_SET);
 
-        delete appFees[_appId];
+        appFees[_appId] = 0;
         emit AppFeeUnset(_appId);
     }
 
@@ -602,18 +550,12 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
     /**
     * @dev Internal function to get the fee token address and amount to be used for a certain period
     * @param _period Period querying the token address and amount of
-    * @return feeToken ERC20 token to be used for the subscription fees during the given period
-    * @return feeAmount Amount of fees to be paid during the given period
+    * @return ERC20 token to be used for the subscription fees during the given period
     */
-    function _getPeriodFeeTokenAndAmount(Period storage _period) internal view returns (ERC20 feeToken, uint256 feeAmount) {
+    function _getEnsuredPeriodFeeToken(Period storage _period) internal view returns (ERC20) {
         // Return current fee token address and amount if these haven't been set for the given period yet
-        feeAmount = _period.feeAmount;
-        if (feeAmount == 0) {
-            feeToken = currentFeeToken;
-            feeAmount = currentFeeAmount;
-        } else {
-            feeToken = _period.feeToken;
-        }
+        ERC20 feeToken = _period.feeToken;
+        return feeToken == ERC20(0) ? currentFeeToken : feeToken;
     }
 
     /**
@@ -652,7 +594,9 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
     * @param _totalActiveBalance Total amount of juror tokens active in the Court at the corresponding used checkpoint
     * @return Amount of share fees owed to the given juror for the requested period
     */
-    function _getJurorShare(address _juror, Period storage _period, uint64 _periodBalanceCheckpoint, uint256 _totalActiveBalance) internal view
+    function _getJurorShare(address _juror, Period storage _period, uint64 _periodBalanceCheckpoint, uint256 _totalActiveBalance)
+        internal
+        view
         returns (uint256)
     {
         // Fetch juror active balance at the checkpoint used for the requested period
@@ -664,16 +608,5 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
 
         // Note that we already checked the juror active balance is greater than zero, then, the total active balance must be greater than zero.
         return _period.collectedFees.mul(jurorActiveBalance) / _totalActiveBalance;
-    }
-
-    /**
-    * @dev Get fees for app with the given id
-    * @param _appId Id of the app
-    * @return Amount of fee tokens
-    */
-    function _getAppFee(bytes32 _appId) internal view returns (uint256) {
-        AppFee storage appFee = appFees[_appId];
-        require(appFee.set, ERROR_APP_FEE_NOT_SET);
-        return appFee.amount;
     }
 }

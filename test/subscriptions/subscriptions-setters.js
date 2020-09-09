@@ -1,4 +1,4 @@
-const { bn, bigExp } = require('@aragon/contract-helpers-test')
+const { bn } = require('@aragon/contract-helpers-test')
 const { assertRevert, assertBn, assertAmountOfEvents, assertEvent } = require('@aragon/contract-helpers-test/src/asserts')
 
 const { buildHelper } = require('../helpers/wrappers/court')
@@ -8,10 +8,9 @@ const { CONTROLLED_ERRORS, SUBSCRIPTIONS_ERRORS } = require('../helpers/utils/er
 const CourtSubscriptions = artifacts.require('CourtSubscriptions')
 const ERC20 = artifacts.require('ERC20Mock')
 
-contract('CourtSubscriptions', ([_, governor, someone, something, subscriber]) => {
+contract('CourtSubscriptions', ([_, governor, someone, something]) => {
   let controller, subscriptions, feeToken
 
-  const FEE_AMOUNT = bigExp(1, 18)
   const PERIOD_DURATION = 24 * 30           // 30 days, assuming terms are 1h
   const GOVERNOR_SHARE_PCT = bn(100)        // 100‱ = 1%
 
@@ -21,49 +20,8 @@ contract('CourtSubscriptions', ([_, governor, someone, something, subscriber]) =
   })
 
   beforeEach('create subscriptions module', async () => {
-    subscriptions = await CourtSubscriptions.new(controller.address, PERIOD_DURATION, feeToken.address, FEE_AMOUNT, GOVERNOR_SHARE_PCT)
+    subscriptions = await CourtSubscriptions.new(controller.address, PERIOD_DURATION, feeToken.address, GOVERNOR_SHARE_PCT)
     await controller.setSubscriptions(subscriptions.address)
-  })
-
-  describe('setFeeAmount', () => {
-    context('when the sender is the governor', async () => {
-      const from = governor
-
-      context('when the given value is greater than zero', async () => {
-        const newFeeAmount = bn(500)
-
-        it('updates the subscriptions fee amount', async () => {
-          await subscriptions.setFeeAmount(newFeeAmount, { from })
-
-          assertBn((await subscriptions.currentFeeAmount()), newFeeAmount, 'subscription fee amount does not match')
-        })
-
-        it('emits an event', async () => {
-          const previousFeeAmount = await subscriptions.currentFeeAmount()
-
-          const receipt = await subscriptions.setFeeAmount(newFeeAmount, { from })
-
-          assertAmountOfEvents(receipt, SUBSCRIPTIONS_EVENTS.FEE_AMOUNT_CHANGED)
-          assertEvent(receipt, SUBSCRIPTIONS_EVENTS.FEE_AMOUNT_CHANGED, { expectedArgs: { previousFeeAmount, currentFeeAmount: newFeeAmount } })
-        })
-      })
-
-      context('when the given value is zero', async () => {
-        const newFeeAmount = bn(0)
-
-        it('reverts', async () => {
-          await assertRevert(subscriptions.setFeeAmount(newFeeAmount, { from }), SUBSCRIPTIONS_ERRORS.FEE_AMOUNT_ZERO)
-        })
-      })
-    })
-
-    context('when the sender is not the governor', async () => {
-      const from = someone
-
-      it('reverts', async () => {
-        await assertRevert(subscriptions.setFeeAmount(FEE_AMOUNT, { from }), CONTROLLED_ERRORS.SENDER_NOT_CONFIG_GOVERNOR)
-      })
-    })
   })
 
   describe('setFeeToken', () => {
@@ -77,59 +35,19 @@ contract('CourtSubscriptions', ([_, governor, someone, something, subscriber]) =
           newFeeToken = await ERC20.new('New Fee Token', 'NFT', 18)
         })
 
-        context('when the given fee amount is greater than zero', async () => {
-          const newFeeAmount = bigExp(99, 18)
+        it('updates the current fee token address and amount', async () => {
+          await subscriptions.setFeeToken(newFeeToken.address, { from })
 
-          const itUpdatesFeeTokenAndAmount = () => {
-            it('updates the current fee token address and amount', async () => {
-              await subscriptions.setFeeToken(newFeeToken.address, newFeeAmount, { from })
-
-              assert.equal(await subscriptions.currentFeeToken(), newFeeToken.address, 'fee token does not match')
-              assertBn((await subscriptions.currentFeeAmount()), newFeeAmount, 'fee amount does not match')
-            })
-
-            it('emits an event', async () => {
-              const previousFeeToken = await subscriptions.currentFeeToken()
-              const previousFeeAmount = await subscriptions.currentFeeAmount()
-
-              const receipt = await subscriptions.setFeeToken(newFeeToken.address, newFeeAmount, { from })
-
-              assertAmountOfEvents(receipt, SUBSCRIPTIONS_EVENTS.FEE_TOKEN_CHANGED)
-              assertEvent(receipt, SUBSCRIPTIONS_EVENTS.FEE_TOKEN_CHANGED, { expectedArgs: { previousFeeToken, currentFeeToken: newFeeToken.address } })
-
-              assertAmountOfEvents(receipt, SUBSCRIPTIONS_EVENTS.FEE_AMOUNT_CHANGED)
-              assertEvent(receipt, SUBSCRIPTIONS_EVENTS.FEE_AMOUNT_CHANGED, { expectedArgs: { previousFeeAmount, currentFeeAmount: newFeeAmount } })
-            })
-          }
-
-          context('when there were none governor fees accumulated', async () => {
-            itUpdatesFeeTokenAndAmount()
-          })
-
-          context('when there were some governor fees accumulated', async () => {
-            const paidSubscriptions = bn(2)
-            const paidAmount = FEE_AMOUNT.mul(paidSubscriptions)
-
-            beforeEach('pay some subscriptions', async () => {
-              await controller.mockSetTerm(PERIOD_DURATION)
-              await feeToken.generateTokens(subscriber, paidAmount)
-              await feeToken.approve(subscriptions.address, paidAmount, { from: subscriber })
-
-              for (let i = 0; i < paidSubscriptions.toNumber(); i++) {
-                await subscriptions.payFees(subscriber, '0x', { from: subscriber })
-              }
-            })
-
-            itUpdatesFeeTokenAndAmount()
-          })
+          assert.equal(await subscriptions.currentFeeToken(), newFeeToken.address, 'fee token does not match')
         })
 
-        context('when the given fee amount is zero', async () => {
-          const newFeeAmount = bn(0)
+        it('emits an event', async () => {
+          const previousFeeToken = await subscriptions.currentFeeToken()
 
-          it('reverts', async () => {
-            await assertRevert(subscriptions.setFeeToken(newFeeToken.address, newFeeAmount, { from }), SUBSCRIPTIONS_ERRORS.FEE_AMOUNT_ZERO)
-          })
+          const receipt = await subscriptions.setFeeToken(newFeeToken.address, { from })
+
+          assertAmountOfEvents(receipt, SUBSCRIPTIONS_EVENTS.FEE_TOKEN_CHANGED)
+          assertEvent(receipt, SUBSCRIPTIONS_EVENTS.FEE_TOKEN_CHANGED, { expectedArgs: { previousFeeToken, currentFeeToken: newFeeToken.address } })
         })
       })
 
@@ -137,7 +55,7 @@ contract('CourtSubscriptions', ([_, governor, someone, something, subscriber]) =
         const newFeeTokenAddress = something
 
         it('reverts', async () => {
-          await assertRevert(subscriptions.setFeeToken(newFeeTokenAddress, FEE_AMOUNT, { from }), SUBSCRIPTIONS_ERRORS.FEE_TOKEN_NOT_CONTRACT)
+          await assertRevert(subscriptions.setFeeToken(newFeeTokenAddress, { from }), SUBSCRIPTIONS_ERRORS.FEE_TOKEN_NOT_CONTRACT)
         })
       })
     })
@@ -146,7 +64,7 @@ contract('CourtSubscriptions', ([_, governor, someone, something, subscriber]) =
       const from = someone
 
       it('reverts', async () => {
-        await assertRevert(subscriptions.setFeeToken(feeToken.address, FEE_AMOUNT, { from }), CONTROLLED_ERRORS.SENDER_NOT_CONFIG_GOVERNOR)
+        await assertRevert(subscriptions.setFeeToken(feeToken.address, { from }), CONTROLLED_ERRORS.SENDER_NOT_CONFIG_GOVERNOR)
       })
     })
   })

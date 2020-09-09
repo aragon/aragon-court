@@ -165,6 +165,12 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
     * @param _feeToken New ERC20 token to be used for the subscription fees
     */
     function setFeeToken(ERC20 _feeToken) external onlyConfigGovernor {
+        // Ensure the current period has its fee token set if the court has started
+        if(_getCurrentTermId() > 0) {
+            (, Period storage period) = _getCurrentPeriod();
+            _ensurePeriodFeeToken(period);
+        }
+
         _setFeeToken(_feeToken);
     }
 
@@ -471,9 +477,6 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
         require(isContract(address(_feeToken)), ERROR_FEE_TOKEN_NOT_CONTRACT);
 
         emit FeeTokenChanged(currentFeeToken, _feeToken);
-        // AUDIT: If I understand this correctly, we are allowing the fee tokens to change in the
-        // current period, until a fee or donation is made (and then any changes to the fee token
-        // would only be applied at the next period)?
         currentFeeToken = _feeToken;
     }
 

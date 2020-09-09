@@ -14,7 +14,6 @@ import "../court/controller/Controller.sol";
 import "../court/controller/ControlledRecoverable.sol";
 
 
-// AUDIT: in terms of this contract, should it be "recoverable"? Since it holds tokens.
 contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscriptions, IAragonAppFeesCashier {
     using SafeERC20 for ERC20;
     using SafeMath for uint256;
@@ -166,7 +165,7 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
     */
     function setFeeToken(ERC20 _feeToken) external onlyConfigGovernor {
         // Ensure the current period has its fee token set if the court has started
-        if(_getCurrentTermId() > 0) {
+        if (_getCurrentTermId() > 0) {
             (, Period storage period) = _getCurrentPeriod();
             _ensurePeriodFeeToken(period);
         }
@@ -187,7 +186,6 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
     /**
     * @notice Set fees for app with id `_appId` to @tokenAmount(`_token`, `_amount`)
     * @param _appId Id of the app
-    // AUDIT: I found this kind of weird, since we're the only one using this interface... is this a "just in case" parameter for the future?
     * @param _token Token for the fee, must be the same as the current period one
     * @param _amount Amount of fee tokens. The change applies immediately.
     */
@@ -202,7 +200,6 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
     /**
     * @notice Set fees for apps with ids `_appIds`
     * @param _appIds Id of the apps
-    // AUDIT: I found this kind of weird, since we're the only one using this interface... is this a "just in case" parameter for the future?
     * @param _tokens Token for the fees for each app (must be an empty array, as we are using the global token)
     * @param _amounts Amount of fee tokens for each app. The change applies immediately.
     */

@@ -33,6 +33,7 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
     string private constant ERROR_DONATION_AMOUNT_ZERO = "CS_DONATION_AMOUNT_ZERO";
     string private constant ERROR_COURT_HAS_NOT_STARTED = "CS_COURT_HAS_NOT_STARTED";
     string private constant ERROR_APP_FEE_NOT_SET = "CS_APP_FEE_NOT_SET";
+    string private constant ERROR_ETH_APP_FEES_NOT_SUPPORTED = "CS_ETH_APP_FEES_NOT_SUPPORTED";
     string private constant ERROR_WRONG_TOKEN = "CS_WRONG_TOKEN";
     string private constant ERROR_WRONG_TOKENS_LENGTH = "CS_WRONG_TOKENS_LENGTH";
     string private constant ERROR_WRONG_AMOUNTS_LENGTH = "CS_WRONG_AMOUNTS_LENGTH";
@@ -235,10 +236,10 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
     * @param _appId Id of the app paying fees for
     * @param _data Extra data for context of the payment
     */
-    // AUDIT: should we revert on receiving ETH?
     function payAppFees(bytes32 _appId, bytes calldata _data) external payable {
         // Ensure fee token data for the current period
         (,Period storage period, ERC20 feeToken) = _ensureCurrentPeriodFeeToken();
+        require(msg.value == 0, ERROR_ETH_APP_FEES_NOT_SUPPORTED);
 
         // Fetch current fee amount for the given app ID
         uint256 feeAmount = appFees[_appId];

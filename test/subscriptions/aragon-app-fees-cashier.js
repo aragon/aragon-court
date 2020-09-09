@@ -91,8 +91,8 @@ contract('Aragon App Fees Cashier', ([_, governor, subscriber]) => {
       })
     }
 
-    context('when the court hasn’t started', () => {
-      it('setAppFee reverts', async () => {
+    context('when the court has not started', () => {
+      it('reverts', async () => {
         await assertRevert(aragonAppFeesCashier.setAppFee(appIds[0], feeToken.address, amounts[0], { from: governor }), SUBSCRIPTIONS_ERRORS.COURT_HAS_NOT_STARTED)
       })
     })
@@ -161,7 +161,7 @@ contract('Aragon App Fees Cashier', ([_, governor, subscriber]) => {
     const appId = VOTING_APP_ID
     const amount = bigExp(15, 18)
 
-    context('when the court hasn’t started', () => {
+    context('when the court has not started', () => {
       it('reverts', async () => {
         await assertRevert(aragonAppFeesCashier.setAppFee(appId, feeToken.address, amount, { from: governor }), SUBSCRIPTIONS_ERRORS.COURT_HAS_NOT_STARTED)
         await assertRevert(aragonAppFeesCashier.payAppFees(appId, EMPTY_BYTES, { from: subscriber }), SUBSCRIPTIONS_ERRORS.COURT_HAS_NOT_STARTED)
@@ -201,6 +201,10 @@ contract('Aragon App Fees Cashier', ([_, governor, subscriber]) => {
 
           assertAmountOfEvents(receipt, SUBSCRIPTIONS_EVENTS.APP_FEE_PAID)
           assertEvent(receipt, SUBSCRIPTIONS_EVENTS.APP_FEE_PAID, { expectedArgs: { by: subscriber, appId, data: EMPTY_BYTES } })
+        })
+
+        it('reverts when sending some ETH', async () => {
+          await assertRevert(aragonAppFeesCashier.payAppFees(appId, EMPTY_BYTES, { from: subscriber, value: 1e18 }), SUBSCRIPTIONS_ERRORS.ETH_APP_FEES_NOT_SUPPORTED)
         })
       })
     })

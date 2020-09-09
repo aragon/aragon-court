@@ -235,7 +235,8 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
 
     /**
     * @notice Pay fees corresponding to a new action in app with id `appId`
-    * @dev To be called by Agreements. If a fee is defined, it requires the sender to have pre-approved tokens.
+    * @dev To be called by the eventual dispute creator (usually an IArbitrable). If a fee is defined, it requires the sender to have pre-approved tokens.
+           We expect the caller to submit the correct appId here, and leave it to jurors to verify that the correct fees were paid ahead of disputes.
     * @param _appId Id of the app paying fees for
     * @param _data Extra data for context of the payment
     */

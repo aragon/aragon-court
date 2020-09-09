@@ -25,7 +25,7 @@ Fees are low and court terms last a few minutes to make sure you can interact wi
 - Address: [`0x52180af656a1923024d1accf1d827ab85ce48878`](http://rinkeby.etherscan.io/address/0x52180af656a1923024d1accf1d827ab85ce48878)
 - Fake ANJ: [`0x5bc9be34f98eb072696d63b5be5d4d2f2c03d0ad`](http://rinkeby.etherscan.io/address/0x5bc9be34f98eb072696d63b5be5d4d2f2c03d0ad)
 - Fake DAI: [`0x3af6b2f907f0c55f279e0ed65751984e6cdc4a42`](http://rinkeby.etherscan.io/address/0x3af6b2f907f0c55f279e0ed65751984e6cdc4a42)
-- ERC20 faucet: [`0x5561f73c3BBe8202F4D7E51aD2A1F22f1E056eFE`](http://rinkeby.etherscan.io/address/0x5561f73c3BBe8202F4D7E51aD2A1F22f1E056eFE)
+- ERC20 faucet: [`0x9a2F850C701b457b73c8dC8B1534Cc187B33F5FD`](http://rinkeby.etherscan.io/address/0x9a2F850C701b457b73c8dC8B1534Cc187B33F5FD)
 
 ### 8.1.2. Rinkeby
 

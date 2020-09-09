@@ -164,7 +164,7 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
     * @param _feeToken New ERC20 token to be used for the subscription fees
     */
     function setFeeToken(ERC20 _feeToken) external onlyConfigGovernor {
-        // Ensure the current period has its fee token set if the court has started
+        // If the court has started, ensure the fee token is set for the current period before changing it
         if (_getCurrentTermId() > 0) {
             (, Period storage period) = _getCurrentPeriod();
             _ensurePeriodFeeToken(period);

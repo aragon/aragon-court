@@ -19,7 +19,7 @@ Fees are low and court terms last a few minutes to make sure you can interact wi
 
 - Network: Rinkeby
 - Court term: 10 minutes
-- Subscription fee: 10 fake DAI
+- Subscription fee: 1 fake DAI
 - Subscription period: 3 court terms (30 minutes)
 - Dashboard: https://court-staging.aragon.org/
 - Address: [`0x52180af656a1923024d1accf1d827ab85ce48878`](http://rinkeby.etherscan.io/address/0x52180af656a1923024d1accf1d827ab85ce48878)
@@ -33,7 +33,7 @@ This testing instance mirrors the instance deployed to Mainnet, same terms durat
 
 - Network: Rinkeby
 - Court term: 8 hours
-- Subscription fee: 10 fake DAI
+- Subscription fee: 1 fake DAI
 - Subscription period: 90 court terms (1 month)
 - Dashboard: https://court-rinkeby.aragon.org/
 - Address: [`0xe9180dBE762Fe39520fC9883f7f7EFeBA6506534`](http://rinkeby.etherscan.io/address/0xe9180dBE762Fe39520fC9883f7f7EFeBA6506534)
@@ -47,7 +47,7 @@ This testing instance basically mimics the Mainnet instance with lower subscript
 
 - Network: Ropsten
 - Court term: 8 hours
-- Subscription fee: 10 fake DAI
+- Subscription fee: 1 fake DAI
 - Subscription period: 90 court terms (1 month)
 - Dashboard: https://court-ropsten.aragon.org/
 - Address: [`0x3b26bc496aebaed5b3e0e81cde6b582cde71396e`](http://ropsten.etherscan.io/address/0x3b26bc496aebaed5b3e0e81cde6b582cde71396e)
@@ -152,7 +152,7 @@ This command will output the address of your new Arbitrable contract.
 
 The next step is to subscribe your Arbitrable instance to Aragon Court by paying the subscription fees.
 Each testing instance has different subscription fees, so make sure you claim enough fake DAI from the ERC20 faucet based on the fees described in section 8.2. 
-We recommend using the `staging` testing instance to have a more fluid experience, its subscription fees are 10 fake-DAI.
+We recommend using the `staging` testing instance to have a more fluid experience, its subscription fees are 1 fake-DAI.
 
 Once you have done that you can subscribe your Arbitrable instance running the following command:
 
@@ -167,7 +167,7 @@ Where:
 
 Now, we are almost ready to create a dispute. The last step is to send some fake DAI to the Arbitrable instance so that it can pay for the court's dispute fees.
 These are different from the subscription fees. The dispute fees are to pay the jurors for each dispute to be resolved.
-For the testing instances, each dispute costs 30.87 fake-DAI (`30870000000000000000` with 18 decimals).
+For the testing instances, each dispute costs 150 fake-DAI (`150000000000000000000` with 18 decimals).
 Thus, you will need to make a transfer from your account to your Arbitrable instance.
 To do that you can use the Etherscan interface for the fake DAI instance linked in section 8.1.
 

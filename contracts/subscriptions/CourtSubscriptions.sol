@@ -49,12 +49,6 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
         mapping (address => bool) claimedFees;  // List of jurors that have claimed fees during a period, indexed by juror address
     }
 
-    struct AppFee {
-        // AUDIT: how useful is this variable? Could we check amount == 0?
-        bool set;
-        uint256 amount;
-    }
-
     // Duration of a subscription period in Court terms
     uint64 public periodDuration;
 
@@ -67,8 +61,8 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
     // List of periods indexed by ID
     mapping (uint256 => Period) internal periods;
 
-    // List of fees per appId
-    mapping (bytes32 => AppFee) internal appFees;
+    // List of app fees indexed by app ID
+    mapping (bytes32 => uint256) internal appFees;
 
     event FeesDonated(address indexed payer, uint256 indexed periodId, ERC20 indexed feeToken, uint256 feeAmount);
     event FeesClaimed(address indexed juror, uint256 indexed periodId, ERC20 indexed feeToken, uint256 jurorShare);
@@ -241,15 +235,16 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
     * @param _appId Id of the app paying fees for
     * @param _data Extra data for context of the payment
     */
-   // AUDIT: should we revert on receiving ETH?
+    // AUDIT: should we revert on receiving ETH?
     function payAppFees(bytes32 _appId, bytes calldata _data) external payable {
-        uint256 feeAmount = _getAppFee(_appId);
+        // Ensure fee token data for the current period
+        (,Period storage period, ERC20 feeToken) = _ensureCurrentPeriodFeeToken();
+
+        // Fetch current fee amount for the given app ID
+        uint256 feeAmount = appFees[_appId];
         if (feeAmount == 0) {
             return;
         }
-
-        // Ensure fee token data for the current period
-        (,Period storage period, ERC20 feeToken) = _ensureCurrentPeriodFeeToken();
 
         // Compute the portion of the total amount to pay that will be allocated to the governor
         uint256 governorFee = feeAmount.pct(governorSharePct);
@@ -371,7 +366,7 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
     function getAppFee(bytes32 _appId) external view returns (ERC20 feeToken, uint256 feeAmount) {
         (, Period storage period) = _getCurrentPeriod();
         feeToken = _getEnsuredPeriodFeeToken(period);
-        feeAmount = _getAppFee(_appId);
+        feeAmount = appFees[_appId];
     }
 
     /**
@@ -500,10 +495,7 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
     * @param _amount Amount of fee tokens
     */
     function _setAppFee(bytes32 _appId, ERC20 _token, uint256 _amount) internal {
-        AppFee storage appFee = appFees[_appId];
-
-        appFee.set = true;
-        appFee.amount = _amount;
+        appFees[_appId] = _amount;
         emit AppFeeSet(_appId, _token, _amount);
     }
 
@@ -512,9 +504,9 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
     * @param _appId Id of the app
     */
     function _unsetAppFee(bytes32 _appId) internal {
-        require(appFees[_appId].set, ERROR_APP_FEE_NOT_SET);
+        require(appFees[_appId] != 0, ERROR_APP_FEE_NOT_SET);
 
-        delete appFees[_appId];
+        appFees[_appId] = 0;
         emit AppFeeUnset(_appId);
     }
 
@@ -615,16 +607,5 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
 
         // Note that we already checked the juror active balance is greater than zero, then, the total active balance must be greater than zero.
         return _period.collectedFees.mul(jurorActiveBalance) / _totalActiveBalance;
-    }
-
-    /**
-    * @dev Get fees for app with the given id
-    * @param _appId Id of the app
-    * @return Amount of fee tokens
-    */
-    function _getAppFee(bytes32 _appId) internal view returns (uint256) {
-        AppFee storage appFee = appFees[_appId];
-        require(appFee.set, ERROR_APP_FEE_NOT_SET);
-        return appFee.amount;
     }
 }

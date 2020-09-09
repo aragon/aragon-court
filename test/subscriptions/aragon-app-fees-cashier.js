@@ -102,9 +102,10 @@ contract('Aragon App Fees Cashier', ([_, governor, subscriber]) => {
         await controller.mockSetTerm(PERIOD_DURATION)
       })
 
-      context('when the app fee hasn’t been set', () => {
-        it('fails to get fee', async () => {
-          await assertRevert(aragonAppFeesCashier.getAppFee(VOTING_APP_ID), SUBSCRIPTIONS_ERRORS.APP_FEE_NOT_SET)
+      context('when the app fee has not been set', () => {
+        it('returns a zeroed fee amount', async () => {
+          const { feeAmount } = await aragonAppFeesCashier.getAppFee(VOTING_APP_ID)
+          assertBn(feeAmount, 0, 'fee amount does not match')
         })
 
         it('fails to unset fee', async () => {
@@ -136,21 +137,19 @@ contract('Aragon App Fees Cashier', ([_, governor, subscriber]) => {
         })
 
         it('unsets the fee', async () => {
-          // unset fee
           await aragonAppFeesCashier.unsetAppFee(appIds[0], { from: governor })
 
-          // try to get fee
-          await assertRevert(aragonAppFeesCashier.getAppFee(appIds[0]), SUBSCRIPTIONS_ERRORS.APP_FEE_NOT_SET)
+          const { feeAmount } = await aragonAppFeesCashier.getAppFee(appIds[0])
+          assertBn(feeAmount, 0, 'fee amount does not match')
         })
 
         it('unsets multiple fees', async () => {
-          // unset fee
           await aragonAppFeesCashier.unsetAppFees(appIds, { from: governor })
 
-          // try to get fee
-          await Promise.all(appIds.map(async (appId) => {
-            await assertRevert(aragonAppFeesCashier.getAppFee(appId), SUBSCRIPTIONS_ERRORS.APP_FEE_NOT_SET)
-          }))
+          for (const appId of appIds) {
+            const { feeAmount } = await aragonAppFeesCashier.getAppFee(appId)
+            assertBn(feeAmount, 0, 'fee amount does not match')
+          }
         })
 
         setAndGetAppFees()
@@ -165,7 +164,7 @@ contract('Aragon App Fees Cashier', ([_, governor, subscriber]) => {
     context('when the court hasn’t started', () => {
       it('reverts', async () => {
         await assertRevert(aragonAppFeesCashier.setAppFee(appId, feeToken.address, amount, { from: governor }), SUBSCRIPTIONS_ERRORS.COURT_HAS_NOT_STARTED)
-        await assertRevert(aragonAppFeesCashier.payAppFees(appId, EMPTY_BYTES, { from: subscriber }), SUBSCRIPTIONS_ERRORS.APP_FEE_NOT_SET)
+        await assertRevert(aragonAppFeesCashier.payAppFees(appId, EMPTY_BYTES, { from: subscriber }), SUBSCRIPTIONS_ERRORS.COURT_HAS_NOT_STARTED)
       })
     })
 
@@ -174,9 +173,14 @@ contract('Aragon App Fees Cashier', ([_, governor, subscriber]) => {
         await controller.mockSetTerm(PERIOD_DURATION)
       })
 
-      context('when the app fee hasn’t been set', () => {
-        it('reverts', async () => {
-          await assertRevert(aragonAppFeesCashier.payAppFees(appId, EMPTY_BYTES, { from: subscriber }), SUBSCRIPTIONS_ERRORS.APP_FEE_NOT_SET)
+      context('when the app fee has not been set', () => {
+        it('ignores the payment', async () => {
+          const initialBalance = await feeToken.balanceOf(aragonAppFeesCashier.address)
+
+          await aragonAppFeesCashier.payAppFees(appId, EMPTY_BYTES, { from: subscriber })
+
+          const finalBalance = await feeToken.balanceOf(aragonAppFeesCashier.address)
+          assertBn(finalBalance, initialBalance, 'subscription balance does not match')
         })
       })
 
@@ -193,8 +197,7 @@ contract('Aragon App Fees Cashier', ([_, governor, subscriber]) => {
           const receipt = await aragonAppFeesCashier.payAppFees(appId, EMPTY_BYTES, { from: subscriber })
 
           const finalBalance = await feeToken.balanceOf(aragonAppFeesCashier.address)
-
-          assertBn(finalBalance, initialBalance.add(amount), 'amount does not match')
+          assertBn(finalBalance, initialBalance.add(amount), 'subscription balance does not match')
 
           assertAmountOfEvents(receipt, SUBSCRIPTIONS_EVENTS.APP_FEE_PAID)
           assertEvent(receipt, SUBSCRIPTIONS_EVENTS.APP_FEE_PAID, { expectedArgs: { by: subscriber, appId, data: EMPTY_BYTES } })

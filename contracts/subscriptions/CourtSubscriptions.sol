@@ -112,9 +112,9 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
     * @param _periodId Identification number of the period which fees are claimed for
     */
     function claimFees(uint256 _periodId) external {
-        // Juror share fees can only be claimed for past periods
         require(_periodId < _getCurrentPeriodId(), ERROR_NON_PAST_PERIOD);
         Period storage period = periods[_periodId];
+
         require(!period.claimedFees[msg.sender], ERROR_JUROR_FEES_ALREADY_CLAIMED);
 
         // Check claiming juror has share fees to be transferred
@@ -154,7 +154,7 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers, ISubscription
     * @return totalActiveBalance Total amount of juror tokens active in the Court at the corresponding used checkpoint
     */
     function ensurePeriodBalanceDetails(uint256 _periodId) external returns (uint64 periodBalanceCheckpoint, uint256 totalActiveBalance) {
-        // AUDIT: should we also have a check that the period is in the past?
+        require(_periodId < _getCurrentPeriodId(), ERROR_NON_PAST_PERIOD);
         Period storage period = periods[_periodId];
         return _ensurePeriodBalanceDetails(_periodId, period);
     }

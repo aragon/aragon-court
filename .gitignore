@@ -7,6 +7,8 @@ package-lock.json
 # Production
 build/
 abi/
+artifacts/
+cache/
 
 # coverage
 coverage/

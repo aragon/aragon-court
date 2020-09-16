@@ -391,7 +391,8 @@ module.exports = (web3, artifacts) => {
         this.jurorsRegistry = await this.artifacts.require('JurorsRegistryMock').new(
           this.court.address,
           this.jurorToken.address,
-          this.minActiveBalance.mul(MAX_UINT64.div(this.finalRoundWeightPrecision))
+          this.minActiveBalance.mul(MAX_UINT64.div(this.finalRoundWeightPrecision)),
+          this.court.address // TODO: Set this properly.
         )
       }
 

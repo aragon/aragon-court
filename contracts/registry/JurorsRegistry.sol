@@ -4,7 +4,6 @@ import "../lib/os/SafeERC20.sol";
 import "../lib/os/ERC20.sol";
 import "../lib/os/SafeMath.sol";
 
-import "./IBrightIdRegister.sol";
 import "./IJurorsRegistry.sol";
 import "../lib/BytesHelpers.sol";
 import "../lib/HexSumTree.sol";
@@ -14,6 +13,7 @@ import "../standards/ERC900.sol";
 import "../standards/ApproveAndCall.sol";
 import "../court/controller/Controller.sol";
 import "../court/controller/ControlledRecoverable.sol";
+import "../brightid/IBrightIdRegister.sol";
 
 
 contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, ApproveAndCallFallBack {
@@ -98,6 +98,8 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
     // Juror ERC20 token
     ERC20 internal jurorsToken;
 
+    IBrightIdRegister public brightIdRegister;
+
     // Mapping of juror data indexed by address
     mapping (address => Juror) internal jurorsByAddress;
 
@@ -125,7 +127,7 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
     * @param _jurorToken Address of the ERC20 token to be used as juror token for the registry
     * @param _totalActiveBalanceLimit Maximum amount of total active balance that can be held in the registry
     */
-    constructor(Controller _controller, ERC20 _jurorToken, uint256 _totalActiveBalanceLimit)
+    constructor(Controller _controller, ERC20 _jurorToken, uint256 _totalActiveBalanceLimit, IBrightIdRegister _brightIdRegister)
         ControlledRecoverable(_controller)
         public
     {
@@ -134,6 +136,7 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
 
         jurorsToken = _jurorToken;
         _setTotalActiveBalanceLimit(_totalActiveBalanceLimit);
+        brightIdRegister = _brightIdRegister;
 
         tree.init();
         // First tree item is an empty juror
@@ -145,7 +148,7 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
     * @param _amount Amount of juror tokens to be activated for the next term
     */
     function activate(uint256 _amount) external {
-        _activateTokens(msg.sender, _amount, msg.sender);
+        _activateTokens(brightIdRegister.uniqueUserId(msg.sender), _amount, msg.sender);
     }
 
     /**
@@ -154,7 +157,8 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
     */
     function deactivate(uint256 _amount) external {
         uint64 termId = _ensureCurrentTerm();
-        Juror storage juror = jurorsByAddress[msg.sender];
+        address jurorUniqueAddress = brightIdRegister.uniqueUserId(msg.sender);
+        Juror storage juror = jurorsByAddress[jurorUniqueAddress];
         uint256 unlockedActiveBalance = _lastUnlockedActiveBalanceOf(juror);
         uint256 amountToDeactivate = _amount == 0 ? unlockedActiveBalance : _amount;
         require(amountToDeactivate > 0, ERROR_INVALID_ZERO_AMOUNT);
@@ -165,7 +169,7 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
         uint256 minActiveBalance = _getMinActiveBalance(termId);
         require(futureActiveBalance == 0 || futureActiveBalance >= minActiveBalance, ERROR_INVALID_DEACTIVATION_AMOUNT);
 
-        _createDeactivationRequest(msg.sender, amountToDeactivate);
+        _createDeactivationRequest(jurorUniqueAddress, amountToDeactivate);
     }
 
     /**
@@ -174,7 +178,7 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
     * @param _data Optional data that can be used to request the activation of the transferred tokens
     */
     function stake(uint256 _amount, bytes calldata _data) external {
-        _stake(msg.sender, msg.sender, _amount, _data);
+        _stake(msg.sender, brightIdRegister.uniqueUserId(msg.sender), _amount, _data);
     }
 
     /**
@@ -184,7 +188,7 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
     * @param _data Optional data that can be used to request the activation of the transferred tokens
     */
     function stakeFor(address _to, uint256 _amount, bytes calldata _data) external {
-        _stake(msg.sender, _to, _amount, _data);
+        _stake(msg.sender, brightIdRegister.uniqueUserId(_to), _amount, _data);
     }
 
     /**
@@ -193,7 +197,7 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
     * @param _data Optional data is never used by this function, only logged
     */
     function unstake(uint256 _amount, bytes calldata _data) external {
-        _unstake(msg.sender, _amount, _data);
+        _unstake(msg.sender, brightIdRegister.uniqueUserId(msg.sender), _amount, _data);
     }
 
     /**
@@ -205,7 +209,7 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
     */
     function receiveApproval(address _from, uint256 _amount, address _token, bytes calldata _data) external {
         require(msg.sender == _token && _token == address(jurorsToken), ERROR_TOKEN_APPROVE_NOT_ALLOWED);
-        _stake(_from, _from, _amount, _data);
+        _stake(_from, brightIdRegister.uniqueUserId(_from), _amount, _data);
     }
 
     /**
@@ -214,7 +218,7 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
     */
     function processDeactivationRequest(address _juror) external {
         uint64 termId = _ensureCurrentTerm();
-        _processDeactivationRequest(_juror, termId);
+        _processDeactivationRequest(brightIdRegister.uniqueUserId(_juror), termId);
     }
 
     /**
@@ -223,9 +227,10 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
     * @param _amount Amount of tokens to be added to the available balance of a juror
     */
     function assignTokens(address _juror, uint256 _amount) external onlyDisputeManager {
+        address juror = brightIdRegister.uniqueUserId(_juror); // TODO: Is this necessary?
         if (_amount > 0) {
-            _updateAvailableBalanceOf(_juror, _amount, true);
-            emit JurorTokensAssigned(_juror, _amount);
+            _updateAvailableBalanceOf(juror, _amount, true);
+            emit JurorTokensAssigned(juror, _amount);
         }
     }
 
@@ -328,6 +333,7 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
             uint256 lockedAmount = _lockedAmounts[i];
             address jurorAddress = _jurors[i];
             // TODO: Should not need to be converted to a unique address.
+            //       Presumably the jurors passed here are jurors originally fetched from here
             Juror storage juror = jurorsByAddress[jurorAddress];
             juror.lockedBalance = juror.lockedBalance.sub(lockedAmount);
 
@@ -473,7 +479,8 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
     function balanceOfAt(address _juror, uint64 _termId) external view
         returns (uint256 active, uint256 available, uint256 locked, uint256 pendingDeactivation)
     {
-        Juror storage juror = jurorsByAddress[_juror];
+        address jurorUniqueAddress = brightIdRegister.uniqueUserId(_juror);
+        Juror storage juror = jurorsByAddress[jurorUniqueAddress];
 
         active = _existsJuror(juror) ? tree.getItemAt(juror.id, _termId) : 0;
         (available, locked, pendingDeactivation) = _getBalances(juror);
@@ -486,7 +493,8 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
     * @return Amount of active tokens for juror in the requested past term id
     */
     function activeBalanceOfAt(address _juror, uint64 _termId) external view returns (uint256) {
-        return _activeBalanceOfAt(_juror, _termId);
+        address jurorUniqueAddress = brightIdRegister.uniqueUserId(_juror);
+        return _activeBalanceOfAt(jurorUniqueAddress, _termId);
     }
 
     /**
@@ -495,7 +503,8 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
     * @return Amount of active tokens of a juror that are not locked due to ongoing disputes
     */
     function unlockedActiveBalanceOf(address _juror) external view returns (uint256) {
-        Juror storage juror = jurorsByAddress[_juror];
+        address jurorUniqueAddress = brightIdRegister.uniqueUserId(_juror);
+        Juror storage juror = jurorsByAddress[jurorUniqueAddress];
         return _currentUnlockedActiveBalanceOf(juror);
     }
 
@@ -506,7 +515,8 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
     * @return availableTermId Term in which the deactivated amount will be available
     */
     function getDeactivationRequest(address _juror) external view returns (uint256 amount, uint64 availableTermId) {
-        DeactivationRequest storage request = jurorsByAddress[_juror].deactivationRequest;
+        address jurorUniqueAddress = brightIdRegister.uniqueUserId(_juror);
+        DeactivationRequest storage request = jurorsByAddress[jurorUniqueAddress].deactivationRequest;
         return (request.amount, request.availableTermId);
     }
 
@@ -516,7 +526,8 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
     * @return Term ID until which the juror's withdrawals will be locked
     */
     function getWithdrawalsLockTermId(address _juror) external view returns (uint64) {
-        return jurorsByAddress[_juror].withdrawalsLockTermId;
+        address jurorUniqueAddress = brightIdRegister.uniqueUserId(_juror);
+        return jurorsByAddress[jurorUniqueAddress].withdrawalsLockTermId;
     }
 
     /**
@@ -525,7 +536,8 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
     * @return Identification number associated to a juror address, zero in case it wasn't registered yet
     */
     function getJurorId(address _juror) external view returns (uint256) {
-        return jurorsByAddress[_juror].id;
+        address jurorUniqueAddress = brightIdRegister.uniqueUserId(_juror);
+        return jurorsByAddress[jurorUniqueAddress].id;
     }
 
     /**
@@ -681,7 +693,7 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
     * @param _amount Amount of tokens to be unstaked
     * @param _data Optional data is never used by this function, only logged
     */
-    function _unstake(address _juror, uint256 _amount, bytes memory _data) internal {
+    function _unstake(address _from, address _juror, uint256 _amount, bytes memory _data) internal {
         require(_amount > 0, ERROR_INVALID_ZERO_AMOUNT);
 
         // Try to process a deactivation request for the current term if there is one. Note that we don't need to ensure
@@ -698,7 +710,7 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
 
         _updateAvailableBalanceOf(_juror, _amount, false);
         emit Unstaked(_juror, _amount, _totalStakedFor(_juror), _data);
-        require(jurorsToken.safeTransfer(_juror, _amount), ERROR_TOKEN_TRANSFER_FAILED);
+        require(jurorsToken.safeTransfer(_from, _amount), ERROR_TOKEN_TRANSFER_FAILED);
     }
 
     /**

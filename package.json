@@ -13,8 +13,9 @@
     "compile": "buidler compile",
     "compile:brightid": "buidler compile --config buidler.config.brightid.js",
     "test": "yarn compile:brightid && buidler test",
-    "test:subscriptions": "buidler test --network builderevm test/subscriptions/*",
-    "test:disputes": "buidler test --network builderevm test/disputes/*"
+    "test:subscriptions": "buidler test test/subscriptions/*",
+    "test:disputes": "buidler test test/disputes/*",
+    "test:registry": "buidler test test/registry/*"
   },
   "dependencies": {},
   "devDependencies": {
@@ -26,6 +27,8 @@
     "@nomiclabs/buidler-etherscan": "^1.3.0",
     "@nomiclabs/buidler-truffle5": "^1.3.0",
     "@nomiclabs/buidler-web3": "^1.3.0",
-    "buidler-abi-exporter": "^1.0.1"
+    "buidler-abi-exporter": "^1.0.1",
+    "eth-ens-namehash": "^2.0.8",
+    "ethers": "^5.0.13"
   }
 }

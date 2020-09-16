@@ -9,9 +9,9 @@ contract JurorsRegistryMock is JurorsRegistry {
     bool internal nextDraftMocked;
     address[] internal mockedSelectedJurors;
 
-    constructor (Controller _controller, ERC20 _jurorToken, uint256 _totalActiveBalanceLimit)
+    constructor (Controller _controller, ERC20 _jurorToken, uint256 _totalActiveBalanceLimit, IBrightIdRegister _brightIdRegister)
         public
-        JurorsRegistry(_controller, _jurorToken, _totalActiveBalanceLimit)
+        JurorsRegistry(_controller, _jurorToken, _totalActiveBalanceLimit, _brightIdRegister)
     {}
 
     function mockLock(address _juror, uint256 _leftUnlockedAmount) external {

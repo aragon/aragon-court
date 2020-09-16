@@ -9,6 +9,6 @@ module.exports = {
     },
   },
   paths: {
-    sources: "./test/external",
+    sources: "./external",
   }
 }

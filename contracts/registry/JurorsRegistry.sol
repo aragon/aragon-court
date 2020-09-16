@@ -4,6 +4,7 @@ import "../lib/os/SafeERC20.sol";
 import "../lib/os/ERC20.sol";
 import "../lib/os/SafeMath.sol";
 
+import "./IBrightIdRegister.sol";
 import "./IJurorsRegistry.sol";
 import "../lib/BytesHelpers.sol";
 import "../lib/HexSumTree.sol";

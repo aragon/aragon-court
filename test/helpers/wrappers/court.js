@@ -392,7 +392,7 @@ module.exports = (web3, artifacts) => {
       if (!this.brightIdRegister) {
         this.brightIdHelper = buildBrightIdHelper()
         this.brightIdRegister = await this.brightIdHelper.deploy(await this._getAccount(0), await this._getAccount(0))
-        await this.brightIdHelper.registerUser(this.juror)
+        await this.brightIdHelper.registerUser(this.juror || await this._getAccount(0))
       }
 
       if (!this.jurorsRegistry) {

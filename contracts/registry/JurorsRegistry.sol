@@ -120,6 +120,7 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
     event JurorTokensBurned(uint256 amount);
     event JurorTokensCollected(address indexed juror, uint256 amount, uint64 effectiveTermId);
     event TotalActiveBalanceLimitChanged(uint256 previousTotalActiveBalanceLimit, uint256 currentTotalActiveBalanceLimit);
+    event BrightIdRegisterChanged(IBrightIdRegister previousBrightIdRegister, IBrightIdRegister currentBrightIdRegister);
 
     /**
     * @dev Constructor function
@@ -136,7 +137,7 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
 
         jurorsToken = _jurorToken;
         _setTotalActiveBalanceLimit(_totalActiveBalanceLimit);
-        brightIdRegister = _brightIdRegister;
+        _setBrightIdRegister(_brightIdRegister);
 
         tree.init();
         // First tree item is an empty juror
@@ -408,6 +409,14 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
     */
     function setTotalActiveBalanceLimit(uint256 _totalActiveBalanceLimit) external onlyConfigGovernor {
         _setTotalActiveBalanceLimit(_totalActiveBalanceLimit);
+    }
+
+    /**
+    * @notice Set new bright id register
+    * @param _brightIdRegister New bright id register
+    */
+    function setBrightIdRegister(IBrightIdRegister _brightIdRegister) external onlyConfigGovernor {
+        _setBrightIdRegister(_brightIdRegister);
     }
 
     /**
@@ -747,6 +756,19 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
         require(_totalActiveBalanceLimit > 0, ERROR_BAD_TOTAL_ACTIVE_BALANCE_LIMIT);
         emit TotalActiveBalanceLimitChanged(totalActiveBalanceLimit, _totalActiveBalanceLimit);
         totalActiveBalanceLimit = _totalActiveBalanceLimit;
+    }
+
+    /**
+    * @dev Internal function to set ew bright id register
+    * @param _brightIdRegister New bright id register
+    */
+    function _setBrightIdRegister(IBrightIdRegister _brightIdRegister) internal {
+        require(isContract(address(_brightIdRegister)), ERROR_NOT_CONTRACT);
+        emit BrightIdRegisterChanged(brightIdRegister, _brightIdRegister);
+
+        // TODO: Check contextId is same in new register as in old register?
+
+        brightIdRegister = _brightIdRegister;
     }
 
     /**

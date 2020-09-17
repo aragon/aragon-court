@@ -3,6 +3,7 @@ const { assertBn } = require('../helpers/asserts/assertBn')
 const { bn, bigExp } = require('../helpers/lib/numbers')
 const { getEventAt } = require('@aragon/test-helpers/events')
 const { buildHelper } = require('../helpers/wrappers/court')(web3, artifacts)
+const { buildBrightIdHelper } = require('../helpers/wrappers/brightid')(web3, artifacts)
 const { assertRevert } = require('../helpers/asserts/assertThrow')
 const { simulateDraft } = require('../helpers/utils/registry')
 const { REGISTRY_EVENTS } = require('../helpers/utils/events')
@@ -18,7 +19,7 @@ const ERC20 = artifacts.require('ERC20Mock')
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
 
 contract('JurorsRegistry', ([_, juror500, juror1000, juror1500, juror2000, juror2500, juror3000, juror3500, juror4000]) => {
-  let controller, registry, disputeManager, ANJ
+  let controller, registry, disputeManager, ANJ, brightIdRegister
 
   const DRAFT_LOCK_PCT = bn(2000) // 20%
   const MIN_ACTIVE_AMOUNT = bigExp(100, 18)
@@ -53,11 +54,17 @@ contract('JurorsRegistry', ([_, juror500, juror1000, juror1500, juror2000, juror
     { address: juror4000, initialActiveBalance: balances[7] }
   ]
 
+  before('create brightid register', async () => {
+    const brightIdHelper = buildBrightIdHelper()
+    brightIdRegister = await brightIdHelper.deploy()
+    await brightIdHelper.registerUsers([juror500, juror1000, juror1500, juror2000, juror2500, juror3000, juror3500, juror4000])
+  })
+
   beforeEach('create base contracts', async () => {
     controller = await buildHelper().deploy({ minActiveBalance: MIN_ACTIVE_AMOUNT })
 
     ANJ = await ERC20.new('ANJ Token', 'ANJ', 18)
-    registry = await JurorsRegistry.new(controller.address, ANJ.address, TOTAL_ACTIVE_BALANCE_LIMIT)
+    registry = await JurorsRegistry.new(controller.address, ANJ.address, TOTAL_ACTIVE_BALANCE_LIMIT, brightIdRegister.address)
     await controller.setJurorsRegistry(registry.address)
 
     disputeManager = await DisputeManager.new(controller.address)

@@ -12,8 +12,8 @@ const JurorsRegistry = artifacts.require('JurorsRegistry')
 const DisputeManager = artifacts.require('DisputeManagerMockForRegistry')
 const ERC20 = artifacts.require('ERC20Mock')
 
-contract('JurorsRegistry', ([appManager, juror, someone, jurorUniqueAddress]) => {
-  let controller, registry, disputeManager, ANJ, brightIdRegister
+contract('JurorsRegistry', ([_, juror, someone, jurorUniqueAddress]) => {
+  let controller, registry, disputeManager, ANJ
 
   const TOTAL_ACTIVE_BALANCE_LIMIT = bigExp(100e6, 18)
   const BURN_ADDRESS = '0x000000000000000000000000000000000000dead'
@@ -27,7 +27,7 @@ contract('JurorsRegistry', ([appManager, juror, someone, jurorUniqueAddress]) =>
 
   beforeEach('create jurors registry module', async () => {
     const brightIdHelper = buildBrightIdHelper()
-    brightIdRegister = await brightIdHelper.deploy(appManager, appManager)
+    const brightIdRegister = await brightIdHelper.deploy()
     await brightIdHelper.registerUserMultipleAccounts(jurorUniqueAddress, juror)
 
     registry = await JurorsRegistry.new(controller.address, ANJ.address, TOTAL_ACTIVE_BALANCE_LIMIT, brightIdRegister.address)

@@ -27,14 +27,15 @@ module.exports = (web3, artifacts) => {
       return signingKey.signDigest(hashedMessage)
     }
 
-    async deploy(appManager, verifier) {
-      const { dao } = await newDao(appManager)
+    async deploy() {
+      const owner = await this._getAccount(0)
+      const { dao } = await newDao(owner)
       const BrightIdRegister = this.artifacts.require('BrightIdRegisterMock')
       const brightIdRegisterBase = await BrightIdRegister.new()
 
-      const brightIdRegisterProxyAddress = await newApp(dao, 'brightid-register', brightIdRegisterBase.address, appManager)
+      const brightIdRegisterProxyAddress = await newApp(dao, 'brightid-register', brightIdRegisterBase.address, owner)
       this.brightIdRegister = await BrightIdRegister.at(brightIdRegisterProxyAddress)
-      await this.brightIdRegister.initialize(BRIGHT_ID_CONTEXT, verifier, REGISTRATION_PERIOD, VERIFICATION_TIMESTAMP_VARIANCE)
+      await this.brightIdRegister.initialize(BRIGHT_ID_CONTEXT, owner, REGISTRATION_PERIOD, VERIFICATION_TIMESTAMP_VARIANCE)
 
       return this.brightIdRegister
     }
@@ -51,6 +52,17 @@ module.exports = (web3, artifacts) => {
       const timestamp = await this.brightIdRegister.getTimestampPublic()
       const sig = this.getVerificationsSignature(addresses, timestamp)
       await this.brightIdRegister.register(BRIGHT_ID_CONTEXT, addresses, timestamp, sig.v, sig.r, sig.s, ZERO_ADDRESS, '0x0', { from: userSecondAddress })
+    }
+
+    async registerUsers(usersUniqueAddresses) {
+      for (const userUniqueAddress of usersUniqueAddresses) {
+        await this.registerUser(userUniqueAddress)
+      }
+    }
+
+    async _getAccount(index) {
+      const accounts = await this.web3.eth.getAccounts()
+      return accounts[index]
     }
   }
 

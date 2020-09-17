@@ -19,7 +19,7 @@
   },
   "dependencies": {},
   "devDependencies": {
-    "@1hive/apps-brightid-register": "^0.1.1",
+    "@1hive/apps-brightid-register": "^0.1.2",
     "@aragon/test-helpers": "^2.1.0",
     "@aragon/truffle-config-v5": "^1.0.0",
     "@aragon/contract-helpers-test": "^0.1.0-rc.2",

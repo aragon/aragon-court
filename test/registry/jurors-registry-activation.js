@@ -1,7 +1,7 @@
-const { newDao, newApp } = require('../helpers/lib/dao')
 const { assertBn } = require('../helpers/asserts/assertBn')
 const { bn, bigExp } = require('../helpers/lib/numbers')
 const { buildHelper } = require('../helpers/wrappers/court')(web3, artifacts)
+const { buildBrightIdHelper } = require('../helpers/wrappers/brightid')(web3, artifacts)
 const { assertRevert } = require('../helpers/asserts/assertThrow')
 const { REGISTRY_EVENTS } = require('../helpers/utils/events')
 const { REGISTRY_ERRORS } = require('../helpers/utils/errors')
@@ -11,59 +11,30 @@ const JurorsRegistry = artifacts.require('JurorsRegistry')
 const DisputeManager = artifacts.require('DisputeManagerMockForRegistry')
 const ERC20 = artifacts.require('ERC20Mock')
 
-const ethers = require('ethers')
-const BrightIdRegister = artifacts.require('BrightIdRegisterMock')
-const { ONE_DAY, ONE_WEEK, ZERO_ADDRESS } = require('@aragon/contract-helpers-test')
-
-// Use the private key of whatever the second account is in the local chain
-// In this case it is 0xead9c93b79ae7c1591b1fb5323bd777e86e150d4 which is the third address in the buidlerevm node
-const VERIFICATIONS_PRIVATE_KEY = '0xd49743deccbccc5dc7baa8e69e5be03298da8688a15dd202e20f15d5e0e9a9fb'
-const BRIGHT_ID_CONTEXT = '0x3168697665000000000000000000000000000000000000000000000000000000' // stringToBytes32("1hive")
-const REGISTRATION_PERIOD = ONE_WEEK
-const VERIFICATION_TIMESTAMP_VARIANCE = ONE_DAY
-
-const getVerificationsSignature = (contextIds, timestamp) => {
-  const hashedMessage = web3.utils.soliditySha3(
-    BRIGHT_ID_CONTEXT,
-    { type: 'address[]', value: contextIds },
-    timestamp
-  )
-  const signingKey = new ethers.utils.SigningKey(VERIFICATIONS_PRIVATE_KEY)
-  return signingKey.signDigest(hashedMessage)
-}
-
-contract('JurorsRegistry', ([appManager, verifier, juror]) => {
-  let controller, registry, disputeManager, ANJ, brightIdRegisterBase, brightIdRegister
+contract('JurorsRegistry', ([appManager, juror, jurorUniqueAddress]) => {
+  let controller, registry, disputeManager, ANJ, brightIdRegister
   let addresses, timestamp, sig
 
   const MIN_ACTIVE_AMOUNT = bigExp(100, 18)
   const TOTAL_ACTIVE_BALANCE_LIMIT = bigExp(100e6, 18)
 
   before('create base contracts', async () => {
-    controller = await buildHelper().deploy({ minActiveBalance: MIN_ACTIVE_AMOUNT })
+    controller = await buildHelper().deploy({ minActiveBalance: MIN_ACTIVE_AMOUNT, juror })
     disputeManager = await DisputeManager.new(controller.address)
     await controller.setDisputeManager(disputeManager.address)
     ANJ = await ERC20.new('ANJ Token', 'ANJ', 18)
-    brightIdRegisterBase = await BrightIdRegister.new()
   })
 
   beforeEach('create jurors registry module', async () => {
-    const { dao } = await newDao(appManager)
-    const brightIdRegisterProxyAddress = await newApp(dao, 'brightid-register', brightIdRegisterBase.address, appManager)
-    brightIdRegister = await BrightIdRegister.at(brightIdRegisterProxyAddress)
-
-    await brightIdRegister.initialize(BRIGHT_ID_CONTEXT, verifier, REGISTRATION_PERIOD, VERIFICATION_TIMESTAMP_VARIANCE)
-    addresses = [juror]
-    timestamp = await brightIdRegister.getTimestampPublic()
-    sig = getVerificationsSignature(addresses, timestamp)
-
-    await brightIdRegister.register(BRIGHT_ID_CONTEXT, addresses, timestamp, sig.v, sig.r, sig.s, ZERO_ADDRESS, '0x0', { from: juror })
+    const brightIdHelper = buildBrightIdHelper()
+    brightIdRegister = await brightIdHelper.deploy(appManager, appManager)
+    await brightIdHelper.registerUserMultipleAccounts(jurorUniqueAddress, juror)
 
     registry = await JurorsRegistry.new(controller.address, ANJ.address, TOTAL_ACTIVE_BALANCE_LIMIT, brightIdRegister.address)
     await controller.setJurorsRegistry(registry.address)
   })
 
-  describe.only('activate', () => {
+  describe('activate', () => {
     const from = juror
 
     context('when the juror has not staked some tokens yet', () => {
@@ -178,7 +149,8 @@ contract('JurorsRegistry', ([appManager, verifier, juror]) => {
             ? (deactivationDue ? previousAvailableBalance.add(previousDeactivationBalance) : previousAvailableBalance)
             : requestedAmount
           assertAmountOfEvents(receipt, REGISTRY_EVENTS.JUROR_ACTIVATED)
-          assertEvent(receipt, REGISTRY_EVENTS.JUROR_ACTIVATED, { juror, fromTermId: termId.add(bn(1)), amount: activationAmount, sender: from })
+          assertEvent(receipt, REGISTRY_EVENTS.JUROR_ACTIVATED,
+            { juror: jurorUniqueAddress, fromTermId: termId.add(bn(1)), amount: activationAmount, sender: from })
         })
 
         if (deactivationAmount.gt(bn(0))) {
@@ -189,7 +161,7 @@ contract('JurorsRegistry', ([appManager, verifier, juror]) => {
             const receipt = await registry.activate(requestedAmount, { from })
 
             assertAmountOfEvents(receipt, REGISTRY_EVENTS.JUROR_DEACTIVATION_PROCESSED)
-            assertEvent(receipt, REGISTRY_EVENTS.JUROR_DEACTIVATION_PROCESSED, { juror, amount: deactivationAmount, availableTermId, processedTermId: termId })
+            assertEvent(receipt, REGISTRY_EVENTS.JUROR_DEACTIVATION_PROCESSED, { juror: jurorUniqueAddress, amount: deactivationAmount, availableTermId, processedTermId: termId })
           })
         }
       }
@@ -574,7 +546,7 @@ contract('JurorsRegistry', ([appManager, verifier, juror]) => {
             const receipt = await registry.deactivate(requestedAmount, { from })
 
             assertAmountOfEvents(receipt, REGISTRY_EVENTS.JUROR_DEACTIVATION_REQUESTED)
-            assertEvent(receipt, REGISTRY_EVENTS.JUROR_DEACTIVATION_REQUESTED, { juror: from, availableTermId: termId.add(bn(1)), amount: expectedAmount })
+            assertEvent(receipt, REGISTRY_EVENTS.JUROR_DEACTIVATION_REQUESTED, { juror: jurorUniqueAddress, availableTermId: termId.add(bn(1)), amount: expectedAmount })
           })
 
           it('can be requested at the next term', async () => {
@@ -603,7 +575,7 @@ contract('JurorsRegistry', ([appManager, verifier, juror]) => {
               const receipt = await registry.deactivate(requestedAmount, { from })
 
               assertAmountOfEvents(receipt, REGISTRY_EVENTS.JUROR_DEACTIVATION_PROCESSED)
-              assertEvent(receipt, REGISTRY_EVENTS.JUROR_DEACTIVATION_PROCESSED, { juror, amount: previousDeactivationAmount, availableTermId, processedTermId: termId })
+              assertEvent(receipt, REGISTRY_EVENTS.JUROR_DEACTIVATION_PROCESSED, { juror: jurorUniqueAddress, amount: previousDeactivationAmount, availableTermId, processedTermId: termId })
             })
           }
         }

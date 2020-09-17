@@ -59,6 +59,7 @@ const DEFAULTS = {
 
 module.exports = (web3, artifacts) => {
   const { advanceBlocks } = require('../lib/blocks')(web3)
+  const { buildBrightIdHelper } = require('./brightid')(web3, artifacts)
 
   class CourtHelper {
     constructor(web3, artifacts) {
@@ -387,12 +388,19 @@ module.exports = (web3, artifacts) => {
       if (!this.voting) this.voting = await this.artifacts.require('CRVoting').new(this.court.address)
       if (!this.treasury) this.treasury = await this.artifacts.require('CourtTreasury').new(this.court.address)
 
+
+      if (!this.brightIdRegister) {
+        this.brightIdHelper = buildBrightIdHelper()
+        this.brightIdRegister = await this.brightIdHelper.deploy(await this._getAccount(0), await this._getAccount(0))
+        await this.brightIdHelper.registerUser(this.juror)
+      }
+
       if (!this.jurorsRegistry) {
         this.jurorsRegistry = await this.artifacts.require('JurorsRegistryMock').new(
           this.court.address,
           this.jurorToken.address,
           this.minActiveBalance.mul(MAX_UINT64.div(this.finalRoundWeightPrecision)),
-          this.court.address // TODO: Set this properly.
+          this.brightIdRegister.address
         )
       }
 

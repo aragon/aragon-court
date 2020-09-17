@@ -1,6 +1,7 @@
 const { assertBn } = require('../helpers/asserts/assertBn')
 const { bn, bigExp } = require('../helpers/lib/numbers')
 const { buildHelper } = require('../helpers/wrappers/court')(web3, artifacts)
+const { buildBrightIdHelper } = require('../helpers/wrappers/brightid')(web3, artifacts)
 const { assertRevert } = require('../helpers/asserts/assertThrow')
 const { ACTIVATE_DATA } = require('../helpers/utils/jurors')
 const { REGISTRY_EVENTS } = require('../helpers/utils/events')
@@ -14,8 +15,8 @@ const ERC20 = artifacts.require('ERC20Mock')
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
 
-contract('JurorsRegistry', ([_, juror, anotherJuror]) => {
-  let controller, registry, disputeManager, ANJ
+contract('JurorsRegistry', ([_, juror, juror2, jurorUniqueAddress, juror2UniqueAddress]) => {
+  let controller, registry, disputeManager, ANJ, brightIdRegister
 
   const MIN_ACTIVE_AMOUNT = bigExp(100, 18)
   const TOTAL_ACTIVE_BALANCE_LIMIT = bigExp(100e6, 18)
@@ -28,9 +29,22 @@ contract('JurorsRegistry', ([_, juror, anotherJuror]) => {
   })
 
   beforeEach('create jurors registry module', async () => {
-    registry = await JurorsRegistry.new(controller.address, ANJ.address, TOTAL_ACTIVE_BALANCE_LIMIT)
+    const brightIdHelper = buildBrightIdHelper()
+    brightIdRegister = await brightIdHelper.deploy()
+    await brightIdHelper.registerUsersWithMultipleAddresses(
+      [[jurorUniqueAddress, juror], [juror2UniqueAddress, juror2]])
+
+    registry = await JurorsRegistry.new(controller.address, ANJ.address, TOTAL_ACTIVE_BALANCE_LIMIT, brightIdRegister.address)
     await controller.setJurorsRegistry(registry.address)
   })
+
+  const registryDefinedUniqueUserId = async (address) => {
+    if (address === ZERO_ADDRESS) {
+      return ZERO_ADDRESS
+    } else {
+      return await brightIdRegister.uniqueUserId(address)
+    }
+  }
 
   describe('stake', () => {
     const from = juror
@@ -115,7 +129,7 @@ contract('JurorsRegistry', ([_, juror, anotherJuror]) => {
             const receipt = await registry.stake(amount, data, { from })
 
             assertAmountOfEvents(receipt, REGISTRY_EVENTS.STAKED)
-            assertEvent(receipt, REGISTRY_EVENTS.STAKED, { user: juror, amount, total: previousTotalStake.add(amount), data })
+            assertEvent(receipt, REGISTRY_EVENTS.STAKED, { user: jurorUniqueAddress, amount, total: previousTotalStake.add(amount), data })
           })
         })
 
@@ -238,7 +252,7 @@ contract('JurorsRegistry', ([_, juror, anotherJuror]) => {
           const receipt = await registry.stake(amount, data, { from })
 
           assertAmountOfEvents(receipt, REGISTRY_EVENTS.STAKED)
-          assertEvent(receipt, REGISTRY_EVENTS.STAKED, { user: juror, amount, total: previousTotalStake.add(amount), data })
+          assertEvent(receipt, REGISTRY_EVENTS.STAKED, { user: jurorUniqueAddress, amount, total: previousTotalStake.add(amount), data })
         })
 
         it('emits an activation event', async () => {
@@ -247,7 +261,7 @@ contract('JurorsRegistry', ([_, juror, anotherJuror]) => {
           const receipt = await registry.stake(amount, data, { from })
 
           assertAmountOfEvents(receipt, REGISTRY_EVENTS.JUROR_ACTIVATED)
-          assertEvent(receipt, REGISTRY_EVENTS.JUROR_ACTIVATED, { juror, fromTermId: termId.add(bn(1)), amount, sender: from })
+          assertEvent(receipt, REGISTRY_EVENTS.JUROR_ACTIVATED, { juror: jurorUniqueAddress, fromTermId: termId.add(bn(1)), amount, sender: from })
         })
       }
 
@@ -429,8 +443,9 @@ contract('JurorsRegistry', ([_, juror, anotherJuror]) => {
 
           const receipt = await registry.stakeFor(recipient, amount, data, { from })
 
+          const uniqueUserId = await registryDefinedUniqueUserId(recipient)
           assertAmountOfEvents(receipt, REGISTRY_EVENTS.STAKED)
-          assertEvent(receipt, REGISTRY_EVENTS.STAKED, { user: recipient, amount, total: previousTotalStake.add(amount), data })
+          assertEvent(receipt, REGISTRY_EVENTS.STAKED, { user: uniqueUserId, amount, total: previousTotalStake.add(amount), data })
         })
       })
 
@@ -474,7 +489,7 @@ contract('JurorsRegistry', ([_, juror, anotherJuror]) => {
         })
 
         context('when the recipient and the sender are not the same', async () => {
-          const recipient = anotherJuror
+          const recipient = juror2
 
           itHandlesStakesWithoutActivationProperlyForDifferentAmounts(recipient, data)
         })
@@ -607,8 +622,9 @@ contract('JurorsRegistry', ([_, juror, anotherJuror]) => {
 
           const receipt = await registry.stakeFor(recipient, amount, data, { from })
 
+          const uniqueUserId = await registryDefinedUniqueUserId(recipient)
           assertAmountOfEvents(receipt, REGISTRY_EVENTS.STAKED)
-          assertEvent(receipt, REGISTRY_EVENTS.STAKED, { user: recipient, amount, total: previousTotalStake.add(amount), data })
+          assertEvent(receipt, REGISTRY_EVENTS.STAKED, { user: uniqueUserId, amount, total: previousTotalStake.add(amount), data })
         })
 
         it('emits an activation event', async () => {
@@ -616,8 +632,9 @@ contract('JurorsRegistry', ([_, juror, anotherJuror]) => {
 
           const receipt = await registry.stakeFor(recipient, amount, data, { from })
 
+          const uniqueUserId = await registryDefinedUniqueUserId(recipient)
           assertAmountOfEvents(receipt, REGISTRY_EVENTS.JUROR_ACTIVATED)
-          assertEvent(receipt, REGISTRY_EVENTS.JUROR_ACTIVATED, { juror: recipient, fromTermId: termId.add(bn(1)), amount, sender: from })
+          assertEvent(receipt, REGISTRY_EVENTS.JUROR_ACTIVATED, { juror: uniqueUserId, fromTermId: termId.add(bn(1)), amount, sender: from })
         })
       }
 
@@ -679,7 +696,7 @@ contract('JurorsRegistry', ([_, juror, anotherJuror]) => {
         })
 
         context('when the recipient and the sender are not the same', async () => {
-          const recipient = anotherJuror
+          const recipient = juror2
 
           itHandlesStakesWithActivationProperlyForDifferentAmounts(recipient, data)
         })
@@ -708,7 +725,7 @@ contract('JurorsRegistry', ([_, juror, anotherJuror]) => {
     })
   })
 
-  describe('approve and call', () => {
+  describe.only('approve and call', () => {
     const from = juror
 
     context('when the calling contract is ANJ', () => {
@@ -781,8 +798,9 @@ contract('JurorsRegistry', ([_, juror, anotherJuror]) => {
               const receipt = await ANJ.approveAndCall(registry.address, amount, data, { from })
               const logs = decodeEventsOfType(receipt, JurorsRegistry.abi, REGISTRY_EVENTS.STAKED)
 
+
               assertAmountOfEvents({ logs }, REGISTRY_EVENTS.STAKED)
-              assertEvent({ logs }, REGISTRY_EVENTS.STAKED, { user: juror, amount, total: previousTotalStake.add(amount), data })
+              assertEvent({ logs }, REGISTRY_EVENTS.STAKED, { user: jurorUniqueAddress, amount, total: previousTotalStake.add(amount), data })
             })
           })
 
@@ -905,7 +923,7 @@ contract('JurorsRegistry', ([_, juror, anotherJuror]) => {
             const logs = decodeEventsOfType(receipt, JurorsRegistry.abi, REGISTRY_EVENTS.STAKED)
 
             assertAmountOfEvents({ logs }, REGISTRY_EVENTS.STAKED)
-            assertEvent({ logs }, REGISTRY_EVENTS.STAKED, { user: juror, amount, total: previousTotalStake.add(amount), data })
+            assertEvent({ logs }, REGISTRY_EVENTS.STAKED, { user: jurorUniqueAddress, amount, total: previousTotalStake.add(amount), data })
           })
 
           it('emits an activation event', async () => {
@@ -915,7 +933,7 @@ contract('JurorsRegistry', ([_, juror, anotherJuror]) => {
             const logs = decodeEventsOfType(receipt, JurorsRegistry.abi, REGISTRY_EVENTS.JUROR_ACTIVATED)
 
             assertAmountOfEvents({ logs }, REGISTRY_EVENTS.JUROR_ACTIVATED)
-            assertEvent({ logs }, REGISTRY_EVENTS.JUROR_ACTIVATED, { juror, fromTermId: termId.add(bn(1)), amount, sender: from })
+            assertEvent({ logs }, REGISTRY_EVENTS.JUROR_ACTIVATED, { juror: jurorUniqueAddress, fromTermId: termId.add(bn(1)), amount, sender: from })
           })
         }
 

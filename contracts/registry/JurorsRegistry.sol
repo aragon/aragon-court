@@ -41,6 +41,7 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
 
     // Address that will be used to burn juror tokens
     address internal constant BURN_ACCOUNT = address(0x000000000000000000000000000000000000dEaD);
+    address internal constant ZERO_ADDRESS = address(0);
 
     // Maximum number of sortition iterations allowed per draft call
     uint256 internal constant MAX_DRAFT_ITERATIONS = 10;
@@ -937,6 +938,8 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
     function _jurorUniqueId(address _jurorSenderAddress) internal view returns (address) {
         if (_jurorSenderAddress == BURN_ACCOUNT) {
             return BURN_ACCOUNT;
+        } else if (_jurorSenderAddress == ZERO_ADDRESS) {
+            return ZERO_ADDRESS; // TODO: Is this necessary?
         }
         return brightIdRegister.uniqueUserId(_jurorSenderAddress);
     }

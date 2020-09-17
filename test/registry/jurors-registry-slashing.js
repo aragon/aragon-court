@@ -2,6 +2,7 @@ const { assertBn } = require('../helpers/asserts/assertBn')
 const { bn, bigExp } = require('../helpers/lib/numbers')
 const { getEventAt } = require('@aragon/test-helpers/events')
 const { buildHelper } = require('../helpers/wrappers/court')(web3, artifacts)
+const { buildBrightIdHelper } = require('../helpers/wrappers/brightid')(web3, artifacts)
 const { assertRevert } = require('../helpers/asserts/assertThrow')
 const { REGISTRY_EVENTS } = require('../helpers/utils/events')
 const { decodeEventsOfType } = require('../helpers/lib/decodeEvent')
@@ -13,7 +14,9 @@ const JurorsRegistry = artifacts.require('JurorsRegistryMock')
 const DisputeManager = artifacts.require('DisputeManagerMockForRegistry')
 const ERC20 = artifacts.require('ERC20Mock')
 
-contract('JurorsRegistry', ([_, juror, secondJuror, thirdJuror, anyone]) => {
+contract('JurorsRegistry', ([_, juror, secondJuror, thirdJuror, anyone,
+  jurorUniqueAddress, secondJurorUniqueAddress, thirdJurorUniqueAddress]) => {
+
   let controller, registry, disputeManager, ANJ
 
   const MIN_ACTIVE_AMOUNT = bigExp(100, 18)
@@ -30,7 +33,12 @@ contract('JurorsRegistry', ([_, juror, secondJuror, thirdJuror, anyone]) => {
   })
 
   beforeEach('create jurors registry module', async () => {
-    registry = await JurorsRegistry.new(controller.address, ANJ.address, TOTAL_ACTIVE_BALANCE_LIMIT)
+    const brightIdHelper = buildBrightIdHelper()
+    const brightIdRegister = await brightIdHelper.deploy()
+    await brightIdHelper.registerUsersWithMultipleAddresses([[jurorUniqueAddress, juror],
+      [secondJurorUniqueAddress, secondJuror], [thirdJurorUniqueAddress, thirdJuror]])
+
+    registry = await JurorsRegistry.new(controller.address, ANJ.address, TOTAL_ACTIVE_BALANCE_LIMIT, brightIdRegister.address)
     await controller.setJurorsRegistry(registry.address)
   })
 
@@ -110,7 +118,8 @@ contract('JurorsRegistry', ([_, juror, secondJuror, thirdJuror, anyone]) => {
 
           beforeEach('draft jurors', async () => {
             // Mock registry draft forcing the following result
-            const draftedJurors = [juror, secondJuror, thirdJuror]
+            // const draftedJurors = [juror, secondJuror, thirdJuror]
+            const draftedJurors = [jurorUniqueAddress, secondJurorUniqueAddress, thirdJurorUniqueAddress]
             const draftedWeights = [3, 1, 6]
             await registry.mockNextDraft(draftedJurors, draftedWeights)
 
@@ -118,9 +127,9 @@ contract('JurorsRegistry', ([_, juror, secondJuror, thirdJuror, anyone]) => {
             const receipt = await disputeManager.draft(EMPTY_RANDOMNESS, 1, 0, 10, 10, DRAFT_LOCK_PCT)
             const { addresses } = getEventAt(receipt, 'Drafted').args
 
-            assert.equal(countJuror(addresses, juror), 3, 'first drafted juror weight does not match')
-            assert.equal(countJuror(addresses, secondJuror), 1, 'second drafted juror weight does not match')
-            assert.equal(countJuror(addresses, thirdJuror), 6, 'third drafted juror weight does not match')
+            assert.equal(countJuror(addresses, jurorUniqueAddress), 3, 'first drafted juror weight does not match')
+            assert.equal(countJuror(addresses, secondJurorUniqueAddress), 1, 'second drafted juror weight does not match')
+            assert.equal(countJuror(addresses, thirdJurorUniqueAddress), 6, 'third drafted juror weight does not match')
           })
 
           context('when given lock amounts are valid', () => {
@@ -169,12 +178,12 @@ contract('JurorsRegistry', ([_, juror, secondJuror, thirdJuror, anyone]) => {
               let logs = decodeEventsOfType(receipt, JurorsRegistry.abi, REGISTRY_EVENTS.JUROR_SLASHED)
 
               assertAmountOfEvents({ logs }, REGISTRY_EVENTS.JUROR_SLASHED, 2)
-              assertEvent({ logs }, REGISTRY_EVENTS.JUROR_SLASHED, { juror: juror, amount: DRAFT_LOCK_AMOUNT.mul(bn(3)), effectiveTermId: termId.add(bn(1)) }, 0)
-              assertEvent({ logs }, REGISTRY_EVENTS.JUROR_SLASHED, { juror: thirdJuror, amount: DRAFT_LOCK_AMOUNT.mul(bn(6)), effectiveTermId: termId.add(bn(1)) }, 1)
+              assertEvent({ logs }, REGISTRY_EVENTS.JUROR_SLASHED, { juror: jurorUniqueAddress, amount: DRAFT_LOCK_AMOUNT.mul(bn(3)), effectiveTermId: termId.add(bn(1)) }, 0)
+              assertEvent({ logs }, REGISTRY_EVENTS.JUROR_SLASHED, { juror: thirdJurorUniqueAddress, amount: DRAFT_LOCK_AMOUNT.mul(bn(6)), effectiveTermId: termId.add(bn(1)) }, 1)
 
               logs = decodeEventsOfType(receipt, JurorsRegistry.abi, REGISTRY_EVENTS.JUROR_BALANCE_UNLOCKED)
               assertAmountOfEvents({ logs }, REGISTRY_EVENTS.JUROR_BALANCE_UNLOCKED, 1)
-              assertEvent({ logs }, REGISTRY_EVENTS.JUROR_BALANCE_UNLOCKED, { juror: secondJuror, amount: DRAFT_LOCK_AMOUNT })
+              assertEvent({ logs }, REGISTRY_EVENTS.JUROR_BALANCE_UNLOCKED, { juror: secondJurorUniqueAddress, amount: DRAFT_LOCK_AMOUNT })
             })
 
             it('does not affect the active balances of the current term', async () => {
@@ -324,7 +333,7 @@ contract('JurorsRegistry', ([_, juror, secondJuror, thirdJuror, anyone]) => {
             const logs = decodeEventsOfType(receipt, JurorsRegistry.abi, REGISTRY_EVENTS.JUROR_TOKENS_COLLECTED)
 
             assertAmountOfEvents({ logs }, REGISTRY_EVENTS.JUROR_TOKENS_COLLECTED)
-            assertEvent({ logs }, REGISTRY_EVENTS.JUROR_TOKENS_COLLECTED, { juror, amount, effectiveTermId: termId.add(bn(1)) })
+            assertEvent({ logs }, REGISTRY_EVENTS.JUROR_TOKENS_COLLECTED, { juror: jurorUniqueAddress, amount, effectiveTermId: termId.add(bn(1)) })
           })
         }
 
@@ -343,7 +352,7 @@ contract('JurorsRegistry', ([_, juror, secondJuror, thirdJuror, anyone]) => {
             const logs = decodeEventsOfType(receipt, JurorsRegistry.abi, REGISTRY_EVENTS.JUROR_DEACTIVATION_UPDATED)
 
             assertAmountOfEvents({ logs }, REGISTRY_EVENTS.JUROR_DEACTIVATION_UPDATED)
-            assertEvent({ logs }, REGISTRY_EVENTS.JUROR_DEACTIVATION_UPDATED, { juror, availableTermId, updateTermId: termId, amount: previousDeactivation.sub(deactivationReduced) })
+            assertEvent({ logs }, REGISTRY_EVENTS.JUROR_DEACTIVATION_UPDATED, { juror: jurorUniqueAddress, availableTermId, updateTermId: termId, amount: previousDeactivation.sub(deactivationReduced) })
           })
         }
       }

@@ -47,16 +47,22 @@ module.exports = (web3, artifacts) => {
       await this.brightIdRegister.register(BRIGHT_ID_CONTEXT, addresses, timestamp, sig.v, sig.r, sig.s, ZERO_ADDRESS, '0x0', { from: userUniqueAddress })
     }
 
-    async registerUserMultipleAccounts(userUniqueAddress, userSecondAddress) {
+    async registerUsers(usersUniqueAddresses) {
+      for (const userUniqueAddress of usersUniqueAddresses) {
+        await this.registerUser(userUniqueAddress)
+      }
+    }
+
+    async registerUserWithMultipleAddresses(userUniqueAddress, userSecondAddress) {
       const addresses = [userSecondAddress, userUniqueAddress] // Unique address used is the last in the array
       const timestamp = await this.brightIdRegister.getTimestampPublic()
       const sig = this.getVerificationsSignature(addresses, timestamp)
       await this.brightIdRegister.register(BRIGHT_ID_CONTEXT, addresses, timestamp, sig.v, sig.r, sig.s, ZERO_ADDRESS, '0x0', { from: userSecondAddress })
     }
 
-    async registerUsers(usersUniqueAddresses) {
-      for (const userUniqueAddress of usersUniqueAddresses) {
-        await this.registerUser(userUniqueAddress)
+    async registerUsersWithMultipleAddresses(usersAddresses) {
+      for (const userAddresses of usersAddresses) {
+        await this.registerUserWithMultipleAddresses(userAddresses[0], userAddresses[1])
       }
     }
 

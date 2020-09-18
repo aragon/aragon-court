@@ -1,0 +1,169 @@
+{
+  "contractName": "ICRVoting",
+  "abi": [
+    {
+      "constant": true,
+      "inputs": [
+        {
+          "name": "_voteId",
+          "type": "uint256"
+        }
+      ],
+      "name": "getWinningOutcome",
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint8"
+        }
+      ],
+      "payable": false,
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "constant": true,
+      "inputs": [
+        {
+          "name": "_voteId",
+          "type": "uint256"
+        },
+        {
+          "name": "_outcome",
+          "type": "uint8"
+        },
+        {
+          "name": "_voters",
+          "type": "address[]"
+        }
+      ],
+      "name": "getVotersInFavorOf",
+      "outputs": [
+        {
+          "name": "",
+          "type": "bool[]"
+        }
+      ],
+      "payable": false,
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "constant": true,
+      "inputs": [
+        {
+          "name": "_voteId",
+          "type": "uint256"
+        },
+        {
+          "name": "_outcome",
+          "type": "uint8"
+        }
+      ],
+      "name": "getOutcomeTally",
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "payable": false,
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "constant": true,
+      "inputs": [
+        {
+          "name": "_voteId",
+          "type": "uint256"
+        },
+        {
+          "name": "_voter",
+          "type": "address"
+        }
+      ],
+      "name": "getVoterOutcome",
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint8"
+        }
+      ],
+      "payable": false,
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "constant": true,
+      "inputs": [
+        {
+          "name": "_voteId",
+          "type": "uint256"
+        },
+        {
+          "name": "_outcome",
+          "type": "uint8"
+        },
+        {
+          "name": "_voter",
+          "type": "address"
+        }
+      ],
+      "name": "hasVotedInFavorOf",
+      "outputs": [
+        {
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "payable": false,
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "constant": true,
+      "inputs": [
+        {
+          "name": "_voteId",
+          "type": "uint256"
+        },
+        {
+          "name": "_outcome",
+          "type": "uint8"
+        }
+      ],
+      "name": "isValidOutcome",
+      "outputs": [
+        {
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "payable": false,
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "constant": false,
+      "inputs": [
+        {
+          "name": "_voteId",
+          "type": "uint256"
+        },
+        {
+          "name": "_possibleOutcomes",
+          "type": "uint8"
+        }
+      ],
+      "name": "create",
+      "outputs": [],
+      "payable": false,
+      "stateMutability": "nonpayable",
+      "type": "function"
+    }
+  ],
+  "bytecode": "0x",
+  "deployedBytecode": "0x",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}

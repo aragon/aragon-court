@@ -1,0 +1,109 @@
+{
+  "contractName": "IArbitrator",
+  "abi": [
+    {
+      "constant": true,
+      "inputs": [],
+      "name": "getDisputeFees",
+      "outputs": [
+        {
+          "name": "recipient",
+          "type": "address"
+        },
+        {
+          "name": "feeToken",
+          "type": "address"
+        },
+        {
+          "name": "feeAmount",
+          "type": "uint256"
+        }
+      ],
+      "payable": false,
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "constant": false,
+      "inputs": [
+        {
+          "name": "_disputeId",
+          "type": "uint256"
+        }
+      ],
+      "name": "closeEvidencePeriod",
+      "outputs": [],
+      "payable": false,
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "constant": false,
+      "inputs": [
+        {
+          "name": "_disputeId",
+          "type": "uint256"
+        }
+      ],
+      "name": "executeRuling",
+      "outputs": [],
+      "payable": false,
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "constant": false,
+      "inputs": [
+        {
+          "name": "_possibleRulings",
+          "type": "uint256"
+        },
+        {
+          "name": "_metadata",
+          "type": "bytes"
+        }
+      ],
+      "name": "createDispute",
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "payable": false,
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "constant": true,
+      "inputs": [
+        {
+          "name": "_subscriber",
+          "type": "address"
+        }
+      ],
+      "name": "getSubscriptionFees",
+      "outputs": [
+        {
+          "name": "recipient",
+          "type": "address"
+        },
+        {
+          "name": "feeToken",
+          "type": "address"
+        },
+        {
+          "name": "feeAmount",
+          "type": "uint256"
+        }
+      ],
+      "payable": false,
+      "stateMutability": "view",
+      "type": "function"
+    }
+  ],
+  "bytecode": "0x",
+  "deployedBytecode": "0x",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}

@@ -1,0 +1,15 @@
+{
+  "contractName": "TestImports",
+  "abi": [
+    {
+      "inputs": [],
+      "payable": false,
+      "stateMutability": "nonpayable",
+      "type": "constructor"
+    }
+  ],
+  "bytecode": "0x6080604052348015600f57600080fd5b50603580601d6000396000f3fe6080604052600080fdfea165627a7a72305820b2b5cc705a52443f2349a770ae26e2941c2929f446e10897b6ddf242e7f46be60029",
+  "deployedBytecode": "0x6080604052600080fdfea165627a7a72305820b2b5cc705a52443f2349a770ae26e2941c2929f446e10897b6ddf242e7f46be60029",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}

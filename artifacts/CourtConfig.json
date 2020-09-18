@@ -1,0 +1,214 @@
+{
+  "contractName": "CourtConfig",
+  "abi": [
+    {
+      "constant": true,
+      "inputs": [
+        {
+          "name": "_holder",
+          "type": "address"
+        }
+      ],
+      "name": "areWithdrawalsAllowedFor",
+      "outputs": [
+        {
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "payable": false,
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "constant": true,
+      "inputs": [
+        {
+          "name": "_termId",
+          "type": "uint64"
+        }
+      ],
+      "name": "getDraftConfig",
+      "outputs": [
+        {
+          "name": "feeToken",
+          "type": "address"
+        },
+        {
+          "name": "draftFee",
+          "type": "uint256"
+        },
+        {
+          "name": "penaltyPct",
+          "type": "uint16"
+        }
+      ],
+      "payable": false,
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "constant": true,
+      "inputs": [],
+      "name": "getConfigChangeTermId",
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint64"
+        }
+      ],
+      "payable": false,
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "constant": false,
+      "inputs": [
+        {
+          "name": "_allowed",
+          "type": "bool"
+        }
+      ],
+      "name": "setAutomaticWithdrawals",
+      "outputs": [],
+      "payable": false,
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "constant": true,
+      "inputs": [
+        {
+          "name": "_termId",
+          "type": "uint64"
+        }
+      ],
+      "name": "getMinActiveBalance",
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "payable": false,
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "constant": true,
+      "inputs": [
+        {
+          "name": "_termId",
+          "type": "uint64"
+        }
+      ],
+      "name": "getConfig",
+      "outputs": [
+        {
+          "name": "feeToken",
+          "type": "address"
+        },
+        {
+          "name": "fees",
+          "type": "uint256[3]"
+        },
+        {
+          "name": "roundStateDurations",
+          "type": "uint64[5]"
+        },
+        {
+          "name": "pcts",
+          "type": "uint16[2]"
+        },
+        {
+          "name": "roundParams",
+          "type": "uint64[4]"
+        },
+        {
+          "name": "appealCollateralParams",
+          "type": "uint256[2]"
+        },
+        {
+          "name": "minActiveBalance",
+          "type": "uint256"
+        }
+      ],
+      "payable": false,
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "name": "_feeToken",
+          "type": "address"
+        },
+        {
+          "name": "_fees",
+          "type": "uint256[3]"
+        },
+        {
+          "name": "_roundStateDurations",
+          "type": "uint64[5]"
+        },
+        {
+          "name": "_pcts",
+          "type": "uint16[2]"
+        },
+        {
+          "name": "_roundParams",
+          "type": "uint64[4]"
+        },
+        {
+          "name": "_appealCollateralParams",
+          "type": "uint256[2]"
+        },
+        {
+          "name": "_minActiveBalance",
+          "type": "uint256"
+        }
+      ],
+      "payable": false,
+      "stateMutability": "nonpayable",
+      "type": "constructor"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "name": "fromTermId",
+          "type": "uint64"
+        },
+        {
+          "indexed": false,
+          "name": "courtConfigId",
+          "type": "uint64"
+        }
+      ],
+      "name": "NewConfig",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "name": "holder",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "name": "allowed",
+          "type": "bool"
+        }
+      ],
+      "name": "AutomaticWithdrawalsAllowedChanged",
+      "type": "event"
+    }
+  ],
+  "bytecode": "0x",
+  "deployedBytecode": "0x",
+  "linkReferences": {},
+  "deployedLinkReferences": {}
+}

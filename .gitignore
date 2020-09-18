@@ -4,9 +4,10 @@
 node_modules/
 
 # Production
-abi/
-build/
-artifacts/
+abi
+cache
+build
+artifacts
 
 # coverage
 coverage/

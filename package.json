@@ -6,27 +6,33 @@
   "license": "GPL-3.0",
   "files": [
     "/abi",
-    "/build",
+    "/artifacts",
     "/contracts"
   ],
   "scripts": {
+    "console": "buidler console",
+    "compile": "buidler compile --force",
     "lint": "yarn lint:solidity && yarn lint:js",
     "lint:js": "eslint ./test ./scripts ./migrations",
     "lint:solidity": "solium --dir ./contracts",
-    "test": "yarn test:ganache-cli",
-    "test:gas": "GAS_REPORTER=true yarn test",
-    "test:ganache-cli": "./node_modules/@aragon/contract-helpers-test/scripts/ganache-cli.sh",
-    "coverage": "npx truffle run coverage",
-    "abi:extract": "truffle-extract --output abi/ --keys abi",
-    "prepublishOnly": "truffle compile --all && yarn abi:extract -- --no-compile"
+    "test": "buidler test",
+    "test:gas": "REPORT_GAS=true yarn test --network localhost",
+    "coverage": "buidler coverage --network coverage",
+    "abi:extract": "buidler-extract --output abi/ --keys abi",
+    "prepublishOnly": "yarn compile && yarn abi:extract -- --no-compile"
   },
   "pre-push": [
     "lint"
   ],
   "dependencies": {},
   "devDependencies": {
-    "@aragon/contract-helpers-test": "0.1.0-rc.3",
-    "@aragon/truffle-config-v5": "^1.0.0",
+    "@aragon/contract-helpers-test": "^0.1.0",
+    "@nomiclabs/buidler": "^1.4.3",
+    "@nomiclabs/buidler-ganache": "^1.3.3",
+    "@nomiclabs/buidler-truffle5": "^1.3.4",
+    "@nomiclabs/buidler-web3": "^1.3.4",
+    "buidler-extract": "^1.0.0",
+    "buidler-gas-reporter": "^0.1.3",
     "chai": "^4.2.0",
     "eslint": "^5.6.0",
     "eslint-config-standard": "^12.0.0",
@@ -35,14 +41,10 @@
     "eslint-plugin-promise": "^4.0.1",
     "eslint-plugin-standard": "^4.0.0",
     "eslint-plugin-unused-imports": "^0.1.0",
-    "eth-gas-reporter": "^0.2.9",
-    "ganache-cli": "^6.9.0",
     "pre-push": "^0.1.1",
-    "solidity-coverage": "^0.7.5",
-    "solium": "^1.2.3",
-    "truffle": "^5.0.34",
-    "truffle-extract": "^1.2.1",
-    "web3": "^1.2.1",
+    "solidity-coverage": "^0.7.9",
+    "solium": "^1.2.5",
+    "web3": "^1.2.11",
     "web3-eth-abi": "1.0.0-beta.33"
   }
 }

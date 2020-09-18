@@ -2,11 +2,12 @@
 
 # Dependencies
 node_modules/
-package-lock.json
 
 # Production
-build/
-abi/
+abi
+cache
+build
+artifacts
 
 # coverage
 coverage/
@@ -18,12 +19,3 @@ scTopics
 # Logs
 yarn-debug.log*
 yarn-error.log*
-
-# Editors
-.vscode/
-.idea/*
-
-# Misc
-.DS_Store
-
-bytecode

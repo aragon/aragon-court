@@ -1034,7 +1034,7 @@ contract('HexSumTree', () => {
         for (let j = 0; j < REMOVES; j++) await tree.set((i * INSERTS) + j, time, 0)
       }
 
-      assertBn((await tree.total()), value * (INSERTS - REMOVES) * ITERATIONS, 'tree total does not match')
-    })
+      assertBn(await tree.total(), value * (INSERTS - REMOVES) * ITERATIONS, 'tree total does not match')
+    }).timeout(60000)
   })
 })

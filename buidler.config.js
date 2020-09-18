@@ -50,9 +50,6 @@ module.exports = {
       runs: 3000,
     },
   },
-  mocha: {
-    timeout: '30000'
-  },
   // The gas reporter plugin do not properly handle the buidlerevm
   // chain yet. In the mean time we should 'npx buidler node' and
   // then attach to running process using '--network localhost' as

@@ -1012,7 +1012,7 @@ contract('JurorsRegistry', ([_, juror, juror2, jurorUniqueAddress, juror2UniqueA
     })
   })
 
-  describe.only('unstake', () => {
+  describe('unstake', () => {
     const from = juror
     const data = '0xabcdef0123456789'
 

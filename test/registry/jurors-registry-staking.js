@@ -725,7 +725,7 @@ contract('JurorsRegistry', ([_, juror, juror2, jurorUniqueAddress, juror2UniqueA
     })
   })
 
-  describe.only('approve and call', () => {
+  describe('approve and call', () => {
     const from = juror
 
     context('when the calling contract is ANJ', () => {
@@ -1012,7 +1012,7 @@ contract('JurorsRegistry', ([_, juror, juror2, jurorUniqueAddress, juror2UniqueA
     })
   })
 
-  describe('unstake', () => {
+  describe.only('unstake', () => {
     const from = juror
     const data = '0xabcdef0123456789'
 
@@ -1115,7 +1115,7 @@ contract('JurorsRegistry', ([_, juror, juror2, jurorUniqueAddress, juror2UniqueA
           const receipt = await registry.unstake(amount, data, { from })
 
           assertAmountOfEvents(receipt, REGISTRY_EVENTS.UNSTAKED)
-          assertEvent(receipt, REGISTRY_EVENTS.UNSTAKED, { user: juror, amount, total: previousTotalStake.sub(amount), data })
+          assertEvent(receipt, REGISTRY_EVENTS.UNSTAKED, { user: jurorUniqueAddress, amount, total: previousTotalStake.sub(amount), data })
         })
 
         if (deactivationAmount.gt(bn(0))) {
@@ -1126,7 +1126,7 @@ contract('JurorsRegistry', ([_, juror, juror2, jurorUniqueAddress, juror2UniqueA
             const receipt = await registry.unstake(amount, data, { from })
 
             assertAmountOfEvents(receipt, REGISTRY_EVENTS.JUROR_DEACTIVATION_PROCESSED)
-            assertEvent(receipt, REGISTRY_EVENTS.JUROR_DEACTIVATION_PROCESSED, { juror, amount: deactivationAmount, availableTermId, processedTermId: termId })
+            assertEvent(receipt, REGISTRY_EVENTS.JUROR_DEACTIVATION_PROCESSED, { juror: jurorUniqueAddress, amount: deactivationAmount, availableTermId, processedTermId: termId })
           })
         }
       }

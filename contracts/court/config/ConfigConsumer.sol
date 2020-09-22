@@ -25,7 +25,7 @@ contract ConfigConsumer is CourtConfigData {
         uint16[2] memory _pcts,
         uint64[4] memory _roundParams,
         uint256[2] memory _appealCollateralParams,
-        uint256 _minActiveBalance) = _courtConfig().getConfig(_termId);
+        uint256[2] memory _jurorsParams) = _courtConfig().getConfig(_termId);
 
         Config memory config;
 
@@ -52,7 +52,10 @@ contract ConfigConsumer is CourtConfigData {
             appealConfirmCollateralFactor: _appealCollateralParams[1]
         });
 
-        config.minActiveBalance = _minActiveBalance;
+        config.jurors = JurorsConfig({
+            minActiveBalance: _jurorsParams[0],
+            maxActiveBalance: _jurorsParams[1]
+        });
 
         return config;
     }

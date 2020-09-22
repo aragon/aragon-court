@@ -29,7 +29,9 @@ interface IConfig {
     * @return appealCollateralParams Array containing params for appeal collateral:
     *         0. appealCollateralFactor Multiple of dispute fees required to appeal a preliminary ruling
     *         1. appealConfirmCollateralFactor Multiple of dispute fees required to confirm appeal
-    * @return minActiveBalance Minimum amount of tokens jurors have to activate to participate in the Court
+    * @return jurorsParams Array containing params for juror registry:
+    *         0. minActiveBalance Minimum amount of juror tokens that can be activated
+    *         1. maxActiveBalance Maximum amount of juror tokens that can be activated
     */
     function getConfig(uint64 _termId) external view
         returns (
@@ -39,7 +41,7 @@ interface IConfig {
             uint16[2] memory pcts,
             uint64[4] memory roundParams,
             uint256[2] memory appealCollateralParams,
-            uint256 minActiveBalance
+            uint256[2] memory jurorsParams
         );
 
     /**

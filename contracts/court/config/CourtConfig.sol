@@ -21,6 +21,7 @@ contract CourtConfig is IConfig, CourtConfigData {
     string private constant ERROR_BAD_APPEAL_STEP_FACTOR = "CONF_BAD_APPEAL_STEP_FACTOR";
     string private constant ERROR_ZERO_COLLATERAL_FACTOR = "CONF_ZERO_COLLATERAL_FACTOR";
     string private constant ERROR_ZERO_MIN_ACTIVE_BALANCE = "CONF_ZERO_MIN_ACTIVE_BALANCE";
+    string private constant ERROR_MAX_ACTIVE_BALANCE_TOO_LOW = "CONF_MAX_ACTIVE_BALANCE_TOO_LOW";
 
     // Max number of terms that each of the different adjudication states can last (if lasted 1h, this would be a year)
     uint64 internal constant MAX_ADJ_STATE_DURATION = 8670;
@@ -67,7 +68,9 @@ contract CourtConfig is IConfig, CourtConfigData {
     * @param _appealCollateralParams Array containing params for appeal collateral:
     *        0. appealCollateralFactor Multiple of dispute fees required to appeal a preliminary ruling
     *        1. appealConfirmCollateralFactor Multiple of dispute fees required to confirm appeal
-    * @param _minActiveBalance Minimum amount of juror tokens that can be activated
+    * @param _jurorsParams Array containing params for juror registry:
+    *        0. minActiveBalance Minimum amount of juror tokens that can be activated
+    *        1. maxActiveBalance Maximum amount of juror tokens that can be activated
     */
     constructor(
         ERC20 _feeToken,
@@ -76,7 +79,7 @@ contract CourtConfig is IConfig, CourtConfigData {
         uint16[2] memory _pcts,
         uint64[4] memory _roundParams,
         uint256[2] memory _appealCollateralParams,
-        uint256 _minActiveBalance
+        uint256[2] memory _jurorsParams
     )
         public
     {
@@ -91,7 +94,7 @@ contract CourtConfig is IConfig, CourtConfigData {
             _pcts,
             _roundParams,
             _appealCollateralParams,
-            _minActiveBalance
+            _jurorsParams
         );
     }
 
@@ -128,7 +131,9 @@ contract CourtConfig is IConfig, CourtConfigData {
     * @return appealCollateralParams Array containing params for appeal collateral:
     *         0. appealCollateralFactor Multiple of dispute fees required to appeal a preliminary ruling
     *         1. appealConfirmCollateralFactor Multiple of dispute fees required to confirm appeal
-    * @return minActiveBalance Minimum amount of tokens jurors have to activate to participate in the Court
+    * @return jurorsParams Array containing params for juror registry:
+    *         0. minActiveBalance Minimum amount of juror tokens that can be activated
+    *         1. maxActiveBalance Maximum amount of juror tokens that can be activated
     */
     function getConfig(uint64 _termId) external view
         returns (
@@ -138,7 +143,7 @@ contract CourtConfig is IConfig, CourtConfigData {
             uint16[2] memory pcts,
             uint64[4] memory roundParams,
             uint256[2] memory appealCollateralParams,
-            uint256 minActiveBalance
+            uint256[2] memory jurorsParams
         );
 
     /**
@@ -213,7 +218,9 @@ contract CourtConfig is IConfig, CourtConfigData {
     * @param _appealCollateralParams Array containing params for appeal collateral:
     *        0. appealCollateralFactor Multiple of dispute fees required to appeal a preliminary ruling
     *        1. appealConfirmCollateralFactor Multiple of dispute fees required to confirm appeal
-    * @param _minActiveBalance Minimum amount of juror tokens that can be activated
+    * @param _jurorsParams Array containing params for juror registry:
+    *        0. minActiveBalance Minimum amount of juror tokens that can be activated
+    *        1. maxActiveBalance Maximum amount of juror tokens that can be activated
     */
     function _setConfig(
         uint64 _termId,
@@ -224,7 +231,7 @@ contract CourtConfig is IConfig, CourtConfigData {
         uint16[2] memory _pcts,
         uint64[4] memory _roundParams,
         uint256[2] memory _appealCollateralParams,
-        uint256 _minActiveBalance
+        uint256[2] memory _jurorsParams
     )
         internal
     {
@@ -256,7 +263,9 @@ contract CourtConfig is IConfig, CourtConfigData {
         }
 
         // Make sure min active balance is not zero
-        require(_minActiveBalance > 0, ERROR_ZERO_MIN_ACTIVE_BALANCE);
+        require(_jurorsParams[0] > 0, ERROR_ZERO_MIN_ACTIVE_BALANCE);
+        // Make sure max active balance is more than min active balance
+        require(_jurorsParams[1] > _jurorsParams[0], ERROR_MAX_ACTIVE_BALANCE_TOO_LOW);
 
         // If there was a config change already scheduled, reset it (in that case we will overwrite last array item).
         // Otherwise, schedule a new config.
@@ -292,7 +301,10 @@ contract CourtConfig is IConfig, CourtConfigData {
             appealConfirmCollateralFactor: _appealCollateralParams[1]
         });
 
-        config.minActiveBalance = _minActiveBalance;
+        config.jurors = JurorsConfig({
+            minActiveBalance: _jurorsParams[0],
+            maxActiveBalance: _jurorsParams[1]
+        });
 
         configIdByTerm[_fromTermId] = courtConfigId;
         configChangeTermId = _fromTermId;
@@ -326,7 +338,9 @@ contract CourtConfig is IConfig, CourtConfigData {
     * @return appealCollateralParams Array containing params for appeal collateral:
     *         0. appealCollateralFactor Multiple of dispute fees required to appeal a preliminary ruling
     *         1. appealConfirmCollateralFactor Multiple of dispute fees required to confirm appeal
-    * @return minActiveBalance Minimum amount of juror tokens that can be activated
+    * @return jurorsParams Array containing params for juror registry:
+    *         0. minActiveBalance Minimum amount of juror tokens that can be activated
+    *         1. maxActiveBalance Maximum amount of juror tokens that can be activated
     */
     function _getConfigAt(uint64 _termId, uint64 _lastEnsuredTermId) internal view
         returns (
@@ -336,7 +350,7 @@ contract CourtConfig is IConfig, CourtConfigData {
             uint16[2] memory pcts,
             uint64[4] memory roundParams,
             uint256[2] memory appealCollateralParams,
-            uint256 minActiveBalance
+            uint256[2] memory jurorsParams
         )
     {
         Config storage config = _getConfigFor(_termId, _lastEnsuredTermId);
@@ -362,7 +376,11 @@ contract CourtConfig is IConfig, CourtConfigData {
         ];
         appealCollateralParams = [disputesConfig.appealCollateralFactor, disputesConfig.appealConfirmCollateralFactor];
 
-        minActiveBalance = config.minActiveBalance;
+        JurorsConfig storage jurorsConfig = config.jurors;
+        jurorsParams = [
+            jurorsConfig.minActiveBalance,
+            jurorsConfig.maxActiveBalance
+        ];
     }
 
     /**
@@ -388,7 +406,7 @@ contract CourtConfig is IConfig, CourtConfigData {
     */
     function _getMinActiveBalance(uint64 _termId, uint64 _lastEnsuredTermId) internal view returns (uint256) {
         Config storage config = _getConfigFor(_termId, _lastEnsuredTermId);
-        return config.minActiveBalance;
+        return config.jurors.minActiveBalance;
     }
 
     /**

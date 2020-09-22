@@ -391,7 +391,7 @@ contract DisputeManager is ControlledRecoverable, ICRVotingOwner, IDisputeManage
         if (_isRegularRound(_roundId, config)) {
             // For regular appeal rounds we compute the amount of locked tokens that needs to get burned in batches.
             // The callers of this function will get rewarded in this case.
-            uint256 jurorsSettled = _settleRegularRoundPenalties(round, voteId, finalRuling, config.disputes.penaltyPct, _jurorsToSettle, config.minActiveBalance);
+            uint256 jurorsSettled = _settleRegularRoundPenalties(round, voteId, finalRuling, config.disputes.penaltyPct, _jurorsToSettle, config.jurors.minActiveBalance);
             treasury.assign(feeToken, msg.sender, config.fees.settleFee.mul(jurorsSettled));
         } else {
             // For the final appeal round, there is no need to settle in batches since, to guarantee scalability,
@@ -728,7 +728,7 @@ contract DisputeManager is ControlledRecoverable, ICRVotingOwner, IDisputeManage
         } else {
             IJurorsRegistry jurorsRegistry = _jurorsRegistry();
             uint256 activeBalance = jurorsRegistry.activeBalanceOfAt(_juror, round.draftTermId);
-            weight = _getMinActiveBalanceMultiple(activeBalance, config.minActiveBalance);
+            weight = _getMinActiveBalanceMultiple(activeBalance, config.jurors.minActiveBalance);
         }
 
         rewarded = round.jurorsStates[_juror].rewarded;
@@ -901,7 +901,7 @@ contract DisputeManager is ControlledRecoverable, ICRVotingOwner, IDisputeManage
         // Fetch active balance and multiples of the min active balance from the registry
         IJurorsRegistry jurorsRegistry = _jurorsRegistry();
         uint256 activeBalance = jurorsRegistry.activeBalanceOfAt(_juror, _round.draftTermId);
-        uint64 weight = _getMinActiveBalanceMultiple(activeBalance, _config.minActiveBalance);
+        uint64 weight = _getMinActiveBalanceMultiple(activeBalance, _config.jurors.minActiveBalance);
 
         // If the juror weight for the last round is zero, return zero
         if (weight == 0) {
@@ -988,7 +988,7 @@ contract DisputeManager is ControlledRecoverable, ICRVotingOwner, IDisputeManage
             // Thus, the jurors number for a final round will always fit in uint64.
             IJurorsRegistry jurorsRegistry = _jurorsRegistry();
             uint256 totalActiveBalance = jurorsRegistry.totalActiveBalanceAt(nextRound.startTerm);
-            uint64 jurorsNumber = _getMinActiveBalanceMultiple(totalActiveBalance, _config.minActiveBalance);
+            uint64 jurorsNumber = _getMinActiveBalanceMultiple(totalActiveBalance, _config.jurors.minActiveBalance);
             nextRound.jurorsNumber = jurorsNumber;
             // Calculate fees for the final round using the appeal start term of the current round
             (nextRound.feeToken, nextRound.jurorFees, nextRound.totalFees) = _getFinalRoundFees(_config.fees, jurorsNumber);

@@ -17,7 +17,7 @@ contract AragonCourtMock is AragonCourt, TimeHelpersMock {
         uint16[2] memory _pcts,
         uint64[4] memory _roundParams,
         uint256[2] memory _appealCollateralParams,
-        uint256 _minActiveBalance
+        uint256[2] memory _jurorsParams
     )
         AragonCourt(
             _termParams,
@@ -28,7 +28,7 @@ contract AragonCourtMock is AragonCourt, TimeHelpersMock {
             _pcts,
             _roundParams,
             _appealCollateralParams,
-            _minActiveBalance
+            _jurorsParams
         )
         public
     {}

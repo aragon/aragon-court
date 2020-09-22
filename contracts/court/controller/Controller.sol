@@ -29,6 +29,9 @@ contract Controller is IsContract, CourtClock, CourtConfig {
     // Subscriptions module ID - keccak256(abi.encodePacked("SUBSCRIPTIONS"))
     bytes32 internal constant SUBSCRIPTIONS = 0x2bfa3327fe52344390da94c32a346eeb1b65a8b583e4335a419b9471e88c1365;
 
+    // BrightIDRegister module ID - keccak256(abi.encodePacked("BRIGHTID_REGISTER"))
+    bytes32 internal constant BRIGHTID_REGISTER = 0xc8d8a5444a51ecc23e5091f18c4162834512a4bc5cae72c637db45c8c37b3329;
+
     /**
     * @dev Governor of the whole system. Set of three addresses to recover funds, change configuration settings and setup modules
     */
@@ -102,9 +105,11 @@ contract Controller is IsContract, CourtClock, CourtConfig {
     *        2. maxRegularAppealRounds Number of regular appeal rounds before the final round is triggered
     *        3. finalRoundLockTerms Number of terms that a coherent juror in a final round is disallowed to withdraw (to prevent 51% attacks)
     * @param _appealCollateralParams Array containing params for appeal collateral:
-    *        1. appealCollateralFactor Permyriad multiple of dispute fees required to appeal a preliminary ruling
-    *        2. appealConfirmCollateralFactor Permyriad multiple of dispute fees required to confirm appeal
-    * @param _minActiveBalance Minimum amount of juror tokens that can be activated
+    *        0. appealCollateralFactor Permyriad multiple of dispute fees required to appeal a preliminary ruling
+    *        1. appealConfirmCollateralFactor Permyriad multiple of dispute fees required to confirm appeal
+    * @param _jurorsParams Array containing params for jurors:
+    *        0. minActiveBalance Minimum amount of juror tokens that can be activated
+    *        1. maxActiveBalance Maximum amount of juror tokens that can be activated
     */
     constructor(
         uint64[2] memory _termParams,
@@ -115,11 +120,11 @@ contract Controller is IsContract, CourtClock, CourtConfig {
         uint16[2] memory _pcts,
         uint64[4] memory _roundParams,
         uint256[2] memory _appealCollateralParams,
-        uint256 _minActiveBalance
+        uint256[2] memory _jurorsParams
     )
         public
         CourtClock(_termParams)
-        CourtConfig(_feeToken, _fees, _roundStateDurations, _pcts, _roundParams, _appealCollateralParams, _minActiveBalance)
+        CourtConfig(_feeToken, _fees, _roundStateDurations, _pcts, _roundParams, _appealCollateralParams, _jurorsParams)
     {
         _setFundsGovernor(_governors[0]);
         _setConfigGovernor(_governors[1]);
@@ -149,9 +154,11 @@ contract Controller is IsContract, CourtClock, CourtConfig {
     *        2. maxRegularAppealRounds Number of regular appeal rounds before the final round is triggered
     *        3. finalRoundLockTerms Number of terms that a coherent juror in a final round is disallowed to withdraw (to prevent 51% attacks)
     * @param _appealCollateralParams Array containing params for appeal collateral:
-    *        1. appealCollateralFactor Permyriad multiple of dispute fees required to appeal a preliminary ruling
-    *        2. appealConfirmCollateralFactor Permyriad multiple of dispute fees required to confirm appeal
-    * @param _minActiveBalance Minimum amount of juror tokens that can be activated
+    *        0. appealCollateralFactor Permyriad multiple of dispute fees required to appeal a preliminary ruling
+    *        1. appealConfirmCollateralFactor Permyriad multiple of dispute fees required to confirm appeal
+    * @param _jurorsParams Array containing params for jurors:
+    *        0. minActiveBalance Minimum amount of juror tokens that can be activated
+    *        1. maxActiveBalance Maximum amount of juror tokens that can be activated
     */
     function setConfig(
         uint64 _fromTermId,
@@ -161,7 +168,7 @@ contract Controller is IsContract, CourtClock, CourtConfig {
         uint16[2] calldata _pcts,
         uint64[4] calldata _roundParams,
         uint256[2] calldata _appealCollateralParams,
-        uint256 _minActiveBalance
+        uint256[2] calldata _jurorsParams
     )
         external
         onlyConfigGovernor
@@ -176,7 +183,7 @@ contract Controller is IsContract, CourtClock, CourtConfig {
             _pcts,
             _roundParams,
             _appealCollateralParams,
-            _minActiveBalance
+            _jurorsParams
         );
     }
 
@@ -278,6 +285,9 @@ contract Controller is IsContract, CourtClock, CourtConfig {
     * @return appealCollateralParams Array containing params for appeal collateral:
     *         0. appealCollateralFactor Multiple of dispute fees required to appeal a preliminary ruling
     *         1. appealConfirmCollateralFactor Multiple of dispute fees required to confirm appeal
+    * @return jurorsParams Array containing params for juror registry:
+    *         0. minActiveBalance Minimum amount of juror tokens that can be activated
+    *         1. maxActiveBalance Maximum amount of juror tokens that can be activated
     */
     function getConfig(uint64 _termId) external view
         returns (
@@ -287,7 +297,7 @@ contract Controller is IsContract, CourtClock, CourtConfig {
             uint16[2] memory pcts,
             uint64[4] memory roundParams,
             uint256[2] memory appealCollateralParams,
-            uint256 minActiveBalance
+            uint256[2] memory jurorsParams
         )
     {
         uint64 lastEnsuredTermId = _lastEnsuredTermId();
@@ -390,6 +400,14 @@ contract Controller is IsContract, CourtClock, CourtConfig {
     }
 
     /**
+    * @dev Tell the address of the BrightId register
+    * @return Address of the BrightId register
+    */
+    function getBrightIdRegister() external view returns (address) {
+        return _getBrightIdRegister();
+    }
+
+    /**
     * @dev Internal function to set the address of the funds governor
     * @param _newFundsGovernor Address of the new config governor to be set
     */
@@ -449,6 +467,15 @@ contract Controller is IsContract, CourtClock, CourtConfig {
     */
     function _getSubscriptions() internal view returns (address) {
         return _getModule(SUBSCRIPTIONS);
+    }
+
+
+    /**
+    * @dev Internal function to tell the address of the BrightId register
+    * @return Address of the BrightId register
+    */
+    function _getBrightIdRegister() internal view returns (address) {
+        return _getModule(BRIGHTID_REGISTER);
     }
 
     /**

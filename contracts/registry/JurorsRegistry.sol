@@ -13,8 +13,6 @@ import "../standards/ERC900.sol";
 import "../standards/ApproveAndCall.sol";
 import "../court/controller/Controller.sol";
 import "../court/controller/ControlledRecoverable.sol";
-import "../brightid/IBrightIdRegister.sol";
-
 
 contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, ApproveAndCallFallBack {
     using SafeERC20 for ERC20;
@@ -31,6 +29,7 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
     string private constant ERROR_INVALID_LOCKED_AMOUNTS_LENGTH = "JR_INVALID_LOCKED_AMOUNTS_LEN";
     string private constant ERROR_INVALID_REWARDED_JURORS_LENGTH = "JR_INVALID_REWARDED_JURORS_LEN";
     string private constant ERROR_ACTIVE_BALANCE_BELOW_MIN = "JR_ACTIVE_BALANCE_BELOW_MIN";
+    string private constant ERROR_ACTIVE_BALANCE_ABOVE_MAX = "JR_ACTIVE_BALANCE_ABOVE_MAX";
     string private constant ERROR_NOT_ENOUGH_AVAILABLE_BALANCE = "JR_NOT_ENOUGH_AVAILABLE_BALANCE";
     string private constant ERROR_CANNOT_REDUCE_DEACTIVATION_REQUEST = "JR_CANT_REDUCE_DEACTIVATION_REQ";
     string private constant ERROR_TOKEN_TRANSFER_FAILED = "JR_TOKEN_TRANSFER_FAILED";
@@ -99,8 +98,6 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
     // Juror ERC20 token
     ERC20 internal jurorsToken;
 
-    IBrightIdRegister public brightIdRegister;
-
     // Mapping of juror data indexed by address
     mapping (address => Juror) internal jurorsByAddress;
 
@@ -121,7 +118,6 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
     event JurorTokensBurned(uint256 amount);
     event JurorTokensCollected(address indexed juror, uint256 amount, uint64 effectiveTermId);
     event TotalActiveBalanceLimitChanged(uint256 previousTotalActiveBalanceLimit, uint256 currentTotalActiveBalanceLimit);
-    event BrightIdRegisterChanged(IBrightIdRegister previousBrightIdRegister, IBrightIdRegister currentBrightIdRegister);
 
     /**
     * @dev Constructor function
@@ -129,7 +125,7 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
     * @param _jurorToken Address of the ERC20 token to be used as juror token for the registry
     * @param _totalActiveBalanceLimit Maximum amount of total active balance that can be held in the registry
     */
-    constructor(Controller _controller, ERC20 _jurorToken, uint256 _totalActiveBalanceLimit, IBrightIdRegister _brightIdRegister)
+    constructor(Controller _controller, ERC20 _jurorToken, uint256 _totalActiveBalanceLimit)
         ControlledRecoverable(_controller)
         public
     {
@@ -138,7 +134,6 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
 
         jurorsToken = _jurorToken;
         _setTotalActiveBalanceLimit(_totalActiveBalanceLimit);
-        _setBrightIdRegister(_brightIdRegister);
 
         tree.init();
         // First tree item is an empty juror
@@ -405,19 +400,11 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
     }
 
     /**
-    * @notice Set new limit of total active balance of juror tokens
+    * @notice Set new limit of total active balance of juror tokens to `_totalActiveBalanceLimit`
     * @param _totalActiveBalanceLimit New limit of total active balance of juror tokens
     */
     function setTotalActiveBalanceLimit(uint256 _totalActiveBalanceLimit) external onlyConfigGovernor {
         _setTotalActiveBalanceLimit(_totalActiveBalanceLimit);
-    }
-
-    /**
-    * @notice Set new bright id register
-    * @param _brightIdRegister New bright id register
-    */
-    function setBrightIdRegister(IBrightIdRegister _brightIdRegister) external onlyConfigGovernor {
-        _setBrightIdRegister(_brightIdRegister);
     }
 
     /**
@@ -590,15 +577,21 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
         _checkTotalActiveBalance(nextTermId, amountToActivate);
         Juror storage juror = jurorsByAddress[_juror];
         uint256 minActiveBalance = _getMinActiveBalance(nextTermId);
+        uint256 maxActiveBalance = _getConfigAt(nextTermId).jurors.maxActiveBalance;
 
         if (_existsJuror(juror)) {
             // Even though we are adding amounts, let's check the new active balance is greater than or equal to the
             // minimum active amount. Note that the juror might have been slashed.
             uint256 activeBalance = tree.getItem(juror.id);
-            require(activeBalance.add(amountToActivate) >= minActiveBalance, ERROR_ACTIVE_BALANCE_BELOW_MIN);
+            uint256 newActiveBalance = activeBalance.add(amountToActivate);
+            require(newActiveBalance >= minActiveBalance, ERROR_ACTIVE_BALANCE_BELOW_MIN);
+            require(newActiveBalance <= maxActiveBalance, ERROR_ACTIVE_BALANCE_ABOVE_MAX);
+
             tree.update(juror.id, nextTermId, amountToActivate, true);
         } else {
             require(amountToActivate >= minActiveBalance, ERROR_ACTIVE_BALANCE_BELOW_MIN);
+            require(amountToActivate <= maxActiveBalance, ERROR_ACTIVE_BALANCE_ABOVE_MAX);
+
             juror.id = tree.insert(nextTermId, amountToActivate);
             jurorsAddressById[juror.id] = _juror;
         }
@@ -757,19 +750,6 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
         require(_totalActiveBalanceLimit > 0, ERROR_BAD_TOTAL_ACTIVE_BALANCE_LIMIT);
         emit TotalActiveBalanceLimitChanged(totalActiveBalanceLimit, _totalActiveBalanceLimit);
         totalActiveBalanceLimit = _totalActiveBalanceLimit;
-    }
-
-    /**
-    * @dev Internal function to set ew bright id register
-    * @param _brightIdRegister New bright id register
-    */
-    function _setBrightIdRegister(IBrightIdRegister _brightIdRegister) internal {
-        require(isContract(address(_brightIdRegister)), ERROR_NOT_CONTRACT);
-        emit BrightIdRegisterChanged(brightIdRegister, _brightIdRegister);
-
-        // TODO: Check contextId is same in new register as in old register?
-
-        brightIdRegister = _brightIdRegister;
     }
 
     /**
@@ -941,6 +921,7 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
         } else if (_jurorSenderAddress == ZERO_ADDRESS) {
             return ZERO_ADDRESS; // TODO: Is this necessary?
         }
-        return brightIdRegister.uniqueUserId(_jurorSenderAddress);
+
+        return _brightIdRegister().uniqueUserId(_jurorSenderAddress);
     }
 }

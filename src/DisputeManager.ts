@@ -26,7 +26,7 @@ export function handleNewDispute(event: NewDispute): void {
   let manager = DisputeManager.bind(event.address)
   let dispute = new Dispute(event.params.disputeId.toString())
   let disputeResult = manager.getDispute(event.params.disputeId)
-  dispute.subject = event.params.subject.toHex()
+  dispute.subject = event.params.subject.toHexString()
   dispute.metadata = event.params.metadata.toString()
   dispute.rawMetadata = event.params.metadata
   dispute.possibleRulings = disputeResult.value1
@@ -36,14 +36,14 @@ export function handleNewDispute(event: NewDispute): void {
   dispute.lastRoundId = disputeResult.value4
   dispute.createTermId = disputeResult.value5
   dispute.createdAt = event.block.timestamp
-  dispute.txHash = event.transaction.hash.toHex()
+  dispute.txHash = event.transaction.hash.toHexString()
   dispute.save()
 
   updateRound(event.params.disputeId, dispute.lastRoundId, event)
   tryDecodingAgreementMetadata(dispute)
 
   ArbitrableTemplate.create(event.params.subject)
-  let arbitrable = new Arbitrable(event.params.subject.toHex())
+  let arbitrable = new Arbitrable(event.params.subject.toHexString())
   arbitrable.save()
 }
 
@@ -221,8 +221,8 @@ function createAppealFeesForDeposits(disputeId: BigInt, roundNumber: BigInt, app
   let nextRound = manager.getNextRoundDetails(disputeId, roundNumber)
   let totalFees = nextRound.value4
 
-  let maker = Address.fromString(appeal.maker.toHex())
-  let taker = Address.fromString(appeal.taker.toHex())
+  let maker = Address.fromString(appeal.maker.toHexString())
+  let taker = Address.fromString(appeal.taker.toHexString())
   let totalDeposit = appeal.appealDeposit.plus(appeal.confirmAppealDeposit)
 
   let dispute = Dispute.load(disputeId.toString())
@@ -253,8 +253,8 @@ function createAppealFeesForJurorFees(event: PenaltiesSettled, disputeId: BigInt
       let appeal = Appeal.load(appealId)
       let refundFees = round.jurorFees.div(BigInt.fromI32(2))
       let id = buildId(event)
-      createFeeMovement(APPEAL_FEES, Address.fromString(appeal.maker.toHex()), refundFees, event, id.concat('-maker'))
-      createFeeMovement(APPEAL_FEES, Address.fromString(appeal.taker.toHex()), refundFees, event, id.concat('-taker'))
+      createFeeMovement(APPEAL_FEES, Address.fromString(appeal.maker.toHexString()), refundFees, event, id.concat('-maker'))
+      createFeeMovement(APPEAL_FEES, Address.fromString(appeal.taker.toHexString()), refundFees, event, id.concat('-taker'))
     }
   }
 }
@@ -278,7 +278,7 @@ export function createJurorDraft(disputeManagerAddress: Address, disputeId: BigI
   let draftId = buildDraftId(disputeRoundId, jurorAddress)
   let draft = new JurorDraft(draftId)
   draft.round = disputeRoundId.toString()
-  draft.juror = jurorAddress.toHex()
+  draft.juror = jurorAddress.toHexString()
   draft.locked = BigInt.fromI32(0) // will be updated in JurorLockedBalance event handler
   draft.weight = response.value0
   draft.rewarded = response.value1
@@ -301,12 +301,12 @@ export function decodeDisputeRoundId(disputeRoundId: BigInt): BigInt[] {
 
 export function buildDraftId(roundId: BigInt, juror: Address): string {
   // @ts-ignore BigInt is actually a BytesArray under the hood
-  return crypto.keccak256(concat(roundId as Bytes, juror)).toHex()
+  return crypto.keccak256(concat(roundId as Bytes, juror)).toHexString()
 }
 
 export function buildJurorDisputeId(disputeId: BigInt, juror: Address): string {
   // @ts-ignore BigInt is actually a BytesArray under the hood
-  return crypto.keccak256(concat(disputeId as Bytes, juror)).toHex()
+  return crypto.keccak256(concat(disputeId as Bytes, juror)).toHexString()
 }
 
 function buildAppealId(disputeId: BigInt, roundId: BigInt): BigInt {

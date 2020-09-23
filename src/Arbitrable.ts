@@ -16,9 +16,9 @@ export function handleEvidenceSubmittedWithArbitrator(event: EvidenceSubmittedWi
 }
 
 function handleEvidenceSubmitted(event: ethereum.Event, disputeId: BigInt, data: Bytes, submitter: Address): void {
-  let id = event.transaction.hash.toHex() + event.logIndex.toHex()
+  let id = event.transaction.hash.toHexString() + event.logIndex.toHexString()
   let evidence = new Evidence(id)
-  evidence.arbitrable = event.address.toHex()
+  evidence.arbitrable = event.address.toHexString()
   evidence.dispute = disputeId.toString()
   evidence.data = data
   evidence.submitter = submitter

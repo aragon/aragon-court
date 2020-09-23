@@ -38,7 +38,7 @@ function loadOrCreateTreasuryBalance(owner: Address, token: Address): TreasuryBa
 
   if (treasuryBalance === null) {
     treasuryBalance = new TreasuryBalance(id)
-    treasuryBalance.token = token.toHex()
+    treasuryBalance.token = token.toHexString()
     treasuryBalance.owner = owner
   }
 
@@ -46,5 +46,5 @@ function loadOrCreateTreasuryBalance(owner: Address, token: Address): TreasuryBa
 }
 
 function buildTreasuryBalanceId(owner: Address, token: Address): string {
-  return crypto.keccak256(concat(owner, token)).toHex()
+  return crypto.keccak256(concat(owner, token)).toHexString()
 }

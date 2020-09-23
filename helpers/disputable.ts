@@ -55,5 +55,5 @@ export function tryDecodingAgreementMetadata(dispute: Dispute): void {
 
 function buildAgreementActionId(agreement: Address, actionId: BigInt): string {
   // @ts-ignore BigInt is actually a BytesArray under the hood
-  return crypto.keccak256(concat(agreement, actionId as Bytes)).toHex()
+  return crypto.keccak256(concat(agreement, actionId as Bytes)).toHexString()
 }

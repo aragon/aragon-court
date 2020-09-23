@@ -21,7 +21,6 @@ dataSources:
         - ERC20
         - SubscriptionModule
         - SubscriptionPeriod
-        - Subscriber
         - JurorSubscriptionFee
       abis:
         - name: AragonCourt
@@ -29,7 +28,7 @@ dataSources:
         - name: JurorsRegistry
           file: ./node_modules/@aragon/court/abi/JurorsRegistry.json
         - name: Subscriptions
-          file: ./node_modules/@aragon/court/abi/CourtSubscriptions.json
+          file: ./abi/CourtSubscriptions.json
         - name: ERC20
           file: ./node_modules/@aragon/minime/abi/MiniMeToken.json
       eventHandlers:
@@ -198,33 +197,34 @@ templates:
       apiVersion: 0.0.3
       language: wasm/assemblyscript
       entities:
+        - AppFee
         - FeeMovement
         - SubscriptionModule
         - SubscriptionPeriod
-        - Subscriber
+        - SubscriptionTokenBalance
         - JurorSubscriptionFee
       abis:
         - name: Subscriptions
-          file: ./node_modules/@aragon/court/abi/CourtSubscriptions.json
+          file: ./abi/CourtSubscriptions.json
       eventHandlers:
+        # Court subscriptions v1.1.3 events
         - event: FeesClaimed(indexed address,indexed uint256,uint256)
-          handler: handleJurorFeesClaimed
-        - event: FeesPaid(indexed address,uint256,uint256,uint256,uint256)
-          handler: handleFeesPaid
-        - event: FeesDonated(indexed address,uint256)
+          handler: handleJurorFeesClaimedWithoutToken
+        # Court subscriptions v1.2.0 events
+        - event: FeesClaimed(indexed address,indexed uint256,address,uint256)
+          handler: handleJurorFeesClaimedWithToken
+        - event: FeesDonated(indexed address,indexed uint256,address,uint256)
           handler: handleFeesDonated
         - event: FeeTokenChanged(address,address)
           handler: handleFeeTokenChanged
-        - event: FeeAmountChanged(uint256,uint256)
-          handler: handleFeeAmountChanged
-        - event: PrePaymentPeriodsChanged(uint256,uint256)
-          handler: handlePrePaymentPeriodsChanged
         - event: GovernorSharePctChanged(uint16,uint16)
           handler: handleGovernorSharePctChanged
-        - event: LatePaymentPenaltyPctChanged(uint16,uint16)
-          handler: handleLatePaymentPenaltyPctChanged
-        - event: ResumePenaltiesChanged(uint256,uint256)
-          handler: handleResumePenaltiesChanged
+        - event: AppFeeSet(indexed bytes32,address,uint256)
+          handler: handleAppFeeSet
+        - event: AppFeeUnset(indexed bytes32)
+          handler: handleAppFeeUnset
+        - event: AppFeePaid(indexed address,bytes32,bytes)
+          handler: handleAppFeePaid
       file: ./src/Subscriptions.ts
   - kind: ethereum/contract
     name: ANJ

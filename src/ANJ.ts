@@ -3,7 +3,7 @@ import { Transfer as TransferEvent } from '../types/templates/ANJ/ANJ'
 import { ANJBalance as Balance, ANJTransfer as Transfer } from '../types/schema'
 
 export function handleTransfer(event: TransferEvent): void {
-  let id = event.transaction.hash.toHex() + event.logIndex.toHex()
+  let id = event.transaction.hash.toHexString() + event.logIndex.toHexString()
 
   if (isTransferMissing(id)) {
     let transfer = new Transfer(id)
@@ -25,7 +25,7 @@ export function handleTransfer(event: TransferEvent): void {
 }
 
 function loadOrCreateBalance(owner: Address): Balance | null {
-  let id = owner.toHex()
+  let id = owner.toHexString()
   let balance = Balance.load(id)
 
   if (balance === null) {

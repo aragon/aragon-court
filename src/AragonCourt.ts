@@ -1,8 +1,8 @@
 import { AragonCourt } from '../types/AragonCourt/AragonCourt'
+import { BLACKLISTED_MODULES } from '../helpers/blacklisted-modules'
 import { ERC20 as ERC20Contract } from '../types/AragonCourt/ERC20'
-import { BigInt, Address, ethereum } from '@graphprotocol/graph-ts'
+import { BigInt, Address, ethereum, log } from '@graphprotocol/graph-ts'
 import { updateCurrentSubscriptionPeriod } from './Subscriptions'
-import { Subscriptions as SubscriptionsContract } from '../types/templates/Subscriptions/Subscriptions'
 import { JurorsRegistry as JurorsRegistryContract } from '../types/templates/JurorsRegistry/JurorsRegistry'
 import { ERC20, CourtModule, CourtConfig, CourtTerm, SubscriptionModule, JurorsRegistryModule } from '../types/schema'
 import { ANJ, DisputeManager, JurorsRegistry, Treasury, Voting, Subscriptions } from '../types/templates'
@@ -32,7 +32,7 @@ export function handleHeartbeat(event: Heartbeat): void {
 
   let previousTerm = loadOrCreateTerm(event.params.previousTermId, event)
   let previousTermResult = court.getTerm(event.params.previousTermId)
-  previousTerm.court = event.address.toHex()
+  previousTerm.court = event.address.toHexString()
   previousTerm.startTime = previousTermResult.value0
   previousTerm.randomnessBN = previousTermResult.value1
   previousTerm.randomness = previousTermResult.value2
@@ -40,14 +40,16 @@ export function handleHeartbeat(event: Heartbeat): void {
 
   let currentTerm = loadOrCreateTerm(event.params.currentTermId, event)
   let currentTermResult = court.getTerm(event.params.currentTermId)
-  currentTerm.court = event.address.toHex()
+  currentTerm.court = event.address.toHexString()
   currentTerm.startTime = currentTermResult.value0
   currentTerm.randomnessBN = currentTermResult.value1
   currentTerm.randomness = currentTermResult.value2
   currentTerm.save()
 
   let subscriptions = court.getSubscriptions()
-  updateCurrentSubscriptionPeriod(subscriptions, event.block.timestamp)
+  if (!isModuleBlacklisted(subscriptions)) {
+    updateCurrentSubscriptionPeriod(subscriptions, event.block.timestamp)
+  }
 }
 
 export function handleFundsGovernorChanged(event: FundsGovernorChanged): void {
@@ -69,79 +71,89 @@ export function handleModulesGovernorChanged(event: ModulesGovernorChanged): voi
 }
 
 export function handleModuleSet(event: ModuleSet): void {
-  let module = new CourtModule(event.params.id.toHex())
-  module.court = event.address.toHex()
-  module.address = event.params.addr
+  let newModuleAddress: Address = event.params.addr
+
+  // avoid blacklisted modules
+  if (isModuleBlacklisted(newModuleAddress)) {
+    log.warning('Ignoring blacklisted module {}', [newModuleAddress.toHexString()])
+    return
+  }
+
+  // avoid duplicated modules
+  let config = CourtConfig.load(event.address.toHexString())
+  if (isModuleAlreadySet(config.moduleAddresses, newModuleAddress)) {
+    log.warning('Ignoring already set module {}', [newModuleAddress.toHexString()])
+    return
+  }
+
+  let module = new CourtModule(event.params.id.toHexString())
+  module.court = event.address.toHexString()
+  module.address = newModuleAddress
 
   let id = event.params.id.toHexString()
   if (id == JURORS_REGISTRY_ID) {
-    JurorsRegistry.create(event.params.addr)
+    JurorsRegistry.create(newModuleAddress)
     module.type = JURORS_REGISTRY_TYPE
 
-    let jurorsRegistry = JurorsRegistryContract.bind(event.params.addr)
+    let jurorsRegistry = JurorsRegistryContract.bind(newModuleAddress)
     let anjAddress = jurorsRegistry.token()
     ANJ.create(anjAddress)
 
     let anjContract = ERC20Contract.bind(anjAddress)
-    let anj = new ERC20(anjAddress.toHex())
+    let anj = new ERC20(anjAddress.toHexString())
     anj.name = anjContract.name()
     anj.symbol = anjContract.symbol()
     anj.decimals = anjContract.decimals()
     anj.save()
 
-    let config = CourtConfig.load(event.address.toHex())
-    config.anjToken = anjAddress.toHex()
+    config.anjToken = anjAddress.toHexString()
     config.save()
 
-    let registryModule = new JurorsRegistryModule(event.params.addr.toHex())
-    registryModule.court = event.address.toHex()
+    let registryModule = new JurorsRegistryModule(newModuleAddress.toHexString())
+    registryModule.court = event.address.toHexString()
     registryModule.totalStaked = BigInt.fromI32(0)
     registryModule.totalActive = BigInt.fromI32(0)
     registryModule.totalDeactivation = BigInt.fromI32(0)
     registryModule.save()
   }
   else if (id == DISPUTE_MANAGER_ID) {
-    DisputeManager.create(event.params.addr)
+    DisputeManager.create(newModuleAddress)
     module.type = DISPUTE_MANAGER_TYPE
   }
   else if (id == VOTING_ID) {
-    Voting.create(event.params.addr)
+    Voting.create(newModuleAddress)
     module.type = VOTING_TYPE
   }
   else if (id == TREASURY_ID) {
-    Treasury.create(event.params.addr)
+    Treasury.create(newModuleAddress)
     module.type = TREASURY_TYPE
   }
   else if (id == SUBSCRIPTIONS_ID) {
-    Subscriptions.create(event.params.addr)
+    Subscriptions.create(newModuleAddress)
     module.type = SUBSCRIPTIONS_TYPE
-
-    let subscriptionModule = new SubscriptionModule(event.params.addr.toHex())
-    let subscriptions = SubscriptionsContract.bind(event.params.addr)
-    subscriptionModule.court = event.address.toHex()
-    subscriptionModule.currentPeriod = BigInt.fromI32(0)
-    subscriptionModule.governorSharePct = BigInt.fromI32(subscriptions.governorSharePct())
-    subscriptionModule.latePaymentPenaltyPct = BigInt.fromI32(subscriptions.latePaymentPenaltyPct())
-    subscriptionModule.feeAmount = subscriptions.currentFeeAmount()
-    subscriptionModule.feeToken = subscriptions.currentFeeToken()
-    subscriptionModule.periodDuration = subscriptions.periodDuration()
-    subscriptionModule.prePaymentPeriods = subscriptions.prePaymentPeriods()
-    subscriptionModule.resumePrePaidPeriods = subscriptions.resumePrePaidPeriods()
-    subscriptionModule.totalDonated = BigInt.fromI32(0)
-    subscriptionModule.totalPaid = BigInt.fromI32(0)
-    subscriptionModule.totalCollected = BigInt.fromI32(0)
-    subscriptionModule.totalGovernorShares = BigInt.fromI32(0)
-    subscriptionModule.save()
   }
   else {
     module.type = 'Unknown'
   }
 
+  let moduleAddresses = config.moduleAddresses
+  moduleAddresses.push(newModuleAddress.toHexString())
+  config.moduleAddresses = moduleAddresses
+  config.save()
+
   module.save()
 }
 
+function isModuleBlacklisted(module: Address): boolean {
+  return BLACKLISTED_MODULES.includes(module.toHexString())
+}
+
+function isModuleAlreadySet(modules: string[], newModule: Address): boolean {
+  return modules.includes(newModule.toHexString())
+}
+
 function loadOrCreateConfig(courtAddress: Address, event: ethereum.Event): CourtConfig | null {
-  let id = courtAddress.toHex()
+  let id = courtAddress.toHexString()
   let config = CourtConfig.load(id)
   let court = AragonCourt.bind(event.address)
 
@@ -149,6 +161,7 @@ function loadOrCreateConfig(courtAddress: Address, event: ethereum.Event): Court
     config = new CourtConfig(id)
     config.currentTerm = BigInt.fromI32(0)
     config.termDuration = court.getTermDuration()
+    config.moduleAddresses = []
   }
 
   let currentTermId = court.getCurrentTermId()
@@ -156,13 +169,13 @@ function loadOrCreateConfig(courtAddress: Address, event: ethereum.Event): Court
 
   let feeTokenAddress = result.value0
   let feeTokenContract = ERC20Contract.bind(feeTokenAddress)
-  let feeToken = new ERC20(feeTokenAddress.toHex())
+  let feeToken = new ERC20(feeTokenAddress.toHexString())
   feeToken.name = feeTokenContract.name()
   feeToken.symbol = feeTokenContract.symbol()
   feeToken.decimals = feeTokenContract.decimals()
   feeToken.save()
 
-  config.feeToken = feeTokenAddress.toHex()
+  config.feeToken = feeTokenAddress.toHexString()
   config.jurorFee = result.value1[0]
   config.draftFee = result.value1[1]
   config.settleFee = result.value1[2]

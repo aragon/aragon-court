@@ -12,14 +12,16 @@ const DisputeManager = artifacts.require('DisputeManagerMockForRegistry')
 const ERC20 = artifacts.require('ERC20Mock')
 
 contract('JurorsRegistry', ([_, juror, jurorUniqueAddress]) => {
-  let controller, registry, disputeManager, ANJ
+  let buildHelperClass, controller, registry, disputeManager, ANJ
   let addresses, timestamp, sig
 
   const MIN_ACTIVE_AMOUNT = bigExp(100, 18)
+  const MAX_ACTIVE_AMOUNT = bigExp(100e2, 18)
   const TOTAL_ACTIVE_BALANCE_LIMIT = bigExp(100e6, 18)
 
   before('create base contracts', async () => {
-    controller = await buildHelper().deploy({ minActiveBalance: MIN_ACTIVE_AMOUNT, juror })
+    buildHelperClass = buildHelper()
+    controller = await buildHelperClass.deploy({ minActiveBalance: MIN_ACTIVE_AMOUNT, maxActiveBalance: MAX_ACTIVE_AMOUNT, juror })
     disputeManager = await DisputeManager.new(controller.address)
     await controller.setDisputeManager(disputeManager.address)
     ANJ = await ERC20.new('ANJ Token', 'ANJ', 18)
@@ -29,8 +31,9 @@ contract('JurorsRegistry', ([_, juror, jurorUniqueAddress]) => {
     const brightIdHelper = buildBrightIdHelper()
     const brightIdRegister = await brightIdHelper.deploy()
     await brightIdHelper.registerUserWithMultipleAddresses(jurorUniqueAddress, juror)
+    await controller.setBrightIdRegister(brightIdRegister.address)
 
-    registry = await JurorsRegistry.new(controller.address, ANJ.address, TOTAL_ACTIVE_BALANCE_LIMIT, brightIdRegister.address)
+    registry = await JurorsRegistry.new(controller.address, ANJ.address, TOTAL_ACTIVE_BALANCE_LIMIT)
     await controller.setJurorsRegistry(registry.address)
   })
 
@@ -64,10 +67,10 @@ contract('JurorsRegistry', ([_, juror, jurorUniqueAddress]) => {
     })
 
     context('when the juror has already staked some tokens', () => {
-      const maxPossibleBalance = TOTAL_ACTIVE_BALANCE_LIMIT
+      const maxPossibleBalance = MAX_ACTIVE_AMOUNT
 
       beforeEach('stake some tokens', async () => {
-        await ANJ.generateTokens(from, maxPossibleBalance)
+        await ANJ.generateTokens(from, TOTAL_ACTIVE_BALANCE_LIMIT.add(bn(1)))
         await ANJ.approveAndCall(registry.address, maxPossibleBalance, '0x', { from })
       })
 
@@ -191,6 +194,16 @@ contract('JurorsRegistry', ([_, juror, jurorUniqueAddress]) => {
           })
         })
 
+        context('when the given amount is greater than the maximum active value', () => {
+          const amountAboveMax = bn(1)
+          const amount = MAX_ACTIVE_AMOUNT.add(amountAboveMax)
+
+          it('reverts', async () => {
+            await ANJ.approveAndCall(registry.address, amountAboveMax, '0x', { from })
+            await assertRevert(registry.activate(amount, { from }), "JR_ACTIVE_BALANCE_ABOVE_MAX")
+          })
+        })
+
         context('when the given amount is the total stake', () => {
           const amount = maxPossibleBalance
 
@@ -206,19 +219,18 @@ contract('JurorsRegistry', ([_, juror, jurorUniqueAddress]) => {
         })
 
         context('when the given amount is greater than the minimum active value and exceeds the limit', () => {
-          const amount = maxPossibleBalance.add(bn(1))
 
           it('reverts', async () => {
-            // max possible balance was already allowed, allowing one more token
-            await ANJ.generateTokens(from, 1)
-            await ANJ.approveAndCall(registry.address, 1, '0x', { from })
+            const amountToStake = TOTAL_ACTIVE_BALANCE_LIMIT.sub(MAX_ACTIVE_AMOUNT).add(bn(1))
+            const amountToActivate = TOTAL_ACTIVE_BALANCE_LIMIT.add(bn(1))
+            await ANJ.approveAndCall(registry.address, amountToStake, '0x', { from })
 
-            await assertRevert(registry.activate(amount, { from }), REGISTRY_ERRORS.TOTAL_ACTIVE_BALANCE_EXCEEDED)
+            await assertRevert(registry.activate(amountToActivate, { from }), REGISTRY_ERRORS.TOTAL_ACTIVE_BALANCE_EXCEEDED)
           })
         })
       })
 
-      const itHandlesDeactivationRequestFor = async (activeBalance) => {
+      const itHandlesDeactivationRequestFor = async (activeBalance, maxActiveAmount) => {
         context('when the juror has a full deactivation request', () => {
           const deactivationAmount = activeBalance
 
@@ -289,6 +301,17 @@ contract('JurorsRegistry', ([_, juror, jurorUniqueAddress]) => {
               })
             })
 
+            if (activeBalance === MIN_ACTIVE_AMOUNT) {
+              context('when the future active amount will be greater than the maximum active value', () => {
+                const amount = MAX_ACTIVE_AMOUNT.add(bn(1))
+
+                it('reverts', async () => {
+                  await ANJ.approveAndCall(registry.address, 1, '0x', { from })
+                  await assertRevert(registry.activate(amount, { from }), "JR_ACTIVE_BALANCE_ABOVE_MAX")
+                })
+              })
+            }
+
             context('when the future active amount will be greater than the minimum active value', () => {
               const amount = MIN_ACTIVE_AMOUNT
 
@@ -325,6 +348,17 @@ contract('JurorsRegistry', ([_, juror, jurorUniqueAddress]) => {
                 await assertRevert(registry.activate(amount, { from }), REGISTRY_ERRORS.ACTIVE_BALANCE_BELOW_MIN)
               })
             })
+
+            if (activeBalance === MIN_ACTIVE_AMOUNT) {
+              context('when the future active amount will be greater than the maximum active value', () => {
+                const amount = MAX_ACTIVE_AMOUNT.add(bn(1))
+
+                it('reverts', async () => {
+                  await ANJ.approveAndCall(registry.address, 1, '0x', { from })
+                  await assertRevert(registry.activate(amount, { from }), "JR_ACTIVE_BALANCE_ABOVE_MAX")
+                })
+              })
+            }
 
             context('when the future active amount will be greater than the minimum active value', () => {
               const amount = MIN_ACTIVE_AMOUNT
@@ -404,20 +438,31 @@ contract('JurorsRegistry', ([_, juror, jurorUniqueAddress]) => {
                 await assertRevert(registry.activate(amount, { from }), REGISTRY_ERRORS.ACTIVE_BALANCE_BELOW_MIN)
               })
             })
+
+          })
+
+          it('reverts when activating more than max activation amount', async () => {
+            const amountToStake = TOTAL_ACTIVE_BALANCE_LIMIT.sub(MAX_ACTIVE_AMOUNT)
+            await ANJ.approveAndCall(registry.address, amountToStake, '0x', { from })
+
+            await assertRevert(registry.activate(MAX_ACTIVE_AMOUNT, { from }), "JR_ACTIVE_BALANCE_ABOVE_MAX")
           })
         })
 
-        itHandlesDeactivationRequestFor(activeBalance)
+        itHandlesDeactivationRequestFor(activeBalance, MAX_ACTIVE_AMOUNT)
       })
 
       context('when the juror has already activated all tokens', () => {
         const activeBalance = maxPossibleBalance
 
         beforeEach('activate tokens', async () => {
+          await buildHelperClass.setConfig(1, {
+            ...await buildHelperClass.getConfig(0), maxActiveBalance: maxPossibleBalance
+          })
           await registry.activate(activeBalance, { from })
         })
 
-        itHandlesDeactivationRequestFor(activeBalance)
+        itHandlesDeactivationRequestFor(activeBalance, activeBalance)
       })
     })
   })

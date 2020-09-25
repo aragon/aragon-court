@@ -59,6 +59,10 @@ contract AragonCourtMock is AragonCourt, TimeHelpersMock {
         _setModule(SUBSCRIPTIONS, _addr);
     }
 
+    function setBrightIdRegister(address _addr) external {
+        _setModule(BRIGHTID_REGISTER, _addr);
+    }
+
     function mockIncreaseTerm() external {
         if (mockedTermId != 0) mockedTermId = mockedTermId + 1;
         else mockedTermId = _lastEnsuredTermId() + 1;

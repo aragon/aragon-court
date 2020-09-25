@@ -28,7 +28,8 @@ const MODULE_IDS = {
   treasury: '0x06aa03964db1f7257357ef09714a5f0ca3633723df419e97015e0c7a3e83edb7',
   voting: '0x7cbb12e82a6d63ff16fe43977f43e3e2b247ecd4e62c0e340da8800a48c67346',
   registry: '0x3b21d36b36308c830e6c4053fb40a3b6d79dde78947fbf6b0accd30720ab5370',
-  subscriptions: '0x2bfa3327fe52344390da94c32a346eeb1b65a8b583e4335a419b9471e88c1365'
+  subscriptions: '0x2bfa3327fe52344390da94c32a346eeb1b65a8b583e4335a419b9471e88c1365',
+  brightIdRegister: '0xc8d8a5444a51ecc23e5091f18c4162834512a4bc5cae72c637db45c8c37b3329'
 }
 
 const DEFAULTS = {
@@ -53,6 +54,7 @@ const DEFAULTS = {
   appealCollateralFactor:             bn(25000),       //  permyriad multiple of dispute fees required to appeal a preliminary ruling (1/10,000)
   appealConfirmCollateralFactor:      bn(35000),       //  permyriad multiple of dispute fees required to confirm appeal (1/10,000)
   minActiveBalance:                   bigExp(100, 18), //  100 ANJ is the minimum balance jurors must activate to participate in the Court
+  maxActiveBalance:                   bigExp(100, 40), //
   finalRoundWeightPrecision:          bn(1000),        //  use to improve division rounding for final round maths
   subscriptionPeriodDuration:         bn(10)           //  each subscription period lasts 10 terms
 }
@@ -68,7 +70,7 @@ module.exports = (web3, artifacts) => {
     }
 
     async getConfig(termId) {
-      const { feeToken, fees, roundStateDurations, pcts, roundParams, appealCollateralParams, minActiveBalance } = await this.court.getConfig(termId)
+      const { feeToken, fees, roundStateDurations, pcts, roundParams, appealCollateralParams, jurorsParams } = await this.court.getConfig(termId)
       return {
         feeToken: await this.artifacts.require('ERC20Mock').at(feeToken),
         jurorFee: fees[0],
@@ -87,7 +89,8 @@ module.exports = (web3, artifacts) => {
         finalRoundLockTerms: roundParams[3],
         appealCollateralFactor: appealCollateralParams[0],
         appealConfirmCollateralFactor: appealCollateralParams[1],
-        minActiveBalance
+        minActiveBalance: jurorsParams[0],
+        maxActiveBalance: jurorsParams[1]
       }
     }
 
@@ -195,6 +198,7 @@ module.exports = (web3, artifacts) => {
 
     async activate(jurors) {
       for (const { address, initialActiveBalance } of jurors) {
+        await this.brightIdHelper.registerUser(address)
         await this.jurorToken.generateTokens(address, initialActiveBalance)
         await this.jurorToken.approveAndCall(this.jurorsRegistry.address, initialActiveBalance, ACTIVATE_DATA, { from: address })
       }
@@ -347,7 +351,7 @@ module.exports = (web3, artifacts) => {
         penaltyPct, finalRoundReduction,
         firstRoundJurorsNumber, appealStepFactor, maxRegularAppealRounds, finalRoundLockTerms,
         appealCollateralFactor, appealConfirmCollateralFactor,
-        minActiveBalance
+        minActiveBalance, maxActiveBalance
       } = newConfig
 
       return this.court.setConfig(
@@ -358,7 +362,7 @@ module.exports = (web3, artifacts) => {
         [penaltyPct, finalRoundReduction],
         [firstRoundJurorsNumber, appealStepFactor, maxRegularAppealRounds, finalRoundLockTerms],
         [appealCollateralFactor, appealConfirmCollateralFactor],
-        minActiveBalance,
+        [minActiveBalance, maxActiveBalance],
         txParams
       )
     }
@@ -381,13 +385,12 @@ module.exports = (web3, artifacts) => {
         [this.penaltyPct, this.finalRoundReduction],
         [this.firstRoundJurorsNumber, this.appealStepFactor, this.maxRegularAppealRounds, this.finalRoundLockTerms],
         [this.appealCollateralFactor, this.appealConfirmCollateralFactor],
-        this.minActiveBalance
+        [this.minActiveBalance, this.maxActiveBalance]
       )
 
       if (!this.disputeManager) this.disputeManager = await this.artifacts.require('DisputeManager').new(this.court.address, this.maxJurorsPerDraftBatch, this.skippedDisputes)
       if (!this.voting) this.voting = await this.artifacts.require('CRVoting').new(this.court.address)
       if (!this.treasury) this.treasury = await this.artifacts.require('CourtTreasury').new(this.court.address)
-
 
       if (!this.brightIdRegister) {
         this.brightIdHelper = buildBrightIdHelper()
@@ -399,8 +402,7 @@ module.exports = (web3, artifacts) => {
         this.jurorsRegistry = await this.artifacts.require('JurorsRegistryMock').new(
           this.court.address,
           this.jurorToken.address,
-          this.minActiveBalance.mul(MAX_UINT64.div(this.finalRoundWeightPrecision)),
-          this.brightIdRegister.address
+          this.minActiveBalance.mul(MAX_UINT64.div(this.finalRoundWeightPrecision))
         )
       }
 
@@ -413,7 +415,7 @@ module.exports = (web3, artifacts) => {
       }
 
       const ids = Object.values(MODULE_IDS)
-      const implementations = [this.disputeManager, this.treasury, this.voting, this.jurorsRegistry, this.subscriptions].map(i => i.address)
+      const implementations = [this.disputeManager, this.treasury, this.voting, this.jurorsRegistry, this.subscriptions, this.brightIdRegister].map(i => i.address)
       await this.court.setModules(ids, implementations, { from: this.modulesGovernor })
 
       const zeroTermStartTime = this.firstTermStartTime.sub(this.termDuration)

@@ -771,6 +771,7 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
     */
     function _setTotalActiveBalanceLimit(uint256 _totalActiveBalanceLimit) internal {
         require(_totalActiveBalanceLimit > 0, ERROR_BAD_TOTAL_ACTIVE_BALANCE_LIMIT);
+        require(_totalActiveBalanceLimit > _getConfigAt(_termId).jurors.maxActiveBalance);
         emit TotalActiveBalanceLimitChanged(totalActiveBalanceLimit, _totalActiveBalanceLimit);
         totalActiveBalanceLimit = _totalActiveBalanceLimit;
     }
@@ -954,6 +955,15 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
 //        uint256 diff = maxMax - minMax;
 //        uint256 maxCap = 10000;
 //        uint256 currentMaximumStake = (totalActiveJurors * diff / maxCap) + minMax;
+
+//        uint256 minPctOfTotalSupply = 1; // 0.01%
+//        uint256 maxPctOfTotalSupply = 50; // 0.5%
+//        uint256 diffOfPct = maxPctOfTotalSupply - minPctOfTotalSupply;
+//        uint256 jurorMaxCap = 10000;
+//
+//        uint256 currentPctOfTotalSupply = (totalActiveJurors * diffOfPct / jurorMaxCap) + minPctOfTotalSupply;
+//        uint256 currentMaxStake = jurorsToken.totalSupply().pct(currentPctOfTotalSupply);
+
 
         uint256 maxActiveBalance = _getConfigAt(_termId).jurors.maxActiveBalance;
 

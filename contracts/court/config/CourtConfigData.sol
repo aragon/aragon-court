@@ -4,6 +4,7 @@ import "../../lib/os/ERC20.sol";
 
 
 contract CourtConfigData {
+
     struct Config {
         FeesConfig fees;                        // Full fees-related config
         DisputesConfig disputes;                // Full disputes-related config

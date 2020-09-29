@@ -23,9 +23,6 @@
     "abi:extract": "truffle-extract --output abi/ --keys abi",
     "prepublishOnly": "truffle compile --all && npm run abi:extract -- --no-compile"
   },
-  "pre-push": [
-    "lint"
-  ],
   "dependencies": {},
   "devDependencies": {
     "@aragon/test-helpers": "^2.1.0",

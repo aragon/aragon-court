@@ -35,23 +35,21 @@ contract('CourtSubscriptions', ([_, governor, someone, something]) => {
           newFeeToken = await ERC20.new('New Fee Token', 'NFT', 18)
         })
 
-        context('when the given fee amount is greater than zero', async () => {
-          it('updates the current fee token address', async () => {
-            await subscriptions.setFeeToken(newFeeToken.address, { from })
+        it('updates the current fee token address', async () => {
+          await subscriptions.setFeeToken(newFeeToken.address, { from })
 
-            assert.equal(await subscriptions.currentFeeToken(), newFeeToken.address, 'fee token does not match')
-          })
+          assert.equal(await subscriptions.currentFeeToken(), newFeeToken.address, 'fee token does not match')
+        })
 
-          it('emits an event', async () => {
-            const previousFeeToken = await subscriptions.currentFeeToken()
+        it('emits an event', async () => {
+          const previousFeeToken = await subscriptions.currentFeeToken()
 
-            const receipt = await subscriptions.setFeeToken(newFeeToken.address, { from })
+          const receipt = await subscriptions.setFeeToken(newFeeToken.address, { from })
 
-            assertAmountOfEvents(receipt, SUBSCRIPTIONS_EVENTS.FEE_TOKEN_CHANGED)
-            assertEvent(receipt, SUBSCRIPTIONS_EVENTS.FEE_TOKEN_CHANGED, {
-              previousFeeToken,
-              currentFeeToken: newFeeToken.address
-            })
+          assertAmountOfEvents(receipt, SUBSCRIPTIONS_EVENTS.FEE_TOKEN_CHANGED)
+          assertEvent(receipt, SUBSCRIPTIONS_EVENTS.FEE_TOKEN_CHANGED, {
+            previousFeeToken,
+            currentFeeToken: newFeeToken.address
           })
         })
       })

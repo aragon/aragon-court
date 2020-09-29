@@ -29,13 +29,6 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers {
     // Term 0 is for jurors on-boarding
     uint64 internal constant START_TERM_ID = 1;
 
-    struct Subscriber {
-        bool subscribed;                        // Whether or not a user has been subscribed to the Court
-        bool paused;                            // Whether or not a user has paused the Court subscriptions
-        uint64 lastPaymentPeriodId;             // Identification number of the last period paid by a subscriber
-        uint64 previousDelayedPeriods;          // Number of delayed periods before pausing
-    }
-
     struct Period {
         uint64 balanceCheckpoint;               // Court term ID of a period used to fetch the total active balance of the jurors registry
         ERC20 feeToken;                         // Fee token corresponding to a certain subscription period
@@ -72,8 +65,7 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers {
     }
 
     /**
-    * @notice Set new subscriptions fee to `@tokenAmount(_feeToken, _feeAmount)`
-    * @dev Accumulated fees owed to governor (if any) will be transferred
+    * @notice Set new subscriptions fee token to `_feeToken`
     * @param _feeToken New ERC20 token to be used for the subscription fees
     */
     function setFeeToken(ERC20 _feeToken) external onlyConfigGovernor {
@@ -106,7 +98,7 @@ contract CourtSubscriptions is ControlledRecoverable, TimeHelpers {
     * @dev Tell the share fees corresponding to a juror
     * @param _juror Address of the juror querying the owed shared fees of
     * @return feeToken Address of the token used for the subscription fees
-    * @return jurorShare Amount of share fees owed to the given juror for the requested period
+    * @return jurorShare Amount of share fees owed to the given juror for the previous period
     */
     function getJurorShare(address _juror) external view returns (ERC20 feeToken, uint256 jurorShare) {
         uint256 currentPeriod = _getCurrentPeriodId();

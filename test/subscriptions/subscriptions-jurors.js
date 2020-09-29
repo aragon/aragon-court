@@ -132,7 +132,7 @@ contract('CourtSubscriptions', ([_, payer, jurorPeriod0Term1, jurorPeriod0Term3,
         assert.isTrue(await subscriptions.hasJurorClaimed(jurorPeriod0Term1))
       })
 
-      it('sets the periods details correclty', async () => {
+      it('sets the periods details correctly', async () => {
         const checkpointTerm = 1
         await setCheckpointUsedToTerm(checkpointTerm)
         await subscriptions.claimFees({ from: jurorPeriod0Term1 })

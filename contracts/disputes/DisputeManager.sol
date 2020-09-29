@@ -33,7 +33,6 @@ contract DisputeManager is ControlledRecoverable, ICRVotingOwner, IDisputeManage
     string private constant ERROR_TERM_OUTDATED = "DM_TERM_OUTDATED";
     string private constant ERROR_DISPUTE_DOES_NOT_EXIST = "DM_DISPUTE_DOES_NOT_EXIST";
     string private constant ERROR_INVALID_RULING_OPTIONS = "DM_INVALID_RULING_OPTIONS";
-    string private constant ERROR_SUBSCRIPTION_NOT_PAID = "DM_SUBSCRIPTION_NOT_PAID";
     string private constant ERROR_DEPOSIT_FAILED = "DM_DEPOSIT_FAILED";
     string private constant ERROR_BAD_MAX_DRAFT_BATCH_SIZE = "DM_BAD_MAX_DRAFT_BATCH_SIZE";
 

@@ -36,7 +36,9 @@ contract CourtConfigData {
 
     struct JurorsConfig {
         uint256 minActiveBalance;               // Minimum amount of tokens jurors have to activate to participate in the Court
-        uint256 maxActiveBalance;               // Maximum amount of tokens jurors have to activate to participate in the Court
+        uint256 minMaxPctTotalSupply;           // Minimum max percent of the total supply a juror can activate, applied for jurorsMinPctApplied active jurors
+        uint256 maxMaxPctTotalSupply;           // Maximum max percent of the total supply a juror can activate, applied for 0 active jurors
+        uint256 jurorsMinPctApplied;            // The number of jurors for which the minMaxPctTotalSupply will be applied
     }
 
     struct DraftConfig {

@@ -597,8 +597,14 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
             // minimum active amount. Note that the juror might have been slashed.
             uint256 activeBalance = tree.getItem(juror.id);
             uint256 newActiveBalance = activeBalance.add(amountToActivate);
+
             require(newActiveBalance >= minActiveBalance, ERROR_ACTIVE_BALANCE_BELOW_MIN);
-            require(newActiveBalance <= maxActiveBalance, ERROR_ACTIVE_BALANCE_ABOVE_MAX);
+            // Due to min active balance living at the global config level, we can't ensure it is less than the max
+            // active balance when set, because max active balance is determined using the juror token, specific to this
+            // contract. Therefore we ignore the max active balance when the min active balance is less.
+            if (minActiveBalance < maxActiveBalance) {
+                require(newActiveBalance <= maxActiveBalance, ERROR_ACTIVE_BALANCE_ABOVE_MAX);
+            }
 
             if (_activeBalanceOfAt(_juror, nextTermId) == 0) {
                 totalActiveJurors++;
@@ -607,7 +613,12 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
             tree.update(juror.id, nextTermId, amountToActivate, true);
         } else {
             require(amountToActivate >= minActiveBalance, ERROR_ACTIVE_BALANCE_BELOW_MIN);
-            require(amountToActivate <= maxActiveBalance, ERROR_ACTIVE_BALANCE_ABOVE_MAX);
+            // Due to min active balance living at the global config level, we can't ensure it is less than the max
+            // active balance when set, because max active balance is determined using the juror token, specific to this
+            // contract. Therefore we ignore the max active balance when the min active balance is less.
+            if (minActiveBalance < maxActiveBalance) {
+                require(amountToActivate <= maxActiveBalance, ERROR_ACTIVE_BALANCE_ABOVE_MAX);
+            }
 
             juror.id = tree.insert(nextTermId, amountToActivate);
             jurorsAddressById[juror.id] = _juror;
@@ -771,7 +782,7 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
     */
     function _setTotalActiveBalanceLimit(uint256 _totalActiveBalanceLimit) internal {
         require(_totalActiveBalanceLimit > 0, ERROR_BAD_TOTAL_ACTIVE_BALANCE_LIMIT);
-        require(_totalActiveBalanceLimit > _getConfigAt(_termId).jurors.maxActiveBalance);
+        require(_totalActiveBalanceLimit > _maxActiveBalance(_getCurrentTermId() + 1));
         emit TotalActiveBalanceLimitChanged(totalActiveBalanceLimit, _totalActiveBalanceLimit);
         totalActiveBalanceLimit = _totalActiveBalanceLimit;
     }
@@ -949,24 +960,19 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
         return _brightIdRegister().uniqueUserId(_jurorSenderAddress);
     }
 
+    // TODO: Use safemath where necessary.
     function _maxActiveBalance(uint64 _termId) internal view returns (uint256) {
-//        uint256 minMax = 100;
-//        uint256 maxMax = 1000;
-//        uint256 diff = maxMax - minMax;
-//        uint256 maxCap = 10000;
-//        uint256 currentMaximumStake = (totalActiveJurors * diff / maxCap) + minMax;
+        uint256 minMaxPctTotalSupply = _getConfigAt(_termId).jurors.minMaxPctTotalSupply;
+        uint256 maxMaxPctTotalSupply = _getConfigAt(_termId).jurors.maxMaxPctTotalSupply;
+        uint256 jurorsMinPctApplied = _getConfigAt(_termId).jurors.jurorsMinPctApplied;
+        uint256 diffOfPct = maxMaxPctTotalSupply - minMaxPctTotalSupply; // No need for safemath, we ensure min is less than max in config setting
 
-//        uint256 minPctOfTotalSupply = 1; // 0.01%
-//        uint256 maxPctOfTotalSupply = 50; // 0.5%
-//        uint256 diffOfPct = maxPctOfTotalSupply - minPctOfTotalSupply;
-//        uint256 jurorMaxCap = 10000;
-//
-//        uint256 currentPctOfTotalSupply = (totalActiveJurors * diffOfPct / jurorMaxCap) + minPctOfTotalSupply;
-//        uint256 currentMaxStake = jurorsToken.totalSupply().pct(currentPctOfTotalSupply);
+        uint256 totalActiveJurorsLimit;
+        if (totalActiveJurors > jurorsMinPctApplied) {
+            totalActiveJurorsLimit = jurorsMinPctApplied;
+        }
 
-
-        uint256 maxActiveBalance = _getConfigAt(_termId).jurors.maxActiveBalance;
-
-        return maxActiveBalance;
+        uint256 currentPctOfTotalSupply = maxMaxPctTotalSupply - (totalActiveJurorsLimit * diffOfPct / jurorsMinPctApplied);
+        return jurorsToken.totalSupply().pct256(currentPctOfTotalSupply);
     }
 }

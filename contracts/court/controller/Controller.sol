@@ -109,7 +109,9 @@ contract Controller is IsContract, CourtClock, CourtConfig {
     *        1. appealConfirmCollateralFactor Permyriad multiple of dispute fees required to confirm appeal
     * @param _jurorsParams Array containing params for jurors:
     *        0. minActiveBalance Minimum amount of juror tokens that can be activated
-    *        1. maxActiveBalance Maximum amount of juror tokens that can be activated
+    *        1. minMaxPctTotalSupply The min max percent of the total supply a juror can activate, applied for jurorsMinPctApplied active jurors
+    *        2. maxMaxPctTotalSupply The max max percent of the total supply a juror can activate, applied for 0 active jurors
+    *        3. jurorsMinPctApplied The number of jurors for which the minMaxPctTotalSupply will be applied
     */
     constructor(
         uint64[2] memory _termParams,
@@ -120,7 +122,7 @@ contract Controller is IsContract, CourtClock, CourtConfig {
         uint16[2] memory _pcts,
         uint64[4] memory _roundParams,
         uint256[2] memory _appealCollateralParams,
-        uint256[2] memory _jurorsParams
+        uint256[4] memory _jurorsParams
     )
         public
         CourtClock(_termParams)
@@ -158,7 +160,9 @@ contract Controller is IsContract, CourtClock, CourtConfig {
     *        1. appealConfirmCollateralFactor Permyriad multiple of dispute fees required to confirm appeal
     * @param _jurorsParams Array containing params for jurors:
     *        0. minActiveBalance Minimum amount of juror tokens that can be activated
-    *        1. maxActiveBalance Maximum amount of juror tokens that can be activated
+    *        1. minMaxPctTotalSupply The min max percent of the total supply a juror can activate, applied for jurorsMinPctApplied active jurors
+    *        2. maxMaxPctTotalSupply The max max percent of the total supply a juror can activate, applied for 0 active jurors
+    *        3. jurorsMinPctApplied The number of jurors for which the minMaxPctTotalSupply will be applied
     */
     function setConfig(
         uint64 _fromTermId,
@@ -168,7 +172,7 @@ contract Controller is IsContract, CourtClock, CourtConfig {
         uint16[2] calldata _pcts,
         uint64[4] calldata _roundParams,
         uint256[2] calldata _appealCollateralParams,
-        uint256[2] calldata _jurorsParams
+        uint256[4] calldata _jurorsParams
     )
         external
         onlyConfigGovernor
@@ -287,7 +291,9 @@ contract Controller is IsContract, CourtClock, CourtConfig {
     *         1. appealConfirmCollateralFactor Multiple of dispute fees required to confirm appeal
     * @return jurorsParams Array containing params for juror registry:
     *         0. minActiveBalance Minimum amount of juror tokens that can be activated
-    *         1. maxActiveBalance Maximum amount of juror tokens that can be activated
+    *         1. minMaxPctTotalSupply The min max percent of the total supply a juror can activate, applied for jurorsMinPctApplied active jurors
+    *         2. maxMaxPctTotalSupply The max max percent of the total supply a juror can activate, applied for 0 active jurors
+    *         3. jurorsMinPctApplied The number of jurors for which the minMaxPctTotalSupply will be applied
     */
     function getConfig(uint64 _termId) external view
         returns (
@@ -297,7 +303,7 @@ contract Controller is IsContract, CourtClock, CourtConfig {
             uint16[2] memory pcts,
             uint64[4] memory roundParams,
             uint256[2] memory appealCollateralParams,
-            uint256[2] memory jurorsParams
+            uint256[4] memory jurorsParams
         )
     {
         uint64 lastEnsuredTermId = _lastEnsuredTermId();

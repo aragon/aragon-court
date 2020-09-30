@@ -21,7 +21,8 @@ contract CourtConfig is IConfig, CourtConfigData {
     string private constant ERROR_BAD_APPEAL_STEP_FACTOR = "CONF_BAD_APPEAL_STEP_FACTOR";
     string private constant ERROR_ZERO_COLLATERAL_FACTOR = "CONF_ZERO_COLLATERAL_FACTOR";
     string private constant ERROR_ZERO_MIN_ACTIVE_BALANCE = "CONF_ZERO_MIN_ACTIVE_BALANCE";
-    string private constant ERROR_MAX_ACTIVE_BALANCE_TOO_LOW = "CONF_MAX_ACTIVE_BALANCE_TOO_LOW";
+    string private constant ERROR_MIN_MORE_THAN_MAX_ACTIVE_PCT = "CONF_MIN_MORE_THAN_MAX_ACTIVE_PCT";
+    string private constant ERROR_JURORS_FOR_MIN_ACTIVE_ZERO = "CONF_JURORS_FOR_MIN_ACTIVE_ZERO";
 
     // Max number of terms that each of the different adjudication states can last (if lasted 1h, this would be a year)
     uint64 internal constant MAX_ADJ_STATE_DURATION = 8670;
@@ -70,7 +71,9 @@ contract CourtConfig is IConfig, CourtConfigData {
     *        1. appealConfirmCollateralFactor Multiple of dispute fees required to confirm appeal
     * @param _jurorsParams Array containing params for juror registry:
     *        0. minActiveBalance Minimum amount of juror tokens that can be activated
-    *        1. maxActiveBalance Maximum amount of juror tokens that can be activated
+    *        1. minMaxPctTotalSupply The min max percent of the total supply a juror can activate, applied for jurorsMinPctApplied active jurors
+    *        2. maxMaxPctTotalSupply The max max percent of the total supply a juror can activate, applied for 0 active jurors
+    *        3. jurorsMinPctApplied The number of jurors for which the minMaxPctTotalSupply will be applied
     */
     constructor(
         ERC20 _feeToken,
@@ -79,7 +82,7 @@ contract CourtConfig is IConfig, CourtConfigData {
         uint16[2] memory _pcts,
         uint64[4] memory _roundParams,
         uint256[2] memory _appealCollateralParams,
-        uint256[2] memory _jurorsParams
+        uint256[4] memory _jurorsParams
     )
         public
     {
@@ -133,7 +136,9 @@ contract CourtConfig is IConfig, CourtConfigData {
     *         1. appealConfirmCollateralFactor Multiple of dispute fees required to confirm appeal
     * @return jurorsParams Array containing params for juror registry:
     *         0. minActiveBalance Minimum amount of juror tokens that can be activated
-    *         1. maxActiveBalance Maximum amount of juror tokens that can be activated
+    *         1. minMaxPctTotalSupply The min max percent of the total supply a juror can activate, applied for jurorsMinPctApplied active jurors
+    *         2. maxMaxPctTotalSupply The max max percent of the total supply a juror can activate, applied for 0 active jurors
+    *         3. jurorsMinPctApplied The number of jurors for which the minMaxPctTotalSupply will be applied
     */
     function getConfig(uint64 _termId) external view
         returns (
@@ -143,7 +148,7 @@ contract CourtConfig is IConfig, CourtConfigData {
             uint16[2] memory pcts,
             uint64[4] memory roundParams,
             uint256[2] memory appealCollateralParams,
-            uint256[2] memory jurorsParams
+            uint256[4] memory jurorsParams
         );
 
     /**
@@ -220,7 +225,9 @@ contract CourtConfig is IConfig, CourtConfigData {
     *        1. appealConfirmCollateralFactor Multiple of dispute fees required to confirm appeal
     * @param _jurorsParams Array containing params for juror registry:
     *        0. minActiveBalance Minimum amount of juror tokens that can be activated
-    *        1. maxActiveBalance Maximum amount of juror tokens that can be activated
+    *        1. minMaxPctTotalSupply The min max percent of the total supply a juror can activate, applied for jurorsMinPctApplied active jurors
+    *        2. maxMaxPctTotalSupply The max max percent of the total supply a juror can activate, applied for 0 active jurors
+    *        3. jurorsMinPctApplied The number of jurors for which the minMaxPctTotalSupply will be applied
     */
     function _setConfig(
         uint64 _termId,
@@ -231,7 +238,7 @@ contract CourtConfig is IConfig, CourtConfigData {
         uint16[2] memory _pcts,
         uint64[4] memory _roundParams,
         uint256[2] memory _appealCollateralParams,
-        uint256[2] memory _jurorsParams
+        uint256[4] memory _jurorsParams
     )
         internal
     {
@@ -264,8 +271,10 @@ contract CourtConfig is IConfig, CourtConfigData {
 
         // Make sure min active balance is not zero
         require(_jurorsParams[0] > 0, ERROR_ZERO_MIN_ACTIVE_BALANCE);
-        // Make sure max active balance is more than min active balance
-        require(_jurorsParams[1] > _jurorsParams[0], ERROR_MAX_ACTIVE_BALANCE_TOO_LOW);
+        // Make sure min max pct of total supply active balance is less than the max max pct of total supply active balance
+        require(_jurorsParams[1] < _jurorsParams[2], ERROR_MIN_MORE_THAN_MAX_ACTIVE_PCT);
+        // Make sure the number of jurors for which the min max pct of total supply active balance is not zero
+        require(_jurorsParams[3] > 0, ERROR_JURORS_FOR_MIN_ACTIVE_ZERO);
 
         // If there was a config change already scheduled, reset it (in that case we will overwrite last array item).
         // Otherwise, schedule a new config.
@@ -303,7 +312,9 @@ contract CourtConfig is IConfig, CourtConfigData {
 
         config.jurors = JurorsConfig({
             minActiveBalance: _jurorsParams[0],
-            maxActiveBalance: _jurorsParams[1]
+            minMaxPctTotalSupply: _jurorsParams[1],
+            maxMaxPctTotalSupply: _jurorsParams[2],
+            jurorsMinPctApplied: _jurorsParams[3]
         });
 
         configIdByTerm[_fromTermId] = courtConfigId;
@@ -340,7 +351,9 @@ contract CourtConfig is IConfig, CourtConfigData {
     *         1. appealConfirmCollateralFactor Multiple of dispute fees required to confirm appeal
     * @return jurorsParams Array containing params for juror registry:
     *         0. minActiveBalance Minimum amount of juror tokens that can be activated
-    *         1. maxActiveBalance Maximum amount of juror tokens that can be activated
+    *         1. minMaxPctTotalSupply The min max percent of the total supply a juror can activate, applied for jurorsMinPctApplied active jurors
+    *         2. maxMaxPctTotalSupply The max max percent of the total supply a juror can activate, applied for 0 active jurors
+    *         3. jurorsMinPctApplied The number of jurors for which the minMaxPctTotalSupply will be applied
     */
     function _getConfigAt(uint64 _termId, uint64 _lastEnsuredTermId) internal view
         returns (
@@ -350,7 +363,7 @@ contract CourtConfig is IConfig, CourtConfigData {
             uint16[2] memory pcts,
             uint64[4] memory roundParams,
             uint256[2] memory appealCollateralParams,
-            uint256[2] memory jurorsParams
+            uint256[4] memory jurorsParams
         )
     {
         Config storage config = _getConfigFor(_termId, _lastEnsuredTermId);
@@ -379,7 +392,9 @@ contract CourtConfig is IConfig, CourtConfigData {
         JurorsConfig storage jurorsConfig = config.jurors;
         jurorsParams = [
             jurorsConfig.minActiveBalance,
-            jurorsConfig.maxActiveBalance
+            jurorsConfig.minMaxPctTotalSupply,
+            jurorsConfig.maxMaxPctTotalSupply,
+            jurorsConfig.jurorsMinPctApplied
         ];
     }
 

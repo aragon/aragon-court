@@ -26,13 +26,12 @@ contract('JurorsRegistry', ([_, something]) => {
   describe('initialize', () => {
     context('when the initialization succeeds', () => {
       it('sets initial config correctly', async () => {
-        const registry = await JurorsRegistry.new(controller.address, ANJ.address, TOTAL_ACTIVE_BALANCE_LIMIT, brightIdRegister.address)
+        const registry = await JurorsRegistry.new(controller.address, ANJ.address, TOTAL_ACTIVE_BALANCE_LIMIT)
 
         assert.isFalse(await registry.supportsHistory())
         assert.equal(await registry.getController(), controller.address, 'registry controller does not match')
         assert.equal(await registry.token(), ANJ.address, 'token address does not match')
         assertBn((await registry.totalJurorsActiveBalanceLimit()), TOTAL_ACTIVE_BALANCE_LIMIT, 'total active balance limit does not match')
-        assert.equal(await registry.brightIdRegister(), brightIdRegister.address, 'incorrect brightid register')
       })
     })
 
@@ -41,7 +40,7 @@ contract('JurorsRegistry', ([_, something]) => {
         const token = ZERO_ADDRESS
 
         it('reverts', async () => {
-          await assertRevert(JurorsRegistry.new(controller.address, token, TOTAL_ACTIVE_BALANCE_LIMIT, brightIdRegister.address), REGISTRY_ERRORS.NOT_CONTRACT)
+          await assertRevert(JurorsRegistry.new(controller.address, token, TOTAL_ACTIVE_BALANCE_LIMIT), REGISTRY_ERRORS.NOT_CONTRACT)
         })
       })
 
@@ -49,7 +48,7 @@ contract('JurorsRegistry', ([_, something]) => {
         const token = something
 
         it('reverts', async () => {
-          await assertRevert(JurorsRegistry.new(controller.address, token, TOTAL_ACTIVE_BALANCE_LIMIT, brightIdRegister.address), REGISTRY_ERRORS.NOT_CONTRACT)
+          await assertRevert(JurorsRegistry.new(controller.address, token, TOTAL_ACTIVE_BALANCE_LIMIT), REGISTRY_ERRORS.NOT_CONTRACT)
         })
       })
 
@@ -57,7 +56,7 @@ contract('JurorsRegistry', ([_, something]) => {
         const totalActiveBalanceLimit = 0
 
         it('reverts', async () => {
-          await assertRevert(JurorsRegistry.new(controller.address, ANJ.address, totalActiveBalanceLimit, brightIdRegister.address), REGISTRY_ERRORS.BAD_TOTAL_ACTIVE_BAL_LIMIT)
+          await assertRevert(JurorsRegistry.new(controller.address, ANJ.address, totalActiveBalanceLimit), REGISTRY_ERRORS.BAD_TOTAL_ACTIVE_BAL_LIMIT)
         })
       })
 
@@ -65,7 +64,7 @@ contract('JurorsRegistry', ([_, something]) => {
         const controllerAddress = ZERO_ADDRESS
 
         it('reverts', async () => {
-          await assertRevert(JurorsRegistry.new(controllerAddress, ANJ.address, TOTAL_ACTIVE_BALANCE_LIMIT, brightIdRegister.address), CONTROLLED_ERRORS.CONTROLLER_NOT_CONTRACT)
+          await assertRevert(JurorsRegistry.new(controllerAddress, ANJ.address, TOTAL_ACTIVE_BALANCE_LIMIT), CONTROLLED_ERRORS.CONTROLLER_NOT_CONTRACT)
         })
       })
 
@@ -73,15 +72,7 @@ contract('JurorsRegistry', ([_, something]) => {
         const controllerAddress = something
 
         it('reverts', async () => {
-          await assertRevert(JurorsRegistry.new(controllerAddress, ANJ.address, TOTAL_ACTIVE_BALANCE_LIMIT, brightIdRegister.address), CONTROLLED_ERRORS.CONTROLLER_NOT_CONTRACT)
-        })
-      })
-
-      context('when the given brightid register is not a contract address', () => {
-        const brightIdAddress = something
-
-        it('reverts', async () => {
-          await assertRevert(JurorsRegistry.new(controller.address, ANJ.address, TOTAL_ACTIVE_BALANCE_LIMIT, brightIdAddress), CONTROLLED_ERRORS.NOT_CONTRACT)
+          await assertRevert(JurorsRegistry.new(controllerAddress, ANJ.address, TOTAL_ACTIVE_BALANCE_LIMIT), CONTROLLED_ERRORS.CONTROLLER_NOT_CONTRACT)
         })
       })
     })

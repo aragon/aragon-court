@@ -33,8 +33,9 @@ contract('JurorsRegistry', ([_, juror, juror2, jurorUniqueAddress, juror2UniqueA
     brightIdRegister = await brightIdHelper.deploy()
     await brightIdHelper.registerUsersWithMultipleAddresses(
       [[jurorUniqueAddress, juror], [juror2UniqueAddress, juror2]])
+    await controller.setBrightIdRegister(brightIdRegister.address)
 
-    registry = await JurorsRegistry.new(controller.address, ANJ.address, TOTAL_ACTIVE_BALANCE_LIMIT, brightIdRegister.address)
+    registry = await JurorsRegistry.new(controller.address, ANJ.address, TOTAL_ACTIVE_BALANCE_LIMIT)
     await controller.setJurorsRegistry(registry.address)
   })
 

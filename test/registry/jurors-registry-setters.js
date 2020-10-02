@@ -23,10 +23,7 @@ contract('JurorsRegistry', ([_, governor, someone]) => {
   })
 
   beforeEach('create jurors registry module', async () => {
-    brightIdHelper = buildBrightIdHelper()
-    const brightIdRegister = await brightIdHelper.deploy()
-
-    registry = await JurorsRegistry.new(controller.address, ANJ.address, TOTAL_ACTIVE_BALANCE_LIMIT, brightIdRegister.address)
+    registry = await JurorsRegistry.new(controller.address, ANJ.address, TOTAL_ACTIVE_BALANCE_LIMIT)
     await controller.setJurorsRegistry(registry.address)
   })
 
@@ -83,40 +80,6 @@ contract('JurorsRegistry', ([_, governor, someone]) => {
 
       it('reverts', async () => {
         await assertRevert(registry.setTotalActiveBalanceLimit(TOTAL_ACTIVE_BALANCE_LIMIT, { from }), CONTROLLED_ERRORS.SENDER_NOT_CONFIG_GOVERNOR)
-      })
-    })
-  })
-
-  describe('setBrightIdRegister', () => {
-    context('when the sender is the governor', () => {
-      const from = governor
-
-      context('when the bright id register is a contract', () => {
-        it('updates the bright id register', async () => {
-          const newBrightIdRegister = await brightIdHelper.deploy()
-
-          await registry.setBrightIdRegister(newBrightIdRegister.address, { from })
-
-          const actualBrightIdRegister = await registry.brightIdRegister()
-          assertBn(actualBrightIdRegister, newBrightIdRegister.address, 'incorrect bright id register')
-        })
-      })
-
-      context('when the given address is not a contract', () => {
-        const newBrightIdRegister = someone
-
-        it('reverts', async () => {
-          await assertRevert(registry.setBrightIdRegister(newBrightIdRegister, { from }), REGISTRY_ERRORS.NOT_CONTRACT)
-        })
-      })
-    })
-
-    context('when the sender is not the governor', () => {
-      const from = someone
-
-      it('reverts', async () => {
-        const newBrightIdRegister = await brightIdHelper.deploy()
-        await assertRevert(registry.setBrightIdRegister(newBrightIdRegister.address, { from }), CONTROLLED_ERRORS.SENDER_NOT_CONFIG_GOVERNOR)
       })
     })
   })

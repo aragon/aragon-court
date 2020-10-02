@@ -29,8 +29,9 @@ contract('JurorsRegistry', ([_, juror, someone, jurorUniqueAddress]) => {
     const brightIdHelper = buildBrightIdHelper()
     const brightIdRegister = await brightIdHelper.deploy()
     await brightIdHelper.registerUserWithMultipleAddresses(jurorUniqueAddress, juror)
+    await controller.setBrightIdRegister(brightIdRegister.address)
 
-    registry = await JurorsRegistry.new(controller.address, ANJ.address, TOTAL_ACTIVE_BALANCE_LIMIT, brightIdRegister.address)
+    registry = await JurorsRegistry.new(controller.address, ANJ.address, TOTAL_ACTIVE_BALANCE_LIMIT)
     await controller.setJurorsRegistry(registry.address)
   })
 

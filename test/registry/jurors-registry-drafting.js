@@ -23,6 +23,7 @@ contract('JurorsRegistry', ([_, juror500, juror1000, juror1500, juror2000, juror
 
   const DRAFT_LOCK_PCT = bn(2000) // 20%
   const MIN_ACTIVE_AMOUNT = bigExp(100, 18)
+  const MAX_MAX_PCT_TOTAL_SUPPLY = bigExp(50, 16) // 50% This means for 0 active jurors, they can activate up to 50% of the total supply
   const TOTAL_ACTIVE_BALANCE_LIMIT = bigExp(100e6, 18)
   const DRAFT_LOCKED_AMOUNT = MIN_ACTIVE_AMOUNT.mul(DRAFT_LOCK_PCT).div(bn(10000))
 
@@ -61,10 +62,11 @@ contract('JurorsRegistry', ([_, juror500, juror1000, juror1500, juror2000, juror
   })
 
   beforeEach('create base contracts', async () => {
-    controller = await buildHelper().deploy({ minActiveBalance: MIN_ACTIVE_AMOUNT })
+    controller = await buildHelper().deploy({ minActiveBalance: MIN_ACTIVE_AMOUNT, maxMaxPctTotalSupply: MAX_MAX_PCT_TOTAL_SUPPLY })
+    await controller.setBrightIdRegister(brightIdRegister.address)
 
     ANJ = await ERC20.new('ANJ Token', 'ANJ', 18)
-    registry = await JurorsRegistry.new(controller.address, ANJ.address, TOTAL_ACTIVE_BALANCE_LIMIT, brightIdRegister.address)
+    registry = await JurorsRegistry.new(controller.address, ANJ.address, TOTAL_ACTIVE_BALANCE_LIMIT)
     await controller.setJurorsRegistry(registry.address)
 
     disputeManager = await DisputeManager.new(controller.address)

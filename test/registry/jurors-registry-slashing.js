@@ -20,13 +20,14 @@ contract('JurorsRegistry', ([_, juror, secondJuror, thirdJuror, anyone,
   let controller, registry, disputeManager, ANJ
 
   const MIN_ACTIVE_AMOUNT = bigExp(100, 18)
+  const MAX_MAX_PCT_TOTAL_SUPPLY = bigExp(100, 16) // 100% This means for 0 active jurors, they can activate up to 100% of the total supply
   const TOTAL_ACTIVE_BALANCE_LIMIT = bigExp(100e6, 18)
   const DRAFT_LOCK_PCT = bn(2000) // 20%
   const DRAFT_LOCK_AMOUNT = MIN_ACTIVE_AMOUNT.mul(DRAFT_LOCK_PCT).div(bn(10000))
   const EMPTY_RANDOMNESS = '0x0000000000000000000000000000000000000000000000000000000000000000'
 
   before('create base contracts', async () => {
-    controller = await buildHelper().deploy({ minActiveBalance: MIN_ACTIVE_AMOUNT })
+    controller = await buildHelper().deploy({ minActiveBalance: MIN_ACTIVE_AMOUNT, maxMaxPctTotalSupply: MAX_MAX_PCT_TOTAL_SUPPLY })
     disputeManager = await DisputeManager.new(controller.address)
     await controller.setDisputeManager(disputeManager.address)
     ANJ = await ERC20.new('ANJ Token', 'ANJ', 18)
@@ -37,8 +38,9 @@ contract('JurorsRegistry', ([_, juror, secondJuror, thirdJuror, anyone,
     const brightIdRegister = await brightIdHelper.deploy()
     await brightIdHelper.registerUsersWithMultipleAddresses([[jurorUniqueAddress, juror],
       [secondJurorUniqueAddress, secondJuror], [thirdJurorUniqueAddress, thirdJuror]])
+    await controller.setBrightIdRegister(brightIdRegister.address)
 
-    registry = await JurorsRegistry.new(controller.address, ANJ.address, TOTAL_ACTIVE_BALANCE_LIMIT, brightIdRegister.address)
+    registry = await JurorsRegistry.new(controller.address, ANJ.address, TOTAL_ACTIVE_BALANCE_LIMIT)
     await controller.setJurorsRegistry(registry.address)
   })
 

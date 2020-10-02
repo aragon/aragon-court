@@ -11,7 +11,7 @@ const JurorsRegistry = artifacts.require('JurorsRegistry')
 const DisputeManager = artifacts.require('DisputeManagerMockForRegistry')
 const ERC20 = artifacts.require('ERC20Mock')
 
-contract('JurorsRegistry', ([_, juror, jurorUniqueAddress]) => {
+contract('JurorsRegistry', ([_, juror, jurorUniqueAddress, juror2]) => {
   let buildHelperClass, controller, registry, disputeManager, ANJ
   let addresses, timestamp, sig
 
@@ -56,6 +56,7 @@ contract('JurorsRegistry', ([_, juror, jurorUniqueAddress]) => {
     const brightIdHelper = buildBrightIdHelper()
     const brightIdRegister = await brightIdHelper.deploy()
     await brightIdHelper.registerUserWithMultipleAddresses(jurorUniqueAddress, juror)
+    await brightIdHelper.registerUser(juror2)
     await controller.setBrightIdRegister(brightIdRegister.address)
 
     ANJ = await ERC20.new('ANJ Token', 'ANJ', 18)
@@ -102,6 +103,7 @@ contract('JurorsRegistry', ([_, juror, jurorUniqueAddress]) => {
       })
 
       const itHandlesActivationProperlyFor = ({ requestedAmount, deactivationAmount = bn(0), deactivationDue = true, expectDeactivationProcessed = false }) => {
+
         it('adds the requested amount to the active balance of the juror and removes it from the available balance', async () => {
           requestedAmount = await useAmount(requestedAmount)
           deactivationAmount = await useAmount(deactivationAmount)
@@ -173,6 +175,15 @@ contract('JurorsRegistry', ([_, juror, jurorUniqueAddress]) => {
 
           const currentRegistryBalance = await ANJ.balanceOf(registry.address)
           assertBn(previousRegistryBalance, currentRegistryBalance, 'registry balances do not match')
+        })
+
+        it('increments the total active jurors', async () => {
+          requestedAmount = await useAmount(requestedAmount)
+
+          await registry.activate(requestedAmount, { from })
+
+          const currentTotalActiveJurors = await registry.totalActiveJurors();
+          assertBn(currentTotalActiveJurors, bn(1), 'incorrect total active jurors')
         })
 
         it('emits an activation event', async () => {
@@ -476,7 +487,6 @@ contract('JurorsRegistry', ([_, juror, jurorUniqueAddress]) => {
                 await assertRevert(registry.activate(amount, { from }), REGISTRY_ERRORS.ACTIVE_BALANCE_BELOW_MIN)
               })
             })
-
           })
 
           it('reverts when activating more than max activation amount', async () => {
@@ -484,6 +494,38 @@ contract('JurorsRegistry', ([_, juror, jurorUniqueAddress]) => {
             await ANJ.approveAndCall(registry.address, amountToStake, '0x', { from })
 
             await assertRevert(registry.activate(maxPossibleBalance, { from }), "JR_ACTIVE_BALANCE_ABOVE_MAX")
+          })
+        })
+
+        context('when the juror deactivates all tokens and reactivates', () => {
+          it('sets total active jurors correctly', async () => {
+            await registry.deactivate(activeBalance, { from })
+            await controller.mockIncreaseTerm()
+            await registry.processDeactivationRequest(juror)
+            assertBn(await registry.totalActiveJurors(), bn(0), 'Incorrect total active jurors before')
+
+            await registry.activate(activeBalance, { from })
+            assertBn(await registry.totalActiveJurors(), bn(1), 'Incorrect total active jurors after')
+          })
+        })
+
+        context('when another juror activates some tokens', () => {
+          beforeEach(async () => {
+            await ANJ.generateTokens(juror2, MIN_ACTIVE_AMOUNT)
+            await ANJ.approveAndCall(registry.address, MIN_ACTIVE_AMOUNT, '0x', { from: juror2 })
+            await registry.activate(MIN_ACTIVE_AMOUNT, { from: juror2 })
+          })
+
+          it('sets the total active jurors correctly', async () => {
+            assertBn(await registry.totalActiveJurors(), bn(2), 'Incorrect total active jurors')
+          })
+
+          it('sets the total active jurors correctly after deactivating a juror', async () => {
+            await registry.deactivate(MIN_ACTIVE_AMOUNT, { from: juror2 })
+            await controller.mockIncreaseTerm()
+            await registry.processDeactivationRequest(juror2)
+
+            assertBn(await registry.totalActiveJurors(), bn(1), 'Incorrect total active jurors')
           })
         })
 

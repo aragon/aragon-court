@@ -390,9 +390,10 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
             uint256 amountToReduce = _amount - unlockedActiveBalance;
             _reduceDeactivationRequest(jurorUniqueId, amountToReduce, _termId);
         }
+
         tree.update(juror.id, nextTermId, _amount, false);
 
-        if (_activeBalanceOfAt(_juror, nextTermId) == 0) {
+        if (_activeBalanceOfAt(jurorUniqueId, nextTermId) == 0) {
             totalActiveJurors--;
         }
 
@@ -597,8 +598,8 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
             // minimum active amount. Note that the juror might have been slashed.
             uint256 activeBalance = tree.getItem(juror.id);
             uint256 newActiveBalance = activeBalance.add(amountToActivate);
-
             require(newActiveBalance >= minActiveBalance, ERROR_ACTIVE_BALANCE_BELOW_MIN);
+
             // Due to min active balance living at the global config level, we can't ensure it is less than the max
             // active balance when set, because max active balance is determined using the juror token, specific to this
             // contract. Therefore we ignore the max active balance when the min active balance is less.
@@ -606,6 +607,8 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
                 require(newActiveBalance <= maxActiveBalance, ERROR_ACTIVE_BALANCE_ABOVE_MAX);
             }
 
+            // Check the balance before we update the tree, if it is 0 then the total active jurors would have
+            // previously been decremented for this account, so increment it again.
             if (_activeBalanceOfAt(_juror, nextTermId) == 0) {
                 totalActiveJurors++;
             }
@@ -960,9 +963,7 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
         return _brightIdRegister().uniqueUserId(_jurorSenderAddress);
     }
 
-    // TODO: Use safemath where necessary. Use greater precision for percentages
-    // TODO: Make internal
-    function _maxActiveBalance(uint64 _termId) public view returns (uint256) {
+    function _maxActiveBalance(uint64 _termId) internal view returns (uint256) {
         uint256 minMaxPctTotalSupply = _getConfigAt(_termId).jurors.minMaxPctTotalSupply;
         uint256 maxMaxPctTotalSupply = _getConfigAt(_termId).jurors.maxMaxPctTotalSupply;
         uint256 jurorsMinPctApplied = _getConfigAt(_termId).jurors.jurorsMinPctApplied;
@@ -973,7 +974,7 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
             totalActiveJurorsLimit = jurorsMinPctApplied;
         }
 
-        uint256 currentPctOfTotalSupply = maxMaxPctTotalSupply - (totalActiveJurorsLimit * diffOfPct / jurorsMinPctApplied);
+        uint256 currentPctOfTotalSupply = maxMaxPctTotalSupply.sub(totalActiveJurorsLimit.mul(diffOfPct).div(jurorsMinPctApplied));
         return jurorsToken.totalSupply().pctHighPrecision(currentPctOfTotalSupply);
     }
 }

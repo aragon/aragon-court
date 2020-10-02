@@ -7,6 +7,7 @@ library PctHelpers {
     using SafeMath for uint256;
 
     uint256 internal constant PCT_BASE = 10000; // ‱ (1 / 10,000)
+    uint256 internal constant PCT_BASE_HIGH_PRECISION = 1e18;
 
     function isValid(uint16 _pct) internal pure returns (bool) {
         return _pct <= PCT_BASE;
@@ -18,6 +19,10 @@ library PctHelpers {
 
     function pct256(uint256 self, uint256 _pct) internal pure returns (uint256) {
         return self.mul(_pct) / PCT_BASE;
+    }
+
+    function pctHighPrecision(uint256 self, uint256 _pct) internal pure returns (uint256) {
+        return self.mul(_pct) / PCT_BASE_HIGH_PRECISION;
     }
 
     function pctIncrease(uint256 self, uint16 _pct) internal pure returns (uint256) {

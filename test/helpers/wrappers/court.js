@@ -7,6 +7,7 @@ const { getEvents, getEventArgument } = require('@aragon/test-helpers/events')
 const { SALT, OUTCOMES, getVoteId, hashVote, oppositeOutcome, outcomeFor } = require('../utils/crvoting')
 
 const PCT_BASE = bn(10000)
+const PCT_BASE_HIGH_PRECISION = bigExp(1, 18)
 
 const DISPUTE_STATES = {
   PRE_DRAFT: bn(0),
@@ -54,7 +55,9 @@ const DEFAULTS = {
   appealCollateralFactor:             bn(25000),       //  permyriad multiple of dispute fees required to appeal a preliminary ruling (1/10,000)
   appealConfirmCollateralFactor:      bn(35000),       //  permyriad multiple of dispute fees required to confirm appeal (1/10,000)
   minActiveBalance:                   bigExp(100, 18), //  100 ANJ is the minimum balance jurors must activate to participate in the Court
-  maxActiveBalance:                   bigExp(100, 40), //
+  minMaxPctTotalSupply:               bigExp(1, 15),   //  0.1% of the current total supply is the max a juror can activate when jurorsMinPctApplied jurors are activated
+  maxMaxPctTotalSupply:               bigExp(1, 16),   //  1% of the current total supply is the max a juror can activate when 0 jurors are activated
+  jurorsMinPctApplied:                bn(10000),       //  number of jurors for which the minMaxPctTotalSupply is applied to determine max active stake
   finalRoundWeightPrecision:          bn(1000),        //  use to improve division rounding for final round maths
   subscriptionPeriodDuration:         bn(10)           //  each subscription period lasts 10 terms
 }
@@ -90,7 +93,9 @@ module.exports = (web3, artifacts) => {
         appealCollateralFactor: appealCollateralParams[0],
         appealConfirmCollateralFactor: appealCollateralParams[1],
         minActiveBalance: jurorsParams[0],
-        maxActiveBalance: jurorsParams[1]
+        minMaxPctTotalSupply: jurorsParams[1],
+        maxMaxPctTotalSupply: jurorsParams[2],
+        jurorsMinPctApplied: jurorsParams[3]
       }
     }
 
@@ -351,7 +356,7 @@ module.exports = (web3, artifacts) => {
         penaltyPct, finalRoundReduction,
         firstRoundJurorsNumber, appealStepFactor, maxRegularAppealRounds, finalRoundLockTerms,
         appealCollateralFactor, appealConfirmCollateralFactor,
-        minActiveBalance, maxActiveBalance
+        minActiveBalance, minMaxPctTotalSupply, maxMaxPctTotalSupply, jurorsMinPctApplied
       } = newConfig
 
       return this.court.setConfig(
@@ -362,7 +367,7 @@ module.exports = (web3, artifacts) => {
         [penaltyPct, finalRoundReduction],
         [firstRoundJurorsNumber, appealStepFactor, maxRegularAppealRounds, finalRoundLockTerms],
         [appealCollateralFactor, appealConfirmCollateralFactor],
-        [minActiveBalance, maxActiveBalance],
+        [minActiveBalance, minMaxPctTotalSupply, maxMaxPctTotalSupply, jurorsMinPctApplied],
         txParams
       )
     }
@@ -385,7 +390,7 @@ module.exports = (web3, artifacts) => {
         [this.penaltyPct, this.finalRoundReduction],
         [this.firstRoundJurorsNumber, this.appealStepFactor, this.maxRegularAppealRounds, this.finalRoundLockTerms],
         [this.appealCollateralFactor, this.appealConfirmCollateralFactor],
-        [this.minActiveBalance, this.maxActiveBalance]
+        [this.minActiveBalance, this.minMaxPctTotalSupply, this.maxMaxPctTotalSupply, this.jurorsMinPctApplied]
       )
 
       if (!this.disputeManager) this.disputeManager = await this.artifacts.require('DisputeManager').new(this.court.address, this.maxJurorsPerDraftBatch, this.skippedDisputes)

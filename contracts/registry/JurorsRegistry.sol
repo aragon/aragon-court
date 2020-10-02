@@ -14,7 +14,7 @@ import "../standards/ApproveAndCall.sol";
 import "../court/controller/Controller.sol";
 import "../court/controller/ControlledRecoverable.sol";
 
-import "@nomiclabs/buidler/console.sol";
+import "@nomiclabs/buidler/console.sol"; // TODO: Remove
 
 contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, ApproveAndCallFallBack {
     using SafeERC20 for ERC20;
@@ -960,8 +960,9 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
         return _brightIdRegister().uniqueUserId(_jurorSenderAddress);
     }
 
-    // TODO: Use safemath where necessary.
-    function _maxActiveBalance(uint64 _termId) internal view returns (uint256) {
+    // TODO: Use safemath where necessary. Use greater precision for percentages
+    // TODO: Make internal
+    function _maxActiveBalance(uint64 _termId) public view returns (uint256) {
         uint256 minMaxPctTotalSupply = _getConfigAt(_termId).jurors.minMaxPctTotalSupply;
         uint256 maxMaxPctTotalSupply = _getConfigAt(_termId).jurors.maxMaxPctTotalSupply;
         uint256 jurorsMinPctApplied = _getConfigAt(_termId).jurors.jurorsMinPctApplied;
@@ -973,6 +974,6 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
         }
 
         uint256 currentPctOfTotalSupply = maxMaxPctTotalSupply - (totalActiveJurorsLimit * diffOfPct / jurorsMinPctApplied);
-        return jurorsToken.totalSupply().pct256(currentPctOfTotalSupply);
+        return jurorsToken.totalSupply().pctHighPrecision(currentPctOfTotalSupply);
     }
 }

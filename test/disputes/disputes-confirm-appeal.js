@@ -23,7 +23,7 @@ contract('DisputeManager', ([_, drafter, appealMaker, appealTaker, juror500, jur
 
   before('create base contracts and activate jurors', async () => {
     courtHelper = buildHelper()
-    court = await courtHelper.deploy()
+    court = await courtHelper.deploy({ maxMaxPctTotalSupply: bigExp(100, 16) })
     disputeManager = courtHelper.disputeManager
     await courtHelper.activate(jurors)
   })

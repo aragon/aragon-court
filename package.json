@@ -13,6 +13,7 @@
     "compile": "buidler compile",
     "compile:brightid": "buidler compile --config buidler.config.brightid.js",
     "test": "yarn compile:brightid && buidler test",
+    "test:controller": "buidler test test/court/controller/*",
     "test:subscriptions": "buidler test test/subscriptions/*",
     "test:disputes": "buidler test test/disputes/*",
     "test:registry": "buidler test test/registry/*"

@@ -23,7 +23,10 @@ module.exports = artifacts => {
       finalRoundLockTerms: config.finalRoundLockTerms.add(bn(1)),
       appealCollateralFactor: config.appealCollateralFactor.add(bn(iteration * PCT_BASE)),
       appealConfirmCollateralFactor: config.appealConfirmCollateralFactor.add(bn(iteration * PCT_BASE)),
-      minActiveBalance: config.minActiveBalance.add(bigExp(iteration * 100, 18))
+      minActiveBalance: config.minActiveBalance.add(bigExp(iteration * 100, 18)),
+      minMaxPctTotalSupply: config.minMaxPctTotalSupply.add(bigExp(1, 15)),
+      maxMaxPctTotalSupply: bigExp(100, 16),
+      jurorsMinPctApplied: config.jurorsMinPctApplied.add(bn(iteration))
     }
   }
 
@@ -45,6 +48,9 @@ module.exports = artifacts => {
     assertBn(actualConfig.appealCollateralFactor, expectedConfig.appealCollateralFactor, 'appeal collateral factor does not match')
     assertBn(actualConfig.appealConfirmCollateralFactor, expectedConfig.appealConfirmCollateralFactor, 'appeal confirmation collateral factor does not match')
     assertBn(actualConfig.minActiveBalance, expectedConfig.minActiveBalance, 'min active balance does not match')
+    assertBn(actualConfig.minMaxPctTotalSupply, expectedConfig.minMaxPctTotalSupply, 'min max pct total supply active balance does not match')
+    assertBn(actualConfig.maxMaxPctTotalSupply, expectedConfig.maxMaxPctTotalSupply, 'max max pct total supply active balance does not match')
+    assertBn(actualConfig.jurorsMinPctApplied, expectedConfig.jurorsMinPctApplied, 'jurors min pct applied does not match')
   }
 
   return {

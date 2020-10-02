@@ -21,6 +21,8 @@ contract CourtConfig is IConfig, CourtConfigData {
     string private constant ERROR_BAD_APPEAL_STEP_FACTOR = "CONF_BAD_APPEAL_STEP_FACTOR";
     string private constant ERROR_ZERO_COLLATERAL_FACTOR = "CONF_ZERO_COLLATERAL_FACTOR";
     string private constant ERROR_ZERO_MIN_ACTIVE_BALANCE = "CONF_ZERO_MIN_ACTIVE_BALANCE";
+    string private constant ERROR_MIN_MAX_TOTAL_SUPPLY_ZERO = "CONF_MIN_MAX_TOTAL_SUPPLY_ZERO";
+    string private constant ERROR_INVALID_MAX_MAX_TOTAL_SUPPLY_PCT = "CONF_INVALID_MAX_MAX_TOTAL_SUPPLY_PCT";
     string private constant ERROR_MIN_MORE_THAN_MAX_ACTIVE_PCT = "CONF_MIN_MORE_THAN_MAX_ACTIVE_PCT";
     string private constant ERROR_JURORS_FOR_MIN_ACTIVE_ZERO = "CONF_JURORS_FOR_MIN_ACTIVE_ZERO";
 
@@ -271,6 +273,10 @@ contract CourtConfig is IConfig, CourtConfigData {
 
         // Make sure min active balance is not zero
         require(_jurorsParams[0] > 0, ERROR_ZERO_MIN_ACTIVE_BALANCE);
+        // Make sure min max pct of total supply active balance is not zero
+        require(_jurorsParams[1] > 0, ERROR_MIN_MAX_TOTAL_SUPPLY_ZERO);
+        // Make sure the max max pct of total supply active balance is less than 100%
+        require(PctHelpers.isValidHighPrecision(_jurorsParams[2]), ERROR_INVALID_MAX_MAX_TOTAL_SUPPLY_PCT);
         // Make sure min max pct of total supply active balance is less than the max max pct of total supply active balance
         require(_jurorsParams[1] < _jurorsParams[2], ERROR_MIN_MORE_THAN_MAX_ACTIVE_PCT);
         // Make sure the number of jurors for which the min max pct of total supply active balance is not zero

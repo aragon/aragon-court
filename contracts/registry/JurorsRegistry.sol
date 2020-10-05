@@ -326,6 +326,7 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
         for (uint256 i = 0; i < _jurors.length; i++) {
             uint256 lockedAmount = _lockedAmounts[i];
             address jurorAddress = _jurors[i];
+            // TODO: Should not need to be converted to a unique address.
             Juror storage juror = jurorsByAddress[jurorAddress];
             juror.lockedBalance = juror.lockedBalance.sub(lockedAmount);
 

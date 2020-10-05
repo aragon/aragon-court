@@ -54,12 +54,7 @@ const DEFAULTS = {
   appealConfirmCollateralFactor:      bn(35000),       //  permyriad multiple of dispute fees required to confirm appeal (1/10,000)
   minActiveBalance:                   bigExp(100, 18), //  100 ANJ is the minimum balance jurors must activate to participate in the Court
   finalRoundWeightPrecision:          bn(1000),        //  use to improve division rounding for final round maths
-  subscriptionPeriodDuration:         bn(10),          //  each subscription period lasts 10 terms
-  subscriptionFeeAmount:              bigExp(100, 18), //  100 fee tokens per subscription period
-  subscriptionPrePaymentPeriods:      bn(15),          //  15 subscription pre payment period
-  subscriptionResumePrePaidPeriods:   bn(10),          //  10 pre-paid periods when resuming activity
-  subscriptionLatePaymentPenaltyPct:  bn(0),           //  none subscription late payment penalties
-  subscriptionGovernorSharePct:       bn(0)            //  none subscription governor shares
+  subscriptionPeriodDuration:         bn(10)           //  each subscription period lasts 10 terms
 }
 
 module.exports = (web3, artifacts) => {
@@ -207,7 +202,6 @@ module.exports = (web3, artifacts) => {
     async dispute({ arbitrable = undefined, possibleRulings = bn(2), metadata = '0x', closeEvidence = true } = {}) {
       // create an arbitrable if no one was given, and mock subscriptions
       if (!arbitrable) arbitrable = await this.artifacts.require('ArbitrableMock').new(this.court.address)
-      await this.subscriptions.mockUpToDate(true)
 
       // mint fee tokens for the arbitrable instance
       const { disputeFees } = await this.getDisputeFees()
@@ -402,15 +396,10 @@ module.exports = (web3, artifacts) => {
       }
 
       if (!this.subscriptions) {
-        this.subscriptions = await this.artifacts.require('SubscriptionsMock').new(
+        this.subscriptions = await this.artifacts.require('CourtSubscriptions').new(
           this.court.address,
           this.subscriptionPeriodDuration,
-          this.feeToken.address,
-          this.subscriptionFeeAmount,
-          this.subscriptionPrePaymentPeriods,
-          this.subscriptionResumePrePaidPeriods,
-          this.subscriptionLatePaymentPenaltyPct,
-          this.subscriptionGovernorSharePct
+          this.feeToken.address
         )
       }
 

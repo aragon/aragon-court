@@ -14,8 +14,8 @@ const JurorsRegistry = artifacts.require('JurorsRegistryMock')
 const DisputeManager = artifacts.require('DisputeManagerMockForRegistry')
 const ERC20 = artifacts.require('ERC20Mock')
 
-contract('JurorsRegistry', ([_, juror, secondJuror, thirdJuror, anyone,
-  jurorUniqueAddress, secondJurorUniqueAddress, thirdJurorUniqueAddress]) => {
+contract('JurorsRegistry', ([_, juror, secondJuror, thirdJuror, fourthJuror, anyone,
+  jurorUniqueAddress, secondJurorUniqueAddress, thirdJurorUniqueAddress, fourthJurorUniqueAddress]) => {
 
   let controller, registry, disputeManager, ANJ
 
@@ -27,7 +27,10 @@ contract('JurorsRegistry', ([_, juror, secondJuror, thirdJuror, anyone,
   const EMPTY_RANDOMNESS = '0x0000000000000000000000000000000000000000000000000000000000000000'
 
   before('create base contracts', async () => {
-    controller = await buildHelper().deploy({ minActiveBalance: MIN_ACTIVE_AMOUNT, maxMaxPctTotalSupply: MAX_MAX_PCT_TOTAL_SUPPLY })
+    controller = await buildHelper().deploy({
+      minActiveBalance: MIN_ACTIVE_AMOUNT,
+      maxMaxPctTotalSupply: MAX_MAX_PCT_TOTAL_SUPPLY
+    })
     disputeManager = await DisputeManager.new(controller.address)
     await controller.setDisputeManager(disputeManager.address)
     ANJ = await ERC20.new('ANJ Token', 'ANJ', 18)
@@ -37,14 +40,14 @@ contract('JurorsRegistry', ([_, juror, secondJuror, thirdJuror, anyone,
     const brightIdHelper = buildBrightIdHelper()
     const brightIdRegister = await brightIdHelper.deploy()
     await brightIdHelper.registerUsersWithMultipleAddresses([[jurorUniqueAddress, juror],
-      [secondJurorUniqueAddress, secondJuror], [thirdJurorUniqueAddress, thirdJuror]])
+      [secondJurorUniqueAddress, secondJuror], [thirdJurorUniqueAddress, thirdJuror], [fourthJurorUniqueAddress, fourthJuror]])
     await controller.setBrightIdRegister(brightIdRegister.address)
 
     registry = await JurorsRegistry.new(controller.address, ANJ.address, TOTAL_ACTIVE_BALANCE_LIMIT)
     await controller.setJurorsRegistry(registry.address)
   })
 
-  describe('slashOrUnlock', () => {
+  describe.only('slashOrUnlock', () => {
     context('when the sender is the dispute manager', () => {
       beforeEach('activate jurors', async () => {
         const firstJurorBalance = MIN_ACTIVE_AMOUNT.mul(bn(10))
@@ -111,6 +114,14 @@ contract('JurorsRegistry', ([_, juror, secondJuror, thirdJuror, anyone,
               assertBn(previousSecondJurorBalances[i], currentSecondJurorBalances[i], `second juror balance #${i} does not match`)
               assertBn(previousThirdJurorBalances[i], currentThirdJurorBalances[i], `third juror balance #${i} does not match`)
             }
+          })
+
+          it('does not reduce the total active jurors', async () => {
+            const expectedTotalActiveJurors = await registry.totalActiveJurors()
+
+            const receipt = await disputeManager.slashOrUnlock(jurors, lockedAmounts, rewardedJurors)
+
+            assertBn(await registry.totalActiveJurors(), expectedTotalActiveJurors, 'Incorrect total active jurors')
           })
         })
 
@@ -180,12 +191,23 @@ contract('JurorsRegistry', ([_, juror, secondJuror, thirdJuror, anyone,
               let logs = decodeEventsOfType(receipt, JurorsRegistry.abi, REGISTRY_EVENTS.JUROR_SLASHED)
 
               assertAmountOfEvents({ logs }, REGISTRY_EVENTS.JUROR_SLASHED, 2)
-              assertEvent({ logs }, REGISTRY_EVENTS.JUROR_SLASHED, { juror: jurorUniqueAddress, amount: DRAFT_LOCK_AMOUNT.mul(bn(3)), effectiveTermId: termId.add(bn(1)) }, 0)
-              assertEvent({ logs }, REGISTRY_EVENTS.JUROR_SLASHED, { juror: thirdJurorUniqueAddress, amount: DRAFT_LOCK_AMOUNT.mul(bn(6)), effectiveTermId: termId.add(bn(1)) }, 1)
+              assertEvent({ logs }, REGISTRY_EVENTS.JUROR_SLASHED, {
+                juror: jurorUniqueAddress,
+                amount: DRAFT_LOCK_AMOUNT.mul(bn(3)),
+                effectiveTermId: termId.add(bn(1))
+              }, 0)
+              assertEvent({ logs }, REGISTRY_EVENTS.JUROR_SLASHED, {
+                juror: thirdJurorUniqueAddress,
+                amount: DRAFT_LOCK_AMOUNT.mul(bn(6)),
+                effectiveTermId: termId.add(bn(1))
+              }, 1)
 
               logs = decodeEventsOfType(receipt, JurorsRegistry.abi, REGISTRY_EVENTS.JUROR_BALANCE_UNLOCKED)
               assertAmountOfEvents({ logs }, REGISTRY_EVENTS.JUROR_BALANCE_UNLOCKED, 1)
-              assertEvent({ logs }, REGISTRY_EVENTS.JUROR_BALANCE_UNLOCKED, { juror: secondJurorUniqueAddress, amount: DRAFT_LOCK_AMOUNT })
+              assertEvent({ logs }, REGISTRY_EVENTS.JUROR_BALANCE_UNLOCKED, {
+                juror: secondJurorUniqueAddress,
+                amount: DRAFT_LOCK_AMOUNT
+              })
             })
 
             it('does not affect the active balances of the current term', async () => {
@@ -204,6 +226,38 @@ contract('JurorsRegistry', ([_, juror, secondJuror, thirdJuror, anyone,
 
               const thirdJurorCurrentActiveBalance = await registry.activeBalanceOfAt(thirdJuror, termId)
               assertBn(thirdJurorPreviousActiveBalance, thirdJurorCurrentActiveBalance, 'third juror active balance does not match')
+            })
+
+            it('does not reduce the total active jurors', async () => {
+              const expectedTotalActiveJurors = await registry.totalActiveJurors()
+              const receipt = await disputeManager.slashOrUnlock(jurors, lockedAmounts, rewardedJurors)
+              assertBn(await registry.totalActiveJurors(), expectedTotalActiveJurors, 'Incorrect total active jurors')
+            })
+
+            context('when the jurors total stake is slashed', () => {
+
+              it.only('reduces the total active jurors', async () => {
+                // Finalise previous draft
+                await disputeManager.slashOrUnlock(jurors, lockedAmounts, rewardedJurors)
+
+                // Generate min amount of tokens that can be slashed in one go and give to a new account
+                await ANJ.generateTokens(fourthJuror, MIN_ACTIVE_AMOUNT)
+                await ANJ.approveAndCall(registry.address, MIN_ACTIVE_AMOUNT, ACTIVATE_DATA, { from: fourthJuror })
+                await controller.mockIncreaseTerm()
+
+                // Mock draft the jurors including the new slashable juror
+                const draftedJurors = [fourthJurorUniqueAddress, secondJurorUniqueAddress, thirdJurorUniqueAddress]
+                const draftedWeights = [3, 1, 6]
+                await registry.mockNextDraft(draftedJurors, draftedWeights)
+                const oneHundredPercent = bn(10000)
+                await disputeManager.draft(EMPTY_RANDOMNESS, 1, 0, 10, 10, oneHundredPercent)
+
+                const newJurors = [fourthJuror, secondJuror, thirdJuror]
+                const newLockedAmounts = [MIN_ACTIVE_AMOUNT, DRAFT_LOCK_AMOUNT, DRAFT_LOCK_AMOUNT.mul(bn(6))]
+                const expectedTotalActiveJurors = (await registry.totalActiveJurors()).sub(bn(1))
+                const receipt = await disputeManager.slashOrUnlock(newJurors, newLockedAmounts, rewardedJurors)
+                assertBn(await registry.totalActiveJurors(), expectedTotalActiveJurors, 'Incorrect total active jurors')
+              })
             })
           })
 
@@ -294,7 +348,7 @@ contract('JurorsRegistry', ([_, juror, secondJuror, thirdJuror, anyone,
           assertBn(previousJurorStake.sub(amount), currentJurorStake, 'juror stake amounts do not match')
         })
 
-        const addBalances  = (balances) => balances.available.add(balances.active).add(balances.locked).add(balances.pendingDeactivation)
+        const addBalances = (balances) => balances.available.add(balances.active).add(balances.locked).add(balances.pendingDeactivation)
 
         it('keeps total balances consistent', async () => {
           const previousBalances = await registry.balanceOf(juror)
@@ -335,7 +389,11 @@ contract('JurorsRegistry', ([_, juror, secondJuror, thirdJuror, anyone,
             const logs = decodeEventsOfType(receipt, JurorsRegistry.abi, REGISTRY_EVENTS.JUROR_TOKENS_COLLECTED)
 
             assertAmountOfEvents({ logs }, REGISTRY_EVENTS.JUROR_TOKENS_COLLECTED)
-            assertEvent({ logs }, REGISTRY_EVENTS.JUROR_TOKENS_COLLECTED, { juror: jurorUniqueAddress, amount, effectiveTermId: termId.add(bn(1)) })
+            assertEvent({ logs }, REGISTRY_EVENTS.JUROR_TOKENS_COLLECTED, {
+              juror: jurorUniqueAddress,
+              amount,
+              effectiveTermId: termId.add(bn(1))
+            })
           })
         }
 
@@ -354,7 +412,12 @@ contract('JurorsRegistry', ([_, juror, secondJuror, thirdJuror, anyone,
             const logs = decodeEventsOfType(receipt, JurorsRegistry.abi, REGISTRY_EVENTS.JUROR_DEACTIVATION_UPDATED)
 
             assertAmountOfEvents({ logs }, REGISTRY_EVENTS.JUROR_DEACTIVATION_UPDATED)
-            assertEvent({ logs }, REGISTRY_EVENTS.JUROR_DEACTIVATION_UPDATED, { juror: jurorUniqueAddress, availableTermId, updateTermId: termId, amount: previousDeactivation.sub(deactivationReduced) })
+            assertEvent({ logs }, REGISTRY_EVENTS.JUROR_DEACTIVATION_UPDATED, {
+              juror: jurorUniqueAddress,
+              availableTermId,
+              updateTermId: termId,
+              amount: previousDeactivation.sub(deactivationReduced)
+            })
           })
         }
       }

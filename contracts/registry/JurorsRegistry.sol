@@ -652,6 +652,10 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
         request.availableTermId = nextTermId;
         tree.update(juror.id, nextTermId, _amount, false);
 
+        if (_activeBalanceOfAt(_juror, nextTermId) == 0) {
+            totalActiveJurors--;
+        }
+
         emit JurorDeactivationRequested(_juror, nextTermId, _amount);
     }
 
@@ -669,10 +673,6 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
         // If there is a deactivation request, ensure that the deactivation term has been reached
         if (deactivationAvailableTermId == uint64(0) || _termId < deactivationAvailableTermId) {
             return;
-        }
-
-        if (_activeBalanceOfAt(_juror, _termId) == 0) {
-            totalActiveJurors--;
         }
 
         uint256 deactivationAmount = request.amount;
@@ -702,8 +702,17 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
         uint256 newRequestAmount = currentRequestAmount - _amount;
         request.amount = newRequestAmount;
 
+        uint64 nextTermId = _termId + 1;
+
+        // If the active balance is currently 0, the deactivation request would have decremented the total active
+        // jurors so incremenet it again. Note that _amount can never be 0, which wouldn't reduce the deactivation amount
+        // and update the tree to 0 again, requiring no increment of the total active jurors.
+        if (_activeBalanceOfAt(_juror, nextTermId) == 0) {
+            totalActiveJurors++;
+        }
+
         // Move amount back to the tree
-        tree.update(juror.id, _termId + 1, _amount, true);
+        tree.update(juror.id, nextTermId, _amount, true);
 
         emit JurorDeactivationUpdated(_juror, request.availableTermId, newRequestAmount, _termId);
     }

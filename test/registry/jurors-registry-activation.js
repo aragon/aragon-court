@@ -870,7 +870,7 @@ contract('JurorsRegistry', ([_, juror, jurorUniqueAddress, juror2]) => {
         )
       })
 
-      it.only('returns correct value when multiple active jurors', async () => {
+      it('returns correct value when multiple active jurors', async () => {
         await ANJ.generateTokens(juror2, TOTAL_ACTIVE_BALANCE_LIMIT)
         const jurorActiveBalance = await maxActiveBalanceAtTerm(termId)
         await ANJ.approveAndCall(registry.address, jurorActiveBalance, ACTIVATE_DATA, { from: juror })

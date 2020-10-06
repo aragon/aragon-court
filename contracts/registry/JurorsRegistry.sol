@@ -511,6 +511,27 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
     }
 
     /**
+    * @dev Tell the max balance a juror can currently activate, calculated using a sliding scale of a percent of the
+    * @param _juror Address of the juror querying the unlocked balance of
+    * @return Amount of active tokens of a juror that are not locked due to ongoing disputes
+    */
+    function maxActiveBalance(uint64 _termId) public view returns (uint256) {
+        uint256 jurorsTokenTotalSupply = jurorsToken.totalSupply();
+        if (jurorsTokenTotalSupply == 0) {
+            return 0;
+        }
+
+        // TODO: Can this calculation be minimised?
+        uint256 minMaxPctTotalSupply = _getConfigAt(_termId).jurors.minMaxPctTotalSupply;
+        uint256 maxMaxPctTotalSupply = _getConfigAt(_termId).jurors.maxMaxPctTotalSupply;
+        uint256 diffOfPct = maxMaxPctTotalSupply - minMaxPctTotalSupply; // No need for safemath, we ensure min is less than max in config setting
+        uint256 totalActiveBalanceAtTerm = _totalActiveBalanceAt(_termId);
+
+        uint256 currentPctOfTotalSupply = maxMaxPctTotalSupply.sub(totalActiveBalanceAtTerm.mul(diffOfPct).div(jurorsTokenTotalSupply));
+        return jurorsTokenTotalSupply.pctHighPrecision(currentPctOfTotalSupply);
+    }
+
+    /**
     * @dev Tell the pending deactivation details for a juror
     * @param _juror Address of the juror whose info is requested
     * @return amount Amount to be deactivated
@@ -940,20 +961,5 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
         }
 
         return _brightIdRegister().uniqueUserId(_jurorSenderAddress);
-    }
-
-    function maxActiveBalance(uint64 _termId) public view returns (uint256) {
-        uint256 jurorsTokenTotalSupply = jurorsToken.totalSupply();
-        if (jurorsTokenTotalSupply == 0) {
-            return 0;
-        }
-
-        uint256 minMaxPctTotalSupply = _getConfigAt(_termId).jurors.minMaxPctTotalSupply;
-        uint256 maxMaxPctTotalSupply = _getConfigAt(_termId).jurors.maxMaxPctTotalSupply;
-        uint256 diffOfPct = maxMaxPctTotalSupply - minMaxPctTotalSupply; // No need for safemath, we ensure min is less than max in config setting
-        uint256 totalActiveBalanceAtTerm = _totalActiveBalanceAt(_termId);
-
-        uint256 currentPctOfTotalSupply = maxMaxPctTotalSupply.sub(totalActiveBalanceAtTerm.mul(diffOfPct).div(jurorsTokenTotalSupply));
-        return jurorsTokenTotalSupply.pctHighPrecision(currentPctOfTotalSupply);
     }
 }

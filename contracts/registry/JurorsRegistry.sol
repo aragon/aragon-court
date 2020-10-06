@@ -37,6 +37,7 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
     string private constant ERROR_TOKEN_TRANSFER_FAILED = "JR_TOKEN_TRANSFER_FAILED";
     string private constant ERROR_TOKEN_APPROVE_NOT_ALLOWED = "JR_TOKEN_APPROVE_NOT_ALLOWED";
     string private constant ERROR_BAD_TOTAL_ACTIVE_BALANCE_LIMIT = "JR_BAD_TOTAL_ACTIVE_BAL_LIMIT";
+    string private constant ERROR_TOTAL_ACTIVE_BALANCE_TOO_HIGH = "JR_TOTAL_ACTIVE_BALANCE_TOO_HIGH";
     string private constant ERROR_TOTAL_ACTIVE_BALANCE_EXCEEDED = "JR_TOTAL_ACTIVE_BALANCE_EXCEEDED";
     string private constant ERROR_WITHDRAWALS_LOCK = "JR_WITHDRAWALS_LOCK";
 
@@ -108,8 +109,6 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
 
     // Tree to store jurors active balance by term for the drafting process
     HexSumTree.Tree internal tree;
-
-    uint256 public totalActiveJurors;
 
     event JurorActivated(address indexed juror, uint64 fromTermId, uint256 amount, address sender);
     event JurorDeactivationRequested(address indexed juror, uint64 availableTermId, uint256 amount);
@@ -343,11 +342,6 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
             } else {
                 collectedTokens = collectedTokens.add(lockedAmount);
                 tree.update(juror.id, nextTermId, lockedAmount, false);
-
-                if (_activeBalanceOfAt(jurorAddress, nextTermId) == 0) {
-                    totalActiveJurors--;
-                }
-
                 emit JurorSlashed(jurorAddress, lockedAmount, nextTermId);
             }
         }
@@ -392,11 +386,6 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
         }
 
         tree.update(juror.id, nextTermId, _amount, false);
-
-        if (_activeBalanceOfAt(jurorUniqueId, nextTermId) == 0) {
-            totalActiveJurors--;
-        }
-
         emit JurorTokensCollected(jurorUniqueId, _amount, nextTermId);
         return true;
     }
@@ -591,7 +580,7 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
         _checkTotalActiveBalance(nextTermId, amountToActivate);
         Juror storage juror = jurorsByAddress[_juror];
         uint256 minActiveBalance = _getMinActiveBalance(nextTermId);
-        uint256 maxActiveBalance = _maxActiveBalance(nextTermId);
+        uint256 maxActiveBalance = maxActiveBalance(termId);
 
         if (_existsJuror(juror)) {
             // Even though we are adding amounts, let's check the new active balance is greater than or equal to the
@@ -607,12 +596,6 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
                 require(newActiveBalance <= maxActiveBalance, ERROR_ACTIVE_BALANCE_ABOVE_MAX);
             }
 
-            // Check the balance before we update the tree, if it is 0 then the total active jurors would have
-            // previously been decremented for this account, so increment it again.
-            if (_activeBalanceOfAt(_juror, nextTermId) == 0) {
-                totalActiveJurors++;
-            }
-
             tree.update(juror.id, nextTermId, amountToActivate, true);
         } else {
             require(amountToActivate >= minActiveBalance, ERROR_ACTIVE_BALANCE_BELOW_MIN);
@@ -625,8 +608,6 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
 
             juror.id = tree.insert(nextTermId, amountToActivate);
             jurorsAddressById[juror.id] = _juror;
-
-            totalActiveJurors++;
         }
 
         _updateAvailableBalanceOf(_juror, amountToActivate, false);
@@ -651,10 +632,6 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
         request.amount = request.amount.add(_amount);
         request.availableTermId = nextTermId;
         tree.update(juror.id, nextTermId, _amount, false);
-
-        if (_activeBalanceOfAt(_juror, nextTermId) == 0) {
-            totalActiveJurors--;
-        }
 
         emit JurorDeactivationRequested(_juror, nextTermId, _amount);
     }
@@ -703,13 +680,6 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
         request.amount = newRequestAmount;
 
         uint64 nextTermId = _termId + 1;
-
-        // If the active balance is currently 0, the deactivation request would have decremented the total active
-        // jurors so incremenet it again. Note that _amount can never be 0, which wouldn't reduce the deactivation amount
-        // and update the tree to 0 again, requiring no increment of the total active jurors.
-        if (_activeBalanceOfAt(_juror, nextTermId) == 0) {
-            totalActiveJurors++;
-        }
 
         // Move amount back to the tree
         tree.update(juror.id, nextTermId, _amount, true);
@@ -794,7 +764,7 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
     */
     function _setTotalActiveBalanceLimit(uint256 _totalActiveBalanceLimit) internal {
         require(_totalActiveBalanceLimit > 0, ERROR_BAD_TOTAL_ACTIVE_BALANCE_LIMIT);
-        require(_totalActiveBalanceLimit > _maxActiveBalance(_getCurrentTermId() + 1));
+        require(_totalActiveBalanceLimit > maxActiveBalance(_getLastEnsuredTermId()), ERROR_TOTAL_ACTIVE_BALANCE_TOO_HIGH);
         emit TotalActiveBalanceLimitChanged(totalActiveBalanceLimit, _totalActiveBalanceLimit);
         totalActiveBalanceLimit = _totalActiveBalanceLimit;
     }
@@ -881,7 +851,7 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
     * @return Total amount of active juror tokens at the given term id
     */
     function _totalActiveBalanceAt(uint64 _termId) internal view returns (uint256) {
-        // This function will return always the same values, the only difference remains on gas costs. In case we look for a
+        // This function will return always the same values, the only difference remains on gas costs. In case we look for a
         // recent term, in this case current or future ones, we perform a backwards linear search from the last checkpoint.
         // Otherwise, a binary search is computed.
         bool recent = _termId >= _getLastEnsuredTermId();
@@ -972,18 +942,18 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
         return _brightIdRegister().uniqueUserId(_jurorSenderAddress);
     }
 
-    function _maxActiveBalance(uint64 _termId) internal view returns (uint256) {
-        uint256 minMaxPctTotalSupply = _getConfigAt(_termId).jurors.minMaxPctTotalSupply;
-        uint256 maxMaxPctTotalSupply = _getConfigAt(_termId).jurors.maxMaxPctTotalSupply;
-        uint256 jurorsMinPctApplied = _getConfigAt(_termId).jurors.jurorsMinPctApplied;
-        uint256 diffOfPct = maxMaxPctTotalSupply - minMaxPctTotalSupply; // No need for safemath, we ensure min is less than max in config setting
-
-        uint256 totalActiveJurorsLimit;
-        if (totalActiveJurors > jurorsMinPctApplied) {
-            totalActiveJurorsLimit = jurorsMinPctApplied;
+    function maxActiveBalance(uint64 _termId) public view returns (uint256) {
+        uint256 jurorsTokenTotalSupply = jurorsToken.totalSupply();
+        if (jurorsTokenTotalSupply == 0) {
+            return 0;
         }
 
-        uint256 currentPctOfTotalSupply = maxMaxPctTotalSupply.sub(totalActiveJurorsLimit.mul(diffOfPct).div(jurorsMinPctApplied));
-        return jurorsToken.totalSupply().pctHighPrecision(currentPctOfTotalSupply);
+        uint256 minMaxPctTotalSupply = _getConfigAt(_termId).jurors.minMaxPctTotalSupply;
+        uint256 maxMaxPctTotalSupply = _getConfigAt(_termId).jurors.maxMaxPctTotalSupply;
+        uint256 diffOfPct = maxMaxPctTotalSupply - minMaxPctTotalSupply; // No need for safemath, we ensure min is less than max in config setting
+        uint256 totalActiveBalanceAtTerm = _totalActiveBalanceAt(_termId);
+
+        uint256 currentPctOfTotalSupply = maxMaxPctTotalSupply.sub(totalActiveBalanceAtTerm.mul(diffOfPct).div(jurorsTokenTotalSupply));
+        return jurorsTokenTotalSupply.pctHighPrecision(currentPctOfTotalSupply);
     }
 }

@@ -49,9 +49,8 @@ contract AragonCourt is Controller, IArbitrator {
     *        1. appealConfirmCollateralFactor Permyriad multiple of dispute fees required to confirm appeal
     * @param _jurorsParams Array containing params for juror registry:
     *        0. minActiveBalance Minimum amount of juror tokens that can be activated
-    *        1. minMaxPctTotalSupply The min max percent of the total supply a juror can activate, applied for jurorsMinPctApplied active jurors
-    *        2. maxMaxPctTotalSupply The max max percent of the total supply a juror can activate, applied for 0 active jurors
-    *        3. jurorsMinPctApplied The number of jurors for which the minMaxPctTotalSupply will be applied
+    *        1. minMaxPctTotalSupply The min max percent of the total supply a juror can activate, applied for total supply active stake
+    *        2. maxMaxPctTotalSupply The max max percent of the total supply a juror can activate, applied for 0 active stake
     */
     constructor(
         uint64[2] memory _termParams,
@@ -62,7 +61,7 @@ contract AragonCourt is Controller, IArbitrator {
         uint16[2] memory _pcts,
         uint64[4] memory _roundParams,
         uint256[2] memory _appealCollateralParams,
-        uint256[4] memory _jurorsParams
+        uint256[3] memory _jurorsParams
     )
         public
         Controller(

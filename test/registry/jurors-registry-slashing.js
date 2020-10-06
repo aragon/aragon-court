@@ -47,7 +47,7 @@ contract('JurorsRegistry', ([_, juror, secondJuror, thirdJuror, fourthJuror, any
     await controller.setJurorsRegistry(registry.address)
   })
 
-  describe.only('slashOrUnlock', () => {
+  describe('slashOrUnlock', () => {
     context('when the sender is the dispute manager', () => {
       beforeEach('activate jurors', async () => {
         const firstJurorBalance = MIN_ACTIVE_AMOUNT.mul(bn(10))
@@ -234,9 +234,59 @@ contract('JurorsRegistry', ([_, juror, secondJuror, thirdJuror, fourthJuror, any
               assertBn(await registry.totalActiveJurors(), expectedTotalActiveJurors, 'Incorrect total active jurors')
             })
 
+            context('when there is a deactivation request', async () => {
+              const newJurors = [fourthJuror, secondJuror, thirdJuror]
+              const newLockedAmounts = [MIN_ACTIVE_AMOUNT, DRAFT_LOCK_AMOUNT, DRAFT_LOCK_AMOUNT.mul(bn(6))]
+
+              beforeEach(async () => {
+                // Finalise previous draft
+                await disputeManager.slashOrUnlock(jurors, lockedAmounts, rewardedJurors)
+
+                // Generate min amount of tokens that can be slashed in one go and give to a new account and deactivate half
+                const fourthJurorStake = MIN_ACTIVE_AMOUNT.mul(bn(2))
+                await ANJ.generateTokens(fourthJuror, fourthJurorStake)
+                await ANJ.approveAndCall(registry.address, fourthJurorStake, ACTIVATE_DATA, { from: fourthJuror })
+                await controller.mockIncreaseTerm()
+                await registry.deactivate(MIN_ACTIVE_AMOUNT, { from: fourthJuror })
+
+
+                // Mock draft the jurors including the new slashable juror
+                const draftedJurors = [fourthJurorUniqueAddress, secondJurorUniqueAddress, thirdJurorUniqueAddress]
+                const draftedWeights = [3, 1, 6]
+                await registry.mockNextDraft(draftedJurors, draftedWeights)
+                const oneHundredPercent = bn(10000)
+                await disputeManager.draft(EMPTY_RANDOMNESS, 1, 0, 10, 10, oneHundredPercent)
+              })
+
+              context('when the jurors total stake is slashed', () => {
+
+                it('reduces the total active jurors', async () => {
+                  const expectedTotalActiveJurors = (await registry.totalActiveJurors()).sub(bn(1))
+
+                  console.log((await registry.activeBalanceOfAt(fourthJuror, bn(0))).toString())
+                  console.log((await registry.activeBalanceOfAt(fourthJuror, bn(1))).toString())
+                  console.log((await registry.activeBalanceOfAt(fourthJuror, bn(2))).toString())
+                  console.log((await registry.activeBalanceOfAt(fourthJuror, bn(3))).toString())
+                  console.log((await registry.activeBalanceOfAt(fourthJuror, bn(4))).toString())
+
+                  const receipt = await disputeManager.slashOrUnlock(newJurors, newLockedAmounts, rewardedJurors)
+                  await controller.mockIncreaseTerm()
+
+
+                  console.log((await registry.activeBalanceOfAt(fourthJuror, bn(0))).toString())
+                  console.log((await registry.activeBalanceOfAt(fourthJuror, bn(1))).toString())
+                  console.log((await registry.activeBalanceOfAt(fourthJuror, bn(2))).toString())
+                  console.log((await registry.activeBalanceOfAt(fourthJuror, bn(3))).toString())
+                  console.log((await registry.activeBalanceOfAt(fourthJuror, bn(4))).toString())
+
+                  assertBn(await registry.totalActiveJurors(), expectedTotalActiveJurors, 'Incorrect total active jurors')
+                })
+              })
+            })
+
             context('when the jurors total stake is slashed', () => {
 
-              it.only('reduces the total active jurors', async () => {
+              it('reduces the total active jurors', async () => {
                 // Finalise previous draft
                 await disputeManager.slashOrUnlock(jurors, lockedAmounts, rewardedJurors)
 
@@ -255,7 +305,21 @@ contract('JurorsRegistry', ([_, juror, secondJuror, thirdJuror, fourthJuror, any
                 const newJurors = [fourthJuror, secondJuror, thirdJuror]
                 const newLockedAmounts = [MIN_ACTIVE_AMOUNT, DRAFT_LOCK_AMOUNT, DRAFT_LOCK_AMOUNT.mul(bn(6))]
                 const expectedTotalActiveJurors = (await registry.totalActiveJurors()).sub(bn(1))
+
+                console.log((await registry.activeBalanceOfAt(fourthJuror, bn(0))).toString())
+                console.log((await registry.activeBalanceOfAt(fourthJuror, bn(1))).toString())
+                console.log((await registry.activeBalanceOfAt(fourthJuror, bn(2))).toString())
+                console.log((await registry.activeBalanceOfAt(fourthJuror, bn(3))).toString())
+                console.log((await registry.activeBalanceOfAt(fourthJuror, bn(4))).toString())
+
                 const receipt = await disputeManager.slashOrUnlock(newJurors, newLockedAmounts, rewardedJurors)
+
+                console.log((await registry.activeBalanceOfAt(fourthJuror, bn(0))).toString())
+                console.log((await registry.activeBalanceOfAt(fourthJuror, bn(1))).toString())
+                console.log((await registry.activeBalanceOfAt(fourthJuror, bn(2))).toString())
+                console.log((await registry.activeBalanceOfAt(fourthJuror, bn(3))).toString())
+                console.log((await registry.activeBalanceOfAt(fourthJuror, bn(4))).toString())
+
                 assertBn(await registry.totalActiveJurors(), expectedTotalActiveJurors, 'Incorrect total active jurors')
               })
             })

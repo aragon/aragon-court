@@ -15,9 +15,13 @@ contract CRVoting is Controlled, ICRVoting {
     string private constant ERROR_VOTE_DOES_NOT_EXIST = "CRV_VOTE_DOES_NOT_EXIST";
     string private constant ERROR_VOTE_ALREADY_COMMITTED = "CRV_VOTE_ALREADY_COMMITTED";
     string private constant ERROR_VOTE_ALREADY_REVEALED = "CRV_VOTE_ALREADY_REVEALED";
+    string private constant ERROR_SENDER_NOT_REPRESENTATIVE = "CRV_SENDER_NOT_REPRESENTATIVE";
     string private constant ERROR_INVALID_OUTCOME = "CRV_INVALID_OUTCOME";
     string private constant ERROR_INVALID_OUTCOMES_AMOUNT = "CRV_INVALID_OUTCOMES_AMOUNT";
     string private constant ERROR_INVALID_COMMITMENT_SALT = "CRV_INVALID_COMMITMENT_SALT";
+    string private constant ERROR_INVALID_VOTERS_LENGTH = "CRV_INVALID_VOTERS_LENGTH";
+    string private constant ERROR_INVALID_COMMITMENTS_LENGTH = "CRV_INVALID_COMMITMENTS_LENGTH";
+    string private constant ERROR_INVALID_REPRESENTATIVES_LENGTH = "CRV_INVALID_REPRESENTATIVES_LEN";
 
     // Outcome nr. 0 is used to denote a missing vote (default)
     uint8 internal constant OUTCOME_MISSING = uint8(0);
@@ -44,11 +48,14 @@ contract CRVoting is Controlled, ICRVoting {
 
     // Vote records indexed by their ID
     mapping (uint256 => Vote) internal voteRecords;
+    // Representatives indexed by principals
+    mapping (address => mapping (address => bool)) representatives;
 
     event VotingCreated(uint256 indexed voteId, uint8 possibleOutcomes);
-    event VoteCommitted(uint256 indexed voteId, address indexed voter, bytes32 commitment);
+    event VoteCommitted(uint256 indexed voteId, address indexed voter, bytes32 commitment, address sender);
     event VoteRevealed(uint256 indexed voteId, address indexed voter, uint8 outcome, address revealer);
     event VoteLeaked(uint256 indexed voteId, address indexed voter, uint8 outcome, address leaker);
+    event RepresentativeChanged(address indexed voter, address indexed representative, bool allowed);
 
     /**
     * @dev Ensure a certain vote exists
@@ -86,17 +93,54 @@ contract CRVoting is Controlled, ICRVoting {
     }
 
     /**
+    * @notice Set a list of representatives for sender
+    * @param _representatives List of addresses to be configured for the sender
+    * @param _allowed Whether each representative in the list is allowed
+    */
+    function setRepresentatives(address[] calldata _representatives, bool[] calldata _allowed) external {
+        require(_representatives.length == _allowed.length, ERROR_INVALID_REPRESENTATIVES_LENGTH);
+
+        for (uint256 i = 0; i < _representatives.length; i++) {
+            representatives[msg.sender][_representatives[i]] = _allowed[i];
+            emit RepresentativeChanged(msg.sender, _representatives[i], _allowed[i]);
+        }
+    }
+
+    /**
     * @notice Commit a vote for vote #`_voteId`
     * @param _voteId ID of the vote instance to commit a vote to
     * @param _commitment Hashed outcome to be stored for future reveal
     */
     function commit(uint256 _voteId, bytes32 _commitment) external voteExists(_voteId) {
-        CastVote storage castVote = voteRecords[_voteId].votes[msg.sender];
-        require(castVote.commitment == bytes32(0), ERROR_VOTE_ALREADY_COMMITTED);
-        _ensureVoterCanCommit(_voteId, msg.sender);
+        _commitFor(_voteId, msg.sender, _commitment);
+    }
 
-        castVote.commitment = _commitment;
-        emit VoteCommitted(_voteId, msg.sender, _commitment);
+    /**
+    * @notice Commit a vote on behalf of `_voter` for vote #`_voteId`
+    * @param _voteId ID of the vote instance to commit a vote to
+    * @param _voter Address of the voter to commit a vote for
+    * @param _commitment Hashed outcome to be stored for future reveal
+    */
+    function commitFor(uint256 _voteId, address _voter, bytes32 _commitment) external voteExists(_voteId) {
+        require(_isRepresentativeOf(_voter, msg.sender), ERROR_SENDER_NOT_REPRESENTATIVE);
+        _commitFor(_voteId, _voter, _commitment);
+    }
+
+    /**
+    * @notice Commit multiple votes
+    * @param _voteIds List of IDs of the vote instances to commit a vote to
+    * @param _voters List of addresses of the voters to commit a vote for
+    * @param _commitments List of hashed outcomes to be stored for future reveals
+    */
+    function commitFor(uint256[] calldata _voteIds, address[] calldata _voters, bytes32[] calldata _commitments) external {
+        require(_voteIds.length == _voters.length, ERROR_INVALID_VOTERS_LENGTH);
+        require(_voteIds.length == _commitments.length, ERROR_INVALID_COMMITMENTS_LENGTH);
+
+        for (uint256 i = 0; i < _voteIds.length; i++) {
+            require(_existsVote(voteRecords[_voteIds[i]]), ERROR_VOTE_DOES_NOT_EXIST);
+            require(_isRepresentativeOf(_voters[i], msg.sender), ERROR_SENDER_NOT_REPRESENTATIVE);
+            _commitFor(_voteIds[i], _voters[i], _commitments[i]);
+        }
     }
 
     /**
@@ -238,6 +282,21 @@ contract CRVoting is Controlled, ICRVoting {
     }
 
     /**
+    * @dev Commit a vote on behalf of `_voter` for vote #`_voteId`
+    * @param _voteId ID of the vote instance to commit a vote to
+    * @param _voter Address of the voter to commit a vote for
+    * @param _commitment Hashed outcome to be stored for future reveal
+    */
+    function _commitFor(uint256 _voteId, address _voter, bytes32 _commitment) internal {
+        CastVote storage castVote = voteRecords[_voteId].votes[_voter];
+        require(castVote.commitment == bytes32(0), ERROR_VOTE_ALREADY_COMMITTED);
+        _ensureVoterCanCommit(_voteId, _voter);
+
+        castVote.commitment = _commitment;
+        emit VoteCommitted(_voteId, _voter, _commitment, msg.sender);
+    }
+
+    /**
     * @dev Internal function to ensure votes can be committed for a vote
     * @param _voteId ID of the vote instance to be checked
     */
@@ -299,6 +358,16 @@ contract CRVoting is Controlled, ICRVoting {
     */
     function _existsVote(Vote storage _vote) internal view returns (bool) {
         return _vote.maxAllowedOutcome != OUTCOME_MISSING;
+    }
+
+    /**
+    * @dev Tell if a representative currently represents another voter
+    * @param _voter Address of the principal being queried
+    * @param _representative Address of the representative being queried
+    * @return True if the representative currently represents the voter
+    */
+    function _isRepresentativeOf(address _voter, address _representative) internal view returns (bool) {
+        return representatives[_voter][_representative] || _voter == _representative;
     }
 
     /**

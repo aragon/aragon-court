@@ -40,6 +40,7 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
     string private constant ERROR_TOTAL_ACTIVE_BALANCE_TOO_HIGH = "JR_TOTAL_ACTIVE_BALANCE_TOO_HIGH";
     string private constant ERROR_TOTAL_ACTIVE_BALANCE_EXCEEDED = "JR_TOTAL_ACTIVE_BALANCE_EXCEEDED";
     string private constant ERROR_WITHDRAWALS_LOCK = "JR_WITHDRAWALS_LOCK";
+    string private constant ERROR_SENDER_NOT_VERIFIED = "JR_SENDER_NOT_VERIFIED";
 
     // Address that will be used to burn juror tokens
     address internal constant BURN_ACCOUNT = address(0x000000000000000000000000000000000000dEaD);
@@ -148,6 +149,7 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
     * @param _amount Amount of juror tokens to be activated for the next term
     */
     function activate(uint256 _amount) external {
+        require(_brightIdRegister().isVerified(msg.sender), ERROR_SENDER_NOT_VERIFIED);
         _activateTokens(_jurorUniqueId(msg.sender), _amount, msg.sender);
     }
 
@@ -156,9 +158,12 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
     * @param _amount Amount of juror tokens to be deactivated for the next term
     */
     function deactivate(uint256 _amount) external {
+        require(_brightIdRegister().isVerified(msg.sender), ERROR_SENDER_NOT_VERIFIED);
         uint64 termId = _ensureCurrentTerm();
+
         address jurorUniqueAddress = _jurorUniqueId(msg.sender);
         Juror storage juror = jurorsByAddress[jurorUniqueAddress];
+
         uint256 unlockedActiveBalance = _lastUnlockedActiveBalanceOf(juror);
         uint256 amountToDeactivate = _amount == 0 ? unlockedActiveBalance : _amount;
         require(amountToDeactivate > 0, ERROR_INVALID_ZERO_AMOUNT);
@@ -512,8 +517,8 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
 
     /**
     * @dev Tell the max balance a juror can currently activate, calculated using a sliding scale of a percent of the
-    * @param _juror Address of the juror querying the unlocked balance of
-    * @return Amount of active tokens of a juror that are not locked due to ongoing disputes
+    * @param _termId The term to use the config from, note the output changes dependant on the juror tokens total supply
+    * @return Max amount of tokens a juror can activate at this time
     */
     function maxActiveBalance(uint64 _termId) public view returns (uint256) {
         uint256 jurorsTokenTotalSupply = jurorsToken.totalSupply();
@@ -717,6 +722,7 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
     */
     function _stake(address _from, address _juror, uint256 _amount, bytes memory _data) internal {
         require(_amount > 0, ERROR_INVALID_ZERO_AMOUNT);
+        require(_brightIdRegister().isVerified(_from), ERROR_SENDER_NOT_VERIFIED);
         _updateAvailableBalanceOf(_juror, _amount, true);
 
         // Activate tokens if it was requested by the sender. Note that there's no need to check
@@ -737,6 +743,7 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
     */
     function _unstake(address _from, address _juror, uint256 _amount, bytes memory _data) internal {
         require(_amount > 0, ERROR_INVALID_ZERO_AMOUNT);
+        require(_brightIdRegister().isVerified(_from), ERROR_SENDER_NOT_VERIFIED);
 
         // Try to process a deactivation request for the current term if there is one. Note that we don't need to ensure
         // the current term this time since deactivation requests always work with future terms, which means that if

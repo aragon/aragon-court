@@ -878,7 +878,7 @@ contract('JurorsRegistry', ([_, juror, jurorUniqueAddress, juror2]) => {
         await ANJ.approveAndCall(registry.address, jurorActiveBalance, ACTIVATE_DATA, { from: juror })
         const maxActiveBalanceAfterStake = await registry.maxActiveBalance(termId)
 
-        const juror2ActiveBalance = await maxActiveBalanceAtTerm(termId)
+        const juror2ActiveBalance = await maxActiveBalanceAtTerm(termId) // TODO: Test removing this. Should be the same as above check
         await ANJ.approveAndCall(registry.address, juror2ActiveBalance, ACTIVATE_DATA, { from: juror2 })
         assertBn(await registry.maxActiveBalance(termId), maxActiveBalanceAfterStake, 'Incorrect max active balance after stake')
 

@@ -41,16 +41,20 @@ module.exports = (web3, artifacts) => {
     }
 
     async registerUser(userUniqueAddress) {
-      const addresses = [userUniqueAddress]
-      const timestamp = await this.brightIdRegister.getTimestampPublic()
-      const sig = this.getVerificationsSignature(addresses, timestamp)
-      await this.brightIdRegister.register(BRIGHT_ID_CONTEXT, addresses, timestamp, sig.v, sig.r, sig.s, ZERO_ADDRESS, '0x0', { from: userUniqueAddress })
+      await this.registerUserWithData(userUniqueAddress, ZERO_ADDRESS, '0x0')
     }
 
     async registerUsers(usersUniqueAddresses) {
       for (const userUniqueAddress of usersUniqueAddresses) {
         await this.registerUser(userUniqueAddress)
       }
+    }
+
+    async registerUserWithData(userUniqueAddress, contractAddress, data) {
+      const addresses = [userUniqueAddress]
+      const timestamp = await this.brightIdRegister.getTimestampPublic()
+      const sig = this.getVerificationsSignature(addresses, timestamp)
+      await this.brightIdRegister.register(BRIGHT_ID_CONTEXT, addresses, timestamp, sig.v, sig.r, sig.s, contractAddress, data, { from: userUniqueAddress })
     }
 
     async registerUserWithMultipleAddresses(userUniqueAddress, userSecondAddress) {
@@ -64,6 +68,10 @@ module.exports = (web3, artifacts) => {
       for (const userAddresses of usersAddresses) {
         await this.registerUserWithMultipleAddresses(userAddresses[0], userAddresses[1])
       }
+    }
+
+    async expireVerifiedUsers() {
+      await this.brightIdRegister.mockIncreaseTime(REGISTRATION_PERIOD)
     }
 
     async _getAccount(index) {

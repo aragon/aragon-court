@@ -283,7 +283,7 @@ contract('JurorsRegistry', ([_, juror, jurorUniqueAddress, juror2]) => {
           })
         })
 
-        context.only('when the juror uses an unverified previous address', () => {
+        context('when the juror uses an unverified previous address', () => {
           it('reverts', async () => {
             await assertRevert(registry.activate(MIN_ACTIVE_AMOUNT, { from: jurorUniqueAddress }), 'JR_SENDER_NOT_VERIFIED')
           })

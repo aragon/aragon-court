@@ -57,16 +57,6 @@ contract('JurorsRegistry', ([_, juror, jurorUniqueAddress, juror2]) => {
     return await maxActiveBalanceAtTerm(termId)
   }
 
-  before('create base contracts', async () => {
-    // buildHelperClass = buildHelper()
-    // controller = await buildHelperClass.deploy({
-    //   minActiveBalance: MIN_ACTIVE_AMOUNT, minMaxPctTotalSupply: MIN_MAX_PCT_TOTAL_SUPPLY,
-    //   maxMaxPctTotalSupply: MAX_MAX_PCT_TOTAL_SUPPLY, juror
-    // })
-    // disputeManager = await DisputeManager.new(controller.address)
-    // await controller.setDisputeManager(disputeManager.address)
-  })
-
   beforeEach('create jurors registry module', async () => {
     buildHelperClass = buildHelper()
     controller = await buildHelperClass.deploy({
@@ -290,6 +280,12 @@ contract('JurorsRegistry', ([_, juror, jurorUniqueAddress, juror2]) => {
             await ANJ.approveAndCall(registry.address, amountToStake, '0x', { from })
 
             await assertRevert(registry.activate(amountToActivate, { from }), REGISTRY_ERRORS.TOTAL_ACTIVE_BALANCE_EXCEEDED)
+          })
+        })
+
+        context.only('when the juror uses an unverified previous address', () => {
+          it('reverts', async () => {
+            await assertRevert(registry.activate(MIN_ACTIVE_AMOUNT, { from: jurorUniqueAddress }), 'JR_SENDER_NOT_VERIFIED')
           })
         })
       })
@@ -710,6 +706,12 @@ contract('JurorsRegistry', ([_, juror, jurorUniqueAddress, juror2]) => {
             const amount = activeBalance
 
             itHandlesDeactivationRequestFor(amount)
+          })
+
+          context('when the juror uses an unverified previous address', () => {
+            it('reverts', async () => {
+              await assertRevert(registry.deactivate(MIN_ACTIVE_AMOUNT, { from: jurorUniqueAddress }), 'JR_SENDER_NOT_VERIFIED')
+            })
           })
         })
 

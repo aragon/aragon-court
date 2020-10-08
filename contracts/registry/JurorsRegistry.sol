@@ -183,6 +183,7 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
     * @param _data Optional data that can be used to request the activation of the transferred tokens
     */
     function stake(uint256 _amount, bytes calldata _data) external {
+        require(_brightIdRegister().isVerified(msg.sender), ERROR_SENDER_NOT_VERIFIED);
         _stake(msg.sender, _jurorUniqueId(msg.sender), _amount, _data);
     }
 
@@ -202,6 +203,7 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
     * @param _data Optional data is never used by this function, only logged
     */
     function unstake(uint256 _amount, bytes calldata _data) external {
+        require(_brightIdRegister().isVerified(msg.sender), ERROR_SENDER_NOT_VERIFIED);
         _unstake(msg.sender, _jurorUniqueId(msg.sender), _amount, _data);
     }
 
@@ -214,6 +216,7 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
     */
     function receiveApproval(address _from, uint256 _amount, address _token, bytes calldata _data) external {
         require(msg.sender == _token && _token == address(jurorsToken), ERROR_TOKEN_APPROVE_NOT_ALLOWED);
+        require(_brightIdRegister().isVerified(_from), ERROR_SENDER_NOT_VERIFIED);
         _stake(_from, _jurorUniqueId(_from), _amount, _data);
     }
 
@@ -722,7 +725,6 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
     */
     function _stake(address _from, address _juror, uint256 _amount, bytes memory _data) internal {
         require(_amount > 0, ERROR_INVALID_ZERO_AMOUNT);
-        require(_brightIdRegister().isVerified(_from), ERROR_SENDER_NOT_VERIFIED);
         _updateAvailableBalanceOf(_juror, _amount, true);
 
         // Activate tokens if it was requested by the sender. Note that there's no need to check
@@ -743,7 +745,6 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
     */
     function _unstake(address _from, address _juror, uint256 _amount, bytes memory _data) internal {
         require(_amount > 0, ERROR_INVALID_ZERO_AMOUNT);
-        require(_brightIdRegister().isVerified(_from), ERROR_SENDER_NOT_VERIFIED);
 
         // Try to process a deactivation request for the current term if there is one. Note that we don't need to ensure
         // the current term this time since deactivation requests always work with future terms, which means that if

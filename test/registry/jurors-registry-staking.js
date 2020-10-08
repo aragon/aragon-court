@@ -161,6 +161,12 @@ contract('JurorsRegistry', ([_, juror, juror2, jurorUniqueAddress, juror2UniqueA
 
           itHandlesStakesProperlyFor(amount, data)
         })
+
+        context('when the juror uses an unverified previous address', () => {
+          it('reverts', async () => {
+            await assertRevert(registry.stake(MIN_ACTIVE_AMOUNT, data, { from: jurorUniqueAddress }), 'JR_SENDER_NOT_VERIFIED')
+          })
+        })
       }
 
       context('when the juror has not staked before', () => {
@@ -312,6 +318,12 @@ contract('JurorsRegistry', ([_, juror, juror2, jurorUniqueAddress, juror2UniqueA
             it('reverts', async () => {
               await assertRevert(registry.stake(amount, data, { from }), REGISTRY_ERRORS.TOKEN_TRANSFER_FAILED)
             })
+          })
+        })
+
+        context('when the juror uses an unverified previous address', () => {
+          it('reverts', async () => {
+            await assertRevert(registry.stake(MIN_ACTIVE_AMOUNT, data, { from: jurorUniqueAddress }), 'JR_SENDER_NOT_VERIFIED')
           })
         })
       }
@@ -832,6 +844,13 @@ contract('JurorsRegistry', ([_, juror, juror2, jurorUniqueAddress, juror2UniqueA
 
             itHandlesStakesProperlyFor(amount, data)
           })
+
+          context('when juror uses an unverified previous address', () => {
+            it('reverts', async () => {
+              await ANJ.generateTokens(from, MIN_ACTIVE_AMOUNT)
+              await assertRevert(ANJ.approveAndCall(registry.address, MIN_ACTIVE_AMOUNT, '0x', { from: jurorUniqueAddress }), 'JR_SENDER_NOT_VERIFIED')
+            })
+          })
         }
 
         context('when the juror has not staked before', () => {
@@ -1152,6 +1171,12 @@ contract('JurorsRegistry', ([_, juror, juror2, jurorUniqueAddress, juror2UniqueA
 
           it('reverts', async () => {
             await assertRevert(registry.unstake(amount, data, { from }), REGISTRY_ERRORS.NOT_ENOUGH_AVAILABLE_BALANCE)
+          })
+        })
+
+        context('when the juror uses and unverified previous address', async() => {
+          it('reverts', async () => {
+            await assertRevert(registry.unstake(MIN_ACTIVE_AMOUNT, data, { from: jurorUniqueAddress }), 'JR_SENDER_NOT_VERIFIED')
           })
         })
       })

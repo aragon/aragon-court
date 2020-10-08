@@ -26,7 +26,6 @@ module.exports = artifacts => {
       minActiveBalance: config.minActiveBalance.add(bigExp(iteration * 100, 18)),
       minMaxPctTotalSupply: config.minMaxPctTotalSupply.add(bigExp(1, 15)),
       maxMaxPctTotalSupply: bigExp(100, 16),
-      jurorsMinPctApplied: config.jurorsMinPctApplied.add(bn(iteration))
     }
   }
 
@@ -50,7 +49,6 @@ module.exports = artifacts => {
     assertBn(actualConfig.minActiveBalance, expectedConfig.minActiveBalance, 'min active balance does not match')
     assertBn(actualConfig.minMaxPctTotalSupply, expectedConfig.minMaxPctTotalSupply, 'min max pct total supply active balance does not match')
     assertBn(actualConfig.maxMaxPctTotalSupply, expectedConfig.maxMaxPctTotalSupply, 'max max pct total supply active balance does not match')
-    assertBn(actualConfig.jurorsMinPctApplied, expectedConfig.jurorsMinPctApplied, 'jurors min pct applied does not match')
   }
 
   return {

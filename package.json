@@ -16,7 +16,8 @@
     "test:controller": "buidler test test/court/controller/*",
     "test:subscriptions": "buidler test test/subscriptions/*",
     "test:disputes": "buidler test test/disputes/*",
-    "test:registry": "buidler test test/registry/*"
+    "test:registry": "buidler test test/registry/*",
+    "test:voting": "buidler test test/voting/*"
   },
   "dependencies": {},
   "devDependencies": {

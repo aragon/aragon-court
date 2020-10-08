@@ -31,7 +31,6 @@ contract('Controller', ([_, configGovernor, someone, drafter, appealMaker, appea
   const minActiveBalance = bigExp(200, 18)
   const minMaxPctTotalSupply = bigExp(2, 15) // 0.2%
   const maxMaxPctTotalSupply = bigExp(2, 16) // 2%
-  const jurorsMinPctApplied = bn(10000)
 
   const checkConfig = async (termId, expectedConfig) => assertConfig(await courtHelper.getConfig(termId), expectedConfig)
 
@@ -57,8 +56,7 @@ contract('Controller', ([_, configGovernor, someone, drafter, appealMaker, appea
       appealConfirmCollateralFactor,
       minActiveBalance,
       minMaxPctTotalSupply,
-      maxMaxPctTotalSupply,
-      jurorsMinPctApplied,
+      maxMaxPctTotalSupply
     }
   })
 
@@ -148,10 +146,6 @@ contract('Controller', ([_, configGovernor, someone, drafter, appealMaker, appea
 
       it('cannot use a min max pct total supply greater than a max max pct total supply', async () => {
         await assertRevert(courtHelper.deploy({ minMaxPctTotalSupply: bn(1), maxMaxPctTotalSupply: bn(0) }), "CONF_MIN_MORE_THAN_MAX_ACTIVE_PCT")
-      })
-
-      it('cannot use a jurors min pct applied amount of 0', async () => {
-        await assertRevert(courtHelper.deploy({ jurorsMinPctApplied: bn(0)}), "CONF_JURORS_FOR_MIN_ACTIVE_ZERO")
       })
     })
   })
@@ -327,11 +321,6 @@ contract('Controller', ([_, configGovernor, someone, drafter, appealMaker, appea
               newConfig.minMaxPctTotalSupply = bn(1)
               newConfig.maxMaxPctTotalSupply = bn(0)
               await assertRevert(courtHelper.setConfig(configChangeTermId, newConfig), "CONF_MIN_MORE_THAN_MAX_ACTIVE_PCT")
-            })
-
-            it('cannot use a jurors min pct applied amount of 0', async () => {
-              newConfig.jurorsMinPctApplied = bn(0)
-              await assertRevert(courtHelper.setConfig(configChangeTermId, newConfig), "CONF_JURORS_FOR_MIN_ACTIVE_ZERO")
             })
           })
         })

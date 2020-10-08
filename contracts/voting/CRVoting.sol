@@ -18,6 +18,7 @@ contract CRVoting is Controlled, ICRVoting {
     string private constant ERROR_INVALID_OUTCOME = "CRV_INVALID_OUTCOME";
     string private constant ERROR_INVALID_OUTCOMES_AMOUNT = "CRV_INVALID_OUTCOMES_AMOUNT";
     string private constant ERROR_INVALID_COMMITMENT_SALT = "CRV_INVALID_COMMITMENT_SALT";
+    string private constant ERROR_SENDER_NOT_VERIFIED = "CRV_SENDER_NOT_VERIFIED";
 
     // Outcome nr. 0 is used to denote a missing vote (default)
     uint8 internal constant OUTCOME_MISSING = uint8(0);
@@ -91,12 +92,15 @@ contract CRVoting is Controlled, ICRVoting {
     * @param _commitment Hashed outcome to be stored for future reveal
     */
     function commit(uint256 _voteId, bytes32 _commitment) external voteExists(_voteId) {
-        CastVote storage castVote = voteRecords[_voteId].votes[msg.sender];
+        require(_brightIdRegister().isVerified(msg.sender), ERROR_SENDER_NOT_VERIFIED);
+
+        address voterUniqueId = _voterUniqueId(msg.sender);
+        CastVote storage castVote = voteRecords[_voteId].votes[voterUniqueId];
         require(castVote.commitment == bytes32(0), ERROR_VOTE_ALREADY_COMMITTED);
-        _ensureVoterCanCommit(_voteId, msg.sender);
+        _ensureVoterCanCommit(_voteId, voterUniqueId);
 
         castVote.commitment = _commitment;
-        emit VoteCommitted(_voteId, msg.sender, _commitment);
+        emit VoteCommitted(_voteId, voterUniqueId, _commitment);
     }
 
     /**
@@ -107,14 +111,15 @@ contract CRVoting is Controlled, ICRVoting {
     * @param _salt Salt to decrypt and validate the committed vote of the voter
     */
     function leak(uint256 _voteId, address _voter, uint8 _outcome, bytes32 _salt) external voteExists(_voteId) {
-        CastVote storage castVote = voteRecords[_voteId].votes[_voter];
+        address voterUniqueId = _voterUniqueId(_voter);
+        CastVote storage castVote = voteRecords[_voteId].votes[voterUniqueId];
         _checkValidSalt(castVote, _outcome, _salt);
         _ensureCanCommit(_voteId);
 
         // There is no need to check if an outcome is valid if it was leaked.
         // Additionally, leaked votes are not considered for the tally.
         castVote.outcome = OUTCOME_LEAKED;
-        emit VoteLeaked(_voteId, _voter, _outcome, msg.sender);
+        emit VoteLeaked(_voteId, voterUniqueId, _outcome, msg.sender);
     }
 
     /**
@@ -125,16 +130,17 @@ contract CRVoting is Controlled, ICRVoting {
     * @param _salt Salt to decrypt and validate the committed vote of the voter
     */
     function reveal(uint256 _voteId, address _voter, uint8 _outcome, bytes32 _salt) external voteExists(_voteId) {
+        address voterUniqueId = _voterUniqueId(_voter);
         Vote storage vote = voteRecords[_voteId];
-        CastVote storage castVote = vote.votes[_voter];
+        CastVote storage castVote = vote.votes[voterUniqueId];
         _checkValidSalt(castVote, _outcome, _salt);
         require(_isValidOutcome(vote, _outcome), ERROR_INVALID_OUTCOME);
 
-        uint256 weight = _ensureVoterCanReveal(_voteId, _voter);
+        uint256 weight = _ensureVoterCanReveal(_voteId, voterUniqueId);
 
         castVote.outcome = _outcome;
         _updateTally(vote, _outcome, weight);
-        emit VoteRevealed(_voteId, _voter, _outcome, msg.sender);
+        emit VoteRevealed(_voteId, voterUniqueId, _outcome, msg.sender);
     }
 
     /**
@@ -189,8 +195,9 @@ contract CRVoting is Controlled, ICRVoting {
     * @return Outcome of the voter for the given vote instance
     */
     function getVoterOutcome(uint256 _voteId, address _voter) external view voteExists(_voteId) returns (uint8) {
+        address voterUniqueId = _voterUniqueId(_voter);
         Vote storage vote = voteRecords[_voteId];
-        return vote.votes[_voter].outcome;
+        return vote.votes[voterUniqueId].outcome;
     }
 
     /**
@@ -201,8 +208,9 @@ contract CRVoting is Controlled, ICRVoting {
     * @return True if the given voter voted in favor of the given outcome, false otherwise
     */
     function hasVotedInFavorOf(uint256 _voteId, uint8 _outcome, address _voter) external view voteExists(_voteId) returns (bool) {
+        address voterUniqueId = _voterUniqueId(_voter);
         Vote storage vote = voteRecords[_voteId];
-        return vote.votes[_voter].outcome == _outcome;
+        return vote.votes[voterUniqueId].outcome == _outcome;
     }
 
     /**
@@ -222,7 +230,8 @@ contract CRVoting is Controlled, ICRVoting {
 
         // If there was a winning outcome, filter those voters that voted in favor of the given outcome.
         for (uint256 i = 0; i < _voters.length; i++) {
-            votersInFavor[i] = _outcome == vote.votes[_voters[i]].outcome;
+            address voterUniqueId = _voterUniqueId(_voters[i]);
+            votersInFavor[i] = _outcome == vote.votes[voterUniqueId].outcome;
         }
         return votersInFavor;
     }
@@ -334,5 +343,12 @@ contract CRVoting is Controlled, ICRVoting {
         if (newOutcomeTally > winningOutcomeTally || (newOutcomeTally == winningOutcomeTally && _outcome < winningOutcome)) {
             _vote.winningOutcome = _outcome;
         }
+    }
+
+    /**
+    * @dev Function to convert a voters sender address to their unique voter address
+    */
+    function _voterUniqueId(address _voterSenderAddress) internal view returns (address) {
+        return _brightIdRegister().uniqueUserId(_voterSenderAddress);
     }
 }

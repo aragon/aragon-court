@@ -235,10 +235,9 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
     * @param _amount Amount of tokens to be added to the available balance of a juror
     */
     function assignTokens(address _juror, uint256 _amount) external onlyDisputeManager {
-        address jurorUniqueId = _jurorUniqueId(_juror); // TODO: Can we remove
         if (_amount > 0) {
-            _updateAvailableBalanceOf(jurorUniqueId, _amount, true);
-            emit JurorTokensAssigned(jurorUniqueId, _amount);
+            _updateAvailableBalanceOf(_juror, _amount, true);
+            emit JurorTokensAssigned(_juror, _amount);
         }
     }
 
@@ -339,7 +338,7 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
 
         for (uint256 i = 0; i < _jurors.length; i++) {
             uint256 lockedAmount = _lockedAmounts[i];
-            address jurorAddress = _jurorUniqueId(_jurors[i]);  // TODO: Is converting to unique Id necessary?
+            address jurorAddress = _jurors[i];
             Juror storage juror = jurorsByAddress[jurorAddress];
             juror.lockedBalance = juror.lockedBalance.sub(lockedAmount);
 
@@ -372,8 +371,7 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
         }
 
         uint64 nextTermId = _termId + 1;
-        address jurorUniqueId = _jurorUniqueId(_juror); // TODO: Is this necessary?
-        Juror storage juror = jurorsByAddress[jurorUniqueId];
+        Juror storage juror = jurorsByAddress[_juror];
         uint256 unlockedActiveBalance = _lastUnlockedActiveBalanceOf(juror);
         uint256 nextTermDeactivationRequestAmount = _deactivationRequestedAmountForTerm(juror, nextTermId);
 
@@ -390,11 +388,11 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
         if (_amount > unlockedActiveBalance) {
             // No need for SafeMath: amounts were already checked above
             uint256 amountToReduce = _amount - unlockedActiveBalance;
-            _reduceDeactivationRequest(jurorUniqueId, amountToReduce, _termId);
+            _reduceDeactivationRequest(_juror, amountToReduce, _termId);
         }
 
         tree.update(juror.id, nextTermId, _amount, false);
-        emit JurorTokensCollected(jurorUniqueId, _amount, nextTermId);
+        emit JurorTokensCollected(_juror, _amount, nextTermId);
         return true;
     }
 
@@ -405,8 +403,7 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
     * @param _termId Term ID until which the juror's withdrawals will be locked
     */
     function lockWithdrawals(address _juror, uint64 _termId) external onlyDisputeManager {
-        address jurorUniqueId = _jurorUniqueId(_juror); // TODO: Is this necessary?
-        Juror storage juror = jurorsByAddress[jurorUniqueId];
+        Juror storage juror = jurorsByAddress[_juror];
         juror.withdrawalsLockTermId = _termId;
     }
 

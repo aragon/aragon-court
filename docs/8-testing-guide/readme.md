@@ -136,7 +136,7 @@ You can check your current stake as a juror in the dashboards linked above in se
 ## 8.5. Creating a dispute
 
 As you may know, disputes can only be submitted to Aragon Court through smart contracts that implement a specific interface to support being ruled by the court itself.
-This is specified by the [`IArbitrable`](../../contracts/arbitration/IArbitrable.sol) interface.
+This is specified by the [`IArbitrable`](../../packages/ethereum/contracts/arbitration/IArbitrable.sol) interface.
 
 Thus, the first thing we should do is to deploy an Arbitrable contract. You can do this from the CLI running the following command:
 

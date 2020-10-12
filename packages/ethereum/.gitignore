@@ -1,0 +1,14 @@
+# See https://help.github.com/ignore-files/ for more about ignoring files.
+
+# production
+abi
+cache
+build
+artifacts
+
+# coverage
+coverage
+coverageEnv
+coverage.json
+allFiredEvents
+scTopics

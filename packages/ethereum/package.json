@@ -21,9 +21,6 @@
     "abi:extract": "buidler-extract --output abi/ --keys abi",
     "prepublishOnly": "yarn compile && yarn abi:extract -- --no-compile"
   },
-  "pre-push": [
-    "lint"
-  ],
   "dependencies": {},
   "devDependencies": {
     "@aragon/contract-helpers-test": "^0.1.0",
@@ -41,7 +38,6 @@
     "eslint-plugin-promise": "^4.0.1",
     "eslint-plugin-standard": "^4.0.0",
     "eslint-plugin-unused-imports": "^0.1.0",
-    "pre-push": "^0.1.1",
     "solidity-coverage": "^0.7.9",
     "solium": "^1.2.5",
     "web3": "^1.2.11",

@@ -1,0 +1,38 @@
+{
+  "name": "@aragon/protocol-subgraph",
+  "version": "0.0.1",
+  "scripts": {
+    "draw-schema": "./scripts/draw-schema.sh",
+    "build:graph": "./scripts/build-graph.sh",
+    "build:graph:rpc": "NETWORK=rpc npm run build:graph",
+    "build:graph:ropsten": "NETWORK=ropsten npm run build:graph",
+    "build:graph:staging": "NETWORK=staging npm run build:graph",
+    "build:graph:rinkeby": "NETWORK=rinkeby npm run build:graph",
+    "build:graph:mainnet": "NETWORK=mainnet npm run build:graph",
+    "build:manifest": "./scripts/build-manifest.sh",
+    "build:manifest:rpc": "NETWORK=rpc npm run build:manifest",
+    "build:manifest:ropsten": "NETWORK=ropsten npm run build:manifest",
+    "build:manifest:staging": "NETWORK=staging npm run build:manifest",
+    "build:manifest:rinkeby": "NETWORK=rinkeby npm run build:manifest",
+    "build:manifest:mainnet": "NETWORK=mainnet npm run build:manifest",
+    "codegen": "./scripts/codegen.sh",
+    "codegen:rpc": "NETWORK=rpc npm run codegen",
+    "codegen:ropsten": "NETWORK=ropsten npm run codegen",
+    "codegen:staging": "NETWORK=staging npm run codegen",
+    "codegen:rinkeby": "NETWORK=rinkeby npm run codegen",
+    "codegen:mainnet": "NETWORK=mainnet npm run codegen",
+    "deploy": "./scripts/deploy.sh",
+    "deploy:rpc": "NETWORK=rpc npm run deploy",
+    "deploy:ropsten": "NETWORK=ropsten npm run deploy",
+    "deploy:staging": "NETWORK=staging npm run deploy",
+    "deploy:rinkeby": "NETWORK=rinkeby npm run deploy",
+    "deploy:mainnet": "NETWORK=mainnet npm run deploy"
+  },
+  "devDependencies": {
+    "@aragon/court": "1.1.3",
+    "@aragon/minime": "1.0.0",
+    "@graphprotocol/graph-cli": "^0.18.0",
+    "@graphprotocol/graph-ts": "^0.18.0",
+    "graphqlviz": "^3.1.0"
+  }
+}

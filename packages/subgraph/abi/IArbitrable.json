@@ -1,0 +1,144 @@
+{
+  "abi": [
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "name": "arbitrator",
+          "type": "address"
+        },
+        {
+          "indexed": true,
+          "name": "disputeId",
+          "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "name": "ruling",
+          "type": "uint256"
+        }
+      ],
+      "name": "Ruled",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "name": "disputeId",
+          "type": "uint256"
+        },
+        {
+          "indexed": true,
+          "name": "submitter",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "name": "evidence",
+          "type": "bytes"
+        },
+        {
+          "indexed": false,
+          "name": "finished",
+          "type": "bool"
+        }
+      ],
+      "name": "EvidenceSubmitted",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "name": "arbitrator",
+          "type": "address"
+        },
+        {
+          "indexed": true,
+          "name": "disputeId",
+          "type": "uint256"
+        },
+        {
+          "indexed": true,
+          "name": "submitter",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "name": "evidence",
+          "type": "bytes"
+        },
+        {
+          "indexed": false,
+          "name": "finished",
+          "type": "bool"
+        }
+      ],
+      "name": "EvidenceSubmitted",
+      "type": "event"
+    },
+    {
+      "constant": false,
+      "inputs": [
+        {
+          "name": "_disputeId",
+          "type": "uint256"
+        },
+        {
+          "name": "_evidence",
+          "type": "bytes"
+        },
+        {
+          "name": "_finished",
+          "type": "bool"
+        }
+      ],
+      "name": "submitEvidence",
+      "outputs": [],
+      "payable": false,
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "constant": false,
+      "inputs": [
+        {
+          "name": "_disputeId",
+          "type": "uint256"
+        },
+        {
+          "name": "_ruling",
+          "type": "uint256"
+        }
+      ],
+      "name": "rule",
+      "outputs": [],
+      "payable": false,
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "constant": true,
+      "inputs": [
+        {
+          "name": "_interfaceId",
+          "type": "bytes4"
+        }
+      ],
+      "name": "supportsInterface",
+      "outputs": [
+        {
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "payable": false,
+      "stateMutability": "pure",
+      "type": "function"
+    }
+  ]
+}

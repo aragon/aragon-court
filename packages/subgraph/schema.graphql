@@ -1,0 +1,336 @@
+type CourtConfig @entity {
+  id: ID!
+  currentTerm: BigInt!
+  termDuration: BigInt!
+  feeToken: ERC20!
+  anjToken: ERC20
+  jurorFee: BigInt!
+  draftFee: BigInt!
+  settleFee: BigInt!
+  evidenceTerms: BigInt!
+  commitTerms: BigInt!
+  revealTerms: BigInt!
+  appealTerms: BigInt!
+  appealConfirmationTerms: BigInt!
+  penaltyPct: Int!
+  finalRoundReduction: Int!
+  firstRoundJurorsNumber: BigInt!
+  appealStepFactor: BigInt!
+  maxRegularAppealRounds: BigInt!
+  finalRoundLockTerms: BigInt!
+  appealCollateralFactor: BigInt!
+  appealConfirmCollateralFactor: BigInt!
+  minActiveBalance: BigInt!
+  fundsGovernor: Bytes
+  configGovernor: Bytes
+  modulesGovernor: Bytes
+  jurorsRegistry: JurorsRegistryModule @derivedFrom(field: "court")
+  subscriptions: SubscriptionModule @derivedFrom(field: "court")
+  modules: [CourtModule!] @derivedFrom(field: "court")
+  terms: [CourtTerm!] @derivedFrom(field: "court")
+  moduleAddresses: [String!]!
+}
+
+type CourtTerm @entity {
+  id: ID!
+  startTime: BigInt!
+  randomnessBN: BigInt!
+  randomness: Bytes
+  court: CourtConfig!
+  createdAt: BigInt!
+}
+
+type ERC20 @entity {
+  id: ID!
+  name: String!
+  symbol: String!
+  decimals: Int!
+}
+
+type CourtModule @entity {
+  id: ID!
+  type: CourtModuleType!
+  address: Bytes!
+  court: CourtConfig!
+}
+
+enum CourtModuleType {
+  DisputeManager
+  JurorsRegistry
+  Voting
+  Treasury
+  Subscriptions
+}
+
+type Dispute @entity {
+  id: ID!
+  subject: Arbitrable!
+  evidences: [Evidence!] @derivedFrom(field: "dispute")
+  createTermId: BigInt!
+  possibleRulings: Int!
+  finalRuling: Int!
+  lastRoundId: BigInt!
+  state: DisputeState!
+  settledPenalties: Boolean!
+  metadata: String!
+  rawMetadata: Bytes!
+  disputable: Disputable @derivedFrom(field: "dispute")
+  rounds: [AdjudicationRound!] @derivedFrom(field: "dispute")
+  jurors: [JurorDispute!] @derivedFrom(field: "dispute")
+  txHash: String!
+  createdAt: BigInt!
+  ruledAt: BigInt
+}
+
+type Disputable @entity {
+  id: ID!
+  dispute: Dispute!
+  title: String!
+  agreement: String!
+  actionId: BigInt!
+  challengeId: BigInt!
+  address: Bytes!
+  disputableActionId: BigInt!
+  defendant: Bytes!
+  plaintiff: Bytes!
+  organization: Bytes!
+  actionContext: String!
+  rawActionContext: Bytes!
+  challengeContext: String!
+  rawChallengeContext: Bytes!
+}
+
+enum DisputeState {
+  Evidence
+  Drafting
+  Adjudicating
+  Ruled
+}
+
+type Arbitrable @entity {
+  id: ID!
+  disputes: [Dispute!] @derivedFrom(field: "subject")
+}
+
+type Evidence @entity {
+  id: ID!
+  arbitrable: Arbitrable!
+  dispute: Dispute!
+  data: Bytes!
+  submitter: Bytes!
+  createdAt: BigInt!
+}
+
+type AdjudicationRound @entity {
+  id: ID!
+  number: BigInt!
+  dispute: Dispute!
+  state: AdjudicationState!
+  stateInt: Int!
+  draftTermId: BigInt!
+  draftedTermId: BigInt
+  jurorsNumber: BigInt!
+  settledPenalties: Boolean!
+  jurorFees: BigInt!
+  jurors: [JurorDraft!] @derivedFrom(field: "round")
+  delayedTerms: BigInt!
+  selectedJurors: BigInt!
+  coherentJurors: BigInt!
+  collectedTokens: BigInt!
+  appeal: Appeal @derivedFrom(field: "round")
+  vote: Vote
+  createdAt: BigInt!
+}
+
+enum AdjudicationState {
+  Invalid
+  Committing
+  Revealing
+  Appealing
+  ConfirmingAppeal
+  Ended
+}
+
+type Vote @entity {
+  id: ID!
+  winningOutcome: OutcomeType!
+  createdAt: BigInt!
+}
+
+enum OutcomeType {
+  Missing
+  Leaked
+  Refused
+  Against
+  InFavor
+}
+
+type Appeal @entity {
+  id: ID!
+  round: AdjudicationRound!
+  maker: Bytes!
+  appealedRuling: BigInt!
+  appealDeposit: BigInt!
+  taker: Bytes!
+  opposedRuling: BigInt!
+  confirmAppealDeposit: BigInt!
+  settled: Boolean!
+  settledAt: BigInt
+  confirmedAt: BigInt
+  createdAt: BigInt!
+}
+
+type Juror @entity {
+  id: ID!
+  treeId: BigInt!
+  activeBalance: BigInt!
+  lockedBalance: BigInt!
+  availableBalance: BigInt!
+  deactivationBalance: BigInt!
+  withdrawalsLockTermId: BigInt!
+  disputes: [JurorDispute!] @derivedFrom(field: "juror")
+  drafts: [JurorDraft!] @derivedFrom(field: "juror")
+  anjMovements: [ANJMovement!] @derivedFrom(field: "juror")
+  claimedSubscriptionFees: [JurorSubscriptionFee!] @derivedFrom(field: "juror")
+  createdAt: BigInt!
+}
+
+type JurorDispute @entity {
+  id: ID!
+  juror: Juror!
+  dispute: Dispute!
+}
+
+type JurorDraft @entity {
+  id: ID!
+  round: AdjudicationRound!
+  juror: Juror!
+  weight: BigInt!
+  locked: BigInt!
+  rewarded: Boolean!
+  rewardedAt: BigInt
+  commitment: Bytes
+  commitmentDate: BigInt
+  revealDate: BigInt
+  outcome: Int
+  leaker: Bytes
+  createdAt: BigInt!
+}
+
+type ANJMovement @entity {
+  id: ID!
+  juror: Juror!
+  type: ANJMovementType!
+  amount: BigInt!
+  effectiveTermId: BigInt
+  createdAt: BigInt!
+}
+
+enum ANJMovementType {
+  Stake
+  Unstake
+  Activation
+  Deactivation
+  Lock
+  Unlock
+  Reward
+  Slash
+}
+
+type ANJBalance @entity {
+  id: ID!
+  owner: Bytes!
+  amount: BigInt!
+}
+
+type ANJTransfer @entity {
+  id: ID!
+  from: Bytes!
+  to: Bytes!
+  amount: BigInt!
+  createdAt: BigInt!
+}
+
+type FeeMovement @entity {
+  id: ID!
+  owner: Bytes!
+  type: FeeMovementType!
+  amount: BigInt!
+  createdAt: BigInt!
+}
+
+enum FeeMovementType {
+  Juror
+  Appeal
+  Subscriptions
+  Withdraw
+}
+
+type TreasuryBalance @entity {
+  id: ID!
+  owner: Bytes!
+  token: ERC20!
+  amount: BigInt!
+}
+
+type JurorsRegistryModule @entity {
+  id: ID!
+  court: CourtConfig!
+  totalStaked: BigInt!
+  totalActive: BigInt!
+  totalDeactivation: BigInt!
+}
+
+type SubscriptionModule @entity {
+  id: ID!
+  court: CourtConfig!
+  currentPeriod: BigInt!
+  feeToken: Bytes!
+  periodDuration: BigInt!
+  governorSharePct: BigInt!
+  periods: [SubscriptionPeriod!] @derivedFrom(field: "instance")
+  appFees: [AppFee!] @derivedFrom(field: "instance")
+}
+
+type SubscriptionPeriod @entity {
+  id: ID!
+  feeToken: Bytes!
+  collectedFees: BigInt!
+  balanceCheckpoint: BigInt!
+  totalActiveBalance: BigInt!
+  accumulatedGovernorFees: BigInt!
+  instance: SubscriptionModule!
+  jurorClaims: [JurorSubscriptionFee!] @derivedFrom(field: "period")
+  feeMovements: [SubscriptionFeeMovement!] @derivedFrom(field: "period")
+  createdAt: BigInt!
+}
+
+type JurorSubscriptionFee @entity {
+  id: ID!
+  juror: Juror!
+  period: SubscriptionPeriod!
+  amount: BigInt!
+}
+
+type SubscriptionFeeMovement @entity {
+  id: ID!
+  token: Bytes!
+  period: SubscriptionPeriod!
+  payer: Bytes!
+  amount: BigInt!
+  type: SubscriptionFeeMovementType!
+  appId: Bytes
+  data: Bytes
+  createdAt: BigInt!
+}
+
+enum SubscriptionFeeMovementType {
+  Donation
+  AppFee
+}
+
+type AppFee @entity {
+  id: ID!
+  amount: BigInt!
+  instance: SubscriptionModule!
+}

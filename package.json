@@ -6,9 +6,6 @@
   "license": "GPL-3.0",
   "dependencies": {},
   "devDependencies": {},
-  "scripts": {
-    "test:court": "yarn workspace @aragon/protocol-ethereum test:court"
-  },
   "workspaces": {
     "packages": [
       "packages/*"

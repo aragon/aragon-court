@@ -1,5 +1,5 @@
 {
-  "name": "@aragon/protocol-ethereum",
+  "name": "@aragon/protocol-evm",
   "version": "1.5.0",
   "description": "Aragon Protocol Ethereum contracts",
   "author": "Aragon Association <legal@aragon.org>",

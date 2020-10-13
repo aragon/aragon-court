@@ -1014,7 +1014,7 @@ contract('HexSumTree', () => {
           it('handles historic searches properly', async () => {
             await updateMany(key)
             await assertCheckpointValues(key)
-          })
+          }).timeout(70000)
         })
       })
     })
@@ -1035,6 +1035,6 @@ contract('HexSumTree', () => {
       }
 
       assertBn(await tree.total(), value * (INSERTS - REMOVES) * ITERATIONS, 'tree total does not match')
-    }).timeout(60000)
+    }).timeout(70000)
   })
 })

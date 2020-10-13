@@ -16,6 +16,16 @@
     "lint:js": "eslint ./test ./scripts ./migrations",
     "lint:solidity": "solium --dir ./contracts",
     "test": "buidler test",
+    "test:controller": "yarn test test/court/**/*.js test/court/*.js test/arbitration/*.js",
+    "test:disputes": "yarn test test/disputes/disputes-create.js test/disputes/disputes-evidence.js test/disputes/disputes-draft.js",
+    "test:appeals": "yarn test test/disputes/disputes-voting.js test/disputes/disputes-appeal.js test/disputes/disputes-confirm-appeal.js",
+    "test:settle-rounds": "yarn test test/disputes/disputes-settle-round.js",
+    "test:settle-appeals": "yarn test test/disputes/disputes-settle-appeal.js",
+    "test:registry": "yarn test test/registry/*.js",
+    "test:voting": "yarn test test/voting/*.js",
+    "test:subscriptions": "yarn test test/subscriptions/*.js",
+    "test:treasury": "yarn test test/treasury/court-treasury.js",
+    "test:lib": "yarn test test/lib/*.js",
     "test:gas": "REPORT_GAS=true yarn test --network localhost",
     "coverage": "buidler coverage --network coverage",
     "abi:extract": "buidler-extract --output abi/ --keys abi",
@@ -40,7 +50,7 @@
     "eslint-plugin-unused-imports": "^0.1.0",
     "solidity-coverage": "^0.7.9",
     "solium": "^1.2.5",
-    "web3": "^1.2.11",
+    "web3": "1.2.1",
     "web3-eth-abi": "1.0.0-beta.33"
   }
 }

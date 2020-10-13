@@ -135,7 +135,7 @@ contract('CRVoting', ([_, voter]) => {
       })
 
       context('when the voter has already voted', () => {
-        const commitment = hashVote(0)
+        const commitment = hashVote(bn(0))
 
         beforeEach('mock voter weight and commit', async () => {
           const weight = 10
@@ -151,7 +151,7 @@ contract('CRVoting', ([_, voter]) => {
 
         context('when the new commitment is different than the previous one', () => {
           it('reverts', async () => {
-            await assertRevert(voting.commit(voteId, hashVote(100), { from: voter }), VOTING_ERRORS.VOTE_ALREADY_COMMITTED)
+            await assertRevert(voting.commit(voteId, hashVote(bn(100)), { from: voter }), VOTING_ERRORS.VOTE_ALREADY_COMMITTED)
           })
         })
       })

@@ -1,7 +1,7 @@
-![Aragon Court](./docs/aragon-court.png)
+![Aragon Protocol](./docs/aragon-protocol.png)
 
-<img align="right" src="https://img.shields.io/travis/aragon/aragon-court/master.svg?style=for-the-badge">
-  <a href="https://travis-ci.com/aragon/aragon-court/"/>
+<img align="right" src="https://github.com/aragon/protocol/workflows/CI/badge.svg">
+  <a href="https://github.com/aragon/protocol/actions"/>
 </img>
 
 ## Project

@@ -35,7 +35,7 @@ module.exports = (web3, artifacts) => {
 
       const brightIdRegisterProxyAddress = await newApp(dao, 'brightid-register', brightIdRegisterBase.address, owner)
       this.brightIdRegister = await BrightIdRegister.at(brightIdRegisterProxyAddress)
-      await this.brightIdRegister.initialize(BRIGHT_ID_CONTEXT, owner, REGISTRATION_PERIOD, VERIFICATION_TIMESTAMP_VARIANCE)
+      await this.brightIdRegister.initialize(BRIGHT_ID_CONTEXT, [owner], REGISTRATION_PERIOD, VERIFICATION_TIMESTAMP_VARIANCE)
 
       return this.brightIdRegister
     }
@@ -54,14 +54,14 @@ module.exports = (web3, artifacts) => {
       const addresses = [userUniqueAddress]
       const timestamp = await this.brightIdRegister.getTimestampPublic()
       const sig = this.getVerificationsSignature(addresses, timestamp)
-      await this.brightIdRegister.register(BRIGHT_ID_CONTEXT, addresses, timestamp, sig.v, sig.r, sig.s, contractAddress, data, { from: userUniqueAddress })
+      await this.brightIdRegister.register(addresses, [timestamp], [sig.v], [sig.r], [sig.s], contractAddress, data, { from: userUniqueAddress })
     }
 
     async registerUserWithMultipleAddresses(userUniqueAddress, userSecondAddress) {
       const addresses = [userSecondAddress, userUniqueAddress] // Unique address used is the last in the array
       const timestamp = await this.brightIdRegister.getTimestampPublic()
       const sig = this.getVerificationsSignature(addresses, timestamp)
-      await this.brightIdRegister.register(BRIGHT_ID_CONTEXT, addresses, timestamp, sig.v, sig.r, sig.s, ZERO_ADDRESS, '0x0', { from: userSecondAddress })
+      await this.brightIdRegister.register(addresses, [timestamp], [sig.v], [sig.r], [sig.s], ZERO_ADDRESS, '0x0', { from: userSecondAddress })
     }
 
     async registerUsersWithMultipleAddresses(usersAddresses) {

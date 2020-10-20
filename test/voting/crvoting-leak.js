@@ -1,7 +1,6 @@
 const { bn } = require('../helpers/lib/numbers')
 const { assertBn } = require('../helpers/asserts/assertBn')
 const { buildHelper } = require('../helpers/wrappers/court')(web3, artifacts)
-const { buildBrightIdHelper } = require('../helpers/wrappers/brightid')(web3, artifacts)
 const { assertRevert } = require('../helpers/asserts/assertThrow')
 const { VOTING_ERRORS } = require('../helpers/utils/errors')
 const { VOTING_EVENTS } = require('../helpers/utils/events')
@@ -11,18 +10,13 @@ const { assertEvent, assertAmountOfEvents } = require('../helpers/asserts/assert
 const CRVoting = artifacts.require('CRVoting')
 const Court = artifacts.require('DisputeManagerMockForVoting')
 
-contract('CRVoting leak', ([_, voter, voterUniqueAddress, someone]) => {
+contract('CRVoting leak', ([_, voter, someone]) => {
   let controller, voting, disputeManager
 
   const POSSIBLE_OUTCOMES = 2
 
   beforeEach('create base contracts', async () => {
     controller = await buildHelper().deploy()
-
-    const brightIdHelper = buildBrightIdHelper()
-    const brightIdRegister = await brightIdHelper.deploy()
-    await brightIdHelper.registerUserWithMultipleAddresses(voterUniqueAddress, voter)
-    await controller.setBrightIdRegister(brightIdRegister.address)
 
     voting = await CRVoting.new(controller.address)
     await controller.setVoting(voting.address)
@@ -50,7 +44,7 @@ contract('CRVoting leak', ([_, voter, voterUniqueAddress, someone]) => {
           const commitment = hashVote(committedOutcome)
 
           beforeEach('commit a vote', async () => {
-            await disputeManager.mockVoterWeight(voterUniqueAddress, 10)
+            await disputeManager.mockVoterWeight(voter, 10)
             await voting.commit(voteId, commitment, { from: voter })
           })
 
@@ -59,7 +53,7 @@ contract('CRVoting leak', ([_, voter, voterUniqueAddress, someone]) => {
               const weight = 10
 
               beforeEach('mock voter weight', async () => {
-                await disputeManager.mockVoterWeight(voterUniqueAddress, weight)
+                await disputeManager.mockVoterWeight(voter, weight)
               })
 
               context('when the given outcome matches the one committed by the voter', () => {
@@ -79,7 +73,7 @@ contract('CRVoting leak', ([_, voter, voterUniqueAddress, someone]) => {
                     const receipt = await voting.leak(voteId, voter, outcome, salt, { from: someone })
 
                     assertAmountOfEvents(receipt, VOTING_EVENTS.VOTE_LEAKED)
-                    assertEvent(receipt, VOTING_EVENTS.VOTE_LEAKED, { voteId, voter: voterUniqueAddress, outcome, leaker: someone })
+                    assertEvent(receipt, VOTING_EVENTS.VOTE_LEAKED, { voteId, voter, outcome, leaker: someone })
                   })
 
                   it('does not affect the outcomes tally', async () => {

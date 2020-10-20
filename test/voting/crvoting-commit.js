@@ -1,7 +1,6 @@
 const { bn } = require('../helpers/lib/numbers')
 const { assertBn } = require('../helpers/asserts/assertBn')
 const { buildHelper } = require('../helpers/wrappers/court')(web3, artifacts)
-const { buildBrightIdHelper } = require('../helpers/wrappers/brightid')(web3, artifacts)
 const { assertRevert } = require('../helpers/asserts/assertThrow')
 const { VOTING_EVENTS } = require('../helpers/utils/events')
 const { OUTCOMES, hashVote } = require('../helpers/utils/crvoting')
@@ -11,7 +10,7 @@ const { assertEvent, assertAmountOfEvents } = require('../helpers/asserts/assert
 const CRVoting = artifacts.require('CRVoting')
 const DisputeManager = artifacts.require('DisputeManagerMockForVoting')
 
-contract('CRVoting', ([_, voter, voterUniqueAddress]) => {
+contract('CRVoting', ([_, voter]) => {
   let controller, voting, disputeManager
 
   const POSSIBLE_OUTCOMES = 2
@@ -23,11 +22,6 @@ contract('CRVoting', ([_, voter, voterUniqueAddress]) => {
   })
 
   beforeEach('create voting module', async () => {
-    const brightIdHelper = buildBrightIdHelper()
-    const brightIdRegister = await brightIdHelper.deploy()
-    await brightIdHelper.registerUserWithMultipleAddresses(voterUniqueAddress, voter)
-    await controller.setBrightIdRegister(brightIdRegister.address)
-
     voting = await CRVoting.new(controller.address)
     await controller.setVoting(voting.address)
   })
@@ -46,7 +40,7 @@ contract('CRVoting', ([_, voter, voterUniqueAddress]) => {
             const weight = 10
 
             beforeEach('mock voter weight', async () => {
-              await disputeManager.mockVoterWeight(voterUniqueAddress, weight)
+              await disputeManager.mockVoterWeight(voter, weight)
             })
 
             const itHandlesCommittedVotesFor = outcome => {
@@ -63,7 +57,7 @@ contract('CRVoting', ([_, voter, voterUniqueAddress]) => {
                 const receipt = await voting.commit(voteId, commitment, { from: voter })
 
                 assertAmountOfEvents(receipt, VOTING_EVENTS.VOTE_COMMITTED)
-                assertEvent(receipt, VOTING_EVENTS.VOTE_COMMITTED, { voteId, voter: voterUniqueAddress, commitment })
+                assertEvent(receipt, VOTING_EVENTS.VOTE_COMMITTED, { voteId, voter, commitment })
               })
 
               it('does not affect the outcomes tally', async () => {
@@ -115,20 +109,13 @@ contract('CRVoting', ([_, voter, voterUniqueAddress]) => {
             context('when the given commitment is an out-of-bounds outcome', async () => {
               itHandlesCommittedVotesFor(OUTCOMES.HIGH.add(bn(1)))
             })
-
-            context('when the sender is not verified', async () => {
-              it('reverts', async () => {
-                const commitment = hashVote(OUTCOMES.LOW)
-                await assertRevert(voting.commit(voteId, commitment, { from: voterUniqueAddress }), 'CRV_SENDER_NOT_VERIFIED')
-              })
-            })
           })
 
           context('when the owner tells a zeroed weight', () => {
             const weight = 0
 
             beforeEach('mock voter weight', async () => {
-              await disputeManager.mockVoterWeight(voterUniqueAddress, weight)
+              await disputeManager.mockVoterWeight(voter, weight)
             })
 
             it('reverts', async () => {
@@ -153,7 +140,7 @@ contract('CRVoting', ([_, voter, voterUniqueAddress]) => {
 
         beforeEach('mock voter weight and commit', async () => {
           const weight = 10
-          await disputeManager.mockVoterWeight(voterUniqueAddress, weight)
+          await disputeManager.mockVoterWeight(voter, weight)
           await voting.commit(voteId, commitment, { from: voter })
         })
 

@@ -1,6 +1,5 @@
 const { assertBn } = require('../helpers/asserts/assertBn')
 const { buildHelper } = require('../helpers/wrappers/court')(web3, artifacts)
-const { buildBrightIdHelper } = require('../helpers/wrappers/brightid')(web3, artifacts)
 const { SALT, OUTCOMES, hashVote } = require('../helpers/utils/crvoting')
 
 const CRVoting = artifacts.require('CRVoting')
@@ -18,11 +17,6 @@ contract('CRVoting', ([_, voterWeighted1, voterWeighted2, voterWeighted3, voterW
   })
 
   beforeEach('create voting', async () => {
-    const brightIdHelper = buildBrightIdHelper()
-    const brightIdRegister = await brightIdHelper.deploy()
-    await brightIdHelper.registerUsers([voterWeighted1, voterWeighted2, voterWeighted3, voterWeighted10, voterWeighted12, voterWeighted13, someone])
-    await controller.setBrightIdRegister(brightIdRegister.address)
-
     voting = await CRVoting.new(controller.address)
     await controller.setVoting(voting.address)
   })

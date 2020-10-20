@@ -113,6 +113,7 @@ contract CRVoting is Controlled, ICRVoting {
 
         // There is no need to check if an outcome is valid if it was leaked.
         // Additionally, leaked votes are not considered for the tally.
+        castVote.outcome = OUTCOME_LEAKED;
         emit VoteLeaked(_voteId, _voter, _outcome, msg.sender);
     }
 

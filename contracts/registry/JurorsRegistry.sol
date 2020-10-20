@@ -956,9 +956,10 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
     function _jurorUniqueId(address _jurorSenderAddress) internal view returns (address) {
 //        if (_jurorSenderAddress == BURN_ACCOUNT) {
 //            return BURN_ACCOUNT;
-//        } else if (_jurorSenderAddress == ZERO_ADDRESS) {
-//            return ZERO_ADDRESS; // TODO: Is this necessary?
-//        }
+//        } else
+        if (_jurorSenderAddress == ZERO_ADDRESS) {
+            return ZERO_ADDRESS; // TODO: Is this necessary?
+        }
 
         return _brightIdRegister().uniqueUserId(_jurorSenderAddress);
     }

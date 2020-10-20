@@ -161,7 +161,7 @@ contract('JurorsRegistry', ([_, juror, someone, jurorUniqueAddress]) => {
           const amount = bigExp(100, 18)
 
           itHandlesTokenAssignmentsProperly(() => disputeManager.assignTokens(juror, amount), juror, amount)
-          itEmitsAJurorTokensAssignedEvent(() => disputeManager.assignTokens(juror, amount), jurorUniqueAddress, amount)
+          itEmitsAJurorTokensAssignedEvent(() => disputeManager.assignTokens(juror, amount), juror, amount)
         })
 
         context('when the juror already had some balance', () => {
@@ -175,7 +175,7 @@ contract('JurorsRegistry', ([_, juror, someone, jurorUniqueAddress]) => {
             const amount = bigExp(100, 18)
 
             itHandlesTokenAssignmentsProperly(() => disputeManager.assignTokens(juror, amount), juror, amount)
-            itEmitsAJurorTokensAssignedEvent(() => disputeManager.assignTokens(juror, amount), jurorUniqueAddress, amount)
+            itEmitsAJurorTokensAssignedEvent(() => disputeManager.assignTokens(juror, amount), juror, amount)
           })
 
           context('when the given amount does overflow', () => {

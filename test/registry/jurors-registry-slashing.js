@@ -123,8 +123,7 @@ contract('JurorsRegistry', ([_, juror, secondJuror, thirdJuror, fourthJuror, any
 
           beforeEach('draft jurors', async () => {
             // Mock registry draft forcing the following result
-            // const draftedJurors = [juror, secondJuror, thirdJuror]
-            const draftedJurors = [jurorUniqueAddress, secondJurorUniqueAddress, thirdJurorUniqueAddress]
+            const draftedJurors = [juror, secondJuror, thirdJuror]
             const draftedWeights = [3, 1, 6]
             await registry.mockNextDraft(draftedJurors, draftedWeights)
 
@@ -132,9 +131,9 @@ contract('JurorsRegistry', ([_, juror, secondJuror, thirdJuror, fourthJuror, any
             const receipt = await disputeManager.draft(EMPTY_RANDOMNESS, 1, 0, 10, 10, DRAFT_LOCK_PCT)
             const { addresses } = getEventAt(receipt, 'Drafted').args
 
-            assert.equal(countJuror(addresses, jurorUniqueAddress), 3, 'first drafted juror weight does not match')
-            assert.equal(countJuror(addresses, secondJurorUniqueAddress), 1, 'second drafted juror weight does not match')
-            assert.equal(countJuror(addresses, thirdJurorUniqueAddress), 6, 'third drafted juror weight does not match')
+            assert.equal(countJuror(addresses, juror), 3, 'first drafted juror weight does not match')
+            assert.equal(countJuror(addresses, secondJuror), 1, 'second drafted juror weight does not match')
+            assert.equal(countJuror(addresses, thirdJuror), 6, 'third drafted juror weight does not match')
           })
 
           context('when given lock amounts are valid', () => {
@@ -184,12 +183,12 @@ contract('JurorsRegistry', ([_, juror, secondJuror, thirdJuror, fourthJuror, any
 
               assertAmountOfEvents({ logs }, REGISTRY_EVENTS.JUROR_SLASHED, 2)
               assertEvent({ logs }, REGISTRY_EVENTS.JUROR_SLASHED, {
-                juror: jurorUniqueAddress,
+                juror: juror,
                 amount: DRAFT_LOCK_AMOUNT.mul(bn(3)),
                 effectiveTermId: termId.add(bn(1))
               }, 0)
               assertEvent({ logs }, REGISTRY_EVENTS.JUROR_SLASHED, {
-                juror: thirdJurorUniqueAddress,
+                juror: thirdJuror,
                 amount: DRAFT_LOCK_AMOUNT.mul(bn(6)),
                 effectiveTermId: termId.add(bn(1))
               }, 1)
@@ -197,7 +196,7 @@ contract('JurorsRegistry', ([_, juror, secondJuror, thirdJuror, fourthJuror, any
               logs = decodeEventsOfType(receipt, JurorsRegistry.abi, REGISTRY_EVENTS.JUROR_BALANCE_UNLOCKED)
               assertAmountOfEvents({ logs }, REGISTRY_EVENTS.JUROR_BALANCE_UNLOCKED, 1)
               assertEvent({ logs }, REGISTRY_EVENTS.JUROR_BALANCE_UNLOCKED, {
-                juror: secondJurorUniqueAddress,
+                juror: secondJuror,
                 amount: DRAFT_LOCK_AMOUNT
               })
             })
@@ -237,7 +236,7 @@ contract('JurorsRegistry', ([_, juror, secondJuror, thirdJuror, fourthJuror, any
 
 
                 // Mock draft the jurors including the new slashable juror
-                const draftedJurors = [fourthJurorUniqueAddress, secondJurorUniqueAddress, thirdJurorUniqueAddress]
+                const draftedJurors = [fourthJuror, secondJuror, thirdJuror]
                 const draftedWeights = [3, 1, 6]
                 await registry.mockNextDraft(draftedJurors, draftedWeights)
                 const oneHundredPercent = bn(10000)
@@ -377,7 +376,7 @@ contract('JurorsRegistry', ([_, juror, secondJuror, thirdJuror, fourthJuror, any
 
             assertAmountOfEvents({ logs }, REGISTRY_EVENTS.JUROR_TOKENS_COLLECTED)
             assertEvent({ logs }, REGISTRY_EVENTS.JUROR_TOKENS_COLLECTED, {
-              juror: jurorUniqueAddress,
+              juror: juror,
               amount,
               effectiveTermId: termId.add(bn(1))
             })
@@ -400,7 +399,7 @@ contract('JurorsRegistry', ([_, juror, secondJuror, thirdJuror, fourthJuror, any
 
             assertAmountOfEvents({ logs }, REGISTRY_EVENTS.JUROR_DEACTIVATION_UPDATED)
             assertEvent({ logs }, REGISTRY_EVENTS.JUROR_DEACTIVATION_UPDATED, {
-              juror: jurorUniqueAddress,
+              juror: juror,
               availableTermId,
               updateTermId: termId,
               amount: previousDeactivation.sub(deactivationReduced)

@@ -15,7 +15,7 @@ const DisputeManager = artifacts.require('DisputeManagerMockForRegistry')
 const ERC20 = artifacts.require('ERC20Mock')
 
 contract('JurorsRegistry', ([_, juror, secondJuror, thirdJuror, fourthJuror, anyone,
-  jurorUniqueAddress, secondJurorUniqueAddress, thirdJurorUniqueAddress, fourthJurorUniqueAddress]) => {
+  jurorBrightIdAddress, secondJurorBrightIdAddress, thirdJurorBrightIdAddress, fourthJurorBrightIdAddress]) => {
 
   let controller, registry, disputeManager, ANJ
 
@@ -39,8 +39,8 @@ contract('JurorsRegistry', ([_, juror, secondJuror, thirdJuror, fourthJuror, any
   beforeEach('create jurors registry module', async () => {
     const brightIdHelper = buildBrightIdHelper()
     const brightIdRegister = await brightIdHelper.deploy()
-    await brightIdHelper.registerUsersWithMultipleAddresses([[jurorUniqueAddress, juror],
-      [secondJurorUniqueAddress, secondJuror], [thirdJurorUniqueAddress, thirdJuror], [fourthJurorUniqueAddress, fourthJuror]])
+    await brightIdHelper.registerUsersWithMultipleAddresses([[jurorBrightIdAddress, juror],
+      [secondJurorBrightIdAddress, secondJuror], [thirdJurorBrightIdAddress, thirdJuror], [fourthJurorBrightIdAddress, fourthJuror]])
     await controller.setBrightIdRegister(brightIdRegister.address)
 
     registry = await JurorsRegistry.new(controller.address, ANJ.address, TOTAL_ACTIVE_BALANCE_LIMIT)
@@ -175,6 +175,23 @@ contract('JurorsRegistry', ([_, juror, secondJuror, thirdJuror, fourthJuror, any
               assertBn(thirdJurorPreviousDeactivationBalance, thirdJurorCurrentDeactivationBalance, 'second slashed juror deactivation balance does not match')
             })
 
+            it('updates the total active stake of the jurors brightid accounts', async () => {
+              const firstJurorPreviousTotalActiveStake = await registry.jurorsTotalActiveStake(juror)
+              const thirdJurorPreviousTotalActiveStake = await registry.jurorsTotalActiveStake(thirdJuror)
+
+              await disputeManager.slashOrUnlock(jurors, lockedAmounts, rewardedJurors)
+
+              const firstJurorCurrentTotalActiveStake = await registry.jurorsTotalActiveStake(juror)
+              const thirdJurorCurrentTotalActiveStake = await registry.jurorsTotalActiveStake(thirdJuror)
+              assertBn(firstJurorCurrentTotalActiveStake, firstJurorPreviousTotalActiveStake.sub(DRAFT_LOCK_AMOUNT.mul(bn(3))), 'first slashed juror total active balance does not match')
+              assertBn(thirdJurorCurrentTotalActiveStake, thirdJurorPreviousTotalActiveStake.sub(DRAFT_LOCK_AMOUNT.mul(bn(6))), 'second slashed juror total active balance does not match')
+
+              const firstJurorBrightIdCurrentTotalActiveStake = await registry.jurorsTotalActiveStake(jurorBrightIdAddress)
+              const thirdJurorBrightIDCurrentTotalActiveStake = await registry.jurorsTotalActiveStake(thirdJurorBrightIdAddress)
+              assertBn(firstJurorCurrentTotalActiveStake, firstJurorBrightIdCurrentTotalActiveStake, 'first slashed juror total active balance does not match')
+              assertBn(thirdJurorCurrentTotalActiveStake, thirdJurorCurrentTotalActiveStake, 'second slashed juror total active balance does not match')
+            })
+
             it('emits the corresponding events', async () => {
               const termId = await controller.getLastEnsuredTermId()
 
@@ -217,33 +234,6 @@ contract('JurorsRegistry', ([_, juror, secondJuror, thirdJuror, fourthJuror, any
 
               const thirdJurorCurrentActiveBalance = await registry.activeBalanceOfAt(thirdJuror, termId)
               assertBn(thirdJurorPreviousActiveBalance, thirdJurorCurrentActiveBalance, 'third juror active balance does not match')
-            })
-
-            context('when there is a deactivation request', async () => {
-              const newJurors = [fourthJuror, secondJuror, thirdJuror]
-              const newLockedAmounts = [MIN_ACTIVE_AMOUNT, DRAFT_LOCK_AMOUNT, DRAFT_LOCK_AMOUNT.mul(bn(6))]
-
-              beforeEach(async () => {
-                // Finalise previous draft
-                await disputeManager.slashOrUnlock(jurors, lockedAmounts, rewardedJurors)
-
-                // Generate min amount of tokens that can be slashed in one go and give to a new account and deactivate half
-                const fourthJurorStake = MIN_ACTIVE_AMOUNT.mul(bn(2))
-                await ANJ.generateTokens(fourthJuror, fourthJurorStake)
-                await ANJ.approveAndCall(registry.address, fourthJurorStake, ACTIVATE_DATA, { from: fourthJuror })
-                await controller.mockIncreaseTerm()
-                await registry.deactivate(MIN_ACTIVE_AMOUNT, { from: fourthJuror })
-
-
-                // Mock draft the jurors including the new slashable juror
-                const draftedJurors = [fourthJuror, secondJuror, thirdJuror]
-                const draftedWeights = [3, 1, 6]
-                await registry.mockNextDraft(draftedJurors, draftedWeights)
-                const oneHundredPercent = bn(10000)
-                await disputeManager.draft(EMPTY_RANDOMNESS, 1, 0, 10, 10, oneHundredPercent)
-              })
-
-
             })
           })
 
@@ -291,6 +281,17 @@ contract('JurorsRegistry', ([_, juror, secondJuror, thirdJuror, fourthJuror, any
 
           assertBn(previousLockedBalance, currentLockedBalance, 'locked balances do not match')
           assertBn(previousAvailableBalance, currentAvailableBalance, 'available balances do not match')
+        })
+
+        it('updates total active stake for jurors brightid account', async () => {
+          const jurorPreviousTotalActiveStake = await registry.jurorsTotalActiveStake(juror)
+
+          await disputeManager.collect(juror, amount)
+
+          const jurorCurrentTotalActiveStake = await registry.jurorsTotalActiveStake(juror)
+          const jurorBrightIdCurrentTotalActiveStake = await registry.jurorsTotalActiveStake(jurorBrightIdAddress)
+          assertBn(jurorCurrentTotalActiveStake, jurorPreviousTotalActiveStake.sub(amount).add(deactivationReduced), 'total active balances do not match')
+          assertBn(jurorBrightIdCurrentTotalActiveStake, jurorPreviousTotalActiveStake.sub(amount).add(deactivationReduced), 'total active balances do not match')
         })
 
         it('does not affect the active balance of the current term', async () => {

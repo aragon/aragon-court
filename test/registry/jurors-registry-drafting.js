@@ -569,6 +569,24 @@ contract('JurorsRegistry', ([_, juror500, juror1000, juror1500, juror2000, juror
 
                         itReturnsExpectedJurors({ disputeId, previousSelectedJurors, batchRequestedJurors, roundRequestedJurors })
                       })
+
+                      it('updates the jurors total active stake', async () => {
+                        const batchRequestedJurors = 3
+                        const previousSelectedJurors = 0
+                        await deactivateFirstExpectedJuror({ disputeId, batchRequestedJurors, roundRequestedJurors })
+                        const jurorPreviousTotalActiveStake = await registry.jurorsTotalActiveStake(juror1000)
+
+                        const { addresses, length, expectedJurors } = await draft({
+                          EMPTY_RANDOMNESS,
+                          disputeId,
+                          selectedJurors: previousSelectedJurors,
+                          batchRequestedJurors,
+                          roundRequestedJurors
+                        })
+
+                        const jurorCurrentTotalActiveStake = await registry.jurorsTotalActiveStake(juror1000)
+                        assertBn(jurorCurrentTotalActiveStake, jurorPreviousTotalActiveStake.add(DRAFT_LOCKED_AMOUNT), "Incorrect total active stake")
+                      })
                     })
                   })
 

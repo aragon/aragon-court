@@ -112,7 +112,7 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
     HexSumTree.Tree internal tree;
 
     // Mapping of unique juror address from the BrightIdRegister to their currently total active stake
-    mapping (address => uint256) public uniqueJurorsTotalActiveStake;
+    mapping (address => uint256) internal brightIdActiveStake;
 
     event JurorActivated(address indexed juror, uint64 fromTermId, uint256 amount, address sender);
     event JurorDeactivationRequested(address indexed juror, uint64 availableTermId, uint256 amount);
@@ -344,7 +344,7 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
             } else {
                 collectedTokens = collectedTokens.add(lockedAmount);
 
-                _updateJurorTotalActiveStake(jurorAddress, lockedAmount, false);
+                _updateBrightIdActiveStake(jurorAddress, lockedAmount, false);
                 tree.update(juror.id, nextTermId, lockedAmount, false);
 
                 emit JurorSlashed(jurorAddress, lockedAmount, nextTermId);
@@ -389,7 +389,7 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
             _reduceDeactivationRequest(_juror, amountToReduce, _termId);
         }
 
-        _updateJurorTotalActiveStake(_juror, _amount, false);
+        _updateBrightIdActiveStake(_juror, _amount, false);
         tree.update(juror.id, nextTermId, _amount, false);
 
         emit JurorTokensCollected(_juror, _amount, nextTermId);
@@ -511,6 +511,16 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
     }
 
     /**
+    * @dev Tell the total amount of active tokens for the jurors BrightId account
+    * @param _juror Any of the BrightId accounts registered addresses
+    * @return Amount of active tokens of a juror that are not locked due to ongoing disputes
+    */
+    function jurorsTotalActiveStake(address _juror) external view returns (uint256) {
+        address jurorBrightId = _jurorBrightId(_juror);
+        return brightIdActiveStake[jurorBrightId];
+    }
+
+    /**
     * @dev Tell the max balance a juror can currently activate, calculated using a sliding scale of a percent of the
     * @param _termId The term to use the config from, note the output changes dependant on the juror tokens total supply
     * @return Max amount of tokens a juror can activate at this time
@@ -612,7 +622,7 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
             // contract. Therefore we revert if the min active balance is more than the max active balance.
             require(minActiveBalance < maxActiveBalance, ERROR_ACTIVE_BALANCE_LIMITS_INCONSISTENT);
 
-            uint256 jurorsNewTotalActiveStake = _updateJurorTotalActiveStake(_juror, amountToActivate, true);
+            uint256 jurorsNewTotalActiveStake = _updateBrightIdActiveStake(_juror, amountToActivate, true);
             require(jurorsNewTotalActiveStake <= maxActiveBalance, ERROR_ACTIVE_BALANCE_ABOVE_MAX);
             tree.update(juror.id, nextTermId, amountToActivate, true);
         } else {
@@ -623,7 +633,7 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
             // contract. Therefore we revert if the min active balance is more than the max active balance.
             require(minActiveBalance < maxActiveBalance, ERROR_ACTIVE_BALANCE_LIMITS_INCONSISTENT);
 
-            uint256 jurorsNewTotalActiveStake = _updateJurorTotalActiveStake(_juror, amountToActivate, true);
+            uint256 jurorsNewTotalActiveStake = _updateBrightIdActiveStake(_juror, amountToActivate, true);
             require(jurorsNewTotalActiveStake <= maxActiveBalance, ERROR_ACTIVE_BALANCE_ABOVE_MAX);
             juror.id = tree.insert(nextTermId, amountToActivate);
 
@@ -652,7 +662,7 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
         request.amount = request.amount.add(_amount);
         request.availableTermId = nextTermId;
 
-        _updateJurorTotalActiveStake(_juror, _amount, false);
+        _updateBrightIdActiveStake(_juror, _amount, false);
         tree.update(juror.id, nextTermId, _amount, false);
 
         emit JurorDeactivationRequested(_juror, nextTermId, _amount);
@@ -701,7 +711,7 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
         uint256 newRequestAmount = currentRequestAmount - _amount;
         request.amount = newRequestAmount;
 
-        _updateJurorTotalActiveStake(_juror, _amount, true);
+        _updateBrightIdActiveStake(_juror, _amount, true);
         // Move amount back to the tree
         tree.update(juror.id, _termId + 1, _amount, true);
 
@@ -951,27 +961,26 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
     }
 
     /**
-    * @dev Function to convert a jurors sender address to their unique juror address
+    * @dev Function to convert a jurors sender address to their unique BrightId address
     */
-    function _jurorUniqueId(address _jurorSenderAddress) internal view returns (address) {
-//        if (_jurorSenderAddress == BURN_ACCOUNT) {
-//            return BURN_ACCOUNT;
-//        } else
+    function _jurorBrightId(address _jurorSenderAddress) internal view returns (address) {
         if (_jurorSenderAddress == ZERO_ADDRESS) {
-            return ZERO_ADDRESS; // TODO: Is this necessary?
+            return ZERO_ADDRESS;
         }
 
         return _brightIdRegister().uniqueUserId(_jurorSenderAddress);
     }
 
-    function _updateJurorTotalActiveStake(address _juror, uint256 _amount, bool _increase) internal returns (uint256) {
-        address jurorUniqueId = _jurorUniqueId(_juror);
-        uint256 jurorsCurrentTotalActiveStake = uniqueJurorsTotalActiveStake[jurorUniqueId];
+    function _updateBrightIdActiveStake(address _juror, uint256 _amount, bool _increase) internal returns (uint256) {
+        address jurorBrightId = _jurorBrightId(_juror);
+        uint256 brightIdUserCurrentActiveStake = brightIdActiveStake[jurorBrightId];
+
         if (_increase) {
-            uniqueJurorsTotalActiveStake[jurorUniqueId] = jurorsCurrentTotalActiveStake.add(_amount);
+            brightIdActiveStake[jurorBrightId] = brightIdUserCurrentActiveStake.add(_amount);
         } else {
-            uniqueJurorsTotalActiveStake[jurorUniqueId] = jurorsCurrentTotalActiveStake.sub(_amount);
+            brightIdActiveStake[jurorBrightId] = brightIdUserCurrentActiveStake.sub(_amount);
         }
-        return uniqueJurorsTotalActiveStake[jurorUniqueId];
+
+        return brightIdActiveStake[jurorBrightId];
     }
 }

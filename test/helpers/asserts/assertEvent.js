@@ -1,8 +1,8 @@
-const { getEventAt, getEvents } = require('@aragon/test-helpers/events')
+const { getEventAt, getEvents } = require('@aragon/contract-helpers-test/src/events')
 const { isAddress, isBN, toChecksumAddress } = require('web3-utils')
 
-const assertEvent = (receipt, eventName, expectedArgs = {}, index = 0) => {
-  const event = getEventAt(receipt, eventName, index)
+const assertEvent = (receipt, eventName, expectedArgs = {}, index = 0, decodeForAbi) => {
+  const event = getEventAt(receipt, eventName, { index, decodeForAbi })
 
   assert(typeof event === 'object', `could not find an emitted ${eventName} event ${index === 0 ? '' : `at index ${index}`}`)
 
@@ -19,8 +19,8 @@ const assertEvent = (receipt, eventName, expectedArgs = {}, index = 0) => {
   }
 }
 
-const assertAmountOfEvents = (receipt, eventName, expectedAmount = 1) => {
-  const events = getEvents(receipt, eventName)
+const assertAmountOfEvents = (receipt, eventName, expectedAmount = 1, decodeForAbi) => {
+  const events = getEvents(receipt, eventName, { decodeForAbi })
   assert.equal(events.length, expectedAmount, `number of ${eventName} events does not match`)
 }
 

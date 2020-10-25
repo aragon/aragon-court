@@ -200,6 +200,12 @@ module.exports = (web3, artifacts) => {
     }
 
     async activate(jurors) {
+      const { minActiveBalance, minMaxPctTotalSupply } = await this.getConfig(await this.court.getCurrentTermId())
+      const minTotalSupplyRequired = minActiveBalance.div(minMaxPctTotalSupply)
+      const minTotalSupplyWithDecimals = bigExp(minTotalSupplyRequired, 18)
+      const minTotalSupplyWithExtra = minTotalSupplyWithDecimals.mul(bn(3))
+      await this.jurorToken.generateTokens(await this._getAccount(0), minTotalSupplyWithExtra)
+
       for (const { address, initialActiveBalance } of jurors) {
         await this.brightIdHelper.registerUser(address)
         await this.jurorToken.generateTokens(address, initialActiveBalance)

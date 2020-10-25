@@ -175,7 +175,7 @@ contract('JurorsRegistry', ([_, juror, secondJuror, thirdJuror, fourthJuror, any
               assertBn(thirdJurorPreviousDeactivationBalance, thirdJurorCurrentDeactivationBalance, 'second slashed juror deactivation balance does not match')
             })
 
-            it('updates the total active stake of the jurors brightid accounts', async () => {
+            it('updates the total active stake of the jurors brightid account', async () => {
               const firstJurorPreviousTotalActiveStake = await registry.jurorsTotalActiveStake(juror)
               const thirdJurorPreviousTotalActiveStake = await registry.jurorsTotalActiveStake(thirdJuror)
 

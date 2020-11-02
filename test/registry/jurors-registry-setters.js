@@ -12,7 +12,7 @@ const JurorsRegistry = artifacts.require('JurorsRegistry')
 const ERC20 = artifacts.require('ERC20Mock')
 
 contract('JurorsRegistry', ([_, governor, someone]) => {
-  let controller, registry, ANJ, brightIdHelper
+  let controller, registry, ANJ
 
   const MIN_ACTIVE_BALANCE = bigExp(100, 18)
   const TOTAL_ACTIVE_BALANCE_LIMIT = bigExp(100e6, 18)
@@ -63,6 +63,14 @@ contract('JurorsRegistry', ([_, governor, someone]) => {
           const newTotalActiveBalanceLimit = MIN_ACTIVE_BALANCE.add(bn(1))
 
           itUpdatesTheTotalActiveBalanceLimit(newTotalActiveBalanceLimit)
+        })
+
+        context('when the given limit is below the current max active balance', () => {
+          it('reverts', async () => {
+            await ANJ.generateTokens(from, TOTAL_ACTIVE_BALANCE_LIMIT)
+            const belowMaxActiveLimit = await registry.maxActiveBalance(0)
+            await assertRevert(registry.setTotalActiveBalanceLimit(belowMaxActiveLimit, { from }), 'JR_TOTAL_ACTIVE_BALANCE_TOO_LOW')
+          })
         })
       })
 

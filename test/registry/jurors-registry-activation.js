@@ -31,16 +31,16 @@ contract('JurorsRegistry', ([_, jurorActiveAddress, jurorBrightIdAddress, juror2
   const MAX_MAX_PCT_TOTAL_SUPPLY = bigExp(1, 16) // 1%
   const TOTAL_ACTIVE_BALANCE_LIMIT = bigExp(100e6, 18)
 
-  const maxActiveBalanceForConfig = async (minMaxPctTotalSupply, maxMacPctTotalSupply, totalActiveBalance) => {
-    const diffOfPct = maxMacPctTotalSupply.sub(minMaxPctTotalSupply)
+  const maxActiveBalanceForConfig = async (minMaxPctTotalSupply, maxMaxPctTotalSupply, totalActiveBalance) => {
+    const diffOfPct = maxMaxPctTotalSupply.sub(minMaxPctTotalSupply)
     const anjTotalSupply = await ANJ.totalSupply()
-    const currentPctOfTotalSupply = maxMacPctTotalSupply.sub(diffOfPct.mul(totalActiveBalance).div(anjTotalSupply))
+    const currentPctOfTotalSupply = maxMaxPctTotalSupply.sub(diffOfPct.mul(totalActiveBalance).div(anjTotalSupply))
     return (await ANJ.totalSupply()).mul(currentPctOfTotalSupply).div(PCT_BASE_HIGH_PRECISION)
   }
 
-  const maxActiveBalanceAtTermForConfig = async (termId, minMaxPctTotalSupply, maxMacPctTotalSupply) => {
+  const maxActiveBalanceAtTermForConfig = async (termId, minMaxPctTotalSupply, maxMaxPctTotalSupply) => {
     const totalActiveBalance = await registry.totalActiveBalanceAt(termId)
-    return await maxActiveBalanceForConfig(minMaxPctTotalSupply, maxMacPctTotalSupply, totalActiveBalance)
+    return await maxActiveBalanceForConfig(minMaxPctTotalSupply, maxMaxPctTotalSupply, totalActiveBalance)
   }
 
   const maxActiveBalanceForStake = async (totalActiveBalance) => {
@@ -158,7 +158,6 @@ contract('JurorsRegistry', ([_, jurorActiveAddress, jurorBrightIdAddress, juror2
             requestedAmount = await useAmount(requestedAmount)
             await ANJ.generateTokens(jurorBrightIdAddress, MIN_ACTIVE_AMOUNT)
             await ANJ.approveAndCall(registry.address, MIN_ACTIVE_AMOUNT, '0x', { from: jurorBrightIdAddress })
-            const { active: previousActiveBalance, available: previousAvailableBalance, locked: previousLockedBalance, pendingDeactivation: previousDeactivationBalance } = await registry.balanceOf(jurorActiveAddress)
             const activeAddressPreviousTotalActiveStake = await registry.jurorsTotalActiveStake(jurorActiveAddress)
             const brightIdAddressPreviousTotalActiveStake = await registry.jurorsTotalActiveStake(jurorBrightIdAddress)
 
@@ -241,7 +240,6 @@ contract('JurorsRegistry', ([_, jurorActiveAddress, jurorBrightIdAddress, juror2
 
         it('emits an activation event', async () => {
           requestedAmount = await useAmount(requestedAmount)
-          deactivationAmount = await useAmount(deactivationAmount)
           const termId = await controller.getLastEnsuredTermId()
           const { available: previousAvailableBalance, pendingDeactivation: previousDeactivationBalance } = await registry.balanceOf(jurorActiveAddress)
 
@@ -927,7 +925,7 @@ contract('JurorsRegistry', ([_, jurorActiveAddress, jurorBrightIdAddress, juror2
       })
 
       it('returns correct value', async () => {
-        assertBn(await registry.maxActiveBalance(await controller.getLastEnsuredTermId()), await currentMaxActiveBalance(), 'Incorrect max active balance')
+        assertBn(await registry.maxActiveBalance(termId), await currentMaxActiveBalance(), 'Incorrect max active balance')
       })
 
       it('returns correct value when some is active', async () => {

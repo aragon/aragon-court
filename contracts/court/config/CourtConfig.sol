@@ -24,7 +24,6 @@ contract CourtConfig is IConfig, CourtConfigData {
     string private constant ERROR_MIN_MAX_TOTAL_SUPPLY_ZERO = "CONF_MIN_MAX_TOTAL_SUPPLY_ZERO";
     string private constant ERROR_INVALID_MAX_MAX_TOTAL_SUPPLY_PCT = "CONF_INVALID_MAX_MAX_TOTAL_SUPPLY_PCT";
     string private constant ERROR_MIN_MORE_THAN_MAX_ACTIVE_PCT = "CONF_MIN_MORE_THAN_MAX_ACTIVE_PCT";
-    string private constant ERROR_JURORS_FOR_MIN_ACTIVE_ZERO = "CONF_JURORS_FOR_MIN_ACTIVE_ZERO";
 
     // Max number of terms that each of the different adjudication states can last (if lasted 1h, this would be a year)
     uint64 internal constant MAX_ADJ_STATE_DURATION = 8670;

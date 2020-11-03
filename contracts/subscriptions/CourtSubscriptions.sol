@@ -10,8 +10,6 @@ import "../registry/IJurorsRegistry.sol";
 import "../court/controller/Controller.sol";
 import "../court/controller/ControlledRecoverable.sol";
 
-// TODO: Integrate BrightIdUserRegister, otherwise someone could stake as a juror, update their verified account
-//  and withdraw fees using both accounts, if the jurors registry converts the sending address to the unique address.
 contract CourtSubscriptions is ControlledRecoverable, TimeHelpers {
     using SafeERC20 for ERC20;
     using SafeMath for uint256;

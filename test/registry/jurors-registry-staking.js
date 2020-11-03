@@ -15,8 +15,8 @@ const ERC20 = artifacts.require('ERC20Mock')
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
 
-contract('JurorsRegistry', ([_, juror, juror2, jurorUniqueAddress, juror2UniqueAddress]) => {
-  let controller, registry, disputeManager, ANJ, brightIdRegister
+contract('JurorsRegistry', ([_, juror, juror2, jurorBrightIdAddress, juror2BrightIdAddress]) => {
+  let controller, registry, disputeManager, ANJ, brightIdRegister, brightIdHelper
 
   const MIN_ACTIVE_AMOUNT = bigExp(100, 18)
   const TOTAL_ACTIVE_BALANCE_LIMIT = bigExp(100e6, 18)
@@ -29,14 +29,27 @@ contract('JurorsRegistry', ([_, juror, juror2, jurorUniqueAddress, juror2UniqueA
 
   beforeEach('create jurors registry module', async () => {
     ANJ = await ERC20.new('ANJ Token', 'ANJ', 18)
-    const brightIdHelper = buildBrightIdHelper()
+    brightIdHelper = buildBrightIdHelper()
     brightIdRegister = await brightIdHelper.deploy()
     await brightIdHelper.registerUsersWithMultipleAddresses(
-      [[jurorUniqueAddress, juror], [juror2UniqueAddress, juror2]])
+      [[jurorBrightIdAddress, juror], [juror2BrightIdAddress, juror2]])
     await controller.setBrightIdRegister(brightIdRegister.address)
 
     registry = await JurorsRegistry.new(controller.address, ANJ.address, TOTAL_ACTIVE_BALANCE_LIMIT)
     await controller.setJurorsRegistry(registry.address)
+
+    // Uncomment the below to test calling stake() and unstake() via the BrightIdRegister. Note some tests are expected to fail
+    // registry.stake = async (amount, data, { from }) => {
+    //   console.log("Via BrightIdRegister")
+    //   const stakeFunctionData = registry.contract.methods.stake(amount.toString(), data).encodeABI()
+    //   if (from === juror) {
+    //     return await brightIdHelper.registerUserWithData([juror, jurorBrightIdAddress], registry.address, stakeFunctionData)
+    //   } else if (from === juror2) {
+    //     return await brightIdHelper.registerUserWithData([juror2, juror2BrightIdAddress], registry.address, stakeFunctionData)
+    //   } else {
+    //     return await brightIdHelper.registerUserWithData([from], registry.address, stakeFunctionData)
+    //   }
+    // }
   })
 
   describe('stake', () => {
@@ -121,13 +134,15 @@ contract('JurorsRegistry', ([_, juror, juror2, jurorUniqueAddress, juror2UniqueA
 
             const receipt = await registry.stake(amount, data, { from })
 
-            assertAmountOfEvents(receipt, REGISTRY_EVENTS.STAKED)
-            assertEvent(receipt, REGISTRY_EVENTS.STAKED, { user: from, amount, total: previousTotalStake.add(amount), data })
+            assertAmountOfEvents(receipt, REGISTRY_EVENTS.STAKED, 1, JurorsRegistry.abi)
+            assertEvent(receipt, REGISTRY_EVENTS.STAKED, { user: from, amount, total: previousTotalStake.add(amount), data },
+              0, JurorsRegistry.abi)
           })
         })
 
         context('when the juror does not have enough token balance', () => {
           it('reverts', async () => {
+            await ANJ.generateTokens(from, TOTAL_ACTIVE_BALANCE_LIMIT)
             await assertRevert(registry.stake(amount, data, { from }), REGISTRY_ERRORS.TOKEN_TRANSFER_FAILED)
           })
         })
@@ -159,6 +174,21 @@ contract('JurorsRegistry', ([_, juror, juror2, jurorUniqueAddress, juror2UniqueA
         //     await assertRevert(registry.stake(MIN_ACTIVE_AMOUNT, data, { from }), 'JR_SENDER_NOT_VERIFIED')
         //   })
         // })
+
+        context('when the juror calls stake through the BrightIdRegister', () => {
+          it('stakes tokens as expected', async () => {
+            const stakeAmount = MIN_ACTIVE_AMOUNT
+            await ANJ.generateTokens(from, stakeAmount)
+            await ANJ.approve(registry.address, stakeAmount, { from })
+            const stakeFunctionData = registry.contract.methods.stake(stakeAmount.toString(), data).encodeABI()
+            const { available: previousAvailableBalance } = await registry.balanceOf(from)
+
+            await brightIdHelper.registerUserWithData([juror, jurorBrightIdAddress], registry.address, stakeFunctionData)
+
+            const { available: currentAvailableBalance } = await registry.balanceOf(from)
+            assertBn(currentAvailableBalance, previousAvailableBalance.add(stakeAmount), 'available balances do not match')
+          })
+        })
       }
 
       context('when the juror has not staked before', () => {
@@ -250,8 +280,9 @@ contract('JurorsRegistry', ([_, juror, juror2, jurorUniqueAddress, juror2UniqueA
 
           const receipt = await registry.stake(amount, data, { from })
 
-          assertAmountOfEvents(receipt, REGISTRY_EVENTS.STAKED)
-          assertEvent(receipt, REGISTRY_EVENTS.STAKED, { user: from, amount, total: previousTotalStake.add(amount), data })
+          assertAmountOfEvents(receipt, REGISTRY_EVENTS.STAKED, 1, JurorsRegistry.abi)
+          assertEvent(receipt, REGISTRY_EVENTS.STAKED, { user: from, amount, total: previousTotalStake.add(amount), data },
+            0, JurorsRegistry.abi)
         })
 
         it('emits an activation event', async () => {
@@ -259,8 +290,9 @@ contract('JurorsRegistry', ([_, juror, juror2, jurorUniqueAddress, juror2UniqueA
 
           const receipt = await registry.stake(amount, data, { from })
 
-          assertAmountOfEvents(receipt, REGISTRY_EVENTS.JUROR_ACTIVATED)
-          assertEvent(receipt, REGISTRY_EVENTS.JUROR_ACTIVATED, { juror: from, fromTermId: termId.add(bn(1)), amount, sender: from })
+          assertAmountOfEvents(receipt, REGISTRY_EVENTS.JUROR_ACTIVATED, 1, JurorsRegistry.abi)
+          assertEvent(receipt, REGISTRY_EVENTS.JUROR_ACTIVATED, { juror: from, fromTermId: termId.add(bn(1)), amount, sender: from },
+            0, JurorsRegistry.abi)
         })
       }
 
@@ -283,12 +315,14 @@ contract('JurorsRegistry', ([_, juror, juror2, jurorUniqueAddress, juror2UniqueA
             })
 
             it('reverts', async () => {
+              await ANJ.generateTokens(from, TOTAL_ACTIVE_BALANCE_LIMIT)
               await assertRevert(registry.stake(amount, data, { from }), REGISTRY_ERRORS.ACTIVE_BALANCE_BELOW_MIN)
             })
           })
 
           context('when the juror does not have enough token balance', () => {
             it('reverts', async () => {
+              await ANJ.generateTokens(from, TOTAL_ACTIVE_BALANCE_LIMIT)
               await assertRevert(registry.stake(amount, data, { from }), REGISTRY_ERRORS.ACTIVE_BALANCE_BELOW_MIN)
             })
           })
@@ -319,6 +353,21 @@ contract('JurorsRegistry', ([_, juror, juror2, jurorUniqueAddress, juror2UniqueA
         //     await assertRevert(registry.stake(MIN_ACTIVE_AMOUNT, data, { from }), 'JR_SENDER_NOT_VERIFIED')
         //   })
         // })
+
+        context('when the juror calls stake through the BrightIdRegister', () => {
+          it('stakes tokens as expected', async () => {
+            const stakeAmount = MIN_ACTIVE_AMOUNT
+            await ANJ.generateTokens(from, TOTAL_ACTIVE_BALANCE_LIMIT)
+            await ANJ.approve(registry.address, stakeAmount, { from })
+            const stakeFunctionData = registry.contract.methods.stake(stakeAmount.toString(), data).encodeABI()
+            const { active: previousActiveBalance } = await registry.balanceOf(from)
+
+            await brightIdHelper.registerUserWithData([juror, jurorBrightIdAddress], registry.address, stakeFunctionData)
+
+            const { active: currentActiveBalance } = await registry.balanceOf(from)
+            assertBn(currentActiveBalance, previousActiveBalance.add(stakeAmount), 'available balances do not match')
+          })
+        })
       }
 
       context('when the juror has not staked before', () => {
@@ -449,13 +498,15 @@ contract('JurorsRegistry', ([_, juror, juror2, jurorUniqueAddress, juror2UniqueA
 
           const receipt = await registry.stakeFor(recipient, amount, data, { from })
 
-          assertAmountOfEvents(receipt, REGISTRY_EVENTS.STAKED)
-          assertEvent(receipt, REGISTRY_EVENTS.STAKED, { user: recipient, amount, total: previousTotalStake.add(amount), data })
+          assertAmountOfEvents(receipt, REGISTRY_EVENTS.STAKED, 1, JurorsRegistry.abi)
+          assertEvent(receipt, REGISTRY_EVENTS.STAKED, { user: recipient, amount, total: previousTotalStake.add(amount), data },
+            0, JurorsRegistry.abi)
         })
       })
 
       context('when the juror does not have enough token balance', () => {
         it('reverts', async () => {
+          await ANJ.generateTokens(from, TOTAL_ACTIVE_BALANCE_LIMIT)
           await assertRevert(registry.stakeFor(recipient, amount, data, { from }), REGISTRY_ERRORS.TOKEN_TRANSFER_FAILED)
         })
       })
@@ -627,8 +678,9 @@ contract('JurorsRegistry', ([_, juror, juror2, jurorUniqueAddress, juror2UniqueA
 
           const receipt = await registry.stakeFor(recipient, amount, data, { from })
 
-          assertAmountOfEvents(receipt, REGISTRY_EVENTS.STAKED)
-          assertEvent(receipt, REGISTRY_EVENTS.STAKED, { user: recipient, amount, total: previousTotalStake.add(amount), data })
+          assertAmountOfEvents(receipt, REGISTRY_EVENTS.STAKED, 1, JurorsRegistry.abi)
+          assertEvent(receipt, REGISTRY_EVENTS.STAKED, { user: recipient, amount, total: previousTotalStake.add(amount), data },
+            0, JurorsRegistry.abi)
         })
 
         it('emits an activation event', async () => {
@@ -636,8 +688,9 @@ contract('JurorsRegistry', ([_, juror, juror2, jurorUniqueAddress, juror2UniqueA
 
           const receipt = await registry.stakeFor(recipient, amount, data, { from })
 
-          assertAmountOfEvents(receipt, REGISTRY_EVENTS.JUROR_ACTIVATED)
-          assertEvent(receipt, REGISTRY_EVENTS.JUROR_ACTIVATED, { juror: recipient, fromTermId: termId.add(bn(1)), amount, sender: from })
+          assertAmountOfEvents(receipt, REGISTRY_EVENTS.JUROR_ACTIVATED, 1, JurorsRegistry.abi)
+          assertEvent(receipt, REGISTRY_EVENTS.JUROR_ACTIVATED, { juror: recipient, fromTermId: termId.add(bn(1)), amount, sender: from },
+            0, JurorsRegistry.abi)
         })
       }
 
@@ -660,12 +713,14 @@ contract('JurorsRegistry', ([_, juror, juror2, jurorUniqueAddress, juror2UniqueA
             })
 
             it('reverts', async () => {
+              await ANJ.generateTokens(from, TOTAL_ACTIVE_BALANCE_LIMIT)
               await assertRevert(registry.stakeFor(recipient, amount, data, { from }), REGISTRY_ERRORS.ACTIVE_BALANCE_BELOW_MIN)
             })
           })
 
           context('when the juror does not have enough token balance', () => {
             it('reverts', async () => {
+              await ANJ.generateTokens(from, TOTAL_ACTIVE_BALANCE_LIMIT)
               await assertRevert(registry.stakeFor(recipient, amount, data, { from }), REGISTRY_ERRORS.ACTIVE_BALANCE_BELOW_MIN)
             })
           })
@@ -809,6 +864,7 @@ contract('JurorsRegistry', ([_, juror, juror2, jurorUniqueAddress, juror2UniqueA
 
           context('when the juror does not have enough token balance', () => {
             it('reverts', async () => {
+              await ANJ.generateTokens(from, TOTAL_ACTIVE_BALANCE_LIMIT)
               await assertRevert(registry.stake(amount, data, { from }), REGISTRY_ERRORS.TOKEN_TRANSFER_FAILED)
             })
           })
@@ -965,12 +1021,14 @@ contract('JurorsRegistry', ([_, juror, juror2, jurorUniqueAddress, juror2UniqueA
               })
 
               it('reverts', async () => {
+                await ANJ.generateTokens(from, TOTAL_ACTIVE_BALANCE_LIMIT)
                 await assertRevert(registry.stake(amount, data, { from }), REGISTRY_ERRORS.ACTIVE_BALANCE_BELOW_MIN)
               })
             })
 
             context('when the juror does not have enough token balance', () => {
               it('reverts', async () => {
+                await ANJ.generateTokens(from, TOTAL_ACTIVE_BALANCE_LIMIT)
                 await assertRevert(registry.stake(amount, data, { from }), REGISTRY_ERRORS.ACTIVE_BALANCE_BELOW_MIN)
               })
             })

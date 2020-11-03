@@ -41,7 +41,7 @@ module.exports = (web3, artifacts) => {
     }
 
     async registerUser(userUniqueAddress) {
-      await this.registerUserWithData(userUniqueAddress, ZERO_ADDRESS, '0x0')
+      await this.registerUserWithData([userUniqueAddress], ZERO_ADDRESS, '0x0')
     }
 
     async registerUsers(usersUniqueAddresses) {
@@ -50,11 +50,11 @@ module.exports = (web3, artifacts) => {
       }
     }
 
-    async registerUserWithData(userUniqueAddress, contractAddress, data) {
-      const addresses = [userUniqueAddress]
+    async registerUserWithData(userAddresses, contractAddress, data) {
+      const verifiedAddress = userAddresses[0]
       const timestamp = await this.brightIdRegister.getTimestampPublic()
-      const sig = this.getVerificationsSignature(addresses, timestamp)
-      await this.brightIdRegister.register(addresses, [timestamp], [sig.v], [sig.r], [sig.s], contractAddress, data, { from: userUniqueAddress })
+      const sig = this.getVerificationsSignature(userAddresses, timestamp)
+      return this.brightIdRegister.register(userAddresses, [timestamp], [sig.v], [sig.r], [sig.s], contractAddress, data, { from: verifiedAddress })
     }
 
     async registerUserWithMultipleAddresses(userUniqueAddress, userSecondAddress) {

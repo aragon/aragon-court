@@ -13,10 +13,11 @@ import "../standards/ERC900.sol";
 import "../standards/ApproveAndCall.sol";
 import "../court/controller/Controller.sol";
 import "../court/controller/ControlledRecoverable.sol";
+import "../brightid/RegisterAndCall.sol";
 
 import "@nomiclabs/buidler/console.sol"; // TODO: Remove
 
-contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, ApproveAndCallFallBack {
+contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, ApproveAndCallFallBack, RegisterAndCall {
     using SafeERC20 for ERC20;
     using SafeMath for uint256;
     using PctHelpers for uint256;
@@ -41,6 +42,8 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
     string private constant ERROR_TOTAL_ACTIVE_BALANCE_EXCEEDED = "JR_TOTAL_ACTIVE_BALANCE_EXCEEDED";
     string private constant ERROR_ACTIVE_BALANCE_LIMITS_INCONSISTENT = "JR_ACTIVE_BALANCE_LIMITS_INCONSISTENT";
     string private constant ERROR_WITHDRAWALS_LOCK = "JR_WITHDRAWALS_LOCK";
+    string private constant ERROR_SENDER_NOT_BRIGHTID_REGISTER = "JR_SENDER_NOT_BRIGHTID_REGISTER";
+    string private constant ERROR_NO_FUNCTION_MATCH = "JR_NO_FUNCTION_MATCH";
 
     // Address that will be used to burn juror tokens
     address internal constant BURN_ACCOUNT = address(0x000000000000000000000000000000000000dEaD);
@@ -213,6 +216,31 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
     function receiveApproval(address _from, uint256 _amount, address _token, bytes calldata _data) external {
         require(msg.sender == _token && _token == address(jurorsToken), ERROR_TOKEN_APPROVE_NOT_ALLOWED);
         _stake(_from, _from, _amount, _data);
+    }
+
+    /**
+    * @dev The user just verified and registered themselves in the BrightIdRegister, check the function call in _data,
+    *      extract the params and execute it.
+    * @param _jurorSenderAddress The address from which the transaction was created
+    * @param _jurorUniqueId The unique address assigned to the registered BrightId user
+    * @param _data Data used to determine what function to call
+    */
+    function receiveRegistration(address _jurorSenderAddress, address _jurorUniqueId, bytes calldata _data) external {
+        require(msg.sender == address(_brightIdRegister()), ERROR_SENDER_NOT_BRIGHTID_REGISTER);
+
+        bytes4 functionSelector = _data.toBytes4();
+        uint256 amount = _data.toUint256(4); // amountLocation: 4 (from end of sig)
+
+        if (functionSelector == JurorsRegistry(this).activate.selector) {
+            _activateTokens(_jurorSenderAddress, amount, _jurorSenderAddress);
+
+        } else if (functionSelector == JurorsRegistry(this).stake.selector) {
+            bytes memory callData = _data.extractBytes(100, 4); // callDataLocation: 4 + 32 + 32 + 32 = 100 (sig + uint256 _amount + callData location + callData length)
+            _stake(_jurorSenderAddress, _jurorSenderAddress, amount, callData);
+
+        } else {
+            revert(ERROR_NO_FUNCTION_MATCH);
+        }
     }
 
     /**
@@ -516,8 +544,12 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
     * @return Amount of active tokens of a juror
     */
     function jurorsTotalActiveStake(address _juror) external view returns (uint256) {
-        address jurorBrightId = _jurorBrightId(_juror);
-        return brightIdActiveStake[jurorBrightId];
+        if (_brightIdRegister().hasUniqueUserId(_juror)) {
+            address jurorBrightId = _jurorBrightId(_juror);
+            return brightIdActiveStake[jurorBrightId];
+        } else {
+            return 0;
+        }
     }
 
     /**
@@ -955,7 +987,7 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
     */
     function _jurorBrightId(address _jurorSenderAddress) internal view returns (address) {
         if (_jurorSenderAddress == ZERO_ADDRESS) {
-            return ZERO_ADDRESS;
+            return ZERO_ADDRESS; // TODO: Can this be removed.
         }
 
         return _brightIdRegister().uniqueUserId(_jurorSenderAddress);

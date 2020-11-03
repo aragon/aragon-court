@@ -1,6 +1,8 @@
 const { assertBn } = require('../helpers/asserts/assertBn')
 const { bn, bigExp } = require('../helpers/lib/numbers')
 const { buildHelper } = require('../helpers/wrappers/court')(web3, artifacts)
+const { buildBrightIdHelper } = require('../helpers/wrappers/brightid')(web3, artifacts)
+
 const { assertRevert } = require('../helpers/asserts/assertThrow')
 const { REGISTRY_EVENTS } = require('../helpers/utils/events')
 const { assertEvent, assertAmountOfEvents } = require('../helpers/asserts/assertEvent')
@@ -44,7 +46,10 @@ contract('JurorsRegistry', ([_, governor, someone]) => {
             const receipt = await registry.setTotalActiveBalanceLimit(newTotalActiveBalanceLimit, { from })
 
             assertAmountOfEvents(receipt, REGISTRY_EVENTS.TOTAL_ACTIVE_BALANCE_LIMIT_CHANGED)
-            assertEvent(receipt, REGISTRY_EVENTS.TOTAL_ACTIVE_BALANCE_LIMIT_CHANGED, { previousTotalActiveBalanceLimit, currentTotalActiveBalanceLimit: newTotalActiveBalanceLimit })
+            assertEvent(receipt, REGISTRY_EVENTS.TOTAL_ACTIVE_BALANCE_LIMIT_CHANGED, {
+              previousTotalActiveBalanceLimit,
+              currentTotalActiveBalanceLimit: newTotalActiveBalanceLimit
+            })
           })
         }
 
@@ -58,6 +63,14 @@ contract('JurorsRegistry', ([_, governor, someone]) => {
           const newTotalActiveBalanceLimit = MIN_ACTIVE_BALANCE.add(bn(1))
 
           itUpdatesTheTotalActiveBalanceLimit(newTotalActiveBalanceLimit)
+        })
+
+        context('when the given limit is below the current max active balance', () => {
+          it('reverts', async () => {
+            await ANJ.generateTokens(from, TOTAL_ACTIVE_BALANCE_LIMIT)
+            const belowMaxActiveLimit = await registry.maxActiveBalance(0)
+            await assertRevert(registry.setTotalActiveBalanceLimit(belowMaxActiveLimit, { from }), 'JR_TOTAL_ACTIVE_BALANCE_TOO_LOW')
+          })
         })
       })
 
@@ -79,3 +92,5 @@ contract('JurorsRegistry', ([_, governor, someone]) => {
     })
   })
 })
+
+

@@ -1,5 +1,7 @@
 const REVERT_CODE = 'revert'
-const THROW_ERROR_PREFIX = 'Returned error: VM Exception while processing transaction:'
+
+// const THROW_ERROR_PREFIX = 'Returned error: VM Exception while processing transaction:' // Use for non buidlerevm local chains
+const THROW_ERROR_PREFIX = 'VM Exception while processing transaction:' // Use for buidlerevm
 
 function assertError(error, expectedErrorCode) {
   assert(error.message.search(expectedErrorCode) > -1, `Expected error code "${expectedErrorCode}" but failed with "${error}" instead.`)

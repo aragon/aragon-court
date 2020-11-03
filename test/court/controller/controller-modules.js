@@ -51,7 +51,10 @@ contract('Controller', ([_, fundsGovernor, configGovernor, modulesGovernor, some
           const receipt = await controller.changeFundsGovernor(newFundsGovernor, { from })
 
           assertAmountOfEvents(receipt, CONTROLLER_EVENTS.FUNDS_GOVERNOR_CHANGED)
-          assertEvent(receipt, CONTROLLER_EVENTS.FUNDS_GOVERNOR_CHANGED, { previousGovernor: fundsGovernor, currentGovernor: newFundsGovernor })
+          assertEvent(receipt, CONTROLLER_EVENTS.FUNDS_GOVERNOR_CHANGED, {
+            previousGovernor: fundsGovernor,
+            currentGovernor: newFundsGovernor
+          })
         })
       })
 
@@ -90,7 +93,10 @@ contract('Controller', ([_, fundsGovernor, configGovernor, modulesGovernor, some
           const receipt = await controller.changeConfigGovernor(newConfigGovernor, { from })
 
           assertAmountOfEvents(receipt, CONTROLLER_EVENTS.CONFIG_GOVERNOR_CHANGED)
-          assertEvent(receipt, CONTROLLER_EVENTS.CONFIG_GOVERNOR_CHANGED, { previousGovernor: configGovernor, currentGovernor: newConfigGovernor })
+          assertEvent(receipt, CONTROLLER_EVENTS.CONFIG_GOVERNOR_CHANGED, {
+            previousGovernor: configGovernor,
+            currentGovernor: newConfigGovernor
+          })
         })
       })
 
@@ -129,7 +135,10 @@ contract('Controller', ([_, fundsGovernor, configGovernor, modulesGovernor, some
           const receipt = await controller.changeModulesGovernor(newModulesGovernor, { from })
 
           assertAmountOfEvents(receipt, CONTROLLER_EVENTS.MODULES_GOVERNOR_CHANGED)
-          assertEvent(receipt, CONTROLLER_EVENTS.MODULES_GOVERNOR_CHANGED, { previousGovernor: modulesGovernor, currentGovernor: newModulesGovernor })
+          assertEvent(receipt, CONTROLLER_EVENTS.MODULES_GOVERNOR_CHANGED, {
+            previousGovernor: modulesGovernor,
+            currentGovernor: newModulesGovernor
+          })
         })
       })
 
@@ -165,7 +174,10 @@ contract('Controller', ([_, fundsGovernor, configGovernor, modulesGovernor, some
         const receipt = await controller.ejectFundsGovernor({ from })
 
         assertAmountOfEvents(receipt, CONTROLLER_EVENTS.FUNDS_GOVERNOR_CHANGED)
-        assertEvent(receipt, CONTROLLER_EVENTS.FUNDS_GOVERNOR_CHANGED, { previousGovernor: fundsGovernor, currentGovernor: ZERO_ADDRESS })
+        assertEvent(receipt, CONTROLLER_EVENTS.FUNDS_GOVERNOR_CHANGED, {
+          previousGovernor: fundsGovernor,
+          currentGovernor: ZERO_ADDRESS
+        })
       })
     })
 
@@ -192,7 +204,10 @@ contract('Controller', ([_, fundsGovernor, configGovernor, modulesGovernor, some
         const receipt = await controller.ejectModulesGovernor({ from })
 
         assertAmountOfEvents(receipt, CONTROLLER_EVENTS.MODULES_GOVERNOR_CHANGED)
-        assertEvent(receipt, CONTROLLER_EVENTS.MODULES_GOVERNOR_CHANGED, { previousGovernor: modulesGovernor, currentGovernor: ZERO_ADDRESS })
+        assertEvent(receipt, CONTROLLER_EVENTS.MODULES_GOVERNOR_CHANGED, {
+          previousGovernor: modulesGovernor,
+          currentGovernor: ZERO_ADDRESS
+        })
       })
     })
 
@@ -257,7 +272,8 @@ contract('Controller', ([_, fundsGovernor, configGovernor, modulesGovernor, some
             { name: 'VOTING', getter: 'getVoting' },
             { name: 'TREASURY', getter: 'getTreasury' },
             { name: 'JURORS_REGISTRY', getter: 'getJurorsRegistry' },
-            { name: 'SUBSCRIPTIONS', getter: 'getSubscriptions' }
+            { name: 'SUBSCRIPTIONS', getter: 'getSubscriptions' },
+            { name: 'BRIGHTID_REGISTER', getter: 'getBrightIdRegister' }
           ]
 
           for (const { name, getter } of modules) {

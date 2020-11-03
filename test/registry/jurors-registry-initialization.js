@@ -1,6 +1,7 @@
 const { bigExp } = require('../helpers/lib/numbers')
 const { assertBn } = require('../helpers/asserts/assertBn')
 const { buildHelper } = require('../helpers/wrappers/court')(web3, artifacts)
+const { buildBrightIdHelper } = require('../helpers/wrappers/brightid')(web3, artifacts)
 const { assertRevert } = require('../helpers/asserts/assertThrow')
 const { CONTROLLED_ERRORS, REGISTRY_ERRORS } = require('../helpers/utils/errors')
 
@@ -10,13 +11,16 @@ const ERC20 = artifacts.require('ERC20Mock')
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
 
 contract('JurorsRegistry', ([_, something]) => {
-  let controller, ANJ
+  let controller, ANJ, brightIdRegister
 
   const TOTAL_ACTIVE_BALANCE_LIMIT = bigExp(100e6, 18)
 
   beforeEach('create base contracts', async () => {
     controller = await buildHelper().deploy()
     ANJ = await ERC20.new('ANJ Token', 'ANJ', 18)
+
+    const brightIdHelper = buildBrightIdHelper()
+    brightIdRegister = await brightIdHelper.deploy()
   })
 
   describe('initialize', () => {

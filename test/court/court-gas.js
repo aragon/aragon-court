@@ -20,7 +20,7 @@ contract('AragonCourt', ([_, sender, drafter, appealMaker, appealTaker, juror500
 
   before('create court and activate jurors', async () => {
     courtHelper = buildHelper()
-    court = await courtHelper.deploy()
+    court = await courtHelper.deploy({ maxMaxPctTotalSupply: bigExp(100, 16) })
     voting = courtHelper.voting
     disputeManager = courtHelper.disputeManager
     await courtHelper.activate(jurors)

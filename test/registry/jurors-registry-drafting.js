@@ -3,6 +3,7 @@ const { assertBn } = require('../helpers/asserts/assertBn')
 const { bn, bigExp } = require('../helpers/lib/numbers')
 const { getEventAt } = require('@aragon/test-helpers/events')
 const { buildHelper } = require('../helpers/wrappers/court')(web3, artifacts)
+const { buildBrightIdHelper } = require('../helpers/wrappers/brightid')(web3, artifacts)
 const { assertRevert } = require('../helpers/asserts/assertThrow')
 const { simulateDraft } = require('../helpers/utils/registry')
 const { REGISTRY_EVENTS } = require('../helpers/utils/events')
@@ -18,10 +19,11 @@ const ERC20 = artifacts.require('ERC20Mock')
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
 
 contract('JurorsRegistry', ([_, juror500, juror1000, juror1500, juror2000, juror2500, juror3000, juror3500, juror4000]) => {
-  let controller, registry, disputeManager, ANJ
+  let controller, registry, disputeManager, ANJ, brightIdRegister
 
   const DRAFT_LOCK_PCT = bn(2000) // 20%
   const MIN_ACTIVE_AMOUNT = bigExp(100, 18)
+  const MAX_MAX_PCT_TOTAL_SUPPLY = bigExp(50, 16) // 50% This means for 0 active jurors, they can activate up to 50% of the total supply
   const TOTAL_ACTIVE_BALANCE_LIMIT = bigExp(100e6, 18)
   const DRAFT_LOCKED_AMOUNT = MIN_ACTIVE_AMOUNT.mul(DRAFT_LOCK_PCT).div(bn(10000))
 
@@ -53,8 +55,15 @@ contract('JurorsRegistry', ([_, juror500, juror1000, juror1500, juror2000, juror
     { address: juror4000, initialActiveBalance: balances[7] }
   ]
 
+  before('create brightid register', async () => {
+    const brightIdHelper = buildBrightIdHelper()
+    brightIdRegister = await brightIdHelper.deploy()
+    await brightIdHelper.registerUsers([juror500, juror1000, juror1500, juror2000, juror2500, juror3000, juror3500, juror4000])
+  })
+
   beforeEach('create base contracts', async () => {
-    controller = await buildHelper().deploy({ minActiveBalance: MIN_ACTIVE_AMOUNT })
+    controller = await buildHelper().deploy({ minActiveBalance: MIN_ACTIVE_AMOUNT, maxMaxPctTotalSupply: MAX_MAX_PCT_TOTAL_SUPPLY })
+    await controller.setBrightIdRegister(brightIdRegister.address)
 
     ANJ = await ERC20.new('ANJ Token', 'ANJ', 18)
     registry = await JurorsRegistry.new(controller.address, ANJ.address, TOTAL_ACTIVE_BALANCE_LIMIT)
@@ -559,6 +568,24 @@ contract('JurorsRegistry', ([_, juror500, juror1000, juror1500, juror2000, juror
                         })
 
                         itReturnsExpectedJurors({ disputeId, previousSelectedJurors, batchRequestedJurors, roundRequestedJurors })
+                      })
+
+                      it('updates the jurors total active stake', async () => {
+                        const batchRequestedJurors = 3
+                        const previousSelectedJurors = 0
+                        await deactivateFirstExpectedJuror({ disputeId, batchRequestedJurors, roundRequestedJurors })
+                        const jurorPreviousTotalActiveStake = await registry.jurorsTotalActiveStake(juror1000)
+
+                        const { addresses, length, expectedJurors } = await draft({
+                          EMPTY_RANDOMNESS,
+                          disputeId,
+                          selectedJurors: previousSelectedJurors,
+                          batchRequestedJurors,
+                          roundRequestedJurors
+                        })
+
+                        const jurorCurrentTotalActiveStake = await registry.jurorsTotalActiveStake(juror1000)
+                        assertBn(jurorCurrentTotalActiveStake, jurorPreviousTotalActiveStake.add(DRAFT_LOCKED_AMOUNT), "Incorrect total active stake")
                       })
                     })
                   })

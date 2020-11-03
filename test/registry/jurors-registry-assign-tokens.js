@@ -1,5 +1,6 @@
 const { assertBn } = require('../helpers/asserts/assertBn')
 const { buildHelper } = require('../helpers/wrappers/court')(web3, artifacts)
+const { buildBrightIdHelper } = require('../helpers/wrappers/brightid')(web3, artifacts)
 const { assertRevert } = require('../helpers/asserts/assertThrow')
 const { REGISTRY_EVENTS } = require('../helpers/utils/events')
 const { decodeEventsOfType } = require('../helpers/lib/decodeEvent')
@@ -11,20 +12,25 @@ const JurorsRegistry = artifacts.require('JurorsRegistry')
 const DisputeManager = artifacts.require('DisputeManagerMockForRegistry')
 const ERC20 = artifacts.require('ERC20Mock')
 
-contract('JurorsRegistry', ([_, juror, someone]) => {
+contract('JurorsRegistry', ([_, juror, someone, jurorUniqueAddress]) => {
   let controller, registry, disputeManager, ANJ
 
   const TOTAL_ACTIVE_BALANCE_LIMIT = bigExp(100e6, 18)
   const BURN_ADDRESS = '0x000000000000000000000000000000000000dead'
 
   before('create base contracts', async () => {
-    controller = await buildHelper().deploy()
+    controller = await buildHelper().deploy({ juror })
     disputeManager = await DisputeManager.new(controller.address)
     await controller.setDisputeManager(disputeManager.address)
     ANJ = await ERC20.new('ANJ Token', 'ANJ', 18)
   })
 
   beforeEach('create jurors registry module', async () => {
+    const brightIdHelper = buildBrightIdHelper()
+    const brightIdRegister = await brightIdHelper.deploy()
+    await brightIdHelper.registerUserWithMultipleAddresses(jurorUniqueAddress, juror)
+    await controller.setBrightIdRegister(brightIdRegister.address)
+
     registry = await JurorsRegistry.new(controller.address, ANJ.address, TOTAL_ACTIVE_BALANCE_LIMIT)
     await controller.setJurorsRegistry(registry.address)
   })
@@ -142,7 +148,7 @@ contract('JurorsRegistry', ([_, juror, someone]) => {
 
       context('when the given amount is greater than zero', () => {
         const itEmitsAJurorTokensAssignedEvent = (assignmentCall, recipient, amount) => {
-          it('emits a juror rewarded event', async () => {
+          it('emits a juror rewarded event', async () => {
             const receipt = await assignmentCall()
             const logs = decodeEventsOfType(receipt, JurorsRegistry.abi, REGISTRY_EVENTS.JUROR_TOKENS_ASSIGNED)
 
@@ -202,7 +208,7 @@ contract('JurorsRegistry', ([_, juror, someone]) => {
 
       context('when the given amount is greater than zero', () => {
         const itEmitsAJurorTokensBurnedEvent = (assignmentCall, amount) => {
-          it('emits a burned tokens event', async () => {
+          it('emits a burned tokens event', async () => {
             const receipt = await assignmentCall()
             const logs = decodeEventsOfType(receipt, JurorsRegistry.abi, REGISTRY_EVENTS.JUROR_TOKENS_BURNED)
 

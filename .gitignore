@@ -3,10 +3,13 @@
 # Dependencies
 node_modules/
 package-lock.json
+yarn.lock
 
 # Production
 build/
 abi/
+artifacts/
+cache/
 
 # coverage
 coverage/

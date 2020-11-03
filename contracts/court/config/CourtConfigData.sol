@@ -4,10 +4,11 @@ import "../../lib/os/ERC20.sol";
 
 
 contract CourtConfigData {
+
     struct Config {
         FeesConfig fees;                        // Full fees-related config
         DisputesConfig disputes;                // Full disputes-related config
-        uint256 minActiveBalance;               // Minimum amount of tokens jurors have to activate to participate in the Court
+        JurorsConfig jurors;                    // Full juror-related config
     }
 
     struct FeesConfig {
@@ -31,6 +32,12 @@ contract CourtConfigData {
         uint256 maxRegularAppealRounds;         // Before the final appeal
         uint256 appealCollateralFactor;         // Permyriad multiple of dispute fees required to appeal a preliminary ruling (‱ - 1/10,000)
         uint256 appealConfirmCollateralFactor;  // Permyriad multiple of dispute fees required to confirm appeal (‱ - 1/10,000)
+    }
+
+    struct JurorsConfig {
+        uint256 minActiveBalance;               // Minimum amount of tokens jurors have to activate to participate in the Court
+        uint256 minMaxPctTotalSupply;           // Minimum max percent of the total supply a juror can activate, applied for total supply active stake
+        uint256 maxMaxPctTotalSupply;           // Maximum max percent of the total supply a juror can activate, applied for 0 active stake
     }
 
     struct DraftConfig {

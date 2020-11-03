@@ -1,6 +1,7 @@
 const { assertBn } = require('../helpers/asserts/assertBn')
 const { bn, bigExp } = require('../helpers/lib/numbers')
 const { buildHelper } = require('../helpers/wrappers/court')(web3, artifacts)
+const { buildBrightIdHelper } = require('../helpers/wrappers/brightid')(web3, artifacts)
 const { assertRevert } = require('../helpers/asserts/assertThrow')
 const { ACTIVATE_DATA } = require('../helpers/utils/jurors')
 const { REGISTRY_EVENTS } = require('../helpers/utils/events')
@@ -14,8 +15,8 @@ const ERC20 = artifacts.require('ERC20Mock')
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
 
-contract('JurorsRegistry', ([_, juror, anotherJuror]) => {
-  let controller, registry, disputeManager, ANJ
+contract('JurorsRegistry', ([_, juror, juror2, jurorUniqueAddress, juror2UniqueAddress]) => {
+  let controller, registry, disputeManager, ANJ, brightIdRegister
 
   const MIN_ACTIVE_AMOUNT = bigExp(100, 18)
   const TOTAL_ACTIVE_BALANCE_LIMIT = bigExp(100e6, 18)
@@ -24,10 +25,16 @@ contract('JurorsRegistry', ([_, juror, anotherJuror]) => {
     controller = await buildHelper().deploy({ minActiveBalance: MIN_ACTIVE_AMOUNT })
     disputeManager = await DisputeManager.new(controller.address)
     await controller.setDisputeManager(disputeManager.address)
-    ANJ = await ERC20.new('ANJ Token', 'ANJ', 18)
   })
 
   beforeEach('create jurors registry module', async () => {
+    ANJ = await ERC20.new('ANJ Token', 'ANJ', 18)
+    const brightIdHelper = buildBrightIdHelper()
+    brightIdRegister = await brightIdHelper.deploy()
+    await brightIdHelper.registerUsersWithMultipleAddresses(
+      [[jurorUniqueAddress, juror], [juror2UniqueAddress, juror2]])
+    await controller.setBrightIdRegister(brightIdRegister.address)
+
     registry = await JurorsRegistry.new(controller.address, ANJ.address, TOTAL_ACTIVE_BALANCE_LIMIT)
     await controller.setJurorsRegistry(registry.address)
   })
@@ -115,7 +122,7 @@ contract('JurorsRegistry', ([_, juror, anotherJuror]) => {
             const receipt = await registry.stake(amount, data, { from })
 
             assertAmountOfEvents(receipt, REGISTRY_EVENTS.STAKED)
-            assertEvent(receipt, REGISTRY_EVENTS.STAKED, { user: juror, amount, total: previousTotalStake.add(amount), data })
+            assertEvent(receipt, REGISTRY_EVENTS.STAKED, { user: from, amount, total: previousTotalStake.add(amount), data })
           })
         })
 
@@ -146,6 +153,12 @@ contract('JurorsRegistry', ([_, juror, anotherJuror]) => {
 
           itHandlesStakesProperlyFor(amount, data)
         })
+
+        // context('when the juror uses an unverified previous address', () => {
+        //   it('reverts', async () => {
+        //     await assertRevert(registry.stake(MIN_ACTIVE_AMOUNT, data, { from }), 'JR_SENDER_NOT_VERIFIED')
+        //   })
+        // })
       }
 
       context('when the juror has not staked before', () => {
@@ -238,7 +251,7 @@ contract('JurorsRegistry', ([_, juror, anotherJuror]) => {
           const receipt = await registry.stake(amount, data, { from })
 
           assertAmountOfEvents(receipt, REGISTRY_EVENTS.STAKED)
-          assertEvent(receipt, REGISTRY_EVENTS.STAKED, { user: juror, amount, total: previousTotalStake.add(amount), data })
+          assertEvent(receipt, REGISTRY_EVENTS.STAKED, { user: from, amount, total: previousTotalStake.add(amount), data })
         })
 
         it('emits an activation event', async () => {
@@ -247,7 +260,7 @@ contract('JurorsRegistry', ([_, juror, anotherJuror]) => {
           const receipt = await registry.stake(amount, data, { from })
 
           assertAmountOfEvents(receipt, REGISTRY_EVENTS.JUROR_ACTIVATED)
-          assertEvent(receipt, REGISTRY_EVENTS.JUROR_ACTIVATED, { juror, fromTermId: termId.add(bn(1)), amount, sender: from })
+          assertEvent(receipt, REGISTRY_EVENTS.JUROR_ACTIVATED, { juror: from, fromTermId: termId.add(bn(1)), amount, sender: from })
         })
       }
 
@@ -265,7 +278,7 @@ contract('JurorsRegistry', ([_, juror, anotherJuror]) => {
 
           context('when the juror has enough token balance', () => {
             beforeEach('mint and approve tokens', async () => {
-              await ANJ.generateTokens(from, amount)
+              await ANJ.generateTokens(from, TOTAL_ACTIVE_BALANCE_LIMIT)
               await ANJ.approve(registry.address, amount, { from })
             })
 
@@ -286,7 +299,7 @@ contract('JurorsRegistry', ([_, juror, anotherJuror]) => {
 
           context('when the juror has enough token balance', () => {
             beforeEach('mint and approve tokens', async () => {
-              await ANJ.generateTokens(from, amount)
+              await ANJ.generateTokens(from, TOTAL_ACTIVE_BALANCE_LIMIT)
               await ANJ.approve(registry.address, amount, { from })
             })
 
@@ -295,10 +308,17 @@ contract('JurorsRegistry', ([_, juror, anotherJuror]) => {
 
           context('when the juror does not have enough token balance', () => {
             it('reverts', async () => {
+              await ANJ.generateTokens(from, TOTAL_ACTIVE_BALANCE_LIMIT)
               await assertRevert(registry.stake(amount, data, { from }), REGISTRY_ERRORS.TOKEN_TRANSFER_FAILED)
             })
           })
         })
+
+        // context('when the juror uses an unverified previous address', () => {
+        //   it('reverts', async () => {
+        //     await assertRevert(registry.stake(MIN_ACTIVE_AMOUNT, data, { from }), 'JR_SENDER_NOT_VERIFIED')
+        //   })
+        // })
       }
 
       context('when the juror has not staked before', () => {
@@ -308,7 +328,7 @@ contract('JurorsRegistry', ([_, juror, anotherJuror]) => {
       context('when the juror has already staked some tokens before', () => {
         beforeEach('stake some tokens', async () => {
           const initialAmount = bigExp(50, 18)
-          await ANJ.generateTokens(from, initialAmount)
+          await ANJ.generateTokens(from, TOTAL_ACTIVE_BALANCE_LIMIT)
           await ANJ.approve(registry.address, initialAmount, { from })
           await registry.stake(initialAmount, '0x', { from })
         })
@@ -474,7 +494,7 @@ contract('JurorsRegistry', ([_, juror, anotherJuror]) => {
         })
 
         context('when the recipient and the sender are not the same', async () => {
-          const recipient = anotherJuror
+          const recipient = juror2
 
           itHandlesStakesWithoutActivationProperlyForDifferentAmounts(recipient, data)
         })
@@ -493,7 +513,7 @@ contract('JurorsRegistry', ([_, juror, anotherJuror]) => {
       context('when the juror has already staked some tokens before', () => {
         beforeEach('stake some tokens', async () => {
           const initialAmount = bigExp(50, 18)
-          await ANJ.generateTokens(from, initialAmount)
+          await ANJ.generateTokens(from, TOTAL_ACTIVE_BALANCE_LIMIT)
           await ANJ.approve(registry.address, initialAmount, { from })
           await registry.stake(initialAmount, '0x', { from })
         })
@@ -656,7 +676,7 @@ contract('JurorsRegistry', ([_, juror, anotherJuror]) => {
 
           context('when the juror has enough token balance', () => {
             beforeEach('mint and approve tokens', async () => {
-              await ANJ.generateTokens(from, amount)
+              await ANJ.generateTokens(from, TOTAL_ACTIVE_BALANCE_LIMIT)
               await ANJ.approve(registry.address, amount, { from })
             })
 
@@ -665,6 +685,7 @@ contract('JurorsRegistry', ([_, juror, anotherJuror]) => {
 
           context('when the juror does not have enough token balance', () => {
             it('reverts', async () => {
+              await ANJ.generateTokens(from, TOTAL_ACTIVE_BALANCE_LIMIT)
               await assertRevert(registry.stakeFor(recipient, amount, data, { from }), REGISTRY_ERRORS.TOKEN_TRANSFER_FAILED)
             })
           })
@@ -679,7 +700,7 @@ contract('JurorsRegistry', ([_, juror, anotherJuror]) => {
         })
 
         context('when the recipient and the sender are not the same', async () => {
-          const recipient = anotherJuror
+          const recipient = juror2
 
           itHandlesStakesWithActivationProperlyForDifferentAmounts(recipient, data)
         })
@@ -698,7 +719,7 @@ contract('JurorsRegistry', ([_, juror, anotherJuror]) => {
       context('when the juror has already staked some tokens before', () => {
         beforeEach('stake some tokens', async () => {
           const initialAmount = bigExp(50, 18)
-          await ANJ.generateTokens(from, initialAmount)
+          await ANJ.generateTokens(from, TOTAL_ACTIVE_BALANCE_LIMIT)
           await ANJ.approve(registry.address, initialAmount, { from })
           await registry.stake(initialAmount, '0x', { from })
         })
@@ -718,7 +739,7 @@ contract('JurorsRegistry', ([_, juror, anotherJuror]) => {
         const itHandlesStakesProperlyFor = (amount, data) => {
           context('when the juror has enough token balance', () => {
             beforeEach('mint', async () => {
-              await ANJ.generateTokens(from, amount)
+              await ANJ.generateTokens(from, TOTAL_ACTIVE_BALANCE_LIMIT)
             })
 
             it('adds the staked amount to the available balance of the juror', async () => {
@@ -782,7 +803,7 @@ contract('JurorsRegistry', ([_, juror, anotherJuror]) => {
               const logs = decodeEventsOfType(receipt, JurorsRegistry.abi, REGISTRY_EVENTS.STAKED)
 
               assertAmountOfEvents({ logs }, REGISTRY_EVENTS.STAKED)
-              assertEvent({ logs }, REGISTRY_EVENTS.STAKED, { user: juror, amount, total: previousTotalStake.add(amount), data })
+              assertEvent({ logs }, REGISTRY_EVENTS.STAKED, { user: from, amount, total: previousTotalStake.add(amount), data })
             })
           })
 
@@ -813,6 +834,13 @@ contract('JurorsRegistry', ([_, juror, anotherJuror]) => {
 
             itHandlesStakesProperlyFor(amount, data)
           })
+
+          // context('when juror uses an unverified previous address', () => {
+          //   it('reverts', async () => {
+          //     await ANJ.generateTokens(from, TOTAL_ACTIVE_BALANCE_LIMIT)
+          //     await assertRevert(ANJ.approveAndCall(registry.address, MIN_ACTIVE_AMOUNT, '0x', { from }), 'JR_SENDER_NOT_VERIFIED')
+          //   })
+          // })
         }
 
         context('when the juror has not staked before', () => {
@@ -822,7 +850,7 @@ contract('JurorsRegistry', ([_, juror, anotherJuror]) => {
         context('when the juror has already staked some tokens before', () => {
           beforeEach('stake some tokens', async () => {
             const initialAmount = bigExp(50, 18)
-            await ANJ.generateTokens(from, initialAmount)
+            await ANJ.generateTokens(from, TOTAL_ACTIVE_BALANCE_LIMIT)
             await ANJ.approveAndCall(registry.address, initialAmount, '0x', { from })
           })
 
@@ -905,7 +933,7 @@ contract('JurorsRegistry', ([_, juror, anotherJuror]) => {
             const logs = decodeEventsOfType(receipt, JurorsRegistry.abi, REGISTRY_EVENTS.STAKED)
 
             assertAmountOfEvents({ logs }, REGISTRY_EVENTS.STAKED)
-            assertEvent({ logs }, REGISTRY_EVENTS.STAKED, { user: juror, amount, total: previousTotalStake.add(amount), data })
+            assertEvent({ logs }, REGISTRY_EVENTS.STAKED, { user: from, amount, total: previousTotalStake.add(amount), data })
           })
 
           it('emits an activation event', async () => {
@@ -915,7 +943,7 @@ contract('JurorsRegistry', ([_, juror, anotherJuror]) => {
             const logs = decodeEventsOfType(receipt, JurorsRegistry.abi, REGISTRY_EVENTS.JUROR_ACTIVATED)
 
             assertAmountOfEvents({ logs }, REGISTRY_EVENTS.JUROR_ACTIVATED)
-            assertEvent({ logs }, REGISTRY_EVENTS.JUROR_ACTIVATED, { juror, fromTermId: termId.add(bn(1)), amount, sender: from })
+            assertEvent({ logs }, REGISTRY_EVENTS.JUROR_ACTIVATED, { juror: from, fromTermId: termId.add(bn(1)), amount, sender: from })
           })
         }
 
@@ -933,7 +961,7 @@ contract('JurorsRegistry', ([_, juror, anotherJuror]) => {
 
             context('when the juror has enough token balance', () => {
               beforeEach('mint tokens', async () => {
-                await ANJ.generateTokens(from, amount)
+                await ANJ.generateTokens(from, TOTAL_ACTIVE_BALANCE_LIMIT)
               })
 
               it('reverts', async () => {
@@ -953,7 +981,7 @@ contract('JurorsRegistry', ([_, juror, anotherJuror]) => {
 
             context('when the juror has enough token balance', () => {
               beforeEach('mint tokens', async () => {
-                await ANJ.generateTokens(from, amount)
+                await ANJ.generateTokens(from, TOTAL_ACTIVE_BALANCE_LIMIT)
               })
 
               itHandlesStakesProperlyFor(amount, data)
@@ -961,6 +989,7 @@ contract('JurorsRegistry', ([_, juror, anotherJuror]) => {
 
             context('when the juror does not have enough token balance', () => {
               it('reverts', async () => {
+                await ANJ.generateTokens(from, TOTAL_ACTIVE_BALANCE_LIMIT)
                 await assertRevert(registry.stake(amount, data, { from }), REGISTRY_ERRORS.TOKEN_TRANSFER_FAILED)
               })
             })
@@ -974,7 +1003,7 @@ contract('JurorsRegistry', ([_, juror, anotherJuror]) => {
         context('when the juror has already staked some tokens before', () => {
           beforeEach('stake some tokens', async () => {
             const initialAmount = bigExp(50, 18)
-            await ANJ.generateTokens(from, initialAmount)
+            await ANJ.generateTokens(from, TOTAL_ACTIVE_BALANCE_LIMIT)
             await ANJ.approveAndCall(registry.address, initialAmount, '0x', { from })
           })
 
@@ -987,7 +1016,7 @@ contract('JurorsRegistry', ([_, juror, anotherJuror]) => {
       it('reverts', async () => {
         const anotherToken = await ERC20.new('Another Token', 'ATK', 18)
         const jurorBalance = bigExp(100, 18)
-        await anotherToken.generateTokens(juror, jurorBalance)
+        await anotherToken.generateTokens(juror, TOTAL_ACTIVE_BALANCE_LIMIT)
 
         await assertRevert(anotherToken.approveAndCall(registry.address, jurorBalance, ACTIVATE_DATA, { from: juror }), REGISTRY_ERRORS.TOKEN_APPROVE_NOT_ALLOWED)
       })
@@ -1032,7 +1061,7 @@ contract('JurorsRegistry', ([_, juror, anotherJuror]) => {
       const stakedBalance = MIN_ACTIVE_AMOUNT
 
       beforeEach('stake some tokens', async () => {
-        await ANJ.generateTokens(from, stakedBalance)
+        await ANJ.generateTokens(from, TOTAL_ACTIVE_BALANCE_LIMIT)
         await ANJ.approve(registry.address, stakedBalance, { from })
         await registry.stake(stakedBalance, '0x', { from })
       })
@@ -1097,7 +1126,7 @@ contract('JurorsRegistry', ([_, juror, anotherJuror]) => {
           const receipt = await registry.unstake(amount, data, { from })
 
           assertAmountOfEvents(receipt, REGISTRY_EVENTS.UNSTAKED)
-          assertEvent(receipt, REGISTRY_EVENTS.UNSTAKED, { user: juror, amount, total: previousTotalStake.sub(amount), data })
+          assertEvent(receipt, REGISTRY_EVENTS.UNSTAKED, { user: from, amount, total: previousTotalStake.sub(amount), data })
         })
 
         if (deactivationAmount.gt(bn(0))) {
@@ -1108,7 +1137,7 @@ contract('JurorsRegistry', ([_, juror, anotherJuror]) => {
             const receipt = await registry.unstake(amount, data, { from })
 
             assertAmountOfEvents(receipt, REGISTRY_EVENTS.JUROR_DEACTIVATION_PROCESSED)
-            assertEvent(receipt, REGISTRY_EVENTS.JUROR_DEACTIVATION_PROCESSED, { juror, amount: deactivationAmount, availableTermId, processedTermId: termId })
+            assertEvent(receipt, REGISTRY_EVENTS.JUROR_DEACTIVATION_PROCESSED, { juror: from, amount: deactivationAmount, availableTermId, processedTermId: termId })
           })
         }
       }
@@ -1135,6 +1164,12 @@ contract('JurorsRegistry', ([_, juror, anotherJuror]) => {
             await assertRevert(registry.unstake(amount, data, { from }), REGISTRY_ERRORS.NOT_ENOUGH_AVAILABLE_BALANCE)
           })
         })
+
+        // context('when the juror uses and unverified previous address', async() => {
+        //   it('reverts', async () => {
+        //     await assertRevert(registry.unstake(MIN_ACTIVE_AMOUNT, data, { from: from }), 'JR_SENDER_NOT_VERIFIED')
+        //   })
+        // })
       })
 
       context('when the juror tokens were activated', () => {

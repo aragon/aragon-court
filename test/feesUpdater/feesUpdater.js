@@ -129,5 +129,21 @@ contract("FeesUpdater", ([_]) => {
       }
       await checkConfig(1, configAfterUpdate)
     })
+
+    it('if config is due to change at multiple terms in the future, it uses the latest config', async () => {
+      const configTerm50 = await buildNewConfig(initialConfig)
+      const configTerm100 = await buildNewConfig(configTerm50)
+      await courtHelper.setConfig(50, configTerm50)
+      await courtHelper.setConfig(100, configTerm100)
+
+      await feesUpdater.updateCourtFees();
+
+      const configAfterUpdate = { ...configTerm100,
+        jurorFee: feeTokenJurorFee,
+        draftFee: feeTokenDraftFee,
+        settleFee: feeTokenSettleFee
+      }
+      await checkConfig(1, configAfterUpdate)
+    })
   })
 })

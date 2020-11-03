@@ -71,7 +71,7 @@ contract Controller is IsContract, CourtClock, CourtConfig {
     }
 
     /**
-    * @dev Ensure the msg.sender is the config governor or the price fees updater
+    * @dev Ensure the msg.sender is the config governor or the fees updater
     */
     modifier onlyConfigGovernorOrFeesUpdater {
         require(msg.sender == governor.config || msg.sender == governor.feesUpdater, ERROR_SENDER_NOT_GOVERNOR);

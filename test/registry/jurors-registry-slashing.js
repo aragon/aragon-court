@@ -189,7 +189,7 @@ contract('JurorsRegistry', ([_, juror, secondJuror, thirdJuror, fourthJuror, any
               const firstJurorBrightIdCurrentTotalActiveStake = await registry.jurorsTotalActiveStake(jurorBrightIdAddress)
               const thirdJurorBrightIDCurrentTotalActiveStake = await registry.jurorsTotalActiveStake(thirdJurorBrightIdAddress)
               assertBn(firstJurorCurrentTotalActiveStake, firstJurorBrightIdCurrentTotalActiveStake, 'first slashed juror total active balance does not match')
-              assertBn(thirdJurorCurrentTotalActiveStake, thirdJurorCurrentTotalActiveStake, 'second slashed juror total active balance does not match')
+              assertBn(thirdJurorCurrentTotalActiveStake, thirdJurorBrightIDCurrentTotalActiveStake, 'second slashed juror total active balance does not match')
             })
 
             it('emits the corresponding events', async () => {

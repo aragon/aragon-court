@@ -73,14 +73,13 @@ contract("FeesUpdater", ([_]) => {
     courtHelper = buildHelper()
     controller = await courtHelper.deploy({ ...initialConfig })
 
-    feesUpdater = await FeesUpdater.new(priceOracle.address, controller.address, feeToken.address, stableToken.address, stableFees)
+    feesUpdater = await FeesUpdater.new(priceOracle.address, controller.address, stableToken.address, stableFees)
     await controller.changeFeesUpdater(feesUpdater.address)
   })
 
   it('stores constructor params', async () => {
     assert.equal(await feesUpdater.priceOracle(), priceOracle.address, 'Incorrect price oracle')
     assert.equal(await feesUpdater.court(), controller.address, 'Incorrect court address')
-    assert.equal(await feesUpdater.courtFeeToken(), feeToken.address, 'Incorrect fee token')
     assert.equal(await feesUpdater.courtStableToken(), stableToken.address, 'Incorrect stable token')
     assertBnDeepEqual(await feesUpdater.getStableFees(), stableFees, 'Incorrect stable fees')
   })

@@ -8,20 +8,17 @@ contract FeesUpdater {
 
     IPriceOracle public priceOracle;
     AragonCourt public court;
-    address public courtFeeToken;
     address public courtStableToken;
     uint256[3] public courtStableValueFees;
 
     constructor(
         IPriceOracle _priceOracle,
         AragonCourt _court,
-        address _courtFeeToken,
         address _courtStableToken,
         uint256[3] memory _courtStableValueFees
     ) public {
         priceOracle = _priceOracle;
         court = _court;
-        courtFeeToken = _courtFeeToken;
         courtStableToken = _courtStableToken;
         courtStableValueFees = _courtStableValueFees;
     }
@@ -51,9 +48,9 @@ contract FeesUpdater {
         ) = court.getConfig(latestPossibleTerm);
 
         uint256[3] memory convertedFees;
-        convertedFees[0] = priceOracle.consult(courtStableToken, courtStableValueFees[0], courtFeeToken);
-        convertedFees[1] = priceOracle.consult(courtStableToken, courtStableValueFees[1], courtFeeToken);
-        convertedFees[2] = priceOracle.consult(courtStableToken, courtStableValueFees[2], courtFeeToken);
+        convertedFees[0] = priceOracle.consult(courtStableToken, courtStableValueFees[0], address(feeToken));
+        convertedFees[1] = priceOracle.consult(courtStableToken, courtStableValueFees[1], address(feeToken));
+        convertedFees[2] = priceOracle.consult(courtStableToken, courtStableValueFees[2], address(feeToken));
 
         court.setConfig(currentTerm + 1, feeToken, convertedFees, roundStateDurations, pcts, roundParams,
             appealCollateralParams, jurorsParams);

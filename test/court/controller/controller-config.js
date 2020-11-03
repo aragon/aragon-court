@@ -8,7 +8,7 @@ const { assertConfig, buildNewConfig } = require('../../helpers/utils/config')(a
 const { assertEvent, assertAmountOfEvents } = require('../../helpers/asserts/assertEvent')
 const { CLOCK_ERRORS, CONFIG_ERRORS, CONTROLLER_ERRORS } = require('../../helpers/utils/errors')
 
-contract('Controller', ([_, configGovernor, someone, drafter, appealMaker, appealTaker, juror500, juror1000, juror3000]) => {
+contract('Controller', ([_, configGovernor, feesUpdater, someone, drafter, appealMaker, appealTaker, juror500, juror1000, juror3000]) => {
   let courtHelper, controller
 
   let initialConfig, feeToken
@@ -154,7 +154,7 @@ contract('Controller', ([_, configGovernor, someone, drafter, appealMaker, appea
     let newConfig
 
     beforeEach('deploy controller and build new config', async () => {
-      controller = await courtHelper.deploy({ ...initialConfig, configGovernor })
+      controller = await courtHelper.deploy({ ...initialConfig, configGovernor, feesUpdater })
       newConfig = await buildNewConfig(initialConfig)
     })
 
@@ -441,6 +441,13 @@ contract('Controller', ([_, configGovernor, someone, drafter, appealMaker, appea
             await assertRevert(courtHelper.setConfig(configChangeTermId, newConfig, { from }), CONFIG_ERRORS.TOO_OLD_TERM)
           })
         })
+      })
+    })
+
+    context('when the sender is the fees updater', () => {
+      it('updates the config', async () => {
+        const receipt = await courtHelper.setConfig(0, newConfig, { from: feesUpdater })
+        assertAmountOfEvents(receipt, CONFIG_EVENTS.CONFIG_CHANGED)
       })
     })
 

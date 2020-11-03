@@ -16,6 +16,7 @@
     "test:controller": "buidler test test/court/controller/*",
     "test:subscriptions": "buidler test test/subscriptions/*",
     "test:disputes": "buidler test test/disputes/*",
+    "test:feesupdater": "buidler test test/feesUpdater/*",
     "test:registry": "buidler test test/registry/*",
     "test:voting": "buidler test test/voting/*"
   },

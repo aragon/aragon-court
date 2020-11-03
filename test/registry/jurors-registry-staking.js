@@ -142,6 +142,7 @@ contract('JurorsRegistry', ([_, juror, juror2, jurorBrightIdAddress, juror2Brigh
 
         context('when the juror does not have enough token balance', () => {
           it('reverts', async () => {
+            await ANJ.generateTokens(from, TOTAL_ACTIVE_BALANCE_LIMIT)
             await assertRevert(registry.stake(amount, data, { from }), REGISTRY_ERRORS.TOKEN_TRANSFER_FAILED)
           })
         })
@@ -314,12 +315,14 @@ contract('JurorsRegistry', ([_, juror, juror2, jurorBrightIdAddress, juror2Brigh
             })
 
             it('reverts', async () => {
+              await ANJ.generateTokens(from, TOTAL_ACTIVE_BALANCE_LIMIT)
               await assertRevert(registry.stake(amount, data, { from }), REGISTRY_ERRORS.ACTIVE_BALANCE_BELOW_MIN)
             })
           })
 
           context('when the juror does not have enough token balance', () => {
             it('reverts', async () => {
+              await ANJ.generateTokens(from, TOTAL_ACTIVE_BALANCE_LIMIT)
               await assertRevert(registry.stake(amount, data, { from }), REGISTRY_ERRORS.ACTIVE_BALANCE_BELOW_MIN)
             })
           })
@@ -503,6 +506,7 @@ contract('JurorsRegistry', ([_, juror, juror2, jurorBrightIdAddress, juror2Brigh
 
       context('when the juror does not have enough token balance', () => {
         it('reverts', async () => {
+          await ANJ.generateTokens(from, TOTAL_ACTIVE_BALANCE_LIMIT)
           await assertRevert(registry.stakeFor(recipient, amount, data, { from }), REGISTRY_ERRORS.TOKEN_TRANSFER_FAILED)
         })
       })
@@ -709,12 +713,14 @@ contract('JurorsRegistry', ([_, juror, juror2, jurorBrightIdAddress, juror2Brigh
             })
 
             it('reverts', async () => {
+              await ANJ.generateTokens(from, TOTAL_ACTIVE_BALANCE_LIMIT)
               await assertRevert(registry.stakeFor(recipient, amount, data, { from }), REGISTRY_ERRORS.ACTIVE_BALANCE_BELOW_MIN)
             })
           })
 
           context('when the juror does not have enough token balance', () => {
             it('reverts', async () => {
+              await ANJ.generateTokens(from, TOTAL_ACTIVE_BALANCE_LIMIT)
               await assertRevert(registry.stakeFor(recipient, amount, data, { from }), REGISTRY_ERRORS.ACTIVE_BALANCE_BELOW_MIN)
             })
           })
@@ -858,6 +864,7 @@ contract('JurorsRegistry', ([_, juror, juror2, jurorBrightIdAddress, juror2Brigh
 
           context('when the juror does not have enough token balance', () => {
             it('reverts', async () => {
+              await ANJ.generateTokens(from, TOTAL_ACTIVE_BALANCE_LIMIT)
               await assertRevert(registry.stake(amount, data, { from }), REGISTRY_ERRORS.TOKEN_TRANSFER_FAILED)
             })
           })
@@ -1014,12 +1021,14 @@ contract('JurorsRegistry', ([_, juror, juror2, jurorBrightIdAddress, juror2Brigh
               })
 
               it('reverts', async () => {
+                await ANJ.generateTokens(from, TOTAL_ACTIVE_BALANCE_LIMIT)
                 await assertRevert(registry.stake(amount, data, { from }), REGISTRY_ERRORS.ACTIVE_BALANCE_BELOW_MIN)
               })
             })
 
             context('when the juror does not have enough token balance', () => {
               it('reverts', async () => {
+                await ANJ.generateTokens(from, TOTAL_ACTIVE_BALANCE_LIMIT)
                 await assertRevert(registry.stake(amount, data, { from }), REGISTRY_ERRORS.ACTIVE_BALANCE_BELOW_MIN)
               })
             })

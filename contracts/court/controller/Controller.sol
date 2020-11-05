@@ -38,6 +38,7 @@ contract Controller is IsContract, CourtClock, CourtConfig {
     struct Governor {
         address funds;      // This address can be unset at any time. It is allowed to recover funds from the ControlledRecoverable modules
         address config;     // This address is meant not to be unset. It is allowed to change the different configurations of the whole system
+        address feesUpdater;// This is a second address that can update the config. It is expected to be used with a price oracle for updating fees
         address modules;    // This address can be unset at any time. It is allowed to plug/unplug modules from the system
     }
 
@@ -50,6 +51,7 @@ contract Controller is IsContract, CourtClock, CourtConfig {
     event ModuleSet(bytes32 id, address addr);
     event FundsGovernorChanged(address previousGovernor, address currentGovernor);
     event ConfigGovernorChanged(address previousGovernor, address currentGovernor);
+    event FeesUpdaterChanged(address previousFeesUpdater, address currentFeesUpdater);
     event ModulesGovernorChanged(address previousGovernor, address currentGovernor);
 
     /**
@@ -61,10 +63,18 @@ contract Controller is IsContract, CourtClock, CourtConfig {
     }
 
     /**
-    * @dev Ensure the msg.sender is the modules governor
+    * @dev Ensure the msg.sender is the config governor
     */
     modifier onlyConfigGovernor {
         require(msg.sender == governor.config, ERROR_SENDER_NOT_GOVERNOR);
+        _;
+    }
+
+    /**
+    * @dev Ensure the msg.sender is the config governor or the fees updater
+    */
+    modifier onlyConfigGovernorOrFeesUpdater {
+        require(msg.sender == governor.config || msg.sender == governor.feesUpdater, ERROR_SENDER_NOT_GOVERNOR);
         _;
     }
 
@@ -84,7 +94,8 @@ contract Controller is IsContract, CourtClock, CourtConfig {
     * @param _governors Array containing:
     *        0. _fundsGovernor Address of the funds governor
     *        1. _configGovernor Address of the config governor
-    *        2. _modulesGovernor Address of the modules governor
+    *        2. _feesUpdater Address of the price feesUpdater
+    *        3. _modulesGovernor Address of the modules governor
     * @param _feeToken Address of the token contract that is used to pay for fees
     * @param _fees Array containing:
     *        0. jurorFee Amount of fee tokens that is paid per juror per dispute
@@ -114,7 +125,7 @@ contract Controller is IsContract, CourtClock, CourtConfig {
     */
     constructor(
         uint64[2] memory _termParams,
-        address[3] memory _governors,
+        address[4] memory _governors,
         ERC20 _feeToken,
         uint256[3] memory _fees,
         uint64[5] memory _roundStateDurations,
@@ -129,7 +140,8 @@ contract Controller is IsContract, CourtClock, CourtConfig {
     {
         _setFundsGovernor(_governors[0]);
         _setConfigGovernor(_governors[1]);
-        _setModulesGovernor(_governors[2]);
+        _setFeesUpdater(_governors[2]);
+        _setModulesGovernor(_governors[3]);
     }
 
     /**
@@ -173,7 +185,7 @@ contract Controller is IsContract, CourtClock, CourtConfig {
         uint256[3] calldata _jurorsParams
     )
         external
-        onlyConfigGovernor
+        onlyConfigGovernorOrFeesUpdater
     {
         uint64 currentTermId = _ensureCurrentTerm();
         _setConfig(
@@ -213,6 +225,14 @@ contract Controller is IsContract, CourtClock, CourtConfig {
     function changeConfigGovernor(address _newConfigGovernor) external onlyConfigGovernor {
         require(_newConfigGovernor != ZERO_ADDRESS, ERROR_INVALID_GOVERNOR_ADDRESS);
         _setConfigGovernor(_newConfigGovernor);
+    }
+
+    /**
+    * @notice Change fees updater to `_newFeesUpdater`
+    * @param _newFeesUpdater Address of the new fees updater to be set
+    */
+    function changeFeesUpdater(address _newFeesUpdater) external onlyConfigGovernor {
+        _setFeesUpdater(_newFeesUpdater);
     }
 
     /**
@@ -346,6 +366,14 @@ contract Controller is IsContract, CourtClock, CourtConfig {
     }
 
     /**
+    * @dev Tell the address of the fees updater
+    * @return Address of the fees updater
+    */
+    function getFeesUpdater() external view returns (address) {
+        return governor.feesUpdater;
+    }
+
+    /**
     * @dev Tell the address of the modules governor
     * @return Address of the modules governor
     */
@@ -426,6 +454,15 @@ contract Controller is IsContract, CourtClock, CourtConfig {
     function _setConfigGovernor(address _newConfigGovernor) internal {
         emit ConfigGovernorChanged(governor.config, _newConfigGovernor);
         governor.config = _newConfigGovernor;
+    }
+
+    /**
+    * @dev Internal function to set the address of the fees updater
+    * @param _newFeesUpdater Address of the new fees updater to be set
+    */
+    function _setFeesUpdater(address _newFeesUpdater) internal {
+        emit FeesUpdaterChanged(governor.feesUpdater, _newFeesUpdater);
+        governor.feesUpdater = _newFeesUpdater;
     }
 
     /**

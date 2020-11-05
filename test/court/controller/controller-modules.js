@@ -9,11 +9,11 @@ const Controlled = artifacts.require('Controlled')
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
 
-contract('Controller', ([_, fundsGovernor, configGovernor, modulesGovernor, someone]) => {
+contract('Controller', ([_, fundsGovernor, configGovernor, feesUpdater, modulesGovernor, someone]) => {
   let controller
 
   beforeEach('create controller', async () => {
-    controller = await buildHelper().deploy({ fundsGovernor, configGovernor, modulesGovernor })
+    controller = await buildHelper().deploy({ fundsGovernor, configGovernor, feesUpdater, modulesGovernor })
   })
 
   describe('getFundsGovernor', () => {
@@ -25,6 +25,12 @@ contract('Controller', ([_, fundsGovernor, configGovernor, modulesGovernor, some
   describe('getConfigGovernor', () => {
     it('tells the expected governor', async () => {
       assert.equal(await controller.getConfigGovernor(), configGovernor, 'config governor does not match')
+    })
+  })
+
+  describe('getFeesUpdater', () => {
+    it('tells the fees updater', async () => {
+      assert.equal(await controller.getFeesUpdater(), feesUpdater, 'fees updater does not match')
     })
   })
 
@@ -114,6 +120,37 @@ contract('Controller', ([_, fundsGovernor, configGovernor, modulesGovernor, some
 
       it('reverts', async () => {
         await assertRevert(controller.changeConfigGovernor(someone, { from }), CONTROLLER_ERRORS.SENDER_NOT_GOVERNOR)
+      })
+    })
+  })
+
+  describe('changeFeesUpdater', () => {
+    context('when the sender is the config governor', () => {
+      const from = configGovernor
+      const newFeesUpdater = someone
+
+      it('changes the fee updater', async () => {
+        await controller.changeFeesUpdater(newFeesUpdater, { from })
+
+        assert.equal(await controller.getFeesUpdater(), newFeesUpdater, 'fees updater does not match')
+      })
+
+      it('emits an event', async () => {
+        const receipt = await controller.changeFeesUpdater(newFeesUpdater, { from })
+
+        assertAmountOfEvents(receipt, 'FeesUpdaterChanged')
+        assertEvent(receipt, 'FeesUpdaterChanged', {
+          previousFeesUpdater: feesUpdater,
+          currentFeesUpdater: newFeesUpdater
+        })
+      })
+    })
+
+    context('when the sender is not the config governor', () => {
+      const from = feesUpdater
+
+      it('reverts', async () => {
+        await assertRevert(controller.changeFeesUpdater(someone, { from }), CONTROLLER_ERRORS.SENDER_NOT_GOVERNOR)
       })
     })
   })

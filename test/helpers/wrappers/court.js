@@ -381,13 +381,14 @@ module.exports = (web3, artifacts) => {
 
       if (!this.fundsGovernor) this.fundsGovernor = await this._getAccount(0)
       if (!this.configGovernor) this.configGovernor = await this._getAccount(0)
+      if (!this.feesUpdater) this.feesUpdater = await this._getAccount(0)
       if (!this.modulesGovernor) this.modulesGovernor = await this._getAccount(0)
       if (!this.feeToken) this.feeToken = await this.artifacts.require('ERC20Mock').new('Court Fee Token', 'CFT', 18)
       if (!this.jurorToken) this.jurorToken = await this.artifacts.require('ERC20Mock').new('Aragon Network Juror Token', 'ANJ', 18)
 
       this.court = await this.artifacts.require('AragonCourtMock').new(
         [this.termDuration, this.firstTermStartTime],
-        [this.fundsGovernor, this.configGovernor, this.modulesGovernor],
+        [this.fundsGovernor, this.configGovernor, this.feesUpdater, this.modulesGovernor],
         this.feeToken.address,
         [this.jurorFee, this.draftFee, this.settleFee],
         [this.evidenceTerms, this.commitTerms, this.revealTerms, this.appealTerms, this.appealConfirmTerms],

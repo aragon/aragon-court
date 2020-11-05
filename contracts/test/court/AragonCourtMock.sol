@@ -10,7 +10,7 @@ contract AragonCourtMock is AragonCourt, TimeHelpersMock {
 
     constructor(
         uint64[2] memory _termParams,
-        address[3] memory _governors,
+        address[4] memory _governors,
         ERC20 _feeToken,
         uint256[3] memory _fees,
         uint64[5] memory _roundStateDurations,

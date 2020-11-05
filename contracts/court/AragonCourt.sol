@@ -24,7 +24,8 @@ contract AragonCourt is Controller, IArbitrator {
     * @param _governors Array containing:
     *        0. _fundsGovernor Address of the funds governor
     *        1. _configGovernor Address of the config governor
-    *        2. _modulesGovernor Address of the modules governor
+    *        2. _oracle Address of the price oracle
+    *        3. _modulesGovernor Address of the modules governor
     * @param _feeToken Address of the token contract that is used to pay for fees
     * @param _fees Array containing:
     *        0. jurorFee Amount of fee tokens that is paid per juror per dispute
@@ -54,7 +55,7 @@ contract AragonCourt is Controller, IArbitrator {
     */
     constructor(
         uint64[2] memory _termParams,
-        address[3] memory _governors,
+        address[4] memory _governors,
         ERC20 _feeToken,
         uint256[3] memory _fees,
         uint64[5] memory _roundStateDurations,

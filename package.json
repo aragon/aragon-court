@@ -1,6 +1,6 @@
 {
   "name": "@1hive/celeste",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Celeste Oracle",
   "author": "Aragon Association",
   "license": "GPL-3.0",
@@ -16,6 +16,7 @@
     "test:controller": "buidler test test/court/controller/*",
     "test:subscriptions": "buidler test test/subscriptions/*",
     "test:disputes": "buidler test test/disputes/*",
+    "test:feesupdater": "buidler test test/feesUpdater/*",
     "test:registry": "buidler test test/registry/*",
     "test:voting": "buidler test test/voting/*"
   },

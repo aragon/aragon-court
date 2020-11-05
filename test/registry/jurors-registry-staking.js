@@ -169,12 +169,6 @@ contract('JurorsRegistry', ([_, juror, juror2, jurorBrightIdAddress, juror2Brigh
           itHandlesStakesProperlyFor(amount, data)
         })
 
-        // context('when the juror uses an unverified previous address', () => {
-        //   it('reverts', async () => {
-        //     await assertRevert(registry.stake(MIN_ACTIVE_AMOUNT, data, { from }), 'JR_SENDER_NOT_VERIFIED')
-        //   })
-        // })
-
         context('when the juror calls stake through the BrightIdRegister', () => {
           it('stakes tokens as expected', async () => {
             const stakeAmount = MIN_ACTIVE_AMOUNT
@@ -347,12 +341,6 @@ contract('JurorsRegistry', ([_, juror, juror2, jurorBrightIdAddress, juror2Brigh
             })
           })
         })
-
-        // context('when the juror uses an unverified previous address', () => {
-        //   it('reverts', async () => {
-        //     await assertRevert(registry.stake(MIN_ACTIVE_AMOUNT, data, { from }), 'JR_SENDER_NOT_VERIFIED')
-        //   })
-        // })
 
         context('when the juror calls stake through the BrightIdRegister', () => {
           it('stakes tokens as expected', async () => {
@@ -546,12 +534,6 @@ contract('JurorsRegistry', ([_, juror, juror2, jurorBrightIdAddress, juror2Brigh
 
         context('when the recipient and the sender are not the same', async () => {
           const recipient = juror2
-
-          itHandlesStakesWithoutActivationProperlyForDifferentAmounts(recipient, data)
-        })
-
-        context('when the recipient is the zero address', async () => {
-          const recipient = ZERO_ADDRESS
 
           itHandlesStakesWithoutActivationProperlyForDifferentAmounts(recipient, data)
         })
@@ -759,12 +741,6 @@ contract('JurorsRegistry', ([_, juror, juror2, jurorBrightIdAddress, juror2Brigh
 
           itHandlesStakesWithActivationProperlyForDifferentAmounts(recipient, data)
         })
-
-        context('when the recipient is the zero address', async () => {
-          const recipient = ZERO_ADDRESS
-
-          itHandlesStakesWithActivationProperlyForDifferentAmounts(recipient, data)
-        })
       }
 
       context('when the juror has not staked before', () => {
@@ -890,13 +866,6 @@ contract('JurorsRegistry', ([_, juror, juror2, jurorBrightIdAddress, juror2Brigh
 
             itHandlesStakesProperlyFor(amount, data)
           })
-
-          // context('when juror uses an unverified previous address', () => {
-          //   it('reverts', async () => {
-          //     await ANJ.generateTokens(from, TOTAL_ACTIVE_BALANCE_LIMIT)
-          //     await assertRevert(ANJ.approveAndCall(registry.address, MIN_ACTIVE_AMOUNT, '0x', { from }), 'JR_SENDER_NOT_VERIFIED')
-          //   })
-          // })
         }
 
         context('when the juror has not staked before', () => {
@@ -1222,12 +1191,6 @@ contract('JurorsRegistry', ([_, juror, juror2, jurorBrightIdAddress, juror2Brigh
             await assertRevert(registry.unstake(amount, data, { from }), REGISTRY_ERRORS.NOT_ENOUGH_AVAILABLE_BALANCE)
           })
         })
-
-        // context('when the juror uses and unverified previous address', async() => {
-        //   it('reverts', async () => {
-        //     await assertRevert(registry.unstake(MIN_ACTIVE_AMOUNT, data, { from: from }), 'JR_SENDER_NOT_VERIFIED')
-        //   })
-        // })
       })
 
       context('when the juror tokens were activated', () => {

@@ -15,8 +15,6 @@ import "../court/controller/Controller.sol";
 import "../court/controller/ControlledRecoverable.sol";
 import "../brightid/RegisterAndCall.sol";
 
-import "@nomiclabs/buidler/console.sol"; // TODO: Remove
-
 contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, ApproveAndCallFallBack, RegisterAndCall {
     using SafeERC20 for ERC20;
     using SafeMath for uint256;
@@ -563,7 +561,7 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
             return 0;
         }
 
-        // TODO: Can this calculation be minimised?
+        // TODO: Can this calculation be minimised considering it uses the jurors token total supply twice?
         uint256 minMaxPctTotalSupply = _getConfigAt(_termId).jurors.minMaxPctTotalSupply;
         uint256 maxMaxPctTotalSupply = _getConfigAt(_termId).jurors.maxMaxPctTotalSupply;
         uint256 diffOfPct = maxMaxPctTotalSupply - minMaxPctTotalSupply; // No need for safemath, we ensure min is less than max in config setting
@@ -986,13 +984,12 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
     * @dev Function to convert a jurors sender address to their unique BrightId address
     */
     function _jurorBrightId(address _jurorSenderAddress) internal view returns (address) {
-        if (_jurorSenderAddress == ZERO_ADDRESS) {
-            return ZERO_ADDRESS; // TODO: Can this be removed.
-        }
-
         return _brightIdRegister().uniqueUserId(_jurorSenderAddress);
     }
 
+    /**
+    * @dev Function to update the total active stake of the jurors BrightId account
+    */
     function _updateBrightIdActiveStake(address _juror, uint256 _amount, bool _increase) internal returns (uint256) {
         address jurorBrightId = _jurorBrightId(_juror);
         uint256 brightIdUserCurrentActiveStake = brightIdActiveStake[jurorBrightId];

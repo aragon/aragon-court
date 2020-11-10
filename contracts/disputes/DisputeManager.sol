@@ -28,7 +28,7 @@ contract DisputeManager is ControlledRecoverable, ICRVotingOwner, IDisputeManage
     string private constant ERROR_SENDER_NOT_VOTING = "DM_SENDER_NOT_VOTING";
 
     // Disputes-related error messages
-    string private constant ERROR_SENDER_NOT_DISPUTE_SUBJECT = "DM_SENDER_NOT_DISPUTE_SUBJECT";
+    string private constant ERROR_SUBJECT_NOT_DISPUTE_SUBJECT = "DM_SUBJECT_NOT_DISPUTE_SUBJECT";
     string private constant ERROR_EVIDENCE_PERIOD_IS_CLOSED = "DM_EVIDENCE_PERIOD_IS_CLOSED";
     string private constant ERROR_TERM_OUTDATED = "DM_TERM_OUTDATED";
     string private constant ERROR_DISPUTE_DOES_NOT_EXIST = "DM_DISPUTE_DOES_NOT_EXIST";
@@ -130,6 +130,7 @@ contract DisputeManager is ControlledRecoverable, ICRVotingOwner, IDisputeManage
     Dispute[] internal disputes;
 
     event DisputeStateChanged(uint256 indexed disputeId, DisputeState indexed state);
+    event EvidenceSubmitted(uint256 indexed disputeId, address indexed submitter, bytes evidence);
     event EvidencePeriodClosed(uint256 indexed disputeId, uint64 indexed termId);
     event NewDispute(uint256 indexed disputeId, IArbitrable indexed subject, uint64 indexed draftTermId, uint64 jurorsNumber, bytes metadata);
     event JurorDrafted(uint256 indexed disputeId, uint256 indexed roundId, address indexed juror);
@@ -214,14 +215,31 @@ contract DisputeManager is ControlledRecoverable, ICRVotingOwner, IDisputeManage
     }
 
     /**
+    * @notice Submit evidence for a dispute #`_disputeId`
+    * @param _subject Arbitrable instance submitting the dispute
+    * @param _disputeId Identification number of the dispute receiving new evidence
+    * @param _submitter Address of the account submitting the evidence
+    * @param _evidence Data submitted for the evidence of the dispute
+    */
+    function submitEvidence(IArbitrable _subject, uint256 _disputeId, address _submitter, bytes calldata _evidence)
+        external onlyController disputeExists(_disputeId)
+    {
+        Dispute storage dispute = disputes[_disputeId];
+        require(dispute.subject == _subject, ERROR_SUBJECT_NOT_DISPUTE_SUBJECT);
+        emit EvidenceSubmitted(_disputeId, _submitter, _evidence);
+    }
+
+    /**
     * @notice Close the evidence period of dispute #`_disputeId`
     * @param _subject IArbitrable instance requesting to close the evidence submission period
     * @param _disputeId Identification number of the dispute to close its evidence submitting period
     */
-    function closeEvidencePeriod(IArbitrable _subject, uint256 _disputeId) external onlyController roundExists(_disputeId, 0) {
+    function closeEvidencePeriod(IArbitrable _subject, uint256 _disputeId)
+        external onlyController roundExists(_disputeId, 0)
+    {
         Dispute storage dispute = disputes[_disputeId];
         AdjudicationRound storage round = dispute.rounds[0];
-        require(dispute.subject == _subject, ERROR_SENDER_NOT_DISPUTE_SUBJECT);
+        require(dispute.subject == _subject, ERROR_SUBJECT_NOT_DISPUTE_SUBJECT);
 
         // Check current term is within the evidence submission period
         uint64 termId = _ensureCurrentTerm();

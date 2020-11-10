@@ -12,7 +12,6 @@ const ERC20 = artifacts.require('ERC20Mock')
 const DisputeManager = artifacts.require('DisputeManager')
 const CourtClock = artifacts.require('CourtClock')
 const Arbitrable = artifacts.require('ArbitrableMock')
-const FakeArbitrable = artifacts.require('FakeArbitrableMock')
 
 contract('DisputeManager', () => {
   let courtHelper, court, disputeManager, feeToken, arbitrable
@@ -163,18 +162,6 @@ contract('DisputeManager', () => {
             await assertRevert(arbitrable.createDispute(3, '0x'), DISPUTE_MANAGER_ERRORS.INVALID_RULING_OPTIONS)
           })
         })
-      })
-    })
-
-    context('when the sender is not an arbitrable', () => {
-      let fakeArbitrable
-
-      beforeEach('mock non arbitrable', async () => {
-        fakeArbitrable = await FakeArbitrable.new(court.address)
-      })
-
-      it('reverts', async () => {
-        await assertRevert(fakeArbitrable.createDispute(2, '0x'), ARAGON_COURT_ERRORS.SENDER_NOT_ARBITRABLE)
       })
     })
 

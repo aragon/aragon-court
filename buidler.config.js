@@ -24,7 +24,7 @@ module.exports = {
     version: '0.5.8',
     optimizer: {
       enabled: true,
-      runs: 3000 // DisputesManager module is hitting size limit with 10k runs
+      runs: 500 // DisputesManager module is hitting size limit with 10k runs
     }
   },
   etherscan: {

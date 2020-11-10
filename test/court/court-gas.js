@@ -1,8 +1,9 @@
 const { bigExp } = require('../helpers/lib/numbers')
 const { assertBn } = require('../helpers/asserts/assertBn')
 const { printTable } = require('../helpers/lib/logging')
-const { buildHelper } = require('../helpers/wrappers/court')(web3, artifacts)
+const { buildHelper, DEFAULTS } = require('../helpers/wrappers/court')(web3, artifacts)
 const { getVoteId, hashVote, oppositeOutcome, SALT, OUTCOMES } = require('../helpers/utils/crvoting')
+
 
 const Arbitrable = artifacts.require('ArbitrableMock')
 
@@ -42,7 +43,6 @@ contract('AragonCourt', ([_, sender, drafter, appealMaker, appealTaker, juror500
       beforeEach('create arbitrable and approve fee amount', async () => {
         await courtHelper.setTerm(1)
         arbitrable = await Arbitrable.new(court.address)
-        await courtHelper.subscriptions.mockUpToDate(true)
         const { disputeFees } = await courtHelper.getDisputeFees()
         await courtHelper.mintFeeTokens(arbitrable.address, disputeFees)
       })
@@ -53,7 +53,7 @@ contract('AragonCourt', ([_, sender, drafter, appealMaker, appealTaker, juror500
           assertBn(neededTransitions, 0, 'needed transitions does not match')
         })
 
-        itCostsAtMost('createDispute', 297e3, () => arbitrable.createDispute(2, '0x', { from: sender }))
+        itCostsAtMost('createDispute', 299e3, () => arbitrable.createDispute(2, '0x', { from: sender }))
       })
 
       context('when the current term is outdated by one term', () => {
@@ -63,7 +63,7 @@ contract('AragonCourt', ([_, sender, drafter, appealMaker, appealTaker, juror500
           assertBn(neededTransitions, 1, 'needed transitions does not match')
         })
 
-        itCostsAtMost('createDispute', 329e3, () => arbitrable.createDispute(2, '0x', { from: sender }))
+        itCostsAtMost('createDispute', 330e3, () => arbitrable.createDispute(2, '0x', { from: sender }))
       })
     })
 
@@ -78,7 +78,7 @@ contract('AragonCourt', ([_, sender, drafter, appealMaker, appealTaker, juror500
         await court.mockSetTermRandomness('0x0000000000000000000000000000000000000000000000000000000000000001')
       })
 
-      itCostsAtMost('draft', 391e3, () => disputeManager.draft(disputeId))
+      itCostsAtMost('draft', 400e3, () => disputeManager.draft(disputeId))
     })
 
     describe('commit', () => {
@@ -99,7 +99,7 @@ contract('AragonCourt', ([_, sender, drafter, appealMaker, appealTaker, juror500
           assertBn(neededTransitions, 0, 'needed transitions does not match')
         })
 
-        itCostsAtMost('commit', 108e3, () => voting.commit(voteId, vote, { from: draftedJurors[0].address }))
+        itCostsAtMost('commit', 113e3, () => voting.commit(voteId, vote, { from: draftedJurors[0].address }))
       })
 
       context('when the current term is outdated by one term', () => {
@@ -109,7 +109,7 @@ contract('AragonCourt', ([_, sender, drafter, appealMaker, appealTaker, juror500
           assertBn(neededTransitions, 1, 'needed transitions does not match')
         })
 
-        itCostsAtMost('commit', 169e3, () => voting.commit(voteId, vote, { from: draftedJurors[0].address }))
+        itCostsAtMost('commit', 180e3, () => voting.commit(voteId, vote, { from: draftedJurors[0].address }))
       })
     })
 
@@ -134,7 +134,7 @@ contract('AragonCourt', ([_, sender, drafter, appealMaker, appealTaker, juror500
           assertBn(neededTransitions, 0, 'needed transitions does not match')
         })
 
-        itCostsAtMost('reveal', 138e3, () => voting.reveal(voteId, draftedJurors[0].address, outcome, SALT))
+        itCostsAtMost('reveal', 150e3, () => voting.reveal(voteId, draftedJurors[0].address, outcome, SALT))
       })
 
       context('when the current term is outdated by one term', () => {
@@ -144,7 +144,7 @@ contract('AragonCourt', ([_, sender, drafter, appealMaker, appealTaker, juror500
           assertBn(neededTransitions, 1, 'needed transitions does not match')
         })
 
-        itCostsAtMost('reveal', 198e3, () => voting.reveal(voteId, draftedJurors[0].address, outcome, SALT))
+        itCostsAtMost('reveal', 205e3, () => voting.reveal(voteId, draftedJurors[0].address, outcome, SALT))
       })
     })
 
@@ -175,7 +175,7 @@ contract('AragonCourt', ([_, sender, drafter, appealMaker, appealTaker, juror500
           assertBn(neededTransitions, 0, 'needed transitions does not match')
         })
 
-        itCostsAtMost('createAppeal', 114e3, () => disputeManager.createAppeal(disputeId, roundId, appealMakerRuling, { from: appealMaker }))
+        itCostsAtMost('createAppeal', 120e3, () => disputeManager.createAppeal(disputeId, roundId, appealMakerRuling, { from: appealMaker }))
       })
 
       context('when the current term is outdated by one term', () => {
@@ -185,7 +185,7 @@ contract('AragonCourt', ([_, sender, drafter, appealMaker, appealTaker, juror500
           assertBn(neededTransitions, 1, 'needed transitions does not match')
         })
 
-        itCostsAtMost('createAppeal', 174e3, () => disputeManager.createAppeal(disputeId, roundId, appealMakerRuling, { from: appealMaker }))
+        itCostsAtMost('createAppeal', 180e3, () => disputeManager.createAppeal(disputeId, roundId, appealMakerRuling, { from: appealMaker }))
       })
     })
 
@@ -216,7 +216,7 @@ contract('AragonCourt', ([_, sender, drafter, appealMaker, appealTaker, juror500
           assertBn(neededTransitions, 0, 'needed transitions does not match')
         })
 
-        itCostsAtMost('confirmAppeal', 202e3, () => disputeManager.confirmAppeal(disputeId, roundId, appealTakerRuling, { from: appealTaker }))
+        itCostsAtMost('confirmAppeal', 210e3, () => disputeManager.confirmAppeal(disputeId, roundId, appealTakerRuling, { from: appealTaker }))
       })
 
       context('when the current term is outdated by one term', () => {
@@ -226,16 +226,17 @@ contract('AragonCourt', ([_, sender, drafter, appealMaker, appealTaker, juror500
           assertBn(neededTransitions, 1, 'needed transitions does not match')
         })
 
-        itCostsAtMost('confirmAppeal', 263e3, () => disputeManager.confirmAppeal(disputeId, roundId, appealTakerRuling, { from: appealTaker }))
+        itCostsAtMost('confirmAppeal', 270e3, () => disputeManager.confirmAppeal(disputeId, roundId, appealTakerRuling, { from: appealTaker }))
       })
     })
 
-    describe('executeRuling', () => {
-      let disputeId
+    describe('resolve', () => {
+      let disputeId, arbitrable
 
       beforeEach('create dispute, draft and vote', async () => {
         const roundId = 0
         disputeId = await courtHelper.dispute()
+        arbitrable = await Arbitrable.at((await courtHelper.getDispute(disputeId)).subject)
 
         // draft, commit, and reveal votes
         const draftedJurors = await courtHelper.draft({ disputeId, drafter })
@@ -250,7 +251,7 @@ contract('AragonCourt', ([_, sender, drafter, appealMaker, appealTaker, juror500
           assertBn(neededTransitions, 0, 'needed transitions does not match')
         })
 
-        itCostsAtMost('executeRuling', 100e3, () => court.executeRuling(disputeId))
+        itCostsAtMost('resolve', 110e3, () => arbitrable.resolve(disputeId))
       })
 
       context('when the current term is outdated by one term', () => {
@@ -260,7 +261,7 @@ contract('AragonCourt', ([_, sender, drafter, appealMaker, appealTaker, juror500
           assertBn(neededTransitions, 1, 'needed transitions does not match')
         })
 
-        itCostsAtMost('executeRuling', 160e3, () => court.executeRuling(disputeId))
+        itCostsAtMost('resolve', 200e3, () => arbitrable.resolve(disputeId))
       })
     })
 
@@ -286,7 +287,7 @@ contract('AragonCourt', ([_, sender, drafter, appealMaker, appealTaker, juror500
           assertBn(neededTransitions, 0, 'needed transitions does not match')
         })
 
-        itCostsAtMost('settlePenalties', 299e3, () => disputeManager.settlePenalties(disputeId, roundId, 0))
+        itCostsAtMost('settlePenalties', 400e3, () => disputeManager.settlePenalties(disputeId, roundId, 0))
       })
 
       context('when the current term is outdated by one term', () => {
@@ -296,7 +297,7 @@ contract('AragonCourt', ([_, sender, drafter, appealMaker, appealTaker, juror500
           assertBn(neededTransitions, 1, 'needed transitions does not match')
         })
 
-        itCostsAtMost('settlePenalties', 346e3, () => disputeManager.settlePenalties(disputeId, roundId, 0))
+        itCostsAtMost('settlePenalties', 400e3, () => disputeManager.settlePenalties(disputeId, roundId, 0))
       })
     })
 
@@ -321,7 +322,7 @@ contract('AragonCourt', ([_, sender, drafter, appealMaker, appealTaker, juror500
           assertBn(neededTransitions, 0, 'needed transitions does not match')
         })
 
-        itCostsAtMost('settleReward', 117e3, () => disputeManager.settleReward(disputeId, roundId, draftedJurors[0].address))
+        itCostsAtMost('settleReward', 150e3, () => disputeManager.settleReward(disputeId, roundId, draftedJurors[0].address))
       })
 
       context('when the current term is outdated by one term', () => {
@@ -331,7 +332,7 @@ contract('AragonCourt', ([_, sender, drafter, appealMaker, appealTaker, juror500
           assertBn(neededTransitions, 1, 'needed transitions does not match')
         })
 
-        itCostsAtMost('settleReward', 117e3, () => disputeManager.settleReward(disputeId, roundId, draftedJurors[0].address))
+        itCostsAtMost('settleReward', 150e3, () => disputeManager.settleReward(disputeId, roundId, draftedJurors[0].address))
       })
     })
 
@@ -365,7 +366,7 @@ contract('AragonCourt', ([_, sender, drafter, appealMaker, appealTaker, juror500
           assertBn(neededTransitions, 0, 'needed transitions does not match')
         })
 
-        itCostsAtMost('settleAppealDeposit', 109e3, () => disputeManager.settleAppealDeposit(disputeId, roundId))
+        itCostsAtMost('settleAppealDeposit', 130e3, () => disputeManager.settleAppealDeposit(disputeId, roundId))
       })
 
       context('when the current term is outdated by one term', () => {
@@ -375,7 +376,7 @@ contract('AragonCourt', ([_, sender, drafter, appealMaker, appealTaker, juror500
           assertBn(neededTransitions, 1, 'needed transitions does not match')
         })
 
-        itCostsAtMost('settleAppealDeposit', 109e3, () => disputeManager.settleAppealDeposit(disputeId, roundId))
+        itCostsAtMost('settleAppealDeposit', 130e3, () => disputeManager.settleAppealDeposit(disputeId, roundId))
       })
     })
   })

@@ -9,9 +9,8 @@ const { DISPUTE_MANAGER_ERRORS, CONTROLLED_ERRORS } = require('../helpers/utils/
 
 const Arbitrable = artifacts.require('ArbitrableMock')
 const DisputeManager = artifacts.require('DisputeManager')
-const FakeArbitrable = artifacts.require('FakeArbitrableMock')
 
-contract('DisputeManager', ([_, juror500, juror1000, juror1500]) => {
+contract('DisputeManager', ([_, juror500, juror1000, juror1500, evidenceSubmitter]) => {
   let courtHelper, court, disputeManager, arbitrable, disputeId
 
   const jurors = [
@@ -30,6 +29,48 @@ contract('DisputeManager', ([_, juror500, juror1000, juror1500]) => {
   beforeEach('create dispute', async () => {
     arbitrable = await Arbitrable.new(court.address)
     disputeId = await courtHelper.dispute({ arbitrable, closeEvidence: false })
+  })
+
+  describe('submitEvidence', () => {
+    context('when the sender is the arbitrable of the dispute', () => {
+      context('when the dispute exists', () => {
+        it('emits EvidenceSubmitter event', async () => {
+          const evidence = '0x1234'
+          const receipt = await arbitrable.submitEvidence(disputeId, evidence, true, { from: evidenceSubmitter })
+
+          const logs = decodeEventsOfType(receipt, DisputeManager.abi, 'EvidenceSubmitted')
+          assertAmountOfEvents({ logs }, 'EvidenceSubmitted')
+          assertEvent({ logs }, 'EvidenceSubmitted', { disputeId, submitter: evidenceSubmitter, evidence})
+        })
+      })
+
+      context('when the dispute does not exist', () => {
+        const disputeId = 1000
+
+        it('reverts', async () => {
+          await assertRevert(arbitrable.submitEvidence(disputeId, '0x', true), DISPUTE_MANAGER_ERRORS.DISPUTE_DOES_NOT_EXIST)
+        })
+      })
+    })
+
+    context('when the sender is not the arbitrable of the dispute', () => {
+      let fakeArbitrable
+
+      beforeEach('mock non arbitrable', async () => {
+        fakeArbitrable = await Arbitrable.new(court.address)
+      })
+
+      it('reverts', async () => {
+        await assertRevert(fakeArbitrable.submitEvidence(disputeId, '0x', true), 'DM_SUBJECT_NOT_DISPUTE_SUBJECT')
+      })
+    })
+
+    context('when trying to call the disputes manager directly', () => {
+      it('reverts', async () => {
+        await assertRevert(disputeManager.submitEvidence(arbitrable.address, disputeId, juror500, '0x'), 'CTD_SENDER_NOT_CONTROLLER')
+      })
+    })
+
   })
 
   describe('closeEvidencePeriod', () => {
@@ -120,26 +161,6 @@ contract('DisputeManager', ([_, juror500, juror1000, juror1500]) => {
 
           itCanBeDrafted()
         })
-      })
-
-      context('when the given dispute does not exist', () => {
-        const disputeId = 1000
-
-        it('reverts', async () => {
-          await assertRevert(arbitrable.submitEvidence(disputeId, '0x', true), DISPUTE_MANAGER_ERRORS.DISPUTE_DOES_NOT_EXIST)
-        })
-      })
-    })
-
-    context('when the sender is not the arbitrable of the dispute', () => {
-      let fakeArbitrable
-
-      beforeEach('mock non arbitrable', async () => {
-        fakeArbitrable = await FakeArbitrable.new(court.address)
-      })
-
-      it('reverts', async () => {
-        await assertRevert(fakeArbitrable.submitEvidence(disputeId, '0x', true), DISPUTE_MANAGER_ERRORS.SENDER_NOT_DISPUTE_SUBJECT)
       })
     })
 

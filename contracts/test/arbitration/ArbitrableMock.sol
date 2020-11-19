@@ -5,18 +5,11 @@ import "../../arbitration/IArbitrator.sol";
 
 
 contract ArbitrableMock is IArbitrable {
-    bytes4 public constant ERC165_INTERFACE = ERC165_INTERFACE_ID;
-    bytes4 public constant ARBITRABLE_INTERFACE = ARBITRABLE_INTERFACE_ID;
 
     IArbitrator internal arbitrator;
 
     constructor (IArbitrator _arbitrator) public {
         arbitrator = _arbitrator;
-    }
-
-    function interfaceId() external pure returns (bytes4) {
-        IArbitrable iArbitrable;
-        return iArbitrable.submitEvidence.selector ^ iArbitrable.rule.selector;
     }
 
     function createDispute(uint8 _possibleRulings, bytes calldata _metadata) external {
@@ -26,16 +19,12 @@ contract ArbitrableMock is IArbitrable {
     }
 
     function submitEvidence(uint256 _disputeId, bytes calldata _evidence, bool _finished) external {
-        emit EvidenceSubmitted(arbitrator, _disputeId, msg.sender, _evidence, _finished);
+        arbitrator.submitEvidence(_disputeId, msg.sender, _evidence);
         if (_finished) arbitrator.closeEvidencePeriod(_disputeId);
     }
 
-    function rule(uint256 _disputeId, uint256 _ruling) external {
-        emit Ruled(IArbitrator(msg.sender), _disputeId, _ruling);
-    }
-
-    function interfaceID() external pure returns (bytes4) {
-        IArbitrable arbitrable;
-        return arbitrable.submitEvidence.selector ^ arbitrable.rule.selector;
+    function resolve(uint256 _disputeId) external {
+        (, uint256 ruling) = arbitrator.rule(_disputeId);
+        emit Ruled(arbitrator, _disputeId, ruling);
     }
 }

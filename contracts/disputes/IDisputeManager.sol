@@ -30,6 +30,15 @@ interface IDisputeManager {
     function createDispute(IArbitrable _subject, uint8 _possibleRulings, bytes calldata _metadata) external returns (uint256);
 
     /**
+    * @dev Submit evidence for a dispute
+    * @param _subject Arbitrable instance submitting the dispute
+    * @param _disputeId Identification number of the dispute receiving new evidence
+    * @param _submitter Address of the account submitting the evidence
+    * @param _evidence Data submitted for the evidence of the dispute
+    */
+    function submitEvidence(IArbitrable _subject, uint256 _disputeId, address _submitter, bytes calldata _evidence) external;
+
+    /**
     * @dev Close the evidence period of a dispute
     * @param _subject IArbitrable instance requesting to close the evidence submission period
     * @param _disputeId Identification number of the dispute to close its evidence submitting period

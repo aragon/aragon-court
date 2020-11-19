@@ -11,8 +11,6 @@ import "../disputes/IDisputeManager.sol";
 contract AragonCourt is Controller, IArbitrator {
     using Uint256Helpers for uint256;
 
-    string private constant ERROR_SENDER_NOT_ARBITRABLE = "AC_SENDER_NOT_ARBITRABLE";
-
     // Arbitrable interface ID based on ERC-165
     bytes4 private constant ARBITRABLE_INTERFACE_ID = bytes4(0x88f3ee69);
 
@@ -88,10 +86,20 @@ contract AragonCourt is Controller, IArbitrator {
     */
     function createDispute(uint256 _possibleRulings, bytes calldata _metadata) external returns (uint256) {
         IArbitrable subject = IArbitrable(msg.sender);
-        require(subject.supportsInterface(ARBITRABLE_INTERFACE_ID), ERROR_SENDER_NOT_ARBITRABLE);
-
         IDisputeManager disputeManager = IDisputeManager(_getDisputeManager());
         return disputeManager.createDispute(subject, _possibleRulings.toUint8(), _metadata);
+    }
+
+    /**
+    * @notice Submit `_evidence` as evidence from `_submitter` for dispute #`_disputeId`
+    * @param _disputeId Id of the dispute in the Protocol
+    * @param _submitter Address of the account submitting the evidence
+    * @param _evidence Data submitted for the evidence related to the dispute
+    */
+    function submitEvidence(uint256 _disputeId, address _submitter, bytes calldata _evidence) external {
+        IDisputeManager disputeManager = IDisputeManager(_getDisputeManager());
+        IArbitrable subject = IArbitrable(msg.sender);
+        disputeManager.submitEvidence(subject, _disputeId, _submitter, _evidence);
     }
 
     /**
@@ -105,13 +113,15 @@ contract AragonCourt is Controller, IArbitrator {
     }
 
     /**
-    * @notice Execute the Arbitrable associated to dispute #`_disputeId` based on its final ruling
-    * @param _disputeId Identification number of the dispute to be executed
+    * @notice Rule dispute #`_disputeId` if ready
+    * @param _disputeId Identification number of the dispute to be ruled
+    * @return subject Arbitrable instance associated to the dispute
+    * @return ruling Ruling number computed for the given dispute
     */
-    function executeRuling(uint256 _disputeId) external {
+    function rule(uint256 _disputeId) external returns (address subject, uint256 ruling) {
         IDisputeManager disputeManager = IDisputeManager(_getDisputeManager());
-        (IArbitrable subject, uint8 ruling) = disputeManager.computeRuling(_disputeId);
-        subject.rule(_disputeId, uint256(ruling));
+        (IArbitrable _subject, uint8 _ruling) = disputeManager.computeRuling(_disputeId);
+        return (address(_subject), uint256(_ruling));
     }
 
     /**

@@ -35,7 +35,7 @@ module.exports = (web3, artifacts) => {
 
       const brightIdRegisterProxyAddress = await newApp(dao, 'brightid-register', brightIdRegisterBase.address, owner)
       this.brightIdRegister = await BrightIdRegister.at(brightIdRegisterProxyAddress)
-      await this.brightIdRegister.initialize(BRIGHT_ID_CONTEXT, [owner], REGISTRATION_PERIOD, VERIFICATION_TIMESTAMP_VARIANCE)
+      await this.brightIdRegister.initialize(BRIGHT_ID_CONTEXT, [owner], 1, REGISTRATION_PERIOD, VERIFICATION_TIMESTAMP_VARIANCE)
 
       return this.brightIdRegister
     }

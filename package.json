@@ -13,6 +13,7 @@
     "compile": "buidler compile",
     "compile:brightid": "buidler compile --config buidler.config.brightid.js",
     "test": "yarn compile:brightid && buidler test",
+    "test:gas": "buidler test test/court/court-gas.js",
     "test:controller": "buidler test test/court/controller/*",
     "test:subscriptions": "buidler test test/subscriptions/*",
     "test:disputes": "buidler test test/disputes/*",
@@ -22,7 +23,7 @@
   },
   "dependencies": {},
   "devDependencies": {
-    "@1hive/apps-brightid-register": "^0.1.5",
+    "@1hive/apps-brightid-register": "^0.1.7",
     "@aragon/test-helpers": "^2.1.0",
     "@aragon/truffle-config-v5": "^1.0.0",
     "@aragon/contract-helpers-test": "^0.1.0-rc.2",

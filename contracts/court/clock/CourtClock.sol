@@ -2,6 +2,7 @@ pragma solidity ^0.5.8;
 
 import "../../lib/os/SafeMath64.sol";
 import "../../lib/os/TimeHelpers.sol";
+import "../../lib/os/ERC20.sol";
 
 import "./IClock.sol";
 
@@ -32,6 +33,7 @@ contract CourtClock is IClock, TimeHelpers {
         uint64 startTime;              // Timestamp when the term started
         uint64 randomnessBN;           // Block number for entropy
         bytes32 randomness;            // Entropy from randomnessBN block hash
+        uint256 celesteTokenTotalSupply;
     }
 
     // Duration in seconds for each term of the Court
@@ -155,9 +157,9 @@ contract CourtClock is IClock, TimeHelpers {
     * @return randomnessBN Block number used for randomness in the requested term
     * @return randomness Randomness computed for the requested term
     */
-    function getTerm(uint64 _termId) external view returns (uint64 startTime, uint64 randomnessBN, bytes32 randomness) {
+    function getTerm(uint64 _termId) external view returns (uint64 startTime, uint64 randomnessBN, bytes32 randomness, uint256 celesteTokenTotalSupply) {
         Term storage term = terms[_termId];
-        return (term.startTime, term.randomnessBN, term.randomness);
+        return (term.startTime, term.randomnessBN, term.randomness, term.celesteTokenTotalSupply);
     }
 
     /**
@@ -208,6 +210,7 @@ contract CourtClock is IClock, TimeHelpers {
             // already assumed to fit in uint64.
             Term storage previousTerm = terms[currentTermId++];
             Term storage currentTerm = terms[currentTermId];
+            (ERC20 feeToken,,,,,,) = _getConfig(currentTermId);
             _onTermTransitioned(currentTermId);
 
             // Set the start time of the new term. Note that we are using a constant term duration value to guarantee
@@ -217,6 +220,8 @@ contract CourtClock is IClock, TimeHelpers {
             // In order to draft a random number of jurors in a term, we use a randomness factor for each term based on a
             // block number that is set once the term has started. Note that this information could not be known beforehand.
             currentTerm.randomnessBN = blockNumber + 1;
+
+            currentTerm.celesteTokenTotalSupply = feeToken.totalSupply();
         }
 
         termId = currentTermId;
@@ -291,4 +296,14 @@ contract CourtClock is IClock, TimeHelpers {
         require(getBlockNumber64() > term.randomnessBN, ERROR_TERM_RANDOMNESS_NOT_YET);
         return blockhash(term.randomnessBN);
     }
+
+    function _getConfig(uint64 _termId) internal view returns (
+        ERC20 feeToken,
+        uint256[3] memory fees,
+        uint64[5] memory roundStateDurations,
+        uint16[2] memory pcts,
+        uint64[4] memory roundParams,
+        uint256[2] memory appealCollateralParams,
+        uint256[3] memory jurorsParams
+    );
 }

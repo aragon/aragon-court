@@ -323,6 +323,23 @@ contract Controller is IsContract, CourtClock, CourtConfig {
             uint256[3] memory jurorsParams
         )
     {
+        return _getConfig(_termId);
+    }
+
+    /**
+    * @dev This function overrides one in the CourtClock, giving the CourtClock access to the config.
+    */
+    function _getConfig(uint64 _termId) internal view
+        returns (
+            ERC20 feeToken,
+            uint256[3] memory fees,
+            uint64[5] memory roundStateDurations,
+            uint16[2] memory pcts,
+            uint64[4] memory roundParams,
+            uint256[2] memory appealCollateralParams,
+            uint256[3] memory jurorsParams
+        )
+    {
         uint64 lastEnsuredTermId = _lastEnsuredTermId();
         return _getConfigAt(_termId, lastEnsuredTermId);
     }

@@ -63,7 +63,7 @@ contract CourtClock is IClock, TimeHelpers {
     *        0. _termDuration Duration in seconds per term
     *        1. _firstTermStartTime Timestamp in seconds when the court will open (to give time for juror on-boarding)
     */
-    constructor(uint64[2] memory _termParams) public {
+    constructor(uint64[2] memory _termParams, ERC20 _celesteToken) public {
         uint64 _termDuration = _termParams[0];
         uint64 _firstTermStartTime = _termParams[1];
 
@@ -75,6 +75,7 @@ contract CourtClock is IClock, TimeHelpers {
 
         // No need for SafeMath: we already checked values above
         terms[0].startTime = _firstTermStartTime - _termDuration;
+        terms[0].celesteTokenTotalSupply = _celesteToken.totalSupply();
     }
 
     /**

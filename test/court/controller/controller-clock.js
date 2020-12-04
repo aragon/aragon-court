@@ -15,8 +15,10 @@ contract('Controller', ([_, someone, configGovernor]) => {
   const EMPTY_RANDOMNESS = '0x0000000000000000000000000000000000000000000000000000000000000000'
   const ANJ_INITIAL_TOTAL_SUPPLY = bn(1000)
 
-  beforeEach('build helper', () => {
+  beforeEach('build helper', async () => {
     courtHelper = buildHelper()
+    ANJ = await ERC20.new('ANJ Token', 'ANJ', 18)
+    await ANJ.generateTokens(someone, ANJ_INITIAL_TOTAL_SUPPLY)
   })
 
   describe('constructor', () => {
@@ -42,7 +44,7 @@ contract('Controller', ([_, someone, configGovernor]) => {
       const firstTermStartTime = bn(NEXT_WEEK)
 
       beforeEach('deploy controller', async () => {
-        controller = await courtHelper.deploy({ termDuration, firstTermStartTime })
+        controller = await courtHelper.deploy({ termDuration, firstTermStartTime, feeToken: ANJ })
       })
 
       it('it must have already started term #0', async () => {
@@ -51,7 +53,7 @@ contract('Controller', ([_, someone, configGovernor]) => {
         assertBn(startTime, firstTermStartTime.sub(termDuration), 'term zero start time does not match')
         assertBn(randomnessBN, 0, 'zero term randomness block number should not be computed')
         assert.equal(randomness, EMPTY_RANDOMNESS, 'zero term randomness should not be computed')
-        assert.equal(celesteTokenTotalSupply, 0, 'zero term total supply should not be computed')
+        assertBn(celesteTokenTotalSupply, ANJ_INITIAL_TOTAL_SUPPLY, 'zero term total supply should not be computed')
       })
 
       it('does not require a term transition', async () => {
@@ -64,10 +66,10 @@ contract('Controller', ([_, someone, configGovernor]) => {
     const termDuration = bn(ONE_DAY)
     const firstTermStartTime = bn(NEXT_WEEK)
     const zeroTermStartTime = firstTermStartTime.sub(termDuration)
+    const anjNewSupply = bn(1000)
 
     beforeEach('create controller', async () => {
-      ANJ = await ERC20.new('ANJ Token', 'ANJ', 18)
-      await ANJ.generateTokens(someone, ANJ_INITIAL_TOTAL_SUPPLY)
+      await ANJ.generateTokens(someone, anjNewSupply)
       controller = await courtHelper.deploy({ termDuration, firstTermStartTime, feeToken: ANJ })
     })
 
@@ -120,7 +122,7 @@ contract('Controller', ([_, someone, configGovernor]) => {
           assertBn(startTime, firstTermStartTime.add(termDuration.mul(bn(transition - 1))), `start time for term ${termId} does not match`)
           assertBn(randomnessBN, currentBlockNumber.add(bn(1)), `randomness block number for term ${termId} should be the next block number`)
           assert.equal(randomness, EMPTY_RANDOMNESS, `randomness for term ${termId} should not be computed`)
-          assertBn(celesteTokenTotalSupply, ANJ_INITIAL_TOTAL_SUPPLY, `total supply for term ${termId} should not be computed`)
+          assertBn(celesteTokenTotalSupply, ANJ_INITIAL_TOTAL_SUPPLY.add(anjNewSupply), `total supply for term ${termId} should not be computed`)
         }
       })
 

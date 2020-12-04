@@ -135,7 +135,7 @@ contract Controller is IsContract, CourtClock, CourtConfig {
         uint256[3] memory _jurorsParams
     )
         public
-        CourtClock(_termParams)
+        CourtClock(_termParams, _feeToken)
         CourtConfig(_feeToken, _fees, _roundStateDurations, _pcts, _roundParams, _appealCollateralParams, _jurorsParams)
     {
         _setFundsGovernor(_governors[0]);

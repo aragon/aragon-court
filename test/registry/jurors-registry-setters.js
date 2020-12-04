@@ -18,12 +18,13 @@ contract('JurorsRegistry', ([_, governor, someone]) => {
   const TOTAL_ACTIVE_BALANCE_LIMIT = bigExp(100e6, 18)
 
   before('create base contracts', async () => {
-    controller = await buildHelper().deploy({ configGovernor: governor, minActiveBalance: MIN_ACTIVE_BALANCE })
     ANJ = await ERC20.new('ANJ Token', 'ANJ', 18)
+    controller = await buildHelper().deploy({ configGovernor: governor, minActiveBalance: MIN_ACTIVE_BALANCE,
+      feeToken: ANJ })
   })
 
   beforeEach('create jurors registry module', async () => {
-    registry = await JurorsRegistry.new(controller.address, ANJ.address, TOTAL_ACTIVE_BALANCE_LIMIT)
+    registry = await JurorsRegistry.new(controller.address, TOTAL_ACTIVE_BALANCE_LIMIT)
     await controller.setJurorsRegistry(registry.address)
   })
 

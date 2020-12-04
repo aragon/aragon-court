@@ -204,12 +204,12 @@ module.exports = (web3, artifacts) => {
       const minTotalSupplyRequired = minActiveBalance.div(minMaxPctTotalSupply)
       const minTotalSupplyWithDecimals = bigExp(minTotalSupplyRequired, 18)
       const minTotalSupplyWithExtra = minTotalSupplyWithDecimals.mul(bn(3))
-      await this.jurorToken.generateTokens(await this._getAccount(0), minTotalSupplyWithExtra)
+      await this.feeToken.generateTokens(await this._getAccount(0), minTotalSupplyWithExtra)
 
       for (const { address, initialActiveBalance } of jurors) {
         await this.brightIdHelper.registerUser(address)
-        await this.jurorToken.generateTokens(address, initialActiveBalance)
-        await this.jurorToken.approveAndCall(this.jurorsRegistry.address, initialActiveBalance, ACTIVATE_DATA, { from: address })
+        await this.feeToken.generateTokens(address, initialActiveBalance)
+        await this.feeToken.approveAndCall(this.jurorsRegistry.address, initialActiveBalance, ACTIVATE_DATA, { from: address })
       }
     }
 
@@ -383,8 +383,7 @@ module.exports = (web3, artifacts) => {
       if (!this.configGovernor) this.configGovernor = await this._getAccount(0)
       if (!this.feesUpdater) this.feesUpdater = await this._getAccount(0)
       if (!this.modulesGovernor) this.modulesGovernor = await this._getAccount(0)
-      if (!this.feeToken) this.feeToken = await this.artifacts.require('ERC20Mock').new('Court Fee Token', 'CFT', 18)
-      if (!this.jurorToken) this.jurorToken = await this.artifacts.require('ERC20Mock').new('Aragon Network Juror Token', 'ANJ', 18)
+      if (!this.feeToken) this.feeToken = await this.artifacts.require('ERC20Mock').new('Court Token', 'CTT', 18)
 
       this.court = await this.artifacts.require('AragonCourtMock').new(
         [this.termDuration, this.firstTermStartTime],
@@ -411,7 +410,6 @@ module.exports = (web3, artifacts) => {
       if (!this.jurorsRegistry) {
         this.jurorsRegistry = await this.artifacts.require('JurorsRegistryMock').new(
           this.court.address,
-          this.jurorToken.address,
           this.minActiveBalance.mul(MAX_UINT64.div(this.finalRoundWeightPrecision))
         )
       }

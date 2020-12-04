@@ -38,7 +38,6 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
     string private constant ERROR_BAD_TOTAL_ACTIVE_BALANCE_LIMIT = "JR_BAD_TOTAL_ACTIVE_BAL_LIMIT";
     string private constant ERROR_TOTAL_ACTIVE_BALANCE_TOO_LOW = "JR_TOTAL_ACTIVE_BALANCE_TOO_LOW";
     string private constant ERROR_TOTAL_ACTIVE_BALANCE_EXCEEDED = "JR_TOTAL_ACTIVE_BALANCE_EXCEEDED";
-    string private constant ERROR_ACTIVE_BALANCE_LIMITS_INCONSISTENT = "JR_ACTIVE_BALANCE_LIMITS_INCONSISTENT";
     string private constant ERROR_WITHDRAWALS_LOCK = "JR_WITHDRAWALS_LOCK";
     string private constant ERROR_SENDER_NOT_BRIGHTID_REGISTER = "JR_SENDER_NOT_BRIGHTID_REGISTER";
     string private constant ERROR_NO_FUNCTION_MATCH = "JR_NO_FUNCTION_MATCH";
@@ -130,17 +129,14 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
     /**
     * @dev Constructor function
     * @param _controller Address of the controller
-    * @param _jurorToken Address of the ERC20 token to be used as juror token for the registry
     * @param _totalActiveBalanceLimit Maximum amount of total active balance that can be held in the registry
     */
-    constructor(Controller _controller, ERC20 _jurorToken, uint256 _totalActiveBalanceLimit)
+    constructor(Controller _controller, uint256 _totalActiveBalanceLimit)
         ControlledRecoverable(_controller)
         public
     {
         // No need to explicitly call `Controlled` constructor since `ControlledRecoverable` is already doing it
-        require(isContract(address(_jurorToken)), ERROR_NOT_CONTRACT);
-
-        jurorsToken = _jurorToken;
+        jurorsToken = _getConfigAt(0).fees.token;
         _setTotalActiveBalanceLimit(_totalActiveBalanceLimit);
 
         tree.init();
@@ -556,6 +552,9 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
     * @return Max amount of tokens a juror can activate at this time
     */
     function maxActiveBalance(uint64 _termId) public view returns (uint256) {
+
+        // Check totalSupply isn't 0
+
         uint256 jurorsTokenTotalSupply = jurorsToken.totalSupply();
         if (jurorsTokenTotalSupply == 0) {
             return 0;
@@ -638,10 +637,12 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
         Juror storage juror = jurorsByAddress[_juror];
         uint256 minActiveBalance = _getMinActiveBalance(nextTermId);
         uint256 maxActiveBalance = maxActiveBalance(termId);
-        // Due to min active balance living at the global config level, we can't ensure it is less than the max
-        // active balance when set, because max active balance is determined using the juror token, specific to this
-        // contract. Therefore we revert if the min active balance is more than the max active balance.
-        require(minActiveBalance < maxActiveBalance, ERROR_ACTIVE_BALANCE_LIMITS_INCONSISTENT);
+        // Due to fluctuations in issuance we can't ensure min active balance is less than the max active balance
+        // because max active balance is determined using the juror token total supply. Therefore set max active
+        // balance to min active balance if it less then min active balance.
+        if (maxActiveBalance < minActiveBalance) {
+            maxActiveBalance = minActiveBalance;
+        }
 
         if (_existsJuror(juror)) {
             // Even though we are adding amounts, let's check the new active balance is greater than or equal to the

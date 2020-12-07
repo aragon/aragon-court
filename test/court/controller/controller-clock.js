@@ -131,6 +131,21 @@ contract('Controller', ([_, someone, configGovernor]) => {
 
         assertBn((await controller.getNeededTermTransitions()), remainingTransitions, 'needed term transitions does not match')
       })
+
+      it(`updates celesteTokenTotalSupply correctly ${expectedTransitions} times`, async () => {
+        const lastEnsuredTermId = await controller.getLastEnsuredTermId()
+
+        for (let transition = 1; transition <= expectedTransitions; transition++) {
+          await controller.heartbeat(bn(1))
+          await ANJ.generateTokens(someone, anjNewSupply)
+          const termId = lastEnsuredTermId.add(bn(transition))
+
+          const { celesteTokenTotalSupply } = await controller.getTerm(termId)
+
+          const expectedTotalSupply = ANJ_INITIAL_TOTAL_SUPPLY.add(anjNewSupply.mul(bn(transition)))
+          assertBn(celesteTokenTotalSupply, expectedTotalSupply, `total supply for term ${termId} incorrect`)
+        }
+      })
     }
 
     context('when current timestamp is before zero term start time', () => {

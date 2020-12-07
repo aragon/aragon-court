@@ -552,11 +552,9 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
     * @return Max amount of tokens a juror can activate at this time
     */
     function maxActiveBalance(uint64 _termId) public view returns (uint256) {
-
-        // Check totalSupply isn't 0
-
-        uint256 jurorsTokenTotalSupply = jurorsToken.totalSupply();
-        if (jurorsTokenTotalSupply == 0) {
+        IClock clock = _clock();
+        uint256 celesteTokenTotalSupply = clock.getTermTokenTotalSupply(_termId);
+        if (celesteTokenTotalSupply == 0) {
             return 0;
         }
 
@@ -565,8 +563,8 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
         uint256 diffOfPct = maxMaxPctTotalSupply - minMaxPctTotalSupply; // No need for safemath, we ensure min is less than max in config setting
         uint256 totalActiveBalanceAtTerm = _totalActiveBalanceAt(_termId);
 
-        uint256 currentPctOfTotalSupply = maxMaxPctTotalSupply.sub(totalActiveBalanceAtTerm.mul(diffOfPct) / jurorsTokenTotalSupply);
-        return jurorsTokenTotalSupply.pctHighPrecision(currentPctOfTotalSupply);
+        uint256 currentPctOfTotalSupply = maxMaxPctTotalSupply.sub(totalActiveBalanceAtTerm.mul(diffOfPct) / celesteTokenTotalSupply);
+        return celesteTokenTotalSupply.pctHighPrecision(currentPctOfTotalSupply);
     }
 
     /**

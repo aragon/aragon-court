@@ -45,6 +45,7 @@ interface IClock {
     * @return startTime Term start time
     * @return randomnessBN Block number used for randomness in the requested term
     * @return randomness Randomness computed for the requested term
+    * @return celesteTokenTotalSupply Total supply of the Celeste token
     */
     function getTerm(uint64 _termId) external view returns (uint64 startTime, uint64 randomnessBN, bytes32 randomness, uint256 celesteTokenTotalSupply);
 
@@ -54,4 +55,11 @@ interface IClock {
     * @return Randomness of the requested term
     */
     function getTermRandomness(uint64 _termId) external view returns (bytes32);
+
+    /**
+    * @dev Tell the total supply of the celeste token at a specific term
+    * @param _termId Identification number of the term being queried
+    * @return Total supply of celeste token
+    */
+    function getTermTokenTotalSupply(uint64 _termId) external view returns (uint256);
 }

@@ -101,6 +101,11 @@ contract AragonCourtMock is AragonCourt, TimeHelpersMock {
         return super._computeTermRandomness(_termId);
     }
 
+    function getTermTokenTotalSupply(uint64 _termId) external view returns (uint256) {
+        (ERC20 feeToken,,,,,,) = _getConfig(_termId);
+        return feeToken.totalSupply();
+    }
+
     function _computeTermRandomness(uint64 _termId) internal view returns (bytes32) {
         if (mockedTermRandomness != bytes32(0)) return mockedTermRandomness;
         return super._computeTermRandomness(_termId);

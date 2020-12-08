@@ -635,9 +635,9 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
         Juror storage juror = jurorsByAddress[_juror];
         uint256 minActiveBalance = _getMinActiveBalance(nextTermId);
         uint256 maxActiveBalance = maxActiveBalance(termId);
-        // Due to fluctuations in issuance we can't ensure min active balance is less than the max active balance
-        // because max active balance is determined using the juror token total supply. Therefore set max active
-        // balance to min active balance if it less then min active balance.
+        // Due to fluctuations in the celeste token's total supply we can't ensure min active balance is less than
+        // the max active balance because max active balance is determined using the celeste token's total supply.
+        // Therefore set max active balance to min active balance if it less then min active balance.
         if (maxActiveBalance < minActiveBalance) {
             maxActiveBalance = minActiveBalance;
         }

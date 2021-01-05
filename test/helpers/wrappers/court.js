@@ -390,9 +390,9 @@ module.exports = (web3, artifacts) => {
         [this.fundsGovernor, this.configGovernor, this.feesUpdater, this.modulesGovernor],
         this.feeToken.address,
         [this.jurorFee, this.draftFee, this.settleFee],
-        [this.evidenceTerms, this.commitTerms, this.revealTerms, this.appealTerms, this.appealConfirmTerms],
+        this.maxRulingOptions,
+        [this.evidenceTerms, this.commitTerms, this.revealTerms, this.appealTerms, this.appealConfirmTerms, this.firstRoundJurorsNumber, this.appealStepFactor, this.maxRegularAppealRounds, this.finalRoundLockTerms],
         [this.penaltyPct, this.finalRoundReduction],
-        [this.firstRoundJurorsNumber, this.appealStepFactor, this.maxRegularAppealRounds, this.finalRoundLockTerms],
         [this.appealCollateralFactor, this.appealConfirmCollateralFactor],
         [this.minActiveBalance, this.minMaxPctTotalSupply, this.maxMaxPctTotalSupply]
       )

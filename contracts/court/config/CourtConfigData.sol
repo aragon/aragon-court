@@ -20,6 +20,7 @@ contract CourtConfigData {
     }
 
     struct DisputesConfig {
+        uint8 maxRulingOptions;                 // Max number of options selectable by jurors for a dispute
         uint64 evidenceTerms;                   // Max submitting evidence period duration in terms
         uint64 commitTerms;                     // Committing period duration in terms
         uint64 revealTerms;                     // Revealing period duration in terms

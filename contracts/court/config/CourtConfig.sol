@@ -14,6 +14,7 @@ contract CourtConfig is IConfig, CourtConfigData {
 
     string private constant ERROR_TOO_OLD_TERM = "CONF_TOO_OLD_TERM";
     string private constant ERROR_RULING_OPTIONS_LESS_THAN_MIN = "CONF_RULING_OPTIONS_LESS_THAN_MIN";
+    string private constant ERROR_RULING_OPTIONS_MORE_THAN_MAX = "CONF_RULING_OPTIONS_MORE_THAN_MAX";
     string private constant ERROR_INVALID_PENALTY_PCT = "CONF_INVALID_PENALTY_PCT";
     string private constant ERROR_INVALID_FINAL_ROUND_REDUCTION_PCT = "CONF_INVALID_FINAL_ROUND_RED_PCT";
     string private constant ERROR_INVALID_MAX_APPEAL_ROUNDS = "CONF_INVALID_MAX_APPEAL_ROUNDS";
@@ -247,6 +248,8 @@ contract CourtConfig is IConfig, CourtConfigData {
         require(_termId == 0 || _fromTermId > _termId, ERROR_TOO_OLD_TERM);
 
         require(_maxRulingOptions >= 2, ERROR_RULING_OPTIONS_LESS_THAN_MIN);
+        // Ruling options 0, 1 and 2 are reserved for special cases.
+        require(_maxRulingOptions <= uint8(-1) - 3, ERROR_RULING_OPTIONS_LESS_THAN_MIN);
 
         // Make sure appeal collateral factors are greater than zero
         require(_appealCollateralParams[0] > 0 && _appealCollateralParams[1] > 0, ERROR_ZERO_COLLATERAL_FACTOR);

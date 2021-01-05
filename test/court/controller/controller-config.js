@@ -118,6 +118,14 @@ contract('Controller', ([_, configGovernor, feesUpdater, someone, drafter, appea
         await assertRevert(courtHelper.deploy({ maxRegularAppealRounds: bn(11) }), CONFIG_ERRORS.INVALID_MAX_APPEAL_ROUNDS)
       })
 
+      it('cannot use max ruling options less than 2', async () => {
+        await assertRevert(courtHelper.deploy({ maxRulingOptions: bn(1) }), "CONF_RULING_OPTIONS_LESS_THAN_MIN")
+      })
+
+      it('cannot use max ruling options more than 252', async () => {
+        await assertRevert(courtHelper.deploy({ maxRulingOptions: bn(253) }), "CONF_RULING_OPTIONS_LESS_THAN_MIN")
+      })
+
       it('cannot use a adjudication round durations zero', async () => {
         await assertRevert(courtHelper.deploy({ evidenceTerms: bn(0) }), CONFIG_ERRORS.LARGE_ROUND_PHASE_DURATION)
         await assertRevert(courtHelper.deploy({ commitTerms: bn(0) }), CONFIG_ERRORS.LARGE_ROUND_PHASE_DURATION)

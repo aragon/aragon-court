@@ -38,7 +38,7 @@ const DEFAULTS = {
   firstTermStartTime:                 bn(NEXT_WEEK),   //  first term starts one week after mocked timestamp
   skippedDisputes:                    bn(0),           //  number of disputes to be skipped
   maxJurorsPerDraftBatch:             bn(10),          //  max number of jurors drafted per batch
-  maxRulingOptions:                   bn(3),           //  max number of selectable outcomes for jurors
+  maxRulingOptions:                   bn(2),           //  max number of selectable outcomes for jurors
   evidenceTerms:                      bn(4),           //  evidence period lasts 4 terms maximum
   commitTerms:                        bn(2),           //  vote commits last 2 terms
   revealTerms:                        bn(2),           //  vote reveals last 2 terms

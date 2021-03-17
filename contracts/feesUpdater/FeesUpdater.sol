@@ -9,7 +9,7 @@ contract FeesUpdater {
     IPriceOracle public priceOracle;
     AragonCourt public court;
     address public courtStableToken;
-    uint256[3] public courtStableValueFees;
+    uint256[3] public courtStableValueFees; // [jurorFee, draftFee, settleFee]
 
     constructor(
         IPriceOracle _priceOracle,
@@ -51,7 +51,6 @@ contract FeesUpdater {
         convertedFees[0] = priceOracle.consult(courtStableToken, courtStableValueFees[0], address(feeToken));
         convertedFees[1] = priceOracle.consult(courtStableToken, courtStableValueFees[1], address(feeToken));
         convertedFees[2] = priceOracle.consult(courtStableToken, courtStableValueFees[2], address(feeToken));
-
 
         court.setConfig(currentTerm + 1, feeToken, convertedFees, maxRulingOptions, roundParams, pcts, appealCollateralParams,
             jurorsParams);

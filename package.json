@@ -1,13 +1,14 @@
 {
   "name": "@1hive/celeste",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Celeste Oracle",
   "author": "Aragon Association",
   "license": "GPL-3.0",
   "files": [
     "/abi",
     "/artifacts",
-    "/contracts"
+    "/contracts",
+    "/test"
   ],
   "scripts": {
     "compile": "buidler compile",

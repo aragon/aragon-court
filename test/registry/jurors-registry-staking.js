@@ -21,21 +21,19 @@ contract('JurorsRegistry', ([_, juror, juror2, jurorBrightIdAddress, juror2Brigh
   const MIN_ACTIVE_AMOUNT = bigExp(100, 18)
   const TOTAL_ACTIVE_BALANCE_LIMIT = bigExp(100e6, 18)
 
-  before('create court and custom disputes module', async () => {
-    controller = await buildHelper().deploy({ minActiveBalance: MIN_ACTIVE_AMOUNT })
+  beforeEach('create court and custom disputes module and jurors registry module', async () => {
+    ANJ = await ERC20.new('ANJ Token', 'ANJ', 18)
+    controller = await buildHelper().deploy({ minActiveBalance: MIN_ACTIVE_AMOUNT, feeToken: ANJ })
     disputeManager = await DisputeManager.new(controller.address)
     await controller.setDisputeManager(disputeManager.address)
-  })
 
-  beforeEach('create jurors registry module', async () => {
-    ANJ = await ERC20.new('ANJ Token', 'ANJ', 18)
     brightIdHelper = buildBrightIdHelper()
     brightIdRegister = await brightIdHelper.deploy()
     await brightIdHelper.registerUsersWithMultipleAddresses(
       [[jurorBrightIdAddress, juror], [juror2BrightIdAddress, juror2]])
     await controller.setBrightIdRegister(brightIdRegister.address)
 
-    registry = await JurorsRegistry.new(controller.address, ANJ.address, TOTAL_ACTIVE_BALANCE_LIMIT)
+    registry = await JurorsRegistry.new(controller.address, TOTAL_ACTIVE_BALANCE_LIMIT)
     await controller.setJurorsRegistry(registry.address)
 
     // Uncomment the below to test calling stake() and unstake() via the BrightIdRegister. Note some tests are expected to fail

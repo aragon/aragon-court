@@ -38,6 +38,7 @@ const DEFAULTS = {
   firstTermStartTime:                 bn(NEXT_WEEK),   //  first term starts one week after mocked timestamp
   skippedDisputes:                    bn(0),           //  number of disputes to be skipped
   maxJurorsPerDraftBatch:             bn(10),          //  max number of jurors drafted per batch
+  maxRulingOptions:                   bn(2),           //  max number of selectable outcomes for jurors
   evidenceTerms:                      bn(4),           //  evidence period lasts 4 terms maximum
   commitTerms:                        bn(2),           //  vote commits last 2 terms
   revealTerms:                        bn(2),           //  vote reveals last 2 terms
@@ -72,23 +73,24 @@ module.exports = (web3, artifacts) => {
     }
 
     async getConfig(termId) {
-      const { feeToken, fees, roundStateDurations, pcts, roundParams, appealCollateralParams, jurorsParams } = await this.court.getConfig(termId)
+      const { feeToken, fees, maxRulingOptions, roundParams, pcts, appealCollateralParams, jurorsParams } = await this.court.getConfig(termId)
       return {
         feeToken: await this.artifacts.require('ERC20Mock').at(feeToken),
         jurorFee: fees[0],
         draftFee: fees[1],
         settleFee: fees[2],
-        evidenceTerms: roundStateDurations[0],
-        commitTerms: roundStateDurations[1],
-        revealTerms: roundStateDurations[2],
-        appealTerms: roundStateDurations[3],
-        appealConfirmTerms: roundStateDurations[4],
+        maxRulingOptions: maxRulingOptions,
+        evidenceTerms: roundParams[0],
+        commitTerms: roundParams[1],
+        revealTerms: roundParams[2],
+        appealTerms: roundParams[3],
+        appealConfirmTerms: roundParams[4],
         penaltyPct: pcts[0],
         finalRoundReduction: pcts[1],
-        firstRoundJurorsNumber: roundParams[0],
-        appealStepFactor: roundParams[1],
-        maxRegularAppealRounds: roundParams[2],
-        finalRoundLockTerms: roundParams[3],
+        firstRoundJurorsNumber: roundParams[5],
+        appealStepFactor: roundParams[6],
+        maxRegularAppealRounds: roundParams[7],
+        finalRoundLockTerms: roundParams[8],
         appealCollateralFactor: appealCollateralParams[0],
         appealConfirmCollateralFactor: appealCollateralParams[1],
         minActiveBalance: jurorsParams[0],
@@ -204,12 +206,12 @@ module.exports = (web3, artifacts) => {
       const minTotalSupplyRequired = minActiveBalance.div(minMaxPctTotalSupply)
       const minTotalSupplyWithDecimals = bigExp(minTotalSupplyRequired, 18)
       const minTotalSupplyWithExtra = minTotalSupplyWithDecimals.mul(bn(3))
-      await this.jurorToken.generateTokens(await this._getAccount(0), minTotalSupplyWithExtra)
+      await this.feeToken.generateTokens(await this._getAccount(0), minTotalSupplyWithExtra)
 
       for (const { address, initialActiveBalance } of jurors) {
         await this.brightIdHelper.registerUser(address)
-        await this.jurorToken.generateTokens(address, initialActiveBalance)
-        await this.jurorToken.approveAndCall(this.jurorsRegistry.address, initialActiveBalance, ACTIVATE_DATA, { from: address })
+        await this.feeToken.generateTokens(address, initialActiveBalance)
+        await this.feeToken.approveAndCall(this.jurorsRegistry.address, initialActiveBalance, ACTIVATE_DATA, { from: address })
       }
     }
 
@@ -356,9 +358,9 @@ module.exports = (web3, artifacts) => {
       const {
         feeToken,
         jurorFee, draftFee, settleFee,
-        evidenceTerms, commitTerms, revealTerms, appealTerms, appealConfirmTerms,
+        maxRulingOptions,
+        evidenceTerms, commitTerms, revealTerms, appealTerms, appealConfirmTerms, firstRoundJurorsNumber, appealStepFactor, maxRegularAppealRounds, finalRoundLockTerms,
         penaltyPct, finalRoundReduction,
-        firstRoundJurorsNumber, appealStepFactor, maxRegularAppealRounds, finalRoundLockTerms,
         appealCollateralFactor, appealConfirmCollateralFactor,
         minActiveBalance, minMaxPctTotalSupply, maxMaxPctTotalSupply
       } = newConfig
@@ -367,9 +369,9 @@ module.exports = (web3, artifacts) => {
         termId,
         feeToken.address,
         [jurorFee, draftFee, settleFee],
-        [evidenceTerms, commitTerms, revealTerms, appealTerms, appealConfirmTerms],
+        maxRulingOptions,
+        [evidenceTerms, commitTerms, revealTerms, appealTerms, appealConfirmTerms, firstRoundJurorsNumber, appealStepFactor, maxRegularAppealRounds, finalRoundLockTerms],
         [penaltyPct, finalRoundReduction],
-        [firstRoundJurorsNumber, appealStepFactor, maxRegularAppealRounds, finalRoundLockTerms],
         [appealCollateralFactor, appealConfirmCollateralFactor],
         [minActiveBalance, minMaxPctTotalSupply, maxMaxPctTotalSupply],
         txParams
@@ -383,17 +385,16 @@ module.exports = (web3, artifacts) => {
       if (!this.configGovernor) this.configGovernor = await this._getAccount(0)
       if (!this.feesUpdater) this.feesUpdater = await this._getAccount(0)
       if (!this.modulesGovernor) this.modulesGovernor = await this._getAccount(0)
-      if (!this.feeToken) this.feeToken = await this.artifacts.require('ERC20Mock').new('Court Fee Token', 'CFT', 18)
-      if (!this.jurorToken) this.jurorToken = await this.artifacts.require('ERC20Mock').new('Aragon Network Juror Token', 'ANJ', 18)
+      if (!this.feeToken) this.feeToken = await this.artifacts.require('ERC20Mock').new('Court Token', 'CTT', 18)
 
       this.court = await this.artifacts.require('AragonCourtMock').new(
         [this.termDuration, this.firstTermStartTime],
         [this.fundsGovernor, this.configGovernor, this.feesUpdater, this.modulesGovernor],
         this.feeToken.address,
         [this.jurorFee, this.draftFee, this.settleFee],
-        [this.evidenceTerms, this.commitTerms, this.revealTerms, this.appealTerms, this.appealConfirmTerms],
+        this.maxRulingOptions,
+        [this.evidenceTerms, this.commitTerms, this.revealTerms, this.appealTerms, this.appealConfirmTerms, this.firstRoundJurorsNumber, this.appealStepFactor, this.maxRegularAppealRounds, this.finalRoundLockTerms],
         [this.penaltyPct, this.finalRoundReduction],
-        [this.firstRoundJurorsNumber, this.appealStepFactor, this.maxRegularAppealRounds, this.finalRoundLockTerms],
         [this.appealCollateralFactor, this.appealConfirmCollateralFactor],
         [this.minActiveBalance, this.minMaxPctTotalSupply, this.maxMaxPctTotalSupply]
       )
@@ -411,7 +412,6 @@ module.exports = (web3, artifacts) => {
       if (!this.jurorsRegistry) {
         this.jurorsRegistry = await this.artifacts.require('JurorsRegistryMock').new(
           this.court.address,
-          this.jurorToken.address,
           this.minActiveBalance.mul(MAX_UINT64.div(this.finalRoundWeightPrecision))
         )
       }

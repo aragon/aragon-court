@@ -2,6 +2,7 @@ pragma solidity ^0.5.8;
 
 import "../../lib/os/SafeMath64.sol";
 import "../../lib/os/TimeHelpers.sol";
+import "../../lib/os/ERC20.sol";
 
 import "./IClock.sol";
 
@@ -32,6 +33,7 @@ contract CourtClock is IClock, TimeHelpers {
         uint64 startTime;              // Timestamp when the term started
         uint64 randomnessBN;           // Block number for entropy
         bytes32 randomness;            // Entropy from randomnessBN block hash
+        uint256 celesteTokenTotalSupply;
     }
 
     // Duration in seconds for each term of the Court
@@ -61,7 +63,7 @@ contract CourtClock is IClock, TimeHelpers {
     *        0. _termDuration Duration in seconds per term
     *        1. _firstTermStartTime Timestamp in seconds when the court will open (to give time for juror on-boarding)
     */
-    constructor(uint64[2] memory _termParams) public {
+    constructor(uint64[2] memory _termParams, ERC20 _celesteToken) public {
         uint64 _termDuration = _termParams[0];
         uint64 _firstTermStartTime = _termParams[1];
 
@@ -73,6 +75,7 @@ contract CourtClock is IClock, TimeHelpers {
 
         // No need for SafeMath: we already checked values above
         terms[0].startTime = _firstTermStartTime - _termDuration;
+        terms[0].celesteTokenTotalSupply = _celesteToken.totalSupply();
     }
 
     /**
@@ -154,10 +157,11 @@ contract CourtClock is IClock, TimeHelpers {
     * @return startTime Term start time
     * @return randomnessBN Block number used for randomness in the requested term
     * @return randomness Randomness computed for the requested term
+    * @return celesteTokenTotalSupply Total supply of the Celeste token
     */
-    function getTerm(uint64 _termId) external view returns (uint64 startTime, uint64 randomnessBN, bytes32 randomness) {
+    function getTerm(uint64 _termId) external view returns (uint64 startTime, uint64 randomnessBN, bytes32 randomness, uint256 celesteTokenTotalSupply) {
         Term storage term = terms[_termId];
-        return (term.startTime, term.randomnessBN, term.randomness);
+        return (term.startTime, term.randomnessBN, term.randomness, term.celesteTokenTotalSupply);
     }
 
     /**
@@ -167,6 +171,15 @@ contract CourtClock is IClock, TimeHelpers {
     */
     function getTermRandomness(uint64 _termId) external view termExists(_termId) returns (bytes32) {
         return _computeTermRandomness(_termId);
+    }
+
+    /**
+    * @dev Tell the total supply of the celeste token at a specific term
+    * @param _termId Identification number of the term being queried
+    * @return Total supply of celeste token
+    */
+    function getTermTokenTotalSupply(uint64 _termId) external view termExists(_termId) returns (uint256) {
+        return terms[_termId].celesteTokenTotalSupply;
     }
 
     /**
@@ -208,6 +221,7 @@ contract CourtClock is IClock, TimeHelpers {
             // already assumed to fit in uint64.
             Term storage previousTerm = terms[currentTermId++];
             Term storage currentTerm = terms[currentTermId];
+            (ERC20 feeToken,,,,,,) = _getConfig(currentTermId);
             _onTermTransitioned(currentTermId);
 
             // Set the start time of the new term. Note that we are using a constant term duration value to guarantee
@@ -217,6 +231,8 @@ contract CourtClock is IClock, TimeHelpers {
             // In order to draft a random number of jurors in a term, we use a randomness factor for each term based on a
             // block number that is set once the term has started. Note that this information could not be known beforehand.
             currentTerm.randomnessBN = blockNumber + 1;
+
+            currentTerm.celesteTokenTotalSupply = feeToken.totalSupply();
         }
 
         termId = currentTermId;
@@ -291,4 +307,44 @@ contract CourtClock is IClock, TimeHelpers {
         require(getBlockNumber64() > term.randomnessBN, ERROR_TERM_RANDOMNESS_NOT_YET);
         return blockhash(term.randomnessBN);
     }
+
+    /**
+    * @dev Tell the full Court configuration parameters at a certain term
+    * @param _termId Identification number of the term querying the Court config of
+    * @return token Address of the token used to pay for fees
+    * @return fees Array containing:
+    *         0. jurorFee Amount of fee tokens that is paid per juror per dispute
+    *         1. draftFee Amount of fee tokens per juror to cover the drafting cost
+    *         2. settleFee Amount of fee tokens per juror to cover round settlement cost
+    * @return maxRulingOptions Max number of selectable outcomes for each dispute
+    * @return roundParams Array containing durations of phases of a dispute and other params for rounds:
+    *         0. evidenceTerms Max submitting evidence period duration in terms
+    *         1. commitTerms Commit period duration in terms
+    *         2. revealTerms Reveal period duration in terms
+    *         3. appealTerms Appeal period duration in terms
+    *         4. appealConfirmationTerms Appeal confirmation period duration in terms
+    *         5. firstRoundJurorsNumber Number of jurors to be drafted for the first round of disputes
+    *         6. appealStepFactor Increasing factor for the number of jurors of each round of a dispute
+    *         7. maxRegularAppealRounds Number of regular appeal rounds before the final round is triggered
+    *         8. finalRoundLockTerms Number of terms that a coherent juror in a final round is disallowed to withdraw (to prevent 51% attacks)
+    * @return pcts Array containing:
+    *         0. penaltyPct Permyriad of min active tokens balance to be locked for each drafted juror (‱ - 1/10,000)
+    *         1. finalRoundReduction Permyriad of fee reduction for the last appeal round (‱ - 1/10,000)
+    * @return appealCollateralParams Array containing params for appeal collateral:
+    *         0. appealCollateralFactor Multiple of dispute fees required to appeal a preliminary ruling
+    *         1. appealConfirmCollateralFactor Multiple of dispute fees required to confirm appeal
+    * @return jurorsParams Array containing params for juror registry:
+    *         0. minActiveBalance Minimum amount of juror tokens that can be activated
+    *         1. minMaxPctTotalSupply The min max percent of the total supply a juror can activate, applied for total supply active stake
+    *         2. maxMaxPctTotalSupply The max max percent of the total supply a juror can activate, applied for 0 active stake
+    */
+    function _getConfig(uint64 _termId) internal view returns (
+        ERC20 feeToken,
+        uint256[3] memory fees,
+        uint8 maxRulingOptions,
+        uint64[9] memory roundParams,
+        uint16[2] memory pcts,
+        uint256[2] memory appealCollateralParams,
+        uint256[3] memory jurorsParams
+    );
 }

@@ -101,20 +101,20 @@ contract Controller is IsContract, CourtClock, CourtConfig {
     *        0. jurorFee Amount of fee tokens that is paid per juror per dispute
     *        1. draftFee Amount of fee tokens per juror to cover the drafting cost
     *        2. settleFee Amount of fee tokens per juror to cover round settlement cost
-    * @param _roundStateDurations Array containing the durations in terms of the different phases of a dispute:
+    * @param _maxRulingOptions Max number of selectable outcomes for each dispute
+    * @param _roundParams Array containing durations of phases of a dispute and other params for rounds:
     *        0. evidenceTerms Max submitting evidence period duration in terms
     *        1. commitTerms Commit period duration in terms
     *        2. revealTerms Reveal period duration in terms
     *        3. appealTerms Appeal period duration in terms
     *        4. appealConfirmationTerms Appeal confirmation period duration in terms
+    *        5. firstRoundJurorsNumber Number of jurors to be drafted for the first round of disputes
+    *        6. appealStepFactor Increasing factor for the number of jurors of each round of a dispute
+    *        7. maxRegularAppealRounds Number of regular appeal rounds before the final round is triggered
+    *        8. finalRoundLockTerms Number of terms that a coherent juror in a final round is disallowed to withdraw (to prevent 51% attacks)
     * @param _pcts Array containing:
     *        0. penaltyPct Permyriad of min active tokens balance to be locked to each drafted jurors (‱ - 1/10,000)
     *        1. finalRoundReduction Permyriad of fee reduction for the last appeal round (‱ - 1/10,000)
-    * @param _roundParams Array containing params for rounds:
-    *        0. firstRoundJurorsNumber Number of jurors to be drafted for the first round of disputes
-    *        1. appealStepFactor Increasing factor for the number of jurors of each round of a dispute
-    *        2. maxRegularAppealRounds Number of regular appeal rounds before the final round is triggered
-    *        3. finalRoundLockTerms Number of terms that a coherent juror in a final round is disallowed to withdraw (to prevent 51% attacks)
     * @param _appealCollateralParams Array containing params for appeal collateral:
     *        0. appealCollateralFactor Permyriad multiple of dispute fees required to appeal a preliminary ruling
     *        1. appealConfirmCollateralFactor Permyriad multiple of dispute fees required to confirm appeal
@@ -128,15 +128,15 @@ contract Controller is IsContract, CourtClock, CourtConfig {
         address[4] memory _governors,
         ERC20 _feeToken,
         uint256[3] memory _fees,
-        uint64[5] memory _roundStateDurations,
+        uint8 _maxRulingOptions,
+        uint64[9] memory _roundParams,
         uint16[2] memory _pcts,
-        uint64[4] memory _roundParams,
         uint256[2] memory _appealCollateralParams,
         uint256[3] memory _jurorsParams
     )
         public
-        CourtClock(_termParams)
-        CourtConfig(_feeToken, _fees, _roundStateDurations, _pcts, _roundParams, _appealCollateralParams, _jurorsParams)
+        CourtClock(_termParams, _feeToken)
+        CourtConfig(_feeToken, _fees, _maxRulingOptions, _roundParams, _pcts, _appealCollateralParams, _jurorsParams)
     {
         _setFundsGovernor(_governors[0]);
         _setConfigGovernor(_governors[1]);
@@ -152,20 +152,20 @@ contract Controller is IsContract, CourtClock, CourtConfig {
     *        0. jurorFee Amount of fee tokens that is paid per juror per dispute
     *        1. draftFee Amount of fee tokens per juror to cover the drafting cost
     *        2. settleFee Amount of fee tokens per juror to cover round settlement cost
-    * @param _roundStateDurations Array containing the durations in terms of the different phases of a dispute:
+    * @param _maxRulingOptions Max number of selectable outcomes for each dispute
+    * @param _roundParams Array containing durations of phases of a dispute and other params for rounds:
     *        0. evidenceTerms Max submitting evidence period duration in terms
     *        1. commitTerms Commit period duration in terms
     *        2. revealTerms Reveal period duration in terms
     *        3. appealTerms Appeal period duration in terms
     *        4. appealConfirmationTerms Appeal confirmation period duration in terms
+    *        5. firstRoundJurorsNumber Number of jurors to be drafted for the first round of disputes
+    *        6. appealStepFactor Increasing factor for the number of jurors of each round of a dispute
+    *        7. maxRegularAppealRounds Number of regular appeal rounds before the final round is triggered
+    *        8. finalRoundLockTerms Number of terms that a coherent juror in a final round is disallowed to withdraw (to prevent 51% attacks)
     * @param _pcts Array containing:
     *        0. penaltyPct Permyriad of min active tokens balance to be locked to each drafted jurors (‱ - 1/10,000)
     *        1. finalRoundReduction Permyriad of fee reduction for the last appeal round (‱ - 1/10,000)
-    * @param _roundParams Array containing params for rounds:
-    *        0. firstRoundJurorsNumber Number of jurors to be drafted for the first round of disputes
-    *        1. appealStepFactor Increasing factor for the number of jurors of each round of a dispute
-    *        2. maxRegularAppealRounds Number of regular appeal rounds before the final round is triggered
-    *        3. finalRoundLockTerms Number of terms that a coherent juror in a final round is disallowed to withdraw (to prevent 51% attacks)
     * @param _appealCollateralParams Array containing params for appeal collateral:
     *        0. appealCollateralFactor Permyriad multiple of dispute fees required to appeal a preliminary ruling
     *        1. appealConfirmCollateralFactor Permyriad multiple of dispute fees required to confirm appeal
@@ -178,9 +178,9 @@ contract Controller is IsContract, CourtClock, CourtConfig {
         uint64 _fromTermId,
         ERC20 _feeToken,
         uint256[3] calldata _fees,
-        uint64[5] calldata _roundStateDurations,
+        uint8 _maxRulingOptions,
+        uint64[9] calldata _roundParams,
         uint16[2] calldata _pcts,
-        uint64[4] calldata _roundParams,
         uint256[2] calldata _appealCollateralParams,
         uint256[3] calldata _jurorsParams
     )
@@ -193,9 +193,9 @@ contract Controller is IsContract, CourtClock, CourtConfig {
             _fromTermId,
             _feeToken,
             _fees,
-            _roundStateDurations,
-            _pcts,
+            _maxRulingOptions,
             _roundParams,
+            _pcts,
             _appealCollateralParams,
             _jurorsParams
         );
@@ -290,20 +290,20 @@ contract Controller is IsContract, CourtClock, CourtConfig {
     *         0. jurorFee Amount of fee tokens that is paid per juror per dispute
     *         1. draftFee Amount of fee tokens per juror to cover the drafting cost
     *         2. settleFee Amount of fee tokens per juror to cover round settlement cost
-    * @return roundStateDurations Array containing the durations in terms of the different phases of a dispute:
+    * @return maxRulingOptions Max number of selectable outcomes for each dispute
+    * @return roundParams Array containing durations of phases of a dispute and other params for rounds:
     *         0. evidenceTerms Max submitting evidence period duration in terms
     *         1. commitTerms Commit period duration in terms
     *         2. revealTerms Reveal period duration in terms
     *         3. appealTerms Appeal period duration in terms
     *         4. appealConfirmationTerms Appeal confirmation period duration in terms
+    *         5. firstRoundJurorsNumber Number of jurors to be drafted for the first round of disputes
+    *         6. appealStepFactor Increasing factor for the number of jurors of each round of a dispute
+    *         7. maxRegularAppealRounds Number of regular appeal rounds before the final round is triggered
+    *         8. finalRoundLockTerms Number of terms that a coherent juror in a final round is disallowed to withdraw (to prevent 51% attacks)
     * @return pcts Array containing:
     *         0. penaltyPct Permyriad of min active tokens balance to be locked for each drafted juror (‱ - 1/10,000)
     *         1. finalRoundReduction Permyriad of fee reduction for the last appeal round (‱ - 1/10,000)
-    * @return roundParams Array containing params for rounds:
-    *         0. firstRoundJurorsNumber Number of jurors to be drafted for the first round of disputes
-    *         1. appealStepFactor Increasing factor for the number of jurors of each round of a dispute
-    *         2. maxRegularAppealRounds Number of regular appeal rounds before the final round is triggered
-    *         3. finalRoundLockTerms Number of terms that a coherent juror in a final round is disallowed to withdraw (to prevent 51% attacks)
     * @return appealCollateralParams Array containing params for appeal collateral:
     *         0. appealCollateralFactor Multiple of dispute fees required to appeal a preliminary ruling
     *         1. appealConfirmCollateralFactor Multiple of dispute fees required to confirm appeal
@@ -316,9 +316,26 @@ contract Controller is IsContract, CourtClock, CourtConfig {
         returns (
             ERC20 feeToken,
             uint256[3] memory fees,
-            uint64[5] memory roundStateDurations,
+            uint8 maxRulingOptions,
+            uint64[9] memory roundParams,
             uint16[2] memory pcts,
-            uint64[4] memory roundParams,
+            uint256[2] memory appealCollateralParams,
+            uint256[3] memory jurorsParams
+        )
+    {
+        return _getConfig(_termId);
+    }
+
+    /**
+    * @dev This function overrides one in the CourtClock, giving the CourtClock access to the config.
+    */
+    function _getConfig(uint64 _termId) internal view
+        returns (
+            ERC20 feeToken,
+            uint256[3] memory fees,
+            uint8 maxRulingOptions,
+            uint64[9] memory roundParams,
+            uint16[2] memory pcts,
             uint256[2] memory appealCollateralParams,
             uint256[3] memory jurorsParams
         )

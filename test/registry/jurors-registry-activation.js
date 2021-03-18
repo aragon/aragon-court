@@ -58,10 +58,11 @@ contract('JurorsRegistry', ([_, jurorActiveAddress, jurorBrightIdAddress, juror2
   }
 
   beforeEach('create jurors registry module', async () => {
+    ANJ = await ERC20.new('ANJ Token', 'ANJ', 18)
     buildHelperClass = buildHelper()
     controller = await buildHelperClass.deploy({
       minActiveBalance: MIN_ACTIVE_AMOUNT, minMaxPctTotalSupply: MIN_MAX_PCT_TOTAL_SUPPLY,
-      maxMaxPctTotalSupply: MAX_MAX_PCT_TOTAL_SUPPLY, juror: jurorActiveAddress
+      maxMaxPctTotalSupply: MAX_MAX_PCT_TOTAL_SUPPLY, juror: jurorActiveAddress, feeToken: ANJ
     })
     disputeManager = await DisputeManager.new(controller.address)
     await controller.setDisputeManager(disputeManager.address)
@@ -72,13 +73,12 @@ contract('JurorsRegistry', ([_, jurorActiveAddress, jurorBrightIdAddress, juror2
     await brightIdHelper.registerUser(juror2)
     await controller.setBrightIdRegister(brightIdRegister.address)
 
-    ANJ = await ERC20.new('ANJ Token', 'ANJ', 18)
-    registry = await JurorsRegistry.new(controller.address, ANJ.address, TOTAL_ACTIVE_BALANCE_LIMIT)
+    registry = await JurorsRegistry.new(controller.address, TOTAL_ACTIVE_BALANCE_LIMIT)
     await controller.setJurorsRegistry(registry.address)
 
     // Uncomment the below to test calling activate() via the BrightIdRegister. Note some tests are expected to fail with BRIGHTID_ADDRESS_VOIDED.
     // registry.activate = async (amount, { from }) => {
-    //   console.log("Via BrightIdRegister")
+    //   console.log("Activate Via BrightIdRegister")
     //   const activateFunctionData = registry.contract.methods.activate(amount.toString()).encodeABI()
     //   if (from === jurorActiveAddress) {
     //     return await brightIdHelper.registerUserWithData([jurorActiveAddress, jurorBrightIdAddress], registry.address, activateFunctionData)
@@ -344,11 +344,20 @@ contract('JurorsRegistry', ([_, jurorActiveAddress, jurorBrightIdAddress, juror2
         })
 
         context('when the min active amount is greater than the max active amount', () => {
-          it('reverts', async () => {
-            const newConfig = {...await buildHelperClass.getConfig(0), minActiveBalance: await currentMaxActiveBalance() }
+          it('uses the min active amount as the max active amount', async () => {
+            const amountAboveMax = bn(1)
+            const amount = (await currentMaxActiveBalance()).add(amountAboveMax)
+            await ANJ.approveAndCall(registry.address, amountAboveMax, '0x', { from })
+            await assertRevert(registry.activate(amount, { from }), "JR_ACTIVE_BALANCE_ABOVE_MAX")
+
+            const { active: previousActiveBalance } = await registry.balanceOf(jurorActiveAddress)
+            const newConfig = {...await buildHelperClass.getConfig(0), minActiveBalance: amount }
             await buildHelperClass.setConfig((await controller.getCurrentTermId()).add(bn(1)), newConfig)
 
-            await assertRevert(registry.activate(bn(0), { from }), 'JR_ACTIVE_BALANCE_LIMITS_INCONSISTENT')
+            await registry.activate(amount, { from })
+
+            const { active: currentActiveBalance } = await registry.balanceOf(jurorActiveAddress)
+            assertBn(previousActiveBalance.add(amount), currentActiveBalance, 'active balances do not match')
           })
         })
 
@@ -588,11 +597,21 @@ contract('JurorsRegistry', ([_, jurorActiveAddress, jurorBrightIdAddress, juror2
         })
 
         context('when the min active amount is greater than the max active amount', () => {
-          it('reverts', async () => {
-            const newConfig = {...await buildHelperClass.getConfig(0), minActiveBalance: await currentMaxActiveBalance() }
+          it('uses the min active amount as the max active amount', async () => {
+            const amountAboveMax = bn(1)
+            const newMinActiveBalance = (await currentMaxActiveBalance()).add(amountAboveMax)
+            const activateAmount = newMinActiveBalance.sub(activeBalance)
+            await ANJ.approveAndCall(registry.address, amountAboveMax, '0x', { from })
+            await assertRevert(registry.activate(activateAmount, { from }), "JR_ACTIVE_BALANCE_ABOVE_MAX")
+
+            const { active: previousActiveBalance } = await registry.balanceOf(jurorActiveAddress)
+            const newConfig = {...await buildHelperClass.getConfig(0), minActiveBalance: newMinActiveBalance }
             await buildHelperClass.setConfig((await controller.getCurrentTermId()).add(bn(1)), newConfig)
 
-            await assertRevert(registry.activate(bn(0), { from }), 'JR_ACTIVE_BALANCE_LIMITS_INCONSISTENT')
+            await registry.activate(activateAmount, { from })
+
+            const { active: currentActiveBalance } = await registry.balanceOf(jurorActiveAddress)
+            assertBn(previousActiveBalance.add(activateAmount), currentActiveBalance, 'active balances do not match')
           })
         })
 

@@ -9,7 +9,7 @@ contract FeesUpdater {
     IPriceOracle public priceOracle;
     AragonCourt public court;
     address public courtStableToken;
-    uint256[3] public courtStableValueFees;
+    uint256[3] public courtStableValueFees; // [jurorFee, draftFee, settleFee]
 
     constructor(
         IPriceOracle _priceOracle,
@@ -40,9 +40,9 @@ contract FeesUpdater {
         // that is scheduled for a future term will be scheduled for the next term instead.
         uint64 latestPossibleTerm = uint64(-1);
         (ERC20 feeToken,,
-        uint64[5] memory roundStateDurations,
+        uint8 maxRulingOptions,
+        uint64[9] memory roundParams,
         uint16[2] memory pcts,
-        uint64[4] memory roundParams,
         uint256[2] memory appealCollateralParams,
         uint256[3] memory jurorsParams
         ) = court.getConfig(latestPossibleTerm);
@@ -52,7 +52,7 @@ contract FeesUpdater {
         convertedFees[1] = priceOracle.consult(courtStableToken, courtStableValueFees[1], address(feeToken));
         convertedFees[2] = priceOracle.consult(courtStableToken, courtStableValueFees[2], address(feeToken));
 
-        court.setConfig(currentTerm + 1, feeToken, convertedFees, roundStateDurations, pcts, roundParams,
-            appealCollateralParams, jurorsParams);
+        court.setConfig(currentTerm + 1, feeToken, convertedFees, maxRulingOptions, roundParams, pcts, appealCollateralParams,
+            jurorsParams);
     }
 }

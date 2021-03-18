@@ -10,6 +10,7 @@ module.exports = artifacts => {
       jurorFee: config.jurorFee.add(bigExp(iteration * 10, 18)),
       draftFee: config.draftFee.add(bigExp(iteration * 10, 18)),
       settleFee: config.settleFee.add(bigExp(iteration * 10, 18)),
+      maxRulingOptions: config.maxRulingOptions.add(bn(iteration)),
       evidenceTerms: config.evidenceTerms.add(bn(iteration)),
       commitTerms: config.commitTerms.add(bn(iteration)),
       revealTerms: config.revealTerms.add(bn(iteration)),
@@ -34,6 +35,7 @@ module.exports = artifacts => {
     assertBn(actualConfig.jurorFee, expectedConfig.jurorFee, 'juror fee does not match')
     assertBn(actualConfig.draftFee, expectedConfig.draftFee, 'draft fee does not match')
     assertBn(actualConfig.settleFee, expectedConfig.settleFee, 'settle fee does not match')
+    assertBn(actualConfig.maxRulingOptions, expectedConfig.maxRulingOptions, 'max ruling options does not match')
     assertBn(actualConfig.commitTerms, expectedConfig.commitTerms, 'commit terms number does not match')
     assertBn(actualConfig.revealTerms, expectedConfig.revealTerms, 'reveal terms number does not match')
     assertBn(actualConfig.appealTerms, expectedConfig.appealTerms, 'appeal terms number does not match')

@@ -27,13 +27,14 @@ contract('JurorsRegistry', ([_, juror, secondJuror, thirdJuror, fourthJuror, any
   const EMPTY_RANDOMNESS = '0x0000000000000000000000000000000000000000000000000000000000000000'
 
   before('create base contracts', async () => {
+    ANJ = await ERC20.new('ANJ Token', 'ANJ', 18)
     controller = await buildHelper().deploy({
       minActiveBalance: MIN_ACTIVE_AMOUNT,
-      maxMaxPctTotalSupply: MAX_MAX_PCT_TOTAL_SUPPLY
+      maxMaxPctTotalSupply: MAX_MAX_PCT_TOTAL_SUPPLY,
+      feeToken: ANJ
     })
     disputeManager = await DisputeManager.new(controller.address)
     await controller.setDisputeManager(disputeManager.address)
-    ANJ = await ERC20.new('ANJ Token', 'ANJ', 18)
   })
 
   beforeEach('create jurors registry module', async () => {
@@ -43,7 +44,7 @@ contract('JurorsRegistry', ([_, juror, secondJuror, thirdJuror, fourthJuror, any
       [secondJurorBrightIdAddress, secondJuror], [thirdJurorBrightIdAddress, thirdJuror], [fourthJurorBrightIdAddress, fourthJuror]])
     await controller.setBrightIdRegister(brightIdRegister.address)
 
-    registry = await JurorsRegistry.new(controller.address, ANJ.address, TOTAL_ACTIVE_BALANCE_LIMIT)
+    registry = await JurorsRegistry.new(controller.address, TOTAL_ACTIVE_BALANCE_LIMIT)
     await controller.setJurorsRegistry(registry.address)
   })
 

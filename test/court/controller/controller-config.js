@@ -15,6 +15,7 @@ contract('Controller', ([_, configGovernor, feesUpdater, someone, drafter, appea
   const jurorFee = bigExp(10, 18)
   const draftFee = bigExp(30, 18)
   const settleFee = bigExp(40, 18)
+  const maxRulingOptions = bn(2)
   const evidenceTerms = bn(1)
   const commitTerms = bn(1)
   const revealTerms = bn(2)
@@ -41,6 +42,7 @@ contract('Controller', ([_, configGovernor, feesUpdater, someone, drafter, appea
       jurorFee,
       draftFee,
       settleFee,
+      maxRulingOptions,
       evidenceTerms,
       commitTerms,
       revealTerms,
@@ -114,6 +116,14 @@ contract('Controller', ([_, configGovernor, feesUpdater, someone, drafter, appea
 
       it('cannot use a max appeal rounds above 10', async () => {
         await assertRevert(courtHelper.deploy({ maxRegularAppealRounds: bn(11) }), CONFIG_ERRORS.INVALID_MAX_APPEAL_ROUNDS)
+      })
+
+      it('cannot use max ruling options less than 2', async () => {
+        await assertRevert(courtHelper.deploy({ maxRulingOptions: bn(1) }), "CONF_RULING_OPTIONS_LESS_THAN_MIN")
+      })
+
+      it('cannot use max ruling options more than 252', async () => {
+        await assertRevert(courtHelper.deploy({ maxRulingOptions: bn(253) }), "CONF_RULING_OPTIONS_MORE_THAN_MAX")
       })
 
       it('cannot use a adjudication round durations zero', async () => {

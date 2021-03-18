@@ -14,6 +14,7 @@ contract("FeesUpdater", ([_]) => {
   const jurorFee = bigExp(10, 18)
   const draftFee = bigExp(30, 18)
   const settleFee = bigExp(40, 18)
+  const maxRulingOptions = bn(2)
   const evidenceTerms = bn(1)
   const commitTerms = bn(1)
   const revealTerms = bn(2)
@@ -53,6 +54,7 @@ contract("FeesUpdater", ([_]) => {
       jurorFee,
       draftFee,
       settleFee,
+      maxRulingOptions,
       evidenceTerms,
       commitTerms,
       revealTerms,

@@ -19,10 +19,10 @@ contract('JurorsRegistry', ([_, juror, someone, jurorUniqueAddress]) => {
   const BURN_ADDRESS = '0x000000000000000000000000000000000000dead'
 
   before('create base contracts', async () => {
-    controller = await buildHelper().deploy({ juror })
+    ANJ = await ERC20.new('ANJ Token', 'ANJ', 18)
+    controller = await buildHelper().deploy({ juror, feeToken: ANJ })
     disputeManager = await DisputeManager.new(controller.address)
     await controller.setDisputeManager(disputeManager.address)
-    ANJ = await ERC20.new('ANJ Token', 'ANJ', 18)
   })
 
   beforeEach('create jurors registry module', async () => {
@@ -31,7 +31,7 @@ contract('JurorsRegistry', ([_, juror, someone, jurorUniqueAddress]) => {
     await brightIdHelper.registerUserWithMultipleAddresses(jurorUniqueAddress, juror)
     await controller.setBrightIdRegister(brightIdRegister.address)
 
-    registry = await JurorsRegistry.new(controller.address, ANJ.address, TOTAL_ACTIVE_BALANCE_LIMIT)
+    registry = await JurorsRegistry.new(controller.address, TOTAL_ACTIVE_BALANCE_LIMIT)
     await controller.setJurorsRegistry(registry.address)
   })
 

@@ -13,9 +13,9 @@ contract AragonCourtMock is AragonCourt, TimeHelpersMock {
         address[4] memory _governors,
         ERC20 _feeToken,
         uint256[3] memory _fees,
-        uint64[5] memory _roundStateDurations,
+        uint8 _maxRulingOptions,
+        uint64[9] memory _roundParams,
         uint16[2] memory _pcts,
-        uint64[4] memory _roundParams,
         uint256[2] memory _appealCollateralParams,
         uint256[3] memory _jurorsParams
     )
@@ -24,9 +24,9 @@ contract AragonCourtMock is AragonCourt, TimeHelpersMock {
             _governors,
             _feeToken,
             _fees,
-            _roundStateDurations,
-            _pcts,
+            _maxRulingOptions,
             _roundParams,
+            _pcts,
             _appealCollateralParams,
             _jurorsParams
         )
@@ -99,6 +99,11 @@ contract AragonCourtMock is AragonCourt, TimeHelpersMock {
     function getTermRandomness(uint64 _termId) external view returns (bytes32) {
         if (mockedTermRandomness != bytes32(0)) return mockedTermRandomness;
         return super._computeTermRandomness(_termId);
+    }
+
+    function getTermTokenTotalSupply(uint64 _termId) external view returns (uint256) {
+        (ERC20 feeToken,,,,,,) = _getConfig(_termId);
+        return feeToken.totalSupply();
     }
 
     function _computeTermRandomness(uint64 _termId) internal view returns (bytes32) {

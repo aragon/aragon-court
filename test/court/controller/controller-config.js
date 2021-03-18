@@ -123,7 +123,7 @@ contract('Controller', ([_, configGovernor, feesUpdater, someone, drafter, appea
       })
 
       it('cannot use max ruling options more than 252', async () => {
-        await assertRevert(courtHelper.deploy({ maxRulingOptions: bn(253) }), "CONF_RULING_OPTIONS_LESS_THAN_MIN")
+        await assertRevert(courtHelper.deploy({ maxRulingOptions: bn(253) }), "CONF_RULING_OPTIONS_MORE_THAN_MAX")
       })
 
       it('cannot use a adjudication round durations zero', async () => {

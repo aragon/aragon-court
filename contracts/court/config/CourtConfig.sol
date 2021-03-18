@@ -249,7 +249,7 @@ contract CourtConfig is IConfig, CourtConfigData {
 
         require(_maxRulingOptions >= 2, ERROR_RULING_OPTIONS_LESS_THAN_MIN);
         // Ruling options 0, 1 and 2 are reserved for special cases.
-        require(_maxRulingOptions <= uint8(-1) - 3, ERROR_RULING_OPTIONS_LESS_THAN_MIN);
+        require(_maxRulingOptions <= uint8(-1) - 3, ERROR_RULING_OPTIONS_MORE_THAN_MAX);
 
         // Make sure appeal collateral factors are greater than zero
         require(_appealCollateralParams[0] > 0 && _appealCollateralParams[1] > 0, ERROR_ZERO_COLLATERAL_FACTOR);

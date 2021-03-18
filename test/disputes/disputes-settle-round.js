@@ -726,7 +726,7 @@ contract('DisputeManager', ([_, drafter, appealMaker, appealTaker, juror500, jur
 
                     afterEach('reactivate jurors and pass final round lock terms', async () => {
                       for (const { address, initialActiveBalance } of jurors) {
-                        const { jurorToken, jurorsRegistry } = courtHelper
+                        const { feeToken, jurorsRegistry } = courtHelper
                         const unlockedBalance = await jurorsRegistry.unlockedActiveBalanceOf(address)
 
                         if (unlockedBalance.gt(initialActiveBalance)) {
@@ -736,8 +736,8 @@ contract('DisputeManager', ([_, drafter, appealMaker, appealTaker, juror500, jur
 
                         if (unlockedBalance.lt(initialActiveBalance)) {
                           const amount = initialActiveBalance.sub(unlockedBalance)
-                          await jurorToken.generateTokens(address, amount)
-                          await jurorToken.approveAndCall(jurorsRegistry.address, amount, ACTIVATE_DATA, { from: address })
+                          await feeToken.generateTokens(address, amount)
+                          await feeToken.approveAndCall(jurorsRegistry.address, amount, ACTIVATE_DATA, { from: address })
                         }
                       }
 

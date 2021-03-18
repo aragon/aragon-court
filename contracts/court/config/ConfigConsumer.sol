@@ -21,9 +21,9 @@ contract ConfigConsumer is CourtConfigData {
     function _getConfigAt(uint64 _termId) internal view returns (Config memory) {
         (ERC20 _feeToken,
         uint256[3] memory _fees,
-        uint64[5] memory _roundStateDurations,
+        uint8 maxRulingOptions,
+        uint64[9] memory _roundParams,
         uint16[2] memory _pcts,
-        uint64[4] memory _roundParams,
         uint256[2] memory _appealCollateralParams,
         uint256[3] memory _jurorsParams) = _courtConfig().getConfig(_termId);
 
@@ -38,16 +38,17 @@ contract ConfigConsumer is CourtConfigData {
         });
 
         config.disputes = DisputesConfig({
-            evidenceTerms: _roundStateDurations[0],
-            commitTerms: _roundStateDurations[1],
-            revealTerms: _roundStateDurations[2],
-            appealTerms: _roundStateDurations[3],
-            appealConfirmTerms: _roundStateDurations[4],
+            maxRulingOptions: maxRulingOptions,
+            evidenceTerms: _roundParams[0],
+            commitTerms: _roundParams[1],
+            revealTerms: _roundParams[2],
+            appealTerms: _roundParams[3],
+            appealConfirmTerms: _roundParams[4],
             penaltyPct: _pcts[0],
-            firstRoundJurorsNumber: _roundParams[0],
-            appealStepFactor: _roundParams[1],
-            maxRegularAppealRounds: _roundParams[2],
-            finalRoundLockTerms: _roundParams[3],
+            firstRoundJurorsNumber: _roundParams[5],
+            appealStepFactor: _roundParams[6],
+            maxRegularAppealRounds: _roundParams[7],
+            finalRoundLockTerms: _roundParams[8],
             appealCollateralFactor: _appealCollateralParams[0],
             appealConfirmCollateralFactor: _appealCollateralParams[1]
         });

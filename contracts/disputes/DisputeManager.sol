@@ -57,9 +57,6 @@ contract DisputeManager is ControlledRecoverable, ICRVotingOwner, IDisputeManage
     // Minimum possible rulings for a dispute
     uint8 internal constant MIN_RULING_OPTIONS = 2;
 
-    // Maximum possible rulings for a dispute, equal to minimum limit
-    uint8 internal constant MAX_RULING_OPTIONS = MIN_RULING_OPTIONS;
-
     // Precision factor used to improve rounding when computing weights for the final round
     uint256 internal constant FINAL_ROUND_WEIGHT_PRECISION = 1000;
 
@@ -191,7 +188,8 @@ contract DisputeManager is ControlledRecoverable, ICRVotingOwner, IDisputeManage
     */
     function createDispute(IArbitrable _subject, uint8 _possibleRulings, bytes calldata _metadata) external onlyController returns (uint256) {
         uint64 termId = _ensureCurrentTerm();
-        require(_possibleRulings >= MIN_RULING_OPTIONS && _possibleRulings <= MAX_RULING_OPTIONS, ERROR_INVALID_RULING_OPTIONS);
+        Config memory config = _getConfigAt(termId);
+        require(_possibleRulings >= MIN_RULING_OPTIONS && _possibleRulings <= config.disputes.maxRulingOptions, ERROR_INVALID_RULING_OPTIONS);
 
         // Create the dispute
         uint256 disputeId = disputes.length++;
@@ -200,7 +198,6 @@ contract DisputeManager is ControlledRecoverable, ICRVotingOwner, IDisputeManage
         dispute.possibleRulings = _possibleRulings;
         dispute.createTermId = termId;
 
-        Config memory config = _getConfigAt(termId);
         uint64 jurorsNumber = config.disputes.firstRoundJurorsNumber;
         uint64 draftTermId = termId.add(config.disputes.evidenceTerms);
         emit NewDispute(disputeId, _subject, draftTermId, jurorsNumber, _metadata);

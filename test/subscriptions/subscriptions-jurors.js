@@ -15,9 +15,9 @@ const DisputeManager = artifacts.require('DisputeManagerMockForRegistry')
 const ERC20 = artifacts.require('ERC20Mock')
 
 contract('CourtSubscriptions', ([_, payer, jurorPeriod0Term1, jurorPeriod0Term3, jurorMidPeriod1]) => {
-  let controller, subscriptions, jurorsRegistry, feeToken, jurorToken, brightIdHelper
+  let controller, subscriptions, jurorsRegistry, feeToken, jurorToken, brightIdHelper, courtHelper
 
-  const PCT_BASE = bn(10000)
+  const PCT_BASE_HIGH_PRECISION = bigExp(1, 18)
   const DONATED_FEES = bigExp(10, 18)
   const PERIOD_DURATION = 30           // 30 days, assuming terms are 1d
   const GOVERNOR_SHARE_PCT = bn(100)        // 100‱ = 1%
@@ -30,14 +30,15 @@ contract('CourtSubscriptions', ([_, payer, jurorPeriod0Term1, jurorPeriod0Term3,
   const jurorMidPeriod1Balance = MIN_JURORS_ACTIVE_TOKENS.mul(bn(3))
 
   beforeEach('create base contracts', async () => {
-    controller = await buildHelper().deploy({ minActiveBalance: MIN_JURORS_ACTIVE_TOKENS })
-    feeToken = await ERC20.new('Subscriptions Fee Token', 'SFT', 18)
-    jurorToken = await ERC20.new('AN Jurors Token', 'ANJ', 18)
+    courtHelper = buildHelper()
+    controller = await courtHelper.deploy({ minActiveBalance: MIN_JURORS_ACTIVE_TOKENS,
+      minMaxPctTotalSupply: PCT_BASE_HIGH_PRECISION.sub(bn(1)), maxMaxPctTotalSupply: PCT_BASE_HIGH_PRECISION })
+    feeToken = courtHelper.feeToken
 
     subscriptions = await CourtSubscriptions.new(controller.address, PERIOD_DURATION, feeToken.address)
     await controller.setSubscriptions(subscriptions.address)
 
-    jurorsRegistry = await JurorsRegistry.new(controller.address, jurorToken.address, TOTAL_ACTIVE_BALANCE_LIMIT)
+    jurorsRegistry = await JurorsRegistry.new(controller.address, TOTAL_ACTIVE_BALANCE_LIMIT)
     await controller.setJurorsRegistry(jurorsRegistry.address)
 
     const disputeManager = await DisputeManager.new(controller.address)
@@ -56,16 +57,16 @@ contract('CourtSubscriptions', ([_, payer, jurorPeriod0Term1, jurorPeriod0Term3,
 
   const activateJurors =  async () => {
     await controller.mockSetTerm(0) // tokens are activated for the next term
-    await jurorToken.generateTokens(jurorPeriod0Term1, jurorPeriod0Term1Balance)
-    await jurorToken.approveAndCall(jurorsRegistry.address, jurorPeriod0Term1Balance, ACTIVATE_DATA, { from: jurorPeriod0Term1 })
+    await feeToken.generateTokens(jurorPeriod0Term1, jurorPeriod0Term1Balance)
+    await feeToken.approveAndCall(jurorsRegistry.address, jurorPeriod0Term1Balance, ACTIVATE_DATA, { from: jurorPeriod0Term1 })
 
     await controller.mockSetTerm(2) // tokens are activated for the next term
-    await jurorToken.generateTokens(jurorPeriod0Term3, jurorPeriod0Term3Balance)
-    await jurorToken.approveAndCall(jurorsRegistry.address, jurorPeriod0Term3Balance, ACTIVATE_DATA, { from: jurorPeriod0Term3 })
+    await feeToken.generateTokens(jurorPeriod0Term3, jurorPeriod0Term3Balance)
+    await feeToken.approveAndCall(jurorsRegistry.address, jurorPeriod0Term3Balance, ACTIVATE_DATA, { from: jurorPeriod0Term3 })
 
     await controller.mockSetTerm(PERIOD_DURATION * 1.5 - 1)
-    await jurorToken.generateTokens(jurorMidPeriod1, jurorMidPeriod1Balance)
-    await jurorToken.approveAndCall(jurorsRegistry.address, jurorMidPeriod1Balance, ACTIVATE_DATA, { from: jurorMidPeriod1 })
+    await feeToken.generateTokens(jurorMidPeriod1, jurorMidPeriod1Balance)
+    await feeToken.approveAndCall(jurorsRegistry.address, jurorMidPeriod1Balance, ACTIVATE_DATA, { from: jurorMidPeriod1 })
   }
 
   const setCheckpointUsedToTerm = async (term) => {

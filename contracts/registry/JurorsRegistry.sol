@@ -564,7 +564,17 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
         uint256 totalActiveBalanceAtTerm = _totalActiveBalanceAt(_termId);
 
         uint256 currentPctOfTotalSupply = maxMaxPctTotalSupply.sub(totalActiveBalanceAtTerm.mul(diffOfPct) / celesteTokenTotalSupply);
-        return celesteTokenTotalSupply.pctHighPrecision(currentPctOfTotalSupply);
+        uint256 maxActiveBalance = celesteTokenTotalSupply.pctHighPrecision(currentPctOfTotalSupply);
+
+        // Due to fluctuations in the celeste token's total supply we can't ensure min active balance is less than
+        // the max active balance because max active balance is determined using the celeste token's total supply.
+        // Therefore set max active balance to min active balance if it less then min active balance.
+        uint256 minActiveBalance = _getMinActiveBalance(_termId + 1);
+        if (maxActiveBalance < minActiveBalance) {
+            maxActiveBalance = minActiveBalance;
+        }
+
+        return maxActiveBalance;
     }
 
     /**
@@ -635,12 +645,6 @@ contract JurorsRegistry is ControlledRecoverable, IJurorsRegistry, ERC900, Appro
         Juror storage juror = jurorsByAddress[_juror];
         uint256 minActiveBalance = _getMinActiveBalance(nextTermId);
         uint256 maxActiveBalance = maxActiveBalance(termId);
-        // Due to fluctuations in the celeste token's total supply we can't ensure min active balance is less than
-        // the max active balance because max active balance is determined using the celeste token's total supply.
-        // Therefore set max active balance to min active balance if it less then min active balance.
-        if (maxActiveBalance < minActiveBalance) {
-            maxActiveBalance = minActiveBalance;
-        }
 
         if (_existsJuror(juror)) {
             // Even though we are adding amounts, let's check the new active balance is greater than or equal to the

@@ -38,7 +38,7 @@ This testing instance mirrors the instance deployed to Mainnet, same terms durat
 - Dashboard: https://court-rinkeby.aragon.org/
 - Address: [`0xe9180dBE762Fe39520fC9883f7f7EFeBA6506534`](http://rinkeby.etherscan.io/address/0xe9180dBE762Fe39520fC9883f7f7EFeBA6506534)
 - Fake ANJ: [`0x1FAB7d0D028ded72195322998003F6e82cF4cFdB`](http://rinkeby.etherscan.io/address/0x1FAB7d0D028ded72195322998003F6e82cF4cFdB)
-- Fake DAI: [`0xe9a083d88eed757b1d633321ce0519f432c6284d`](http://rinkeby.etherscan.io/address/0xe9a083d88eed757b1d633321ce0519f432c6284d)
+- Fake DAI: [`0x5592EC0cfb4dbc12D3aB100b257153436a1f0FEa`](http://rinkeby.etherscan.io/address/0x5592EC0cfb4dbc12D3aB100b257153436a1f0FEa)
 - ERC20 faucet: [`0x5561f73c3BBe8202F4D7E51aD2A1F22f1E056eFE`](http://rinkeby.etherscan.io/address/0x5561f73c3BBe8202F4D7E51aD2A1F22f1E056eFE)
 
 ### 8.1.3. Ropsten
